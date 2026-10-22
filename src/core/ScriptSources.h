@@ -97,6 +97,9 @@ namespace ess
 		std::optional<PexFile>           findPex(const std::string& a_script) const;
 		static std::vector<std::uint8_t> readPex(const PexFile& a_pex);  // throws on errors
 
+		// mod folder -> the compiled scripts it ships (loose or in its BSAs)
+		std::unordered_map<std::string, std::vector<std::string>> scriptsByMod;
+
 		// plugin (lowercase) -> mod folder that contains it
 		std::unordered_map<std::string, std::string> pluginFolder;
 

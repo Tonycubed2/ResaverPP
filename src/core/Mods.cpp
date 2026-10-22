@@ -1,6 +1,8 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Mods.h"
 
+#include <algorithm>
+
 #include "Ops.h"
 
 #include <cctype>
@@ -155,6 +157,17 @@ namespace ess::mods
 		}
 
 		if (t.hasSources) {
+			// every script each loaded plugin's mod ships, in the save or not (e.g. magic effect scripts that
+			// only exist while the effect is active)
+			for (const auto& [folder, names] : a_sources->scriptsByMod) {
+				if (auto it = folderRow.find(folder); it != folderRow.end()) {
+					auto& sh = t.rows[it->second].shipped;
+					sh.insert(sh.end(), names.begin(), names.end());
+				}
+			}
+			for (auto& r : t.rows) {
+				std::sort(r.shipped.begin(), r.shipped.end(), [](const std::string& a, const std::string& b) { return Lower(a) < Lower(b); });
+			}
 			// which scripts present in this save each mod provides
 			std::set<std::string> seen;
 			for (const auto& s : p->scripts) {

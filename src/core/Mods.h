@@ -40,6 +40,7 @@ namespace ess::mods
 		std::size_t                      scriptCount = 0, instanceCount = 0, threadCount = 0;  // engine-type bindings excluded
 		std::size_t                      providedInSave = 0;  // distinct scripts in this save whose .pex this mod provides
 		std::set<std::string>            provided;            // their names
+		std::vector<std::string>         shipped;             // every script the mod's folder ships (when scanned)
 	};
 
 	struct Table

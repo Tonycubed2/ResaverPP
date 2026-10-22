@@ -2002,7 +2002,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 2  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 3  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2301,6 +2301,9 @@ void App::drawModsList()
 	bool changed = ImGui::InputTextWithHint("##modfilter", "filter mods", _filter, sizeof(_filter));
 	ImGui::SameLine();
 	changed |= ImGui::Checkbox("only mods with scripts", &_modsOnlyScripts);
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("Hide plugins that have no scripts: none in this save, and (once your mods are scanned) none shipped.\nUntick to list every plugin in the save.");
+	}
 
 	if (ImGui::Button(_sources.empty() ? "Find script sources (.pex)..." : "Rescan script sources...")) {
 		if (platform::HasNativeDialogs()) {
@@ -2342,7 +2345,7 @@ void App::drawModsList()
 		const auto needle = Lower(_filter);
 		for (std::size_t i = 0; i < rows.size(); ++i) {
 			const auto& r = rows[i];
-			if (_modsOnlyScripts && r.scriptCount == 0 && r.threadCount == 0 && r.provided.empty()) {
+			if (_modsOnlyScripts && r.scriptCount == 0 && r.threadCount == 0 && r.provided.empty() && r.shipped.empty()) {
 				continue;
 			}
 			if (!needle.empty() && Lower(r.name).find(needle) == std::string::npos) {
@@ -2431,7 +2434,16 @@ void App::drawModsList()
 			}
 			if (_mods->hasSources) {
 				ImGui::TableSetColumnIndex(5);
-				ImGui::Text("%zu", r.providedInSave);
+				if (r.shipped.size() > r.providedInSave) {
+					ImGui::Text("%zu", r.providedInSave);
+					ImGui::SameLine(0, 2);
+					ImGui::TextDisabled("of %zu", r.shipped.size());
+					if (ImGui::IsItemHovered()) {
+						ImGui::SetTooltip("%zu of the %zu scripts this mod ships are in this save.", r.providedInSave, r.shipped.size());
+					}
+				} else {
+					ImGui::Text("%zu", r.providedInSave);
+				}
 			}
 			ImGui::PopID();
 		}
@@ -2741,6 +2753,30 @@ void App::detailMod(std::uint64_t k)
 				ImGui::PopID();
 			}
 			ImGui::EndTable();
+		}
+		// scripts it ships that the save does not mention at all
+		std::vector<std::string> idle;
+		for (const auto& n : r.shipped) {
+			if (!r.provided.contains(n) && !r.scripts.contains(Lower(n))) {
+				bool inSave = false;
+				for (const auto& pv : r.provided) {
+					inSave = inSave || Lower(pv) == Lower(n);
+				}
+				if (!inSave) {
+					idle.push_back(n);
+				}
+			}
+		}
+		ImGui::SeparatorText(Fmt("Other scripts this mod ships, not in this save (%zu)", idle.size()).c_str());
+		if (idle.empty()) {
+			ImGui::TextDisabled("(none)");
+		} else {
+			ImGui::TextDisabled("Not running and with no saved data, e.g. magic effect scripts that only exist while the effect is active.\n"
+								"Double-click one to view it.");
+			for (const auto& n : idle) {
+				ImGui::BulletText("%s", n.c_str());
+				scriptItem(n);
+			}
 		}
 	}
 }

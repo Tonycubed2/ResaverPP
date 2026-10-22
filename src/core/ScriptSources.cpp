@@ -67,13 +67,14 @@ namespace ess
 			pluginFolder.emplace(p, a_modName);
 		}
 
-		auto add = [&](const std::string& scriptLower, bool bsa, const std::filesystem::path& archive = {}) {
+		auto add = [&](const std::string& scriptLower, bool bsa, const std::filesystem::path& archive = {}, const std::string& shown = {}) {
 			auto& v = _byScript[scriptLower];
 			for (const auto& x : v) {
 				if (x.mod == a_modName) {
 					return;
 				}
 			}
+			scriptsByMod[a_modName].push_back(shown.empty() ? scriptLower : shown);
 			v.push_back({ a_modName, plugins, bsa, archive, a_enabled });
 			++pexFound;
 		};
@@ -113,7 +114,7 @@ namespace ess
 			}
 			for (const auto& s : std::filesystem::directory_iterator(e.path(), ec)) {
 				if (s.is_regular_file(ec) && Lower(U8(s.path().extension())) == ".pex") {
-					add(Lower(U8(s.path().stem())), false);
+					add(Lower(U8(s.path().stem())), false, {}, U8(s.path().stem()));
 				}
 			}
 		}
@@ -138,6 +139,7 @@ namespace ess
 	{
 		_byScript.clear();
 		pluginFolder.clear();
+		scriptsByMod.clear();
 		errors.clear();
 		enabledFolders.clear();
 		stringsFiles.clear();
