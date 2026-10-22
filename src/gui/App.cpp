@@ -2002,12 +2002,12 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ 0.1  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 2  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
 		ImGui::Spacing();
-		ImGui::TextDisabled("Uses Dear ImGui (MIT), GLFW (zlib), LZ4 (BSD-2), miniz (MIT).");
+		ImGui::TextDisabled("Uses Dear ImGui (MIT), GLFW (zlib), LZ4 (BSD-2), miniz (MIT), ImGuiColorTextEdit (MIT).");
 		if (ImGui::Button("Close", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 		}
