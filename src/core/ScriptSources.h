@@ -4,6 +4,7 @@
 #pragma once
 
 #include <atomic>
+#include <mutex>
 #include <cstdint>
 #include <filesystem>
 #include <map>
@@ -63,6 +64,22 @@ namespace ess
 	{
 		std::atomic<std::size_t> done{ 0 }, total{ 0 };
 		std::atomic<bool>        cancel{ false };
+		int                      testDelayMs = 0;  // (tests: slow every step down)
+
+		void setCurrent(const std::string& a_name)
+		{
+			std::lock_guard l(_m);
+			_current = a_name;
+		}
+		std::string current() const
+		{
+			std::lock_guard l(_m);
+			return _current;
+		}
+
+	private:
+		mutable std::mutex _m;
+		std::string        _current;  // the mod folder being read
 	};
 
 	class ScriptSources

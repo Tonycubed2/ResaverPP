@@ -147,7 +147,7 @@ void App::drawMissingBanner()
 		(m.installed ? disabled : gone) += 1;
 	}
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, theme::BannerBg());
-	ImGui::BeginChild("##missing", ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 3.2f), ImGuiChildFlags_Borders);
+	ImGui::BeginChild("##missing", ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * (scanning() ? 4.6f : 3.2f)), ImGuiChildFlags_Borders);
 	std::string msg;
 	if (!_missing.empty()) {
 		msg = _installKnown ? Fmt("%zu mod(s) in this save are not in %s: %zu no longer installed, %zu installed but not enabled.", _missing.size(),
@@ -161,6 +161,9 @@ void App::drawMissingBanner()
 		msg += "  Checking which are still installed (scanning your mods)...";
 	}
 	TextColored(theme::Warn(), msg);
+	if (scanning()) {
+		drawBackgroundProgress(0);
+	}
 	if (ImGui::Button("Review and remove their leftovers...")) {
 		for (auto& m : _missing) {
 			m.planned = false;

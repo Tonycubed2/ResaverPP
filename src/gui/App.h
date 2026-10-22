@@ -289,6 +289,9 @@ private:
 	bool ensureSourcesScanned();
 	void setTheme(int a_kind);  // 0 light, 1 grey, 2 dark  // false while the mods are being scanned (in the background)
 	void pollScan();
+	// progress of the background work (scan of the mods, then plugin names) as a bar; false if idle.
+	// a_width 0: the rest of the line.
+	bool drawBackgroundProgress(float a_width);
 	bool scanning() const { return _scanThread.joinable(); }
 	void autoDetectPaths(bool a_force);  // Mod Organizer, game folder (AppScripts.cpp)
 	std::filesystem::path savesFolder() const;  // where the newest saves are

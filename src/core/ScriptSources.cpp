@@ -6,6 +6,8 @@
 #include "ByteIO.h"
 
 #include <algorithm>
+#include <chrono>
+#include <thread>
 #include <cctype>
 #include <cstdlib>
 #include <optional>
@@ -152,6 +154,9 @@ namespace ess
 		auto step = [&] {
 			if (a_progress) {
 				++a_progress->done;
+				if (a_progress->testDelayMs) {
+					std::this_thread::sleep_for(std::chrono::milliseconds(a_progress->testDelayMs));
+				}
 			}
 		};
 		auto cancelled = [&] { return a_progress && a_progress->cancel.load(); };
@@ -177,6 +182,9 @@ namespace ess
 			// provider recorded for a script is therefore the one the game loads.
 			ranked = true;
 			if (!a_overwrite.empty() && std::filesystem::is_directory(a_overwrite, ec)) {
+				if (a_progress) {
+					a_progress->setCurrent("Overwrite");
+				}
 				scanFolder(a_overwrite, "Overwrite");
 				++modsScanned;
 				step();
@@ -185,6 +193,9 @@ namespace ess
 			for (const auto& name : *a_modOrder) {
 				listed.insert(name);
 				const auto dir = a_root / std::filesystem::path(std::u8string(name.begin(), name.end()));
+				if (a_progress) {
+					a_progress->setCurrent(name);
+				}
 				if (std::filesystem::is_directory(dir, ec)) {
 					scanFolder(dir, name);
 					++modsScanned;
@@ -195,6 +206,9 @@ namespace ess
 				}
 			}
 			// the game's own Data folder (vanilla BSAs) has the lowest priority of the loaded files
+			if (a_progress) {
+				a_progress->setCurrent("the game's Data folder");
+			}
 			scanGameData();
 			step();
 			// disabled mods after that: only credited for scripts nothing loaded provides
@@ -206,6 +220,9 @@ namespace ess
 			}
 			std::sort(disabled.begin(), disabled.end());
 			for (const auto& d : disabled) {
+				if (a_progress) {
+					a_progress->setCurrent(U8(d.filename()) + " (disabled)");
+				}
 				scanFolder(d, U8(d.filename()), false);
 				++disabledScanned;
 				step();
@@ -233,6 +250,9 @@ namespace ess
 		}
 		for (const auto& e : std::filesystem::directory_iterator(a_root, ec)) {
 			if (e.is_directory(ec)) {
+				if (a_progress) {
+					a_progress->setCurrent(U8(e.path().filename()));
+				}
 				scanFolder(e.path(), U8(e.path().filename()));
 				++modsScanned;
 				step();
@@ -314,10 +334,16 @@ namespace ess
 		auto step = [&] {
 			if (a_progress) {
 				++a_progress->done;
+				if (a_progress->testDelayMs) {
+					std::this_thread::sleep_for(std::chrono::milliseconds(a_progress->testDelayMs));
+				}
 			}
 		};
 		for (const auto& m : v.mods) {
 			const auto dir = root / std::filesystem::path(std::u8string(m.begin(), m.end()));
+			if (a_progress) {
+				a_progress->setCurrent(m);
+			}
 			if (std::filesystem::is_directory(dir, ec)) {
 				scanFolder(dir, m);
 				++modsScanned;
@@ -328,6 +354,9 @@ namespace ess
 			}
 		}
 		for (const auto& d : overridden) {
+			if (a_progress) {
+				a_progress->setCurrent(U8(d.filename()));
+			}
 			scanFolder(d, U8(d.filename()));
 			++modsScanned;
 			step();
@@ -338,9 +367,15 @@ namespace ess
 				_gameDataSkip.insert(rel);
 			}
 		}
+		if (a_progress) {
+			a_progress->setCurrent("the game's Data folder");
+		}
 		scanGameData();
 		step();
 		for (const auto& d : disabled) {
+			if (a_progress) {
+				a_progress->setCurrent(U8(d.filename()) + " (disabled)");
+			}
 			scanFolder(d, U8(d.filename()), false);
 			++disabledScanned;
 			step();

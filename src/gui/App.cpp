@@ -2020,7 +2020,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 9  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 10  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2041,17 +2041,10 @@ void App::drawStatus()
 		ImGui::SameLine();
 	}
 	ImGui::TextUnformatted(_status.c_str());
-	if (scanning() && _scanProgress) {
-		ImGui::SameLine(ImGui::GetWindowWidth() - 420);
-		TextColored(theme::Dim(), Fmt("Scanning mods %zu/%zu...", _scanProgress->done.load(), _scanProgress->total.load()));
-	} else if (namesLoading() && _dbProgress) {
-		std::string cur;
-		{
-			std::lock_guard l(_dbProgress->m);
-			cur = _dbProgress->current;
-		}
-		ImGui::SameLine(ImGui::GetWindowWidth() - 420);
-		TextColored(theme::Dim(), Fmt("Reading plugins %zu/%zu: %s", _dbProgress->done.load(), _dbProgress->total.load(), cur.c_str()));
+	if ((scanning() && _scanProgress) || (namesLoading() && _dbProgress)) {
+		const float w = std::min(560.0f, ImGui::GetWindowWidth() * 0.45f);
+		ImGui::SameLine(ImGui::GetWindowWidth() - w - ImGui::GetStyle().WindowPadding.x);
+		drawBackgroundProgress(w);
 	} else if (_watch) {
 		ImGui::SameLine(ImGui::GetWindowWidth() - 160);
 		TextColored(theme::Good(), "watching saves");
@@ -2288,8 +2281,8 @@ void App::scanSources(const std::filesystem::path& a_root)
 	auto* prog = _scanProgress.get();
 	std::optional<VortexDeployment> vortex = _vortex;
 	_scanThread = std::thread([this, res, prog, a_root, order, overwrite, gameData, vortex] {
-		if (std::getenv("RESAVERPP_TEST_SLOWSCAN")) {
-			std::this_thread::sleep_for(std::chrono::seconds(30));  // (test: a scan that takes long)
+		if (const char* d = std::getenv("RESAVERPP_TEST_SLOWSCAN")) {
+			prog->testDelayMs = std::atoi(d);  // (test: a scan that takes long)
 		}
 		if (vortex) {
 			res->scanVortex(*vortex, prog);
@@ -2379,6 +2372,9 @@ void App::drawModsList()
 	ensureMods();
 	auto& rows = _mods->rows;
 
+	if (scanning()) {
+		drawBackgroundProgress(0);  // the lists fill in when the scan is done
+	}
 	ImGui::SetNextItemWidth(-260);
 	bool changed = ImGui::InputTextWithHint("##modfilter", "filter mods", _filter, sizeof(_filter));
 	ImGui::SameLine();
@@ -2975,4 +2971,42 @@ void App::fixMcmJam()
 			const auto r = ops::FixMcmJam(*_save->papyrus());
 			markEdited("Fixed MCM jam: " + r.text());
 		});
+}
+
+bool App::drawBackgroundProgress(float a_width)
+{
+	std::size_t done = 0, total = 0;
+	std::string what, cur;
+	if (scanning() && _scanProgress) {
+		done = _scanProgress->done.load();
+		total = _scanProgress->total.load();
+		cur = _scanProgress->current();
+		what = "Scanning your mods";
+	} else if (namesLoading() && _dbProgress) {
+		done = _dbProgress->done.load();
+		total = _dbProgress->total.load();
+		{
+			std::lock_guard l(_dbProgress->m);
+			cur = _dbProgress->current;
+		}
+		what = "Reading plugin names";
+	} else {
+		return false;
+	}
+	const float       f = total ? std::min(1.0f, static_cast<float>(done) / static_cast<float>(total)) : 0.0f;
+	const std::string label = total ? Fmt("%s: %zu of %zu (%d%%)%s%s", what.c_str(), done, total, static_cast<int>(f * 100.0f + 0.5f), cur.empty() ? "" : "  -  ",
+										  cur.c_str())
+									: what + "...";
+	ImGui::ProgressBar(total ? f : -1.0f * static_cast<float>(ImGui::GetTime()), ImVec2(a_width > 0 ? a_width : -1.0f, 0), "");
+	// the text inside the bar, from its left edge (cut at the right end when it does not fit)
+	const ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
+	auto*        dl = ImGui::GetWindowDrawList();
+	dl->PushClipRect(a, b, true);
+	const float pad = ImGui::GetStyle().FramePadding.x;
+	dl->AddText(ImVec2(a.x + pad, a.y + (b.y - a.y - ImGui::GetFontSize()) * 0.5f), ImGui::GetColorU32(ImGuiCol_Text), label.c_str());
+	dl->PopClipRect();
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("%s", label.c_str());
+	}
+	return true;
 }
