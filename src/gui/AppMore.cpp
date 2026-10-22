@@ -496,8 +496,8 @@ void App::drawSettings()
 	bool ch = false;
 	ImGui::SeparatorText("Script sources and plugins");
 	ImGui::TextWrapped("Mods folder: %s", _sourcesPath.empty() ? "(not set)" : _sourcesPath.c_str());
-	ImGui::TextDisabled("Your Mod Organizer \"mods\" folder, or the game's Data folder without MO2. Used for script sources,\n"
-						"the script viewer, plugin names and Remove mod.");
+	ImGui::TextDisabled("Your Mod Organizer \"mods\" folder, Vortex's staging folder (or the game folder: Vortex is found from it),\n"
+						"or the game's Data folder. Used for script sources, the script viewer, plugin names and Remove mod.");
 	if (ImGui::Button("Choose mods folder...")) {
 		if (platform::HasNativeDialogs()) {
 			if (auto p = platform::PickFolderDialog("Pick your Mod Organizer \"mods\" folder (or the game's Data folder)")) {
@@ -563,6 +563,10 @@ void App::drawSettings()
 				ImGui::PopID();
 			}
 		}
+	}
+	if (_vortex && !_mo2) {
+		ImGui::TextWrapped("Vortex: staging folder %s, %zu mods deployed to %s (%s)", platform::ToUtf8(_vortex->stagingPath).c_str(), _vortex->mods.size(),
+			platform::ToUtf8(_vortex->dataPath).c_str(), _vortex->method.empty() ? "?" : _vortex->method.c_str());
 	}
 	if (_mo2) {
 		ImGui::TextWrapped("Mod Organizer: %s", platform::ToUtf8(_mo2->ini).c_str());

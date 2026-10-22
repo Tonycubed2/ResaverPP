@@ -71,6 +71,12 @@ Edition** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
     optimize, anonymize, where the .pex goes (the script's mod, MO2 Overwrite, or a folder),
     extra import folders. A .pex.bak of the replaced script is kept once.
   - The editor is ImGuiColorTextEdit by BalazsJako (MIT License), with changes for this.
+- Mod managers: Mod Organizer 2 (mods folder, profile order, Overwrite; also when run from inside MO2)
+  and Vortex (its staging folder and vortex.deployment.json: each file is credited to the mod Vortex
+  deployed it from). Both are found by themselves on first start; without either, the game's Data
+  folder is used.
+- Non-English saves: names and text in the game's code page or UTF-8 are shown correctly
+  (Options > Settings > Text encoding).
 - Help > Show log, Options > Settings, Help > Support (links to ReSaver's author).
 - Analysis: plain-language findings (runaway looping scripts such as the Firefly bug, a stuck
   SkyUI MCM registration, undefined scripts, ...) with one-click purge buttons.

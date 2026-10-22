@@ -1404,6 +1404,12 @@ void App::autoDetectPaths(bool a_force)
 		if (!_mo2) {
 			_mo2 = FindMo2Instance(platform::FromUtf8(_sourcesPath));
 		}
+		if (!_mo2 && !_vortex) {
+			_vortex = FindVortexDeployment(platform::FromUtf8(_sourcesPath));
+			if (_vortex && _gamePath.empty()) {
+				_gamePath = platform::ToUtf8(_vortex->dataPath.parent_path());
+			}
+		}
 		if (_gamePath.empty()) {
 			if (_mo2 && !_mo2->gamePath.empty()) {
 				_gamePath = platform::ToUtf8(_mo2->gamePath);
@@ -1442,10 +1448,26 @@ void App::autoDetectPaths(bool a_force)
 		_gamePath = platform::ToUtf8(!m.gamePath.empty() ? m.gamePath : games.empty() ? std::filesystem::path() : games.front());
 		_detectNote = "Found Mod Organizer (" + platform::ToUtf8(m.ini.parent_path()) + "), profile \"" + m.selectedProfile + "\"" +
 					  (skyrim.size() > 1 ? Fmt(" (%zu Mod Organizer setups for Skyrim SE found: the most recently used one was picked)", skyrim.size()) : "");
+	} else if (const auto vx = [&]() -> std::optional<VortexDeployment> {
+				   // Vortex: its deployment manifest in a game's Data folder, or in its default staging folder
+				   for (const auto& g : games) {
+					   if (auto v = FindVortexDeployment(g)) {
+						   return v;
+					   }
+				   }
+				   if (const char* ad = std::getenv("APPDATA")) {
+					   return FindVortexDeployment(platform::FromUtf8(ad) / "Vortex" / "skyrimse" / "mods");
+				   }
+				   return std::nullopt;
+			   }()) {
+		_vortex = vx;
+		_gamePath = platform::ToUtf8(vx->dataPath.parent_path());
+		_sourcesPath = platform::ToUtf8(vx->stagingPath);
+		_detectNote = "Found Vortex: staging folder " + _sourcesPath + Fmt(", %zu mods deployed", vx->mods.size());
 	} else if (!games.empty()) {
 		_gamePath = platform::ToUtf8(games.front());
 		_sourcesPath = platform::ToUtf8(games.front() / "Data");
-		_detectNote = "No Mod Organizer found: using the game's Data folder";
+		_detectNote = "No Mod Organizer or Vortex found: using the game's Data folder";
 	} else {
 		_detectNote = "Neither Mod Organizer nor the game was found: set the folders below.";
 		return;

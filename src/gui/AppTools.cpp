@@ -593,6 +593,13 @@ std::vector<std::filesystem::path> App::watchFolders() const
 	std::vector<std::filesystem::path> v;
 	if (auto d = platform::DefaultSavesFolder(); !d.empty()) {
 		v.push_back(d);
+		// Vortex's profile-specific saves (and similar tools) use sub-folders of Saves
+		std::error_code ec;
+		for (const auto& e : std::filesystem::directory_iterator(d, ec)) {
+			if (e.is_directory(ec)) {
+				v.push_back(e.path());
+			}
+		}
 	}
 	if (_mo2 && !_profile.empty()) {
 		v.push_back(_mo2->profilesDir / platform::FromUtf8(_profile) / "saves");  // MO2 profile-local saves

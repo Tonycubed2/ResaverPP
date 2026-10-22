@@ -343,6 +343,7 @@ private:
 	std::string                       _sourcesPath;
 	std::string                       _profile;
 	std::optional<ess::Mo2Instance>   _mo2;
+	std::optional<ess::VortexDeployment> _vortex;  // when the mods are managed by Vortex
 	bool                              _settingsLoaded = false;
 	std::vector<std::size_t>          _modOrder;  // filtered + sorted row indices
 	std::unordered_map<std::string, std::pair<std::size_t, std::size_t>> _scriptTotals;  // lowercase script -> (instances, threads)

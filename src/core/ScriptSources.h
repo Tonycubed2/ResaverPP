@@ -11,6 +11,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace ess
@@ -43,6 +44,20 @@ namespace ess
 	// Enabled mods of a profile, highest priority first (MO2 writes modlist.txt that way).
 	std::vector<std::string> LoadModList(const std::filesystem::path& a_profileDir);
 
+	// Vortex: mods are kept in a staging folder (one sub-folder per mod) and deployed into the game's
+	// Data folder; vortex.deployment.json lists every deployed file and the mod it came from.
+	struct VortexDeployment
+	{
+		std::filesystem::path                        manifest, dataPath, stagingPath;
+		std::string                                  method, gameId;
+		std::vector<std::string>                     mods;    // deployed mods (staging folder names)
+		std::unordered_map<std::string, std::string> winner;  // lowercase relative path (backslashes) -> mod whose file is deployed
+		std::size_t                                  files = 0;
+	};
+	std::optional<VortexDeployment> ReadVortexDeployment(const std::filesystem::path& a_manifest);
+	// a_folder: the game folder, its Data folder, or Vortex's staging folder for the game.
+	std::optional<VortexDeployment> FindVortexDeployment(const std::filesystem::path& a_folder);
+
 	// Progress of a scan running on another thread.
 	struct ScanProgress
 	{
@@ -63,6 +78,9 @@ namespace ess
 		// Running inside Mod Organizer (its virtual file system): the game's Data folder shows every mod's
 		// files too, so only the game's own archives are read there (the mods are scanned in their folders).
 		bool                                 gameDataVanillaOnly = false;
+		// Vortex: scan its staging folder, credit each deployed file to the mod Vortex deployed it from
+		void scanVortex(const VortexDeployment& a_vortex, ScanProgress* a_progress = nullptr);
+		bool                                 vortex = false;
 		bool                                 ranked = false;  // providers are in MO2 priority order
 		bool                                 gameDataScanned = false;  // vanilla scripts/BSAs were included
 		std::set<std::string>                enabledFolders;  // mod folders enabled in the profile
@@ -117,6 +135,8 @@ namespace ess
 	private:
 		void scanFolder(const std::filesystem::path& a_dir, const std::string& a_modName, bool a_enabled = true);
 		void scanGameData();
+		void reset();
+		std::unordered_set<std::string> _gameDataSkip;  // archive names (lowercase) not to read in the game's Data folder
 		std::unordered_map<std::string, std::vector<ScriptProvider>> _byScript;  // lowercase script name
 	};
 

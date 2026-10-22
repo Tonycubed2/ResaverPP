@@ -2,6 +2,7 @@
 #include "ScriptSources.h"
 
 #include "Bsa.h"
+#include "Json.h"
 #include "ByteIO.h"
 
 #include <algorithm>
@@ -68,7 +69,8 @@ namespace ess
 			const auto ext = Lower(U8(e.path().extension()));
 			if (IsPlugin(ext)) {
 				plugins.push_back(Lower(U8(e.path().filename())));
-			} else if (ext == ".bsa" && (!vanillaOnly || vanillaArchive(Lower(U8(e.path().filename()))))) {
+			} else if (ext == ".bsa" && (!vanillaOnly || vanillaArchive(Lower(U8(e.path().filename())))) &&
+					   !(a_modName == "Game Data" && _gameDataSkip.contains(Lower(U8(e.path().filename()))))) {
 				bsas.push_back(e.path());
 			}
 		}
@@ -152,19 +154,8 @@ namespace ess
 			}
 		};
 		auto cancelled = [&] { return a_progress && a_progress->cancel.load(); };
-		_byScript.clear();
-		pluginFolder.clear();
-		scriptsByMod.clear();
-		errors.clear();
-		enabledFolders.clear();
-		stringsFiles.clear();
-		sourceFiles.clear();
-		sourceMods.clear();
-		sourceDirs.clear();
-		modsScanned = disabledScanned = pexFound = bsasRead = 0;
+		reset();
 		root = a_root;
-		ranked = false;
-		gameDataScanned = false;
 		overwriteDir = a_overwrite;
 		gameData = a_gameData;
 
@@ -250,6 +241,225 @@ namespace ess
 			}
 		}
 		scanGameData();
+	}
+
+	void ScriptSources::reset()
+	{
+		_byScript.clear();
+		pluginFolder.clear();
+		scriptsByMod.clear();
+		errors.clear();
+		enabledFolders.clear();
+		stringsFiles.clear();
+		sourceFiles.clear();
+		sourceMods.clear();
+		sourceDirs.clear();
+		_gameDataSkip.clear();
+		modsScanned = disabledScanned = pexFound = bsasRead = 0;
+		root.clear();
+		overwriteDir.clear();
+		gameData.clear();
+		ranked = false;
+		vortex = false;
+		gameDataScanned = false;
+	}
+
+	void ScriptSources::scanVortex(const VortexDeployment& v, ScanProgress* a_progress)
+	{
+		reset();
+		root = v.stagingPath;
+		gameData = v.dataPath;
+		ranked = true;
+		vortex = true;
+		std::error_code ec;
+		if (!std::filesystem::is_directory(root, ec)) {
+			errors.push_back("Vortex staging folder not found: " + U8(root));
+			return;
+		}
+		std::set<std::string> deployed(v.mods.begin(), v.mods.end());
+		std::vector<std::filesystem::path> disabled;
+		for (const auto& e : std::filesystem::directory_iterator(root, ec)) {
+			if (e.is_directory(ec) && !deployed.contains(U8(e.path().filename()))) {
+				disabled.push_back(e.path());
+			}
+		}
+		std::sort(disabled.begin(), disabled.end());
+		// a mod missing from the manifest is disabled - unless every file of it lost a conflict: then it is
+		// enabled but has nothing deployed. Its files then appear in the manifest under other mods.
+		std::vector<std::filesystem::path> overridden;
+		std::erase_if(disabled, [&](const std::filesystem::path& d) {
+			std::size_t n = 0;
+			for (auto it = std::filesystem::recursive_directory_iterator(d, ec); it != std::filesystem::recursive_directory_iterator() && n < 5000;
+				 it.increment(ec), ++n) {
+				if (!it->is_regular_file(ec)) {
+					continue;
+				}
+				auto rel = Lower(U8(std::filesystem::relative(it->path(), d, ec)));
+				for (auto& c : rel) {
+					if (c == '/') {
+						c = '\\';
+					}
+				}
+				if (rel != "meta.ini" && v.winner.contains(rel)) {
+					overridden.push_back(d);
+					return true;
+				}
+			}
+			return false;
+		});
+		if (a_progress) {
+			a_progress->total = v.mods.size() + overridden.size() + disabled.size() + 1;
+		}
+		auto step = [&] {
+			if (a_progress) {
+				++a_progress->done;
+			}
+		};
+		for (const auto& m : v.mods) {
+			const auto dir = root / std::filesystem::path(std::u8string(m.begin(), m.end()));
+			if (std::filesystem::is_directory(dir, ec)) {
+				scanFolder(dir, m);
+				++modsScanned;
+			}
+			step();
+			if (a_progress && a_progress->cancel) {
+				return;
+			}
+		}
+		for (const auto& d : overridden) {
+			scanFolder(d, U8(d.filename()));
+			++modsScanned;
+			step();
+		}
+		// the Data folder holds the deployed copies of the mods' archives too: read only the others
+		for (const auto& [rel, mod] : v.winner) {
+			if (rel.find('\\') == std::string::npos && rel.ends_with(".bsa")) {
+				_gameDataSkip.insert(rel);
+			}
+		}
+		scanGameData();
+		step();
+		for (const auto& d : disabled) {
+			scanFolder(d, U8(d.filename()), false);
+			++disabledScanned;
+			step();
+			if (a_progress && a_progress->cancel) {
+				return;
+			}
+		}
+		// Vortex decides conflicts with its own rules: the deployed copy wins
+		auto modPath = [&](const std::string& mod) { return root / std::filesystem::path(std::u8string(mod.begin(), mod.end())); };
+		for (auto& [script, list] : _byScript) {
+			auto it = v.winner.find("scripts\\" + script + ".pex");
+			if (it == v.winner.end()) {
+				continue;
+			}
+			auto w = std::find_if(list.begin(), list.end(), [&](const ScriptProvider& p) { return p.mod == it->second && !p.fromBSA; });
+			if (w != list.end() && w != list.begin()) {
+				std::rotate(list.begin(), w, w + 1);
+			}
+		}
+		for (const auto& [rel, mod] : v.winner) {
+			for (const char* dir : { "source\\scripts\\", "scripts\\source\\" }) {
+				if (rel.rfind(dir, 0) == 0 && rel.ends_with(".psc") && rel.find('\\', std::strlen(dir)) == std::string::npos) {
+					const auto name = rel.substr(std::strlen(dir), rel.size() - std::strlen(dir) - 4);
+					// the file's real name: look it up in that mod's scan
+					if (auto sit = sourceFiles.find(name); sit != sourceFiles.end() && sourceMods[name] != mod) {
+						const auto rp = modPath(mod);
+						for (const auto& [d, en] : sourceDirs) {
+							const auto cand = d / sit->second.filename();
+							if (U8(d).rfind(U8(rp), 0) == 0 && std::filesystem::exists(cand, ec)) {
+								sit->second = cand;
+								sourceMods[name] = mod;
+								break;
+							}
+						}
+					}
+				}
+			}
+			if (rel.rfind("strings\\", 0) == 0 && rel.ends_with("strings")) {
+				const auto name = rel.substr(8);
+				const auto p = modPath(mod) / "Strings";
+				std::error_code ec2;
+				for (const auto& e : std::filesystem::directory_iterator(p, ec2)) {
+					if (Lower(U8(e.path().filename())) == name) {
+						stringsFiles[name] = AssetLocation{ e.path(), {} };
+					}
+				}
+			}
+		}
+	}
+
+	std::optional<VortexDeployment> ReadVortexDeployment(const std::filesystem::path& a_manifest)
+	{
+		std::ifstream in(a_manifest, std::ios::binary);
+		if (!in) {
+			return std::nullopt;
+		}
+		const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+		json::Value       j;
+		try {
+			j = json::Parse(text);
+		} catch (const std::exception&) {
+			return std::nullopt;
+		}
+		VortexDeployment v;
+		v.manifest = a_manifest;
+		const auto staging = j.str("stagingPath");
+		const auto target = j.str("targetPath");
+		v.method = j.str("deploymentMethod");
+		v.gameId = j.str("gameId");
+		v.stagingPath = std::filesystem::path(std::u8string(staging.begin(), staging.end()));
+		v.dataPath = target.empty() ? a_manifest.parent_path() : std::filesystem::path(std::u8string(target.begin(), target.end()));
+		std::set<std::string> seen;
+		if (const auto* files = j.get("files"); files && files->type == json::Value::Type::kArray) {
+			for (const auto& f : files->a) {
+				const auto rel = f.str("relPath");
+				const auto src = f.str("source");
+				if (rel.empty() || src.empty()) {
+					continue;
+				}
+				std::string key = Lower(rel);
+				for (auto& c : key) {
+					if (c == '/') {
+						c = '\\';
+					}
+				}
+				v.winner[key] = src;
+				if (seen.insert(src).second) {
+					v.mods.push_back(src);
+				}
+				++v.files;
+			}
+		}
+		std::sort(v.mods.begin(), v.mods.end());
+		if (v.stagingPath.empty()) {
+			return std::nullopt;
+		}
+		return v;
+	}
+
+	std::optional<VortexDeployment> FindVortexDeployment(const std::filesystem::path& a_folder)
+	{
+		std::error_code ec;
+		for (const auto& cand : { a_folder / "vortex.deployment.json", a_folder / "Data" / "vortex.deployment.json" }) {
+			if (!std::filesystem::exists(cand, ec)) {
+				continue;
+			}
+			auto v = ReadVortexDeployment(cand);
+			if (!v) {
+				continue;
+			}
+			// the copy in the staging folder is a backup: prefer the one in the Data folder
+			const auto live = v->dataPath / "vortex.deployment.json";
+			if (!std::filesystem::equivalent(live, cand, ec) && std::filesystem::exists(live, ec)) {
+				if (auto lv = ReadVortexDeployment(live)) {
+					return lv;
+				}
+			}
+			return v;
+		}
+		return std::nullopt;
 	}
 
 	void ScriptSources::scanGameData()

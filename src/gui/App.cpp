@@ -2005,7 +2005,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 4  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 5  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2235,6 +2235,14 @@ void App::scanSources(const std::filesystem::path& a_root)
 	std::vector<std::string> order;
 	std::filesystem::path    overwrite, gameData;
 	_mo2 = FindMo2Instance(a_root);
+	_vortex.reset();
+	if (!_mo2) {
+		// Vortex: the staging folder, the game folder or its Data folder all lead to the deployment manifest
+		_vortex = FindVortexDeployment(a_root);
+		if (_vortex && _gamePath.empty()) {
+			_gamePath = platform::ToUtf8(_vortex->dataPath.parent_path());
+		}
+	}
 	if (_mo2) {
 		if (_profile.empty() || std::find(_mo2->profiles.begin(), _mo2->profiles.end(), _profile) == _mo2->profiles.end()) {
 			_profile = _mo2->selectedProfile;
@@ -2258,8 +2266,13 @@ void App::scanSources(const std::filesystem::path& a_root)
 	_scanProgress = std::make_unique<ScanProgress>();
 	auto* res = _scanResult.get();
 	auto* prog = _scanProgress.get();
-	_scanThread = std::thread([this, res, prog, a_root, order, overwrite, gameData] {
-		res->scan(a_root, order.empty() ? nullptr : &order, overwrite, gameData, prog);
+	std::optional<VortexDeployment> vortex = _vortex;
+	_scanThread = std::thread([this, res, prog, a_root, order, overwrite, gameData, vortex] {
+		if (vortex) {
+			res->scanVortex(*vortex, prog);
+		} else {
+			res->scan(a_root, order.empty() ? nullptr : &order, overwrite, gameData, prog);
+		}
 		_scanDone = true;
 	});
 	_status = "Scanning your mods for scripts...";
@@ -2288,7 +2301,7 @@ void App::pollScan()
 		startNames(true);
 	}
 	_status = Fmt("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)", _sources.modsScanned,
-		_sources.ranked ? (" in MO2 profile '" + _profile + "' order").c_str() : "", _sources.pexFound, _sources.bsasRead,
+		_sources.vortex ? " deployed by Vortex" : _sources.ranked ? (" in MO2 profile '" + _profile + "' order").c_str() : "", _sources.pexFound, _sources.bsasRead,
 		_sources.errors.empty() ? "" : Fmt(", %zu unreadable", _sources.errors.size()).c_str());
 	if (_pendingView) {
 		const auto v = *_pendingView;
@@ -2380,7 +2393,11 @@ void App::drawModsList()
 				ImGui::EndCombo();
 			}
 		} else if (!_sources.ranked) {
-			ImGui::TextDisabled("no MO2 mod order found: when several mods ship the same script, the credit may go to the wrong one");
+			if (_sources.vortex && _vortex) {
+				ImGui::TextDisabled("Vortex: %zu deployed mods; each script is credited to the mod Vortex deployed it from", _vortex->mods.size());
+			} else {
+				ImGui::TextDisabled("no MO2 mod order found: when several mods ship the same script, the credit may go to the wrong one");
+			}
 		}
 	}
 	ImGui::Separator();

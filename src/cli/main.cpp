@@ -26,7 +26,7 @@ using namespace ess;
 static void Usage()
 {
 	std::puts(
-		"ReSaver++ version 4 command line (Skyrim SE/AE saves)\n"
+		"ReSaver++ version 5 command line (Skyrim SE/AE saves)\n"
 		"usage: resaverpp-cli <save.ess> [actions] [-o <out.ess>]\n"
 		"       resaverpp-cli <script.pex>       disassemble a compiled script\n"
 		"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
@@ -197,7 +197,12 @@ int main(int argc, char** argv)
 				gameData = std::filesystem::path(game) / "Data";
 			}
 			const auto order = profDir.empty() ? std::vector<std::string>{} : LoadModList(profDir);
-			src.scan(sources, order.empty() ? nullptr : &order, overwrite, gameData);
+			if (auto vx = FindMo2Instance(sources) ? std::nullopt : FindVortexDeployment(sources)) {
+				std::printf("Vortex: staging %s, %zu deployed mods\n", vx->stagingPath.string().c_str(), vx->mods.size());
+				src.scanVortex(*vx);
+			} else {
+				src.scan(sources, order.empty() ? nullptr : &order, overwrite, gameData);
+			}
 			std::printf("scanned %zu enabled + %zu disabled mod folders%s, %zu scripts, %zu BSAs, %zu errors\n", src.modsScanned, src.disabledScanned,
 				src.gameDataScanned ? " + game Data" : "", src.pexFound, src.bsasRead, src.errors.size());
 		}
