@@ -107,3 +107,21 @@ jobs:
           mod_id: ${{ inputs.mod_id || vars.NEXUSMODS_MOD_ID }}
           changelog: ${{ steps.log.outputs.text }}
           update_mod_version: true
+
+      # The upload action does not attach the changelog for this mod, so it is posted separately (Logs tab).
+      - name: Post changelog
+        if: ${{ inputs.changelog != '' }}
+        env:
+          KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          MOD_ID: ${{ inputs.mod_id || vars.NEXUSMODS_MOD_ID }}
+          VERSION: ${{ inputs.version }}
+          TEXT: ${{ inputs.changelog }}
+        run: |
+          text=$(printf '%s\n' "$TEXT" | sed 's/ | /\n/g')
+          body=$(jq -n --arg v "$VERSION" --arg c "$text" '{version: $v, changelog: $c}')
+          code=$(curl -sS -o resp.json -w '%{http_code}' -X POST \
+            -H "apikey: $KEY" -H "Content-Type: application/json" -H "User-Agent: ReSaverPP-release" \
+            --data "$body" "https://api.nexusmods.com/v3/mods/$MOD_ID/changelogs")
+          echo "HTTP $code"
+          cat resp.json; echo
+          if [ "$code" != "201" ]; then echo "::error::Nexus refused the changelog (HTTP $code): $(head -c 300 resp.json)"; exit 1; fi
