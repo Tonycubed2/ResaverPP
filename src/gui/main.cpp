@@ -147,6 +147,11 @@ int RunApp(int argc, char** argv)
 {
 #ifdef _WIN32
 	CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);  // for the folder picker
+	// Version 12: no Windows error boxes for DLLs that only *might* be loaded. GLFW probes for gamepad DLLs at
+	// start-up (xinput1_4.dll first). On Windows 7 a xinput1_4.dll copied from Windows 10 (games and controller
+	// tools install one) can't load there - "GetTickCount could not be located in api-ms-win-core-sysinfo-l1-2-1.dll".
+	// GLFW just falls back to xinput1_3, but Windows showed that message box first. ReSaver++ doesn't use gamepads.
+	SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
 #endif
 	if (!glfwInit()) {
 		std::fputs("failed to initialise GLFW\n", stderr);
