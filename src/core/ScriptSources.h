@@ -19,6 +19,7 @@ namespace ess
 		std::string              mod;      // mod folder name ("Data" when scanning a Data folder)
 		std::vector<std::string> plugins;  // .esp/.esm/.esl files in that folder (lowercase)
 		bool                     fromBSA = false;
+		std::filesystem::path    bsa;  // the archive holding it (fromBSA)
 		bool                     enabled = true;  // false: mod folder exists but is disabled in the MO2 profile
 	};
 

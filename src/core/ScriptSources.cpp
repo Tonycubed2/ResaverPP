@@ -67,14 +67,14 @@ namespace ess
 			pluginFolder.emplace(p, a_modName);
 		}
 
-		auto add = [&](const std::string& scriptLower, bool bsa) {
+		auto add = [&](const std::string& scriptLower, bool bsa, const std::filesystem::path& archive = {}) {
 			auto& v = _byScript[scriptLower];
 			for (const auto& x : v) {
 				if (x.mod == a_modName) {
 					return;
 				}
 			}
-			v.push_back({ a_modName, plugins, bsa, a_enabled });
+			v.push_back({ a_modName, plugins, bsa, archive, a_enabled });
 			++pexFound;
 		};
 
@@ -121,7 +121,7 @@ namespace ess
 			try {
 				for (const auto& f : ListBSA(b)) {
 					if (f.rfind("scripts\\", 0) == 0 && f.size() > 12 && f.ends_with(".pex") && f.find('\\', 8) == std::string::npos) {
-						add(f.substr(8, f.size() - 12), true);
+						add(f.substr(8, f.size() - 12), true, b);
 					} else if (f.rfind("strings\\", 0) == 0 && f.ends_with("strings")) {
 						stringsFiles.emplace(f.substr(8), AssetLocation{ b, f });
 					}
@@ -478,17 +478,10 @@ namespace ess
 				}
 				continue;
 			}
-			for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
-				if (!e.is_regular_file(ec) || Lower(U8(e.path().extension())) != ".bsa") {
-					continue;
-				}
-				try {
-					BsaArchive bsa(e.path());
-					if (bsa.find("scripts\\" + want)) {
-						return PexFile{ pr.mod, e.path(), "scripts\\" + want };
-					}
-				} catch (const std::exception&) {
-				}
+			// the archive was recorded during the scan: open only that one (a mod or the game's Data folder
+			// can hold many large BSAs)
+			if (!pr.bsa.empty()) {
+				return PexFile{ pr.mod, pr.bsa, "scripts\\" + want };
 			}
 		}
 		return std::nullopt;

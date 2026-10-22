@@ -275,7 +275,8 @@ void App::viewScript(const std::string& a_script, const std::string& a_function,
 		openDoc(a_script, it->second, false, a_function, a_state, a_instruction);
 		return;
 	}
-	if (_sources.findPex(a_script)) {
+	if (const auto pexf = _sources.findPex(a_script)) {
+		_decompileWhere = PexWhere(*pexf);
 		if (_decompileAlways) {
 			openDoc(a_script, {}, true, a_function, a_state, a_instruction);
 		} else {
@@ -1312,11 +1313,8 @@ void App::drawDecompilePrompt()
 	if (!ImGui::BeginPopupModal("Decompile script?", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
 		return;
 	}
-	const auto pexf = _sources.findPex(_decompileScript);
 	ImGui::TextWrapped("There is no source (.psc) for %s in your mods or the game's Data folder.", _decompileScript.c_str());
-	if (pexf) {
-		ImGui::TextWrapped("The compiled script is in %s.", PexWhere(*pexf).c_str());
-	}
+	ImGui::TextWrapped("The compiled script is in %s.", _decompileWhere.c_str());
 	ImGui::Spacing();
 	ImGui::TextWrapped("ReSaver++ can decompile it with its built-in decompiler. The code does what the original does, but comments and the "
 					   "original layout are not stored in a .pex.");

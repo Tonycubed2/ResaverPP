@@ -389,7 +389,7 @@ private:
 	std::shared_ptr<void>                   _scriptNamesCache;  // psc::Context shared by the editors
 	std::size_t                             _scriptNamesKey = 0;
 	bool        _decompileAsk = false, _decompileAlways = false, _editorLight = false;
-	std::string _decompileScript, _decompileFn, _decompileState;
+	std::string _decompileScript, _decompileFn, _decompileState, _decompileWhere;
 	int         _decompileInstr = -1;
 	bool        _showCompileSettings = false;
 	std::string _gamePath, _detectNote;
