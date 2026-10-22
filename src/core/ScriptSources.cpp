@@ -69,7 +69,8 @@ namespace ess
 			const auto ext = Lower(U8(e.path().extension()));
 			if (IsPlugin(ext)) {
 				plugins.push_back(Lower(U8(e.path().filename())));
-			} else if (ext == ".bsa" && (!vanillaOnly || vanillaArchive(Lower(U8(e.path().filename())))) &&
+			} else if (ext == ".bsa" && Lower(U8(e.path().filename())).find("textures") == std::string::npos &&
+					   (!vanillaOnly || vanillaArchive(Lower(U8(e.path().filename())))) &&
 					   !(a_modName == "Game Data" && _gameDataSkip.contains(Lower(U8(e.path().filename()))))) {
 				bsas.push_back(e.path());
 			}

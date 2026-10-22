@@ -8,6 +8,12 @@
 
 #include "imgui.h"
 
+#include <cstdlib>
+
+#include <thread>
+
+#include <chrono>
+
 #include <algorithm>
 #include <cctype>
 #include <cinttypes>
@@ -48,12 +54,27 @@ App::~App()
 	if (_dbProgress) {
 		_dbProgress->cancel = true;
 	}
+	if (_scanProgress) {
+		_scanProgress->cancel = true;
+	}
+	// Background work only reads files. Give it a moment to stop, then leave without it: inside Mod
+	// Organizer reading one large archive can take long, and MO2 stays locked while this process exists.
+	auto busy = [&] {
+		return (_dbThread.joinable() && !_dbDone) || (_scanThread.joinable() && !_scanDone) || scriptJobsBusy();
+	};
+	const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (busy() && std::chrono::steady_clock::now() < until) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	}
+	if (busy()) {
+		std::fflush(nullptr);
+		std::_Exit(0);
+	}
 	if (_dbThread.joinable()) {
 		_dbThread.join();
 	}
 	stopScriptJobs();
 	if (_scanThread.joinable()) {
-		_scanProgress->cancel = true;
 		_scanThread.join();
 	}
 }

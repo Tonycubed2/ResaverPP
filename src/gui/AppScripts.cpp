@@ -1509,3 +1509,5 @@ void App::setTheme(int a_kind)
 	_modOrder.clear();
 	saveSettings();
 }
+
+bool App::scriptJobsBusy() const { return _compileJob && !_compileJob->done; }

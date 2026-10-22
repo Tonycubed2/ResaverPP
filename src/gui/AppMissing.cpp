@@ -51,11 +51,10 @@ void App::checkMissingPlugins()
 	_missing.clear();
 	_missingSource.clear();
 	_missingScripts.clear();
-	_missingDismissed = false;
 	if (!_save) {
 		return;
 	}
-	_installKnown = _sources.scanned();
+	_installKnown = _sources.scanned() && !scanning();
 	// scripts whose compiled file is nowhere: not in any mod (enabled or not) and not in the game's own
 	// archives. Only when the game's Data folder was scanned too, or every vanilla script would count.
 	if (_installKnown && _sources.gameDataScanned) {
@@ -158,6 +157,9 @@ void App::drawMissingBanner()
 	if (!_missingScripts.empty()) {
 		msg += (msg.empty() ? "" : " ") + Fmt("%zu script(s) in it are no longer installed anywhere.", _missingScripts.size());
 	}
+	if (!_installKnown && scanning()) {
+		msg += "  Checking which are still installed (scanning your mods)...";
+	}
 	TextColored(theme::Warn(), msg);
 	if (ImGui::Button("Review and remove their leftovers...")) {
 		for (auto& m : _missing) {
@@ -192,7 +194,10 @@ void App::drawMissingModal()
 					   "same safety checks, and writes a NEW save file: the original is not changed.",
 		_missingSource.c_str());
 	TextColored(theme::Dim(), "A mod that is only disabled for a test, or enabled in another profile, will need its data again: leave it unticked.");
-	if (!_installKnown) {
+	if (!_installKnown && scanning()) {
+		TextColored(theme::Warn(), "Still scanning your mods: until it is done ReSaver++ cannot tell uninstalled mods from disabled ones, so nothing "
+								   "is ticked. The list updates by itself when the scan is done.");
+	} else if (!_installKnown) {
 		TextColored(theme::Warn(), "Your mods folder is not set (Options > Settings), so ReSaver++ cannot tell uninstalled mods from disabled ones: "
 						   "nothing is ticked.");
 	}

@@ -9,6 +9,8 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <thread>
+#include <chrono>
 #include <cctype>
 #include <cinttypes>
 #include <cstdio>
@@ -100,6 +102,7 @@ void App::open(const std::filesystem::path& a_path)
 		}
 		_save = std::move(s);
 		_cfFacts.clear();
+		_missingDismissed = false;
 		_path = a_path;
 		_dirty = false;
 		_report.reset();
@@ -127,13 +130,13 @@ void App::open(const std::filesystem::path& a_path)
 			loadSettings();
 		}
 		if (!_sourcesPath.empty() && !_sources.scanned()) {
-			scanSources(platform::FromUtf8(_sourcesPath));  // checks for missing mods when done
-		} else {
-			if (_autoNames && _sources.scanned()) {
-				startNames();
-			}
-			checkMissingPlugins();
+			scanSources(platform::FromUtf8(_sourcesPath));  // checks again for missing mods when done
+		} else if (_autoNames && _sources.scanned()) {
+			startNames();
 		}
+		// the load order is known now: the banner shows at once (which mods are still installed is
+		// known when the scan of the mods is done; that can take a while inside Mod Organizer)
+		checkMissingPlugins();
 		_status = "Loaded " + platform::ToUtf8(a_path.filename());
 		if (!_report->warnings.empty()) {
 			_status += Fmt("  -  %zu finding(s): see Tools > Analysis", _report->warnings.size());
@@ -2017,7 +2020,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 8  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 9  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2285,6 +2288,9 @@ void App::scanSources(const std::filesystem::path& a_root)
 	auto* prog = _scanProgress.get();
 	std::optional<VortexDeployment> vortex = _vortex;
 	_scanThread = std::thread([this, res, prog, a_root, order, overwrite, gameData, vortex] {
+		if (std::getenv("RESAVERPP_TEST_SLOWSCAN")) {
+			std::this_thread::sleep_for(std::chrono::seconds(30));  // (test: a scan that takes long)
+		}
 		if (vortex) {
 			res->scanVortex(*vortex, prog);
 		} else {

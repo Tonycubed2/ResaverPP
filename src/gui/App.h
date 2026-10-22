@@ -282,6 +282,7 @@ private:
 	void startCompile(ScriptDoc& d);
 	void pollCompile();
 	void stopScriptJobs();
+	bool scriptJobsBusy() const;  // a compile is running
 	std::filesystem::path gameFolder() const;
 	std::filesystem::path compilerPath() const;
 	std::filesystem::path compileOutputFolder(const ScriptDoc& d) const;
