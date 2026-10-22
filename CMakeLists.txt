@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(ReSaverPP VERSION 10 LANGUAGES C CXX)
+project(ReSaverPP VERSION 11 LANGUAGES C CXX)
 
 # ReSaver++ : C++ port of ReSaver (FallrimTools) by Mark Fairchild. Apache License 2.0.
 
@@ -29,11 +29,26 @@ add_library(rs_core STATIC ${RS_CORE_SOURCES})
 target_include_directories(rs_core PUBLIC src)
 target_link_libraries(rs_core PUBLIC rs_thirdparty)
 
+# ---- Windows version information and manifest (file Properties > Details) -----------------
+function(rs_add_version_info target name description)
+	if (WIN32)
+		set(RS_NAME "${name}")
+		set(RS_DESCRIPTION "${description}")
+		set(RS_MANIFEST "${CMAKE_SOURCE_DIR}/res/resaverpp.manifest")
+		configure_file(${CMAKE_SOURCE_DIR}/res/version.rc.in ${CMAKE_BINARY_DIR}/${name}_version.rc @ONLY)
+		target_sources(${target} PRIVATE ${CMAKE_BINARY_DIR}/${name}_version.rc)
+		if (MSVC)
+			target_link_options(${target} PRIVATE /MANIFEST:NO)  # the manifest comes from the .rc
+		endif()
+	endif()
+endfunction()
+
 # ---- command line -----------------------------------------------------------------------
 file(GLOB RS_CLI_SOURCES CONFIGURE_DEPENDS src/cli/*.cpp)
 if (RS_CLI_SOURCES)
 	add_executable(resaverpp-cli ${RS_CLI_SOURCES})
 	target_link_libraries(resaverpp-cli PRIVATE rs_core)
+	rs_add_version_info(resaverpp-cli resaverpp-cli "ReSaver++ command line - Skyrim save editor")
 	if (MINGW)
 		target_link_options(resaverpp-cli PRIVATE -static)
 	endif()
@@ -77,6 +92,7 @@ if (RESAVERPP_GUI AND EXISTS ${CMAKE_SOURCE_DIR}/src/gui/main.cpp)
 	file(GLOB RS_GUI_SOURCES CONFIGURE_DEPENDS src/gui/*.cpp)
 	add_executable(ReSaverPP WIN32 ${RS_GUI_SOURCES})
 	target_link_libraries(ReSaverPP PRIVATE rs_core rs_imgui)
+	rs_add_version_info(ReSaverPP ReSaverPP "ReSaver++ - Skyrim save editor")
 	if (WIN32)
 		target_link_libraries(ReSaverPP PRIVATE comdlg32 shell32 ole32 advapi32)
 		if (MSVC)

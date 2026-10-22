@@ -21,8 +21,8 @@ namespace ess::loadorder
 	// %LOCALAPPDATA%\Skyrim Special Edition\plugins.txt. Lines starting with '*' are enabled.
 	// a_gameFolder adds the plugins the game loads without listing them (the base game masters and
 	// the Creation Club content named in Skyrim.ccc).
-	Active Read(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder);
+	Active Read(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder, bool a_vr = false);
 
-	// The game's own plugins.txt (%LOCALAPPDATA%\Skyrim Special Edition\plugins.txt).
-	std::filesystem::path GamePluginsTxt();
+	// The game's own plugins.txt (%LOCALAPPDATA%\Skyrim Special Edition\plugins.txt, or Skyrim VR\plugins.txt).
+	std::filesystem::path GamePluginsTxt(bool a_vr = false);
 }

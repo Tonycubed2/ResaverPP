@@ -611,7 +611,7 @@ void App::writeReport(const std::filesystem::path& a_path)
 std::vector<std::filesystem::path> App::watchFolders() const
 {
 	std::vector<std::filesystem::path> v;
-	if (auto d = platform::DefaultSavesFolder(); !d.empty()) {
+	if (auto d = platform::DefaultSavesFolder(_vr); !d.empty()) {
 		v.push_back(d);
 		// Vortex's profile-specific saves (and similar tools) use sub-folders of Saves
 		std::error_code ec;

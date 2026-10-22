@@ -434,6 +434,16 @@ private:
 	int         _decompileInstr = -1;
 	bool        _showCompileSettings = false;
 	std::string _gamePath, _detectNote;
+	// Skyrim SE/AE or Skyrim VR: each has its own mods folder, game folder and profile. The game of the
+	// opened save decides which set is active; the other is kept here.
+	bool _vr = false;
+	struct GameSetup
+	{
+		std::string sourcesPath, gamePath, profile;
+	};
+	GameSetup _otherGame;
+	void      setGame(bool a_vr);
+	const char* gameName() const { return _vr ? "Skyrim VR" : "Skyrim Special Edition"; }
 	std::string _compilerSetting, _compileOutDir, _compileFlags = "TESV_Papyrus_Flags.flg", _compileImports;
 	int         _compileOutMode = 0;  // 0 the script's mod, 1 MO2 overwrite, 2 custom folder
 	bool        _compileOptimize = false, _compileAnonymize = false, _compileBackup = true;

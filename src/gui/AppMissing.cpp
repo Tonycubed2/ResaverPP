@@ -83,10 +83,10 @@ void App::checkMissingPlugins()
 		txt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
 		_missingSource = "Mod Organizer profile \"" + _profile + "\"";
 	} else {
-		txt = loadorder::GamePluginsTxt();
+		txt = loadorder::GamePluginsTxt(_vr);
 		_missingSource = _vortex ? "your load order (Vortex)" : "your load order";
 	}
-	const auto active = loadorder::Read(txt, gameFolder());
+	const auto active = loadorder::Read(txt, gameFolder(), _vr);
 	if (!active.known) {
 		_missingSource = "your load order";
 		return;  // no load order to compare plugins with (missing scripts can still be listed)

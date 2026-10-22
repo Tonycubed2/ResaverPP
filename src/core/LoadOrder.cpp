@@ -35,15 +35,15 @@ namespace ess::loadorder
 		}
 	}
 
-	std::filesystem::path GamePluginsTxt()
+	std::filesystem::path GamePluginsTxt(bool a_vr)
 	{
 		if (const char* la = std::getenv("LOCALAPPDATA")) {
-			return std::filesystem::path(la) / "Skyrim Special Edition" / "plugins.txt";
+			return std::filesystem::path(la) / (a_vr ? "Skyrim VR" : "Skyrim Special Edition") / "plugins.txt";
 		}
 		return {};
 	}
 
-	Active Read(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder)
+	Active Read(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder, bool a_vr)
 	{
 		Active a;
 		std::ifstream f(a_pluginsTxt);
@@ -64,6 +64,9 @@ namespace ess::loadorder
 		// always loaded, never listed in plugins.txt
 		for (const char* p : { "skyrim.esm", "update.esm", "dawnguard.esm", "hearthfires.esm", "dragonborn.esm", "_resourcepack.esl" }) {
 			a.plugins.insert(p);
+		}
+		if (a_vr) {
+			a.plugins.insert("skyrimvr.esm");
 		}
 		// Creation Club content of the installed edition (Anniversary Edition: Skyrim.ccc lists it)
 		std::ifstream ccc(a_gameFolder / "Skyrim.ccc");

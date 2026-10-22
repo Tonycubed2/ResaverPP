@@ -1,7 +1,7 @@
 # ReSaver++
 
 A C++ port of ReSaver (FallrimTools, by Mark Fairchild) for **Skyrim Special Edition / Anniversary
-Edition** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
+Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
 
 ## What it does
 
@@ -76,6 +76,9 @@ Edition** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
   uninstalled mods from disabled ones, plus scripts whose files are installed nowhere. After you
   review and confirm, their leftovers are removed with the "Remove mod from save" safety checks
   and a NEW save is written: no need to load the game and save again first.
+- Skyrim VR: a VR save (it lists SkyrimVR.esm) switches to the VR setup by itself: its own mods
+  folder, game folder, MO2 instance or Vortex staging folder, load order (Skyrim VR\plugins.txt) and
+  saves folder, kept apart from the Special Edition ones (Options > Settings > Game).
 - Mod managers: Mod Organizer 2 (mods folder, profile order, Overwrite; also when run from inside MO2)
   and Vortex (its staging folder and vortex.deployment.json: each file is credited to the mod Vortex
   deployed it from). Both are found by themselves on first start; without either, the game's Data

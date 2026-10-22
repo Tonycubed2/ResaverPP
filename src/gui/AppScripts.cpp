@@ -1412,23 +1412,26 @@ void App::autoDetectPaths(bool a_force)
 		if (_gamePath.empty()) {
 			if (_mo2 && !_mo2->gamePath.empty()) {
 				_gamePath = platform::ToUtf8(_mo2->gamePath);
-			} else if (const auto games = platform::SkyrimInstallFolders(); !games.empty()) {
+			} else if (const auto games = platform::SkyrimInstallFolders(_vr); !games.empty()) {
 				_gamePath = platform::ToUtf8(games.front());
 			}
 		}
 		return;
 	}
-	// Mod Organizer instances for Skyrim Special Edition (global, or portable next to ReSaver++)
+	// Mod Organizer instances for this game (global, or portable next to ReSaver++)
 	std::vector<Mo2Instance> skyrim;
 	for (auto& m : FindMo2Instances({ platform::ExeFolder() })) {
 		const auto g = Lower(m.gameName);
-		const bool se = g.empty() ? Lower(platform::ToUtf8(m.gamePath)).find("skyrim special edition") != std::string::npos
-								  : (g.find("skyrim special edition") != std::string::npos || g == "skyrimse" || g == "skyrim se");
-		if (se && std::filesystem::is_directory(m.modsDir, ec)) {
+		const auto gp = Lower(platform::ToUtf8(m.gamePath));
+		const bool match = _vr ? (g.empty() ? gp.find("skyrimvr") != std::string::npos || gp.find("skyrim vr") != std::string::npos
+											 : (g.find("skyrim vr") != std::string::npos || g == "skyrimvr"))
+							   : (g.empty() ? gp.find("skyrim special edition") != std::string::npos
+											: (g.find("skyrim special edition") != std::string::npos || g == "skyrimse" || g == "skyrim se"));
+		if (match && std::filesystem::is_directory(m.modsDir, ec)) {
 			skyrim.push_back(std::move(m));
 		}
 	}
-	const auto games = platform::SkyrimInstallFolders();
+	const auto games = platform::SkyrimInstallFolders(_vr);
 	if (!skyrim.empty()) {
 		// several instances: the one whose mod list was changed last
 		auto newest = [&](const Mo2Instance& m) {
@@ -1446,7 +1449,7 @@ void App::autoDetectPaths(bool a_force)
 		_mo2 = m;
 		_gamePath = platform::ToUtf8(!m.gamePath.empty() ? m.gamePath : games.empty() ? std::filesystem::path() : games.front());
 		_detectNote = "Found Mod Organizer (" + platform::ToUtf8(m.ini.parent_path()) + "), profile \"" + m.selectedProfile + "\"" +
-					  (skyrim.size() > 1 ? Fmt(" (%zu Mod Organizer setups for Skyrim SE found: the most recently used one was picked)", skyrim.size()) : "");
+					  (skyrim.size() > 1 ? Fmt(" (%zu Mod Organizer setups for %s found: the most recently used one was picked)", skyrim.size(), gameName()) : "");
 	} else if (const auto vx = [&]() -> std::optional<VortexDeployment> {
 				   // Vortex: its deployment manifest in a game's Data folder, or in its default staging folder
 				   for (const auto& g : games) {
@@ -1455,7 +1458,7 @@ void App::autoDetectPaths(bool a_force)
 					   }
 				   }
 				   if (const char* ad = std::getenv("APPDATA")) {
-					   return FindVortexDeployment(platform::FromUtf8(ad) / "Vortex" / "skyrimse" / "mods");
+					   return FindVortexDeployment(platform::FromUtf8(ad) / "Vortex" / (_vr ? "skyrimvr" : "skyrimse") / "mods");
 				   }
 				   return std::nullopt;
 			   }()) {
@@ -1480,7 +1483,7 @@ void App::autoDetectPaths(bool a_force)
 std::filesystem::path App::savesFolder() const
 {
 	// the folder with the newest save: Documents\My Games\Skyrim Special Edition\Saves, or the MO2 profile's own saves
-	std::filesystem::path           best = platform::DefaultSavesFolder();
+	std::filesystem::path           best = platform::DefaultSavesFolder(_vr);
 	std::filesystem::file_time_type bestTime{};
 	std::error_code                 ec;
 	for (const auto& dir : watchFolders()) {
@@ -1511,3 +1514,29 @@ void App::setTheme(int a_kind)
 }
 
 bool App::scriptJobsBusy() const { return _compileJob && !_compileJob->done; }
+
+void App::setGame(bool a_vr)
+{
+	if (a_vr == _vr) {
+		return;
+	}
+	if (_scanThread.joinable()) {
+		_scanProgress->cancel = true;
+		_scanThread.join();
+	}
+	const GameSetup cur{ _sourcesPath, _gamePath, _profile };
+	_sourcesPath = _otherGame.sourcesPath;
+	_gamePath = _otherGame.gamePath;
+	_profile = _otherGame.profile;
+	_otherGame = cur;
+	_vr = a_vr;
+	// nothing of the other game's mods applies
+	_sources = ScriptSources{};
+	_mo2.reset();
+	_vortex.reset();
+	_modsDirty = true;
+	_detectNote.clear();
+	autoDetectPaths(false);  // this game's setup, found by itself the first time
+	saveSettings();
+	_status = std::string("Using the ") + gameName() + " setup";
+}

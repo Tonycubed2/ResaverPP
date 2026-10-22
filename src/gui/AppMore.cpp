@@ -493,6 +493,17 @@ void App::drawSettings()
 		return;
 	}
 	bool ch = false;
+	ImGui::SeparatorText("Game");
+	{
+		int g = _vr ? 1 : 0;
+		const char* games[] = { "Skyrim Special Edition / Anniversary Edition", "Skyrim VR" };
+		ImGui::SetNextItemWidth(380);
+		if (ImGui::Combo("##game", &g, games, 2)) {
+			setGame(g == 1);
+		}
+		ImGui::SameLine();
+		ImGui::TextDisabled("(switches by itself to the game of the save you open)");
+	}
 	ImGui::SeparatorText("Script sources and plugins");
 	ImGui::TextWrapped("Mods folder: %s", _sourcesPath.empty() ? "(not set)" : _sourcesPath.c_str());
 	ImGui::TextDisabled("Your Mod Organizer \"mods\" folder, Vortex's staging folder (or the game folder: Vortex is found from it),\n"
@@ -527,7 +538,7 @@ void App::drawSettings()
 	ImGui::TextWrapped("Game folder: %s", gameFolder().empty() ? "(not found)" : platform::ToUtf8(gameFolder()).c_str());
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Change...##game") && platform::HasNativeDialogs()) {
-		if (auto p = platform::PickFolderDialog("Pick the Skyrim Special Edition folder (the one with SkyrimSE.exe)")) {
+		if (auto p = platform::PickFolderDialog(_vr ? "Pick the Skyrim VR folder (the one with SkyrimVR.exe)" : "Pick the Skyrim Special Edition folder (the one with SkyrimSE.exe)")) {
 			_gamePath = platform::ToUtf8(*p);
 			ch = true;
 		}

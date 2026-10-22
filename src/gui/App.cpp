@@ -101,6 +101,17 @@ void App::open(const std::filesystem::path& a_path)
 			throw std::runtime_error("the save has no Papyrus section");
 		}
 		_save = std::move(s);
+		// a Skyrim VR save lists SkyrimVR.esm: use the VR setup (mods, load order, saves)
+		{
+			bool vrSave = false;
+			for (const auto& p : _save->plugins.full) {
+				vrSave = vrSave || Lower(p) == "skyrimvr.esm";
+			}
+			if (!_settingsLoaded) {
+				loadSettings();
+			}
+			setGame(vrSave);
+		}
 		_cfFacts.clear();
 		_missingDismissed = false;
 		_path = a_path;
@@ -764,7 +775,7 @@ void App::draw()
 		ImGui::Dummy(ImVec2(0, 80));
 		ImGui::Indent(40);
 		ImGui::TextUnformatted("ReSaver++");
-		ImGui::TextDisabled("Skyrim Special Edition / Anniversary Edition save editor");
+		ImGui::TextDisabled("Skyrim Special Edition / Anniversary Edition / VR save editor");
 		ImGui::Spacing();
 		if (ImGui::Button("Open save...", ImVec2(180, 0))) {
 			startOpenDialog();
@@ -2020,7 +2031,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 10  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 11  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2156,6 +2167,7 @@ void App::editPopup()
 
 void App::loadSettings()
 {
+	GameSetup se, vr;
 	_settingsLoaded = true;
 	std::ifstream f(platform::SettingsFile());
 	for (std::string line; std::getline(f, line);) {
@@ -2163,9 +2175,17 @@ void App::loadSettings()
 			line.pop_back();
 		}
 		if (line.rfind("sources=", 0) == 0) {
-			_sourcesPath = line.substr(8);
+			se.sourcesPath = line.substr(8);
 		} else if (line.rfind("profile=", 0) == 0) {
-			_profile = line.substr(8);
+			se.profile = line.substr(8);
+		} else if (line.rfind("sources_vr=", 0) == 0) {
+			vr.sourcesPath = line.substr(11);
+		} else if (line.rfind("profile_vr=", 0) == 0) {
+			vr.profile = line.substr(11);
+		} else if (line.rfind("game_vr=", 0) == 0) {
+			vr.gamePath = line.substr(8);
+		} else if (line.rfind("vr=", 0) == 0) {
+			_vr = line.substr(3) == "1";
 		} else if (line.rfind("sort=", 0) == 0) {
 			_sortMode = std::clamp(std::atoi(line.c_str() + 5), 0, 3);
 		} else if (line.rfind("compression=", 0) == 0) {
@@ -2181,7 +2201,7 @@ void App::loadSettings()
 		} else if (line.rfind("codepage=", 0) == 0) {
 			text::SetCodePage(static_cast<unsigned>(std::strtoul(line.c_str() + 9, nullptr, 10)));
 		} else if (line.rfind("game=", 0) == 0) {
-			_gamePath = line.substr(5);
+			se.gamePath = line.substr(5);
 		} else if (line.rfind("decompile_always=", 0) == 0) {
 			_decompileAlways = line.substr(17) == "1";
 		} else if (line.rfind("editor_light=", 0) == 0) {
@@ -2204,6 +2224,12 @@ void App::loadSettings()
 			_compileBackup = line.substr(15) == "1";
 		}
 	}
+	// the active game's setup, the other one kept aside
+	const auto& act = _vr ? vr : se;
+	_sourcesPath = act.sourcesPath;
+	_profile = act.profile;
+	_gamePath = act.gamePath;
+	_otherGame = _vr ? se : vr;
 	autoDetectPaths(false);  // first start: find Mod Organizer / the game by themselves
 	if (_watch) {
 		setWatching(true);
@@ -2213,13 +2239,20 @@ void App::loadSettings()
 void App::saveSettings()
 {
 	std::ofstream f(platform::SettingsFile(), std::ios::trunc);
-	f << "sources=" << _sourcesPath << "\n";
-	f << "profile=" << _profile << "\n";
+	const GameSetup cur{ _sourcesPath, _gamePath, _profile };
+	const auto&     se = _vr ? _otherGame : cur;
+	const auto&     vr = _vr ? cur : _otherGame;
+	f << "vr=" << (_vr ? 1 : 0) << "\n";
+	f << "sources=" << se.sourcesPath << "\n";
+	f << "profile=" << se.profile << "\n";
+	f << "sources_vr=" << vr.sourcesPath << "\n";
+	f << "profile_vr=" << vr.profile << "\n";
+	f << "game_vr=" << vr.gamePath << "\n";
 	f << "names=" << (_autoNames ? 1 : 0) << "\n";
 	f << "sort=" << _sortMode << "\n";
 	f << "compression=" << _saveCompression << "\n";
 	f << "watch=" << (_watch ? 1 : 0) << "\n";
-	f << "game=" << _gamePath << "\n";
+	f << "game=" << se.gamePath << "\n";
 	f << "codepage=" << text::CodePage() << "\n";
 	f << "theme=" << static_cast<int>(theme::Current()) << "\n";
 	f << "decompile_always=" << (_decompileAlways ? 1 : 0) << "\n";

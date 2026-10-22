@@ -1,0 +1,35 @@
+// ReSaver++ - version information and manifest shown by Windows (file Properties > Details)
+#include <winver.h>
+#include <winuser.h>
+
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "@RS_MANIFEST@"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     @PROJECT_VERSION_MAJOR@,0,0,0
+PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,0,0,0
+FILEFLAGSMASK   0x3fL
+FILEFLAGS       0x0L
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     0x0L
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904b0"
+		BEGIN
+			VALUE "CompanyName", "tonycubed2"
+			VALUE "FileDescription", "@RS_DESCRIPTION@"
+			VALUE "FileVersion", "@PROJECT_VERSION_MAJOR@"
+			VALUE "InternalName", "@RS_NAME@"
+			VALUE "LegalCopyright", "Apache License 2.0. Port of ReSaver (FallrimTools) by Mark Fairchild."
+			VALUE "OriginalFilename", "@RS_NAME@.exe"
+			VALUE "ProductName", "ReSaver++"
+			VALUE "ProductVersion", "@PROJECT_VERSION_MAJOR@"
+			VALUE "Comments", "Source code: https://github.com/Tonycubed2/ResaverPP"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x409, 1200
+	END
+END
