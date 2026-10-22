@@ -130,9 +130,12 @@ void App::open(const std::filesystem::path& a_path)
 			loadSettings();
 		}
 		if (!_sourcesPath.empty() && !_sources.scanned()) {
-			scanSources(platform::FromUtf8(_sourcesPath));
-		} else if (_autoNames && _sources.scanned()) {
-			startNames();
+			scanSources(platform::FromUtf8(_sourcesPath));  // checks for missing mods when done
+		} else {
+			if (_autoNames && _sources.scanned()) {
+				startNames();
+			}
+			checkMissingPlugins();
 		}
 		_status = "Loaded " + platform::ToUtf8(a_path.filename());
 		if (!_report->warnings.empty()) {
@@ -833,6 +836,9 @@ void App::draw()
 		drawCompileSettings();
 	}
 	drawDecompilePrompt();
+	if (_save) {
+		drawMissingModal();
+	}
 	pollCompile();
 	if (_testCompile && !_docs.empty()) {
 		_testCompile = false;
@@ -1779,6 +1785,7 @@ void App::detailUnbind(std::uint64_t k)
 void App::drawOverview()
 {
 	const auto& h = _save->header;
+	drawMissingBanner();
 	if (_shotTex) {
 		const float w = std::min(ImGui::GetContentRegionAvail().x * 0.45f, 480.0f);
 		ImGui::Image(static_cast<ImTextureID>(_shotTex), ImVec2(w, w * _shotH / std::max(1, _shotW)));
@@ -2005,7 +2012,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 6  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 7  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2304,6 +2311,7 @@ void App::pollScan()
 	_status = Fmt("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)", _sources.modsScanned,
 		_sources.vortex ? " deployed by Vortex" : _sources.ranked ? (" in MO2 profile '" + _profile + "' order").c_str() : "", _sources.pexFound, _sources.bsasRead,
 		_sources.errors.empty() ? "" : Fmt(", %zu unreadable", _sources.errors.size()).c_str());
+	checkMissingPlugins();  // the load order and the installed mods are known now
 	if (_pendingView) {
 		const auto v = *_pendingView;
 		_pendingView.reset();

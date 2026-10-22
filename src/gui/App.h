@@ -105,6 +105,8 @@ public:
 			viewScript(f[0], f[1], f[2], f[3].empty() ? -1 : std::atoi(f[3].c_str()));
 		} else if (w == "rowview") {
 			_testRowView = true;
+		} else if (w == "missing") {
+			_missingOpenWhenReady = true;
 		} else if (w == "compile") {
 			_testCompile = true;
 		} else if (w == "compilesettings") {
@@ -214,6 +216,25 @@ private:
 	void loadSettings();
 	void saveSettings();
 	void drawRemoveModModal();
+	// mods still in the save but no longer in the load order (AppMissing.cpp)
+	void checkMissingPlugins();
+	void drawMissingBanner();
+	void drawMissingModal();
+	struct MissingMod
+	{
+		std::string plugin, folder;
+		bool        installed = false;  // the file exists (disabled, or in another profile)
+		bool        selected = false;
+		std::size_t changeForms = 0, scripts = 0, instances = 0, threads = 0;
+		bool        planned = false, blocked = false;
+		std::string planText;
+	};
+	std::vector<MissingMod> _missing;
+	std::string             _missingSource;  // which load order it was compared with
+	bool                    _missingOpen = false, _missingDismissed = false;
+	bool                    _installKnown = false, _missingOpenWhenReady = false;  // the mods were scanned: "installed" can be told
+	std::vector<std::pair<std::string, std::size_t>> _missingScripts;  // scripts with no file anywhere -> instances + threads
+	bool                    _removeMissingScripts = true;
 
 	// plugin names, lookup, change forms, clean tools, compare, report, watcher (AppTools.cpp)
 	std::string formText(std::uint32_t a_formID) const;

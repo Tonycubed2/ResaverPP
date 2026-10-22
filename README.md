@@ -71,6 +71,11 @@ Edition** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
     optimize, anonymize, where the .pex goes (the script's mod, MO2 Overwrite, or a folder),
     extra import folders. A .pex.bak of the replaced script is kept once.
   - The editor is ImGuiColorTextEdit by BalazsJako (MIT License), with changes for this.
+- Uninstalled mods: when a save opens, ReSaver++ compares the plugins in it with your load order
+  (the MO2 profile's or the game's plugins.txt) and lists the ones no longer enabled, telling
+  uninstalled mods from disabled ones, plus scripts whose files are installed nowhere. After you
+  review and confirm, their leftovers are removed with the "Remove mod from save" safety checks
+  and a NEW save is written: no need to load the game and save again first.
 - Mod managers: Mod Organizer 2 (mods folder, profile order, Overwrite; also when run from inside MO2)
   and Vortex (its staging folder and vortex.deployment.json: each file is credited to the mod Vortex
   deployed it from). Both are found by themselves on first start; without either, the game's Data
