@@ -255,9 +255,11 @@ void App::drawLookup()
 // decoded change forms
 // ==========================================================================================
 
-void App::drawCfNode(const cf::Node& n, int a_depth)
+void App::drawCfNode(const cf::Node& n, int a_depth, int a_index)
 {
-	ImGui::PushID(&n);
+	// the decoded tree is rebuilt every frame: IDs must not depend on where it sits in memory, or an
+	// opened section would close again on the next frame (it flickered)
+	ImGui::PushID(a_index);
 	if (n.kids.empty()) {
 		if (n.isRef) {
 			if (n.refRaw == 0) {
@@ -278,8 +280,8 @@ void App::drawCfNode(const cf::Node& n, int a_depth)
 			ImGui::BulletText("%s: %s", n.label.c_str(), n.value.c_str());
 		}
 	} else if (ImGui::TreeNodeEx(n.label.c_str(), a_depth < 2 ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
-		for (const auto& k : n.kids) {
-			drawCfNode(k, a_depth + 1);
+		for (std::size_t i = 0; i < n.kids.size(); ++i) {
+			drawCfNode(n.kids[i], a_depth + 1, static_cast<int>(i));
 		}
 		ImGui::TreePop();
 	}
@@ -358,8 +360,8 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 	} else {
 		TextColored(kWarn, Fmt("Partly decoded (%zu of %zu bytes): %s", d.consumed, d.bodySize, d.error.c_str()));
 	}
-	for (const auto& k : d.root.kids) {
-		drawCfNode(k, 0);
+	for (std::size_t i = 0; i < d.root.kids.size(); ++i) {
+		drawCfNode(d.root.kids[i], 0, static_cast<int>(i));
 	}
 }
 

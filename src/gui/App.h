@@ -222,7 +222,7 @@ private:
 	void        pollNames();
 	bool        namesLoading() const;
 	void        drawLookup();
-	void        drawCfNode(const ess::cf::Node& n, int a_depth);
+	void        drawCfNode(const ess::cf::Node& n, int a_depth, int a_index);
 	void        detailChangeFormDecoded(const ess::ChangeForm& c);
 	void        resetHavok();
 	void        purifyFormLists();

@@ -564,6 +564,12 @@ void App::drawSettings()
 			}
 		}
 	}
+	if (!_vortex && !_mo2 && !gameFolder().empty()) {
+		std::error_code ec;
+		if (std::filesystem::exists(gameFolder() / "Data" / "vortex.deployment.json", ec)) {
+			TextColored(kWarn, "The game's Data folder has Vortex's vortex.deployment.json, but it could not be read: mods are credited to the Data folder.");
+		}
+	}
 	if (_vortex && !_mo2) {
 		ImGui::TextWrapped("Vortex: staging folder %s, %zu mods deployed to %s (%s)", platform::ToUtf8(_vortex->stagingPath).c_str(), _vortex->mods.size(),
 			platform::ToUtf8(_vortex->dataPath).c_str(), _vortex->method.empty() ? "?" : _vortex->method.c_str());

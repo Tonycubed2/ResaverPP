@@ -1409,6 +1409,12 @@ void App::autoDetectPaths(bool a_force)
 			if (_vortex && _gamePath.empty()) {
 				_gamePath = platform::ToUtf8(_vortex->dataPath.parent_path());
 			}
+			// an older version saved the game's Data folder: Vortex users get its staging folder from now on
+			if (_vortex && platform::ToUtf8(_vortex->stagingPath) != _sourcesPath) {
+				_detectNote = "Found Vortex: the mods folder is now its staging folder (was " + _sourcesPath + ")";
+				_sourcesPath = platform::ToUtf8(_vortex->stagingPath);
+				saveSettings();
+			}
 		}
 		if (_gamePath.empty()) {
 			if (_mo2 && !_mo2->gamePath.empty()) {
