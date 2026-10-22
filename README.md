@@ -82,6 +82,7 @@ Edition** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
   folder is used.
 - Non-English saves: names and text in the game's code page or UTF-8 are shown correctly
   (Options > Settings > Text encoding).
+- Themes: Light (default), Grey and Dark (Options > Theme); the script editor follows the theme.
 - Help > Show log, Options > Settings, Help > Support (links to ReSaver's author).
 - Analysis: plain-language findings (runaway looping scripts such as the Firefly bug, a stuck
   SkyUI MCM registration, undefined scripts, ...) with one-click purge buttons.

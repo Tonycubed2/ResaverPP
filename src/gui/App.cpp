@@ -2,6 +2,7 @@
 #include "App.h"
 
 #include "Platform.h"
+#include "Theme.h"
 
 #include "core/Text.h"
 
@@ -21,10 +22,6 @@ using namespace ess;
 
 namespace
 {
-	constexpr std::uint32_t kWarn = IM_COL32(255, 190, 80, 255);
-	constexpr std::uint32_t kBad = IM_COL32(255, 110, 110, 255);
-	constexpr std::uint32_t kDim = IM_COL32(150, 150, 150, 255);
-	constexpr std::uint32_t kGood = IM_COL32(130, 220, 130, 255);
 
 	const char* CatName(App::Cat c)
 	{
@@ -485,7 +482,7 @@ void App::rebuildRows()
 			add(i, Fmt("%02zX     %s", i, _save->plugins.full[i].c_str()), 0, true, i, i);
 		}
 		for (std::size_t i = 0; i < _save->plugins.lite.size(); ++i) {
-			add(0x10000 + i, Fmt("FE:%03zX  %s", i, _save->plugins.lite[i].c_str()), kDim, true, 0x10000 + i, 0x10000 + i);
+			add(0x10000 + i, Fmt("FE:%03zX  %s", i, _save->plugins.lite[i].c_str()), theme::Dim(), true, 0x10000 + i, 0x10000 + i);
 		}
 		break;
 	case Cat::kChangeForms:
@@ -532,14 +529,14 @@ void App::rebuildRows()
 					Fmt("%s  %08X  %-28s  flags %08X  %u bytes", ChangeFormTypeName(c.typeCode()), fid, _save->pluginOf(fid).c_str(), c.changeFlags,
 						static_cast<unsigned>(c.data.size())) +
 						(name.empty() ? "" : "  " + name) + (nulls ? Fmt("  [%zu NULL ENTRIES]", nulls) : std::string()),
-					nulls ? kWarn : 0, true, c.data.size(), c.length2 ? c.length2 : c.data.size());
+					nulls ? theme::Warn() : 0, true, c.data.size(), c.length2 ? c.length2 : c.data.size());
 			}
 			break;
 		}
 	case Cat::kStrings:
 		for (std::size_t i = 0; i < p.strings.size(); ++i) {
 			const auto len = p.strings[i].size();
-			add(i, Fmt("%6zu  ", i) + text::ToUtf8(p.strings[i]), len >= 512 ? kWarn : 0, !F.longStrings || len >= 512, len, len);
+			add(i, Fmt("%6zu  ", i) + text::ToUtf8(p.strings[i]), len >= 512 ? theme::Warn() : 0, !F.longStrings || len >= 512, len, len);
 		}
 		break;
 	case Cat::kScripts:
@@ -564,7 +561,7 @@ void App::rebuildRows()
 					t += "  [MISSING PARENT]";
 				}
 				const bool shown = !anyShow || (_onlyFlagged && undef) || (F.noParent && noParent) || (F.missingParent && missingParent);
-				add(s.name, t, undef ? kBad : missingParent ? kWarn : 0, shown, counts[s.name], counts[s.name] + vars[s.name]);
+				add(s.name, t, undef ? theme::Bad() : missingParent ? theme::Warn() : 0, shown, counts[s.name], counts[s.name] + vars[s.name]);
 			}
 			break;
 		}
@@ -604,7 +601,7 @@ void App::rebuildRows()
 					}
 				}
 				const std::uint64_t n = i.data ? i.data->vars.size() : 0;
-				add(i.id, t, undef ? kBad : (unatt || missing || memberless || zeroed) ? kWarn : 0, shown, n, n + arr);
+				add(i.id, t, undef ? theme::Bad() : (unatt || missing || memberless || zeroed) ? theme::Warn() : 0, shown, n, n + arr);
 			}
 			break;
 		}
@@ -612,7 +609,7 @@ void App::rebuildRows()
 		for (const auto& r : p.references) {
 			const bool          undef = ops::IsInstanceUndefined(p, r.script);
 			const std::uint64_t n = r.data ? r.data->vars.size() : 0;
-			add(r.id, p.str(r.script) + "  id " + Hex64(r.id) + (undef ? "  [UNDEFINED]" : ""), undef ? kBad : 0, !_onlyFlagged || undef, n, n);
+			add(r.id, p.str(r.script) + "  id " + Hex64(r.id) + (undef ? "  [UNDEFINED]" : ""), undef ? theme::Bad() : 0, !_onlyFlagged || undef, n, n);
 		}
 		break;
 	case Cat::kArrays:
@@ -643,7 +640,7 @@ void App::rebuildRows()
 					vars += f.vars.size();
 				}
 			}
-			add(a.id, threadLabel(a), undef ? kBad : term ? kDim : susp ? kWarn : 0, !_onlyFlagged || undef || susp, frames, frames + vars);
+			add(a.id, threadLabel(a), undef ? theme::Bad() : term ? theme::Dim() : susp ? theme::Warn() : 0, !_onlyFlagged || undef || susp, frames, frames + vars);
 		}
 		break;
 	case Cat::kMessages:
@@ -672,7 +669,7 @@ void App::rebuildRows()
 	case Cat::kUnbinds:
 		for (const auto& u : p.unbinds) {
 			const auto* i = p.findInstance(u.id);
-			add(u.id, Hex64(u.id) + "  " + (i ? instanceLabel(*i) : std::string("(instance gone)")), i ? 0 : kWarn, !_onlyFlagged || !i, 1, 1);
+			add(u.id, Hex64(u.id) + "  " + (i ? instanceLabel(*i) : std::string("(instance gone)")), i ? 0 : theme::Warn(), !_onlyFlagged || !i, 1, 1);
 		}
 		break;
 	default:
@@ -976,6 +973,14 @@ void App::drawMenu()
 	}
 	if (ImGui::BeginMenu("Options")) {
 		ImGui::MenuItem("Settings...", nullptr, &_showSettings);
+		if (ImGui::BeginMenu("Theme")) {
+			for (int k = 0; k < 3; ++k) {
+				if (ImGui::MenuItem(theme::Name(static_cast<theme::Kind>(k)), nullptr, static_cast<int>(theme::Current()) == k)) {
+					setTheme(k);
+				}
+			}
+			ImGui::EndMenu();
+		}
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Help")) {
@@ -1013,7 +1018,7 @@ void App::drawCategories()
             label += Fmt("  (%zu)", n);
         }
         if (warn) {
-            ImGui::PushStyleColor(ImGuiCol_Text, kWarn);
+            ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
         }
         if (ImGui::Selectable(label.c_str(), _cat == c)) {
             if (_cat != c) {
@@ -1086,7 +1091,7 @@ void App::drawList()
 						  "Mass = size including what it owns (arrays of an instance, variables of a thread's frames, ...)");
 	}
 	if (!_pluginFilter.empty()) {
-		TextColored(kWarn, "Only elements of " + _pluginFilter);
+		TextColored(theme::Warn(), "Only elements of " + _pluginFilter);
 		ImGui::SameLine();
 		if (ImGui::SmallButton("clear plugin filter")) {
 			_pluginFilter.clear();
@@ -1094,7 +1099,7 @@ void App::drawList()
 		}
 	}
 	if (filtersActive) {
-		TextColored(kWarn, "Filters are active (see Filters).");
+		TextColored(theme::Warn(), "Filters are active (see Filters).");
 	}
 	ImGui::TextDisabled("%zu shown, %zu selected  (Ctrl/Shift-click to multi-select, Ctrl+A selects all shown)", _rows.size(), _selected.size());
 
@@ -1449,7 +1454,7 @@ void App::detailScript(std::uint64_t k)
 		viewScript(p.str(s->name));
 	}
 	if (ops::IsScriptUndefined(p, *s)) {
-		TextColored(kBad, "UNDEFINED: the game could not load this script's .pex when the save was made (mod removed?).");
+		TextColored(theme::Bad(), "UNDEFINED: the game could not load this script's .pex when the save was made (mod removed?).");
 	}
 	std::size_t n = 0;
 	for (const auto& i : p.instances) {
@@ -1522,13 +1527,13 @@ void App::detailInstance(std::uint64_t k)
 		viewScript(p.str(i->script));
 	}
 	if (ops::IsUnattached(*i)) {
-		TextColored(kWarn, "UNATTACHED: not attached to any object. Clean > Remove unattached instances deletes these.");
+		TextColored(theme::Warn(), "UNATTACHED: not attached to any object. Clean > Remove unattached instances deletes these.");
 	}
 	if (ops::IsInstanceUndefined(p, i->script)) {
-		TextColored(kBad, "UNDEFINED: its script is no longer installed.");
+		TextColored(theme::Bad(), "UNDEFINED: its script is no longer installed.");
 	}
 	if (ops::IsCreatedWithoutForm(*_save, *i)) {
-		TextColored(kWarn, "Its spawned object no longer exists in the save. Some mods do this on purpose.");
+		TextColored(theme::Warn(), "Its spawned object no longer exists in the save. Some mods do this on purpose.");
 	}
 	if (BeginKV("inst")) {
 		KV("Instance id", Hex64(i->id));
@@ -1625,7 +1630,7 @@ void App::detailArray(std::uint64_t k)
 			return;
 		}
 	} else {
-		TextColored(kWarn, "Nothing holds this array (Tools > Analyze arrays block lists all such arrays).");
+		TextColored(theme::Warn(), "Nothing holds this array (Tools > Analyze arrays block lists all such arrays).");
 	}
 	ImGui::SeparatorText("Elements");
 	varsTable("avars", a->vars, {});
@@ -1641,13 +1646,13 @@ void App::detailThread(std::uint64_t k)
 	}
 	ImGui::TextUnformatted(threadLabel(*a).c_str());
 	if (ops::IsThreadTerminated(p, *a)) {
-		TextColored(kDim, "TERMINATED: all its code was replaced by no-ops; it ends when the game resumes it.");
+		TextColored(theme::Dim(), "TERMINATED: all its code was replaced by no-ops; it ends when the game resumes it.");
 	}
 	if (ops::IsThreadSuspended(p, a->id)) {
-		TextColored(kWarn, "SUSPENDED: it is waiting on a queued call (see Suspended Stacks).");
+		TextColored(theme::Warn(), "SUSPENDED: it is waiting on a queued call (see Suspended Stacks).");
 	}
 	if (ops::IsThreadUndefined(p, *a)) {
-		TextColored(kBad, "UNDEFINED: runs a script that is no longer installed.");
+		TextColored(theme::Bad(), "UNDEFINED: runs a script that is no longer installed.");
 	}
 	if (!a->data) {
 		return;
@@ -1774,7 +1779,7 @@ void App::detailUnbind(std::uint64_t k)
 			select(Cat::kInstances, k);
 		}
 	} else {
-		TextColored(kWarn, "The instance it refers to is not in the save.");
+		TextColored(theme::Warn(), "The instance it refers to is not in the save.");
 	}
 }
 
@@ -1813,11 +1818,11 @@ void App::drawOverview()
 	const auto& r = *_report;
 	ImGui::SeparatorText("Health");
 	if (r.warnings.empty()) {
-		TextColored(kGood, "No problems found.");
+		TextColored(theme::Good(), "No problems found.");
 	}
 	for (const auto& w : r.warnings) {
 		ImGui::Bullet();
-		ImGui::PushStyleColor(ImGuiCol_Text, kWarn);
+		ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
 		ImGui::TextWrapped("%s", w.c_str());
 		ImGui::PopStyleColor();
 	}
@@ -2012,7 +2017,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 7  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 8  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2029,13 +2034,13 @@ void App::drawStatus()
 {
 	ImGui::Separator();
 	if (_dirty) {
-		TextColored(kWarn, "UNSAVED EDITS");
+		TextColored(theme::Warn(), "UNSAVED EDITS");
 		ImGui::SameLine();
 	}
 	ImGui::TextUnformatted(_status.c_str());
 	if (scanning() && _scanProgress) {
 		ImGui::SameLine(ImGui::GetWindowWidth() - 420);
-		TextColored(kDim, Fmt("Scanning mods %zu/%zu...", _scanProgress->done.load(), _scanProgress->total.load()));
+		TextColored(theme::Dim(), Fmt("Scanning mods %zu/%zu...", _scanProgress->done.load(), _scanProgress->total.load()));
 	} else if (namesLoading() && _dbProgress) {
 		std::string cur;
 		{
@@ -2043,10 +2048,10 @@ void App::drawStatus()
 			cur = _dbProgress->current;
 		}
 		ImGui::SameLine(ImGui::GetWindowWidth() - 420);
-		TextColored(kDim, Fmt("Reading plugins %zu/%zu: %s", _dbProgress->done.load(), _dbProgress->total.load(), cur.c_str()));
+		TextColored(theme::Dim(), Fmt("Reading plugins %zu/%zu: %s", _dbProgress->done.load(), _dbProgress->total.load(), cur.c_str()));
 	} else if (_watch) {
 		ImGui::SameLine(ImGui::GetWindowWidth() - 160);
-		TextColored(kGood, "watching saves");
+		TextColored(theme::Good(), "watching saves");
 	}
 }
 
@@ -2173,6 +2178,10 @@ void App::loadSettings()
 			_autoNames = line.substr(6) != "0";
 		} else if (line.rfind("watch=", 0) == 0 && line.substr(6) == "1") {
 			_watch = true;
+		} else if (line.rfind("theme=", 0) == 0) {
+			const int k = std::clamp(std::atoi(line.c_str() + 6), 0, 2);
+			theme::Apply(static_cast<theme::Kind>(k));
+			_editorLight = theme::IsLight();
 		} else if (line.rfind("codepage=", 0) == 0) {
 			text::SetCodePage(static_cast<unsigned>(std::strtoul(line.c_str() + 9, nullptr, 10)));
 		} else if (line.rfind("game=", 0) == 0) {
@@ -2180,7 +2189,7 @@ void App::loadSettings()
 		} else if (line.rfind("decompile_always=", 0) == 0) {
 			_decompileAlways = line.substr(17) == "1";
 		} else if (line.rfind("editor_light=", 0) == 0) {
-			_editorLight = line.substr(13) == "1";
+			// (older versions: the script editor now follows the theme)
 		} else if (line.rfind("compiler=", 0) == 0) {
 			_compilerSetting = line.substr(9);
 		} else if (line.rfind("compile_out_mode=", 0) == 0) {
@@ -2216,8 +2225,8 @@ void App::saveSettings()
 	f << "watch=" << (_watch ? 1 : 0) << "\n";
 	f << "game=" << _gamePath << "\n";
 	f << "codepage=" << text::CodePage() << "\n";
+	f << "theme=" << static_cast<int>(theme::Current()) << "\n";
 	f << "decompile_always=" << (_decompileAlways ? 1 : 0) << "\n";
-	f << "editor_light=" << (_editorLight ? 1 : 0) << "\n";
 	f << "compiler=" << _compilerSetting << "\n";
 	f << "compile_out_mode=" << _compileOutMode << "\n";
 	f << "compile_out_dir=" << _compileOutDir << "\n";
@@ -2489,7 +2498,7 @@ void App::drawModsList()
 			}
 			ImGui::TableSetColumnIndex(1);
 			if (r.kind != mods::Kind::kPlugin && r.kind != mods::Kind::kLight) {
-				TextColored(kDim, r.name);
+				TextColored(theme::Dim(), r.name);
 			} else {
 				ImGui::TextUnformatted(r.name.c_str());
 			}
@@ -2499,7 +2508,7 @@ void App::drawModsList()
 			ImGui::Text("%zu", r.instanceCount);
 			ImGui::TableSetColumnIndex(4);
 			if (r.threadCount >= 20) {
-				TextColored(kWarn, std::to_string(r.threadCount));
+				TextColored(theme::Warn(), std::to_string(r.threadCount));
 			} else {
 				ImGui::Text("%zu", r.threadCount);
 			}
@@ -2656,11 +2665,11 @@ void App::detailMod(std::uint64_t k)
 				   ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
 					   ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit)) {
 		// click a header to sort; click again to reverse
-		ImGui::TableSetupColumn("Script", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 0, 0);
+		ImGui::TableSetupColumn("Script", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 1.0f, 0);
 		ImGui::TableSetupColumn("Instances", ImGuiTableColumnFlags_PreferSortDescending, 75, 1);
 		ImGui::TableSetupColumn("Running", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 65, 2);
 		if (_mods->hasSources) {
-			ImGui::TableSetupColumn(".pex from", ImGuiTableColumnFlags_PreferSortAscending, 200, 3);
+			ImGui::TableSetupColumn(".pex from", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 0.6f, 3);
 		}
 		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_NoSort, 280, 4);
 		ImGui::TableHeadersRow();
@@ -2716,7 +2725,7 @@ void App::detailMod(std::uint64_t k)
 			ImGui::PushID(s);
 			ImGui::TableSetColumnIndex(0);
 			if (s->engineType) {
-				TextColored(kDim, s->script + "  (engine type)");
+				TextColored(theme::Dim(), s->script + "  (engine type)");
 				if (ImGui::IsItemHovered()) {
 					ImGui::SetTooltip("Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill.", s->script.c_str());
 				}
@@ -2728,7 +2737,7 @@ void App::detailMod(std::uint64_t k)
 			ImGui::Text("%zu", s->instances.size());
 			ImGui::TableSetColumnIndex(2);
 			if (s->threads.size() >= 20) {
-				TextColored(kWarn, std::to_string(s->threads.size()));
+				TextColored(theme::Warn(), std::to_string(s->threads.size()));
 			} else {
 				ImGui::Text("%zu", s->threads.size());
 			}
@@ -2802,7 +2811,7 @@ void App::detailMod(std::uint64_t k)
 					for (const auto& x : *prov) {
 						others += (others.empty() ? "" : ", ") + x.mod;
 					}
-					TextColored(kDim, "(also in: " + others + ")");
+					TextColored(theme::Dim(), "(also in: " + others + ")");
 				}
 				ImGui::TableSetColumnIndex(1);
 				ImGui::Text("%zu", inst);
@@ -2881,13 +2890,13 @@ void App::drawRemoveModModal()
 		return;
 	}
 	if (_sources.empty()) {
-		TextColored(kWarn, "Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked.");
+		TextColored(theme::Warn(), "Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked.");
 	}
 	ImGui::Separator();
 	ImGui::BeginChild("plan", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 2.2f), ImGuiChildFlags_None);
 	if (!plan.blockers.empty()) {
 		for (const auto& b : plan.blockers) {
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.42f, 0.42f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(theme::Bad()));
 			ImGui::TextWrapped("CANNOT REMOVE: %s", b.c_str());
 			ImGui::PopStyleColor();
 		}

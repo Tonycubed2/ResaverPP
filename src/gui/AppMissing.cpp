@@ -5,6 +5,7 @@
 #include "App.h"
 
 #include "Platform.h"
+#include "Theme.h"
 
 #include "core/LoadOrder.h"
 #include "core/ModRemove.h"
@@ -21,9 +22,6 @@ using namespace ess;
 
 namespace
 {
-	constexpr std::uint32_t kWarn = IM_COL32(255, 190, 80, 255);
-	constexpr std::uint32_t kBad = IM_COL32(255, 110, 110, 255);
-	constexpr std::uint32_t kDim = IM_COL32(150, 150, 150, 255);
 
 	std::string Lower(std::string s)
 	{
@@ -149,7 +147,7 @@ void App::drawMissingBanner()
 	for (const auto& m : _missing) {
 		(m.installed ? disabled : gone) += 1;
 	}
-	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.30f, 0.22f, 0.08f, 1));
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, theme::BannerBg());
 	ImGui::BeginChild("##missing", ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 3.2f), ImGuiChildFlags_Borders);
 	std::string msg;
 	if (!_missing.empty()) {
@@ -160,7 +158,7 @@ void App::drawMissingBanner()
 	if (!_missingScripts.empty()) {
 		msg += (msg.empty() ? "" : " ") + Fmt("%zu script(s) in it are no longer installed anywhere.", _missingScripts.size());
 	}
-	TextColored(kWarn, msg);
+	TextColored(theme::Warn(), msg);
 	if (ImGui::Button("Review and remove their leftovers...")) {
 		for (auto& m : _missing) {
 			m.planned = false;
@@ -193,9 +191,9 @@ void App::drawMissingModal()
 					   "and saved data are leftovers. Removing them cleans the save the way \"Remove mod from save\" does, with the "
 					   "same safety checks, and writes a NEW save file: the original is not changed.",
 		_missingSource.c_str());
-	TextColored(kDim, "A mod that is only disabled for a test, or enabled in another profile, will need its data again: leave it unticked.");
+	TextColored(theme::Dim(), "A mod that is only disabled for a test, or enabled in another profile, will need its data again: leave it unticked.");
 	if (!_installKnown) {
-		TextColored(kWarn, "Your mods folder is not set (Options > Settings), so ReSaver++ cannot tell uninstalled mods from disabled ones: "
+		TextColored(theme::Warn(), "Your mods folder is not set (Options > Settings), so ReSaver++ cannot tell uninstalled mods from disabled ones: "
 						   "nothing is ticked.");
 	}
 	ImGui::Separator();
@@ -225,7 +223,7 @@ void App::drawMissingModal()
 			ImGui::EndDisabled();
 			ImGui::TableSetColumnIndex(1);
 			if (m.installed) {
-				TextColored(kWarn, "installed but not enabled" + (m.folder.empty() ? std::string() : " (" + m.folder + ")"));
+				TextColored(theme::Warn(), "installed but not enabled" + (m.folder.empty() ? std::string() : " (" + m.folder + ")"));
 			} else {
 				ImGui::TextUnformatted("not installed");
 			}
@@ -239,7 +237,7 @@ void App::drawMissingModal()
 			if (!m.selected) {
 				ImGui::TextDisabled("-");
 			} else if (m.blocked) {
-				TextColored(kBad, "refused (see details)");
+				TextColored(theme::Bad(), "refused (see details)");
 			} else {
 				ImGui::TextUnformatted("OK");
 			}
@@ -274,7 +272,7 @@ void App::drawMissingModal()
 			}
 			ImGui::TreePop();
 		}
-		TextColored(kDim, "Not found in any mod folder (enabled or not) nor in the game's own archives. The game cannot run them any more.");
+		TextColored(theme::Dim(), "Not found in any mod folder (enabled or not) nor in the game's own archives. The game cannot run them any more.");
 	}
 	ImGui::EndChild();
 

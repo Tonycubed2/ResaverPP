@@ -4,6 +4,7 @@
 #include "App.h"
 
 #include "Platform.h"
+#include "Theme.h"
 
 #include "core/Text.h"
 
@@ -22,8 +23,6 @@ using namespace ess;
 
 namespace
 {
-	constexpr std::uint32_t kWarn = IM_COL32(255, 190, 80, 255);
-	constexpr std::uint32_t kDim = IM_COL32(150, 150, 150, 255);
 
 	std::string Fmt(const char* f, auto... args)
 	{
@@ -567,7 +566,7 @@ void App::drawSettings()
 	if (!_vortex && !_mo2 && !gameFolder().empty()) {
 		std::error_code ec;
 		if (std::filesystem::exists(gameFolder() / "Data" / "vortex.deployment.json", ec)) {
-			TextColored(kWarn, "The game's Data folder has Vortex's vortex.deployment.json, but it could not be read: mods are credited to the Data folder.");
+			TextColored(theme::Warn(), "The game's Data folder has Vortex's vortex.deployment.json, but it could not be read: mods are credited to the Data folder.");
 		}
 	}
 	if (_vortex && !_mo2) {
@@ -636,6 +635,14 @@ void App::drawSettings()
 	}
 	ImGui::SeparatorText("Other");
 	bool watch = _watch;
+	{
+		int k = static_cast<int>(theme::Current());
+		const char* names[] = { "Light", "Grey", "Dark" };
+		ImGui::SetNextItemWidth(160);
+		if (ImGui::Combo("Theme", &k, names, 3)) {
+			setTheme(k);
+		}
+	}
 	if (ImGui::Checkbox("Watch saves folder (open new saves automatically)", &watch)) {
 		setWatching(watch);
 	}

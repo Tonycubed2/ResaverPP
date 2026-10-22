@@ -7,6 +7,7 @@
 
 #include "App.h"
 #include "Platform.h"
+#include "Theme.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -131,7 +132,7 @@ namespace
 
 	void Style()
 	{
-		ImGui::StyleColorsDark();
+		theme::Apply(theme::Kind::kLight);  // the default; the saved theme is applied with the settings
 		ImGuiStyle& s = ImGui::GetStyle();
 		s.WindowRounding = 4;
 		s.FrameRounding = 3;
@@ -139,15 +140,6 @@ namespace
 		s.GrabRounding = 3;
 		s.FramePadding = ImVec2(8, 4);
 		s.ItemSpacing = ImVec2(8, 5);
-		auto* c = s.Colors;
-		c[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.11f, 0.12f, 1);
-		c[ImGuiCol_ChildBg] = ImVec4(0.13f, 0.13f, 0.14f, 1);
-		c[ImGuiCol_Header] = ImVec4(0.28f, 0.36f, 0.48f, 0.85f);
-		c[ImGuiCol_HeaderHovered] = ImVec4(0.32f, 0.42f, 0.56f, 0.9f);
-		c[ImGuiCol_HeaderActive] = ImVec4(0.36f, 0.48f, 0.64f, 1);
-		c[ImGuiCol_Button] = ImVec4(0.24f, 0.32f, 0.44f, 1);
-		c[ImGuiCol_ButtonHovered] = ImVec4(0.30f, 0.40f, 0.55f, 1);
-		c[ImGuiCol_ButtonActive] = ImVec4(0.34f, 0.46f, 0.62f, 1);
 	}
 }
 
@@ -251,7 +243,8 @@ int RunApp(int argc, char** argv)
 		int w, h;
 		glfwGetFramebufferSize(window, &w, &h);
 		glViewport(0, 0, w, h);
-		glClearColor(0.08f, 0.08f, 0.09f, 1);
+		const auto bg = theme::Clear();
+		glClearColor(bg.x, bg.y, bg.z, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

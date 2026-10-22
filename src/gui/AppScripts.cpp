@@ -5,6 +5,7 @@
 #include "App.h"
 
 #include "Platform.h"
+#include "Theme.h"
 
 #include "core/PapyrusCompiler.h"
 #include "core/PapyrusSyntax.h"
@@ -71,10 +72,6 @@ struct CompileJob
 
 namespace
 {
-	constexpr std::uint32_t kWarn = IM_COL32(255, 190, 80, 255);
-	constexpr std::uint32_t kBad = IM_COL32(255, 110, 110, 255);
-	constexpr std::uint32_t kGood = IM_COL32(130, 220, 130, 255);
-	constexpr std::uint32_t kDim = IM_COL32(150, 150, 150, 255);
 
 	std::string Lower(std::string s)
 	{
@@ -662,13 +659,6 @@ void App::drawDoc(ScriptDoc& d)
 	}
 	ImGui::SameLine();
 	ImGui::Checkbox("Outline", &d.showOutline);
-	ImGui::SameLine();
-	if (ImGui::Checkbox("Light", &_editorLight)) {
-		for (auto& x : _docs) {
-			x->editor.SetPalette(PapyrusPalette(_editorLight));
-		}
-		saveSettings();
-	}
 
 	// ---- where it came from
 	if (d.decompiled) {
@@ -676,7 +666,7 @@ void App::drawDoc(ScriptDoc& d)
 		ImGui::TextDisabled("Decompiled from %s. Comments and the original layout are not stored in a .pex.%s", from.c_str(),
 			d.psc.empty() ? " Save it as a .psc to keep it." : "");
 		if (!d.decompileWarnings.empty()) {
-			TextColored(kWarn, Fmt("%zu part(s) could not be rebuilt cleanly (marked ; in the code).", d.decompileWarnings.size()));
+			TextColored(theme::Warn(), Fmt("%zu part(s) could not be rebuilt cleanly (marked ; in the code).", d.decompileWarnings.size()));
 		}
 	} else {
 		ImGui::TextDisabled("%s%s", platform::ToUtf8(d.psc).c_str(), d.sourceMod.empty() ? "" : ("   (" + d.sourceMod + ")").c_str());
@@ -686,10 +676,10 @@ void App::drawDoc(ScriptDoc& d)
 		}
 	}
 	if (!d.note.empty()) {
-		TextColored(kWarn, d.note);
+		TextColored(theme::Warn(), d.note);
 	}
 	if (!d.analysis.problems.empty()) {
-		TextColored(kWarn, "Blocks: " + d.analysis.problems.front() + (d.analysis.problems.size() > 1 ? Fmt("  (+%zu more)", d.analysis.problems.size() - 1) : ""));
+		TextColored(theme::Warn(), "Blocks: " + d.analysis.problems.front() + (d.analysis.problems.size() > 1 ? Fmt("  (+%zu more)", d.analysis.problems.size() - 1) : ""));
 	}
 
 	if (!ImGui::BeginTabBar("views")) {
@@ -705,8 +695,11 @@ void App::drawDoc(ScriptDoc& d)
 			ImGui::BeginChild("outline", ImVec2(230, h), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
 			const auto cur = ed.GetCursorPosition().mLine;
 			const char* kinds[] = { "P", "F", "E", "S", "V" };
-			const ImU32 kc[] = { IM_COL32(86, 200, 180, 255), IM_COL32(255, 207, 175, 255), IM_COL32(223, 196, 125, 255), IM_COL32(206, 223, 153, 255),
+			const ImU32 kcDark[] = { IM_COL32(86, 200, 180, 255), IM_COL32(255, 207, 175, 255), IM_COL32(223, 196, 125, 255), IM_COL32(206, 223, 153, 255),
 				IM_COL32(170, 170, 170, 255) };
+			const ImU32 kcLight[] = { IM_COL32(0, 110, 110, 255), IM_COL32(120, 100, 0, 255), IM_COL32(170, 0, 170, 255), IM_COL32(70, 70, 230, 255),
+				IM_COL32(100, 100, 100, 255) };
+			const ImU32* kc = _editorLight ? kcLight : kcDark;
 			for (std::size_t i = 0; i < d.analysis.outline.size(); ++i) {
 				const auto& it = d.analysis.outline[i];
 				ImGui::PushID(static_cast<int>(i));
@@ -821,7 +814,7 @@ void App::drawDoc(ScriptDoc& d)
 		// compiler messages
 		if (d.compiled) {
 			ImGui::BeginChild("compile", ImVec2(0, 0), ImGuiChildFlags_Borders);
-			TextColored(d.compileOk ? kGood : kBad, d.summary);
+			TextColored(d.compileOk ? theme::Good() : theme::Bad(), d.summary);
 			for (std::size_t i = 0; i < d.messages.size(); ++i) {
 				const auto& m = d.messages[i];
 				const auto  stem = platform::ToUtf8(platform::FromUtf8(m.file).stem());
@@ -897,7 +890,7 @@ void App::drawDoc(ScriptDoc& d)
 			}
 		}
 		if (!d.disasmError.empty()) {
-			TextColored(kBad, d.disasmError);
+			TextColored(theme::Bad(), d.disasmError);
 		} else {
 			if (ImGui::Button("Copy")) {
 				std::string all;
@@ -919,7 +912,7 @@ void App::drawDoc(ScriptDoc& d)
 					const auto& l = d.disasm[static_cast<std::size_t>(i)];
 					const auto  t = l.find_first_not_of(' ');
 					if (t != std::string::npos && l[t] == ';') {
-						ImGui::PushStyleColor(ImGuiCol_Text, kDim);
+						ImGui::PushStyleColor(ImGuiCol_Text, theme::Dim());
 						ImGui::TextUnformatted(l.c_str());
 						ImGui::PopStyleColor();
 					} else {
@@ -1263,7 +1256,7 @@ void App::drawCompileSettings()
 		if (detected) {
 			ImGui::TextDisabled("Using the one found in the game folder.");
 		} else {
-			TextColored(kWarn, "Not found in the game folder. Install the Creation Kit (Steam), or browse to PapyrusCompiler.exe.");
+			TextColored(theme::Warn(), "Not found in the game folder. Install the Creation Kit (Steam), or browse to PapyrusCompiler.exe.");
 		}
 	}
 	char flags[128];
@@ -1502,4 +1495,17 @@ std::filesystem::path App::savesFolder() const
 		}
 	}
 	return best;
+}
+
+void App::setTheme(int a_kind)
+{
+	theme::Apply(static_cast<theme::Kind>(a_kind));
+	// the script editor follows: its light colours on the light theme, its dark ones otherwise
+	_editorLight = theme::IsLight();
+	for (auto& x : _docs) {
+		x->editor.SetPalette(PapyrusPalette(_editorLight));
+	}
+	_rowsDirty = true;  // list rows keep their colours
+	_modOrder.clear();
+	saveSettings();
 }

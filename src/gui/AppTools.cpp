@@ -4,6 +4,7 @@
 #include "App.h"
 
 #include "Platform.h"
+#include "Theme.h"
 
 #include "imgui.h"
 
@@ -18,10 +19,6 @@ using namespace ess;
 
 namespace
 {
-	constexpr std::uint32_t kWarn = IM_COL32(255, 190, 80, 255);
-	constexpr std::uint32_t kBad = IM_COL32(255, 110, 110, 255);
-	constexpr std::uint32_t kDim = IM_COL32(150, 150, 150, 255);
-	constexpr std::uint32_t kGood = IM_COL32(130, 220, 130, 255);
 
 	std::string Fmt(const char* f, auto... args)
 	{
@@ -318,7 +315,7 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 		ImGui::Text("Base object: %s", formText(d.baseObject).c_str());
 	}
 	if (d.hasHavok) {
-		TextColored(kWarn, Fmt("Has saved physics (Havok) state: %zu bytes.", d.havokSize));
+		TextColored(theme::Warn(), Fmt("Has saved physics (Havok) state: %zu bytes.", d.havokSize));
 		if (d.complete && ImGui::SmallButton("Reset this object's Havok")) {
 			const auto refRaw = c.refID.data;
 			confirm("Reset Havok", "Zero the saved physics state of this object? It falls back to its resting position when loaded.",
@@ -345,7 +342,7 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 		}
 		ImGui::Text("Form list: %zu entries, %zu null", d.listRaw.size(), nulls);
 		if (nulls) {
-			TextColored(kWarn, "This list has null entries.");
+			TextColored(theme::Warn(), "This list has null entries.");
 			if (ImGui::SmallButton("Cleanse this form list")) {
 				const auto r = cf::PurifyFormLists(*_save, false, c.refID.data);
 				markChanged(Fmt("Removed %zu null entries from the form list", r.entries));
@@ -356,9 +353,9 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 	if (!d.supported) {
 		ImGui::TextDisabled("This change form type is not decoded (ReSaver does not decode it either); the raw bytes are below.");
 	} else if (d.complete) {
-		TextColored(kGood, Fmt("Fully decoded (%zu bytes).", d.bodySize));
+		TextColored(theme::Good(), Fmt("Fully decoded (%zu bytes).", d.bodySize));
 	} else {
-		TextColored(kWarn, Fmt("Partly decoded (%zu of %zu bytes): %s", d.consumed, d.bodySize, d.error.c_str()));
+		TextColored(theme::Warn(), Fmt("Partly decoded (%zu of %zu bytes): %s", d.consumed, d.bodySize, d.error.c_str()));
 	}
 	for (std::size_t i = 0; i < d.root.kids.size(); ++i) {
 		drawCfNode(d.root.kids[i], 0, static_cast<int>(i));
@@ -438,7 +435,7 @@ void App::drawBatchModal()
 			ImGui::Checkbox(Fmt("%s   (%zu instances, %zu threads)", m.script.c_str(), m.instances, m.threads).c_str(), &m.selected);
 			if (!m.prompt.empty()) {
 				ImGui::SameLine();
-				TextColored(kWarn, "@@ " + m.prompt);
+				TextColored(theme::Warn(), "@@ " + m.prompt);
 			}
 			ImGui::PopID();
 		}
@@ -500,7 +497,7 @@ void App::drawCompare()
 	for (const auto& l : _compareLines) {
 		if (!l.empty() && l.back() == ':') {
 			ImGui::Spacing();
-			TextColored(kWarn, l);
+			TextColored(theme::Warn(), l);
 		} else {
 			ImGui::TextUnformatted(l.c_str());
 		}

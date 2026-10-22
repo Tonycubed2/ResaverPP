@@ -285,7 +285,8 @@ private:
 	std::filesystem::path gameFolder() const;
 	std::filesystem::path compilerPath() const;
 	std::filesystem::path compileOutputFolder(const ScriptDoc& d) const;
-	bool ensureSourcesScanned();  // false while the mods are being scanned (in the background)
+	bool ensureSourcesScanned();
+	void setTheme(int a_kind);  // 0 light, 1 grey, 2 dark  // false while the mods are being scanned (in the background)
 	void pollScan();
 	bool scanning() const { return _scanThread.joinable(); }
 	void autoDetectPaths(bool a_force);  // Mod Organizer, game folder (AppScripts.cpp)
@@ -424,7 +425,7 @@ private:
 	std::shared_ptr<CompileJob>             _compileJob;
 	std::shared_ptr<void>                   _scriptNamesCache;  // psc::Context shared by the editors
 	std::size_t                             _scriptNamesKey = 0;
-	bool        _decompileAsk = false, _decompileAlways = false, _editorLight = false;
+	bool        _decompileAsk = false, _decompileAlways = false, _editorLight = true;
 	std::string _decompileScript, _decompileFn, _decompileState, _decompileWhere;
 	int         _decompileInstr = -1;
 	bool        _showCompileSettings = false;
