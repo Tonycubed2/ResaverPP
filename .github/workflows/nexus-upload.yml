@@ -6,8 +6,7 @@ name: Upload to Nexus Mods
 #
 # Needs, in the "nexus" environment (Settings -> Environments -> nexus):
 #   secret   NEXUSMODS_API_KEY  - personal API key from nexusmods.com/settings/api-keys
-#   variable NEXUSMODS_FILE_ID  - "File ID" of the main file (Files tab -> Advanced -> API)
-#   variable NEXUSMODS_MOD_ID   - "Unique Mod ID" (same dialog), so the changelog is attached
+# File ID 8208150 and Unique Mod ID 7318624468677 are the defaults below (Files tab -> Advanced -> API).
 
 on:
   workflow_dispatch:
@@ -20,9 +19,13 @@ on:
         required: false
         default: ""
       file_id:
-        description: "Nexus File ID of the main file (empty = variable NEXUSMODS_FILE_ID)"
+        description: "Nexus File ID of the main file (Files tab -> Advanced -> API -> File ID)"
         required: false
-        default: ""
+        default: "8208150"
+      mod_id:
+        description: "Nexus Unique Mod ID (same dialog), so the changelog is attached"
+        required: false
+        default: "7318624468677"
       display_name:
         description: "File name shown on Nexus"
         required: false
@@ -39,7 +42,7 @@ jobs:
       - name: Check settings
         env:
           FILE_ID: ${{ inputs.file_id || vars.NEXUSMODS_FILE_ID }}
-          MOD_ID: ${{ vars.NEXUSMODS_MOD_ID }}
+          MOD_ID: ${{ inputs.mod_id || vars.NEXUSMODS_MOD_ID }}
           HAS_KEY: ${{ secrets.NEXUSMODS_API_KEY != '' }}
         run: |
           if [ "$HAS_KEY" != "true" ]; then echo "::error::Secret NEXUSMODS_API_KEY is missing in the nexus environment"; exit 1; fi
@@ -101,6 +104,6 @@ jobs:
           filename: ReSaverPP.zip
           display_name: ${{ inputs.display_name }}
           version: ${{ inputs.version }}
-          mod_id: ${{ vars.NEXUSMODS_MOD_ID }}
+          mod_id: ${{ inputs.mod_id || vars.NEXUSMODS_MOD_ID }}
           changelog: ${{ steps.log.outputs.text }}
           update_mod_version: true
