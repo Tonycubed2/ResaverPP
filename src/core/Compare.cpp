@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Compare.h"
+#include "Text.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -74,8 +75,10 @@ namespace ess::compare
 		r.identical = a_a.buildBody() == a_b.buildBody();
 		const auto& ha = a_a.header;
 		const auto& hb = a_b.header;
-		r.header.push_back(Fmt("A: save #%u  %s, level %u, %s, %s", ha.saveNumber, ha.playerName.c_str(), ha.playerLevel, ha.location.c_str(), ha.gameDate.c_str()));
-		r.header.push_back(Fmt("B: save #%u  %s, level %u, %s, %s", hb.saveNumber, hb.playerName.c_str(), hb.playerLevel, hb.location.c_str(), hb.gameDate.c_str()));
+		r.header.push_back(Fmt("A: save #%u  %s, level %u, %s, %s", ha.saveNumber, text::ToUtf8(ha.playerName).c_str(), ha.playerLevel,
+			text::ToUtf8(ha.location).c_str(), text::ToUtf8(ha.gameDate).c_str()));
+		r.header.push_back(Fmt("B: save #%u  %s, level %u, %s, %s", hb.saveNumber, text::ToUtf8(hb.playerName).c_str(), hb.playerLevel,
+			text::ToUtf8(hb.location).c_str(), text::ToUtf8(hb.gameDate).c_str()));
 
 		auto plugSet = [](const SaveFile& s) {
 			std::set<std::string> v(s.plugins.full.begin(), s.plugins.full.end());

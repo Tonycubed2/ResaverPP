@@ -264,7 +264,9 @@ private:
 	std::filesystem::path gameFolder() const;
 	std::filesystem::path compilerPath() const;
 	std::filesystem::path compileOutputFolder(const ScriptDoc& d) const;
-	void ensureSourcesScanned();
+	bool ensureSourcesScanned();  // false while the mods are being scanned (in the background)
+	void pollScan();
+	bool scanning() const { return _scanThread.joinable(); }
 	void autoDetectPaths(bool a_force);  // Mod Organizer, game folder (AppScripts.cpp)
 	std::filesystem::path savesFolder() const;  // where the newest saves are
 	void fixMcmJam();
@@ -326,6 +328,18 @@ private:
 	bool                              _modsDirty = true;
 	bool                              _modsOnlyScripts = true;
 	ess::ScriptSources                _sources;
+	// the mods scan runs on its own thread (it can take a while, much longer inside Mod Organizer)
+	std::thread                                _scanThread;
+	std::unique_ptr<ess::ScriptSources>        _scanResult;
+	std::unique_ptr<ess::ScanProgress>         _scanProgress;
+	std::atomic<bool>                          _scanDone{ false };
+	std::filesystem::path                      _scanRoot;
+	struct PendingView
+	{
+		std::string script, function, state;
+		int         instruction = -1;
+	};
+	std::optional<PendingView> _pendingView;  // a script double-clicked while scanning
 	std::string                       _sourcesPath;
 	std::string                       _profile;
 	std::optional<ess::Mo2Instance>   _mo2;

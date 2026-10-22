@@ -236,14 +236,19 @@ namespace
 // opening scripts
 // ==========================================================================================
 
-void App::ensureSourcesScanned()
+bool App::ensureSourcesScanned()
 {
 	if (!_settingsLoaded) {
 		loadSettings();
 	}
+	if (scanning()) {
+		return false;
+	}
 	if (!_sources.scanned() && !_sourcesPath.empty()) {
 		scanSources(platform::FromUtf8(_sourcesPath));
+		return false;
 	}
+	return true;
 }
 
 void App::scriptItem(const std::string& a_script, const std::string& a_function, const std::string& a_state, int a_instruction)
@@ -261,7 +266,12 @@ void App::scriptItem(const std::string& a_script, const std::string& a_function,
 
 void App::viewScript(const std::string& a_script, const std::string& a_function, const std::string& a_state, int a_instruction)
 {
-	ensureSourcesScanned();
+	if (!ensureSourcesScanned()) {
+		// opened as soon as the scan of the mods is done
+		_pendingView = PendingView{ a_script, a_function, a_state, a_instruction };
+		_status = "Scanning your mods first: " + a_script + " opens when it is done...";
+		return;
+	}
 	const auto key = Lower(a_script);
 	for (std::size_t i = 0; i < _docs.size(); ++i) {
 		if (Lower(_docs[i]->name) == key) {

@@ -24,5 +24,6 @@ namespace platform
 	// Skyrim Special Edition installs found in the registry (Bethesda key, Steam libraries, GOG), existing ones only
 	std::vector<std::filesystem::path>   SkyrimInstallFolders();
 	std::filesystem::path                ExeFolder();  // folder of ReSaverPP.exe
+	bool                                 RunningUnderMO2();  // started from Mod Organizer (its virtual file system is loaded)
 	std::filesystem::path                FromUtf8(const std::string& a_utf8);
 }

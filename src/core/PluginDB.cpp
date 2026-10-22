@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "PluginDB.h"
+#include "Text.h"
 
 #include "Bsa.h"
 #include "ByteIO.h"
@@ -90,54 +91,8 @@ namespace ess
 		}
 	}
 
-	std::string GameTextToUtf8(const std::string& a_text)
-	{
-		// valid UTF-8?
-		bool ascii = true, valid = true;
-		for (std::size_t i = 0; i < a_text.size();) {
-			const auto c = static_cast<unsigned char>(a_text[i]);
-			if (c < 0x80) {
-				++i;
-				continue;
-			}
-			ascii = false;
-			int n = (c & 0xE0) == 0xC0 ? 1 : (c & 0xF0) == 0xE0 ? 2 : (c & 0xF8) == 0xF0 ? 3 : -1;
-			if (n < 0) {
-				valid = false;
-				break;
-			}
-			for (int k = 1; k <= n; ++k) {
-				if (i + k >= a_text.size() || (static_cast<unsigned char>(a_text[i + k]) & 0xC0) != 0x80) {
-					valid = false;
-					break;
-				}
-			}
-			if (!valid) {
-				break;
-			}
-			i += n + 1;
-		}
-		if (ascii || valid) {
-			return a_text;
-		}
-		static const char16_t cp1252[32] = { 0x20AC, 0x81, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x8D,
-			0x017D, 0x8F, 0x90, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x9D, 0x017E, 0x0178 };
-		std::string out;
-		for (unsigned char c : a_text) {
-			char32_t u = c < 0x80 ? c : (c < 0xA0 ? cp1252[c - 0x80] : c);
-			if (u < 0x80) {
-				out.push_back(static_cast<char>(u));
-			} else if (u < 0x800) {
-				out.push_back(static_cast<char>(0xC0 | (u >> 6)));
-				out.push_back(static_cast<char>(0x80 | (u & 0x3F)));
-			} else {
-				out.push_back(static_cast<char>(0xE0 | (u >> 12)));
-				out.push_back(static_cast<char>(0x80 | ((u >> 6) & 0x3F)));
-				out.push_back(static_cast<char>(0x80 | (u & 0x3F)));
-			}
-		}
-		return out;
-	}
+	std::string GameTextToUtf8(const std::string& a_text) { return text::ToUtf8(a_text); }
+
 
 	void PrepareInput(const SaveFile& a_save, PluginDB::Input& a_in)
 	{

@@ -109,6 +109,8 @@ namespace platform
 
 	bool HasNativeDialogs() { return true; }
 
+	bool RunningUnderMO2() { return GetModuleHandleW(L"usvfs_x64.dll") != nullptr || GetModuleHandleW(L"usvfs_x86.dll") != nullptr; }
+
 	std::filesystem::path DefaultSavesFolder()
 	{
 		PWSTR docs = nullptr;
@@ -269,5 +271,6 @@ namespace platform
 		return v;
 	}
 	std::filesystem::path ExeFolder() { return std::filesystem::current_path(); }
+	bool                  RunningUnderMO2() { return std::getenv("RESAVERPP_TEST_MO2") != nullptr; }
 #endif
 }

@@ -3,6 +3,7 @@
 // mods folder (or a plain Data folder): loose Scripts\*.pex files and the file lists of BSAs.
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <map>
@@ -42,6 +43,13 @@ namespace ess
 	// Enabled mods of a profile, highest priority first (MO2 writes modlist.txt that way).
 	std::vector<std::string> LoadModList(const std::filesystem::path& a_profileDir);
 
+	// Progress of a scan running on another thread.
+	struct ScanProgress
+	{
+		std::atomic<std::size_t> done{ 0 }, total{ 0 };
+		std::atomic<bool>        cancel{ false };
+	};
+
 	class ScriptSources
 	{
 	public:
@@ -51,7 +59,10 @@ namespace ess
 		// Disabled mods are scanned too (after the enabled ones, marked enabled=false), and the game's
 		// own Data folder last as "Game Data", so vanilla scripts are known.
 		void scan(const std::filesystem::path& a_root, const std::vector<std::string>* a_modOrder = nullptr,
-			const std::filesystem::path& a_overwrite = {}, const std::filesystem::path& a_gameData = {});
+			const std::filesystem::path& a_overwrite = {}, const std::filesystem::path& a_gameData = {}, ScanProgress* a_progress = nullptr);
+		// Running inside Mod Organizer (its virtual file system): the game's Data folder shows every mod's
+		// files too, so only the game's own archives are read there (the mods are scanned in their folders).
+		bool                                 gameDataVanillaOnly = false;
 		bool                                 ranked = false;  // providers are in MO2 priority order
 		bool                                 gameDataScanned = false;  // vanilla scripts/BSAs were included
 		std::set<std::string>                enabledFolders;  // mod folders enabled in the profile

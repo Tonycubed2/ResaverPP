@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -34,49 +35,98 @@ namespace
 
 	ImFont* g_mono = nullptr;
 
-	// fixed-width font for the script viewer
-	void LoadMonoFont(float a_scale)
+	// Characters beyond basic Latin: names and places in saves from other languages (Polish, Czech,
+	// Russian, Greek, Vietnamese, ...). Segoe UI / Consolas cover these.
+	const ImWchar* WideRanges()
 	{
-		ImGuiIO&    io = ImGui::GetIO();
-		const char* candidates[] = {
-			"C:\\Windows\\Fonts\\consola.ttf",
-			"C:\\Windows\\Fonts\\cour.ttf",
-			"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-			"/usr/share/fonts/TTF/DejaVuSansMono.ttf",
-		};
-		for (const char* f : candidates) {
-			std::error_code ec;
-			if (std::filesystem::exists(f, ec)) {
-				if ((g_mono = io.Fonts->AddFontFromFileTTF(f, 16.0f * a_scale)) != nullptr) {
-					return;
+		static const ImWchar r[] = { 0x0020, 0x024F, 0x0250, 0x02FF, 0x0300, 0x036F, 0x0370, 0x03FF, 0x0400, 0x052F, 0x1E00, 0x1EFF, 0x2000, 0x206F,
+			0x20A0, 0x20CF, 0x2100, 0x218F, 0x2190, 0x21FF, 0x2200, 0x22FF, 0x2500, 0x25FF, 0xFFFD, 0xFFFD, 0 };
+		return r;
+	}
+
+	// East Asian text needs a font with those characters: picked from the game text code page (the
+	// "codepage=" setting, else the system's)
+	struct AsianFont
+	{
+		std::vector<const char*> files;
+		const ImWchar*           ranges = nullptr;
+	};
+
+	unsigned TextCodePage()
+	{
+		std::ifstream f(platform::SettingsFile());
+		for (std::string line; std::getline(f, line);) {
+			if (line.rfind("codepage=", 0) == 0) {
+				if (const unsigned cp = static_cast<unsigned>(std::strtoul(line.c_str() + 9, nullptr, 10))) {
+					return cp;
 				}
 			}
 		}
-		ImFontConfig cfg;
-		cfg.SizePixels = 13.0f * a_scale;
-		g_mono = io.Fonts->AddFontDefault(&cfg);  // ProggyClean is fixed-width too
+#ifdef _WIN32
+		return GetACP();
+#else
+		return 1252;
+#endif
+	}
+
+	AsianFont PickAsianFont()
+	{
+		auto& io = ImGui::GetIO();
+		switch (TextCodePage()) {
+		case 932: return { { "C:\\Windows\\Fonts\\YuGothM.ttc", "C:\\Windows\\Fonts\\meiryo.ttc", "C:\\Windows\\Fonts\\msgothic.ttc" }, io.Fonts->GetGlyphRangesJapanese() };
+		case 936: return { { "C:\\Windows\\Fonts\\msyh.ttc", "C:\\Windows\\Fonts\\simsun.ttc" }, io.Fonts->GetGlyphRangesChineseFull() };
+		case 950: return { { "C:\\Windows\\Fonts\\msjh.ttc", "C:\\Windows\\Fonts\\mingliu.ttc" }, io.Fonts->GetGlyphRangesChineseFull() };
+		case 949: return { { "C:\\Windows\\Fonts\\malgun.ttf", "C:\\Windows\\Fonts\\gulim.ttc" }, io.Fonts->GetGlyphRangesKorean() };
+		case 874: return { { "C:\\Windows\\Fonts\\LeelawUI.ttf", "C:\\Windows\\Fonts\\tahoma.ttf" }, io.Fonts->GetGlyphRangesThai() };
+		default: return {};
+		}
+	}
+
+	ImFont* AddFont(const std::vector<const char*>& a_files, float a_size, bool a_fallbackDefault)
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		ImFont*  font = nullptr;
+		for (const char* f : a_files) {
+			std::error_code ec;
+			if (std::filesystem::exists(f, ec) && (font = io.Fonts->AddFontFromFileTTF(f, a_size, nullptr, WideRanges())) != nullptr) {
+				break;
+			}
+		}
+		if (!font && a_fallbackDefault) {
+			ImFontConfig cfg;
+			cfg.SizePixels = a_size * 13.0f / 17.0f;
+			font = io.Fonts->AddFontDefault(&cfg);
+		}
+		// merge East Asian characters into it when the game text is in such a language
+		if (font) {
+			const auto asian = PickAsianFont();
+			for (const char* f : asian.files) {
+				std::error_code ec;
+				if (!std::filesystem::exists(f, ec)) {
+					continue;
+				}
+				ImFontConfig cfg;
+				cfg.MergeMode = true;
+				if (io.Fonts->AddFontFromFileTTF(f, a_size, &cfg, asian.ranges)) {
+					break;
+				}
+			}
+		}
+		return font;
+	}
+
+	// fixed-width font for the script viewer
+	void LoadMonoFont(float a_scale)
+	{
+		g_mono = AddFont({ "C:\\Windows\\Fonts\\consola.ttf", "C:\\Windows\\Fonts\\cour.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+							 "/usr/share/fonts/TTF/DejaVuSansMono.ttf" },
+			16.0f * a_scale, true);
 	}
 
 	void LoadFonts(float a_scale)
 	{
-		ImGuiIO& io = ImGui::GetIO();
-		const float size = 17.0f * a_scale;
-		const char* candidates[] = {
-			"C:\\Windows\\Fonts\\segoeui.ttf",
-			"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-			"/usr/share/fonts/TTF/DejaVuSans.ttf",
-		};
-		for (const char* f : candidates) {
-			std::error_code ec;
-			if (std::filesystem::exists(f, ec)) {
-				if (io.Fonts->AddFontFromFileTTF(f, size)) {
-					return;
-				}
-			}
-		}
-		ImFontConfig cfg;
-		cfg.SizePixels = 13.0f * a_scale;
-		io.Fonts->AddFontDefault(&cfg);
+		AddFont({ "C:\\Windows\\Fonts\\segoeui.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf" },
+			17.0f * a_scale, true);
 	}
 
 	void Style()

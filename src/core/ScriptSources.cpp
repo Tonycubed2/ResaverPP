@@ -52,6 +52,15 @@ namespace ess
 		std::error_code          ec;
 		std::vector<std::string> plugins;
 		std::vector<std::filesystem::path> bsas;
+		const bool vanillaOnly = gameDataVanillaOnly && a_modName == "Game Data";
+		auto       vanillaArchive = [](const std::string& n) {
+            for (const char* v : { "update.bsa", "dawnguard.bsa", "hearthfires.bsa", "dragonborn.bsa", "_resourcepack.bsa", "marketplacetextures.bsa" }) {
+                if (n == v) {
+                    return true;
+                }
+            }
+            return n.rfind("skyrim - ", 0) == 0 || n.rfind("cc", 0) == 0;
+		};
 		for (const auto& e : std::filesystem::directory_iterator(a_dir, ec)) {
 			if (!e.is_regular_file(ec)) {
 				continue;
@@ -59,7 +68,7 @@ namespace ess
 			const auto ext = Lower(U8(e.path().extension()));
 			if (IsPlugin(ext)) {
 				plugins.push_back(Lower(U8(e.path().filename())));
-			} else if (ext == ".bsa") {
+			} else if (ext == ".bsa" && (!vanillaOnly || vanillaArchive(Lower(U8(e.path().filename()))))) {
 				bsas.push_back(e.path());
 			}
 		}
@@ -135,8 +144,14 @@ namespace ess
 	}
 
 	void ScriptSources::scan(const std::filesystem::path& a_root, const std::vector<std::string>* a_modOrder, const std::filesystem::path& a_overwrite,
-		const std::filesystem::path& a_gameData)
+		const std::filesystem::path& a_gameData, ScanProgress* a_progress)
 	{
+		auto step = [&] {
+			if (a_progress) {
+				++a_progress->done;
+			}
+		};
+		auto cancelled = [&] { return a_progress && a_progress->cancel.load(); };
 		_byScript.clear();
 		pluginFolder.clear();
 		scriptsByMod.clear();
@@ -158,6 +173,13 @@ namespace ess
 			errors.push_back("not a folder: " + U8(a_root));
 			return;
 		}
+		if (a_progress) {
+			std::size_t n = 2;  // overwrite + the game's Data folder
+			for (const auto& e : std::filesystem::directory_iterator(a_root, ec)) {
+				n += e.is_directory(ec) ? 1 : 0;
+			}
+			a_progress->total = n;
+		}
 		if (a_modOrder && !a_modOrder->empty()) {
 			// MO2 priority order: overwrite first, then modlist.txt from the top. The first
 			// provider recorded for a script is therefore the one the game loads.
@@ -165,6 +187,7 @@ namespace ess
 			if (!a_overwrite.empty() && std::filesystem::is_directory(a_overwrite, ec)) {
 				scanFolder(a_overwrite, "Overwrite");
 				++modsScanned;
+				step();
 			}
 			std::set<std::string> listed;
 			for (const auto& name : *a_modOrder) {
@@ -174,9 +197,14 @@ namespace ess
 					scanFolder(dir, name);
 					++modsScanned;
 				}
+				step();
+				if (cancelled()) {
+					return;
+				}
 			}
 			// the game's own Data folder (vanilla BSAs) has the lowest priority of the loaded files
 			scanGameData();
+			step();
 			// disabled mods after that: only credited for scripts nothing loaded provides
 			std::vector<std::filesystem::path> disabled;
 			for (const auto& e : std::filesystem::directory_iterator(a_root, ec)) {
@@ -188,6 +216,10 @@ namespace ess
 			for (const auto& d : disabled) {
 				scanFolder(d, U8(d.filename()), false);
 				++disabledScanned;
+				step();
+				if (cancelled()) {
+					return;
+				}
 			}
 			return;
 		}
@@ -211,6 +243,10 @@ namespace ess
 			if (e.is_directory(ec)) {
 				scanFolder(e.path(), U8(e.path().filename()));
 				++modsScanned;
+				step();
+				if (cancelled()) {
+					return;
+				}
 			}
 		}
 		scanGameData();

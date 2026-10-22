@@ -5,6 +5,8 @@
 
 #include "Platform.h"
 
+#include "core/Text.h"
+
 #include "imgui.h"
 
 #include <algorithm>
@@ -581,6 +583,40 @@ void App::drawSettings()
 		scanSources(platform::FromUtf8(_sourcesPath));
 	}
 	ch |= ImGui::Checkbox("Read plugin names automatically", &_autoNames);
+	ImGui::SeparatorText("Language of game text");
+	{
+		struct Cp
+		{
+			unsigned    cp;
+			const char* name;
+		};
+		static const Cp cps[] = { { 0, "Automatic" }, { 65001, "UTF-8" }, { 1250, "Central European (Polish, Czech, Hungarian...) 1250" },
+			{ 1251, "Cyrillic (Russian, Ukrainian...) 1251" }, { 1252, "Western European 1252" }, { 1253, "Greek 1253" }, { 1254, "Turkish 1254" },
+			{ 1257, "Baltic 1257" }, { 1258, "Vietnamese 1258" }, { 874, "Thai 874" }, { 932, "Japanese 932" }, { 936, "Chinese Simplified 936" },
+			{ 949, "Korean 949" }, { 950, "Chinese Traditional 950" } };
+		std::string current = "Automatic";
+		for (const auto& c : cps) {
+			if (c.cp == text::CodePage()) {
+				current = c.name;
+			}
+		}
+		if (text::CodePage() == 0) {
+			current = Fmt("Automatic (this system: %u)", text::EffectiveCodePage());
+		}
+		ImGui::SetNextItemWidth(420);
+		if (ImGui::BeginCombo("Text encoding", current.c_str())) {
+			for (const auto& c : cps) {
+				if (ImGui::Selectable(c.name, c.cp == text::CodePage())) {
+					text::SetCodePage(c.cp);
+					_rowsDirty = true;
+					ch = true;
+				}
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::TextDisabled("Names and places in saves are shown in this encoding when they are not UTF-8.\n"
+							"Japanese, Chinese, Korean and Thai characters need a restart after changing it (fonts).");
+	}
 	ImGui::SeparatorText("Saving");
 	const char* comp[] = { "Keep the save's compression", "LZ4 (game default)", "zlib", "Uncompressed" };
 	int         c = _saveCompression + 1;

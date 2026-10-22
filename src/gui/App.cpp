@@ -3,6 +3,8 @@
 
 #include "Platform.h"
 
+#include "core/Text.h"
+
 #include "imgui.h"
 
 #include <algorithm>
@@ -352,7 +354,7 @@ std::string App::describeVar(const Variable& v) const
 	case VType::kInt: return std::to_string(static_cast<std::int32_t>(v.value));
 	case VType::kFloat: return Fmt("%g", v.asFloat());
 	case VType::kBool: return v.value ? "True" : "False";
-	case VType::kString: return "\"" + p.str(static_cast<TStr>(v.value)) + "\"";
+	case VType::kString: return "\"" + text::ToUtf8(p.str(static_cast<TStr>(v.value))) + "\"";
 	case VType::kVariant: return v.inner ? "Variant: " + describeVar(*v.inner) : "Variant: None";
 	case VType::kRef:
 	case VType::kStruct:
@@ -534,7 +536,7 @@ void App::rebuildRows()
 	case Cat::kStrings:
 		for (std::size_t i = 0; i < p.strings.size(); ++i) {
 			const auto len = p.strings[i].size();
-			add(i, Fmt("%6zu  %s", i, p.strings[i].c_str()), len >= 512 ? kWarn : 0, !F.longStrings || len >= 512, len, len);
+			add(i, Fmt("%6zu  ", i) + text::ToUtf8(p.strings[i]), len >= 512 ? kWarn : 0, !F.longStrings || len >= 512, len, len);
 		}
 		break;
 	case Cat::kScripts:
@@ -742,6 +744,7 @@ void App::draw()
 	if (!_settingsLoaded) {
 		loadSettings();
 	}
+	pollScan();
 	pollNames();
 	pollWatch();
 	const ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -1423,7 +1426,7 @@ void App::detailString(std::uint64_t k)
 		return;
 	}
 	ImGui::Text("String #%" PRIu64, k);
-	ImGui::TextWrapped("%s", p.strings[k].c_str());
+	ImGui::TextWrapped("%s", text::ToUtf8(p.strings[k]).c_str());
 }
 
 void App::detailScript(std::uint64_t k)
@@ -1782,9 +1785,9 @@ void App::drawOverview()
 		ImGui::SameLine();
 	}
 	ImGui::BeginGroup();
-	ImGui::Text("%s, level %u", h.playerName.c_str(), h.playerLevel);
-	ImGui::TextUnformatted(h.location.c_str());
-	ImGui::TextDisabled("%s  |  %s", h.race.c_str(), h.gameDate.c_str());
+	ImGui::Text("%s, level %u", text::ToUtf8(h.playerName).c_str(), h.playerLevel);
+	ImGui::TextUnformatted(text::ToUtf8(h.location).c_str());
+	ImGui::TextDisabled("%s  |  %s", text::ToUtf8(h.race).c_str(), text::ToUtf8(h.gameDate).c_str());
 	ImGui::Spacing();
 	if (BeginKV("hdr")) {
 		KV("File", platform::ToUtf8(_path.filename()));
@@ -2002,7 +2005,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 3  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 4  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2023,7 +2026,10 @@ void App::drawStatus()
 		ImGui::SameLine();
 	}
 	ImGui::TextUnformatted(_status.c_str());
-	if (namesLoading() && _dbProgress) {
+	if (scanning() && _scanProgress) {
+		ImGui::SameLine(ImGui::GetWindowWidth() - 420);
+		TextColored(kDim, Fmt("Scanning mods %zu/%zu...", _scanProgress->done.load(), _scanProgress->total.load()));
+	} else if (namesLoading() && _dbProgress) {
 		std::string cur;
 		{
 			std::lock_guard l(_dbProgress->m);
@@ -2051,7 +2057,7 @@ void App::beginEdit(Variable* a_var)
 	_editInt = static_cast<std::int32_t>(v->value);
 	_editFloat = v->asFloat();
 	_editBool = v->value != 0;
-	std::snprintf(_editStr, sizeof(_editStr), "%s", v->type == VType::kString ? _save->papyrus()->str(static_cast<TStr>(v->value)).c_str() : "");
+	std::snprintf(_editStr, sizeof(_editStr), "%s", v->type == VType::kString ? text::ToUtf8(_save->papyrus()->str(static_cast<TStr>(v->value))).c_str() : "");
 	_editOpen = true;
 }
 
@@ -2109,7 +2115,7 @@ void App::editPopup()
 		ImGui::InputText("##str", _editStr, sizeof(_editStr));
 		apply = ImGui::Button("Apply", ImVec2(120, 0));
 		if (apply) {
-			v->value = p.internString(_editStr);
+			v->value = p.internString(text::FromUtf8(_editStr, p.str(static_cast<TStr>(v->value))));
 		}
 		break;
 	case VType::kNull:
@@ -2160,6 +2166,8 @@ void App::loadSettings()
 			_autoNames = line.substr(6) != "0";
 		} else if (line.rfind("watch=", 0) == 0 && line.substr(6) == "1") {
 			_watch = true;
+		} else if (line.rfind("codepage=", 0) == 0) {
+			text::SetCodePage(static_cast<unsigned>(std::strtoul(line.c_str() + 9, nullptr, 10)));
 		} else if (line.rfind("game=", 0) == 0) {
 			_gamePath = line.substr(5);
 		} else if (line.rfind("decompile_always=", 0) == 0) {
@@ -2200,6 +2208,7 @@ void App::saveSettings()
 	f << "compression=" << _saveCompression << "\n";
 	f << "watch=" << (_watch ? 1 : 0) << "\n";
 	f << "game=" << _gamePath << "\n";
+	f << "codepage=" << text::CodePage() << "\n";
 	f << "decompile_always=" << (_decompileAlways ? 1 : 0) << "\n";
 	f << "editor_light=" << (_editorLight ? 1 : 0) << "\n";
 	f << "compiler=" << _compilerSetting << "\n";
@@ -2236,11 +2245,42 @@ void App::scanSources(const std::filesystem::path& a_root)
 			gameData = _mo2->gamePath / "Data";
 		}
 	}
-	_sources.scan(a_root, order.empty() ? nullptr : &order, overwrite, gameData);
-	if (_sources.modsScanned == 0 && !_sources.errors.empty()) {
-		_error = "Could not scan " + platform::ToUtf8(a_root) + ":\n\n" + _sources.errors.front();
+	// scan on a worker thread: reading hundreds of mod folders and their BSAs takes a while (much longer
+	// inside Mod Organizer's virtual file system), and the window must keep responding meanwhile
+	if (_scanThread.joinable()) {
+		_scanProgress->cancel = true;
+		_scanThread.join();
+	}
+	_scanRoot = a_root;
+	_scanDone = false;
+	_scanResult = std::make_unique<ScriptSources>();
+	_scanResult->gameDataVanillaOnly = platform::RunningUnderMO2();
+	_scanProgress = std::make_unique<ScanProgress>();
+	auto* res = _scanResult.get();
+	auto* prog = _scanProgress.get();
+	_scanThread = std::thread([this, res, prog, a_root, order, overwrite, gameData] {
+		res->scan(a_root, order.empty() ? nullptr : &order, overwrite, gameData, prog);
+		_scanDone = true;
+	});
+	_status = "Scanning your mods for scripts...";
+}
+
+void App::pollScan()
+{
+	if (!_scanThread.joinable() || !_scanDone) {
 		return;
 	}
+	_scanThread.join();
+	if (_scanProgress->cancel) {
+		return;
+	}
+	const auto a_root = _scanRoot;
+	if (_scanResult->modsScanned == 0 && !_scanResult->errors.empty()) {
+		_error = "Could not scan " + platform::ToUtf8(a_root) + ":\n\n" + _scanResult->errors.front();
+		return;
+	}
+	_sources = std::move(*_scanResult);
+	_scanResult.reset();
 	_sourcesPath = platform::ToUtf8(a_root);
 	saveSettings();
 	_modsDirty = true;
@@ -2250,6 +2290,11 @@ void App::scanSources(const std::filesystem::path& a_root)
 	_status = Fmt("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)", _sources.modsScanned,
 		_sources.ranked ? (" in MO2 profile '" + _profile + "' order").c_str() : "", _sources.pexFound, _sources.bsasRead,
 		_sources.errors.empty() ? "" : Fmt(", %zu unreadable", _sources.errors.size()).c_str());
+	if (_pendingView) {
+		const auto v = *_pendingView;
+		_pendingView.reset();
+		viewScript(v.script, v.function, v.state, v.instruction);
+	}
 }
 
 // ==========================================================================================

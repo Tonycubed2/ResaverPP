@@ -55,6 +55,10 @@ App::~App()
 		_dbThread.join();
 	}
 	stopScriptJobs();
+	if (_scanThread.joinable()) {
+		_scanProgress->cancel = true;
+		_scanThread.join();
+	}
 }
 
 // ==========================================================================================

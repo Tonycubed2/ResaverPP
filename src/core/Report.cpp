@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Report.h"
+#include "Text.h"
 
 #include "ChangeFormData.h"
 #include "Ops.h"
@@ -89,8 +90,8 @@ namespace ess::report
 
 		L.push_back("#ReSaver++ save report");
 		L.push_back("Save:      " + a_saveName);
-		L.push_back(Fmt("Character: %s, level %u, %s", h.playerName.c_str(), h.playerLevel, h.location.c_str()));
-		L.push_back("Game date: " + h.gameDate);
+		L.push_back(Fmt("Character: %s, level %u, %s", text::ToUtf8(h.playerName).c_str(), h.playerLevel, text::ToUtf8(h.location).c_str()));
+		L.push_back("Game date: " + text::ToUtf8(h.gameDate));
 		L.push_back(Fmt("Plugins:   %zu full + %zu light", a_save.plugins.full.size(), a_save.plugins.lite.size()));
 		L.push_back(std::string("Report:    ") + when + (a_mods.hasSources ? "  (scripts credited using the scanned mods folder)" : ""));
 		L.push_back("");
