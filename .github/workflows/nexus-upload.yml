@@ -1,0 +1,106 @@
+name: Upload to Nexus Mods
+
+# Manual release: Actions tab -> "Upload to Nexus Mods" -> Run workflow.
+# Builds ReSaver++ from the current main with MinGW-w64 (same toolchain as the earlier releases), packages
+# ReSaverPP.exe + resaverpp-cli.exe + LICENSE/NOTICE/README, and uploads the zip as a new version of the main file.
+#
+# Needs, in the "nexus" environment (Settings -> Environments -> nexus):
+#   secret   NEXUSMODS_API_KEY  - personal API key from nexusmods.com/settings/api-keys
+#   variable NEXUSMODS_FILE_ID  - "File ID" of the main file (Files tab -> Advanced -> API)
+#   variable NEXUSMODS_MOD_ID   - "Unique Mod ID" (same dialog), so the changelog is attached
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version shown on Nexus (e.g. 12)"
+        required: true
+      changelog:
+        description: "Changelog text (optional, plain text; use ' | ' to separate lines)"
+        required: false
+        default: ""
+      file_id:
+        description: "Nexus File ID of the main file (empty = variable NEXUSMODS_FILE_ID)"
+        required: false
+        default: ""
+      display_name:
+        description: "File name shown on Nexus"
+        required: false
+        default: "ReSaverPP"
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-24.04
+    environment: nexus
+    steps:
+      - name: Check settings
+        env:
+          FILE_ID: ${{ inputs.file_id || vars.NEXUSMODS_FILE_ID }}
+          MOD_ID: ${{ vars.NEXUSMODS_MOD_ID }}
+          HAS_KEY: ${{ secrets.NEXUSMODS_API_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" != "true" ]; then echo "::error::Secret NEXUSMODS_API_KEY is missing in the nexus environment"; exit 1; fi
+          if [ -z "$FILE_ID" ]; then echo "::error::No File ID: set variable NEXUSMODS_FILE_ID in the nexus environment or fill in file_id"; exit 1; fi
+          if [ -z "$MOD_ID" ]; then echo "::warning::Variable NEXUSMODS_MOD_ID is not set - the changelog may not be attached"; fi
+
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Check the version number matches
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          grep -q "project(ReSaverPP VERSION ${VERSION} " CMakeLists.txt || { echo "::error::CMakeLists.txt is not version ${VERSION}"; exit 1; }
+
+      - name: Install MinGW-w64
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q mingw-w64 ninja-build
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64.cmake -DCMAKE_BUILD_TYPE=Release -DRESAVERPP_TESTS=OFF
+          cmake --build build -j4
+          for f in build/ReSaverPP.exe build/resaverpp-cli.exe; do
+            if [ ! -f "$f" ]; then echo "::error::MISSING $f - not uploading"; exit 1; fi
+          done
+
+      - name: Package
+        run: |
+          zip -j -q ReSaverPP.zip build/ReSaverPP.exe build/resaverpp-cli.exe LICENSE NOTICE.md README.md
+          unzip -l ReSaverPP.zip
+
+      - name: Keep the zip (Actions run -> Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReSaverPP-${{ inputs.version }}
+          path: ReSaverPP.zip
+
+      - name: Format changelog
+        id: log
+        if: ${{ inputs.changelog != '' }}
+        env:
+          TEXT: ${{ inputs.changelog }}
+        run: |
+          {
+            echo "text<<CHANGELOG_EOF"
+            printf '%s\n' "$TEXT" | sed 's/ | /\n/g'
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload to Nexus Mods
+        uses: Nexus-Mods/upload-action@main
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_id: ${{ inputs.file_id || vars.NEXUSMODS_FILE_ID }}
+          filename: ReSaverPP.zip
+          display_name: ${{ inputs.display_name }}
+          version: ${{ inputs.version }}
+          mod_id: ${{ vars.NEXUSMODS_MOD_ID }}
+          changelog: ${{ steps.log.outputs.text }}
+          update_mod_version: true
