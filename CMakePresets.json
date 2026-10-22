@@ -1,0 +1,20 @@
+{
+	"version": 3,
+	"cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+	"configurePresets": [
+		{
+			"name": "release",
+			"displayName": "Release (MSVC, Ninja)",
+			"generator": "Ninja",
+			"binaryDir": "${sourceDir}/build/release",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release",
+				"CMAKE_C_COMPILER": "cl.exe",
+				"CMAKE_CXX_COMPILER": "cl.exe"
+			}
+		}
+	],
+	"buildPresets": [
+		{ "name": "release", "configurePreset": "release" }
+	]
+}

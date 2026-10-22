@@ -1,0 +1,11 @@
+build/
+build-win/
+build-static/
+prebuilt/
+out/
+*.ini
+*.ess
+*.skse
+*.bak
+.vs/
+CMakeUserPresets.json

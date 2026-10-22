@@ -1,0 +1,273 @@
+// ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
+#include "Platform.h"
+
+#ifdef _WIN32
+#	include <windows.h>
+#	include <shlobj.h>
+#	include <commdlg.h>
+#endif
+
+#include <cstdlib>
+#include <fstream>
+#include <vector>
+
+namespace platform
+{
+	std::string ToUtf8(const std::filesystem::path& a_path)
+	{
+		const auto u8 = a_path.u8string();
+		return std::string(u8.begin(), u8.end());
+	}
+
+	std::filesystem::path FromUtf8(const std::string& a_utf8)
+	{
+		return std::filesystem::path(std::u8string(a_utf8.begin(), a_utf8.end()));
+	}
+
+	namespace
+	{
+		bool IsSkyrimSE(const std::filesystem::path& p)
+		{
+			std::error_code ec;
+			return !p.empty() && std::filesystem::exists(p / "SkyrimSE.exe", ec);
+		}
+
+		void AddUnique(std::vector<std::filesystem::path>& v, const std::filesystem::path& p)
+		{
+			if (!IsSkyrimSE(p)) {
+				return;
+			}
+			std::error_code ec;
+			for (const auto& x : v) {
+				if (std::filesystem::equivalent(x, p, ec)) {
+					return;
+				}
+			}
+			v.push_back(p);
+		}
+
+		// Steam's libraryfolders.vdf: lines like  "path"  "D:\\SteamLibrary"
+		void AddSteamLibraries(std::vector<std::filesystem::path>& v, const std::filesystem::path& steam)
+		{
+			AddUnique(v, steam / "steamapps" / "common" / "Skyrim Special Edition");
+			std::ifstream f(steam / "steamapps" / "libraryfolders.vdf");
+			for (std::string line; std::getline(f, line);) {
+				const auto k = line.find("\"path\"");
+				if (k == std::string::npos) {
+					continue;
+				}
+				const auto a = line.find('"', k + 6);
+				const auto b = a == std::string::npos ? a : line.rfind('"');
+				if (a == std::string::npos || b <= a) {
+					continue;
+				}
+				std::string val, raw = line.substr(a + 1, b - a - 1);
+				for (std::size_t i = 0; i < raw.size(); ++i) {
+					if (raw[i] == '\\' && i + 1 < raw.size() && raw[i + 1] == '\\') {
+						++i;
+					}
+					val.push_back(raw[i]);
+				}
+				AddUnique(v, FromUtf8(val) / "steamapps" / "common" / "Skyrim Special Edition");
+			}
+		}
+	}
+
+#ifdef _WIN32
+	namespace
+	{
+		std::filesystem::path RegString(HKEY root, const wchar_t* key, const wchar_t* value)
+		{
+			wchar_t buf[2048];
+			DWORD   size = sizeof(buf);
+			if (RegGetValueW(root, key, value, RRF_RT_REG_SZ, nullptr, buf, &size) == ERROR_SUCCESS) {
+				return std::filesystem::path(buf);
+			}
+			return {};
+		}
+	}
+
+	std::vector<std::filesystem::path> SkyrimInstallFolders()
+	{
+		std::vector<std::filesystem::path> v;
+		AddUnique(v, RegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Bethesda Softworks\\Skyrim Special Edition", L"installed path"));
+		AddUnique(v, RegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Bethesda Softworks\\Skyrim Special Edition", L"installed path"));
+		AddUnique(v, RegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1711230643", L"path"));  // GOG Anniversary Edition
+		if (auto steam = RegString(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath"); !steam.empty()) {
+			AddSteamLibraries(v, steam);
+		}
+		AddSteamLibraries(v, "C:\\Program Files (x86)\\Steam");
+		return v;
+	}
+
+	std::filesystem::path ExeFolder()
+	{
+		wchar_t exe[MAX_PATH * 4] = L"";
+		GetModuleFileNameW(nullptr, exe, static_cast<DWORD>(std::size(exe)));
+		return std::filesystem::path(exe).parent_path();
+	}
+
+	bool HasNativeDialogs() { return true; }
+
+	std::filesystem::path DefaultSavesFolder()
+	{
+		PWSTR docs = nullptr;
+		std::filesystem::path p;
+		if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &docs))) {
+			p = std::filesystem::path(docs) / "My Games" / "Skyrim Special Edition" / "Saves";
+			CoTaskMemFree(docs);
+		}
+		return p;
+	}
+
+	std::optional<std::filesystem::path> OpenSaveDialog(const std::filesystem::path& a_startDir)
+	{
+		wchar_t      file[MAX_PATH * 4] = L"";
+		std::wstring dir = a_startDir.wstring();
+		OPENFILENAMEW ofn{};
+		ofn.lStructSize = sizeof(ofn);
+		ofn.hwndOwner = GetActiveWindow();
+		ofn.lpstrFilter = L"Skyrim SE saves (*.ess)\0*.ess\0All files (*.*)\0*.*\0";
+		ofn.lpstrFile = file;
+		ofn.nMaxFile = static_cast<DWORD>(std::size(file));
+		ofn.lpstrInitialDir = dir.empty() ? nullptr : dir.c_str();
+		ofn.lpstrTitle = L"Open Skyrim save";
+		ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+		if (GetOpenFileNameW(&ofn)) {
+			return std::filesystem::path(file);
+		}
+		return std::nullopt;
+	}
+
+	std::optional<std::filesystem::path> PickFolderDialog(const std::string& a_title)
+	{
+		std::wstring title = FromUtf8(a_title).wstring();
+		BROWSEINFOW  bi{};
+		bi.hwndOwner = GetActiveWindow();
+		bi.lpszTitle = title.c_str();
+		bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+		PIDLIST_ABSOLUTE pidl = SHBrowseForFolderW(&bi);
+		if (!pidl) {
+			return std::nullopt;
+		}
+		wchar_t path[MAX_PATH * 4] = L"";
+		const bool ok = SHGetPathFromIDListW(pidl, path);
+		CoTaskMemFree(pidl);
+		if (!ok) {
+			return std::nullopt;
+		}
+		return std::filesystem::path(path);
+	}
+
+	std::filesystem::path SettingsFile()
+	{
+		wchar_t exe[MAX_PATH * 4] = L"";
+		GetModuleFileNameW(nullptr, exe, static_cast<DWORD>(std::size(exe)));
+		return std::filesystem::path(exe).parent_path() / "resaverpp.ini";
+	}
+
+	std::optional<std::filesystem::path> SaveAsDialog(const std::filesystem::path& a_suggested)
+	{
+		wchar_t file[MAX_PATH * 4] = L"";
+		wcsncpy_s(file, a_suggested.filename().wstring().c_str(), _TRUNCATE);
+		std::wstring  dir = a_suggested.parent_path().wstring();
+		OPENFILENAMEW ofn{};
+		ofn.lStructSize = sizeof(ofn);
+		ofn.hwndOwner = GetActiveWindow();
+		ofn.lpstrFilter = L"Skyrim SE saves (*.ess)\0*.ess\0";
+		ofn.lpstrDefExt = L"ess";
+		ofn.lpstrFile = file;
+		ofn.nMaxFile = static_cast<DWORD>(std::size(file));
+		ofn.lpstrInitialDir = dir.empty() ? nullptr : dir.c_str();
+		ofn.lpstrTitle = L"Save edited save as";
+		ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+		if (GetSaveFileNameW(&ofn)) {
+			return std::filesystem::path(file);
+		}
+		return std::nullopt;
+	}
+	std::optional<std::filesystem::path> SaveFileDialog(const std::filesystem::path& a_suggested, const std::string& a_ext, const std::string& a_title)
+	{
+		wchar_t file[MAX_PATH * 4] = L"";
+		wcsncpy_s(file, a_suggested.filename().wstring().c_str(), _TRUNCATE);
+		std::wstring dir = a_suggested.parent_path().wstring();
+		std::wstring ext = FromUtf8(a_ext).wstring();
+		std::wstring title = FromUtf8(a_title).wstring();
+		std::wstring filter = ext + L" files (*." + ext + L")";
+		filter.push_back(L'\0');
+		filter += L"*." + ext;
+		filter.push_back(L'\0');
+		filter.push_back(L'\0');
+		OPENFILENAMEW ofn{};
+		ofn.lStructSize = sizeof(ofn);
+		ofn.hwndOwner = GetActiveWindow();
+		ofn.lpstrFilter = filter.c_str();
+		ofn.lpstrDefExt = ext.c_str();
+		ofn.lpstrFile = file;
+		ofn.nMaxFile = static_cast<DWORD>(std::size(file));
+		ofn.lpstrInitialDir = dir.empty() ? nullptr : dir.c_str();
+		ofn.lpstrTitle = title.c_str();
+		ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+		if (GetSaveFileNameW(&ofn)) {
+			return std::filesystem::path(file);
+		}
+		return std::nullopt;
+	}
+
+	std::optional<std::filesystem::path> OpenFileDialog(const std::filesystem::path& a_startDir, const std::string& a_ext, const std::string& a_title)
+	{
+		wchar_t      file[MAX_PATH * 4] = L"";
+		std::wstring dir = a_startDir.wstring();
+		std::wstring ext = FromUtf8(a_ext).wstring();
+		std::wstring title = FromUtf8(a_title).wstring();
+		std::wstring filter = ext + L" files (*." + ext + L")";
+		filter.push_back(L'\0');
+		filter += L"*." + ext;
+		filter.push_back(L'\0');
+		filter.push_back(L'\0');
+		OPENFILENAMEW ofn{};
+		ofn.lStructSize = sizeof(ofn);
+		ofn.hwndOwner = GetActiveWindow();
+		ofn.lpstrFilter = filter.c_str();
+		ofn.lpstrFile = file;
+		ofn.nMaxFile = static_cast<DWORD>(std::size(file));
+		ofn.lpstrInitialDir = dir.empty() ? nullptr : dir.c_str();
+		ofn.lpstrTitle = title.c_str();
+		ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+		if (GetOpenFileNameW(&ofn)) {
+			return std::filesystem::path(file);
+		}
+		return std::nullopt;
+	}
+
+	void OpenWithDefaultApp(const std::filesystem::path& a_path)
+	{
+		ShellExecuteW(nullptr, L"open", a_path.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+	}
+#else
+	bool HasNativeDialogs() { return false; }
+	std::optional<std::filesystem::path> SaveFileDialog(const std::filesystem::path&, const std::string&, const std::string&) { return std::nullopt; }
+	void                                 OpenWithDefaultApp(const std::filesystem::path&) {}
+	std::optional<std::filesystem::path> OpenFileDialog(const std::filesystem::path&, const std::string&, const std::string&) { return std::nullopt; }
+
+	std::filesystem::path DefaultSavesFolder()
+	{
+		const char* home = std::getenv("HOME");
+		return home ? std::filesystem::path(home) : std::filesystem::path();
+	}
+
+	std::optional<std::filesystem::path> OpenSaveDialog(const std::filesystem::path&) { return std::nullopt; }
+	std::optional<std::filesystem::path> SaveAsDialog(const std::filesystem::path&) { return std::nullopt; }
+	std::optional<std::filesystem::path> PickFolderDialog(const std::string&) { return std::nullopt; }
+	std::filesystem::path                SettingsFile() { return std::filesystem::current_path() / "resaverpp.ini"; }
+	std::vector<std::filesystem::path>   SkyrimInstallFolders()
+	{
+		std::vector<std::filesystem::path> v;
+		if (const char* home = std::getenv("HOME")) {
+			AddSteamLibraries(v, std::filesystem::path(home) / ".steam" / "steam");
+		}
+		return v;
+	}
+	std::filesystem::path ExeFolder() { return std::filesystem::current_path(); }
+#endif
+}

@@ -1,0 +1,385 @@
+// ReSaver++ command line - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
+#include "core/Batch.h"
+#include "core/ChangeFormData.h"
+#include "core/Compare.h"
+#include "core/ModRemove.h"
+#include "core/Report.h"
+#include "core/Pex.h"
+#include "core/PluginDB.h"
+
+#include <chrono>
+#include "core/Mods.h"
+#include "core/Ops.h"
+#include "core/ScriptSources.h"
+
+#include <algorithm>
+#include <fstream>
+#include <memory>
+
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
+
+using namespace ess;
+
+static void Usage()
+{
+	std::puts(
+		"ReSaver++ command line (Skyrim SE/AE saves)\n"
+		"usage: resaverpp-cli <save.ess> [actions] [-o <out.ess>]\n"
+		"       resaverpp-cli <script.pex>       disassemble a compiled script\n"
+		"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
+		"\n"
+		"  (no action)               print the analysis report\n"
+		"  --purge-script <name>     delete every thread, suspended stack, message and instance of a script\n"
+		"  --delete-forms            with --purge-script: also delete the created objects those instances sat on\n"
+		"  --keep-instances          with --purge-script: only delete its threads, suspended stacks and queued calls;\n"
+		"                            keep the script's instances and data (for a mod you keep, e.g. a stuck MCM)\n"
+		"  --remove-unattached       Clean > Remove unattached instances\n"
+		"  --remove-undefined        Clean > Remove undefined elements (missing scripts)\n"
+		"  --terminate-undefined     Clean > Terminate threads running missing scripts\n"
+		"  --reset-havok             Clean > Reset Havok (zero saved physics state of object references)\n"
+		"  --purify-formlists        Clean > Purify FormLists (remove null entries)\n"
+		"  --batch <list.txt>        purge every script in a ReSaver batch-clean list (\"@@\" lines are skipped\n"
+		"                            unless --batch-all is given)\n"
+		"  --compare <other.ess>     list what changed from this save to the other one\n"
+		"  --report <file.txt|.pdf>  write a report (mods with their scripts + anomalies); --report-mods or\n"
+		"                            --report-anomalies limit it to one part. Uses --sources if given.\n"
+		"  --fix-mcm                 fix a SkyUI MCM registration jam (stuck OnConfigManagerReady/RegisterMod work)\n"
+		"  --remove-nonexistent      Clean > Remove instances on non-existent created forms\n"
+		"  -o <file>                 write the edited save here (required when an action edits)\n"
+		"  --top <n>                 rows per report section (default 20)\n"
+		"  --mods                    print scripts per mod (instances / running threads)\n"
+		"  --sources <folder>        with --mods: scan an MO2 mods folder (or Data) for .pex/BSA providers\n"
+		"  --profile <folder>        MO2 profile folder for mod order (default: the active profile, auto-detected)\n"
+		"  --remove-mod <plugin>     remove a mod from the save: its scripts, threads, queued calls and the saved\n"
+		"                            state of its forms. Prints a safety check first; refuses if another loaded\n"
+		"                            plugin needs it as a master. Use with --sources so masters/DLLs are checked.\n"
+		"  --keep-other-objects      with --remove-mod: leave its scripts that sit on other mods' objects\n"
+		"  --keep-spawned            with --remove-mod: do not delete spawned objects that only carried its scripts\n"
+		"  --game <folder>           game install folder (default: from MO2's ModOrganizer.ini), for vanilla scripts\n"
+		"  --names                   with --sources: read the plugins and print form-name statistics\n"
+		"  --find <text>             with --sources: find forms by editor ID / name / hex form ID\n"
+		"  --dry-run                 with --remove-mod: only print the safety check\n");
+}
+
+int main(int argc, char** argv)
+{
+	if (argc < 2 || !std::strcmp(argv[1], "-h") || !std::strcmp(argv[1], "--help")) {
+		Usage();
+		return argc < 2 ? 1 : 0;
+	}
+	std::string              in = argv[1], out;
+	{
+		std::string low = in;
+		for (auto& c : low) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		if (low.size() > 4 && low.ends_with(".pex")) {
+			try {
+				const auto file = pex::ReadFile(in);
+				const bool psc = argc > 2 && std::string(argv[2]) == "--psc";
+				std::vector<std::string> warnings;
+				for (const auto& l : psc ? pex::Decompile(file, &warnings) : pex::Disassemble(file)) {
+					std::puts(l.c_str());
+				}
+				for (const auto& w : warnings) {
+					std::fprintf(stderr, "warning: %s\n", w.c_str());
+				}
+				return 0;
+			} catch (const std::exception& e) {
+				std::fprintf(stderr, "error: %s\n", e.what());
+				return 2;
+			}
+		}
+	}
+	std::vector<std::string> purge;
+	bool                     fixMcm = false, delForms = false, keepInst = false, unattached = false, undefined = false, termUndef = false, nonexist = false;
+	std::size_t              top = 20;
+	bool                     modsView = false;
+	std::string              sources, profile, removeMod, game, findText;
+	bool                     names = false, havok = false, purify = false, batchAll = false, repMods = false, repAnom = false;
+	std::string              batchFile, compareWith, reportFile;
+	bool                     dryRun = false;
+	modremove::Options       removeOpt;
+	for (int i = 2; i < argc; ++i) {
+		const std::string a = argv[i];
+		auto              next = [&]() -> std::string {
+            if (i + 1 >= argc) {
+                std::fprintf(stderr, "missing value after %s\n", a.c_str());
+                std::exit(1);
+            }
+            return argv[++i];
+		};
+		if (a == "--purge-script") {
+			purge.push_back(next());
+		} else if (a == "--delete-forms") {
+			delForms = true;
+		} else if (a == "--fix-mcm") {
+			fixMcm = true;
+		} else if (a == "--keep-instances") {
+			keepInst = true;
+		} else if (a == "--remove-unattached") {
+			unattached = true;
+		} else if (a == "--remove-undefined") {
+			undefined = true;
+		} else if (a == "--terminate-undefined") {
+			termUndef = true;
+		} else if (a == "--remove-nonexistent") {
+			nonexist = true;
+		} else if (a == "-o") {
+			out = next();
+		} else if (a == "--mods") {
+			modsView = true;
+		} else if (a == "--sources") {
+			sources = next();
+		} else if (a == "--profile") {
+			profile = next();
+		} else if (a == "--remove-mod") {
+			removeMod = next();
+		} else if (a == "--keep-other-objects") {
+			removeOpt.otherObjects = false;
+		} else if (a == "--keep-spawned") {
+			removeOpt.spawnedObjects = false;
+		} else if (a == "--reset-havok") {
+			havok = true;
+		} else if (a == "--purify-formlists") {
+			purify = true;
+		} else if (a == "--batch") {
+			batchFile = next();
+		} else if (a == "--batch-all") {
+			batchAll = true;
+		} else if (a == "--compare") {
+			compareWith = next();
+		} else if (a == "--report") {
+			reportFile = next();
+		} else if (a == "--report-mods") {
+			repMods = true;
+		} else if (a == "--report-anomalies") {
+			repAnom = true;
+		} else if (a == "--names") {
+			names = true;
+		} else if (a == "--find") {
+			findText = next();
+			names = true;
+		} else if (a == "--game") {
+			game = next();
+		} else if (a == "--dry-run") {
+			dryRun = true;
+		} else if (a == "--top") {
+			top = std::stoul(next());
+		} else {
+			std::fprintf(stderr, "unknown option %s\n", a.c_str());
+			Usage();
+			return 1;
+		}
+	}
+
+	try {
+		auto save = SaveFile::load(in);
+		auto* p = save->papyrus();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty();
+		ScriptSources src;
+		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty())) {
+			std::filesystem::path profDir = profile, overwrite, gameData;
+			if (auto mo2 = FindMo2Instance(sources)) {
+				if (profDir.empty()) {
+					profDir = mo2->profilesDir / mo2->selectedProfile;
+				}
+				overwrite = mo2->overwriteDir;
+				if (!mo2->gamePath.empty()) {
+					gameData = mo2->gamePath / "Data";
+				}
+				std::printf("MO2 instance %s, profile %s\n", mo2->ini.string().c_str(), profDir.string().c_str());
+			}
+			if (!game.empty()) {
+				gameData = std::filesystem::path(game) / "Data";
+			}
+			const auto order = profDir.empty() ? std::vector<std::string>{} : LoadModList(profDir);
+			src.scan(sources, order.empty() ? nullptr : &order, overwrite, gameData);
+			std::printf("scanned %zu enabled + %zu disabled mod folders%s, %zu scripts, %zu BSAs, %zu errors\n", src.modsScanned, src.disabledScanned,
+				src.gameDataScanned ? " + game Data" : "", src.pexFound, src.bsasRead, src.errors.size());
+		}
+		if (!compareWith.empty()) {
+			auto other = SaveFile::load(compareWith);
+			for (const auto& l : compare::Compare(*save, *other).text()) {
+				std::puts(l.c_str());
+			}
+			return 0;
+		}
+		if (!reportFile.empty()) {
+			report::Options ro;
+			if (repMods || repAnom) {
+				ro.mods = repMods;
+				ro.anomalies = repAnom;
+			}
+			std::unique_ptr<PluginDB> db;
+			if (!src.empty()) {
+				PluginDB::Input in;
+				PrepareInput(*save, in);
+				in.sources = src;
+				PluginDB::Progress prog;
+				db = std::make_unique<PluginDB>();
+				db->load(in, prog);
+			}
+			const auto table = mods::Build(*save, src.empty() ? nullptr : &src);
+			const auto lines = report::Build(*save, table, db.get(), ro, std::filesystem::path(in).filename().string());
+			std::filesystem::path rp = reportFile;
+			std::string ext = rp.extension().string();
+			for (auto& c : ext) {
+				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			}
+			if (ext == ".pdf") {
+				report::WritePdf(rp, "ReSaver++ report - " + std::filesystem::path(in).filename().string(), lines);
+			} else {
+				report::WriteText(rp, lines);
+			}
+			std::printf("report written: %s (%zu lines)\n", reportFile.c_str(), lines.size());
+			return 0;
+		}
+		if (names) {
+			PluginDB::Input in;
+			PrepareInput(*save, in);
+			in.sources = src;
+			PluginDB::Progress prog;
+			PluginDB          db;
+			const auto        t0 = std::chrono::steady_clock::now();
+			db.load(in, prog);
+			const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+			std::printf("plugins read %zu of %zu in %lld ms, %zu records kept, %zu forms, %zu missing, %zu errors\n", db.pluginsRead, db.plugins().size(),
+				static_cast<long long>(ms), db.recordsRead, db.size(), db.missing.size(), db.errors.size());
+			for (std::size_t i = 0; i < db.missing.size() && i < 10; ++i) {
+				std::printf("  missing: %s\n", db.missing[i].c_str());
+			}
+			for (std::size_t i = 0; i < db.errors.size() && i < 10; ++i) {
+				std::printf("  error: %s\n", db.errors[i].c_str());
+			}
+			for (std::uint32_t id : { 0x00000007u, 0x00000014u, 0x0001A66Au, 0x00013BBFu, 0x0003BC26u }) {
+				std::printf("  %08X %s\n", id, db.describe(id).c_str());
+			}
+			if (!findText.empty()) {
+				for (auto id : db.search(findText, 40)) {
+					std::printf("  %08X %s (%s)\n", id, db.describe(id).c_str(), db.pluginName(*db.find(id)).c_str());
+				}
+			}
+			if (p) {
+				std::size_t shown = 0;
+				for (const auto& i : p->instances) {
+					if (shown >= 8) {
+						break;
+					}
+					if (const auto id = save->formIDOf(i.refID); id && (id >> 24) != 0xFF) {
+						const auto d = db.describe(id);
+						if (!d.empty() && d.find('\'') != std::string::npos) {
+							std::printf("  instance %s on %08X %s\n", p->str(i.script).c_str(), id, d.c_str());
+							++shown;
+						}
+					}
+				}
+			}
+			return 0;
+		}
+		if (!removeMod.empty()) {
+			if (!p) {
+				std::fputs("save has no Papyrus section\n", stderr);
+				return 1;
+			}
+			const auto plan = modremove::MakePlan(*save, removeMod, src.empty() ? nullptr : &src, removeOpt);
+			std::fputs(plan.summary().c_str(), stdout);
+			if (!plan.canApply()) {
+				std::fputs("\nnot removed.\n", stdout);
+				return 3;
+			}
+			if (dryRun) {
+				return 0;
+			}
+			std::error_code ec;
+			if (out.empty() || std::filesystem::equivalent(in, out, ec)) {
+				std::fputs("\n--remove-mod writes a new file: give -o <new.ess> (not the input file)\n", stderr);
+				return 1;
+			}
+			std::printf("\nremoved: %s\n", modremove::Apply(*save, plan).text().c_str());
+		}
+		if (modsView) {
+			auto t = mods::Build(*save, src.empty() ? nullptr : &src);
+			std::vector<const mods::ModRow*> rows;
+			for (const auto& r : t.rows) {
+				if (r.scriptCount || r.threadCount || !r.provided.empty()) {
+					rows.push_back(&r);
+				}
+			}
+			std::sort(rows.begin(), rows.end(), [](auto a, auto b) { return a->threadCount != b->threadCount ? a->threadCount > b->threadCount : a->instanceCount > b->instanceCount; });
+			std::printf("%-50s %8s %10s %8s %9s\n", "mod", "scripts", "instances", "running", "provides");
+			for (std::size_t i = 0; i < rows.size() && i < top; ++i) {
+				const auto* r = rows[i];
+				std::printf("%-50.50s %8zu %10zu %8zu %9zu\n", r->name.c_str(), r->scriptCount, r->instanceCount, r->threadCount, r->providedInSave);
+			}
+			return 0;
+		}
+		if (!edits) {
+			std::fputs(ops::FormatReport(ops::Analyze(*save), top).c_str(), stdout);
+			return 0;
+		}
+		if (out.empty()) {
+			std::fputs("an output file (-o) is required when editing\n", stderr);
+			return 1;
+		}
+		if (!p) {
+			std::fputs("save has no Papyrus section\n", stderr);
+			return 1;
+		}
+		for (const auto& name : purge) {
+			const auto r = ops::PurgeScript(*save, name, delForms, keepInst);
+			std::printf("purge %s: %zu threads, %zu suspended stacks, %zu messages, %zu instances, %zu created forms\n", name.c_str(), r.threads,
+				r.stacks, r.messages, r.instances, r.forms);
+		}
+		if (!batchFile.empty()) {
+			std::ifstream bf(batchFile);
+			std::string   list((std::istreambuf_iterator<char>(bf)), std::istreambuf_iterator<char>());
+			auto          matches = batch::Resolve(*save, list);
+			for (auto& mt : matches) {
+				if (batchAll) {
+					mt.selected = true;
+				}
+				std::printf("  %s %s (%zu instances, %zu threads)%s\n", mt.selected ? "purge" : "skip ", mt.script.c_str(), mt.instances, mt.threads,
+					mt.prompt.empty() ? "" : ("  @@ " + mt.prompt).c_str());
+			}
+			const auto br = batch::Apply(*save, matches);
+			std::printf("batch clean: %zu scripts, %zu threads, %zu stacks, %zu messages, %zu instances\n", br.scripts, br.threads, br.stacks,
+				br.messages, br.instances);
+		}
+		if (havok) {
+			const auto hr = cf::ResetHavok(*save);
+			std::printf("reset havok: %zu references reset, %zu could not be decoded (left alone)\n", hr.reset, hr.failed);
+		}
+		if (purify) {
+			const auto pr = cf::PurifyFormLists(*save);
+			std::printf("purify formlists: %zu null entries removed from %zu lists (%zu lists not decodable)\n", pr.entries, pr.forms, pr.failed);
+		}
+		if (fixMcm) {
+			std::printf("fixed MCM jam: %s\n", ops::FixMcmJam(*p).text().c_str());
+		}
+		if (termUndef) {
+			std::printf("terminated undefined threads: %zu\n", ops::TerminateUndefinedThreads(*p));
+		}
+		if (undefined) {
+			std::printf("removed undefined elements: %zu\n", ops::RemoveUndefinedElements(*p));
+		}
+		if (unattached) {
+			std::printf("removed unattached instances: %zu\n", ops::RemoveUnattachedInstances(*p));
+		}
+		if (nonexist) {
+			std::printf("removed instances on non-existent created forms: %zu\n", ops::RemoveNonexistentCreated(*save));
+		}
+		save->save(out);
+		// verify by reading it back
+		auto check = SaveFile::load(out);
+		std::printf("written %s and verified (re-read OK: %zu instances, %zu threads)\n", out.c_str(), check->papyrus()->instances.size(),
+			check->papyrus()->activeScripts.size());
+	} catch (const std::exception& e) {
+		std::fprintf(stderr, "error: %s\n", e.what());
+		return 2;
+	}
+	return 0;
+}
