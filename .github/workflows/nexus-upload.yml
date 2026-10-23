@@ -60,10 +60,20 @@ jobs:
         run: |
           grep -q "project(ReSaverPP VERSION ${VERSION} " CMakeLists.txt || { echo "::error::CMakeLists.txt is not version ${VERSION}"; exit 1; }
 
+      # apt on the runner sometimes hangs for a long time on a slow mirror: each try is cut off after
+      # 4 minutes and retried, so a stuck mirror costs minutes, not the whole run
       - name: Install MinGW-w64
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q mingw-w64 ninja-build
+          for i in 1 2 3; do
+            if sudo timeout 240 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q &&
+               sudo timeout 240 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q mingw-w64 ninja-build; then
+              exit 0
+            fi
+            echo "::warning::apt try $i failed or timed out, retrying"
+            sleep 10
+          done
+          exit 1
 
       - name: Build
         run: |
