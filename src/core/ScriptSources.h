@@ -154,6 +154,7 @@ namespace ess
 		void scanGameData();
 		void reset();
 		std::unordered_set<std::string> _gameDataSkip;  // archive names (lowercase) not to read in the game's Data folder
+		std::unordered_set<std::string> _modBsas;       // archive names (lowercase) in the enabled mod folders read so far
 		std::unordered_map<std::string, std::vector<ScriptProvider>> _byScript;  // lowercase script name
 	};
 

@@ -71,10 +71,23 @@ namespace ess
 			const auto ext = Lower(U8(e.path().extension()));
 			if (IsPlugin(ext)) {
 				plugins.push_back(Lower(U8(e.path().filename())));
-			} else if (ext == ".bsa" && Lower(U8(e.path().filename())).find("textures") == std::string::npos &&
-					   (!vanillaOnly || vanillaArchive(Lower(U8(e.path().filename())))) &&
-					   !(a_modName == "Game Data" && _gameDataSkip.contains(Lower(U8(e.path().filename()))))) {
-				bsas.push_back(e.path());
+			} else if (ext == ".bsa") {
+				// Every archive is read, "... - Textures.bsa" too: some mods pack their scripts in it, and
+				// the game loads scripts from any archive it loads. Only the file list is read (fast).
+				const auto name = Lower(U8(e.path().filename()));
+				if (a_modName != "Game Data") {
+					if (a_enabled) {
+						_modBsas.insert(name);
+					}
+					bsas.push_back(e.path());
+				} else if (_gameDataSkip.contains(name)) {
+					// Vortex: the deployed copy of a mod's archive, already read in the mod's folder
+				} else if (vanillaOnly && !vanillaArchive(name) && _modBsas.contains(name)) {
+					// inside Mod Organizer the Data folder also shows every enabled mod's archives; those
+					// were read in their mod folders. Archives installed into Data by hand are read here.
+				} else {
+					bsas.push_back(e.path());
+				}
 			}
 		}
 		for (const auto& p : plugins) {
@@ -267,6 +280,7 @@ namespace ess
 	void ScriptSources::reset()
 	{
 		_byScript.clear();
+		_modBsas.clear();
 		pluginFolder.clear();
 		scriptsByMod.clear();
 		errors.clear();

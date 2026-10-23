@@ -27,7 +27,7 @@ using namespace ess;
 static void Usage()
 {
 	std::puts(
-		"ReSaver++ version 13 command line (Skyrim SE/AE/VR saves)\n"
+		"ReSaver++ version 14 command line (Skyrim SE/AE/VR saves)\n"
 		"usage: resaverpp-cli <save.ess> [actions] [-o <out.ess>]\n"
 		"       resaverpp-cli <script.pex>       disassemble a compiled script\n"
 		"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
