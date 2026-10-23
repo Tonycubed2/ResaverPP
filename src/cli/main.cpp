@@ -27,7 +27,7 @@ using namespace ess;
 static void Usage()
 {
 	std::puts(
-		"ReSaver++ version 15 command line (Skyrim SE/AE/VR saves)\n"
+		"ReSaver++ version 16 command line (Skyrim SE/AE/VR saves)\n"
 		"usage: resaverpp-cli <save.ess> [actions] [-o <out.ess>]\n"
 		"       resaverpp-cli <script.pex>       disassemble a compiled script\n"
 		"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
@@ -49,6 +49,9 @@ static void Usage()
 		"                            --report-anomalies limit it to one part. Uses --sources if given.\n"
 		"  --fix-mcm                 fix a SkyUI MCM registration jam (stuck OnConfigManagerReady/RegisterMod work)\n"
 		"  --remove-nonexistent      Clean > Remove instances on non-existent created forms (all of them)\n"
+		"  --charged                 list enchanted / charged items in inventories (max charge, charge)\n"
+		"  --fix-charges <max>       give enchanted items with max charge 0 this max charge (so they can be\n"
+		"                            recharged), and lower charges above the max\n"
 		"  --spawned                 list the instances on missing spawned objects by mod (installed or not);\n"
 		"                            uses --sources if given\n"
 		"  --remove-spawned-gone     remove the ones whose script's mod is not installed or disabled (and bare\n"
@@ -106,7 +109,8 @@ int main(int argc, char** argv)
 	std::string              sources, profile, removeMod, game, findText;
 	bool                     names = false, havok = false, purify = false, batchAll = false, repMods = false, repAnom = false;
 	std::string              batchFile, compareWith, reportFile;
-	bool                     dryRun = false, spawned = false, spawnedGone = false;
+	bool                     dryRun = false, spawned = false, spawnedGone = false, charged = false;
+	int                      fixCharges = 0;
 	modremove::Options       removeOpt;
 	for (int i = 2; i < argc; ++i) {
 		const std::string a = argv[i];
@@ -133,6 +137,10 @@ int main(int argc, char** argv)
 			termUndef = true;
 		} else if (a == "--remove-nonexistent") {
 			nonexist = true;
+		} else if (a == "--charged") {
+			charged = true;
+		} else if (a == "--fix-charges") {
+			fixCharges = std::atoi(next().c_str());
 		} else if (a == "--spawned") {
 			spawned = true;
 		} else if (a == "--remove-spawned-gone") {
@@ -188,7 +196,7 @@ int main(int argc, char** argv)
 	try {
 		auto save = SaveFile::load(in);
 		auto* p = save->papyrus();
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone;
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0;
 		ScriptSources src;
 		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone)) {
 			std::filesystem::path profDir = profile, overwrite, gameData;
@@ -214,6 +222,22 @@ int main(int argc, char** argv)
 			}
 			std::printf("scanned %zu enabled + %zu disabled mod folders%s, %zu scripts, %zu BSAs, %zu errors\n", src.modsScanned, src.disabledScanned,
 				src.gameDataScanned ? " + game Data" : "", src.pexFound, src.bsasRead, src.errors.size());
+		}
+		if (charged) {
+			const auto items = cf::FindChargedItems(*save);
+			std::size_t bad = 0;
+			for (const auto& c : items) {
+				bad += cf::NeedsChargeFix(c.inv) ? 1 : 0;
+			}
+			std::printf("%zu enchanted/charged inventory item(s), %zu cannot be recharged\n", items.size(), bad);
+			for (std::size_t i = 0; i < items.size() && i < top; ++i) {
+				const auto& c = items[i];
+				std::printf("  holder %08X  item %08X x%d  ench %08X  max %u  charge %s%s\n", c.holder, c.inv.item, c.inv.count, c.inv.ench, c.inv.maxCharge,
+					c.inv.hasCharge ? std::to_string(c.inv.charge).c_str() : "(full)", cf::NeedsChargeFix(c.inv) ? "  <- NEEDS FIX" : "");
+			}
+			if (!edits) {
+				return 0;
+			}
 		}
 		if (spawned) {
 			const auto groups = orphans::Find(*save, src.scanned() ? &src : nullptr);
@@ -405,6 +429,9 @@ int main(int argc, char** argv)
 		}
 		if (nonexist) {
 			std::printf("removed instances on non-existent created forms: %zu\n", ops::RemoveNonexistentCreated(*save));
+		}
+		if (fixCharges > 0) {
+			std::printf("fixed charges of %zu item(s)\n", cf::FixCharges(*save, static_cast<std::uint16_t>(std::min(fixCharges, 65535)), {}));
 		}
 		if (spawnedGone) {
 			if (!src.scanned()) {

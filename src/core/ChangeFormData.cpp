@@ -3,6 +3,7 @@
 
 #include "ByteIO.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -186,6 +187,7 @@ namespace ess::cf
 				n.isRef = true;
 				n.refRaw = id.data;
 				n.formID = id.isZero() ? 0 : _save.formIDOf(id);
+				lastFormID = n.formID;
 				return id.data;
 			}
 			std::uint32_t refResolved(const std::string& l)
@@ -235,6 +237,10 @@ namespace ess::cf
 					i16("UNKNOWN");
 				});
 			}
+
+			InvCharge*    inv = nullptr;  // inventory entry being read (captures Enchantment / Charge)
+			std::uint32_t lastFormID = 0;  // of the last ref() read
+			int        extraDepth = 0;  // nesting of extra data groups below the inventory entry
 
 			std::size_t mark() { return top().kids.size(); }
 			void        rollback(std::size_t a_mark) { top().kids.resize(a_mark); }
@@ -321,10 +327,27 @@ namespace ess::cf
 			case 33: one("Ownership", [&] { p.ref("OWNER"); }); break;
 			case 34: one("Global", [&] { p.ref("UNK"); }); break;
 			case 35: one("Rank", [&] { p.ref("RANKID"); }); break;
-			case 36: one("Count", [&] { p.i16("COUNT"); }); break;
+			case 36:
+				one("Count", [&] {
+					const auto v = p.i16("COUNT");
+					if (p.inv) {
+						p.inv->count = v;  // this stack's count
+					}
+				});
+				break;
 			case 37: one("Health", [&] { p.f32("HEALTH"); }); break;
 			case 39: one("TimeLeft", [&] { p.i32("TIME"); }); break;
-			case 40: one("Charge", [&] { p.f32("CHARGE"); }); break;
+			case 40:
+				one("Charge", [&] {
+					const auto at = p.r.pos();
+					const auto v = p.f32("CHARGE");
+					if (p.inv) {
+						p.inv->hasCharge = true;
+						p.inv->charge = v;
+						p.inv->chargeOffset = at;
+					}
+				});
+				break;
 			case 42:
 				one("Lock", [&] {
 					p.bytes("UNKS", 2);
@@ -535,8 +558,16 @@ namespace ess::cf
 				break;
 			case 155:
 				one("Enchantment", [&] {
-					p.ref("ENCH");
-					p.i16("CHARGE");
+					const auto raw = p.ref("ENCH");
+					const auto at = p.r.pos();
+					const auto v = p.i16("CHARGE");
+					if (p.inv) {
+						p.inv->hasEnchant = true;
+						p.inv->enchRaw = raw;
+						p.inv->ench = raw ? p.lastFormID : 0;
+						p.inv->maxCharge = static_cast<std::uint16_t>(v);
+						p.inv->maxChargeOffset = at;
+					}
 				});
 				break;
 			case 156: one("Soul", [&] { p.u8("SIZE"); }); break;
@@ -613,9 +644,41 @@ namespace ess::cf
 		void Inventory(P& p)
 		{
 			p.vsArray("INVENTORY", [&] {
-				p.ref("ITEM");
-				p.i32("COUNT");
-				ExtraData(p);
+				const auto item = p.refResolved("ITEM");
+				const auto count = p.i32("COUNT");
+				// the entry's extra data is a list of extra data lists, one per distinct stack (each its
+				// own enchantment, charge, health...)
+				const auto lists = p.vs("");
+				if (lists > 1024) {
+					throw Stop(Fmt("excessive extra data list count %u", lists));
+				}
+				p.group(Fmt("EXTRADATA (%u)", lists), [&] {
+					for (std::uint32_t i = 0; i < lists; ++i) {
+						const auto k = p.vs("");
+						if (k > 1024) {
+							throw Stop(Fmt("excessive extra data count %u", k));
+						}
+						InvCharge e;
+						e.item = item;
+						e.count = 1;  // a stack without a Count extra holds one
+						p.inv = &e;
+						try {
+							p.group(Fmt("ExtraExtraData%u", k), [&] {
+								for (std::uint32_t j = 0; j < k; ++j) {
+									p.group(k == 1 ? std::string("SUB_DATA") : Fmt("SUB_DATA%u", j + 1), [&] { ExtraDataData(p); });
+								}
+							});
+						} catch (...) {
+							p.inv = nullptr;
+							throw;
+						}
+						p.inv = nullptr;
+						if (e.hasEnchant || e.hasCharge) {
+							p.out().charged.push_back(e);
+						}
+					}
+				});
+				(void)count;
 			});
 		}
 
@@ -1316,5 +1379,75 @@ namespace ess::cf
 			SetBody(cf, nb);
 		}
 		return r;
+	}
+}
+
+namespace ess::cf
+{
+	std::vector<ChargedItem> FindChargedItems(const SaveFile& a_save)
+	{
+		std::vector<ChargedItem> out;
+		for (const auto& c : a_save.changeForms) {
+			const auto t = static_cast<ChangeFormType>(c.typeCode());
+			if ((t != ChangeFormType::REFR && t != ChangeFormType::ACHR) || !((c.changeFlags >> 5) & 1 || (c.changeFlags >> 27) & 1)) {
+				continue;  // no inventory in this change form
+			}
+			const auto d = Decode(a_save, c);
+			for (const auto& e : d.charged) {
+				out.push_back({ c.refID.data, c.refID.isZero() ? 0 : a_save.formIDOf(c.refID), e });
+			}
+		}
+		return out;
+	}
+
+	bool NeedsChargeFix(const InvCharge& a_item)
+	{
+		return (a_item.hasEnchant && a_item.enchRaw != 0 && a_item.maxCharge == 0) ||
+			   (a_item.hasEnchant && a_item.hasCharge && a_item.maxCharge > 0 && a_item.charge > a_item.maxCharge);
+	}
+
+	std::size_t FixCharges(SaveFile& a_save, std::uint16_t a_maxCharge, const std::vector<std::pair<std::uint32_t, std::uint32_t>>& a_only)
+	{
+		if (a_maxCharge == 0) {
+			return 0;
+		}
+		std::size_t fixed = 0;
+		for (auto& c : a_save.changeForms) {
+			const auto t = static_cast<ChangeFormType>(c.typeCode());
+			if ((t != ChangeFormType::REFR && t != ChangeFormType::ACHR) || !((c.changeFlags >> 5) & 1 || (c.changeFlags >> 27) & 1)) {
+				continue;
+			}
+			const auto d = Decode(a_save, c);
+			bool       any = false;
+			auto       body = Body(c);
+			for (const auto& e : d.charged) {
+				if (!NeedsChargeFix(e)) {
+					continue;
+				}
+				if (!a_only.empty() && std::find(a_only.begin(), a_only.end(), std::make_pair(c.refID.data, e.item)) == a_only.end()) {
+					continue;
+				}
+				std::uint16_t maxc = e.maxCharge;
+				if (maxc == 0 && e.maxChargeOffset + 2 <= body.size()) {
+					maxc = a_maxCharge;
+					body[e.maxChargeOffset] = static_cast<std::uint8_t>(maxc & 0xFF);
+					body[e.maxChargeOffset + 1] = static_cast<std::uint8_t>(maxc >> 8);
+				}
+				if (e.hasCharge && e.charge > maxc && e.chargeOffset + 4 <= body.size()) {
+					const float f = static_cast<float>(maxc);
+					std::uint32_t bits;
+					std::memcpy(&bits, &f, 4);
+					for (int i = 0; i < 4; ++i) {
+						body[e.chargeOffset + i] = static_cast<std::uint8_t>(bits >> (8 * i));
+					}
+				}
+				++fixed;
+				any = true;
+			}
+			if (any) {
+				SetBody(c, body);
+			}
+		}
+		return fixed;
 	}
 }

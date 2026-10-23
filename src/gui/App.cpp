@@ -95,6 +95,7 @@ namespace
 
 void App::open(const std::filesystem::path& a_path)
 {
+	++_editGen;
 	try {
 		auto s = SaveFile::load(a_path);
 		if (!s->papyrus()) {
@@ -248,6 +249,7 @@ void App::confirm(const std::string& a_title, const std::string& a_text, std::fu
 
 void App::markEdited(const std::string& a_what)
 {
+	++_editGen;
 	_cfFacts.clear();
 	_dirty = true;
 	_rowsDirty = true;
@@ -260,6 +262,7 @@ void App::markEdited(const std::string& a_what)
 
 void App::markChanged(const std::string& a_what)
 {
+	++_editGen;
 	_cfFacts.clear();
 	_dirty = true;
 	_rowsDirty = true;
@@ -2029,7 +2032,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 15  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 16  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2409,9 +2412,9 @@ void App::drawModsList()
 	ImGui::SetNextItemWidth(-260);
 	bool changed = ImGui::InputTextWithHint("##modfilter", "filter mods", _filter, sizeof(_filter));
 	ImGui::SameLine();
-	changed |= ImGui::Checkbox("only mods with scripts", &_modsOnlyScripts);
+	changed |= ImGui::Checkbox("only mods with scripts or enchanted items", &_modsOnlyScripts);
 	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("Hide plugins that have no scripts: none in this save, and (once your mods are scanned) none shipped.\nUntick to list every plugin in the save.");
+		ImGui::SetTooltip("Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in any inventory. Untick to list every plugin in the save.");
 	}
 
 	if (ImGui::Button(_sources.empty() ? "Find script sources (.pex)..." : "Rescan script sources...")) {
@@ -2456,9 +2459,20 @@ void App::drawModsList()
 	if (changed || _modOrder.empty()) {
 		_modOrder.clear();
 		const auto needle = Lower(_filter);
+		// plugins with enchanted / charged items in some inventory are listed too (their items show in the detail)
+		std::set<std::string> withCharged;
+		if (_save && _modsOnlyScripts) {
+			for (const auto& c : chargedItems()) {
+				withCharged.insert(Lower(_save->pluginOf(c.inv.item)));
+				if (c.inv.ench) {
+					withCharged.insert(Lower(_save->pluginOf(c.inv.ench)));
+				}
+			}
+		}
 		for (std::size_t i = 0; i < rows.size(); ++i) {
 			const auto& r = rows[i];
-			if (_modsOnlyScripts && r.scriptCount == 0 && r.threadCount == 0 && r.provided.empty() && r.shipped.empty()) {
+			if (_modsOnlyScripts && r.scriptCount == 0 && r.threadCount == 0 && r.provided.empty() && r.shipped.empty() &&
+				!withCharged.contains(Lower(r.name))) {
 				continue;
 			}
 			if (!needle.empty() && Lower(r.name).find(needle) == std::string::npos) {
@@ -2891,6 +2905,9 @@ void App::detailMod(std::uint64_t k)
 				scriptItem(n);
 			}
 		}
+	}
+	if (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight) {
+		drawModCharged(r.name);
 	}
 }
 

@@ -22,6 +22,22 @@ namespace ess::cf
 		std::vector<Node> kids;
 	};
 
+	// An inventory entry that carries an enchantment and/or a charge in its extra data (weapons and
+	// staves enchanted at a table or by a script, or partly used). Offsets are in the uncompressed body.
+	struct InvCharge
+	{
+		std::uint32_t item = 0;     // runtime form ID of the base item
+		std::int32_t  count = 0;
+		bool          hasEnchant = false;
+		std::uint32_t enchRaw = 0;  // ENCH RefID as stored (0: none)
+		std::uint32_t ench = 0;     // runtime form ID (0 if it does not resolve)
+		std::uint16_t maxCharge = 0;
+		std::size_t   maxChargeOffset = 0;
+		bool          hasCharge = false;
+		float         charge = 0;
+		std::size_t   chargeOffset = 0;
+	};
+
 	struct Decoded
 	{
 		bool        supported = false;  // the type has a decoder
@@ -43,7 +59,26 @@ namespace ess::cf
 		// form lists
 		bool                       isFormList = false;
 		std::vector<std::uint32_t> listRaw;  // the entries' RefIDs (raw 3-byte values)
+
+		// inventory entries with an enchantment or charge (REFR containers, ACHR actors incl. the player)
+		std::vector<InvCharge> charged;
 	};
+
+	// Every inventory entry with an enchantment or charge in the save, with the change form holding it.
+	struct ChargedItem
+	{
+		std::uint32_t holderRefID = 0;  // the change form's RefID (raw)
+		std::uint32_t holder = 0;       // its runtime form ID
+		InvCharge     inv;
+	};
+	std::vector<ChargedItem> FindChargedItems(const SaveFile& a_save);
+
+	// Fixes enchanted inventory items that cannot be recharged: max charge 0 (no "EAMT") is set to
+	// a_maxCharge, and a current charge above the max is lowered to it. Only fixed-size values are
+	// rewritten in place, nothing is added or removed. a_only: change form RefIDs (raw) to touch (empty:
+	// all) and item form IDs (empty: all). Returns how many items were fixed.
+	std::size_t FixCharges(SaveFile& a_save, std::uint16_t a_maxCharge, const std::vector<std::pair<std::uint32_t, std::uint32_t>>& a_only);
+	bool        NeedsChargeFix(const InvCharge& a_item);  // has an enchantment with max charge 0, or charge > max
 
 	// Optional: record type of a form ("EXPL", ...), from the plugin database. Needed only to
 	// decode the explosion data of spawned explosion references.

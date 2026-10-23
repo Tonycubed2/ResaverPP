@@ -19,6 +19,9 @@ Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
   that provides their script, with its status: not installed, disabled, installed or game link;
   the leftovers of mods that are gone are ticked, and the ones another script still points to
   are kept unless you choose otherwise).
+- Enchanted items: the Mods view lists each mod's enchanted and charged items in every inventory
+  (enchantment, max charge and charge stored on the item in the save, which xEdit does not show),
+  and fixes items whose max charge is 0 so they can be recharged with soul gems.
 - Mods view: every mod with how many scripts are on its objects, how many script instances
   and how many threads are running right now. Click a mod to see its scripts; terminate or
   kill one script or all of them. "Find script sources" scans your Mod Organizer mods folder

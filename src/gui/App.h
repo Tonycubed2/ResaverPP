@@ -239,6 +239,13 @@ private:
 	std::vector<std::pair<std::string, std::size_t>> _missingScripts;  // scripts with no file anywhere -> instances + threads
 	bool                    _removeMissingScripts = true;
 
+	// enchanted / charged items in inventories, per mod, with a fix for ones that cannot be recharged (AppCharges.cpp)
+	void                               drawModCharged(const std::string& a_plugin);
+	const std::vector<ess::cf::ChargedItem>& chargedItems();
+	std::vector<ess::cf::ChargedItem>  _charged;
+	std::uint64_t                      _chargedGen = UINT64_MAX, _editGen = 0;
+	int                                _chargeFixValue = 3000;
+
 	// Clean > Remove instances on missing spawned objects, grouped by mod (AppOrphans.cpp)
 	void                             buildOrphans();
 	void                             openOrphans();
