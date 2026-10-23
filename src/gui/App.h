@@ -254,6 +254,7 @@ private:
 	std::vector<ess::cf::ChargedItem>  _charged;
 	std::uint64_t                      _chargedGen = UINT64_MAX, _editGen = 0;
 	int                                _chargeFixValue = 3000;
+	bool                               _readOnly = false;  // the open save has structural problems: it is never written
 
 	// Clean > Remove instances on missing spawned objects, grouped by mod (AppOrphans.cpp)
 	void                             buildOrphans();

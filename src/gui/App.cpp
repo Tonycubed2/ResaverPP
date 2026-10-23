@@ -150,6 +150,18 @@ void App::open(const std::filesystem::path& a_path)
 		// known when the scan of the mods is done; that can take a while inside Mod Organizer)
 		checkMissingPlugins();
 		_status = "Loaded " + platform::ToUtf8(a_path.filename());
+		// a save whose structure does not add up may not be written back faithfully: look, don't save
+		_readOnly = !_save->problems.empty();
+		if (_readOnly) {
+			std::string list;
+			for (const auto& pr : _save->problems) {
+				list += "\n  - " + pr;
+			}
+			_error = "This save is damaged or in a layout ReSaver++ does not fully understand:\n" + list +
+					 "\n\nIt is opened READ-ONLY: you can look at everything, but it cannot be saved from ReSaver++ (writing it back could lose "
+					 "or invent data). Load an earlier save in the game, or report this with the file.";
+			_status += "  -  READ-ONLY (damaged save)";
+		}
 		if (!_report->warnings.empty()) {
 			_status += Fmt("  -  %zu finding(s): see Tools > Analysis", _report->warnings.size());
 		}
@@ -163,29 +175,17 @@ void App::doSave(const std::filesystem::path& a_path)
 	if (!_save) {
 		return;
 	}
+	if (_readOnly) {
+		_error = "This save was opened read-only because it is damaged (see the message shown when it was opened); it cannot be saved from ReSaver++.";
+		return;
+	}
 	try {
-		std::error_code ec;
-		if (std::filesystem::exists(a_path, ec)) {
-			// keep the previous file next to it: name.ess.bak, name.ess.bak2, ...
-			auto bak = a_path;
-			bak += ".bak";
-			for (int n = 2; std::filesystem::exists(bak, ec); ++n) {
-				bak = a_path;
-				bak += ".bak" + std::to_string(n);
-			}
-			std::filesystem::copy_file(a_path, bak, ec);
-			auto co = a_path;
-			co.replace_extension(".skse");
-			if (std::filesystem::exists(co, ec)) {
-				auto cobak = bak;
-				cobak.replace_extension(".skse.bak");
-				std::filesystem::copy_file(co, cobak, std::filesystem::copy_options::overwrite_existing, ec);
-			}
-		}
 		if (_saveCompression >= 0) {
 			_save->header.compression = static_cast<Compression>(_saveCompression);
 		}
-		_save->save(a_path);
+		// staged, read back, previous files kept as name.ess.bak + name.skse.bak (one generation each),
+		// rolled back if the co-save cannot be written
+		const auto wr = _save->write(a_path, true);
 		// read it straight back: a save we cannot read is never left silently behind
 		auto check = SaveFile::load(a_path);
 		if (!check->papyrus()) {
@@ -194,7 +194,9 @@ void App::doSave(const std::filesystem::path& a_path)
 		_path = a_path;
 		_save->path = a_path;
 		_dirty = false;
-		_status = "Saved and verified " + platform::ToUtf8(a_path.filename());
+		_status = "Saved and verified " + platform::ToUtf8(a_path.filename()) +
+				  (wr.backup.empty() ? std::string() : "  (previous file kept as " + platform::ToUtf8(wr.backup.filename()) +
+															   (wr.cosaveBackup.empty() ? "" : " + " + platform::ToUtf8(wr.cosaveBackup.filename())) + ")");
 	} catch (const std::exception& e) {
 		_error = std::string("Save failed:\n\n") + e.what();
 	}
@@ -2046,7 +2048,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 17  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 18  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");

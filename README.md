@@ -6,7 +6,9 @@ Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
 ## What it does
 
 - Reads and writes `.ess` saves (LZ4, zlib or uncompressed) plus the `.skse` co-save.
-  An unedited save writes back byte-for-byte identical; edits produce the same bytes as ReSaver.
+  An unedited save writes back byte-for-byte identical (checked on the SE/AE saves in the test set; VR
+  saves and every possible save layout are not covered yet). Edits follow ReSaver's rules but are not
+  automatically compared with Java ReSaver's output.
 - Shows everything ReSaver shows: plugins, change forms, the Papyrus string table, scripts,
   script instances (with named variables), references, arrays, active scripts (threads, with
   every stack frame and its variables), function messages, suspended stacks, queued unbinds.
@@ -105,6 +107,8 @@ Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
   `resaverpp-cli save.ess --purge-script Firefly --delete-forms -o cleaned.ess` edits.
   Run it with `--help` for all options.
 - `rs_roundtrip.exe` - test: loads saves and checks they write back identical.
+- Tests: `ctest` runs the regression tests (`rs_unit`, no files needed); configure with
+  `-DRESAVERPP_TEST_SAVES=<folder of .ess files>` to also load, write back and compare real saves.
 - `rs_edit_test.exe` - test: edits variables, saves, reloads and checks the values.
 
 `resaverpp-cli save.ess --mods --sources F:\SkyrimSEMOModfolder` prints the mod table.

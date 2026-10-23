@@ -55,6 +55,7 @@ void App::checkMissingPlugins()
 	_missingScripts.clear();
 	_unfoundScripts.clear();
 	_removeUnfoundScripts = false;
+	_removeMissingScripts = true;
 	_orderSuspect = _scanSuspect = false;
 	_activeInSave = _activeFound = _activeChecked = 0;
 	_missingFile.clear();
@@ -122,6 +123,10 @@ void App::checkMissingPlugins()
 		std::sort(_missingScripts.begin(), _missingScripts.end());
 		std::sort(_unfoundScripts.begin(), _unfoundScripts.end());
 	}
+	// archives or folders the scan could not read may hold scripts: "not found" is not proof then
+	if (_installKnown && !_sources.errors.empty()) {
+		_removeMissingScripts = false;
+	}
 
 	if (!active.known) {
 		_missingSource = "your load order";
@@ -139,7 +144,7 @@ void App::checkMissingPlugins()
 			continue;
 		}
 		++_activeInSave;
-		const bool gameFile = low.rfind("cc", 0) == 0 || low == "skyrim.esm" || low == "update.esm" || low == "dawnguard.esm" ||
+		const bool gameFile = (low.rfind("cc", 0) == 0 && low.find("sse") != std::string::npos) || low == "skyrim.esm" || low == "update.esm" || low == "dawnguard.esm" ||
 							  low == "hearthfires.esm" || low == "dragonborn.esm" || low == "_resourcepack.esl" || low == "skyrimvr.esm";
 		if (_installKnown && !gameFile) {
 			++_activeChecked;
@@ -148,6 +153,9 @@ void App::checkMissingPlugins()
 	}
 	_orderSuspect = all.size() >= 10 && _activeInSave * 2 < all.size();
 	_scanSuspect = _activeChecked >= 10 && _activeFound * 2 < _activeChecked;
+	if (_orderSuspect || _scanSuspect) {
+		_removeMissingScripts = false;
+	}
 	std::unordered_map<std::string, std::size_t> index;
 	for (const auto& p : all) {
 		if (active.plugins.contains(Lower(p))) {
@@ -192,6 +200,9 @@ void App::checkMissingPlugins()
 		if (_orderSuspect || _scanSuspect) {
 			m.selected = false;
 		}
+	}
+	if (_orderSuspect || _scanSuspect) {
+		_removeMissingScripts = false;  // nothing destructive is ticked when the setup does not match the save
 	}
 }
 
@@ -278,6 +289,19 @@ void App::drawMissingModal()
 									  "wrong file (another profile, or an old plugins.txt). Nothing is ticked. Pick the right MO2 profile in the "
 									  "Mods view, or check Options > Settings.",
 									  _activeInSave, _save ? _save->plugins.full.size() + _save->plugins.lite.size() : 0));
+	}
+	if (_installKnown && !_sources.errors.empty()) {
+		std::string list;
+		for (std::size_t i = 0; i < _sources.errors.size() && i < 6; ++i) {
+			list += "\n    " + _sources.errors[i];
+		}
+		if (_sources.errors.size() > 6) {
+			list += Fmt("\n    ... and %zu more", _sources.errors.size() - 6);
+		}
+		TextColored(theme::Warn(), Fmt("%zu archive(s) or folder(s) could not be read, so a script \"not found\" may just be in one of them. "
+									   "Missing scripts are not ticked:",
+									   _sources.errors.size()) +
+									   list);
 	}
 	if (_scanSuspect) {
 		TextColored(theme::Bad(), Fmt("The mods scan found only %zu of the %zu plugins your load order enables, so it probably looked in the wrong "

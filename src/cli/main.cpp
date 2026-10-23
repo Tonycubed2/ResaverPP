@@ -27,7 +27,7 @@ using namespace ess;
 static void Usage()
 {
 	std::puts(
-		"ReSaver++ version 17 command line (Skyrim SE/AE/VR saves)\n"
+		"ReSaver++ version 18 command line (Skyrim SE/AE/VR saves)\n"
 		"usage: resaverpp-cli <save.ess> [actions] [-o <out.ess>]\n"
 		"       resaverpp-cli <script.pex>       disassemble a compiled script\n"
 		"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
@@ -49,6 +49,7 @@ static void Usage()
 		"                            --report-anomalies limit it to one part. Uses --sources if given.\n"
 		"  --fix-mcm                 fix a SkyUI MCM registration jam (stuck OnConfigManagerReady/RegisterMod work)\n"
 		"  --remove-nonexistent      Clean > Remove instances on non-existent created forms (all of them)\n"
+		"  --allow-damaged           edit and write a save even though it has structural problems (risky)\n"
 		"  --charged                 list enchanted / charged items in inventories (max charge, charge)\n"
 		"  --fix-charges <max>       give enchanted items with max charge 0 this max charge (so they can be\n"
 		"                            recharged), and lower charges above the max\n"
@@ -109,7 +110,7 @@ int main(int argc, char** argv)
 	std::string              sources, profile, removeMod, game, findText;
 	bool                     names = false, havok = false, purify = false, batchAll = false, repMods = false, repAnom = false;
 	std::string              batchFile, compareWith, reportFile;
-	bool                     dryRun = false, spawned = false, spawnedGone = false, charged = false;
+	bool                     dryRun = false, spawned = false, spawnedGone = false, charged = false, allowDamaged = false;
 	int                      fixCharges = 0;
 	modremove::Options       removeOpt;
 	for (int i = 2; i < argc; ++i) {
@@ -137,6 +138,8 @@ int main(int argc, char** argv)
 			termUndef = true;
 		} else if (a == "--remove-nonexistent") {
 			nonexist = true;
+		} else if (a == "--allow-damaged") {
+			allowDamaged = true;
 		} else if (a == "--charged") {
 			charged = true;
 		} else if (a == "--fix-charges") {
@@ -196,7 +199,17 @@ int main(int argc, char** argv)
 	try {
 		auto save = SaveFile::load(in);
 		auto* p = save->papyrus();
+		if (!save->problems.empty()) {
+			std::fprintf(stderr, "warning: this save has structural problems; it may not be written back faithfully:\n");
+			for (const auto& pr : save->problems) {
+				std::fprintf(stderr, "  - %s\n", pr.c_str());
+			}
+		}
 		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0;
+		if (edits && !save->problems.empty() && !allowDamaged) {
+			std::fprintf(stderr, "error: not editing a damaged save (use --allow-damaged to write it anyway, at your own risk)\n");
+			return 3;
+		}
 		ScriptSources src;
 		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone)) {
 			std::filesystem::path profDir = profile, overwrite, gameData;
@@ -453,7 +466,14 @@ int main(int argc, char** argv)
 			}
 			std::printf("removed instances on missing spawned objects of mods no longer installed: %zu\n", orphans::Remove(*save, ids));
 		}
-		save->save(out);
+		{
+			std::error_code ec;
+			const auto      wr = save->write(out, std::filesystem::exists(out, ec));
+			if (!wr.backup.empty()) {
+				std::printf("previous file kept as %s%s\n", wr.backup.filename().string().c_str(),
+					wr.cosaveBackup.empty() ? "" : (" + " + wr.cosaveBackup.filename().string()).c_str());
+			}
+		}
 		// verify by reading it back
 		auto check = SaveFile::load(out);
 		std::printf("written %s and verified (re-read OK: %zu instances, %zu threads)\n", out.c_str(), check->papyrus()->instances.size(),
