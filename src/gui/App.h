@@ -238,6 +238,15 @@ private:
 	bool                    _installKnown = false, _missingOpenWhenReady = false;  // the mods were scanned: "installed" can be told
 	std::vector<std::pair<std::string, std::size_t>> _missingScripts;  // scripts with no file anywhere -> instances + threads
 	bool                    _removeMissingScripts = true;
+	// scripts the game loaded when it saved but whose file the scan did not find (uninstalled since, or the
+	// scan missed it): listed apart, never removed unless the player ticks them
+	std::vector<std::pair<std::string, std::size_t>> _unfoundScripts;
+	bool                    _removeUnfoundScripts = false;
+	// sanity checks: the load order or the mods scan does not match this save (wrong profile, stale
+	// plugins.txt, wrong mods folder). Then nothing is ticked and a warning says why.
+	bool                    _orderSuspect = false, _scanSuspect = false;
+	std::size_t             _activeInSave = 0, _activeFound = 0, _activeChecked = 0;
+	std::filesystem::path   _missingFile;
 
 	// enchanted / charged items in inventories, per mod, with a fix for ones that cannot be recharged (AppCharges.cpp)
 	void                               drawModCharged(const std::string& a_plugin);

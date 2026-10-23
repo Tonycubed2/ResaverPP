@@ -53,40 +53,15 @@ void App::checkMissingPlugins()
 	_missing.clear();
 	_missingSource.clear();
 	_missingScripts.clear();
+	_unfoundScripts.clear();
+	_removeUnfoundScripts = false;
+	_orderSuspect = _scanSuspect = false;
+	_activeInSave = _activeFound = _activeChecked = 0;
+	_missingFile.clear();
 	if (!_save) {
 		return;
 	}
 	_installKnown = _sources.scanned() && !scanning();
-	// scripts whose compiled file is nowhere: not in any mod (enabled or not) and not in the game's own
-	// archives. Only when the game's Data folder was scanned too, or every vanilla script would count.
-	if (_installKnown && _sources.gameDataScanned) {
-		const auto& p = *_save->papyrus();
-		std::unordered_map<std::string, std::size_t> uses;
-		for (const auto& i : p.instances) {
-			++uses[Lower(p.str(i.script))];
-		}
-		for (const auto& a : p.activeScripts) {
-			if (a.data && !a.data->frames.empty()) {
-				++uses[Lower(p.str(a.data->frames.front().scriptName))];
-			}
-		}
-		// a script some installed script extends exists somewhere (the game could not load the child
-		// without it), even if the scan did not find its file: not listed
-		std::unordered_set<std::string> parentsOfInstalled;
-		for (const auto& s : p.scripts) {
-			if (!p.str(s.parent).empty() && _sources.providers(p.str(s.name))) {
-				parentsOfInstalled.insert(Lower(p.str(s.parent)));
-			}
-		}
-		for (const auto& s : p.scripts) {
-			const auto name = p.str(s.name);
-			if (name.empty() || ops::IsEngineType(name) || _sources.providers(name) || parentsOfInstalled.contains(Lower(name))) {
-				continue;
-			}
-			_missingScripts.emplace_back(name, uses[Lower(name)]);
-		}
-		std::sort(_missingScripts.begin(), _missingScripts.end());
-	}
 	// the load order the game uses next: the Mod Organizer profile's, or the game's own plugins.txt
 	std::filesystem::path txt;
 	if (_mo2 && !_profile.empty()) {
@@ -97,12 +72,82 @@ void App::checkMissingPlugins()
 		_missingSource = _vortex ? "your load order (Vortex)" : "your load order";
 	}
 	const auto active = loadorder::Read(txt, gameFolder(), _vr);
+	// scripts whose compiled file is nowhere: not in any mod (enabled or not) and not in the game's own
+	// archives. Only when the game's Data folder was scanned too, or every vanilla script would count.
+	//  - "missing": the save itself says the game could not load it either (it writes an empty parent
+	//    type for those). Certain: removed by default.
+	//  - "not found": the game loaded it when it saved, but the scan did not find its file. Either the
+	//    mod was uninstalled since, or the scan looked in the wrong place (or missed an archive): not
+	//    removed unless the player asks. Not listed at all when it runs on objects of a plugin that is
+	//    in the load order (that mod is installed, so its scripts are too).
+	if (_installKnown && _sources.gameDataScanned) {
+		const auto& p = *_save->papyrus();
+		std::unordered_map<std::string, std::size_t> uses;
+		std::unordered_set<std::string>              onLoaded;  // scripts with an instance on an object of a loaded plugin
+		for (const auto& i : p.instances) {
+			const auto key = Lower(p.str(i.script));
+			++uses[key];
+			if (active.known && !i.refID.isZero() && i.refID.type() != RefID::Type::kCreated) {
+				const auto plugin = Lower(_save->pluginOf(_save->formIDOf(i.refID)));
+				if (!plugin.empty() && active.plugins.contains(plugin)) {
+					onLoaded.insert(key);
+				}
+			}
+		}
+		for (const auto& a : p.activeScripts) {
+			if (a.data && !a.data->frames.empty()) {
+				++uses[Lower(p.str(a.data->frames.front().scriptName))];
+			}
+		}
+		// a script some installed script extends exists somewhere (the game could not load the child
+		// without it), even if the scan did not find its file: not listed
+		std::unordered_set<std::string> parentsOfInstalled;
+		for (const auto& sc : p.scripts) {
+			if (!p.str(sc.parent).empty() && _sources.providers(p.str(sc.name))) {
+				parentsOfInstalled.insert(Lower(p.str(sc.parent)));
+			}
+		}
+		for (const auto& sc : p.scripts) {
+			const auto name = p.str(sc.name);
+			const auto key = Lower(name);
+			if (name.empty() || ops::IsEngineType(name) || _sources.providers(name) || parentsOfInstalled.contains(key)) {
+				continue;
+			}
+			if (ops::IsScriptUndefined(p, sc)) {
+				_missingScripts.emplace_back(name, uses[key]);
+			} else if (!onLoaded.contains(key)) {
+				_unfoundScripts.emplace_back(name, uses[key]);
+			}
+		}
+		std::sort(_missingScripts.begin(), _missingScripts.end());
+		std::sort(_unfoundScripts.begin(), _unfoundScripts.end());
+	}
+
 	if (!active.known) {
 		_missingSource = "your load order";
 		return;  // no load order to compare plugins with (missing scripts can still be listed)
 	}
+	_missingFile = active.file;
 	std::vector<std::string> all = _save->plugins.full;
 	all.insert(all.end(), _save->plugins.lite.begin(), _save->plugins.lite.end());
+	// Sanity: a save made with this load order has nearly all of its plugins in it, and a scan of the right
+	// mods folder finds nearly every plugin the load order enables. Far off means the wrong profile, a stale
+	// plugins.txt or the wrong mods folder: then nothing is ticked.
+	for (const auto& p : all) {
+		const auto low = Lower(p);
+		if (!active.plugins.contains(low)) {
+			continue;
+		}
+		++_activeInSave;
+		const bool gameFile = low.rfind("cc", 0) == 0 || low == "skyrim.esm" || low == "update.esm" || low == "dawnguard.esm" ||
+							  low == "hearthfires.esm" || low == "dragonborn.esm" || low == "_resourcepack.esl" || low == "skyrimvr.esm";
+		if (_installKnown && !gameFile) {
+			++_activeChecked;
+			_activeFound += _sources.pluginPath(p).has_value() ? 1 : 0;
+		}
+	}
+	_orderSuspect = all.size() >= 10 && _activeInSave * 2 < all.size();
+	_scanSuspect = _activeChecked >= 10 && _activeFound * 2 < _activeChecked;
 	std::unordered_map<std::string, std::size_t> index;
 	for (const auto& p : all) {
 		if (active.plugins.contains(Lower(p))) {
@@ -144,12 +189,15 @@ void App::checkMissingPlugins()
 		if (m.changeForms == 0 && m.scripts == 0 && m.threads == 0) {
 			m.selected = false;
 		}
+		if (_orderSuspect || _scanSuspect) {
+			m.selected = false;
+		}
 	}
 }
 
 void App::drawMissingBanner()
 {
-	if ((_missing.empty() && _missingScripts.empty()) || _missingDismissed) {
+	if ((_missing.empty() && _missingScripts.empty() && _unfoundScripts.empty()) || _missingDismissed) {
 		return;
 	}
 	std::size_t gone = 0, disabled = 0;
@@ -167,8 +215,14 @@ void App::drawMissingBanner()
 	if (!_missingScripts.empty()) {
 		msg += (msg.empty() ? "" : " ") + Fmt("%zu script(s) in it are no longer installed anywhere.", _missingScripts.size());
 	}
+	if (!_unfoundScripts.empty()) {
+		msg += (msg.empty() ? "" : " ") + Fmt("%zu script(s) were not found in your mods (the game still had them when it saved).", _unfoundScripts.size());
+	}
 	if (!_installKnown && scanning()) {
 		msg += "  Checking which are still installed (scanning your mods)...";
+	}
+	if (_orderSuspect || _scanSuspect) {
+		msg += "  This looks wrong (see the review): nothing is ticked.";
 	}
 	TextColored(theme::Warn(), msg);
 	if (scanning()) {
@@ -184,13 +238,16 @@ void App::drawMissingBanner()
 	if (ImGui::Button("Hide")) {
 		_missingDismissed = true;
 	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("Hides this until the next save is opened. Clean > Mods and scripts no longer installed... brings it back.");
+	}
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
 }
 
 void App::drawMissingModal()
 {
-	if (_missingOpenWhenReady && !scanning() && (!_missing.empty() || !_missingScripts.empty())) {
+	if (_missingOpenWhenReady && !scanning() && (!_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty())) {
 		_missingOpenWhenReady = false;
 		_missingOpen = true;  // (test hook)
 	}
@@ -213,6 +270,19 @@ void App::drawMissingModal()
 	} else if (!_installKnown) {
 		TextColored(theme::Warn(), "Your mods folder is not set (Options > Settings), so ReSaver++ cannot tell uninstalled mods from disabled ones: "
 						   "nothing is ticked.");
+	}
+	TextColored(theme::Dim(), "Load order read from: " + platform::ToUtf8(_missingFile) +
+								  (_installKnown ? "    Mods folder: " + _sourcesPath : std::string()));
+	if (_orderSuspect) {
+		TextColored(theme::Bad(), Fmt("This load order does not match the save: only %zu of the save's %zu plugins are in it. It is probably the "
+									  "wrong file (another profile, or an old plugins.txt). Nothing is ticked. Pick the right MO2 profile in the "
+									  "Mods view, or check Options > Settings.",
+									  _activeInSave, _save ? _save->plugins.full.size() + _save->plugins.lite.size() : 0));
+	}
+	if (_scanSuspect) {
+		TextColored(theme::Bad(), Fmt("The mods scan found only %zu of the %zu plugins your load order enables, so it probably looked in the wrong "
+									  "folder. Nothing is ticked: check the mods folder in Options > Settings.",
+									  _activeFound, _activeChecked));
 	}
 	ImGui::Separator();
 
@@ -290,7 +360,25 @@ void App::drawMissingModal()
 			}
 			ImGui::TreePop();
 		}
-		TextColored(theme::Dim(), "Not found in any mod folder (enabled or not) nor in the game's own archives. The game cannot run them any more.");
+		TextColored(theme::Dim(), "Not found in any mod folder (enabled or not) nor in the game's own archives, and the save itself shows the game "
+								  "could not load them either. The game cannot run them any more.");
+	}
+	// the game had these when it saved: only the scan says they are gone, so they are not ticked
+	if (!_unfoundScripts.empty()) {
+		ImGui::Spacing();
+		TextColored(theme::Warn(), Fmt("%zu script(s) were not found in your mods, but the game still loaded them when it made this save.",
+									   _unfoundScripts.size()));
+		TextColored(theme::Dim(), Fmt("Either their mod was uninstalled after this save, or ReSaver++ looked in the wrong place. Mods folder scanned: "
+									  "%s (%zu mod folders, %zu scripts). If these mods are still installed, do NOT remove them: check the "
+									  "mods folder in Options > Settings first. Removing a script a mod still uses restarts its quests and its MCM.",
+							  _sourcesPath.c_str(), _sources.modsScanned, _sources.pexFound));
+		ImGui::Checkbox(Fmt("Also remove these %zu script(s) (only if you uninstalled their mods)", _unfoundScripts.size()).c_str(), &_removeUnfoundScripts);
+		if (ImGui::TreeNode("unfound scripts", "Show them")) {
+			for (const auto& [name, n] : _unfoundScripts) {
+				ImGui::BulletText("%s  (%zu in use)", name.c_str(), n);
+			}
+			ImGui::TreePop();
+		}
 	}
 	ImGui::EndChild();
 
@@ -310,7 +398,14 @@ void App::drawMissingModal()
 	}
 	ImGui::TextDisabled("New file: %s%s", platform::ToUtf8(target.filename()).c_str(),
 		refused ? Fmt("   (%zu refused by the safety check will be skipped)", refused).c_str() : "");
-	const bool scriptsToo = _removeMissingScripts && !_missingScripts.empty();
+	std::vector<std::pair<std::string, std::size_t>> scriptList;
+	if (_removeMissingScripts) {
+		scriptList = _missingScripts;
+	}
+	if (_removeUnfoundScripts) {
+		scriptList.insert(scriptList.end(), _unfoundScripts.begin(), _unfoundScripts.end());
+	}
+	const bool scriptsToo = !scriptList.empty();
 	ImGui::BeginDisabled(ticked == refused && !scriptsToo);
 	if (ImGui::Button("Remove and write new save", ImVec2(280, 0))) {
 		// one after the other: each plan is made on the save as the previous removal left it
@@ -332,7 +427,7 @@ void App::drawMissingModal()
 		if (scriptsToo) {
 			auto& pap = *_save->papyrus();
 			std::set<TStr> defs;
-			for (const auto& [name, n] : _missingScripts) {
+			for (const auto& [name, n] : scriptList) {
 				// spawned objects it sat on stay: another (installed) script may be on the same object
 				ops::PurgeScript(*_save, name, false);
 				++scriptsDone;

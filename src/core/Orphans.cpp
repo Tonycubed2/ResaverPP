@@ -149,12 +149,14 @@ namespace ess::orphans
 				const auto it = std::find_if(prov->begin(), prov->end(), [](const ScriptProvider& x) { return x.enabled; });
 				status = it != prov->end() ? Status::kInstalled : Status::kDisabled;
 				mod = it != prov->end() ? it->mod : prov->front().mod;
-			} else if (undefined || (scanned && a_sources->gameDataScanned)) {
+			} else if (undefined) {
+				// the save shows the game could not load the script either
 				status = Status::kNotInstalled;
 				mod = "(script file not found)";
 			} else {
+				// the game had it when it saved: only the scan says it is gone, which may be the scan's fault
 				status = Status::kUnknown;
-				mod = scanned ? "(not in the scanned mods)" : "(mods not scanned)";
+				mod = scanned ? "(not found by the scan; the game still had it)" : "(mods not scanned)";
 			}
 			auto& g = groups[{ Rank(status), Lower(mod) }];
 			g.mod = mod;

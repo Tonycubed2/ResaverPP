@@ -943,6 +943,20 @@ void App::drawMenu()
 			confirm("Terminate undefined threads", "Terminate every thread that runs a script that is no longer installed?",
 				[this, p] { markEdited(Fmt("Terminated %zu undefined threads", ops::TerminateUndefinedThreads(*p))); });
 		}
+		{
+			const bool any = !_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty();
+			if (ImGui::MenuItem("Mods and scripts no longer installed...", nullptr, false, any)) {
+				_missingDismissed = false;  // the banner comes back too
+				for (auto& m : _missing) {
+					m.planned = false;
+				}
+				_missingOpen = true;
+			}
+			if (!any && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+				ImGui::SetTooltip(_installKnown ? "Nothing to remove: every mod in this save is in your load order and every script was found."
+												: "Your mods are not scanned yet (or are still being scanned).");
+			}
+		}
 		if (ImGui::MenuItem("Remove instances on missing spawned objects...")) {
 			openOrphans();
 		}
@@ -2032,7 +2046,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 16  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 17  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
