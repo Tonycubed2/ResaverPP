@@ -16,7 +16,9 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <set>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace ess;
 
@@ -68,9 +70,17 @@ void App::checkMissingPlugins()
 				++uses[Lower(p.str(a.data->frames.front().scriptName))];
 			}
 		}
+		// a script some installed script extends exists somewhere (the game could not load the child
+		// without it), even if the scan did not find its file: not listed
+		std::unordered_set<std::string> parentsOfInstalled;
+		for (const auto& s : p.scripts) {
+			if (!p.str(s.parent).empty() && _sources.providers(p.str(s.name))) {
+				parentsOfInstalled.insert(Lower(p.str(s.parent)));
+			}
+		}
 		for (const auto& s : p.scripts) {
 			const auto name = p.str(s.name);
-			if (name.empty() || ops::IsEngineType(name) || _sources.providers(name)) {
+			if (name.empty() || ops::IsEngineType(name) || _sources.providers(name) || parentsOfInstalled.contains(Lower(name))) {
 				continue;
 			}
 			_missingScripts.emplace_back(name, uses[Lower(name)]);
@@ -320,10 +330,24 @@ void App::drawMissingModal()
 		}
 		std::size_t scriptsDone = 0;
 		if (scriptsToo) {
+			auto& pap = *_save->papyrus();
+			std::set<TStr> defs;
 			for (const auto& [name, n] : _missingScripts) {
-				ops::PurgeScript(*_save, name, true);
+				// spawned objects it sat on stay: another (installed) script may be on the same object
+				ops::PurgeScript(*_save, name, false);
 				++scriptsDone;
+				if (const auto t = pap.findString(name); t != UINT32_MAX) {
+					defs.insert(t);
+				}
 			}
+			// the script definitions too (PurgeScript leaves them), or the save keeps listing the scripts
+			// and they show up again every time. One another remaining script extends stays.
+			for (const auto& sc : pap.scripts) {
+				if (!defs.contains(sc.name)) {
+					defs.erase(sc.parent);
+				}
+			}
+			ops::DeleteScripts(pap, defs);
 		}
 		ImGui::CloseCurrentPopup();
 		if (done || scriptsDone) {
