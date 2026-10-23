@@ -11,6 +11,7 @@
 #include "core/Mods.h"
 #include "core/Ops.h"
 #include "core/ScriptSources.h"
+#include "core/Orphans.h"
 
 #include <algorithm>
 #include <fstream>
@@ -26,7 +27,7 @@ using namespace ess;
 static void Usage()
 {
 	std::puts(
-		"ReSaver++ version 12 command line (Skyrim SE/AE/VR saves)\n"
+		"ReSaver++ version 13 command line (Skyrim SE/AE/VR saves)\n"
 		"usage: resaverpp-cli <save.ess> [actions] [-o <out.ess>]\n"
 		"       resaverpp-cli <script.pex>       disassemble a compiled script\n"
 		"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
@@ -47,7 +48,11 @@ static void Usage()
 		"  --report <file.txt|.pdf>  write a report (mods with their scripts + anomalies); --report-mods or\n"
 		"                            --report-anomalies limit it to one part. Uses --sources if given.\n"
 		"  --fix-mcm                 fix a SkyUI MCM registration jam (stuck OnConfigManagerReady/RegisterMod work)\n"
-		"  --remove-nonexistent      Clean > Remove instances on non-existent created forms\n"
+		"  --remove-nonexistent      Clean > Remove instances on non-existent created forms (all of them)\n"
+		"  --spawned                 list the instances on missing spawned objects by mod (installed or not);\n"
+		"                            uses --sources if given\n"
+		"  --remove-spawned-gone     remove the ones whose script's mod is not installed or disabled (and bare\n"
+		"                            game links), keeping the ones another script still points to (needs --sources)\n"
 		"  -o <file>                 write the edited save here (required when an action edits)\n"
 		"  --top <n>                 rows per report section (default 20)\n"
 		"  --mods                    print scripts per mod (instances / running threads)\n"
@@ -101,7 +106,7 @@ int main(int argc, char** argv)
 	std::string              sources, profile, removeMod, game, findText;
 	bool                     names = false, havok = false, purify = false, batchAll = false, repMods = false, repAnom = false;
 	std::string              batchFile, compareWith, reportFile;
-	bool                     dryRun = false;
+	bool                     dryRun = false, spawned = false, spawnedGone = false;
 	modremove::Options       removeOpt;
 	for (int i = 2; i < argc; ++i) {
 		const std::string a = argv[i];
@@ -128,6 +133,10 @@ int main(int argc, char** argv)
 			termUndef = true;
 		} else if (a == "--remove-nonexistent") {
 			nonexist = true;
+		} else if (a == "--spawned") {
+			spawned = true;
+		} else if (a == "--remove-spawned-gone") {
+			spawnedGone = true;
 		} else if (a == "-o") {
 			out = next();
 		} else if (a == "--mods") {
@@ -179,9 +188,9 @@ int main(int argc, char** argv)
 	try {
 		auto save = SaveFile::load(in);
 		auto* p = save->papyrus();
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone;
 		ScriptSources src;
-		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty())) {
+		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone)) {
 			std::filesystem::path profDir = profile, overwrite, gameData;
 			if (auto mo2 = FindMo2Instance(sources)) {
 				if (profDir.empty()) {
@@ -205,6 +214,26 @@ int main(int argc, char** argv)
 			}
 			std::printf("scanned %zu enabled + %zu disabled mod folders%s, %zu scripts, %zu BSAs, %zu errors\n", src.modsScanned, src.disabledScanned,
 				src.gameDataScanned ? " + game Data" : "", src.pexFound, src.bsasRead, src.errors.size());
+		}
+		if (spawned) {
+			const auto groups = orphans::Find(*save, src.scanned() ? &src : nullptr);
+			std::size_t total = 0;
+			for (const auto& g : groups) {
+				total += g.instances;
+			}
+			std::printf("%zu instance(s) on missing spawned objects in %zu group(s)\n", total, groups.size());
+			for (const auto& g : groups) {
+				std::printf("\n%-40s %-28s %6zu instance(s), %zu held\n", g.mod.c_str(), orphans::StatusText(g.status), g.instances, g.held);
+				for (std::size_t i = 0; i < g.scripts.size() && i < top; ++i) {
+					std::printf("    %-50s %6zu  held %zu\n", g.scripts[i].script.c_str(), g.scripts[i].ids.size(), g.scripts[i].held.size());
+				}
+				if (g.scripts.size() > top) {
+					std::printf("    ... %zu more script(s)\n", g.scripts.size() - top);
+				}
+			}
+			if (!edits) {
+				return 0;
+			}
 		}
 		if (!compareWith.empty()) {
 			auto other = SaveFile::load(compareWith);
@@ -376,6 +405,26 @@ int main(int argc, char** argv)
 		}
 		if (nonexist) {
 			std::printf("removed instances on non-existent created forms: %zu\n", ops::RemoveNonexistentCreated(*save));
+		}
+		if (spawnedGone) {
+			if (!src.scanned()) {
+				std::fprintf(stderr, "--remove-spawned-gone needs --sources (to tell which mods are installed)\n");
+				return 1;
+			}
+			std::set<EID> ids;
+			for (const auto& g : orphans::Find(*save, &src)) {
+				if (g.status != orphans::Status::kNotInstalled && g.status != orphans::Status::kDisabled && g.status != orphans::Status::kEngine) {
+					continue;
+				}
+				for (const auto& sg : g.scripts) {
+					for (EID id : sg.ids) {
+						if (!sg.held.contains(id)) {
+							ids.insert(id);
+						}
+					}
+				}
+			}
+			std::printf("removed instances on missing spawned objects of mods no longer installed: %zu\n", orphans::Remove(*save, ids));
 		}
 		save->save(out);
 		// verify by reading it back

@@ -15,7 +15,10 @@ Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
 - Edits: delete any element, terminate threads, delete instances together with the spawned
   objects they sit on, purge a script (threads + suspended stacks + messages + instances).
 - Clean menu (same rules as ReSaver): remove unattached instances, remove undefined elements,
-  terminate undefined threads, remove instances on non-existent created forms.
+  terminate undefined threads, remove instances on missing spawned objects (grouped by the mod
+  that provides their script, with its status: not installed, disabled, installed or game link;
+  the leftovers of mods that are gone are ticked, and the ones another script still points to
+  are kept unless you choose otherwise).
 - Mods view: every mod with how many scripts are on its objects, how many script instances
   and how many threads are running right now. Click a mod to see its scripts; terminate or
   kill one script or all of them. "Find script sources" scans your Mod Organizer mods folder

@@ -236,7 +236,7 @@ namespace ess::report
 				"The game could not load these scripts' .pex when the save was made (mod removed?). Clean > Remove undefined elements.");
 			listCounts("Unattached instances", unattached, "Attached to nothing. Clean > Remove unattached instances.");
 			listCounts("Instances on spawned objects that no longer exist", missing,
-				"Clean > Remove instances on non-existent created forms (some mods keep these on purpose).");
+				"Clean > Remove instances on missing spawned objects (grouped by mod: installed or not).");
 
 			std::vector<std::string> undefThreads, termThreads;
 			for (const auto& a : p->activeScripts) {

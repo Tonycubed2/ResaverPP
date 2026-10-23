@@ -940,12 +940,8 @@ void App::drawMenu()
 			confirm("Terminate undefined threads", "Terminate every thread that runs a script that is no longer installed?",
 				[this, p] { markEdited(Fmt("Terminated %zu undefined threads", ops::TerminateUndefinedThreads(*p))); });
 		}
-		if (ImGui::MenuItem("Remove instances on non-existent created forms")) {
-			confirm("Remove non-existent form instances",
-				Fmt("Delete %zu script instances attached to spawned objects that no longer exist?\n\nSome mods create these on purpose; "
-					"check the list under Script Instances (filter: CREATED FORM MISSING) first.",
-					_report ? _report->createdWithoutForm : 0),
-				[this] { markEdited(Fmt("Removed %zu instances on missing created forms", ops::RemoveNonexistentCreated(*_save))); });
+		if (ImGui::MenuItem("Remove instances on missing spawned objects...")) {
+			openOrphans();
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Fix SkyUI MCM registration jam...")) {
@@ -1547,7 +1543,8 @@ void App::detailInstance(std::uint64_t k)
 		TextColored(theme::Bad(), "UNDEFINED: its script is no longer installed.");
 	}
 	if (ops::IsCreatedWithoutForm(*_save, *i)) {
-		TextColored(theme::Warn(), "Its spawned object no longer exists in the save. Some mods do this on purpose.");
+		TextColored(theme::Warn(), "Its spawned object no longer exists in the save. Clean > Remove instances on missing spawned objects shows "
+								   "which mod it comes from and whether that mod is still installed.");
 	}
 	if (BeginKV("inst")) {
 		KV("Instance id", Hex64(i->id));
@@ -1957,6 +1954,7 @@ void App::drawModals()
 	}
 
 	drawRemoveModModal();
+	drawOrphansModal();
 	if (_save) {
 		drawBatchModal();
 		drawReportModal();
@@ -2031,7 +2029,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 12  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 13  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");

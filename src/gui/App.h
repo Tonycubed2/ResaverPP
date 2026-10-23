@@ -5,6 +5,7 @@
 #include "core/ChangeFormData.h"
 #include "core/Compare.h"
 #include "core/ModRemove.h"
+#include "core/Orphans.h"
 #include "core/Pex.h"
 #include "core/PluginDB.h"
 #include "core/Report.h"
@@ -105,6 +106,8 @@ public:
 			viewScript(f[0], f[1], f[2], f[3].empty() ? -1 : std::atoi(f[3].c_str()));
 		} else if (w == "rowview") {
 			_testRowView = true;
+		} else if (w == "orphans") {
+			_orphansOpenWhenReady = true;
 		} else if (w == "missing") {
 			_missingOpenWhenReady = true;
 		} else if (w == "compile") {
@@ -235,6 +238,14 @@ private:
 	bool                    _installKnown = false, _missingOpenWhenReady = false;  // the mods were scanned: "installed" can be told
 	std::vector<std::pair<std::string, std::size_t>> _missingScripts;  // scripts with no file anywhere -> instances + threads
 	bool                    _removeMissingScripts = true;
+
+	// Clean > Remove instances on missing spawned objects, grouped by mod (AppOrphans.cpp)
+	void                             buildOrphans();
+	void                             openOrphans();
+	void                             drawOrphansModal();
+	std::vector<ess::orphans::Group> _orphans;
+	std::vector<char>                _orphanSel;
+	bool                             _orphansOpen = false, _orphansOpenWhenReady = false, _orphansKeepHeld = true, _orphansBuiltScanning = false;
 
 	// plugin names, lookup, change forms, clean tools, compare, report, watcher (AppTools.cpp)
 	std::string formText(std::uint32_t a_formID) const;
