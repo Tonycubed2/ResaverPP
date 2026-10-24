@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <unordered_map>
 
 using namespace ess;
 
@@ -273,56 +274,110 @@ void App::drawQuestsList()
 	ImGui::InputTextWithHint("##qfilter", "filter by name, editor ID or form ID", _questFilter, sizeof(_questFilter));
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-1);
-	const char* shows[] = { "In the journal", "Running", "Completed", "All" };
-	ImGui::Combo("##qshow", &_questShow, shows, 4);
+	const char* shows[] = { "In the journal", "Running", "Completed", "All in this save", "Every quest in the game" };
+	ImGui::Combo("##qshow", &_questShow, shows, 5);
+	if (_questShow == 4 && !_db) {
+		Dim("Every quest in the game comes from your plugins: they are not read yet.");
+	}
 
 	struct Row
 	{
-		const quests::QuestState* q;
-		const quests::QuestDef*   def;
-		std::string               label;
+		std::uint32_t             formID = 0;
+		const quests::QuestState* q = nullptr;  // null: never started in this save
+		const quests::QuestDef*   def = nullptr;
+		std::string               label, status;
+		int                       stage = -1;
+		std::size_t               shown = 0;
 	};
 	std::vector<Row> rows;
 	const auto       needle = Lower(_questFilter);
+	auto             add = [&](std::uint32_t a_formID, const quests::QuestState* q) {
+        const auto* def = _db ? _db->quest(a_formID) : nullptr;
+        if (q) {
+            switch (_questShow) {
+            case 0:
+                if (q->shownObjectives() == 0) {
+                    return;
+                }
+                break;
+            case 1:
+                if (!q->running() || q->completed()) {
+                    return;
+                }
+                break;
+            case 2:
+                if (!q->completed()) {
+                    return;
+                }
+                break;
+            default:
+                break;
+            }
+        }
+        // name and editor ID from the plugins; until they are read, the plugin the quest comes from
+        std::string label = def ? (def->name.empty() ? def->edid : def->name + "  (" + def->edid + ")") : "(" + _save->pluginOf(a_formID) + ")";
+        if (!needle.empty() && Lower(label).find(needle) == std::string::npos && Lower(Fmt("%08X", a_formID)).find(needle) == std::string::npos) {
+            return;
+        }
+        Row r;
+        r.formID = a_formID;
+        r.q = q;
+        r.def = def;
+        r.label = std::move(label);
+        r.status = q ? q->statusText() : "not started (not in this save)";
+        r.stage = q ? q->highestDoneStage() : -1;
+        r.shown = q ? q->shownObjectives() : 0;
+        rows.push_back(std::move(r));
+	};
+	std::unordered_map<std::uint32_t, const quests::QuestState*> byID;
 	for (const auto& q : states) {
-		const auto* def = _db ? _db->quest(q.formID) : nullptr;
-		switch (_questShow) {
-		case 0:
-			if (q.shownObjectives() == 0) {
-				continue;
-			}
-			break;
-		case 1:
-			if (!q.running() || q.completed()) {
-				continue;
-			}
-			break;
-		case 2:
-			if (!q.completed()) {
-				continue;
-			}
-			break;
-		default:
-			break;
-		}
-		// name and editor ID from the plugins; until they are read, the plugin the quest comes from
-		std::string label = def ? (def->name.empty() ? def->edid : def->name + "  (" + def->edid + ")") : "(" + _save->pluginOf(q.formID) + ")";
-		if (!needle.empty() && Lower(label).find(needle) == std::string::npos && Lower(Fmt("%08X", q.formID)).find(needle) == std::string::npos) {
-			continue;
-		}
-		rows.push_back({ &q, def, std::move(label) });
+		byID[q.formID] = &q;
 	}
-	std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return Lower(a.label) < Lower(b.label); });
+	if (_questShow == 4 && _db) {
+		// every QUST record of the load order, started or not
+		for (const auto& [id, def] : _db->questDefs()) {
+			auto it = byID.find(id);
+			add(id, it == byID.end() ? nullptr : it->second);
+		}
+	} else {
+		for (const auto& q : states) {
+			add(q.formID, &q);
+		}
+	}
 
 	if (ImGui::BeginTable("quests", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable |
-										   ImGuiTableFlags_SizingStretchProp)) {
+										   ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Sortable)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn("Quest", ImGuiTableColumnFlags_WidthStretch, 4.0f);
-		ImGui::TableSetupColumn("Form ID", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-		ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthStretch, 1.6f);
-		ImGui::TableSetupColumn("Stage", ImGuiTableColumnFlags_WidthStretch, 0.7f);
-		ImGui::TableSetupColumn("Shown", ImGuiTableColumnFlags_WidthStretch, 0.7f);
+		ImGui::TableSetupColumn("Quest", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort, 4.0f, 0);
+		ImGui::TableSetupColumn("Form ID", ImGuiTableColumnFlags_WidthStretch, 1.0f, 1);
+		ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthStretch, 1.6f, 2);
+		ImGui::TableSetupColumn("Stage", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortDescending, 0.7f, 3);
+		ImGui::TableSetupColumn("Shown", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortDescending, 0.7f, 4);
 		ImGui::TableHeadersRow();
+		// click a column header to sort by it (again to reverse); ties keep the name order
+		int  col = 0;
+		bool asc = true;
+		if (const ImGuiTableSortSpecs* specs = ImGui::TableGetSortSpecs(); specs && specs->SpecsCount > 0) {
+			col = static_cast<int>(specs->Specs[0].ColumnUserID);
+			asc = specs->Specs[0].SortDirection == ImGuiSortDirection_Ascending;
+		}
+		std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return Lower(a.label) < Lower(b.label); });
+		std::stable_sort(rows.begin(), rows.end(), [&](const Row& a, const Row& b) {
+			auto cmp = [&]() -> int {
+				switch (col) {
+				case 1: return a.formID < b.formID ? -1 : a.formID > b.formID ? 1 : 0;
+				case 2: return a.status < b.status ? -1 : a.status > b.status ? 1 : 0;
+				case 3: return a.stage < b.stage ? -1 : a.stage > b.stage ? 1 : 0;
+				case 4: return a.shown < b.shown ? -1 : a.shown > b.shown ? 1 : 0;
+				default:
+					{
+						const auto la = Lower(a.label), lb = Lower(b.label);
+						return la < lb ? -1 : la > lb ? 1 : 0;
+					}
+				}
+			}();
+			return asc ? cmp < 0 : cmp > 0;
+		});
 		ImGuiListClipper clip;
 		clip.Begin(static_cast<int>(rows.size()));
 		while (clip.Step()) {
@@ -330,9 +385,9 @@ void App::drawQuestsList()
 				const auto& r = rows[i];
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
-				ImGui::PushID(static_cast<int>(r.q->formID));
-				if (ImGui::Selectable(r.label.c_str(), _questSel == r.q->formID, ImGuiSelectableFlags_SpanAllColumns)) {
-					_questSel = r.q->formID;
+				ImGui::PushID(static_cast<int>(r.formID));
+				if (ImGui::Selectable(r.label.c_str(), _questSel == r.formID, ImGuiSelectableFlags_SpanAllColumns)) {
+					_questSel = r.formID;
 					_setStageIdx = 0;
 					if (_live.info().inGame) {
 						liveQuest(_questSel);
@@ -340,22 +395,23 @@ void App::drawQuestsList()
 				}
 				ImGui::PopID();
 				ImGui::TableNextColumn();
-				ImGui::TextDisabled("%08X", r.q->formID);
+				ImGui::TextDisabled("%08X", r.formID);
 				ImGui::TableNextColumn();
-				const bool odd = r.q->shownObjectives() && (r.q->completed() || !r.q->running());
+				const bool odd = r.q && r.shown && (r.q->completed() || !r.q->running());
 				if (odd) {
-					TextColored(theme::Warn(), r.q->statusText());
+					TextColored(theme::Warn(), r.status);
+				} else if (!r.q) {
+					ImGui::TextDisabled("%s", r.status.c_str());
 				} else {
-					ImGui::TextUnformatted(r.q->statusText());
+					ImGui::TextUnformatted(r.status.c_str());
 				}
 				ImGui::TableNextColumn();
-				const auto st = r.q->highestDoneStage();
-				if (st >= 0) {
-					ImGui::Text("%d", st);
+				if (r.stage >= 0) {
+					ImGui::Text("%d", r.stage);
 				}
 				ImGui::TableNextColumn();
-				if (const auto n = r.q->shownObjectives()) {
-					ImGui::Text("%zu", n);
+				if (r.shown) {
+					ImGui::Text("%zu", r.shown);
 				}
 			}
 		}
@@ -373,6 +429,11 @@ void App::drawQuestDetail()
 		if (s.formID == _questSel) {
 			q = &s;
 		}
+	}
+	quests::QuestState notStarted;  // a quest of the load order this save never touched
+	if (!q && _db && _db->quest(_questSel)) {
+		notStarted.formID = _questSel;
+		q = &notStarted;
 	}
 	if (!q) {
 		Dim("Click a quest to see its stages, journal entries and objectives, and what completing it gives.");
@@ -419,8 +480,11 @@ void App::drawQuestDetail()
 		confirm("Complete quest",
 			Fmt("Set \"%s\" to its completion stage %u in the running game?\n\nThe game runs that stage's own script, so its rewards are given and "
 				"follow-up quests start the normal way.%s\n\nSkipping a quest's earlier stages can leave things unfinished (items not "
-				"collected, people not met). Make a save in the game first.",
-				name.c_str(), st, effects.empty() ? "" : ("\n\nWhat the stage script does:" + effects).c_str()),
+				"collected, people not met). Make a save in the game first.%s",
+				name.c_str(), st, effects.empty() ? "" : ("\n\nWhat the stage script does:" + effects).c_str(),
+				q->hasFlags ? "" :
+				              "\n\nThis quest has not started in this save: setting the stage starts it and completes it at once. Its people and "
+				              "places are not set up yet, so parts of its script may do nothing, and quests that come after it may still start."),
 			[this, fid = q->formID, st, name] { liveSetStage(fid, st, Fmt("completed \"%s\" (stage %u)", name.c_str(), st)); });
 	}
 	ImGui::EndDisabled();

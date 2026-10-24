@@ -2087,6 +2087,30 @@ void App::drawStatus()
 		ImGui::SameLine();
 	}
 	ImGui::TextUnformatted(_status.c_str());
+	// the open save, centred: name and folder (the folder shortened from the left if it does not fit)
+	if (_save && !_path.empty()) {
+		const float  afterStatus = ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + 30;
+		const float  rightReserve = 360;
+		const float  avail = ImGui::GetWindowWidth() - afterStatus - rightReserve;
+		const auto   name = platform::ToUtf8(_path.filename());
+		std::string  folder = platform::ToUtf8(_path.parent_path());
+		auto         text = [&] { return name + "   " + folder; };
+		while (folder.size() > 8 && ImGui::CalcTextSize(text().c_str()).x > avail) {
+			folder = "..." + folder.substr(std::min<std::size_t>(folder.size(), 12));
+		}
+		const float w = ImGui::CalcTextSize(text().c_str()).x;
+		if (w <= avail) {
+			float x = (ImGui::GetWindowWidth() - w) * 0.5f;
+			x = std::max(x, afterStatus);
+			ImGui::SameLine(x);
+			ImGui::TextUnformatted(name.c_str());
+			ImGui::SameLine();
+			ImGui::TextDisabled("%s", folder.c_str());
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("%s", platform::ToUtf8(_path).c_str());
+			}
+		}
+	}
 	if ((scanning() && _scanProgress) || (namesLoading() && _dbProgress)) {
 		const float w = std::min(560.0f, ImGui::GetWindowWidth() * 0.45f);
 		ImGui::SameLine(ImGui::GetWindowWidth() - w - ImGui::GetStyle().WindowPadding.x);
