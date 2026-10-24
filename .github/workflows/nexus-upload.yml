@@ -128,7 +128,8 @@ jobs:
           TEXT: ${{ inputs.description || inputs.changelog }}
           VERSION: ${{ inputs.version }}
         run: |
-          d="Version $VERSION: $(printf '%s' "$TEXT" | sed 's/ | /; /g')"
+          d="$(printf '%s' "$TEXT" | sed 's/ | /; /g')"
+          case "$d" in [Vv]ersion*) ;; *) d="Version $VERSION: $d" ;; esac  # no "Version x: Version x:"
           if [ ${#d} -gt 250 ]; then d="${d:0:246}..."; fi
           echo "text=$d" >> "$GITHUB_OUTPUT"
 
