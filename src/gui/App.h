@@ -269,7 +269,24 @@ private:
 	};
 	const QuestPreview&                   questPreview(std::uint32_t a_formID);
 	void                                  liveQuest(std::uint32_t a_formID);  // asks the game for the quest's live state
-	void                                  liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std::string& a_what);
+	void                                  liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std::string& a_what,
+		                                      std::function<void(bool)> a_then = {});
+	// earlier quests of a quest line: quests whose journal names this one as the next quest, or whose
+	// completion stage script starts it / sets its stage; followed back, oldest first, not yet completed
+	struct ChainItem
+	{
+		std::uint32_t formID = 0;
+		std::uint16_t stage = 0;  // its completion stage
+		std::string   name;
+		bool          tick = true;
+		bool          alternative = false;  // one of several quests that lead here (e.g. two factions): not ticked
+		bool          done = false;          // completed in this save
+	};
+	std::vector<ChainItem>&               questChain(std::uint32_t a_formID);
+	void                                  runChain();  // completes _chainRun one after the other
+	std::map<std::uint32_t, std::vector<ChainItem>> _chains;
+	std::vector<ChainItem>                _chainRun;
+	std::size_t                           _chainPos = 0;
 	std::string                           liveNotifyMode() const;
 	LiveLink                              _live;
 	bool                                  _liveEnabled = true;

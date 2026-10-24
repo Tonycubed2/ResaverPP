@@ -11,7 +11,9 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <set>
 #include <unordered_map>
+#include <functional>
 
 using namespace ess;
 
@@ -59,6 +61,7 @@ const std::vector<quests::QuestState>& App::questStates()
 		_questStates = _save ? quests::ReadStates(*_save) : std::vector<quests::QuestState>{};
 		_questGen = _editGen;
 		_questPreviews.clear();
+		_chains.clear();
 	}
 	return _questStates;
 }
@@ -126,14 +129,17 @@ void App::liveQuest(std::uint32_t a_formID)
 	});
 }
 
-void App::liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std::string& a_what)
+void App::liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std::string& a_what, std::function<void(bool)> a_then)
 {
 	const auto msg = "ReSaver++: " + a_what;
 	_status = "Asking the game: " + a_what + "...";
 	_live.request({ "SETSTAGE", Fmt("%08X", a_formID), std::to_string(a_stage), liveNotifyMode(), msg },
-		[this, a_formID, a_what](const LiveLink::Reply& r) {
+		[this, a_formID, a_what, a_then](const LiveLink::Reply& r) {
 			if (!LiveLink::Ok(r)) {
 				_status = "The game could not do it: " + LiveLink::Error(r);
+				if (a_then) {
+					a_then(false);
+				}
 				return;
 			}
 			const auto f = LiveLink::Field(r, 0);
@@ -141,6 +147,89 @@ void App::liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std:
 			          f == "?" ? "The game is still running that stage's script: " + a_what + "." :
 			                     "The game refused that stage (its conditions were not met): " + a_what + ".";
 			liveQuest(a_formID);
+			if (a_then) {
+				a_then(f != "0");
+			}
+		});
+}
+
+std::vector<App::ChainItem>& App::questChain(std::uint32_t a_formID)
+{
+	if (auto it = _chains.find(a_formID); it != _chains.end()) {
+		return it->second;
+	}
+	if (!_db) {
+		static std::vector<ChainItem> none;
+		none.clear();
+		return none;  // not cached: the plugins are read later
+	}
+	auto& out = _chains[a_formID];
+	const auto& defs = _db->questDefs();
+	std::unordered_map<std::uint32_t, const quests::QuestState*> state;
+	for (const auto& q : questStates()) {
+		state[q.formID] = &q;
+	}
+	auto nameOf = [&](std::uint32_t id) {
+		const auto* d = _db->quest(id);
+		return d ? (d->name.empty() ? d->edid : d->name + " (" + d->edid + ")") : Fmt("%08X", id);
+	};
+	auto predecessors = [&](std::uint32_t a_target) {
+		return quests::LeadsInto(a_target, defs, [this](std::uint32_t id) { return questPreview(id).bodies; });
+	};
+	// walk back, oldest first; stop at quests already completed
+	std::set<std::uint32_t> seen{ a_formID };
+	std::function<void(std::uint32_t, int)> walk = [&](std::uint32_t a_target, int a_depth) {
+		if (a_depth > 12) {
+			return;
+		}
+		std::vector<std::uint32_t> pre;
+		for (auto id : predecessors(a_target)) {
+			if (!seen.contains(id)) {
+				pre.push_back(id);  // quests already on the list (reached another way) do not count as alternatives
+			}
+		}
+		for (auto id : pre) {
+			if (!seen.insert(id).second) {
+				continue;
+			}
+			auto       it = state.find(id);
+			const bool done = it != state.end() && it->second->completed();
+			if (!done) {
+				walk(id, a_depth + 1);  // its own earlier quests come first
+			}
+			ChainItem c;
+			c.formID = id;
+			c.stage = _db->quest(id)->completionStages().front();
+			c.name = nameOf(id);
+			c.done = done;
+			c.alternative = pre.size() > 1;
+			c.tick = !done && !c.alternative;
+			out.push_back(std::move(c));
+		}
+	};
+	walk(a_formID, 0);
+	return out;
+}
+
+void App::runChain()
+{
+	if (_chainPos >= _chainRun.size()) {
+		_status = Fmt("Quest line done in game (%zu quest(s)). Save in the game to keep it.", _chainRun.size());
+		_chainRun.clear();
+		_chainPos = 0;
+		return;
+	}
+	const auto c = _chainRun[_chainPos];
+	liveSetStage(c.formID, c.stage, Fmt("completed \"%s\" (stage %u, %zu of %zu)", c.name.c_str(), c.stage, _chainPos + 1, _chainRun.size()),
+		[this](bool ok) {
+			if (!ok) {
+				_status += "  Stopped the quest line here.";
+				_chainRun.clear();
+				_chainPos = 0;
+				return;
+			}
+			++_chainPos;
+			runChain();
 		});
 }
 
@@ -540,6 +629,66 @@ void App::drawQuestDetail()
 		ImGui::Spacing();
 		Dim("Stages, journal entries and objectives are read from your plugins once your mods folder is set.");
 		return;
+	}
+
+	// ---- earlier quests of the quest line
+	if (!completion.empty()) {
+		auto&       chain = questChain(q->formID);
+		std::size_t open = 0;
+		for (const auto& c : chain) {
+			open += c.done ? 0 : 1;
+		}
+		if (open) {
+			ImGui::SeparatorText(Fmt("Earlier quests in this quest line (%zu not completed)", open).c_str());
+			Dim("These quests lead to this one: their journal names it as the next quest, or their last stage starts it. Ticked ones are "
+				"completed first, oldest first, then this quest. Quests that are one of several ways to get here (two factions, two "
+				"endings) are not ticked: tick the one you want.");
+			for (auto& c : chain) {
+				if (c.done) {
+					continue;
+				}
+				ImGui::PushID(static_cast<int>(c.formID));
+				ImGui::Checkbox(c.name.c_str(), &c.tick);
+				ImGui::SameLine();
+				ImGui::TextDisabled("stage %u%s", c.stage, c.alternative ? "   (one of several ways here)" : "");
+				ImGui::PopID();
+			}
+			std::vector<ChainItem> run;
+			for (const auto& c : chain) {
+				if (c.tick && !c.done) {
+					run.push_back(c);
+				}
+			}
+			ChainItem self;
+			self.formID = q->formID;
+			self.stage = completion.front();
+			self.name = name;
+			run.push_back(self);
+			ImGui::BeginDisabled(!live || run.size() < 2 || !_chainRun.empty());
+			if (ImGui::Button(Fmt("Complete %zu earlier quest(s) and this one in game", run.size() - 1).c_str())) {
+				std::string list;
+				for (const auto& c : run) {
+					list += Fmt("\n    %s (stage %u)", c.name.c_str(), c.stage);
+				}
+				confirm("Complete quest line",
+					"Complete these quests in the running game, one after the other, in this order?" + list +
+						"\n\nEach stage's own script runs (rewards, follow-up quests). If the game refuses a stage, it stops there. "
+						"Skipping quests can leave things unfinished. Make a save in the game first.",
+					[this, run] {
+						_chainRun = run;
+						_chainPos = 0;
+						runChain();
+					});
+			}
+			ImGui::EndDisabled();
+			if (!live) {
+				LiveHint(info);
+			}
+			if (!_chainRun.empty()) {
+				ImGui::SameLine();
+				ImGui::TextDisabled("working: %zu of %zu", _chainPos + 1, _chainRun.size());
+			}
+		}
 	}
 
 	// ---- what completing it does
