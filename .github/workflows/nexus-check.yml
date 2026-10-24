@@ -38,3 +38,8 @@ jobs:
           code=$(curl -sS -o v3files.json -w '%{http_code}' -H "apikey: $KEY" -H "User-Agent: ReSaverPP-release" \
             "https://api.nexusmods.com/v3/mods/7318624468677/files")
           echo "::notice::v3 files HTTP $code: $(jq -c '[(.data // .)[]? | {id, name, game_scoped_id, category: (.category // .file_category)}]' v3files.json 2>/dev/null | head -c 900)"
+          for g in 825183 825484; do
+            code=$(curl -sS -o fv.json -w '%{http_code}' -H "apikey: $KEY" -H "User-Agent: ReSaverPP-release" \
+              "https://api.nexusmods.com/v3/games/skyrimspecialedition/mod-file-versions/$g")
+            echo "::notice::file version $g HTTP $code: $(head -c 900 fv.json)"
+          done
