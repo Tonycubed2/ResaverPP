@@ -97,16 +97,28 @@ namespace Server
 				if (!formID || stage < 0 || stage > 0xFFFF) {
 					return err("bad quest or stage");
 				}
-				auto       result = std::make_shared<std::promise<bool>>();
+				struct Outcome
+				{
+					bool          ok = false, running = false, completed = false;
+					std::uint16_t stage = 0;
+				};
+				auto       result = std::make_shared<std::promise<Outcome>>();
 				auto       fut = result->get_future();
 				const auto notify = arg(2), message = arg(3);
 				const auto st16 = static_cast<std::uint16_t>(stage);
 				const bool ran = Game::RunOnMain(
 					[formID, st16, result, notify, message] {
-						Game::SetStage(formID, st16, [result, notify, message](bool ok) {
+						Game::SetStage(formID, st16, [formID, result, notify, message](bool ok) {
 							Game::Notify(notify, ok ? (message.empty() ? "ReSaverHelper: quest stage set" : message) : "ReSaverHelper: the game refused that stage");
+							Outcome o;
+							o.ok = ok;
+							if (auto* q = RE::TESForm::LookupByID<RE::TESQuest>(formID)) {
+								o.running = q->IsRunning();
+								o.completed = q->IsCompleted();
+								o.stage = q->GetCurrentStageID();
+							}
 							try {
-								result->set_value(ok);
+								result->set_value(o);
 							} catch (...) {
 							}
 						});
@@ -117,6 +129,31 @@ namespace Server
 				}
 				if (fut.wait_for(15s) != std::future_status::ready) {
 					return { "OK", "?" };  // still running (a long stage script): it continues in the game
+				}
+				const auto o = fut.get();
+				return { "OK", o.ok ? "1" : "0", o.running ? "1" : "0", o.completed ? "1" : "0", std::to_string(o.stage) };
+			}
+			if (cmd == "COMPLETE") {
+				const auto formID = ParseHex(arg(0));
+				if (!formID) {
+					return err("bad quest");
+				}
+				auto       result = std::make_shared<std::promise<bool>>();
+				auto       fut = result->get_future();
+				const auto notify = arg(1), message = arg(2);
+				const bool ran = Game::RunOnMain(
+					[formID, result, notify, message] {
+						Game::Complete(formID, [result, notify, message](bool ok) {
+							Game::Notify(notify, ok ? (message.empty() ? "ReSaverHelper: quest marked completed" : message) : "ReSaverHelper: the quest could not be marked completed");
+							try {
+								result->set_value(ok);
+							} catch (...) {
+							}
+						});
+					},
+					kWait);
+				if (!ran || fut.wait_for(15s) != std::future_status::ready) {
+					return { "OK", "?" };
 				}
 				return { "OK", fut.get() ? "1" : "0" };
 			}

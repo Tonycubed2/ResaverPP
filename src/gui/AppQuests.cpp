@@ -156,14 +156,50 @@ void App::liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std:
 				return;
 			}
 			const auto f = LiveLink::Field(r, 0);
+			std::string why;
+			if (f == "0") {
+				// helper 3 also tells where the quest stands after the refusal
+				const auto running = LiveLink::Field(r, 1), completed = LiveLink::Field(r, 2), stage = LiveLink::Field(r, 3);
+				if (completed == "1") {
+					why = " The quest is already completed in the game.";
+				} else if (running == "0") {
+					why = " The quest could not start: the game could not find the people, places or items it needs (they are set up by "
+						  "the quest's normal beginning). \"Mark completed\" can still mark it done in the journal.";
+				} else if (!stage.empty()) {
+					why = " The quest is running at stage " + stage + "; that stage's conditions were not met. \"Mark completed\" can still mark it done.";
+				}
+			}
 			_status = f == "1" ? "Done in game: " + a_what + ". Save in the game to keep it." :
 			          f == "?" ? "The game is still running that stage's script: " + a_what + "." :
-			                     "The game refused that stage (its conditions were not met): " + a_what + ".";
+			                     "The game refused that stage: " + a_what + "." + why;
 			liveQuest(a_formID);
 			if (a_then) {
 				a_then(f != "0");
 			}
 		});
+}
+
+bool App::helperAtLeast(int a_version) const
+{
+	const auto info = _live.info();
+	return info.connected && std::atoi(info.helperVersion.c_str()) >= a_version;
+}
+
+void App::liveComplete(std::uint32_t a_formID, const std::string& a_name)
+{
+	const std::string what = "marked \"" + a_name + "\" completed";
+	_status = "Asking the game: " + what + "...";
+	_live.request({ "COMPLETE", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver++: " + what }, [this, a_formID, what](const LiveLink::Reply& r) {
+		if (!LiveLink::Ok(r)) {
+			_status = "The game could not do it: " + LiveLink::Error(r);
+			return;
+		}
+		const auto f = LiveLink::Field(r, 0);
+		_status = f == "1" ? "Done in game: " + what + ". Save in the game to keep it." :
+		          f == "?" ? "The game is busy; it does it as soon as it can: " + what + "." :
+		                     "The game did not mark it completed: " + what + ".";
+		liveQuest(a_formID);
+	});
 }
 
 std::vector<App::ChainItem>& App::questChain(std::uint32_t a_formID)
@@ -646,6 +682,22 @@ void App::drawQuestDetail()
 		LiveHint(info);
 	} else if (completion.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 		ImGui::SetTooltip("No stage of this quest is marked as completing it.");
+	}
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!live || !helperAtLeast(3));
+	if (ImGui::Button("Mark completed")) {
+		confirm("Mark completed",
+			Fmt("Mark \"%s\" as completed in the running game, without running its stage script?\n\nIts objectives are completed and it moves to "
+				"the completed quests in the journal. Unlike \"Complete quest in game\", no rewards are given and quests that normally "
+				"follow it are NOT started. Use it when the game refuses the completion stage. Make a save in the game first.",
+				name.c_str()),
+			[this, fid = q->formID, name] { liveComplete(fid, name); });
+	}
+	ImGui::EndDisabled();
+	if (!live) {
+		LiveHint(info);
+	} else if (!helperAtLeast(3) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+		ImGui::SetTooltip("Needs ReSaverHelper version 3 (you have version %s).", info.helperVersion.c_str());
 	}
 	ImGui::SameLine();
 	// set any stage
