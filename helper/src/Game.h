@@ -10,7 +10,7 @@ namespace Game
 	bool InGame();
 
 	// Runs a_fn on the main thread and waits for it, up to a_timeout. False on timeout.
-	bool RunOnMain(std::function<void()> a_fn, std::chrono::milliseconds a_timeout = 3s);
+	bool RunOnMain(std::function<void()> a_fn, std::chrono::milliseconds a_timeout = 30s);
 
 	// "hud", "box", "none" or "ini" (= the INI's sNotify). Safe from any thread.
 	void Notify(const std::string& a_mode, const std::string& a_text);
