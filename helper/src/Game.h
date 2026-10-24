@@ -39,6 +39,8 @@ namespace Game
 	// again (its completed / failed state put back), so the game rebuilds its list of shown objectives.
 	// Returns how many objectives will be refreshed; 0 if nothing to do or one is already running.
 	std::size_t StartRefresh(const std::string& a_notify);  // main thread
+	// a menu is open (the game is paused or the Journal is open): a refresh waits for it (main thread)
+	bool MenuBlocksRefresh();
 	struct Progress
 	{
 		std::size_t done = 0, total = 0;

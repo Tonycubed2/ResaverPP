@@ -364,7 +364,8 @@ void App::drawRefreshJournal(bool a_compact)
 	} else if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("For every running quest, each objective the journal shows is hidden and shown again (completed / failed\n"
 						  "put back), so the game rebuilds its list. Brings back quests and objectives the journal stopped showing\n"
-						  "(the same fix as Quest Journal Limit Bug Fixer).");
+						  "(the same fix as Quest Journal Limit Bug Fixer).\n\n"
+						  "Make a save in the game first and keep menus closed until it is done (helper 4 waits for them).");
 	}
 	if (_liveRefresh.running) {
 		ImGui::SameLine();

@@ -160,6 +160,13 @@ namespace Server
 			if (cmd == "REFRESH") {
 				auto       n = std::make_shared<std::atomic<std::size_t>>(0);
 				const auto notify = arg(0);
+				auto blocked = std::make_shared<std::atomic<bool>>(false);
+				if (!Game::RunOnMain([blocked] { blocked->store(Game::MenuBlocksRefresh()); }, kWait)) {
+					return err("the game is busy (it did not answer within 30 seconds)");
+				}
+				if (blocked->load()) {
+					return err("close the game's menus first (the journal is refreshed only while you are playing)");
+				}
 				if (!Game::RunOnMain([n, notify] { n->store(Game::StartRefresh(notify)); }, kWait)) {
 					return err("the game is busy (it did not answer within 30 seconds); the refresh starts when it can");
 				}

@@ -1039,7 +1039,7 @@ void App::drawMenu()
 	// the way back to the Save check, always in sight, in the colour of its worst finding
 	if (_save) {
 		const Risk  worst = checkWorst();
-		const auto  col = worst == Risk::kRisky ? theme::Bad() : worst == Risk::kCaution ? theme::Warn() : theme::Good();
+		const auto  col = worst == Risk::kRisky ? theme::Bad() : worst == Risk::kCaution ? theme::Caution() : theme::Good();
 		ImGui::PushStyleColor(ImGuiCol_Text, col);
 		const bool  click = ImGui::MenuItem(worst == Risk::kRisky ? "Save check (risky)" : worst == Risk::kCaution ? "Save check (look)" : "Save check (OK)");
 		ImGui::PopStyleColor();

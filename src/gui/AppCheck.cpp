@@ -37,7 +37,7 @@ namespace
 	{
 		switch (r) {
 		case App::Risk::kSafe: return theme::Good();
-		case App::Risk::kCaution: return theme::Warn();
+		case App::Risk::kCaution: return theme::Caution();
 		case App::Risk::kRisky: return theme::Bad();
 		default: return theme::Dim();
 		}
@@ -333,9 +333,12 @@ std::vector<App::CheckItem> App::checkItems()
 			it.what = "Leftovers of quests that ended. Harmless, but they fill the journal, and a very full journal stops showing new quests.";
 			CheckOption o;
 			o.label = "Refresh journal in game";
-			o.risk = Risk::kSafe;
-			o.why = info.connected && info.inGame ? "Done in the running game; this file is not changed. Save in the game to keep it."
-												  : "Needs the game running with ReSaverHelper.dll and a save loaded.";
+			o.risk = Risk::kCaution;
+			o.why = std::string(info.connected && info.inGame ? "Done in the running game; this file is not changed. "
+															  : "Needs the game running with ReSaverHelper.dll and a save loaded. ") +
+					"Make a save in the game first and keep menus closed while it runs. With journal UI mods (such as QUI) a crash when "
+					"opening the menu afterwards was reported with helper 3; helper 4 works more carefully. If the game crashes, load "
+					"the save from before.";
 			o.enabled = info.connected && info.inGame && !_liveRefresh.running;
 			o.act = [this] { startLiveRefresh(); };
 			it.options.push_back(std::move(o));
