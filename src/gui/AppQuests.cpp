@@ -270,7 +270,7 @@ void App::drawQuestsList()
 	ImGui::Separator();
 
 	ImGui::SetNextItemWidth(-220);
-	ImGui::InputTextWithHint("##qfilter", "filter by name or editor ID", _questFilter, sizeof(_questFilter));
+	ImGui::InputTextWithHint("##qfilter", "filter by name, editor ID or form ID", _questFilter, sizeof(_questFilter));
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-1);
 	const char* shows[] = { "In the journal", "Running", "Completed", "All" };
@@ -305,18 +305,20 @@ void App::drawQuestsList()
 		default:
 			break;
 		}
-		std::string label = def ? (def->name.empty() ? def->edid : def->name + "  (" + def->edid + ")") : Fmt("%08X", q.formID);
-		if (!needle.empty() && Lower(label).find(needle) == std::string::npos) {
+		// name and editor ID from the plugins; until they are read, the plugin the quest comes from
+		std::string label = def ? (def->name.empty() ? def->edid : def->name + "  (" + def->edid + ")") : "(" + _save->pluginOf(q.formID) + ")";
+		if (!needle.empty() && Lower(label).find(needle) == std::string::npos && Lower(Fmt("%08X", q.formID)).find(needle) == std::string::npos) {
 			continue;
 		}
 		rows.push_back({ &q, def, std::move(label) });
 	}
 	std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return Lower(a.label) < Lower(b.label); });
 
-	if (ImGui::BeginTable("quests", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable |
+	if (ImGui::BeginTable("quests", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable |
 										   ImGuiTableFlags_SizingStretchProp)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableSetupColumn("Quest", ImGuiTableColumnFlags_WidthStretch, 4.0f);
+		ImGui::TableSetupColumn("Form ID", ImGuiTableColumnFlags_WidthStretch, 1.0f);
 		ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthStretch, 1.6f);
 		ImGui::TableSetupColumn("Stage", ImGuiTableColumnFlags_WidthStretch, 0.7f);
 		ImGui::TableSetupColumn("Shown", ImGuiTableColumnFlags_WidthStretch, 0.7f);
@@ -337,6 +339,8 @@ void App::drawQuestsList()
 					}
 				}
 				ImGui::PopID();
+				ImGui::TableNextColumn();
+				ImGui::TextDisabled("%08X", r.q->formID);
 				ImGui::TableNextColumn();
 				const bool odd = r.q->shownObjectives() && (r.q->completed() || !r.q->running());
 				if (odd) {
