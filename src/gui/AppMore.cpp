@@ -548,7 +548,33 @@ void App::drawSettings()
 		std::error_code ec;
 		ImGui::TextDisabled("Papyrus compiler: %s", !comp.empty() && std::filesystem::exists(comp, ec) ? platform::ToUtf8(comp).c_str()
 																										: "not found (it comes with the Creation Kit)");
-		ImGui::TextDisabled("Saves: %s", platform::ToUtf8(savesFolder()).c_str());
+	}
+	{
+		auto& custom = savesDirSetting();
+		ImGui::TextWrapped("Saves folder: %s", platform::ToUtf8(savesFolder()).c_str());
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Change...##saves") && platform::HasNativeDialogs()) {
+			if (auto p = platform::PickFolderDialog("Pick the folder with your saves (File > Open starts there)")) {
+				custom = platform::ToUtf8(*p);
+				ch = true;
+				if (_watch) {
+					setWatching(true);
+				}
+			}
+		}
+		if (!custom.empty()) {
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Find it by itself##saves")) {
+				custom.clear();
+				ch = true;
+				if (_watch) {
+					setWatching(true);
+				}
+			}
+		}
+		ImGui::TextDisabled(custom.empty() ? "Found by itself: the folder you last opened a save from, else the one with your newest save\n"
+											 "(Documents\\My Games, sLocalSavePath in Skyrim.ini, Mod Organizer profile saves)."
+										   : "Chosen by you: File > Open starts here and \"Watch saves folder\" watches it.");
 	}
 	// Mod Organizer instances installed for this user (%LOCALAPPDATA%\ModOrganizer\<instance>)
 	if (const char* la = std::getenv("LOCALAPPDATA")) {

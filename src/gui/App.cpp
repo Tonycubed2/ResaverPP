@@ -117,6 +117,10 @@ void App::open(const std::filesystem::path& a_path)
 		_cfFacts.clear();
 		_missingDismissed = false;
 		_path = a_path;
+		if (const auto dir = platform::ToUtf8(a_path.parent_path()); !dir.empty() && dir != lastOpenDir()) {
+			lastOpenDir() = dir;  // File > Open starts here next time
+			saveSettings();
+		}
 		_dirty = false;
 		_report.reset();
 		_selected.clear();
@@ -2066,7 +2070,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 19  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version " RESAVERPP_VERSION "  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2271,6 +2275,14 @@ void App::loadSettings()
 			text::SetCodePage(static_cast<unsigned>(std::strtoul(line.c_str() + 9, nullptr, 10)));
 		} else if (line.rfind("game=", 0) == 0) {
 			se.gamePath = line.substr(5);
+		} else if (line.rfind("saves_dir=", 0) == 0) {
+			_savesDirSe = line.substr(10);
+		} else if (line.rfind("saves_dir_vr=", 0) == 0) {
+			_savesDirVr = line.substr(13);
+		} else if (line.rfind("last_dir=", 0) == 0) {
+			_lastDirSe = line.substr(9);
+		} else if (line.rfind("last_dir_vr=", 0) == 0) {
+			_lastDirVr = line.substr(12);
 		} else if (line.rfind("decompile_always=", 0) == 0) {
 			_decompileAlways = line.substr(17) == "1";
 		} else if (line.rfind("editor_light=", 0) == 0) {
@@ -2322,6 +2334,10 @@ void App::saveSettings()
 	f << "compression=" << _saveCompression << "\n";
 	f << "watch=" << (_watch ? 1 : 0) << "\n";
 	f << "game=" << se.gamePath << "\n";
+	f << "saves_dir=" << _savesDirSe << "\n";
+	f << "saves_dir_vr=" << _savesDirVr << "\n";
+	f << "last_dir=" << _lastDirSe << "\n";
+	f << "last_dir_vr=" << _lastDirVr << "\n";
 	f << "codepage=" << text::CodePage() << "\n";
 	f << "theme=" << static_cast<int>(theme::Current()) << "\n";
 	f << "live=" << (_liveEnabled ? 1 : 0) << "\n";

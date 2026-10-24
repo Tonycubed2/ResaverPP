@@ -68,14 +68,27 @@ const std::vector<quests::QuestState>& App::questStates()
 
 const App::QuestPreview& App::questPreview(std::uint32_t a_formID)
 {
-	auto& pv = _questPreviews[a_formID];
-	if (pv.done) {
-		return pv;
+	if (auto it = _questPreviews.find(a_formID); it != _questPreviews.end()) {
+		return it->second;
 	}
+	// not ready yet: answer without keeping the answer, so it is read again once the plugins and scripts are in
+	if (!_db) {
+		_previewPending = true;
+		_previewTmp = QuestPreview{};
+		_previewTmp.error = namesLoading() ? "Reading your plugins..." : "The plugins are not read yet (Options > Settings: mods folder, then names are read automatically).";
+		return _previewTmp;
+	}
+	if (!ensureSourcesScanned()) {
+		_previewPending = true;
+		_previewTmp = QuestPreview{};
+		_previewTmp.error = "Reading your mods' scripts (in the background)...";
+		return _previewTmp;
+	}
+	auto& pv = _questPreviews[a_formID];
 	pv.done = true;
-	const auto* def = _db ? _db->quest(a_formID) : nullptr;
+	const auto* def = _db->quest(a_formID);
 	if (!def) {
-		pv.error = "The plugins are not read yet (Options > Settings: mods folder, then names are read automatically).";
+		pv.error = "This quest is not in your plugins.";
 		return pv;
 	}
 	if (def->fragmentScript.empty()) {
@@ -163,7 +176,8 @@ std::vector<App::ChainItem>& App::questChain(std::uint32_t a_formID)
 		none.clear();
 		return none;  // not cached: the plugins are read later
 	}
-	auto& out = _chains[a_formID];
+	std::vector<ChainItem> out;
+	_previewPending = false;
 	const auto& defs = _db->questDefs();
 	std::unordered_map<std::uint32_t, const quests::QuestState*> state;
 	for (const auto& q : questStates()) {
@@ -208,7 +222,12 @@ std::vector<App::ChainItem>& App::questChain(std::uint32_t a_formID)
 		}
 	};
 	walk(a_formID, 0);
-	return out;
+	if (_previewPending) {
+		// some stage scripts could not be read yet: show what is known, look again next frame
+		_chainPending = std::move(out);
+		return _chainPending;
+	}
+	return _chains[a_formID] = std::move(out);
 }
 
 void App::runChain()
@@ -231,6 +250,18 @@ void App::runChain()
 			++_chainPos;
 			runChain();
 		});
+}
+
+void App::drawQuestNotifyChoice()
+{
+	const char* modes[] = { "Top-left notification", "Message box", "No message" };
+	ImGui::SetNextItemWidth(200);
+	if (ImGui::Combo("##qnotify", &_liveNotify, modes, 3)) {
+		saveSettings();
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("How the game tells you what ReSaver++ did (also in Options > Settings > Live game).");
+	}
 }
 
 // ---- live status (status bar) -------------------------------------------------------------------
@@ -359,12 +390,23 @@ void App::drawQuestsList()
 	}
 	ImGui::Separator();
 
-	ImGui::SetNextItemWidth(-220);
-	ImGui::InputTextWithHint("##qfilter", "filter by name, editor ID or form ID", _questFilter, sizeof(_questFilter));
+	ImGui::AlignTextToFramePadding();
+	ImGui::TextUnformatted("Show");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-1);
 	const char* shows[] = { "In the journal", "Running", "Completed", "All in this save", "Every quest in the game" };
 	ImGui::Combo("##qshow", &_questShow, shows, 5);
+	ImGui::AlignTextToFramePadding();
+	ImGui::TextUnformatted("Search");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(_questFilter[0] ? -60.0f : -1.0f);
+	ImGui::InputTextWithHint("##qfilter", "any word of the quest name, its editor ID or form ID", _questFilter, sizeof(_questFilter));
+	if (_questFilter[0]) {
+		ImGui::SameLine();
+		if (ImGui::Button("Clear", ImVec2(-1, 0))) {
+			_questFilter[0] = 0;
+		}
+	}
 	if (_questShow == 4 && !_db) {
 		Dim("Every quest in the game comes from your plugins: they are not read yet.");
 	}
@@ -405,8 +447,21 @@ void App::drawQuestsList()
         }
         // name and editor ID from the plugins; until they are read, the plugin the quest comes from
         std::string label = def ? (def->name.empty() ? def->edid : def->name + "  (" + def->edid + ")") : "(" + _save->pluginOf(a_formID) + ")";
-        if (!needle.empty() && Lower(label).find(needle) == std::string::npos && Lower(Fmt("%08X", a_formID)).find(needle) == std::string::npos) {
-            return;
+        if (!needle.empty()) {
+            // every word typed must appear somewhere in the name, editor ID or form ID
+            const auto hay = Lower(label) + " " + Lower(Fmt("%08X", a_formID));
+            std::size_t pos = 0;
+            while (pos < needle.size()) {
+                const auto start = needle.find_first_not_of(' ', pos);
+                if (start == std::string::npos) {
+                    break;
+                }
+                const auto end = std::min(needle.find(' ', start), needle.size());
+                if (hay.find(needle.substr(start, end - start)) == std::string::npos) {
+                    return;
+                }
+                pos = end;
+            }
         }
         Row r;
         r.formID = a_formID;
@@ -566,6 +621,16 @@ void App::drawQuestDetail()
 				effects += "\n    " + e.line;
 			}
 		}
+		std::string earlier;
+		for (const auto& c : questChain(q->formID)) {
+			if (!c.done) {
+				earlier += "\n    " + c.name;
+			}
+		}
+		if (!earlier.empty()) {
+			earlier = "\n\nEarlier quests of this quest line are not completed:" + earlier +
+					  "\nThis button completes only this quest. To complete them too, use \"Complete ... earlier quest(s) and this one\" below.";
+		}
 		confirm("Complete quest",
 			Fmt("Set \"%s\" to its completion stage %u in the running game?\n\nThe game runs that stage's own script, so its rewards are given and "
 				"follow-up quests start the normal way.%s\n\nSkipping a quest's earlier stages can leave things unfinished (items not "
@@ -573,7 +638,7 @@ void App::drawQuestDetail()
 				name.c_str(), st, effects.empty() ? "" : ("\n\nWhat the stage script does:" + effects).c_str(),
 				q->hasFlags ? "" :
 				              "\n\nThis quest has not started in this save: setting the stage starts it and completes it at once. Its people and "
-				              "places are not set up yet, so parts of its script may do nothing, and quests that come after it may still start."),
+				              "places are not set up yet, so parts of its script may do nothing, and quests that come after it may still start.") + earlier,
 			[this, fid = q->formID, st, name] { liveSetStage(fid, st, Fmt("completed \"%s\" (stage %u)", name.c_str(), st)); });
 	}
 	ImGui::EndDisabled();
@@ -624,6 +689,9 @@ void App::drawQuestDetail()
 	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 		ImGui::SetTooltip("Copies the console command that completes the quest (its completion stage), or sets the stage picked on the left.");
 	}
+	ImGui::TextDisabled("The game confirms with:");
+	ImGui::SameLine();
+	drawQuestNotifyChoice();
 
 	if (!def) {
 		ImGui::Spacing();
@@ -688,6 +756,8 @@ void App::drawQuestDetail()
 				ImGui::SameLine();
 				ImGui::TextDisabled("working: %zu of %zu", _chainPos + 1, _chainRun.size());
 			}
+		} else if (_previewPending) {
+			Dim("Looking for earlier quests of this quest line (your mods' scripts are still being read)...");
 		}
 	}
 
