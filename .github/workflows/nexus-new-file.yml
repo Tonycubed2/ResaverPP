@@ -1,0 +1,102 @@
+name: Add a new file to Nexus Mods
+
+# Manual: Actions tab -> "Add a new file to Nexus Mods" -> Run workflow.
+# Uploads a zip that is already in this repository (e.g. helper/release/ReSaverHelper.zip) as an
+# entirely NEW file on the mod page (optional / main / miscellaneous). New versions of that file
+# afterwards: "Upload to Nexus Mods"-style update with its own File ID.
+#
+# Needs the NEXUSMODS_API_KEY secret in the "nexus" environment.
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip:
+        description: "Path of the zip in this repository"
+        required: true
+        default: "helper/release/ReSaverHelper.zip"
+      name:
+        description: "File name shown on Nexus"
+        required: true
+        default: "ReSaverHelper"
+      version:
+        description: "File version"
+        required: true
+      category:
+        description: "main, optional or miscellaneous"
+        required: true
+        default: "optional"
+      description:
+        description: "File description shown on Nexus (plain text; ' | ' separates lines)"
+        required: false
+        default: ""
+      mod_manager:
+        description: "Allow mod manager downloads (false = manual download only)"
+        required: false
+        default: "true"
+      mod_id:
+        description: "Nexus Unique Mod ID (Files tab -> Advanced -> API)"
+        required: false
+        default: "7318624468677"
+
+permissions:
+  contents: read
+
+jobs:
+  create:
+    runs-on: ubuntu-24.04
+    environment: nexus
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Upload and create the file
+        env:
+          KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          ZIP: ${{ inputs.zip }}
+          NAME: ${{ inputs.name }}
+          VERSION: ${{ inputs.version }}
+          CATEGORY: ${{ inputs.category }}
+          DESC: ${{ inputs.description }}
+          MM: ${{ inputs.mod_manager }}
+          MOD_ID: ${{ inputs.mod_id }}
+        run: |
+          set -euo pipefail
+          api=https://api.nexusmods.com/v3
+          hdr=(-H "apikey: $KEY" -H "User-Agent: ReSaverPP-release")
+          [ -f "$ZIP" ] || { echo "::error::$ZIP is not in the repository"; exit 1; }
+          size=$(stat -c %s "$ZIP")
+          fname=$(basename "$ZIP")
+          echo "Uploading $ZIP ($size bytes)"
+          # 1. upload session
+          body=$(jq -n --argjson s "$size" --arg f "$fname" '{size_bytes: $s, filename: $f}')
+          code=$(curl -sS -o up.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/uploads")
+          echo "create upload: HTTP $code"; cat up.json; echo
+          [ "${code:0:1}" = "2" ] || { echo "::error::upload session refused"; exit 1; }
+          id=$(jq -r '.data.id // .id' up.json)
+          url=$(jq -r '.data.presigned_url // .presigned_url' up.json)
+          # 2. the file itself
+          code=$(curl -sS -o put.txt -w '%{http_code}' -X PUT -T "$ZIP" "$url")
+          echo "put: HTTP $code"
+          [ "${code:0:1}" = "2" ] || { cat put.txt; echo "::error::file upload failed"; exit 1; }
+          # 3. finalise, then wait until it is available
+          code=$(curl -sS -o fin.json -w '%{http_code}' -X POST "${hdr[@]}" "$api/uploads/$id/finalise")
+          echo "finalise: HTTP $code"; cat fin.json; echo
+          [ "${code:0:1}" = "2" ] || { echo "::error::finalise failed"; exit 1; }
+          for i in $(seq 1 60); do
+            state=$(curl -sS "${hdr[@]}" "$api/uploads/$id" | jq -r '.data.state // .state')
+            echo "state: $state"
+            [ "$state" = "available" ] && break
+            sleep 5
+          done
+          [ "$state" = "available" ] || { echo "::error::upload never became available"; exit 1; }
+          # 4. the new file on the mod page
+          text=$(printf '%s' "$DESC" | sed 's/ | /\n/g')
+          body=$(jq -n --arg u "$id" --arg m "$MOD_ID" --arg n "$NAME" --arg v "$VERSION" --arg d "$text" --arg c "$CATEGORY" --argjson mm "$MM" \
+            '{upload_id: $u, mod_id: $m, name: $n, version: $v, description: $d, file_category: $c,
+              primary_mod_manager_download: false, allow_mod_manager_download: $mm, show_requirements_pop_up: false, update_mod_version: false}')
+          code=$(curl -sS -o file.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/mod-files")
+          echo "create file: HTTP $code"; cat file.json; echo
+          [ "${code:0:1}" = "2" ] || { echo "::error::Nexus refused the new file (HTTP $code)"; exit 1; }
+          echo "New file ID (for later updates): $(jq -r '.data.id // .id' file.json)"
