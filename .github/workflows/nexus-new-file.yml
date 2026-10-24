@@ -70,17 +70,29 @@ jobs:
           [ -f "$ZIP" ] || fail "$ZIP is not in the repository"
           size=$(stat -c %s "$ZIP")
           fname=$(basename "$ZIP")
-          # 1. upload session
+          # 1-2. multipart upload, the same way as Nexus' own upload action
           body=$(jq -n --argjson s "$size" --arg f "$fname" '{size_bytes: $s, filename: $f}') || fail "jq (upload body)"
-          code=$(curl -sS -o up.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/uploads") || fail "curl /uploads failed"
+          code=$(curl -sS -o up.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/uploads/multipart") || fail "curl /uploads/multipart failed"
           [ "${code:0:1}" = "2" ] || fail "upload session refused (HTTP $code): $(head -c 400 up.json)"
           id=$(jq -r '.data.id // .id // empty' up.json)
-          url=$(jq -r '.data.presigned_url // .presigned_url // empty' up.json)
-          [ -n "$id" ] && [ -n "$url" ] || fail "no upload id / url in: $(head -c 400 up.json | sed 's/X-Amz-Signature=[^&\"]*/X-Amz-Signature=.../')"
-          echo "::notice::upload session $id"
-          # 2. the file itself
-          code=$(curl -sS -o put.txt -w '%{http_code}' -X PUT -H "Content-Type:" --upload-file "$ZIP" "$url") || fail "curl PUT failed"
-          [ "${code:0:1}" = "2" ] || fail "file upload failed (HTTP $code): $(head -c 400 put.txt)"
+          psize=$(jq -r '.data.part_size_bytes // .part_size_bytes' up.json)
+          done_url=$(jq -r '.data.complete_presigned_url // .complete_presigned_url' up.json)
+          mapfile -t parts < <(jq -r '(.data.part_presigned_urls // .part_presigned_urls)[]' up.json)
+          [ -n "$id" ] && [ "${#parts[@]}" -gt 0 ] || fail "no upload id / part urls"
+          echo "::notice::upload session $id, ${#parts[@]} part(s)"
+          xml="<CompleteMultipartUpload>"
+          for n in "${!parts[@]}"; do
+            pn=$((n + 1))
+            dd if="$ZIP" of=part.bin bs="$psize" skip="$n" count=1 status=none
+            code=$(curl -sS -D hdr.txt -o put.txt -w '%{http_code}' -X PUT -H "Content-Type: application/octet-stream" --data-binary @part.bin "${parts[$n]}") || fail "curl PUT part $pn failed"
+            [ "${code:0:1}" = "2" ] || fail "part $pn upload failed (HTTP $code): $(head -c 300 put.txt)"
+            etag=$(grep -i '^etag:' hdr.txt | head -1 | cut -d: -f2- | tr -d ' "\r')
+            [ -n "$etag" ] || fail "no ETag for part $pn"
+            xml="$xml<Part><PartNumber>$pn</PartNumber><ETag>$etag</ETag></Part>"
+          done
+          xml="$xml</CompleteMultipartUpload>"
+          code=$(curl -sS -o cmp.txt -w '%{http_code}' -X POST -H "Content-Type: application/xml" --data "$xml" "$done_url") || fail "curl complete failed"
+          [ "${code:0:1}" = "2" ] || fail "completing the upload failed (HTTP $code): $(head -c 300 cmp.txt)"
           # 3. finalise, then wait until it is available
           code=$(curl -sS -o fin.json -w '%{http_code}' -X POST "${hdr[@]}" "$api/uploads/$id/finalise") || fail "curl finalise failed"
           [ "${code:0:1}" = "2" ] || fail "finalise refused (HTTP $code): $(head -c 400 fin.json)"
