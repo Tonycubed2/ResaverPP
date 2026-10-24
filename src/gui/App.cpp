@@ -162,14 +162,10 @@ void App::open(const std::filesystem::path& a_path)
 			for (const auto& pr : _save->problems) {
 				list += "\n  - " + pr;
 			}
-			_error = "This save is damaged or in a layout ReSaver++ does not fully understand:\n" + list +
-					 "\n\nIt is opened READ-ONLY: you can look at everything, but it cannot be saved from ReSaver++ (writing it back could lose "
-					 "or invent data). Load an earlier save in the game, or report this with the file.";
-			_status += "  -  READ-ONLY (damaged save)";
+			(void)list;  // the Save check explains it
+			_status += "  -  READ-ONLY (damaged save: see the Save check)";
 		}
-		if (!_report->warnings.empty()) {
-			_status += Fmt("  -  %zu finding(s): see Tools > Analysis", _report->warnings.size());
-		}
+		_showCheck = _checkOnOpen || _readOnly;  // everything noticed about the save, in one window
 	} catch (const std::exception& e) {
 		_error = std::string("Could not open ") + platform::ToUtf8(a_path.filename()) + ":\n\n" + e.what();
 	}
@@ -834,6 +830,9 @@ void App::draw()
 	drawStatus();
 	ImGui::End();
 
+	if (_showCheck) {
+		drawSaveCheck();
+	}
 	if (_showAnalysis) {
 		drawAnalysis();
 	}
@@ -995,6 +994,9 @@ void App::drawMenu()
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Tools", _save != nullptr)) {
+		if (ImGui::MenuItem("Save check...", "F2", false, _save != nullptr)) {
+			_showCheck = true;
+		}
 		ImGui::MenuItem("Analysis", nullptr, &_showAnalysis);
 		if (ImGui::MenuItem("Report...")) {
 			_reportOpen = true;
@@ -1034,7 +1036,24 @@ void App::drawMenu()
 	}
 
 	// keyboard shortcuts
+	// the way back to the Save check, always in sight, in the colour of its worst finding
+	if (_save) {
+		const Risk  worst = checkWorst();
+		const auto  col = worst == Risk::kRisky ? theme::Bad() : worst == Risk::kCaution ? theme::Warn() : theme::Good();
+		ImGui::PushStyleColor(ImGuiCol_Text, col);
+		const bool  click = ImGui::MenuItem(worst == Risk::kRisky ? "Save check (risky)" : worst == Risk::kCaution ? "Save check (look)" : "Save check (OK)");
+		ImGui::PopStyleColor();
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("Everything ReSaver++ noticed about this save, and what can safely be done about it (F2).");
+		}
+		if (click) {
+			_showCheck = true;
+		}
+	}
 	auto& io = ImGui::GetIO();
+	if (_save && ImGui::IsKeyPressed(ImGuiKey_F2, false)) {
+		_showCheck = true;
+	}
 	if (!_viewerFocused && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
 		startOpenDialog();
 	}
@@ -1842,7 +1861,8 @@ void App::detailUnbind(std::uint64_t k)
 void App::drawOverview()
 {
 	const auto& h = _save->header;
-	drawMissingBanner();
+	drawCheckSummary();
+	ImGui::Spacing();
 	if (_shotTex) {
 		const float w = std::min(ImGui::GetContentRegionAvail().x * 0.45f, 480.0f);
 		ImGui::Image(static_cast<ImTextureID>(_shotTex), ImVec2(w, w * _shotH / std::max(1, _shotW)));
@@ -1868,37 +1888,6 @@ void App::drawOverview()
 		return;
 	}
 	const auto& r = *_report;
-	ImGui::SeparatorText("Health");
-	if (r.warnings.empty()) {
-		TextColored(theme::Good(), "No problems found.");
-	}
-	for (const auto& w : r.warnings) {
-		ImGui::Bullet();
-		ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
-		ImGui::TextWrapped("%s", w.c_str());
-		ImGui::PopStyleColor();
-	}
-	for (const auto& s : r.loopingScripts) {
-		ImGui::PushID(s.c_str());
-		if (ImGui::Button(("Purge " + s).c_str())) {
-			const std::string name = s;
-			confirm("Purge " + name,
-				"Remove every thread, suspended stack, function message and instance of '" + name +
-					"', plus the spawned objects they sit on?\n\nThis is what fixed the Firefly loop. Write the result with File > Save As.",
-				[this, name] {
-					auto x = ops::PurgeScript(*_save, name, true);
-					markEdited(Fmt("Purged %s: %zu threads, %zu instances, %zu spawned objects", name.c_str(), x.threads, x.instances, x.forms));
-				});
-		}
-		ImGui::PopID();
-		ImGui::SameLine();
-	}
-	if (r.mcmJam) {
-		if (ImGui::Button("Fix SkyUI MCM registration jam")) {
-			fixMcmJam();
-		}
-		ImGui::SameLine();
-	}
 	ImGui::NewLine();
 	ImGui::SeparatorText("Counts");
 	if (BeginKV("counts")) {
@@ -2275,6 +2264,8 @@ void App::loadSettings()
 			text::SetCodePage(static_cast<unsigned>(std::strtoul(line.c_str() + 9, nullptr, 10)));
 		} else if (line.rfind("game=", 0) == 0) {
 			se.gamePath = line.substr(5);
+		} else if (line.rfind("check_on_open=", 0) == 0) {
+			_checkOnOpen = line.substr(14) != "0";
 		} else if (line.rfind("saves_dir=", 0) == 0) {
 			_savesDirSe = line.substr(10);
 		} else if (line.rfind("saves_dir_vr=", 0) == 0) {
@@ -2334,6 +2325,7 @@ void App::saveSettings()
 	f << "compression=" << _saveCompression << "\n";
 	f << "watch=" << (_watch ? 1 : 0) << "\n";
 	f << "game=" << se.gamePath << "\n";
+	f << "check_on_open=" << (_checkOnOpen ? 1 : 0) << "\n";
 	f << "saves_dir=" << _savesDirSe << "\n";
 	f << "saves_dir_vr=" << _savesDirVr << "\n";
 	f << "last_dir=" << _lastDirSe << "\n";

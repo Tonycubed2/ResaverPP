@@ -143,7 +143,38 @@ public:
 	std::function<std::uint64_t(const std::uint8_t*, int, int)> uploadTexture;
 	std::function<void(std::uint64_t)>                          freeTexture;
 
+	// Save check (AppCheck.cpp): how likely something is to break the game
+	enum class Risk
+	{
+		kInfo,
+		kSafe,
+		kCaution,
+		kRisky
+	};
+	struct CheckOption
+	{
+		std::string           label;
+		Risk                  risk = Risk::kSafe;
+		std::string           why;  // why it is safe / risky, in plain words
+		bool                  enabled = true;
+		std::function<void()> act;
+	};
+	struct CheckItem
+	{
+		Risk                     level = Risk::kInfo;  // how serious the finding is
+		std::string              title, what;
+		std::vector<CheckOption> options;
+	};
+
 private:
+	std::vector<CheckItem> checkItems();
+	Risk                   checkWorst();
+	void                   drawSaveCheck();
+	void                   drawCheckSummary();
+	static void            TextWrappedAt(std::uint32_t a_col, const std::string& a_text, float a_x);
+	void                   startLiveRefresh();
+	bool                   _showCheck = false, _checkOnOpen = true;
+
 	struct Row
 	{
 		std::uint64_t key = 0;
