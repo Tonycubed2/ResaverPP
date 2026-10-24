@@ -12,9 +12,9 @@ on:
         required: true
         default: "helper/release/ReSaverHelper.zip"
       file_id:
-        description: "Nexus File ID of the file to update (ReSaverHelper: 7318625097567)"
+        description: "Nexus File ID of the file to update (ReSaverHelper: 8222850)"
         required: true
-        default: "7318625097567"
+        default: "8222850"
       name:
         description: "File name shown on Nexus"
         required: true
