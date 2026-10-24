@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(ReSaverPP VERSION 18 LANGUAGES C CXX)
+project(ReSaverPP VERSION 19 LANGUAGES C CXX)
 
 # ReSaver++ : C++ port of ReSaver (FallrimTools) by Mark Fairchild. Apache License 2.0.
 

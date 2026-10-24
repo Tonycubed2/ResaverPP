@@ -41,6 +41,7 @@ namespace
 		case App::Cat::kMessages: return "Function Messages";
 		case App::Cat::kSuspended: return "Suspended Stacks";
 		case App::Cat::kUnbinds: return "Queued Unbinds";
+		case App::Cat::kQuests: return "Quests";
 		default: return "?";
 		}
 	}
@@ -763,6 +764,9 @@ void App::draw()
 	if (!_settingsLoaded) {
 		loadSettings();
 	}
+	_live.setEnabled(_liveEnabled);
+	_live.start();
+	_live.poll();
 	pollScan();
 	pollNames();
 	pollWatch();
@@ -800,6 +804,8 @@ void App::draw()
 			ImGui::BeginChild("##list", ImVec2(listW, 0), ImGuiChildFlags_Borders);
 			if (_cat == Cat::kMods) {
 				drawModsList();
+			} else if (_cat == Cat::kQuests) {
+				drawQuestsList();
 			} else {
 				drawList();
 			}
@@ -812,6 +818,8 @@ void App::draw()
 				} else {
 					ImGui::TextDisabled("Click a mod to see its scripts.");
 				}
+			} else if (_cat == Cat::kQuests) {
+				drawQuestDetail();
 			} else {
 				drawDetail();
 			}
@@ -1073,6 +1081,16 @@ void App::drawCategories()
 			}
 		}
 		item(Cat::kMods, withScripts);
+	}
+	{
+		std::size_t inJournal = 0, stale = 0;
+		for (const auto& q : questStates()) {
+			if (q.shownObjectives()) {
+				++inJournal;
+				stale += (q.completed() || !q.running()) ? 1 : 0;
+			}
+		}
+		item(Cat::kQuests, inJournal, stale > 0);
 	}
 	ImGui::SeparatorText("Save");
 	item(Cat::kPlugins, _save->plugins.full.size() + _save->plugins.lite.size());
@@ -2048,7 +2066,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version 18  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version 19  -  Skyrim SE/AE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");
@@ -2073,9 +2091,15 @@ void App::drawStatus()
 		const float w = std::min(560.0f, ImGui::GetWindowWidth() * 0.45f);
 		ImGui::SameLine(ImGui::GetWindowWidth() - w - ImGui::GetStyle().WindowPadding.x);
 		drawBackgroundProgress(w);
-	} else if (_watch) {
-		ImGui::SameLine(ImGui::GetWindowWidth() - 160);
-		TextColored(theme::Good(), "watching saves");
+	} else {
+		float right = 0;
+		if (_watch) {
+			right = 160;
+			ImGui::SameLine(ImGui::GetWindowWidth() - right);
+			TextColored(theme::Good(), "watching saves");
+		}
+		ImGui::SameLine(ImGui::GetWindowWidth() - right - 330);
+		drawLiveStatus();
 	}
 }
 
@@ -2211,6 +2235,10 @@ void App::loadSettings()
 			_autoNames = line.substr(6) != "0";
 		} else if (line.rfind("watch=", 0) == 0 && line.substr(6) == "1") {
 			_watch = true;
+		} else if (line.rfind("live=", 0) == 0) {
+			_liveEnabled = line.substr(5) != "0";
+		} else if (line.rfind("live_notify=", 0) == 0) {
+			_liveNotify = std::clamp(std::atoi(line.substr(12).c_str()), 0, 2);
 		} else if (line.rfind("theme=", 0) == 0) {
 			const int k = std::clamp(std::atoi(line.c_str() + 6), 0, 2);
 			theme::Apply(static_cast<theme::Kind>(k));
@@ -2272,6 +2300,8 @@ void App::saveSettings()
 	f << "game=" << se.gamePath << "\n";
 	f << "codepage=" << text::CodePage() << "\n";
 	f << "theme=" << static_cast<int>(theme::Current()) << "\n";
+	f << "live=" << (_liveEnabled ? 1 : 0) << "\n";
+	f << "live_notify=" << _liveNotify << "\n";
 	f << "decompile_always=" << (_decompileAlways ? 1 : 0) << "\n";
 	f << "compiler=" << _compilerSetting << "\n";
 	f << "compile_out_mode=" << _compileOutMode << "\n";

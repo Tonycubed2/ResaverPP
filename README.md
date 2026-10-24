@@ -21,6 +21,15 @@ Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
   that provides their script, with its status: not installed, disabled, installed or game link;
   the leftovers of mods that are gone are ticked, and the ones another script still points to
   are kept unless you choose otherwise).
+- Quests page: every quest in the save with its status, stages done, journal entries and objectives
+  (read from your plugins), what its completion stage's script does (rewards it gives, quests it
+  starts), and a warning when quests already completed still fill the journal. "Copy console
+  command" gives the setstage command that completes a quest.
+- Live game (optional ReSaverHelper.dll, an SKSE plugin): complete a quest or set a stage in the
+  running game (the game's own stage scripts run, so rewards and follow-up quests happen normally),
+  and refresh the quest journal (brings back quests and objectives the journal stopped showing),
+  manually or after every save load. ReSaver++ talks to it over a local named pipe that only your
+  Windows user can open. The game confirms each action with a notification or a message box.
 - Enchanted items: the Mods view lists each mod's enchanted and charged items in every inventory
   (enchantment, max charge and charge stored on the item in the save, which xEdit does not show),
   and fixes items whose max charge is 0 so they can be recharged with soul gems.
