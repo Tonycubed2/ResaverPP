@@ -79,7 +79,7 @@ jobs:
           [ -n "$id" ] && [ -n "$url" ] || fail "no upload id / url in: $(head -c 400 up.json | sed 's/X-Amz-Signature=[^&\"]*/X-Amz-Signature=.../')"
           echo "::notice::upload session $id"
           # 2. the file itself
-          code=$(curl -sS -o put.txt -w '%{http_code}' -X PUT -H "Content-Type: application/zip" --upload-file "$ZIP" "$url") || fail "curl PUT failed"
+          code=$(curl -sS -o put.txt -w '%{http_code}' -X PUT -H "Content-Type:" --upload-file "$ZIP" "$url") || fail "curl PUT failed"
           [ "${code:0:1}" = "2" ] || fail "file upload failed (HTTP $code): $(head -c 400 put.txt)"
           # 3. finalise, then wait until it is available
           code=$(curl -sS -o fin.json -w '%{http_code}' -X POST "${hdr[@]}" "$api/uploads/$id/finalise") || fail "curl finalise failed"
