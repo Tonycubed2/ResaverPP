@@ -62,41 +62,40 @@ jobs:
           MM: ${{ inputs.mod_manager }}
           MOD_ID: ${{ inputs.mod_id }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          # every failure is reported as an annotation (visible on the run page) with Nexus' answer
+          fail() { echo "::error::$1"; exit 1; }
           api=https://api.nexusmods.com/v3
           hdr=(-H "apikey: $KEY" -H "User-Agent: ReSaverPP-release")
-          [ -f "$ZIP" ] || { echo "::error::$ZIP is not in the repository"; exit 1; }
+          [ -f "$ZIP" ] || fail "$ZIP is not in the repository"
           size=$(stat -c %s "$ZIP")
           fname=$(basename "$ZIP")
-          echo "Uploading $ZIP ($size bytes)"
           # 1. upload session
-          body=$(jq -n --argjson s "$size" --arg f "$fname" '{size_bytes: $s, filename: $f}')
-          code=$(curl -sS -o up.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/uploads")
-          echo "create upload: HTTP $code"; cat up.json; echo
-          [ "${code:0:1}" = "2" ] || { echo "::error::upload session refused"; exit 1; }
-          id=$(jq -r '.data.id // .id' up.json)
-          url=$(jq -r '.data.presigned_url // .presigned_url' up.json)
+          body=$(jq -n --argjson s "$size" --arg f "$fname" '{size_bytes: $s, filename: $f}') || fail "jq (upload body)"
+          code=$(curl -sS -o up.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/uploads") || fail "curl /uploads failed"
+          [ "${code:0:1}" = "2" ] || fail "upload session refused (HTTP $code): $(head -c 400 up.json)"
+          id=$(jq -r '.data.id // .id // empty' up.json)
+          url=$(jq -r '.data.presigned_url // .presigned_url // empty' up.json)
+          [ -n "$id" ] && [ -n "$url" ] || fail "no upload id / url in: $(head -c 400 up.json | sed 's/X-Amz-Signature=[^&\"]*/X-Amz-Signature=.../')"
+          echo "::notice::upload session $id"
           # 2. the file itself
-          code=$(curl -sS -o put.txt -w '%{http_code}' -X PUT -T "$ZIP" "$url")
-          echo "put: HTTP $code"
-          [ "${code:0:1}" = "2" ] || { cat put.txt; echo "::error::file upload failed"; exit 1; }
+          code=$(curl -sS -o put.txt -w '%{http_code}' -X PUT -H "Content-Type: application/zip" --upload-file "$ZIP" "$url") || fail "curl PUT failed"
+          [ "${code:0:1}" = "2" ] || fail "file upload failed (HTTP $code): $(head -c 400 put.txt)"
           # 3. finalise, then wait until it is available
-          code=$(curl -sS -o fin.json -w '%{http_code}' -X POST "${hdr[@]}" "$api/uploads/$id/finalise")
-          echo "finalise: HTTP $code"; cat fin.json; echo
-          [ "${code:0:1}" = "2" ] || { echo "::error::finalise failed"; exit 1; }
+          code=$(curl -sS -o fin.json -w '%{http_code}' -X POST "${hdr[@]}" "$api/uploads/$id/finalise") || fail "curl finalise failed"
+          [ "${code:0:1}" = "2" ] || fail "finalise refused (HTTP $code): $(head -c 400 fin.json)"
+          state=""
           for i in $(seq 1 60); do
-            state=$(curl -sS "${hdr[@]}" "$api/uploads/$id" | jq -r '.data.state // .state')
-            echo "state: $state"
+            state=$(curl -sS "${hdr[@]}" "$api/uploads/$id" | jq -r '.data.state // .state // empty')
             [ "$state" = "available" ] && break
             sleep 5
           done
-          [ "$state" = "available" ] || { echo "::error::upload never became available"; exit 1; }
+          [ "$state" = "available" ] || fail "upload never became available (state: $state)"
           # 4. the new file on the mod page
           text=$(printf '%s' "$DESC" | sed 's/ | /\n/g')
           body=$(jq -n --arg u "$id" --arg m "$MOD_ID" --arg n "$NAME" --arg v "$VERSION" --arg d "$text" --arg c "$CATEGORY" --argjson mm "$MM" \
             '{upload_id: $u, mod_id: $m, name: $n, version: $v, description: $d, file_category: $c,
-              primary_mod_manager_download: false, allow_mod_manager_download: $mm, show_requirements_pop_up: false, update_mod_version: false}')
-          code=$(curl -sS -o file.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/mod-files")
-          echo "create file: HTTP $code"; cat file.json; echo
-          [ "${code:0:1}" = "2" ] || { echo "::error::Nexus refused the new file (HTTP $code)"; exit 1; }
-          echo "New file ID (for later updates): $(jq -r '.data.id // .id' file.json)"
+              primary_mod_manager_download: false, allow_mod_manager_download: $mm, show_requirements_pop_up: false, update_mod_version: false}') || fail "jq (file body)"
+          code=$(curl -sS -o file.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/mod-files") || fail "curl /mod-files failed"
+          [ "${code:0:1}" = "2" ] || fail "Nexus refused the new file (HTTP $code): $(head -c 400 file.json)"
+          echo "::notice::New file created: $(jq -c '.data // .' file.json | head -c 400)"
