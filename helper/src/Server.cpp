@@ -3,6 +3,7 @@
 #include "Game.h"
 #include "Protocol.h"
 #include "Settings.h"
+#include "Transplant.h"
 
 namespace Server
 {
@@ -156,6 +157,50 @@ namespace Server
 					return { "OK", "?" };
 				}
 				return { "OK", fut.get() ? "1" : "0" };
+			}
+			if (cmd == "SNAPSHOT") {
+				struct State
+				{
+					std::filesystem::path path;
+					std::string           error;
+					std::size_t           lines = 0;
+				};
+				auto st = std::make_shared<State>();
+				if (!Game::RunOnMain([st] { st->path = Transplant::Snapshot(st->error, st->lines); }, 60s)) {
+					return err("the game is busy (it did not answer within 60 seconds)");
+				}
+				if (st->path.empty()) {
+					return err(st->error);
+				}
+				return { "OK", st->path.string(), std::to_string(st->lines) };
+			}
+			if (cmd == "APPLY") {
+				auto       why = std::make_shared<std::string>("the game did not run it");
+				const auto record = std::vector<std::string>(f.begin() + 2, f.end());
+				if (!Game::RunOnMain([why, record] { *why = Transplant::Apply(record); }, kWait)) {
+					return { "OK", "?" };
+				}
+				return why->empty() ? std::vector<std::string>{ "OK", "1" } : std::vector<std::string>{ "OK", "0", *why };
+			}
+			if (cmd == "RESOLVE") {
+				auto       id = std::make_shared<std::uint32_t>(0);
+				const auto plugin = arg(0), local = arg(1);
+				if (!Game::RunOnMain([id, plugin, local] {
+						auto* dh = RE::TESDataHandler::GetSingleton();
+						std::uint32_t l = 0;
+						try {
+							l = static_cast<std::uint32_t>(std::stoul(local, nullptr, 16));
+						} catch (...) {
+						}
+						auto* form = dh ? dh->LookupForm(l, plugin) : nullptr;
+						*id = form ? form->GetFormID() : 0;
+					}, kWait)) {
+					return err("the game is busy");
+				}
+				if (!*id) {
+					return err(local + " from " + plugin + " is not in this game");
+				}
+				return { "OK", std::format("{:08X}", *id) };
 			}
 			if (cmd == "REFRESH") {
 				auto       n = std::make_shared<std::atomic<std::size_t>>(0);

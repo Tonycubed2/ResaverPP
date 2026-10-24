@@ -833,6 +833,9 @@ void App::draw()
 	if (_showCheck) {
 		drawSaveCheck();
 	}
+	if (_showTransplant) {
+		drawTransplant();
+	}
 	if (_showAnalysis) {
 		drawAnalysis();
 	}
@@ -997,6 +1000,7 @@ void App::drawMenu()
 		if (ImGui::MenuItem("Save check...", "F2", false, _save != nullptr)) {
 			_showCheck = true;
 		}
+		ImGui::MenuItem("Transplant progress from a bad save...", nullptr, &_showTransplant);
 		ImGui::MenuItem("Analysis", nullptr, &_showAnalysis);
 		if (ImGui::MenuItem("Report...")) {
 			_reportOpen = true;

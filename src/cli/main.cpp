@@ -13,6 +13,7 @@
 #include "core/ScriptSources.h"
 #include "core/Orphans.h"
 #include "core/Quests.h"
+#include "core/Transplant.h"
 #include <functional>
 #include <map>
 #include <set>
@@ -49,6 +50,8 @@ static void Usage()
 		"  --batch <list.txt>        purge every script in a ReSaver batch-clean list (\"@@\" lines are skipped\n"
 		"                            unless --batch-all is given)\n"
 		"  --compare <other.ess>     list what changed from this save to the other one\n"
+		"  --transplant <bad.ess|snapshot.txt>  list what the bad save (or a ReSaverHelper snapshot) has that\n"
+		"                            this save does not (from a save file: partial, see the GUI's Transplant page)\n"
 		"  --report <file.txt|.pdf>  write a report (mods with their scripts + anomalies); --report-mods or\n"
 		"                            --report-anomalies limit it to one part. Uses --sources if given.\n"
 		"  --fix-mcm                 fix a SkyUI MCM registration jam (stuck OnConfigManagerReady/RegisterMod work)\n"
@@ -115,7 +118,7 @@ int main(int argc, char** argv)
 	bool                     modsView = false;
 	std::string              sources, profile, removeMod, game, findText;
 	bool                     names = false, havok = false, purify = false, batchAll = false, repMods = false, repAnom = false;
-	std::string              batchFile, compareWith, reportFile;
+	std::string              batchFile, compareWith, reportFile, transplantFrom;
 	bool                     dryRun = false, spawned = false, spawnedGone = false, charged = false, allowDamaged = false;
 	int                      fixCharges = 0;
 	bool                     questsView = false;
@@ -183,6 +186,8 @@ int main(int argc, char** argv)
 			batchFile = next();
 		} else if (a == "--batch-all") {
 			batchAll = true;
+		} else if (a == "--transplant") {
+			transplantFrom = next();
 		} else if (a == "--compare") {
 			compareWith = next();
 		} else if (a == "--report") {
@@ -284,6 +289,38 @@ int main(int argc, char** argv)
 			if (!edits) {
 				return 0;
 			}
+		}
+		if (!transplantFrom.empty()) {
+			using namespace ess::transplant;
+			const auto good = FromSave(*save, std::filesystem::path(in).filename().string());
+			Snapshot   bad;
+			if (std::filesystem::path(transplantFrom).extension() == ".txt") {
+				bad = ReadSnapshot(transplantFrom);
+			} else {
+				auto other = SaveFile::load(transplantFrom);
+				bad = FromSave(*other, std::filesystem::path(transplantFrom).filename().string());
+			}
+			if (!bad.valid) {
+				std::fprintf(stderr, "%s\n", bad.error.c_str());
+				return 1;
+			}
+			const auto changes = Diff(good, bad);
+			std::printf("%zu thing(s) the bad save has and this one does not:\n", changes.size());
+			for (int c = 0; c < static_cast<int>(Category::kCount); ++c) {
+				bool head = false;
+				for (const auto& ch : changes) {
+					if (static_cast<int>(ch.cat) != c) {
+						continue;
+					}
+					if (!head) {
+						std::printf("\n%s\n", CategoryName(static_cast<Category>(c)));
+						head = true;
+					}
+					std::printf("  [%s] %s%s%s\n", ch.risk == 0 ? "safe" : ch.risk == 1 ? "caution" : "risky", ch.label.c_str(), ch.detail.empty() ? "" : "   ",
+						ch.detail.c_str());
+				}
+			}
+			return 0;
 		}
 		if (!compareWith.empty()) {
 			auto other = SaveFile::load(compareWith);

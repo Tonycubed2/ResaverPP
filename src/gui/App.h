@@ -1,6 +1,7 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #pragma once
 
+#include "core/Transplant.h"
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
 #include "core/Compare.h"
@@ -87,6 +88,14 @@ public:
 			}
 		} else if (w == "arrays") {
 			_showArrays = true;
+		} else if (w.rfind("transplant:", 0) == 0) {
+			// test: bad save | good save, both read from their files
+			const auto bar = w.find('|');
+			transplantFromFile(w.substr(11, bar - 11));
+			auto good = ess::SaveFile::load(w.substr(bar + 1));
+			_tpGood = ess::transplant::FromSave(*good, "good");
+			_tpDirty = true;
+			_showTransplant = true;
 		} else if (w == "settings") {
 			_showSettings = true;
 		} else if (w == "support") {
@@ -174,6 +183,28 @@ private:
 	static void            TextWrappedAt(std::uint32_t a_col, const std::string& a_text, float a_x);
 	void                   startLiveRefresh();
 	bool                   _showCheck = false, _checkOnOpen = true;
+
+	// Transplant (AppTransplant.cpp)
+	void                   drawTransplant();
+	void                   transplantSnapshot(bool a_bad);
+	void                   transplantFromFile(const std::filesystem::path& a_path);
+	void                   transplantNames(ess::transplant::Snapshot& a_snap, const ess::SaveFile& a_save);
+	std::int32_t           completionStageOf(const ess::transplant::Quest& a_q) const;
+	void                   transplantStep();
+	void                   transplantOrderQuests(std::vector<std::size_t>& a_run);
+	struct TpResult
+	{
+		std::size_t index = 0;
+		bool        ok = false;
+		std::string why;
+	};
+	bool                                 _showTransplant = false, _tpDirty = false, _tpRunning = false;
+	ess::transplant::Snapshot            _tpBad, _tpGood;
+	std::vector<ess::transplant::Change> _tpChanges;
+	std::vector<TpResult>                _tpResults;
+	std::vector<std::size_t>             _tpRun;
+	std::size_t                          _tpPos = 0;
+	char                                 _tpFilter[128] = "";
 
 	struct Row
 	{

@@ -1,0 +1,668 @@
+#include "PCH.h"
+#include "Transplant.h"
+#include "Protocol.h"
+
+#include <cctype>
+
+namespace Transplant
+{
+	namespace
+	{
+		using VM = RE::BSScript::Internal::VirtualMachine;
+		using Record = std::vector<std::string>;
+
+		constexpr std::pair<const char*, RE::ActorValue> kAVs[] = {
+			{ "Health", RE::ActorValue::kHealth },
+			{ "Magicka", RE::ActorValue::kMagicka },
+			{ "Stamina", RE::ActorValue::kStamina },
+			{ "CarryWeight", RE::ActorValue::kCarryWeight },
+			{ "DragonSouls", RE::ActorValue::kDragonSouls },
+		};
+		constexpr int kSkills = 18;  // One-handed ... Enchanting: actor values 6..23
+
+		RE::ActorValue SkillAV(int a_index) { return static_cast<RE::ActorValue>(static_cast<int>(RE::ActorValue::kOneHanded) + a_index); }
+
+		std::string F(float a_v) { return std::format("{:.4f}", a_v); }
+
+		bool IsDynamic(const RE::TESForm* a_form) { return a_form && (a_form->GetFormID() >> 24) == 0xFF; }
+
+		std::string PluginOf(const RE::TESForm* a_form)
+		{
+			const auto* file = a_form ? a_form->GetFile(0) : nullptr;
+			return file ? std::string(file->GetFilename()) : std::string();
+		}
+
+		// plugin, local id, runtime id
+		void PutForm(Record& r, const RE::TESForm* a_form)
+		{
+			r.push_back(PluginOf(a_form));
+			r.push_back(std::format("{:06X}", a_form ? a_form->GetLocalFormID() : 0));
+			r.push_back(std::format("{:08X}", a_form ? a_form->GetFormID() : 0));
+		}
+
+		std::string NameOf(const RE::TESForm* a_form)
+		{
+			if (!a_form) {
+				return {};
+			}
+			const char* n = a_form->GetName();
+			if (n && *n) {
+				return n;
+			}
+			const char* e = a_form->GetFormEditorID();
+			return e ? std::string(e) : std::string();
+		}
+
+		std::uint32_t Hex(const std::string& s)
+		{
+			try {
+				return static_cast<std::uint32_t>(std::stoul(s, nullptr, 16));
+			} catch (...) {
+				return 0;
+			}
+		}
+		float Num(const std::string& s)
+		{
+			try {
+				return std::stof(s);
+			} catch (...) {
+				return 0.0f;
+			}
+		}
+
+		RE::TESForm* Lookup(const std::string& a_plugin, const std::string& a_local)
+		{
+			auto* dh = RE::TESDataHandler::GetSingleton();
+			if (!dh || a_plugin.empty()) {
+				return nullptr;
+			}
+			return dh->LookupForm(Hex(a_local), a_plugin);
+		}
+
+		std::vector<std::string> Split(const std::string& s, char c)
+		{
+			std::vector<std::string> out;
+			std::string              cur;
+			for (char ch : s) {
+				if (ch == c) {
+					out.push_back(cur);
+					cur.clear();
+				} else {
+					cur += ch;
+				}
+			}
+			out.push_back(cur);
+			return out;
+		}
+
+		// "<plugin>:<local>:<magnitude>:<area>:<duration>" for each effect, comma separated.
+		// Plugin names cannot contain ':' (Windows file names), so it is a safe separator.
+		std::string Effects(const RE::MagicItem* a_item)
+		{
+			std::string out;
+			if (!a_item) {
+				return out;
+			}
+			for (const auto* e : a_item->effects) {
+				if (!e || !e->baseEffect) {
+					continue;
+				}
+				out += std::format("{}{}:{:06X}:{}:{}:{}", out.empty() ? "" : ",", PluginOf(e->baseEffect), e->baseEffect->GetLocalFormID(),
+					e->effectItem.magnitude, e->effectItem.area, e->effectItem.duration);
+			}
+			return out;
+		}
+
+		bool MakeEffects(const std::string& a_text, RE::BSTArray<RE::Effect>& a_out, std::string& a_why)
+		{
+			for (const auto& one : Split(a_text, ',')) {
+				const auto p = Split(one, ':');
+				if (p.size() < 5) {
+					continue;
+				}
+				auto* mgef = Lookup(p[0], p[1]);
+				auto* setting = mgef ? mgef->As<RE::EffectSetting>() : nullptr;
+				if (!setting) {
+					a_why = "its magic effect " + p[1] + " from " + p[0] + " is not in this game";
+					return false;
+				}
+				auto& e = a_out.emplace_back();
+				e.baseEffect = setting;
+				e.effectItem.magnitude = Num(p[2]);
+				e.effectItem.area = static_cast<std::uint32_t>(Num(p[3]));
+				e.effectItem.duration = static_cast<std::uint32_t>(Num(p[4]));
+				e.cost = 0.0f;
+			}
+			if (a_out.empty()) {
+				a_why = "no effects";
+				return false;
+			}
+			return true;
+		}
+
+		// an enchantment or a poison on an item
+		std::string MagicField(const RE::MagicItem* a_item, char a_kind, std::int64_t a_amount)
+		{
+			if (!a_item) {
+				return {};
+			}
+			if (IsDynamic(a_item)) {
+				return std::format("C:{}:{}:{}", a_kind, a_amount, Effects(a_item));
+			}
+			return std::format("F:{}:{:06X}:{}", PluginOf(a_item), a_item->GetLocalFormID(), a_amount);
+		}
+
+		void Console(const std::string& a_command)
+		{
+			const auto factory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::Script>();
+			auto*      script = factory ? factory->Create() : nullptr;
+			if (!script) {
+				return;
+			}
+			script->SetCommand(a_command);
+			script->CompileAndRun(nullptr);
+			delete script;
+			spdlog::info("console: {}", a_command);
+		}
+
+		void Papyrus(const char* a_class, const char* a_fn, RE::TESForm* a_arg)
+		{
+			auto* vm = VM::GetSingleton();
+			if (!vm) {
+				return;
+			}
+			RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> none;
+			if (auto* word = a_arg ? a_arg->As<RE::TESWordOfPower>() : nullptr) {
+				vm->DispatchStaticCall(a_class, a_fn, RE::MakeFunctionArguments(std::move(word)), none);
+			}
+		}
+	}
+
+	// ---- snapshot ---------------------------------------------------------------------------------
+
+	std::filesystem::path Snapshot(std::string& a_error, std::size_t& a_lines)
+	{
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		auto* dh = RE::TESDataHandler::GetSingleton();
+		if (!player || !dh) {
+			a_error = "no player (load a save first)";
+			return {};
+		}
+		std::vector<Record> out;
+		const std::string   playerName = NameOf(player);
+		out.push_back({ "RSH-SNAPSHOT", "1", REL::Module::get().version().string(), playerName });
+		// the load order, so the other side can tell which mods this game has
+		{
+			const auto* mods = dh->GetLoadedMods();
+			for (std::uint8_t i = 0; mods && i < dh->GetLoadedModCount(); ++i) {
+				if (mods[i]) {
+					out.push_back({ "plugin", std::string(mods[i]->GetFilename()) });
+				}
+			}
+			const auto* light = dh->GetLoadedLightMods();
+			for (std::uint16_t i = 0; light && i < dh->GetLoadedLightModCount(); ++i) {
+				if (light[i]) {
+					out.push_back({ "plugin", std::string(light[i]->GetFilename()) });
+				}
+			}
+		}
+
+		// level, skills, attributes
+		auto* skills = player->GetInfoRuntimeData().skills;
+		auto* sd = skills ? skills->data : nullptr;
+		out.push_back({ "player", std::to_string(player->GetLevel()), F(sd ? sd->xp : 0.0f), F(sd ? sd->levelThreshold : 0.0f),
+			std::to_string(player->GetGameStatsData().perkCount) });
+		auto* av = player->AsActorValueOwner();
+		for (int i = 0; i < kSkills; ++i) {
+			out.push_back({ "skill", std::to_string(i), F(av->GetBaseActorValue(SkillAV(i))), F(sd ? sd->skills[i].xp : 0.0f),
+				F(sd ? sd->skills[i].levelThreshold : 0.0f), std::to_string(sd ? sd->legendaryLevels[i] : 0) });
+		}
+		for (const auto& [name, value] : kAVs) {
+			out.push_back({ "av", name, F(av->GetBaseActorValue(value)) });
+		}
+
+		// perks, spells, shouts, words
+		for (auto* perk : dh->GetFormArray<RE::BGSPerk>()) {
+			if (perk && player->HasPerk(perk)) {
+				Record r{ "perk" };
+				PutForm(r, perk);
+				r.push_back(NameOf(perk));
+				out.push_back(std::move(r));
+			}
+		}
+		for (auto* spell : dh->GetFormArray<RE::SpellItem>()) {
+			if (!spell) {
+				continue;
+			}
+			const auto t = spell->GetSpellType();
+			if ((t == RE::MagicSystem::SpellType::kSpell || t == RE::MagicSystem::SpellType::kPower || t == RE::MagicSystem::SpellType::kLesserPower) &&
+				player->HasSpell(spell)) {
+				Record r{ "spell" };
+				PutForm(r, spell);
+				r.push_back(NameOf(spell));
+				out.push_back(std::move(r));
+			}
+		}
+		if (auto* npc = player->GetActorBase(); npc && npc->actorEffects) {
+			const auto* fx = npc->actorEffects;
+			for (std::uint32_t i = 0; i < fx->numShouts; ++i) {
+				if (auto* shout = fx->shouts[i]) {
+					Record r{ "shout" };
+					PutForm(r, shout);
+					r.push_back(NameOf(shout));
+					out.push_back(std::move(r));
+				}
+			}
+		}
+		for (auto* word : dh->GetFormArray<RE::TESWordOfPower>()) {
+			if (!word) {
+				continue;
+			}
+			const bool known = (word->formFlags & RE::TESForm::RecordFlags::kKnown) != 0;
+			const bool unlocked = (word->formFlags & RE::TESForm::RecordFlags::kUnlocked) != 0;
+			if (known || unlocked) {
+				Record r{ "word" };
+				PutForm(r, word);
+				r.push_back(NameOf(word));
+				r.push_back(known ? "1" : "0");
+				r.push_back(unlocked ? "1" : "0");
+				out.push_back(std::move(r));
+			}
+		}
+
+		// factions
+		player->VisitFactions([&](RE::TESFaction* a_faction, std::int8_t a_rank) {
+			if (a_faction && !IsDynamic(a_faction)) {
+				Record r{ "faction" };
+				PutForm(r, a_faction);
+				r.push_back(NameOf(a_faction));
+				r.push_back(std::to_string(a_rank));
+				out.push_back(std::move(r));
+			}
+			return false;
+		});
+
+		// map markers the player has found
+		{
+			const auto& [map, lock] = RE::TESForm::GetAllForms();
+			const RE::BSReadLockGuard guard{ lock };
+			if (map) {
+				for (const auto& [id, form] : *map) {
+					if (!form || form->GetFormType() != RE::FormType::Reference || IsDynamic(form)) {
+						continue;
+					}
+					auto* ref = form->As<RE::TESObjectREFR>();
+					auto* xm = ref ? ref->extraList.GetByType<RE::ExtraMapMarker>() : nullptr;
+					if (!xm || !xm->mapData) {
+						continue;
+					}
+					const auto flags = static_cast<int>(xm->mapData->flags.underlying()) & 3;
+					if (flags) {
+						Record r{ "marker" };
+						PutForm(r, ref);
+						const char* n = xm->mapData->locationName.GetFullName();
+						r.push_back(n ? n : "");
+						r.push_back(std::to_string(flags));
+						out.push_back(std::move(r));
+					}
+				}
+			}
+		}
+
+		// quests: every quest, so a quest started only in the other save can still be found here
+		for (auto* quest : dh->GetFormArray<RE::TESQuest>()) {
+			if (!quest) {
+				continue;
+			}
+			std::string done;
+			if (quest->executedStages) {
+				for (const auto& st : *quest->executedStages) {
+					done += (done.empty() ? "" : ",") + std::to_string(st.data.index);
+				}
+			}
+			Record r{ "quest" };
+			PutForm(r, quest);
+			const char* edid = quest->GetFormEditorID();
+			r.push_back(std::string(edid ? edid : "") + "|" + NameOf(quest));
+			r.push_back(quest->IsRunning() ? "1" : "0");
+			r.push_back(quest->IsCompleted() ? "1" : "0");
+			r.push_back(std::to_string(quest->GetCurrentStageID()));
+			r.push_back(done);
+			out.push_back(std::move(r));
+		}
+
+		// inventory
+		for (auto& [obj, data] : player->GetInventory()) {
+			const auto& [count, entry] = data;
+			if (!obj || count <= 0) {
+				continue;
+			}
+			if (IsDynamic(obj)) {
+				// potions and poisons the player made: written as their effects
+				if (auto* alch = obj->As<RE::AlchemyItem>()) {
+					out.push_back({ "potion", NameOf(alch), std::to_string(count), alch->IsPoison() ? "1" : "0", Effects(alch) });
+				}
+				continue;
+			}
+			const bool  questItem = entry && entry->IsQuestObject();
+			std::int32_t special = 0;
+			if (entry && entry->extraLists) {
+				for (auto* xl : *entry->extraLists) {
+					if (!xl) {
+						continue;
+					}
+					auto* xName = xl->GetByType<RE::ExtraTextDisplayData>();
+					auto* xHealth = xl->GetByType<RE::ExtraHealth>();
+					auto* xCharge = xl->GetByType<RE::ExtraCharge>();
+					auto* xEnch = xl->GetByType<RE::ExtraEnchantment>();
+					auto* xPoison = xl->GetByType<RE::ExtraPoison>();
+					if (!xName && !xHealth && !xCharge && !xEnch && !xPoison) {
+						continue;
+					}
+					auto*      xCount = xl->GetByType<RE::ExtraCount>();
+					const auto n = xCount ? static_cast<std::int32_t>(xCount->count) : 1;
+					special += n;
+					Record r{ "item" };
+					PutForm(r, obj);
+					r.push_back(NameOf(obj));
+					r.push_back(std::to_string(n));
+					r.push_back(xName && !xName->displayNameText && xName->displayName.c_str() ? xName->displayName.c_str() : "");
+					r.push_back(xHealth ? F(xHealth->health) : "");
+					r.push_back(xCharge ? F(xCharge->charge) : "");
+					r.push_back(xEnch ? MagicField(xEnch->enchantment, obj->IsWeapon() ? 'w' : 'a', xEnch->charge) : "");
+					r.push_back(xPoison ? MagicField(xPoison->poison, 'p', xPoison->count) : "");
+					r.push_back(questItem ? "1" : "0");
+					out.push_back(std::move(r));
+				}
+			}
+			if (count - special > 0) {
+				Record r{ "item" };
+				PutForm(r, obj);
+				r.push_back(NameOf(obj));
+				r.push_back(std::to_string(count - special));
+				r.insert(r.end(), { "", "", "", "", "", questItem ? "1" : "0" });
+				out.push_back(std::move(r));
+			}
+		}
+
+		// write
+		auto dir = SKSE::log::log_directory();
+		if (!dir) {
+			a_error = "no folder for the snapshot";
+			return {};
+		}
+		const auto folder = *dir / "ReSaverHelper";
+		std::error_code ec;
+		std::filesystem::create_directories(folder, ec);
+		std::string safe;
+		for (char c : playerName) {
+			safe += (std::isalnum(static_cast<unsigned char>(c)) ? c : '_');
+		}
+		const auto now = std::chrono::system_clock::now();
+		const auto path = folder / std::format("snapshot_{}_{:%Y%m%d_%H%M%S}.txt", safe.empty() ? "player" : safe, std::chrono::floor<std::chrono::seconds>(now));
+		std::ofstream f(path, std::ios::binary | std::ios::trunc);
+		if (!f) {
+			a_error = "cannot write " + path.string();
+			return {};
+		}
+		for (const auto& r : out) {
+			f << proto::Join(r) << "\n";
+		}
+		a_lines = out.size();
+		spdlog::info("Snapshot: {} record(s) written to {}", out.size(), path.string());
+		return path;
+	}
+
+	// ---- apply ------------------------------------------------------------------------------------
+
+	std::string Apply(const Record& a)
+	{
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		if (!player || a.empty()) {
+			return "no player";
+		}
+		auto        arg = [&](std::size_t i) { return i < a.size() ? a[i] : std::string(); };
+		const auto& kind = a[0];
+		auto*       av = player->AsActorValueOwner();
+
+		if (kind == "player") {
+			const int level = static_cast<int>(Num(arg(1)));
+			if (level > player->GetLevel()) {
+				Console(std::format("player.setlevel {}", level));
+			}
+			// experience and perk points only when the snapshot has them (one read from a save file has the level only)
+			if (auto* sk = player->GetInfoRuntimeData().skills; sk && sk->data && !arg(2).empty()) {
+				sk->data->xp = Num(arg(2));
+				if (Num(arg(3)) > 0) {
+					sk->data->levelThreshold = Num(arg(3));
+				}
+			}
+			if (!arg(4).empty()) {
+				const auto points = static_cast<std::uint8_t>(std::clamp(static_cast<int>(Num(arg(4))), 0, 255));
+				auto&      gs = player->GetGameStatsData();
+				if (points > gs.perkCount) {
+					gs.perkCount = points;
+				}
+			}
+			return {};
+		}
+		if (kind == "skill") {
+			const int i = static_cast<int>(Num(arg(1)));
+			if (i < 0 || i >= kSkills) {
+				return "bad skill";
+			}
+			const float level = Num(arg(2));
+			if (level > av->GetBaseActorValue(SkillAV(i))) {
+				av->SetBaseActorValue(SkillAV(i), level);
+			}
+			if (auto* sk = player->GetInfoRuntimeData().skills; sk && sk->data) {
+				sk->data->skills[i].xp = Num(arg(3));
+				if (Num(arg(4)) > 0) {
+					sk->data->skills[i].levelThreshold = Num(arg(4));
+				}
+				sk->data->legendaryLevels[i] = std::max(sk->data->legendaryLevels[i], static_cast<std::uint32_t>(Num(arg(5))));
+			}
+			return {};
+		}
+		if (kind == "av") {
+			for (const auto& [name, value] : kAVs) {
+				if (arg(1) == name) {
+					const float v = Num(arg(2));
+					if (v > av->GetBaseActorValue(value)) {
+						av->SetBaseActorValue(value, v);
+					}
+					return {};
+				}
+			}
+			return "unknown value " + arg(1);
+		}
+
+		if (kind == "potion") {
+			RE::BSTArray<RE::Effect> effs;
+			std::string              why;
+			if (!MakeEffects(arg(4), effs, why)) {
+				return why;
+			}
+			auto*      mgr = RE::BGSCreatedObjectManager::GetSingleton();
+			const int  count = std::max(1, static_cast<int>(Num(arg(2))));
+			RE::AlchemyItem* made = nullptr;
+			if (arg(3) == "1") {
+				RE::BSTSmartPointer<RE::AlchemyItem> p;
+				made = mgr ? mgr->AddPoison(p, effs) : nullptr;
+				if (!made) {
+					made = p.get();
+				}
+			} else {
+				RE::BSTSmartPointer<RE::AlchemyItem, RE::BGSCreatedObjectManager::BSTCreatedObjectSmartPointerPolicy> p;
+				if (mgr) {
+					mgr->AddPotion(p, effs);
+				}
+				made = p.get();
+			}
+			if (!made) {
+				return "the game did not make the potion";
+			}
+			if (!arg(1).empty()) {
+				made->fullName = arg(1).c_str();
+			}
+			player->AddObjectToContainer(made, nullptr, count, nullptr);
+			return {};
+		}
+
+		// everything else names a form
+		auto* form = Lookup(arg(1), arg(2));
+		if (!form) {
+			return arg(2) + " from " + arg(1) + " is not in this game (is the mod installed?)";
+		}
+
+		if (kind == "perk") {
+			auto* perk = form->As<RE::BGSPerk>();
+			if (!perk) {
+				return "not a perk";
+			}
+			if (!player->HasPerk(perk)) {
+				player->AddPerk(perk, 0);
+			}
+			return {};
+		}
+		if (kind == "spell") {
+			auto* spell = form->As<RE::SpellItem>();
+			if (!spell) {
+				return "not a spell";
+			}
+			if (!player->HasSpell(spell)) {
+				player->AddSpell(spell);
+			}
+			return {};
+		}
+		if (kind == "shout") {
+			auto* shout = form->As<RE::TESShout>();
+			if (!shout) {
+				return "not a shout";
+			}
+			player->AddShout(shout);
+			return {};
+		}
+		if (kind == "word") {
+			auto* word = form->As<RE::TESWordOfPower>();
+			if (!word) {
+				return "not a word of power";
+			}
+			if (arg(5) == "1" && !(word->formFlags & RE::TESForm::RecordFlags::kKnown)) {
+				Papyrus("Game", "TeachWord", word);
+			}
+			if (arg(6) == "1" && !(word->formFlags & RE::TESForm::RecordFlags::kUnlocked)) {
+				player->UnlockWord(word);
+			}
+			return {};
+		}
+		if (kind == "faction") {
+			auto* faction = form->As<RE::TESFaction>();
+			if (!faction) {
+				return "not a faction";
+			}
+			const auto rank = static_cast<std::int8_t>(Num(arg(5)));
+			if (player->GetFactionRank(faction, true) < rank) {
+				player->AddToFaction(faction, rank);
+			}
+			return {};
+		}
+		if (kind == "marker") {
+			auto* ref = form->As<RE::TESObjectREFR>();
+			auto* xm = ref ? ref->extraList.GetByType<RE::ExtraMapMarker>() : nullptr;
+			if (!xm || !xm->mapData) {
+				return "not a map marker";
+			}
+			const int flags = static_cast<int>(Num(arg(5)));
+			if (flags & 1) {
+				xm->mapData->flags.set(RE::MapMarkerData::Flag::kVisible);
+			}
+			if (flags & 2) {
+				xm->mapData->flags.set(RE::MapMarkerData::Flag::kCanTravelTo);
+			}
+			return {};
+		}
+		if (kind == "item") {
+			auto* obj = form->As<RE::TESBoundObject>();
+			if (!obj) {
+				return "not an item";
+			}
+			const int  count = std::max(1, static_cast<int>(Num(arg(5))));
+			const auto name = arg(6), temper = arg(7), charge = arg(8), ench = arg(9), poison = arg(10);
+			if (name.empty() && temper.empty() && charge.empty() && ench.empty() && poison.empty()) {
+				player->AddObjectToContainer(obj, nullptr, count, nullptr);
+				return {};
+			}
+			// one at a time, each with its own extra data
+			for (int n = 0; n < count; ++n) {
+				auto* xl = new RE::ExtraDataList();
+				if (!ench.empty()) {
+					const auto p = Split(ench, ':');
+					RE::EnchantmentItem* e = nullptr;
+					std::uint16_t        amount = 0;
+					if (p.size() >= 4 && p[0] == "C") {
+						RE::BSTArray<RE::Effect> effs;
+						std::string              why;
+						const auto               effText = ench.substr(p[0].size() + p[1].size() + p[2].size() + 3);
+						if (!MakeEffects(effText, effs, why)) {
+							delete xl;
+							return "its enchantment: " + why;
+						}
+						auto* mgr = RE::BGSCreatedObjectManager::GetSingleton();
+						e = mgr ? (p[1] == "w" ? mgr->AddWeaponEnchantment(effs) : mgr->AddArmorEnchantment(effs)) : nullptr;
+						amount = static_cast<std::uint16_t>(Num(p[2]));
+					} else if (p.size() >= 3 && p[0] == "F") {
+						auto* f = Lookup(p[1], p[2]);
+						e = f ? f->As<RE::EnchantmentItem>() : nullptr;
+						amount = p.size() >= 4 ? static_cast<std::uint16_t>(Num(p[3])) : 0;
+					}
+					if (!e) {
+						delete xl;
+						return "its enchantment could not be made";
+					}
+					xl->Add(new RE::ExtraEnchantment(e, amount, false));
+				}
+				if (!poison.empty()) {
+					const auto       p = Split(poison, ':');
+					RE::AlchemyItem* pz = nullptr;
+					std::int32_t     doses = 1;
+					if (p.size() >= 4 && p[0] == "C") {
+						RE::BSTArray<RE::Effect> effs;
+						std::string              why;
+						const auto               effText = poison.substr(p[0].size() + p[1].size() + p[2].size() + 3);
+						if (MakeEffects(effText, effs, why)) {
+							RE::BSTSmartPointer<RE::AlchemyItem> sp;
+							auto*                                mgr = RE::BGSCreatedObjectManager::GetSingleton();
+							pz = mgr ? mgr->AddPoison(sp, effs) : nullptr;
+							if (!pz) {
+								pz = sp.get();
+							}
+						}
+						doses = static_cast<std::int32_t>(Num(p[2]));
+					} else if (p.size() >= 3 && p[0] == "F") {
+						auto* f = Lookup(p[1], p[2]);
+						pz = f ? f->As<RE::AlchemyItem>() : nullptr;
+						doses = p.size() >= 4 ? static_cast<std::int32_t>(Num(p[3])) : 1;
+					}
+					if (pz) {
+						xl->Add(new RE::ExtraPoison(pz, std::max(1, doses)));
+					}
+				}
+				if (!temper.empty()) {
+					xl->Add(new RE::ExtraHealth(Num(temper)));
+				}
+				if (!charge.empty()) {
+					auto* xc = new RE::ExtraCharge();
+					xc->charge = Num(charge);
+					xl->Add(xc);
+				}
+				if (!name.empty()) {
+					xl->Add(new RE::ExtraTextDisplayData(name.c_str()));
+				}
+				player->AddObjectToContainer(obj, xl, 1, nullptr);
+			}
+			return {};
+		}
+		return "unknown record " + kind;
+	}
+}

@@ -4,6 +4,10 @@
 #include "core/Ops.h"
 #include "core/Pex.h"
 #include "core/Save.h"
+#include "core/Transplant.h"
+
+#include <filesystem>
+#include <fstream>
 
 #include <cmath>
 #include <cstdio>
@@ -231,6 +235,79 @@ namespace
 		Check(w1.buf == w2.buf, "a Papyrus section writes back byte-identical after a read");
 		Check(q.check().empty(), "the re-read section has no problems");
 	}
+	// Transplant: snapshots are read back and compared the way the GUI does
+	void TestTransplant()
+	{
+		namespace tp = ess::transplant;
+		const auto dir = std::filesystem::temp_directory_path();
+		auto write = [&](const char* a_name, const std::string& a_text) {
+			const auto p = dir / a_name;
+			std::ofstream(p, std::ios::binary) << a_text;
+			return p;
+		};
+		const auto good = write("rs_tp_good.txt",
+			"RSH-SNAPSHOT\t1\t1.6.1170.0\tAllandor\n"
+			"plugin\tSkyrim.esm\n"
+			"player\t10\t50.0\t300.0\t0\n"
+			"skill\t0\t20.0\t1.0\t10.0\t0\n"
+			"av\tHealth\t150.0\n"
+			"perk\tSkyrim.esm\t0BABE4\t000BABE4\tArmsman\n"
+			"item\tSkyrim.esm\t00000F\t0000000F\tGold\t100\t\t\t\t\t\t0\n"
+			"item\tSkyrim.esm\t012EB7\t00012EB7\tIron Sword\t1\t\t\t\t\t\t0\n"
+			"quest\tSkyrim.esm\t03372B\t0003372B\tMQ101|Unbound\t0\t1\t1000\t10,1000\n"
+			"quest\tSkyrim.esm\t03372A\t0003372A\tMQ102|Before the Storm\t1\t0\t10\t10\n");
+		const auto bad = write("rs_tp_bad.txt",
+			"RSH-SNAPSHOT\t1\t1.6.1170.0\tAllandor\n"
+			"plugin\tSkyrim.esm\n"
+			"player\t15\t80.0\t400.0\t2\n"
+			"skill\t0\t35.0\t2.0\t20.0\t0\n"
+			"skill\t1\t15.0\t0.0\t10.0\t0\n"
+			"av\tHealth\t150.0\n"
+			"perk\tSkyrim.esm\t0BABE4\t000BABE4\tArmsman\n"
+			"perk\tSkyrim.esm\t079342\t00079342\tBladesman\n"
+			"spell\tDawnguard.esm\t00A26E\t0200A26E\tConjure Wrathman\n"
+			"marker\tSkyrim.esm\t016E2B\t00016E2B\tRiverwood\t3\n"
+			"item\tSkyrim.esm\t00000F\t0000000F\tGold\t350\t\t\t\t\t\t0\n"
+			"item\tSkyrim.esm\t012EB7\t00012EB7\tIron Sword\t1\t\t\t\t\t\t0\n"
+			"item\tSkyrim.esm\t012EB7\t00012EB7\tIron Sword\t1\tMy Blade\t1.2000\t\tC:w:1500:Skyrim.esm:04605A:20:0:1\t\t0\n"
+			"potion\tPotion of Healing\t3\t0\tSkyrim.esm:03EB15:50:0:0\n"
+			"quest\tSkyrim.esm\t03372B\t0003372B\tMQ101|Unbound\t0\t1\t1000\t10,1000\n"
+			"quest\tSkyrim.esm\t03372A\t0003372A\tMQ102|Before the Storm\t0\t1\t1000\t10,1000\n"
+			"quest\tSkyrim.esm\t02610C\t0002610C\tMQ103|Dragon Rising\t1\t0\t80\t10,80\n");
+		const auto g = tp::ReadSnapshot(good), b = tp::ReadSnapshot(bad);
+		Check(g.valid && b.valid && b.level == 15 && b.perks.size() == 2, "snapshots are read");
+		const auto changes = tp::Diff(g, b);
+		auto find = [&](const std::string& a_label) -> const tp::Change* {
+			for (const auto& c : changes) {
+				if (c.label.find(a_label) != std::string::npos) {
+					return &c;
+				}
+			}
+			return nullptr;
+		};
+		Check(find("Level 15 (now 10)") != nullptr, "transplant: a higher level is listed");
+		Check(find("One-handed 35") && find("Two-handed 15") && !find("Health"), "transplant: higher skills listed, equal attributes not");
+		Check(find("Bladesman") && !find("Armsman"), "transplant: only perks the good save lacks");
+		Check(find("250 gold") != nullptr, "transplant: gold is the difference (350 - 100)");
+		const auto* sword = find("My Blade");
+		Check(sword && sword->cat == tp::Category::kMade && sword->record.size() > 9 && sword->record[9].rfind("C:w:1500:", 0) == 0,
+			"transplant: a sword with the player's own enchantment is listed, enchantment kept");
+		int plainSwords = 0;
+		for (const auto& c : changes) {
+			plainSwords += c.label == "Iron Sword x1" ? 1 : 0;
+		}
+		Check(plainSwords == 0, "transplant: the plain sword the good save has is not listed again");
+		Check(find("Potion of Healing x3") != nullptr, "transplant: a potion the player made is listed");
+		const auto* conj = find("Conjure Wrathman");
+		Check(conj && !conj->available && !conj->tick, "transplant: something from a plugin the good game lacks cannot be ticked");
+		const auto* mq102 = find("Before the Storm - complete");
+		const auto* mq103 = find("Dragon Rising - stage 80");
+		Check(mq102 && mq102->complete && mq102->goodRuntime == 0x3372A && mq103 && !mq103->complete && !find("Unbound"),
+			"transplant: quests: completed ones and further stages, not the ones already done");
+		std::filesystem::remove(good);
+		std::filesystem::remove(bad);
+	}
+
 }
 
 int main()
@@ -241,6 +318,7 @@ int main()
 	TestPurgeKeepsThreadsConsistent();
 	TestRemoveKeepsSharedArrays();
 	TestPapyrusRoundTrip();
+	TestTransplant();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }
