@@ -77,6 +77,9 @@ if (RESAVERPP_TESTS)
 
 	# ---- CTest ------------------------------------------------------------------------------
 	enable_testing()
+	add_executable(rs_referrers_port_test tests/referrers_port_test.cpp)
+	target_link_libraries(rs_referrers_port_test PRIVATE rs_core)
+	add_test(NAME batched_referrers COMMAND rs_referrers_port_test)
 	# needs nothing: regression tests built from data made in memory
 	add_test(NAME unit COMMAND rs_unit)
 	# real saves: -DRESAVERPP_TEST_SAVES=<folder with .ess files>. Each is loaded, written back and
