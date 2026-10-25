@@ -100,6 +100,9 @@ if (RESAVERPP_TESTS)
 		add_test(NAME fixtures COMMAND ${CMAKE_COMMAND} -E echo "No real saves configured (-DRESAVERPP_TEST_SAVES=<folder>): fixture tests skipped")
 		set_tests_properties(fixtures PROPERTIES SKIP_REGULAR_EXPRESSION "skipped")
 	endif()
+	add_executable(rs_expected_model_port_test tests/expected_model_port_test.cpp)
+	target_link_libraries(rs_expected_model_port_test PRIVATE rs_core)
+	add_test(NAME expected_model COMMAND rs_expected_model_port_test)
 endif()
 
 # ---- GUI --------------------------------------------------------------------------------

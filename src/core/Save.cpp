@@ -1,10 +1,12 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Save.h"
+#include "Verify.h"
 
 #include "lz4.h"
 #include "miniz.h"
 
 #include <fstream>
+#include <random>
 #include <stdexcept>
 
 namespace ess
@@ -259,10 +261,18 @@ namespace ess
 
 	std::unique_ptr<SaveFile> SaveFile::load(const std::filesystem::path& a_path)
 	{
-		auto save = std::make_unique<SaveFile>();
+		const auto co = CosavePath(a_path);
+		const bool present = std::filesystem::exists(co);
+		auto save = parse(ReadFile(a_path), present ? ReadFile(co) : std::vector<std::uint8_t>{}, present);
 		save->path = a_path;
+		return save;
+	}
 
-		const auto file = ReadFile(a_path);
+	std::unique_ptr<SaveFile> SaveFile::parse(const std::vector<std::uint8_t>& file, const std::vector<std::uint8_t>& companion, bool companionPresent)
+	{
+		auto save = std::make_unique<SaveFile>();
+		save->cosave = companion;
+		save->hasCosave = companionPresent || !companion.empty();
 		Reader     hr(file.data(), file.size());
 		save->header.read(hr);
 		const std::size_t headerEnd = hr.pos();
@@ -383,11 +393,6 @@ namespace ess
 		}
 		save->unknown3 = r.bytes(r.remaining());
 
-		std::error_code ec;
-		const auto      co = CosavePath(a_path);
-		if (std::filesystem::exists(co, ec)) {
-			save->cosave = ReadFile(co);
-		}
 
 		save->reindexChangeForms();
 		if (auto* p = save->papyrus()) {
@@ -499,29 +504,43 @@ namespace ess
 
 	SaveFile::WriteResult SaveFile::write(const std::filesystem::path& a_path, bool a_backup) const
 	{
+		if (!problems.empty()) throw std::runtime_error("cannot verify a model with structural problems");
+		const bool coPresent = hasCosave || !cosave.empty();
 		WriteResult     res;
 		std::error_code ec;
 		const auto      co = CosavePath(a_path);
-		auto            tmp = a_path;
-		tmp += ".tmp";
-		auto tmpCo = co;
-		tmpCo += ".tmp";
+		if (!coPresent && std::filesystem::exists(co)) {
+			throw std::runtime_error("destination has a companion but the expected model does not");
+		}
+		// Ordinary sibling names let load() reopen the exact staged pair.
+		std::filesystem::path stage;
+		std::random_device random;
+		for (int attempt = 0; attempt < 64; ++attempt) {
+			auto candidate = a_path; candidate += ".stage-" + std::to_string(random());
+			if (std::filesystem::create_directory(candidate, ec)) { stage = candidate; break; }
+			if (ec) throw std::runtime_error("could not reserve a write stage: " + ec.message());
+		}
+		if (stage.empty()) throw std::runtime_error("could not reserve a unique write stage");
+		const auto tmp = stage / a_path.filename();
+		const auto tmpCo = CosavePath(tmp);
 		auto cleanup = [&] {
 			std::error_code e;
-			std::filesystem::remove(tmp, e);
-			std::filesystem::remove(tmpCo, e);
+			// Only an empty stage is removed; failed artifacts remain available.
+			std::filesystem::remove(stage, e);
 		};
 
 		// 1. stage both files and check the new save reads back
 		try {
 			WriteFile(tmp, serialize());
-			if (!cosave.empty()) {
+			if (coPresent) {
 				WriteFile(tmpCo, cosave);
 			}
 			auto check = SaveFile::load(tmp);
 			if (!check->papyrus()) {
 				throw std::runtime_error("the written save has no Papyrus section");
 			}
+			const auto verification = verify::Expected(*this, *check);
+			if (!verification.identical()) throw std::runtime_error("written model differs: " + verify::Describe(verification));
 		} catch (const std::exception& e) {
 			cleanup();
 			throw std::runtime_error(std::string("could not write the new save (nothing was changed): ") + e.what());
@@ -566,7 +585,7 @@ namespace ess
 			cleanup();
 			throw std::runtime_error("could not replace " + a_path.filename().string() + " (" + ec.message() + "); nothing was changed");
 		}
-		if (!cosave.empty()) {
+		if (coPresent) {
 			std::filesystem::rename(tmpCo, co, ec);
 			if (ec) {
 				const auto      why = ec.message();
@@ -582,6 +601,7 @@ namespace ess
 										 (restored ? "the save was put back as it was" : "the save could not be put back: restore it from its .bak copy"));
 			}
 		}
+		cleanup();
 		return res;
 	}
 

@@ -86,17 +86,22 @@ namespace ess
 	{
 	public:
 		static std::unique_ptr<SaveFile> load(const std::filesystem::path& a_path);
+		// The same parser as load(), with an explicit opaque companion and its presence.
+		static std::unique_ptr<SaveFile> parse(const std::vector<std::uint8_t>& bytes, const std::vector<std::uint8_t>& companion = {}, bool companionPresent = false);
 		void save(const std::filesystem::path& a_path) const;  // also writes the .skse co-save next to it
 
-		// Writes the save (and its .skse co-save) safely:
-		//  1. both files are written to temporary files and the new save is read back (a save that cannot
-		//     be read is never put in place);
+		// Writes the save and its opaque companion with a pre-publication verification gate:
+		//  1. stage the pair in a uniquely reserved directory, reopen the exact staged pair and
+		//     compare the complete serialized native model, including empty companion presence;
+		//     structural problems, verification failure or an unexpected destination companion refuse;
 		//  2. with a_backup, the files already there are copied to a matching backup generation first
 		//     (name.ess.bak + name.skse.bak, name.ess.bak2 + name.skse.bak2, ...); a failed copy stops
 		//     everything before anything is replaced;
 		//  3. the save is put in place, then the co-save; if the co-save cannot be, the save is rolled
 		//     back to the previous file (or removed, if there was none).
-		// Throws std::runtime_error on any failure; then nothing but the temporary files was changed.
+		// Throws std::runtime_error on failure. A staging/verification failure leaves destinations
+		// untouched and retains staged artifacts. Replacement/rollback behavior is otherwise unchanged;
+		// the two renames are not a crash-atomic pair transaction. Consult the error on rollback failure.
 		struct WriteResult
 		{
 			std::filesystem::path backup, cosaveBackup;  // empty when none was made
@@ -116,7 +121,8 @@ namespace ess
 		std::vector<std::uint32_t> formIDs;
 		std::vector<std::uint32_t> visitedWorldspaces;
 		std::vector<std::uint8_t> unknown3;
-		std::vector<std::uint8_t> cosave;  // .skse file contents (empty if none)
+		bool                     hasCosave = false;  // distinguishes an empty companion from an absent one
+		std::vector<std::uint8_t> cosave;  // opaque companion contents
 		std::size_t               originalBodySize = 0;
 		// Structural problems found while reading (layout that does not add up, bad string indices,
 		// duplicate ids...). A save with problems may not be written back faithfully: open it read-only.
