@@ -2,6 +2,11 @@
 #include "Transplant.h"
 #include "Protocol.h"
 
+// Windows.h defines GetObject as GetObjectW, which hides BGSDefaultObjectManager::GetObject
+#ifdef GetObject
+#	undef GetObject
+#endif
+
 #include <cctype>
 
 namespace Transplant
@@ -172,6 +177,18 @@ namespace Transplant
 		RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> MakeLater(std::function<void(const RE::BSScript::Variable&)> a_fn)
 		{
 			return RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor>{ new Later(std::move(a_fn)) };
+		}
+
+		// the left or right hand equip slot
+		const RE::BGSEquipSlot* HandSlot(bool a_left)
+		{
+			auto* dom = RE::BGSDefaultObjectManager::GetSingleton();
+			if (!dom) {
+				return nullptr;
+			}
+			const auto which = static_cast<RE::BGSDefaultObjectManager::DefaultObject>(a_left ? RE::DEFAULT_OBJECTS::kLeftHandEquip : RE::DEFAULT_OBJECTS::kRightHandEquip);
+			auto*      form = dom->GetObject(which);
+			return form ? form->As<RE::BGSEquipSlot>() : nullptr;
 		}
 
 		void Console(const std::string& a_command)
@@ -733,8 +750,7 @@ namespace Transplant
 			}
 			const RE::BGSEquipSlot* slot = nullptr;
 			if (obj->IsWeapon()) {
-				slot = RE::BGSDefaultObjectManager::GetSingleton()->GetObject<RE::BGSEquipSlot>(
-					arg(5) == "left" ? RE::DefaultObjectID::kLeftHandEquip : RE::DefaultObjectID::kRightHandEquip);
+				slot = HandSlot(arg(5) == "left");
 			}
 			mgr->EquipObject(player, obj, which, 1, slot, true, false, false, false);
 			return {};
@@ -750,8 +766,7 @@ namespace Transplant
 			}
 			const RE::BGSEquipSlot* slot = nullptr;
 			if (arg(5) != "voice") {
-				slot = RE::BGSDefaultObjectManager::GetSingleton()->GetObject<RE::BGSEquipSlot>(
-					arg(5) == "left" ? RE::DefaultObjectID::kLeftHandEquip : RE::DefaultObjectID::kRightHandEquip);
+				slot = HandSlot(arg(5) == "left");
 			}
 			mgr->EquipSpell(player, spell, slot);
 			return {};
