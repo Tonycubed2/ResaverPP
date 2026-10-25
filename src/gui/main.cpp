@@ -338,6 +338,9 @@ int RunApp(int argc, char** argv)
 	if (argc > 1) {
 		Step("opening " + std::string(argv[1]));
 		app.openAny(platform::FromUtf8(argv[1]));
+	} else if (!std::getenv("RESAVERPP_SCREENSHOT")) {
+		Step("opening the newest save");
+		app.openNewestAtStart();
 	}
 	Step("drawing the first frames");
 	int drawn = 0;

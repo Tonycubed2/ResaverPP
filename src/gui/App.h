@@ -62,6 +62,7 @@ public:
 	~App();
 	void open(const std::filesystem::path& a_path);
 	void openAny(const std::filesystem::path& a_path);  // .ess, .pex or ModOrganizer.ini
+	void openNewestAtStart();  // with "Open the newest save at start" on: opens it (main.cpp, when no file was given)
 	void draw();  // whole UI for one frame
 	bool wantsQuit() const { return _quit; }
 	bool hasUnsavedChanges() const { return _dirty; }
@@ -607,6 +608,7 @@ private:
 	ess::report::Options _reportOpt;
 	// watcher
 	bool                                                              _watch = false;
+	bool                                                              _openNewest = false;  // open the newest save at start
 	double                                                            _watchNext = 0;
 	std::map<std::filesystem::path, std::filesystem::file_time_type>  _watchSeen;
 	std::map<std::filesystem::path, std::pair<std::uintmax_t, double>> _watchPending;

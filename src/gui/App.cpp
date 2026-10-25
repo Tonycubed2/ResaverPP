@@ -2261,6 +2261,8 @@ void App::loadSettings()
 			_autoNames = line.substr(6) != "0";
 		} else if (line.rfind("watch=", 0) == 0 && line.substr(6) == "1") {
 			_watch = true;
+		} else if (line.rfind("open_newest=", 0) == 0) {
+			_openNewest = line.substr(12) == "1";
 		} else if (line.rfind("live=", 0) == 0) {
 			_liveEnabled = line.substr(5) != "0";
 		} else if (line.rfind("live_notify=", 0) == 0) {
@@ -2333,6 +2335,7 @@ void App::saveSettings()
 	f << "sort=" << _sortMode << "\n";
 	f << "compression=" << _saveCompression << "\n";
 	f << "watch=" << (_watch ? 1 : 0) << "\n";
+	f << "open_newest=" << (_openNewest ? 1 : 0) << "\n";
 	f << "game=" << se.gamePath << "\n";
 	f << "check_on_open=" << (_checkOnOpen ? 1 : 0) << "\n";
 	f << "saves_dir=" << _savesDirSe << "\n";

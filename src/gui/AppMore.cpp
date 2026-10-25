@@ -700,6 +700,7 @@ void App::drawSettings()
 	if (ImGui::Checkbox("Watch saves folder (open new saves automatically)", &watch)) {
 		setWatching(watch);
 	}
+	ch |= ImGui::Checkbox("Open the newest save when ReSaver Plus starts", &_openNewest);
 	const char* sorts[] = { "Save order", "Alphabetical", "Size", "Mass" };
 	if (ImGui::Combo("List sorting", &_sortMode, sorts, 4)) {
 		_rowsDirty = true;

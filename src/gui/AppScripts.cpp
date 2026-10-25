@@ -1547,3 +1547,29 @@ void App::setGame(bool a_vr)
 	saveSettings();
 	_status = std::string("Using the ") + gameName() + " setup";
 }
+
+void App::openNewestAtStart()
+{
+	if (!_openNewest) {
+		return;
+	}
+	// the newest .ess in the saves folders (the chosen one, the last used one, the game's and MO2's)
+	std::error_code                 ec;
+	std::vector<std::filesystem::path> dirs = watchFolders();
+	dirs.push_back(savesFolder());
+	std::filesystem::path           best;
+	std::filesystem::file_time_type bestTime = std::filesystem::file_time_type::min();  // (not {}: MinGW file times)
+	for (const auto& dir : dirs) {
+		for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
+			if (e.is_regular_file(ec) && Lower(platform::ToUtf8(e.path().extension())) == ".ess") {
+				if (const auto t = e.last_write_time(ec); t > bestTime) {
+					bestTime = t;
+					best = e.path();
+				}
+			}
+		}
+	}
+	if (!best.empty()) {
+		openAny(best);
+	}
+}
