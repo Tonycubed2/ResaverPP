@@ -654,7 +654,7 @@ void App::drawTransplant()
 		Wrapped(theme::Caution(), info.connected ? Fmt("ReSaverHelper %s is running: version 5 or newer is needed (Optional files on the mod page).", info.helperVersion.c_str())
 												 : "ReSaverHelper is not connected: start Skyrim with ReSaverHelper.dll (version 5 or newer) installed.");
 	}
-	if (helperOk && helperAtLeast(9) && !helperAtLeast(10)) {
+	if (false && helperOk && helperAtLeast(9) && !helperAtLeast(10)) {  // shown again once ReSaverHelper 10 (followers) is released
 		Wrapped(theme::Caution(), Fmt("ReSaverHelper %s is running: followers need version 10. Install the newest ReSaverHelper and take new snapshots.",
 									  info.helperVersion.c_str()));
 	}
