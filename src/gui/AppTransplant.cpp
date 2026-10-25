@@ -363,6 +363,9 @@ std::string App::transplantGroup(const tp::Change& a_ch) const
 	if (a_ch.cat == tp::Category::kCharacter) {
 		return {};
 	}
+	if (a_ch.cat == tp::Category::kLook) {
+		return at(0) == "look" ? "Look" : "Worn and held";
+	}
 	return a_ch.quest ? a_ch.quest->plugin : at(1);
 }
 

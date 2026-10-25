@@ -28,6 +28,10 @@
 //            enchantment / poison: "" | "F:<plugin>:<local id>:<amount>" (from a plugin) | "C:<kind>:<amount>:<effect>,<effect>..." (made in game;
 //            kind w/a = weapon/armour enchantment, amount = max charge; p = poison, amount = count) with effect = "<plugin>:<local id>:<magnitude>:<area>:<duration>"
 //   potion   <name>  <count>  <poison 0|1>  <effect>,<effect>...           (a potion or poison the player made)
+//   equip       <plugin>  <local id>  <runtime id>  <name>  <right|left>  <custom name>     an item the player wears or holds (version 7)
+//   equipspell  <plugin>  <local id>  <runtime id>  <name>  <right|left|voice>             a spell in hand, or a power
+//   equipshout  <plugin>  <local id>  <runtime id>  <name>  voice                          the shout selected
+//   look        <RaceMenu preset name>  RaceMenu     the look, saved by RaceMenu (SKSE\Plugins\CharGen\Presets\<name>.jslot)
 namespace Transplant
 {
 	// main thread. Returns the file written, or "" (a_error says why).

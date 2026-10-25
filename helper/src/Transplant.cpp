@@ -152,6 +152,28 @@ namespace Transplant
 			return std::format("F:{}:{:06X}:{}", PluginOf(a_item), a_item->GetLocalFormID(), a_amount);
 		}
 
+		class Later : public RE::BSScript::IStackCallbackFunctor
+		{
+		public:
+			explicit Later(std::function<void(const RE::BSScript::Variable&)> a_fn) :
+				_fn(std::move(a_fn))
+			{}
+			void operator()(RE::BSScript::Variable a_result) override
+			{
+				if (_fn) {
+					_fn(a_result);
+				}
+			}
+			void SetObject(const RE::BSTSmartPointer<RE::BSScript::Object>&) override {}
+
+		private:
+			std::function<void(const RE::BSScript::Variable&)> _fn;
+		};
+		RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> MakeLater(std::function<void(const RE::BSScript::Variable&)> a_fn)
+		{
+			return RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor>{ new Later(std::move(a_fn)) };
+		}
+
 		void Console(const std::string& a_command)
 		{
 			const auto factory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::Script>();
@@ -191,6 +213,14 @@ namespace Transplant
 		std::vector<Record> out;
 		const char*         dn = player->GetDisplayFullName();
 		const std::string   playerName = dn && *dn ? std::string(dn) : NameOf(player->GetActorBase());
+		std::string         safe;
+		for (char c : playerName) {
+			safe += (std::isalnum(static_cast<unsigned char>(c)) ? c : '_');
+		}
+		if (safe.empty()) {
+			safe = "player";
+		}
+		const auto stamp = std::format("{:%Y%m%d_%H%M%S}", std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now()));
 		out.push_back({ "RSH-SNAPSHOT", "1", REL::Module::get().version().string(), playerName });
 		// the load order, so the other side can tell which mods this game has
 		{
@@ -409,6 +439,57 @@ namespace Transplant
 			}
 		}
 
+		// what the player wears and holds
+		for (auto& [obj, data] : player->GetInventory()) {
+			const auto& entry = data.second;
+			if (!obj || IsDynamic(obj) || !entry || !entry->extraLists) {
+				continue;
+			}
+			for (auto* xl : *entry->extraLists) {
+				if (!xl) {
+					continue;
+				}
+				const bool right = xl->HasType(RE::ExtraDataType::kWorn), left = xl->HasType(RE::ExtraDataType::kWornLeft);
+				if (!right && !left) {
+					continue;
+				}
+				auto* xName = xl->GetByType<RE::ExtraTextDisplayData>();
+				Record r{ "equip" };
+				PutForm(r, obj);
+				r.push_back(NameOf(obj));
+				r.push_back(left ? "left" : "right");
+				r.push_back(xName && !xName->displayNameText && xName->displayName.c_str() ? xName->displayName.c_str() : "");
+				out.push_back(std::move(r));
+			}
+		}
+		for (const bool left : { false, true }) {
+			auto* f = player->GetEquippedObject(left);
+			if (auto* spell = f ? f->As<RE::SpellItem>() : nullptr; spell && !IsDynamic(spell)) {
+				Record r{ "equipspell" };
+				PutForm(r, spell);
+				r.push_back(NameOf(spell));
+				r.push_back(left ? "left" : "right");
+				out.push_back(std::move(r));
+			}
+		}
+		if (auto* power = player->GetActorRuntimeData().selectedPower; power && !IsDynamic(power)) {
+			Record r{ power->Is(RE::FormType::Shout) ? "equipshout" : "equipspell" };
+			PutForm(r, power);
+			r.push_back(NameOf(power));
+			r.push_back("voice");
+			out.push_back(std::move(r));
+		}
+
+		// the look: RaceMenu saves it as a preset (face, body sliders, overlays...), loaded again by "look"
+		if (GetModuleHandleW(L"skee64.dll") || GetModuleHandleW(L"skeevr.dll")) {
+			const auto preset = std::format("ReSaverPP_{}_{}", safe, stamp);
+			if (auto* vm = VM::GetSingleton()) {
+				RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> none;
+				vm->DispatchStaticCall("CharGen", "SavePreset", RE::MakeFunctionArguments(RE::BSFixedString(preset)), none);
+				out.push_back({ "look", preset, "RaceMenu" });
+			}
+		}
+
 		// write
 		auto dir = SKSE::log::log_directory();
 		if (!dir) {
@@ -418,12 +499,7 @@ namespace Transplant
 		const auto folder = *dir / "ReSaverHelper";
 		std::error_code ec;
 		std::filesystem::create_directories(folder, ec);
-		std::string safe;
-		for (char c : playerName) {
-			safe += (std::isalnum(static_cast<unsigned char>(c)) ? c : '_');
-		}
-		const auto now = std::chrono::system_clock::now();
-		const auto path = folder / std::format("snapshot_{}_{:%Y%m%d_%H%M%S}.txt", safe.empty() ? "player" : safe, std::chrono::floor<std::chrono::seconds>(now));
+		const auto path = folder / std::format("snapshot_{}_{}.txt", safe, stamp);
 		std::ofstream f(path, std::ios::binary | std::ios::trunc);
 		if (!f) {
 			a_error = "cannot write " + path.string();
@@ -533,6 +609,29 @@ namespace Transplant
 			return {};
 		}
 
+		if (kind == "look") {
+			if (!GetModuleHandleW(L"skee64.dll") && !GetModuleHandleW(L"skeevr.dll")) {
+				return "RaceMenu is not installed in this game";
+			}
+			auto* vm = VM::GetSingleton();
+			if (!vm) {
+				return "no script engine";
+			}
+			// RaceMenu's own preset loading, then the player's 3D is rebuilt so the new look shows
+			auto cb = MakeLater([](const RE::BSScript::Variable&) {
+				auto* vm2 = VM::GetSingleton();
+				auto* pl = RE::PlayerCharacter::GetSingleton();
+				auto* policy = vm2 ? vm2->GetObjectHandlePolicy() : nullptr;
+				const auto h = policy && pl ? policy->GetHandleForObject(RE::PlayerCharacter::FORMTYPE, pl) : 0;
+				RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> none;
+				if (vm2 && h) {
+					vm2->DispatchMethodCall(h, "Actor", "QueueNiNodeUpdate", RE::MakeFunctionArguments(), none);
+				}
+			});
+			vm->DispatchStaticCall("CharGen", "LoadPreset", RE::MakeFunctionArguments(RE::BSFixedString(arg(1))), cb);
+			return {};
+		}
+
 		// everything else names a form
 		auto* form = Lookup(arg(1), arg(2));
 		if (!form) {
@@ -604,6 +703,66 @@ namespace Transplant
 			if (flags & 2) {
 				xm->mapData->flags.set(RE::MapMarkerData::Flag::kCanTravelTo);
 			}
+			return {};
+		}
+		if (kind == "equip") {
+			auto* obj = form->As<RE::TESBoundObject>();
+			auto* mgr = RE::ActorEquipManager::GetSingleton();
+			if (!obj || !mgr) {
+				return "not an item";
+			}
+			// the copy with the same custom name, when it has one
+			RE::ExtraDataList* which = nullptr;
+			bool               have = false;
+			for (auto& [o, data] : player->GetInventory()) {
+				if (o != obj) {
+					continue;
+				}
+				have = data.first > 0;
+				if (!arg(6).empty() && data.second && data.second->extraLists) {
+					for (auto* xl : *data.second->extraLists) {
+						auto* xName = xl ? xl->GetByType<RE::ExtraTextDisplayData>() : nullptr;
+						if (xName && xName->displayName.c_str() && arg(6) == xName->displayName.c_str()) {
+							which = xl;
+						}
+					}
+				}
+			}
+			if (!have) {
+				return "not in the inventory (bring the item over first)";
+			}
+			const RE::BGSEquipSlot* slot = nullptr;
+			if (obj->IsWeapon()) {
+				slot = RE::BGSDefaultObjectManager::GetSingleton()->GetObject<RE::BGSEquipSlot>(
+					arg(5) == "left" ? RE::DefaultObjectID::kLeftHandEquip : RE::DefaultObjectID::kRightHandEquip);
+			}
+			mgr->EquipObject(player, obj, which, 1, slot, true, false, false, false);
+			return {};
+		}
+		if (kind == "equipspell") {
+			auto* spell = form->As<RE::SpellItem>();
+			auto* mgr = RE::ActorEquipManager::GetSingleton();
+			if (!spell || !mgr) {
+				return "not a spell";
+			}
+			if (!player->HasSpell(spell)) {
+				return "the spell is not known (bring it over first)";
+			}
+			const RE::BGSEquipSlot* slot = nullptr;
+			if (arg(5) != "voice") {
+				slot = RE::BGSDefaultObjectManager::GetSingleton()->GetObject<RE::BGSEquipSlot>(
+					arg(5) == "left" ? RE::DefaultObjectID::kLeftHandEquip : RE::DefaultObjectID::kRightHandEquip);
+			}
+			mgr->EquipSpell(player, spell, slot);
+			return {};
+		}
+		if (kind == "equipshout") {
+			auto* shout = form->As<RE::TESShout>();
+			auto* mgr = RE::ActorEquipManager::GetSingleton();
+			if (!shout || !mgr) {
+				return "not a shout";
+			}
+			mgr->EquipShout(player, shout);
 			return {};
 		}
 		if (kind == "item") {

@@ -273,7 +273,10 @@ namespace
 			"potion\tPotion of Healing\t3\t0\tSkyrim.esm:03EB15:50:0:0\n"
 			"quest\tSkyrim.esm\t03372B\t0003372B\tMQ101|Unbound\t0\t1\t1000\t10,1000\n"
 			"quest\tSkyrim.esm\t03372A\t0003372A\tMQ102|Before the Storm\t0\t1\t1000\t10,1000\n"
-			"quest\tSkyrim.esm\t02610C\t0002610C\tMQ103|Dragon Rising\t1\t0\t80\t10,80\n");
+			"quest\tSkyrim.esm\t02610C\t0002610C\tMQ103|Dragon Rising\t1\t0\t80\t10,80\n"
+			"equip\tSkyrim.esm\t012EB7\t00012EB7\tIron Sword\tright\tMy Blade\n"
+			"equipshout\tSkyrim.esm\t013E07\t00013E07\tUnrelenting Force\tvoice\n"
+			"look\tReSaverPP_Allandor_20261024\tRaceMenu\n");
 		const auto g = tp::ReadSnapshot(good), b = tp::ReadSnapshot(bad);
 		Check(g.valid && b.valid && b.level == 15 && b.perks.size() == 2, "snapshots are read");
 		const auto changes = tp::Diff(g, b);
@@ -304,6 +307,11 @@ namespace
 		const auto* mq103 = find("Dragon Rising - stage 80");
 		Check(mq102 && mq102->complete && mq102->goodRuntime == 0x3372A && mq103 && !mq103->complete && !find("Unbound"),
 			"transplant: quests: completed ones and further stages, not the ones already done");
+		const auto* look = find("Your look from the bad save");
+		const auto* wear = find("Wear / hold: My Blade");
+		Check(look && look->cat == tp::Category::kLook && look->record.size() == 2 && look->record[1] == "ReSaverPP_Allandor_20261024" && wear &&
+				  wear->record[0] == "equip" && find("Shout selected: Unrelenting Force"),
+			"transplant: the RaceMenu look and the worn gear are listed");
 		std::filesystem::remove(good);
 		std::filesystem::remove(bad);
 	}

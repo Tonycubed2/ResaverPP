@@ -79,6 +79,8 @@ namespace ess::transplant
 		std::map<FormKey, Quest>         quests;
 		std::vector<Item>                items;
 		std::vector<Potion>              potions;
+		std::vector<Entry>               equips;   // equip / equipspell / equipshout records
+		std::string                      look;     // RaceMenu preset saved with the snapshot (empty: none)
 		std::vector<std::string>         plugins;  // load order (from the game; empty when unknown)
 		std::vector<std::string>         missingParts;  // what a partial snapshot could not read
 	};
@@ -96,6 +98,7 @@ namespace ess::transplant
 		kMarkers,
 		kItems,
 		kMade,
+		kLook,
 		kFactions,
 		kQuests,
 		kCount

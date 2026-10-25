@@ -77,6 +77,7 @@ namespace ess::transplant
 		case Category::kMarkers: return "Map locations found";
 		case Category::kItems: return "Items and gold";
 		case Category::kMade: return "Things you made: enchanted gear, potions, poisons";
+		case Category::kLook: return "Look and worn gear";
 		case Category::kFactions: return "Factions";
 		case Category::kQuests: return "Quests";
 		default: return "?";
@@ -163,6 +164,13 @@ namespace ess::transplant
 				it.questItem = At(r, 11) == "1";
 				it.madeEnchantment = At(r, 9).rfind("C:", 0) == 0 || At(r, 10).rfind("C:", 0) == 0;
 				s.items.push_back(std::move(it));
+			} else if (k == "equip" || k == "equipspell" || k == "equipshout") {
+				Entry e;
+				e.record = r;
+				e.name = !At(r, 6).empty() ? At(r, 6) : At(r, 4);
+				s.equips.push_back(std::move(e));
+			} else if (k == "look") {
+				s.look = At(r, 1);
 			} else if (k == "potion") {
 				Potion p;
 				p.record = r;
@@ -462,6 +470,32 @@ namespace ess::transplant
 					add(Category::kMade, Fmt("%s x%d", p.name.c_str(), more), p.poison ? "a poison you made" : "a potion you made", 0,
 						"Made again from the same magic effects and strengths, then given to you.", rec, "");
 				}
+			}
+		}
+
+		// the look (RaceMenu preset) and what the character wore and held
+		if (!a_bad.look.empty()) {
+			add(Category::kLook, "Your look from the bad save (face, hair, body, overlays)", "saved by RaceMenu as preset " + a_bad.look, 1,
+				"RaceMenu loads the preset it saved from the bad save onto your character: face, hair, body sliders, overlays. It replaces "
+				"the good save's look. Your race is not changed.",
+				{ "look", a_bad.look }, "");
+		}
+		{
+			std::set<std::string> worn;
+			for (const auto& e : a_good.equips) {
+				worn.insert(Lower(At(e.record, 1)) + Fmt(":%X:", Hex(At(e.record, 2))) + At(e.record, 5));
+			}
+			for (const auto& e : a_bad.equips) {
+				if (worn.contains(Lower(At(e.record, 1)) + Fmt(":%X:", Hex(At(e.record, 2))) + At(e.record, 5))) {
+					continue;
+				}
+				const auto& kind = At(e.record, 0);
+				const auto  slot = At(e.record, 5);
+				const auto  label = kind == "equip"      ? "Wear / hold: " + e.name + (slot == "left" ? " (left hand)" : "")
+									: kind == "equipshout" ? "Shout selected: " + e.name
+														   : (slot == "voice" ? "Power selected: " : "Spell in " + slot + " hand: ") + e.name;
+				add(Category::kLook, label, At(e.record, 1), 0, "Equips it after everything else is brought over (it has to be in your inventory / known by then).",
+					e.record, At(e.record, 1));
 			}
 		}
 
