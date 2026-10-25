@@ -327,7 +327,8 @@ namespace
 				"jobj\tSkyrim.esm\t0242BA\t000242BA\t10\t1\n"
 				"jobj\tSkyrim.esm\t025231\t00025231\t10\t3\n");
 			std::ofstream(g9, std::ios::app) << "jobj\tSkyrim.esm\t0BBBBB\t000BBBBB\t10\t1\n";
-			const auto c9 = tp::Diff(tp::ReadSnapshot(g9), tp::ReadSnapshot(b9));
+			const auto good9 = tp::ReadSnapshot(g9), bad9 = tp::ReadSnapshot(b9);
+			const auto c9 = tp::Diff(good9, bad9);
 			const tp::Change *voice = nullptr, *muscle = nullptr, *theft = nullptr;
 			for (const auto& c : c9) {
 				voice = c.label.rfind("The Way of the Voice", 0) == 0 ? &c : voice;
