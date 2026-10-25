@@ -9,6 +9,8 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <cfloat>
+#include <cmath>
 #include <thread>
 #include <chrono>
 #include <cctype>
@@ -781,17 +783,20 @@ void App::draw()
 	const float statusH = ImGui::GetFrameHeightWithSpacing();
 	ImGui::BeginChild("##body", ImVec2(0, -statusH));
 	if (!_save) {
-		ImGui::Dummy(ImVec2(0, 80));
-		ImGui::Indent(40);
-		ImGui::TextUnformatted("ReSaver++");
-		ImGui::TextDisabled("Skyrim Special Edition / Anniversary Edition / VR save editor");
+		drawLogo();
+		auto centered = [](const char* a_text, bool a_dim) {
+			ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ImGui::CalcTextSize(a_text).x) * 0.5f);
+			a_dim ? ImGui::TextDisabled("%s", a_text) : ImGui::TextUnformatted(a_text);
+		};
+		centered("Skyrim Special Edition / Anniversary Edition / VR save editor", true);
 		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 180) * 0.5f);
 		if (ImGui::Button("Open save...", ImVec2(180, 0))) {
 			startOpenDialog();
 		}
 		ImGui::Spacing();
-		ImGui::TextDisabled("or drag a .ess file onto this window (a .pex script shows its code)");
-		ImGui::Unindent(40);
+		centered("or drag a .ess file onto this window (a .pex script shows its code)", true);
 	} else {
 		drawCategories();
 		ImGui::SameLine();
@@ -3140,4 +3145,57 @@ bool App::drawBackgroundProgress(float a_width)
 		ImGui::SetTooltip("%s", label.c_str());
 	}
 	return true;
+}
+
+// The start page logo: RESAVER ++ in red, under a scanner light that sweeps back and forth along a red
+// line, leaving a fading trail (the light bar of an old TV robot car).
+void App::drawLogo()
+{
+	const char* text = "RESAVER ++";
+	ImFont*     font = titleFont ? titleFont : ImGui::GetFont();
+	const float size = titleFont ? titleFont->FontSize : ImGui::GetFontSize() * 4.0f;
+	const auto  ts = font->CalcTextSizeA(size, FLT_MAX, 0.0f, text);
+	const float avail = ImGui::GetContentRegionAvail().x;
+	const auto  origin = ImGui::GetCursorScreenPos();
+	const float top = origin.y + std::max(40.0f, ImGui::GetContentRegionAvail().y * 0.12f);
+	const float x0 = origin.x + (avail - ts.x) * 0.5f;
+	auto*       dl = ImGui::GetWindowDrawList();
+
+	// the scanner: a red line a little wider than the logo, a light going back and forth on it
+	const float lineY = top;
+	const float lx0 = x0 - ts.x * 0.05f, lx1 = x0 + ts.x * 1.05f;
+	dl->AddLine(ImVec2(lx0, lineY), ImVec2(lx1, lineY), IM_COL32(90, 0, 0, 255), 6.0f);
+	dl->AddLine(ImVec2(lx0, lineY), ImVec2(lx1, lineY), IM_COL32(150, 10, 10, 255), 2.0f);
+	const double t = ImGui::GetTime();
+	auto         at = [&](double a_t) {
+        // smooth back and forth, a little slower at the ends like the real thing
+        const double p = 0.5 - 0.5 * std::cos(a_t * 2.4);
+        return lx0 + static_cast<float>(p) * (lx1 - lx0);
+	};
+	const float r = 7.0f;
+	constexpr int kTrail = 60;  // the trail: earlier positions, fading, close enough together to read as a streak
+	for (int k = kTrail; k >= 1; --k) {
+		const float x = at(t - k * 0.006);
+		const float f = 1.0f - static_cast<float>(k) / (kTrail + 1);
+		dl->AddCircleFilled(ImVec2(x, lineY), r * (0.45f + 0.5f * f), IM_COL32(230, 0, 0, static_cast<int>(70.0f * f * f)));
+	}
+	const float x = at(t);
+	dl->AddCircleFilled(ImVec2(x, lineY), r * 3.2f, IM_COL32(255, 0, 0, 35));
+	dl->AddCircleFilled(ImVec2(x, lineY), r * 2.0f, IM_COL32(255, 20, 20, 80));
+	dl->AddCircleFilled(ImVec2(x, lineY), r, IM_COL32(255, 40, 30, 255));
+	dl->AddCircleFilled(ImVec2(x, lineY), r * 0.45f, IM_COL32(255, 200, 180, 255));
+
+	// the words, with a soft red glow behind them
+	const float ty = lineY + 16.0f;
+	for (int g = 3; g >= 1; --g) {
+		const float o = g * 2.0f;
+		const auto  col = IM_COL32(255, 0, 0, 22);
+		for (const auto& d : { ImVec2(-o, 0), ImVec2(o, 0), ImVec2(0, -o), ImVec2(0, o) }) {
+			dl->AddText(font, size, ImVec2(x0 + d.x, ty + d.y), col, text);
+		}
+	}
+	dl->AddText(font, size, ImVec2(x0, ty), IM_COL32(215, 18, 18, 255), text);
+
+	ImGui::SetCursorScreenPos(ImVec2(origin.x, ty + ts.y + 18.0f));
+	ImGui::Dummy(ImVec2(0, 0));
 }

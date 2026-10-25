@@ -161,6 +161,7 @@ public:
 	void viewScript(const std::string& a_script, const std::string& a_function = {}, const std::string& a_state = {}, int a_instruction = -1);
 	void viewScriptFile(const std::filesystem::path& a_path);  // a .psc or .pex file
 	ImFont* monoFont = nullptr;  // set by main.cpp: fixed-width font for the editor
+	ImFont* titleFont = nullptr; // set by main.cpp: the big bold font of the start page logo (letters only)
 
 	// set by main.cpp: uploads RGBA pixels, returns an ImTextureID-compatible handle
 	std::function<std::uint64_t(const std::uint8_t*, int, int)> uploadTexture;
@@ -269,6 +270,7 @@ private:
 
 	// UI pieces
 	void drawMenu();
+	void drawLogo();  // the start page logo (no save open)
 	void drawCategories();
 	void drawList();
 	void drawDetail();

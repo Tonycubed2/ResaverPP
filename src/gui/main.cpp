@@ -211,6 +211,21 @@ namespace
 			16.0f * a_scale, true);
 	}
 
+	// the start page logo: a big bold font with only the characters it needs (a big font with every
+	// character would take a lot of texture memory)
+	ImFont* g_title = nullptr;
+	void    LoadTitleFont(float a_scale)
+	{
+		static const ImWchar ranges[] = { 0x0020, 0x005A, 0 };  // space to Z: capitals, digits, +
+		for (const char* f : { "C:\\Windows\\Fonts\\segoeuib.ttf", "C:\\Windows\\Fonts\\arialbd.ttf",
+				 "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf" }) {
+			std::error_code ec;
+			if (std::filesystem::exists(f, ec) && (g_title = ImGui::GetIO().Fonts->AddFontFromFileTTF(f, 110.0f * a_scale, nullptr, ranges)) != nullptr) {
+				return;
+			}
+		}
+	}
+
 	void LoadFonts(float a_scale)
 	{
 		AddFont({ "C:\\Windows\\Fonts\\segoeui.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf" },
@@ -294,6 +309,7 @@ int RunApp(int argc, char** argv)
 	ImGui::GetStyle().ScaleAllSizes(xs);
 	LoadFonts(xs);
 	LoadMonoFont(xs);
+	LoadTitleFont(xs);
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 130");
 
@@ -301,6 +317,7 @@ int RunApp(int argc, char** argv)
 	App app;
 	g_app = &app;
 	app.monoFont = g_mono;
+	app.titleFont = g_title;
 	app.uploadTexture = [](const std::uint8_t* px, int w, int h) -> std::uint64_t {
 		GLuint tex = 0;
 		glGenTextures(1, &tex);
