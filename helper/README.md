@@ -12,6 +12,9 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   items, look via RaceMenu, worn gear, map locations, factions, quests and the journal itself) and puts what
   ReSaver++ sends into another save: quests are started and set to their stage, their journal entries are
   written as the other save had them, and quests the game will not start are left alone. Every step is logged.
+- Followers (version 10): the snapshot lists the characters following you, the quest aliases that hold them
+  (their follower mod's own system) and what they carry; Transplant brings them to you, back in those aliases,
+  as your teammate, with their items (revived and enabled if needed).
 - Confirms every action in game: top-left notification or a message box (`sNotify` in ReSaverHelper.ini).
 - Optional: refresh the journal automatically after every save load (`bRefreshJournalOnLoad=1`).
 - SE 1.5.97, AE 1.6.x / 1.7.x and VR 1.4.15 from one DLL (CommonLibSSE-NG).
