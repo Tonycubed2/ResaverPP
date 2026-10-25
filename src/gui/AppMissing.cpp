@@ -413,12 +413,7 @@ void App::drawMissingModal()
 	}
 	auto target = _path;
 	{
-		const auto base = _path.stem().u8string() + u8"_cleaned";
-		target.replace_filename(base + u8".ess");
-		std::error_code ec;
-		for (int n = 2; std::filesystem::exists(target, ec); ++n) {
-			target.replace_filename(base + u8"_" + std::u8string(reinterpret_cast<const char8_t*>(std::to_string(n).c_str())) + u8".ess");
-		}
+		target = EditedSaveName(_path, "cleaned");
 	}
 	ImGui::TextDisabled("New file: %s%s", platform::ToUtf8(target.filename()).c_str(),
 		refused ? Fmt("   (%zu refused by the safety check will be skipped)", refused).c_str() : "");

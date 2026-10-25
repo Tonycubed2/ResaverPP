@@ -223,8 +223,7 @@ void App::startSaveAsDialog()
 	if (!_save) {
 		return;
 	}
-	auto suggested = _path;
-	suggested.replace_filename(_path.stem().u8string() + u8"_edited.ess");
+	const auto suggested = EditedSaveName(_path, "edited", false);  // the game reads this name correctly (see Save.h)
 	if (platform::HasNativeDialogs()) {
 		if (auto p = platform::SaveAsDialog(suggested)) {
 			doSave(*p);
@@ -3052,12 +3051,7 @@ void App::drawRemoveModModal()
 				ch = u8'_';
 			}
 		}
-		const auto base = _path.stem().u8string() + u8"_without_" + modStem;
-		target.replace_filename(base + u8".ess");
-		std::error_code ec;
-		for (int n = 2; std::filesystem::exists(target, ec); ++n) {
-			target.replace_filename(base + u8"_" + std::u8string(reinterpret_cast<const char8_t*>(std::to_string(n).c_str())) + u8".ess");
-		}
+		target = EditedSaveName(_path, "without" + std::string(modStem.begin(), modStem.end()));
 	}
 	ImGui::TextDisabled("New file: %s", platform::ToUtf8(target.filename()).c_str());
 	ImGui::BeginDisabled(!plan.canApply());

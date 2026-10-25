@@ -236,6 +236,22 @@ namespace
 		Check(q.check().empty(), "the re-read section has no problems");
 	}
 	// Transplant: snapshots are read back and compared the way the GUI does
+	void TestEditedName()
+	{
+		const std::filesystem::path dir = std::filesystem::temp_directory_path();
+		auto n = [&](const char* a, const char* tag) { return ess::EditedSaveName(dir / a, tag, false).filename().string(); };
+		Check(n("Save7120_8606206E_0_4861656C656168_WhiterunBanneredMare_222347_20261025075454_66_1.ess", "edited") ==
+				  "Save7120_8606206E_0_4861656C656168_WhiterunBanneredMare_222347_20261025075454edited_66_1.ess",
+			"edited save name: tag after the date, the game's fields kept");
+		Check(n("Save7120_8606206E_0_4861656C656168_WhiterunBanneredMare_222347_20261025075454edited_66_1.ess", "cleaned") ==
+				  "Save7120_8606206E_0_4861656C656168_WhiterunBanneredMare_222347_20261025075454cleaned_66_1.ess",
+			"edited save name: an earlier tag is replaced, not stacked");
+		Check(n("Save68_00000000_1_416C6C616E646F72_Tamriel_010446_20261024080619_16_1.ess", "without Some_Mod-1") ==
+				  "Save68_00000000_1_416C6C616E646F72_Tamriel_010446_20261024080619withoutSomeMod1_16_1.ess",
+			"edited save name: letters and digits only");
+		Check(n("my save.ess", "edited") == "my save_edited.ess", "edited save name: other names get _tag");
+	}
+
 	void TestTransplant()
 	{
 		namespace tp = ess::transplant;
@@ -373,6 +389,7 @@ int main()
 	TestPurgeKeepsThreadsConsistent();
 	TestRemoveKeepsSharedArrays();
 	TestPapyrusRoundTrip();
+	TestEditedName();
 	TestTransplant();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
