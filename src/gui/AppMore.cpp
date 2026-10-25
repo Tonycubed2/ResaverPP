@@ -287,11 +287,12 @@ void App::arrayEditor(ArrayInfo& a)
 
 void App::drawArraysAnalysis()
 {
-	ImGui::SetNextWindowSize(ImVec2(820, 600), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Arrays block", &_showArrays)) {
+	prepareWindow("Arrays block", ImVec2(0.7f, 0.75f));
+	if (!ImGui::Begin("Arrays block", &_showArrays, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
+	maximizeControl("Arrays block");
 	auto& p = *_save->papyrus();
 	if (_arraysDirty) {
 		_arraysDirty = false;
@@ -457,11 +458,12 @@ void App::logStatus()
 
 void App::drawLog()
 {
-	ImGui::SetNextWindowSize(ImVec2(820, 420), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Log", &_showLog)) {
+	prepareWindow("Log", ImVec2(0.7f, 0.75f));
+	if (!ImGui::Begin("Log", &_showLog, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
+	maximizeControl("Log");
 	if (ImGui::Button("Copy")) {
 		std::string all;
 		for (const auto& l : _log) {

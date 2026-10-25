@@ -15,6 +15,7 @@
 #include "core/Ops.h"
 #include "core/ScriptSources.h"
 #include "Live.h"
+#include "imgui.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -192,6 +193,12 @@ private:
 	std::int32_t           completionStageOf(const ess::transplant::Quest& a_q) const;
 	void                   transplantStep();
 	void                   transplantOrderQuests(std::vector<std::size_t>& a_run);
+	std::string            transplantGroup(const ess::transplant::Change& a_ch) const;
+	bool                   _tpMarkRefused = true, _tpWaiting = false;
+	// tool windows that can fill the whole ReSaver++ window (AppTransplant.cpp)
+	void prepareWindow(const char* a_id, ImVec2 a_defaultFraction);  // before Begin
+	void maximizeControl(const char* a_id);                          // right after Begin
+	std::map<std::string, std::pair<ImVec2, ImVec2>> _maximized, _restoreRects;
 	struct TpResult
 	{
 		std::size_t index = 0;

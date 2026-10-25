@@ -494,13 +494,13 @@ void App::placeCursor(ScriptDoc& d, const std::string& a_function, const std::st
 void App::drawScriptViewer()
 {
 	const ImGuiViewport* vp = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.04f, vp->WorkPos.y + vp->WorkSize.y * 0.04f), ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x * 0.92f, vp->WorkSize.y * 0.9f), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Script viewer###scriptviewer", &_showViewer)) {
+	prepareWindow("Script viewer###scriptviewer", ImVec2(0.7f, 0.75f));
+	if (!ImGui::Begin("Script viewer###scriptviewer", &_showViewer, ImGuiWindowFlags_NoCollapse)) {
 		_viewerFocused = false;
 		ImGui::End();
 		return;
 	}
+	maximizeControl("Script viewer###scriptviewer");
 	_viewerFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	if (_docs.empty()) {
 		ImGui::TextDisabled("Double-click a script anywhere (Scripts, Script Instances, threads, a mod's script list) to see it here.");

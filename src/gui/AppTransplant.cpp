@@ -85,8 +85,10 @@ namespace
 
 void App::transplantSnapshot(bool a_bad)
 {
-	_status = "Asking the game for a snapshot of the loaded save...";
+	_status = "Asking the game for a snapshot of the loaded save: switch to Skyrim for a moment (it pauses in the background)...";
+	_tpWaiting = true;
 	_live.request({ "SNAPSHOT" }, [this, a_bad](const LiveLink::Reply& r) {
+		_tpWaiting = false;
 		if (!LiveLink::Ok(r)) {
 			_status = "The game could not take a snapshot: " + LiveLink::Error(r);
 			return;
@@ -185,9 +187,12 @@ void App::transplantStep()
 		for (const auto& r : _tpResults) {
 			failed += r.ok ? 0 : 1;
 		}
-		_status = Fmt("Transplant done: %zu of %zu brought over%s. Save in the game to keep it.", _tpRun.size() - failed, _tpRun.size(),
-			failed ? Fmt(", %zu could not be (see the Transplant page)", failed).c_str() : "");
-		_live.request({ "NOTIFY", liveNotifyMode(), Fmt("ReSaver++: transplant done (%zu of %zu). Save your game now.", _tpRun.size() - failed, _tpRun.size()) },
+		_status = Fmt("Transplant done: %zu of %zu brought over%s. Quests may keep loading for a couple of minutes: save in the game when "
+					  "their messages stop.",
+			_tpRun.size() - failed, _tpRun.size(), failed ? Fmt(", %zu could not be (see the Transplant page)", failed).c_str() : "");
+		_live.request({ "NOTIFY", liveNotifyMode(),
+						  Fmt("ReSaver++: transplant done (%zu of %zu). Quests may still be loading: wait until their messages stop, then save.",
+							  _tpRun.size() - failed, _tpRun.size()) },
 			[](const LiveLink::Reply&) {});
 		_tpRunning = false;
 		return;
@@ -224,38 +229,39 @@ void App::transplantStep()
 	// a quest: find it in the game, then its completion stage (or the stage it had), else mark it completed
 	const auto* q = ch.quest;
 	const bool  complete = ch.complete;
-	auto        run = [this, q, complete, done](std::uint32_t a_id) {
+	const bool  markRefused = _tpMarkRefused;
+	auto        run = [this, q, complete, markRefused, done](std::uint32_t a_id) {
         const int stage = complete ? completionStageOf(*q) : q->stage;
+        // marks the quest completed: no stage script, no rewards, follow-up quests not started
         auto      mark = [this, a_id, done](const std::string& a_before) {
             _live.request({ "COMPLETE", Fmt("%08X", a_id), "none", "" }, [done, a_before](const LiveLink::Reply& r) {
                 const bool ok = LiveLink::Ok(r) && LiveLink::Field(r, 0) != "0";
-                done(ok, ok ? a_before + "marked completed (no rewards, follow-up quests not started)"
-                            : a_before + "could not be marked completed either");
+                done(ok, ok ? a_before + ", marked as done" : a_before + ", and it could not be marked as done either");
             });
         };
         if (stage < 0) {
-            if (complete) {
-                mark("its completion stage is not known (plugins not read): ");
+            if (complete || markRefused) {
+                mark("completion stage not known (plugins not read)");
             } else {
                 done(false, "no stage to set");
             }
             return;
         }
-        _live.request({ "SETSTAGE", Fmt("%08X", a_id), std::to_string(stage), "none", "" }, [complete, mark, done, stage](const LiveLink::Reply& r) {
+        _live.request({ "SETSTAGE", Fmt("%08X", a_id), std::to_string(stage), "none", "" }, [markRefused, mark, done, stage](const LiveLink::Reply& r) {
             if (!LiveLink::Ok(r)) {
                 done(false, LiveLink::Error(r));
                 return;
             }
             const auto f = LiveLink::Field(r, 0);
             if (f == "0") {
-                if (complete) {
-                    mark(Fmt("the game refused stage %d, so it was ", stage));
+                if (markRefused) {
+                    mark(Fmt("refused stage %d", stage));
                 } else {
-                    done(false, Fmt("the game refused stage %d", stage));
+                    done(false, Fmt("refused stage %d (not marked as done: \"Mark refused quests as done\" is off)", stage));
                 }
                 return;
             }
-            done(true, f == "?" ? "the game is still running the stage's script" : "");
+            done(true, f == "?" ? Fmt("stage %d set; the game is still running its script", stage) : Fmt("stage %d set", stage));
         });
 	};
 	if (ch.goodRuntime) {
@@ -330,85 +336,165 @@ void App::transplantOrderQuests(std::vector<std::size_t>& a_run)
 
 // ---- the window -----------------------------------------------------------------------------------
 
+// the group a change is listed under inside its category: items by kind, the rest by mod
+std::string App::transplantGroup(const tp::Change& a_ch) const
+{
+	auto at = [&](std::size_t i) { return i < a_ch.record.size() ? a_ch.record[i] : std::string(); };
+	if (a_ch.cat == tp::Category::kItems) {
+		if (!at(12).empty()) {
+			return at(12);  // written by ReSaverHelper 6
+		}
+		if (Lower(at(1)) == "skyrim.esm" && std::strtoul(at(2).c_str(), nullptr, 16) == 0xF) {
+			return "Gold";
+		}
+		if (_db) {
+			if (const auto* f = _db->find(static_cast<std::uint32_t>(std::strtoul(at(3).c_str(), nullptr, 16)))) {
+				const auto t = _db->type(*f);
+				return t == "WEAP" ? "Weapons" : t == "ARMO" ? "Armor and clothing" : t == "AMMO" ? "Arrows and bolts" : t == "BOOK" ? "Books and spell tomes"
+					   : t == "ALCH" ? "Potions and food" : t == "INGR" ? "Ingredients" : t == "SLGM" ? "Soul gems" : t == "KEYM" ? "Keys"
+					   : t == "SCRL" ? "Scrolls" : t == "MISC" ? "Miscellaneous" : t == "LIGH" ? "Torches and lights" : "Other";
+			}
+		}
+		return "Other";
+	}
+	if (a_ch.cat == tp::Category::kMade) {
+		return at(0) == "potion" ? (at(3) == "1" ? "Poisons" : "Potions") : "Enchanted gear";
+	}
+	if (a_ch.cat == tp::Category::kCharacter) {
+		return {};
+	}
+	return a_ch.quest ? a_ch.quest->plugin : at(1);
+}
+
+void App::maximizeControl(const char* a_id)
+{
+	// a Maximize / Restore button at the top right, and a double-click on the title bar does the same
+	const bool  maxed = _maximized.contains(a_id);
+	const auto  wp = ImGui::GetWindowPos();
+	const auto  ws = ImGui::GetWindowSize();
+	const float title = ImGui::GetFrameHeight();
+	bool        toggle = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect(wp, ImVec2(wp.x + ws.x, wp.y + title), false) &&
+				  ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+	const char* label = maxed ? "Restore size" : "Maximize";
+	const float w = ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
+	const auto  back = ImGui::GetCursorPos();
+	ImGui::SetCursorPos(ImVec2(ImGui::GetWindowContentRegionMax().x - w, back.y));
+	toggle |= ImGui::SmallButton(label);
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("%s (or double-click the title bar)", maxed ? "Back to the size it had" : "Fill the whole ReSaver++ window");
+	}
+	ImGui::SetCursorPos(back);
+	if (toggle) {
+		if (maxed) {
+			_restoreRects[a_id] = _maximized[a_id];
+			_maximized.erase(a_id);
+		} else {
+			_maximized[a_id] = { wp, ws };
+		}
+	}
+}
+
+void App::prepareWindow(const char* a_id, ImVec2 a_defaultFraction)
+{
+	const auto* vp = ImGui::GetMainViewport();
+	if (_maximized.contains(a_id)) {
+		ImGui::SetNextWindowPos(vp->WorkPos, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
+	} else if (auto it = _restoreRects.find(a_id); it != _restoreRects.end()) {
+		ImGui::SetNextWindowPos(it->second.first, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(it->second.second, ImGuiCond_Always);
+		_restoreRects.erase(it);
+	} else {
+		ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x * a_defaultFraction.x, vp->WorkSize.y * a_defaultFraction.y), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y * 0.5f), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+	}
+}
+
 void App::drawTransplant()
 {
-	ImGui::SetNextWindowSize(ImVec2(1000, 720), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Transplant", &_showTransplant)) {
+	prepareWindow("Transplant", ImVec2(0.9f, 0.9f));
+	if (!ImGui::Begin("Transplant", &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
+	maximizeControl("Transplant");
 	const auto info = _live.info();
 	const bool live = info.connected && info.inGame;
 	const bool helperOk = helperAtLeast(5);
+	const bool busy = _tpRunning || _tpWaiting;
 
-	Wrapped(ImGui::GetColorU32(ImGuiCol_Text),
-		"Bring your character's progress from a bad save (unstable, too many mods added and removed) into a good one from before. "
-		"ReSaver++ lists what the bad save has and the good one does not; you tick what to bring; the game itself puts it into the "
-		"good save, the normal way (scripts run, rewards are given), so the result is a clean save written by the game.");
-	ImGui::TextDisabled("Needs Skyrim running with ReSaverHelper.dll version 5 or newer.");
+	ImGui::PushTextWrapPos(ImGui::GetContentRegionMax().x - 140);
+	ImGui::TextWrapped("Bring your character's progress from a bad save into a good one from before. ReSaver++ lists what the bad save has and "
+					   "the good one does not; you tick what to bring; the game itself puts it into the good save the normal way, so the result "
+					   "is a clean save written by the game. Needs Skyrim running with ReSaverHelper.dll 5 or newer.");
+	ImGui::PopTextWrapPos();
 	if (!helperOk) {
 		Wrapped(theme::Caution(), info.connected ? Fmt("ReSaverHelper %s is running: version 5 or newer is needed (Optional files on the mod page).", info.helperVersion.c_str())
 												 : "ReSaverHelper is not connected: start Skyrim with ReSaverHelper.dll (version 5 or newer) installed.");
 	}
-
-	// step 1: the bad save
-	ImGui::SeparatorText("1. The bad save: take its progress");
-	ImGui::TextWrapped("%s", Summary(_tpBad).c_str());
-	ImGui::BeginDisabled(!live || !helperOk || _tpRunning);
-	if (ImGui::Button("Snapshot the game (bad save loaded)")) {
-		confirm("Snapshot the bad save", "Is the BAD save loaded in the game right now?\n\nReSaverHelper writes down everything about your character "
-										 "in the loaded game: level, skills, perks, spells, shouts, items, quests, map locations.",
-			[this] { transplantSnapshot(true); });
-	}
-	ImGui::EndDisabled();
-	ImGui::SameLine();
-	ImGui::BeginDisabled(_tpRunning);
-	if (ImGui::Button("Read it from a save file...") && platform::HasNativeDialogs()) {
-		if (auto p = platform::OpenSaveDialog(savesFolder())) {
-			transplantFromFile(*p);
-		}
-	}
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("For a bad save the game cannot load at all. Only part of it can be read without the game:\n"
-						  "quests, items, spells and shouts, level. Not skills, perks, words of power, map locations or things you made.");
-	}
-	if (_save) {
-		ImGui::SameLine();
-		if (ImGui::Button("Use the save open here")) {
-			_tpBad = tp::FromSave(*_save, platform::ToUtf8(_path.filename()));
-			transplantNames(_tpBad, *_save);
-			_tpDirty = true;
-		}
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Open a snapshot file...") && platform::HasNativeDialogs()) {
-		if (auto p = platform::OpenFileDialog({}, "txt", "ReSaverHelper snapshot (Documents\\My Games\\...\\SKSE\\ReSaverHelper)")) {
-			transplantFromFile(*p);
-		}
-	}
-	ImGui::EndDisabled();
-	if (_tpBad.valid && _tpBad.fromFile) {
-		std::string parts;
-		for (const auto& m : _tpBad.missingParts) {
-			parts += (parts.empty() ? "" : ", ") + m;
-		}
-		Wrapped(theme::Caution(), "Read from the file without the game: " + parts + " cannot be read this way. If the game can load this save, a snapshot "
-								  "from the game is complete.");
+	if (_tpWaiting) {
+		Wrapped(theme::Caution(), "Waiting for the game: switch to Skyrim for a moment (it pauses while it is not the active window), then come back.");
 	}
 
-	// step 2: the good save
-	ImGui::SeparatorText("2. The good save: load it in the game, then compare");
-	ImGui::TextWrapped("%s", Summary(_tpGood).c_str());
-	ImGui::BeginDisabled(!live || !helperOk || !_tpBad.valid || _tpRunning);
-	if (ImGui::Button(_tpGood.valid ? "Snapshot the game again (good save loaded)" : "Snapshot the game (good save loaded)")) {
-		confirm("Snapshot the good save", "Is the GOOD save loaded in the game right now? (Load it from the game's menu first.)\n\n"
-										  "ReSaverHelper writes down what the character has there, and ReSaver++ lists what the bad save has on top.",
-			[this] { transplantSnapshot(false); });
-	}
-	ImGui::EndDisabled();
-	if (_tpBad.valid && _tpGood.valid && !_tpBad.player.empty() && !_tpGood.player.empty() && _tpBad.player != _tpGood.player) {
+	// steps 1 and 2 side by side
+	if (ImGui::BeginTable("steps", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchSame)) {
+		ImGui::TableNextColumn();
+		ImGui::SeparatorText("1. The bad save: take its progress");
+		ImGui::TextWrapped("%s", Summary(_tpBad).c_str());
+		ImGui::BeginDisabled(!live || !helperOk || busy);
+		if (ImGui::Button("Snapshot the game (bad save loaded in the game)")) {
+			confirm("Snapshot the bad save", "Is the BAD save loaded in the game right now?\n\nReSaverHelper writes down everything about your character "
+											 "in the loaded game: level, skills, perks, spells, shouts, items, quests, map locations.\n\n"
+											 "Skyrim pauses while it is not the active window: after OK, switch to the game for a moment.",
+				[this] { transplantSnapshot(true); });
+		}
+		ImGui::EndDisabled();
+		ImGui::BeginDisabled(busy);
+		if (ImGui::Button("Bad save won't load? Read it from the save file...") && platform::HasNativeDialogs()) {
+			if (auto p = platform::OpenSaveDialog(savesFolder())) {
+				transplantFromFile(*p);
+			}
+		}
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("For a save the game cannot load at all. Without the game only part of it can be read:\n"
+							  "quests, items, spells and shouts, level. Not skills, perks, words of power, map locations or things you made.");
+		}
+		if (_save) {
+			if (ImGui::SmallButton("Use the save open in ReSaver++")) {
+				_tpBad = tp::FromSave(*_save, platform::ToUtf8(_path.filename()));
+				transplantNames(_tpBad, *_save);
+				_tpDirty = true;
+			}
+		}
 		ImGui::SameLine();
-		TextColored(theme::Bad(), "These are two different characters (" + _tpBad.player + " / " + _tpGood.player + ").");
+		if (ImGui::SmallButton("Open a snapshot file...") && platform::HasNativeDialogs()) {
+			if (auto p = platform::OpenFileDialog({}, "txt", "ReSaverHelper snapshot (Documents\\My Games\\...\\SKSE\\ReSaverHelper)")) {
+				transplantFromFile(*p);
+			}
+		}
+		ImGui::EndDisabled();
+		if (_tpBad.valid && _tpBad.fromFile) {
+			std::string parts;
+			for (const auto& m : _tpBad.missingParts) {
+				parts += (parts.empty() ? "" : ", ") + m;
+			}
+			Wrapped(theme::Caution(), "Read from the file without the game: " + parts + " are not included.");
+		}
+
+		ImGui::TableNextColumn();
+		ImGui::SeparatorText("2. The good save: load it in the game, then snapshot it");
+		ImGui::TextWrapped("%s", Summary(_tpGood).c_str());
+		ImGui::BeginDisabled(!live || !helperOk || !_tpBad.valid || busy);
+		if (ImGui::Button(_tpGood.valid ? "Snapshot the game again (good save loaded in the game)" : "Snapshot the game (good save loaded in the game)")) {
+			confirm("Snapshot the good save", "Is the GOOD save loaded in the game right now? (Load it from the game's menu first, and make a backup save.)\n\n"
+											  "After OK, switch to the game for a moment: it pauses while it is not the active window.",
+				[this] { transplantSnapshot(false); });
+		}
+		ImGui::EndDisabled();
+		if (_tpBad.valid && _tpGood.valid && !_tpBad.player.empty() && !_tpGood.player.empty() && _tpBad.player != _tpGood.player) {
+			Wrapped(theme::Bad(), "These are two different characters (" + _tpBad.player + " / " + _tpGood.player + ").");
+		}
+		ImGui::EndTable();
 	}
 
 	if (_tpDirty && _tpBad.valid && _tpGood.valid) {
@@ -421,26 +507,98 @@ void App::drawTransplant()
 		return;
 	}
 
-	// step 3: what to bring
+	// step 3: what to bring, in folded groups
 	ImGui::SeparatorText(Fmt("3. What to bring over (%zu)", _tpChanges.size()).c_str());
 	Dot(theme::Good());
 	ImGui::TextUnformatted("Safe");
-	ImGui::SameLine(0, 20);
+	ImGui::SameLine(0, 18);
 	Dot(theme::Caution());
-	ImGui::TextUnformatted("Caution: hover to read why");
-	ImGui::SameLine(0, 20);
+	ImGui::TextUnformatted("Caution (hover to read why)");
+	ImGui::SameLine(0, 18);
 	Dot(theme::Bad());
-	ImGui::TextUnformatted("Cannot: its mod is not in the game now");
+	ImGui::TextUnformatted("Cannot: its mod is not in the game");
 	ImGui::SameLine(0, 30);
-	ImGui::SetNextItemWidth(240);
-	ImGui::InputTextWithHint("##tpfilter", "search", _tpFilter, sizeof(_tpFilter));
+	int openAll = -1;
+	if (ImGui::SmallButton("Expand all")) {
+		openAll = 1;
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Collapse all")) {
+		openAll = 0;
+	}
+	ImGui::SameLine();
+	ImGui::BeginDisabled(_tpRunning);
+	if (ImGui::SmallButton("Tick everything")) {
+		for (auto& c : _tpChanges) {
+			c.tick = c.available;
+		}
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Untick everything")) {
+		for (auto& c : _tpChanges) {
+			c.tick = false;
+		}
+	}
+	ImGui::EndDisabled();
+	ImGui::SameLine(0, 20);
+	ImGui::SetNextItemWidth(-1);
+	ImGui::InputTextWithHint("##tpfilter", "search (opens the groups that match)", _tpFilter, sizeof(_tpFilter));
 	const auto needle = Lower(_tpFilter);
+	if (!needle.empty()) {
+		openAll = 1;
+	}
 
 	std::map<std::size_t, const TpResult*> results;
 	for (const auto& r : _tpResults) {
 		results[r.index] = &r;
 	}
-	ImGui::BeginChild("##tplist", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 2.6f), ImGuiChildFlags_Borders);
+	auto row = [&](std::size_t i) {
+		auto& ch = _tpChanges[i];
+		ImGui::PushID(static_cast<int>(i));
+		ImGui::BeginDisabled(!ch.available || _tpRunning);
+		ImGui::Checkbox("##t", &ch.tick);
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		Dot(RiskCol(ch.risk));
+		ImGui::TextUnformatted(ch.label.c_str());
+		if (ImGui::IsItemHovered() && !ch.why.empty()) {
+			ImGui::SetTooltip("%s", ch.why.c_str());
+		}
+		if (!ch.detail.empty()) {
+			ImGui::SameLine();
+			ImGui::TextDisabled("%s", ch.detail.c_str());
+		}
+		if (auto it = results.find(i); it != results.end()) {
+			ImGui::SameLine();
+			TextColored(it->second->ok ? theme::Good() : theme::Bad(),
+				it->second->ok ? (it->second->why.empty() ? "done" : "done: " + it->second->why) : "not done: " + it->second->why);
+		}
+		ImGui::PopID();
+	};
+	auto tickButtons = [&](const std::vector<std::size_t>& a_in) {
+		ImGui::BeginDisabled(_tpRunning);
+		if (ImGui::SmallButton("Tick all")) {
+			for (auto i : a_in) {
+				_tpChanges[i].tick = _tpChanges[i].available;
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Untick all")) {
+			for (auto i : a_in) {
+				_tpChanges[i].tick = false;
+			}
+		}
+		ImGui::EndDisabled();
+	};
+	auto counts = [&](const std::vector<std::size_t>& a_in) {
+		std::size_t t = 0;
+		for (auto i : a_in) {
+			t += _tpChanges[i].tick && _tpChanges[i].available ? 1 : 0;
+		}
+		return Fmt("%zu of %zu ticked", t, a_in.size());
+	};
+
+	ImGui::BeginChild("##tplist", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 2.4f), ImGuiChildFlags_Borders);
 	for (int c = 0; c < static_cast<int>(tp::Category::kCount); ++c) {
 		std::vector<std::size_t> in;
 		for (std::size_t i = 0; i < _tpChanges.size(); ++i) {
@@ -452,55 +610,45 @@ void App::drawTransplant()
 		if (in.empty()) {
 			continue;
 		}
-		std::size_t ticked = 0;
-		for (auto i : in) {
-			ticked += _tpChanges[i].tick && _tpChanges[i].available ? 1 : 0;
-		}
 		ImGui::PushID(c);
-		const bool open = ImGui::CollapsingHeader(Fmt("%s  (%zu of %zu ticked)###cat", tp::CategoryName(static_cast<tp::Category>(c)), ticked, in.size()).c_str(),
-			c == static_cast<int>(tp::Category::kQuests) ? 0 : ImGuiTreeNodeFlags_DefaultOpen);
+		if (openAll >= 0) {
+			ImGui::SetNextItemOpen(openAll == 1);
+		}
+		const bool open = ImGui::CollapsingHeader(Fmt("%s   (%s)###cat", tp::CategoryName(static_cast<tp::Category>(c)), counts(in).c_str()).c_str());
 		if (open) {
-			if (ImGui::SmallButton("Tick all")) {
-				for (auto i : in) {
-					_tpChanges[i].tick = _tpChanges[i].available;
-				}
-			}
-			ImGui::SameLine();
-			if (ImGui::SmallButton("Untick all")) {
-				for (auto i : in) {
-					_tpChanges[i].tick = false;
-				}
-			}
+			ImGui::Indent();
+			tickButtons(in);
 			if (c == static_cast<int>(tp::Category::kQuests)) {
 				ImGui::SameLine();
-				ImGui::TextDisabled("Each quest's stage runs in the game. Quests the game refuses to complete are marked completed instead.");
+				ImGui::TextDisabled("Quests run in quest-line order, after everything else.");
 			}
+			// groups: items by kind, the rest by mod (when there are many)
+			std::map<std::string, std::vector<std::size_t>> groups;
 			for (auto i : in) {
-				auto& ch = _tpChanges[i];
-				ImGui::PushID(static_cast<int>(i));
-				ImGui::BeginDisabled(!ch.available || _tpRunning);
-				ImGui::Checkbox("##t", &ch.tick);
-				ImGui::EndDisabled();
-				ImGui::SameLine();
-				Dot(RiskCol(ch.risk));
-				ImGui::TextUnformatted(ch.label.c_str());
-				if (ImGui::IsItemHovered() && !ch.why.empty()) {
-					ImGui::SetTooltip("%s", ch.why.c_str());
-				}
-				if (!ch.detail.empty()) {
-					ImGui::SameLine();
-					ImGui::TextDisabled("%s", ch.detail.c_str());
-				}
-				if (auto it = results.find(i); it != results.end()) {
-					ImGui::SameLine();
-					if (it->second->ok) {
-						TextColored(theme::Good(), it->second->why.empty() ? "done" : "done: " + it->second->why);
-					} else {
-						TextColored(theme::Bad(), "not done: " + it->second->why);
-					}
-				}
-				ImGui::PopID();
+				groups[transplantGroup(_tpChanges[i])].push_back(i);
 			}
+			const bool flat = groups.size() <= 1 || in.size() <= 12;
+			if (flat) {
+				for (auto i : in) {
+					row(i);
+				}
+			} else {
+				for (const auto& [name, gi] : groups) {
+					ImGui::PushID(name.c_str());
+					if (openAll >= 0) {
+						ImGui::SetNextItemOpen(openAll == 1);
+					}
+					if (ImGui::TreeNodeEx("##grp", ImGuiTreeNodeFlags_SpanAvailWidth, "%s   (%s)", name.empty() ? "Other" : name.c_str(), counts(gi).c_str())) {
+						tickButtons(gi);
+						for (auto i : gi) {
+							row(i);
+						}
+						ImGui::TreePop();
+					}
+					ImGui::PopID();
+				}
+			}
+			ImGui::Unindent();
 		}
 		ImGui::PopID();
 	}
@@ -509,6 +657,7 @@ void App::drawTransplant()
 	}
 	ImGui::EndChild();
 
+	// apply
 	std::vector<std::size_t> run;
 	for (int c = 0; c < static_cast<int>(tp::Category::kCount); ++c) {  // character first, quests last
 		for (std::size_t i = 0; i < _tpChanges.size(); ++i) {
@@ -517,14 +666,24 @@ void App::drawTransplant()
 			}
 		}
 	}
-	ImGui::BeginDisabled(!live || !helperOk || run.empty() || _tpRunning);
+	ImGui::BeginDisabled(_tpRunning);
+	ImGui::Checkbox("Mark refused quests as done", &_tpMarkRefused);
+	ImGui::EndDisabled();
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("When the game refuses a quest's stage (its people or places are not set up in this save), the quest is marked\n"
+						  "completed instead, and the list says so (\"refused stage 10, marked as done\"). Marked quests give no rewards\n"
+						  "and do not start the quests that normally follow them. This applies to quests that were only further along in\n"
+						  "the bad save too. Untick to leave refused quests as they are.");
+	}
+	ImGui::SameLine(0, 30);
+	ImGui::BeginDisabled(!live || !helperOk || run.empty() || busy);
 	if (ImGui::Button(Fmt("Transplant %zu ticked thing(s) into the game", run.size()).c_str())) {
 		confirm("Transplant",
 			Fmt("Put %zu ticked thing(s) into the game now?\n\n"
 				"- The GOOD save must be the one loaded in the game (the one snapshotted in step 2).\n"
 				"- Make a save in the game first, so you can go back.\n"
-				"- Keep the game unpaused and menus closed until it is done.\n"
-				"- Then save in the game: that new save is the result.",
+				"- After OK, switch to Skyrim and stay there, unpaused with menus closed, until it is done.\n"
+				"- Quests may keep loading for a couple of minutes after that: save in the game when their messages stop.",
 				run.size()),
 			[this, run] {
 				_tpRun = run;
@@ -547,7 +706,9 @@ void App::drawTransplant()
 		}
 		ImGui::SameLine();
 		TextColored(failed ? theme::Caution() : theme::Good(),
-			Fmt("Done: %zu brought over, %zu not (see the list). Save in the game to keep it.", _tpResults.size() - failed, failed));
+			Fmt("Done: %zu brought over, %zu not (see the list). Quests may keep loading for a couple of minutes: save in the game when their "
+				"messages stop.",
+				_tpResults.size() - failed, failed));
 	}
 	ImGui::TextDisabled("Nothing is taken away from the good save: things are only added, and levels and skills only raised.");
 	ImGui::End();

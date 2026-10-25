@@ -1910,11 +1910,12 @@ void App::drawOverview()
 
 void App::drawAnalysis()
 {
-	ImGui::SetNextWindowSize(ImVec2(820, 640), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Analysis", &_showAnalysis)) {
+	prepareWindow("Analysis", ImVec2(0.7f, 0.75f));
+	if (!ImGui::Begin("Analysis", &_showAnalysis, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
+	maximizeControl("Analysis");
 	if (_report) {
 		if (ImGui::Button("Copy report to clipboard")) {
 			ImGui::SetClipboardText(ops::FormatReport(*_report, 40).c_str());

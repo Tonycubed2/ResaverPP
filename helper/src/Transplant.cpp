@@ -189,7 +189,8 @@ namespace Transplant
 			return {};
 		}
 		std::vector<Record> out;
-		const std::string   playerName = NameOf(player);
+		const char*         dn = player->GetDisplayFullName();
+		const std::string   playerName = dn && *dn ? std::string(dn) : NameOf(player->GetActorBase());
 		out.push_back({ "RSH-SNAPSHOT", "1", REL::Module::get().version().string(), playerName });
 		// the load order, so the other side can tell which mods this game has
 		{
@@ -331,7 +332,29 @@ namespace Transplant
 			out.push_back(std::move(r));
 		}
 
-		// inventory
+		// inventory: each item with its kind, so it can be listed in groups
+		auto kindOf = [](const RE::TESBoundObject* o) -> std::string {
+			if (!o) {
+				return "Other";
+			}
+			if (o->GetFormID() == 0xF) {
+				return "Gold";
+			}
+			switch (o->GetFormType()) {
+			case RE::FormType::Weapon: return "Weapons";
+			case RE::FormType::Armor: return "Armor and clothing";
+			case RE::FormType::Ammo: return "Arrows and bolts";
+			case RE::FormType::Book: return "Books and spell tomes";
+			case RE::FormType::AlchemyItem: return "Potions and food";
+			case RE::FormType::Ingredient: return "Ingredients";
+			case RE::FormType::SoulGem: return "Soul gems";
+			case RE::FormType::KeyMaster: return "Keys";
+			case RE::FormType::Scroll: return "Scrolls";
+			case RE::FormType::Light: return "Torches and lights";
+			case RE::FormType::Misc: return "Miscellaneous";
+			default: return "Other";
+			}
+		};
 		for (auto& [obj, data] : player->GetInventory()) {
 			const auto& [count, entry] = data;
 			if (!obj || count <= 0) {
@@ -372,6 +395,7 @@ namespace Transplant
 					r.push_back(xEnch ? MagicField(xEnch->enchantment, obj->IsWeapon() ? 'w' : 'a', xEnch->charge) : "");
 					r.push_back(xPoison ? MagicField(xPoison->poison, 'p', xPoison->count) : "");
 					r.push_back(questItem ? "1" : "0");
+					r.push_back(kindOf(obj));
 					out.push_back(std::move(r));
 				}
 			}
@@ -380,7 +404,7 @@ namespace Transplant
 				PutForm(r, obj);
 				r.push_back(NameOf(obj));
 				r.push_back(std::to_string(count - special));
-				r.insert(r.end(), { "", "", "", "", "", questItem ? "1" : "0" });
+				r.insert(r.end(), { "", "", "", "", "", questItem ? "1" : "0", kindOf(obj) });
 				out.push_back(std::move(r));
 			}
 		}

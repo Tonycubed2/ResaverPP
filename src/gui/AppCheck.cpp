@@ -378,13 +378,12 @@ void App::drawSaveCheck()
 		_showCheck = false;
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(940, 660), ImGuiCond_Appearing);
-	const auto* vp = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	prepareWindow("Save check", ImVec2(0.62f, 0.72f));
 	if (!ImGui::Begin("Save check", &_showCheck, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
+	maximizeControl("Save check");
 	ImGui::TextUnformatted(("Save check:  " + platform::ToUtf8(_path.filename())).c_str());
 	// legend
 	Dot(Risk::kSafe);

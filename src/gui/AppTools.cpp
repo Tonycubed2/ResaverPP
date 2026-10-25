@@ -169,11 +169,12 @@ bool App::namesLoading() const { return _dbThread.joinable() && !_dbDone; }
 
 void App::drawLookup()
 {
-	ImGui::SetNextWindowSize(ImVec2(900, 560), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Find form", &_showLookup)) {
+	prepareWindow("Find form", ImVec2(0.7f, 0.75f));
+	if (!ImGui::Begin("Find form", &_showLookup, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
+	maximizeControl("Find form");
 	if (!_db) {
 		if (namesLoading()) {
 			ImGui::TextUnformatted("Reading your plugins...");
@@ -500,11 +501,12 @@ void App::compareWith(const std::filesystem::path& a_other)
 
 void App::drawCompare()
 {
-	ImGui::SetNextWindowSize(ImVec2(820, 620), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Compare saves", &_showCompare)) {
+	prepareWindow("Compare saves", ImVec2(0.7f, 0.75f));
+	if (!ImGui::Begin("Compare saves", &_showCompare, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
+	maximizeControl("Compare saves");
 	ImGui::TextUnformatted(("A = " + _compareTitle).c_str());
 	if (ImGui::Button("Copy to clipboard")) {
 		std::string all;

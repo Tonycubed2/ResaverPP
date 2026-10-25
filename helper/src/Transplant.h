@@ -24,7 +24,7 @@
 //   faction  <plugin>  <local id>  <runtime id>  <name>  <rank>
 //   marker   <plugin>  <local id>  <runtime id>  <name>  <flags: 1 visible, 2 can travel to>
 //   quest    <plugin>  <local id>  <runtime id>  <editor id|name>  <running>  <completed>  <stage>  <done stages, comma separated>
-//   item     <plugin>  <local id>  <runtime id>  <name>  <count>  <custom name>  <temper>  <charge>  <enchantment>  <poison>  <quest item 0|1>
+//   item     <plugin>  <local id>  <runtime id>  <name>  <count>  <custom name>  <temper>  <charge>  <enchantment>  <poison>  <quest item 0|1>  <kind: Weapons, Armor and clothing... (version 6)>
 //            enchantment / poison: "" | "F:<plugin>:<local id>:<amount>" (from a plugin) | "C:<kind>:<amount>:<effect>,<effect>..." (made in game;
 //            kind w/a = weapon/armour enchantment, amount = max charge; p = poison, amount = count) with effect = "<plugin>:<local id>:<magnitude>:<area>:<duration>"
 //   potion   <name>  <count>  <poison 0|1>  <effect>,<effect>...           (a potion or poison the player made)
