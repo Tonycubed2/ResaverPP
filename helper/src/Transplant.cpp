@@ -224,6 +224,7 @@ namespace Transplant
 	{
 		auto* player = RE::PlayerCharacter::GetSingleton();
 		auto* dh = RE::TESDataHandler::GetSingleton();
+		spdlog::info("Snapshot: starting");
 		if (!player || !dh) {
 			a_error = "no player (load a save first)";
 			return {};
@@ -544,6 +545,7 @@ namespace Transplant
 		std::ofstream f(path, std::ios::binary | std::ios::trunc);
 		if (!f) {
 			a_error = "cannot write " + path.string();
+			spdlog::error("Snapshot: {}", a_error);
 			return {};
 		}
 		for (const auto& r : out) {

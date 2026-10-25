@@ -199,6 +199,7 @@ void App::transplantSnapshot(bool a_bad)
 {
 	_status = "Asking the game for a snapshot of the loaded save: switch to Skyrim for a moment (it pauses in the background)...";
 	_tpWaiting = true;
+	_tpWaitStart = ImGui::GetTime();
 	_live.request({ "SNAPSHOT" }, [this, a_bad](const LiveLink::Reply& r) {
 		_tpWaiting = false;
 		if (!LiveLink::Ok(r)) {
@@ -581,8 +582,14 @@ void App::drawTransplant()
 									  "version 9. Install the newest ReSaverHelper and take new snapshots.",
 									  info.helperVersion.c_str()));
 	}
+	if (_tpWaiting && ImGui::GetTime() - _tpWaitStart > 75.0) {
+		_tpWaiting = false;
+		_status = "No answer from the game for the snapshot. Was Skyrim the active window for a few seconds? Try again; if it still does not "
+				  "answer, restart the game and send ReSaverHelper.log (Documents\\My Games\\Skyrim Special Edition\\SKSE).";
+	}
 	if (_tpWaiting) {
-		Wrapped(theme::Caution(), "Waiting for the game: switch to Skyrim for a moment (it pauses while it is not the active window), then come back.");
+		Wrapped(theme::Caution(), Fmt("Waiting for the game (%.0f s): switch to Skyrim for a few seconds (it pauses while it is not the active window), "
+									  "then come back.", ImGui::GetTime() - _tpWaitStart));
 	}
 
 	// steps 1 and 2 side by side

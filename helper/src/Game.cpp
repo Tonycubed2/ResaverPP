@@ -175,8 +175,17 @@ namespace Game
 		auto done = std::make_shared<std::promise<void>>();
 		auto fut = done->get_future();
 		task->AddTask([fn = std::move(a_fn), done]() {
-			fn();
-			done->set_value();
+			try {
+				fn();
+			} catch (const std::exception& e) {
+				spdlog::error("main thread task failed: {}", e.what());
+			} catch (...) {
+				spdlog::error("main thread task failed (unknown error)");
+			}
+			try {
+				done->set_value();
+			} catch (...) {
+			}
 		});
 		return fut.wait_for(a_timeout) == std::future_status::ready;
 	}

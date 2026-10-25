@@ -202,6 +202,7 @@ private:
 	void                   transplantOrderQuests(std::vector<std::size_t>& a_run);
 	std::string            transplantGroup(const ess::transplant::Change& a_ch) const;
 	bool                   _tpMarkRefused = true, _tpWaiting = false;
+	double                 _tpWaitStart = 0;  // when the snapshot request was sent (no answer after a while: say so)
 	// tool windows that can fill the whole ReSaver++ window (AppTransplant.cpp)
 	void prepareWindow(const char* a_id, ImVec2 a_defaultFraction);  // before Begin
 	void maximizeControl(const char* a_id);                          // right after Begin

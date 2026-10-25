@@ -289,7 +289,19 @@ namespace Server
 							const auto line = pending.substr(0, nl);
 							pending.erase(0, nl + 1);
 							const auto fields = proto::Split(line);
-							auto       reply = Handle(fields);
+							const auto cmd = fields.size() > 1 ? fields[1] : std::string();
+							const bool quiet = cmd == "HELLO" || cmd == "APPLY" || cmd == "PROGRESS";  // APPLY logs itself
+							if (!quiet) {
+								std::string what;
+								for (std::size_t i = 1; i < fields.size() && i < 5; ++i) {
+									what += (i > 1 ? " " : "") + fields[i];
+								}
+								spdlog::info("Request: {}", what);
+							}
+							auto reply = Handle(fields);
+							if (!quiet || (!reply.empty() && reply[0] != "OK")) {
+								spdlog::info("Reply to {}: {}{}", cmd, reply.empty() ? "?" : reply[0], reply.size() > 1 ? " " + reply[1] : "");
+							}
 							reply.insert(reply.begin(), fields.empty() ? std::string("0") : fields[0]);
 							const auto out = proto::Join(reply) + "\n";
 							DWORD      wrote = 0;
