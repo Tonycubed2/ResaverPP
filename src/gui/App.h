@@ -104,6 +104,12 @@ public:
 			}
 			_tpDirty = true;
 			_showTransplant = true;
+			if (const char* after = std::getenv("RESAVERPP_TEST_TPAFTER")) {
+				// test: the game's journal after a run, from a snapshot file
+				_tpChanges = ess::transplant::Diff(_tpGood, _tpBad);
+				_tpDirty = false;
+				transplantMissing(ess::transplant::ReadSnapshot(after));
+			}
 		} else if (w == "settings") {
 			_showSettings = true;
 		} else if (w == "support") {
@@ -199,9 +205,18 @@ private:
 	void                   transplantNames(ess::transplant::Snapshot& a_snap, const ess::SaveFile& a_save);
 	std::int32_t           completionStageOf(const ess::transplant::Quest& a_q) const;
 	void                   transplantStep();
+	void                   transplantCheckJournal();
+	void                   transplantMissing(const ess::transplant::Snapshot& a_now);  // after a run: which quests of the bad save's journal the game's journal lacks
 	void                   transplantOrderQuests(std::vector<std::size_t>& a_run);
 	std::string            transplantGroup(const ess::transplant::Change& a_ch) const;
 	bool                   _tpMarkRefused = true, _tpWaiting = false;
+	struct TpMissing
+	{
+		std::string name, edid, why;
+		bool        completed = false;
+	};
+	std::vector<TpMissing> _tpMissing;
+	bool                   _tpChecking = false, _tpChecked = false;
 	double                 _tpWaitStart = 0;  // when the snapshot request was sent (no answer after a while: say so)
 	// tool windows that can fill the whole ReSaver++ window (AppTransplant.cpp)
 	void prepareWindow(const char* a_id, ImVec2 a_defaultFraction);  // before Begin

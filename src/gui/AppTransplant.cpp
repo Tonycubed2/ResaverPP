@@ -316,6 +316,9 @@ void App::transplantStep()
 							  _tpRun.size() - failed, _tpRun.size()) },
 			[](const LiveLink::Reply&) {});
 		_tpRunning = false;
+		if (quests && helperAtLeast(9)) {
+			transplantCheckJournal();
+		}
 		return;
 	}
 	const auto idx = _tpRun[_tpPos];
@@ -422,6 +425,66 @@ void App::transplantStep()
 			run(static_cast<std::uint32_t>(std::strtoul(LiveLink::Field(r, 0).c_str(), nullptr, 16)));
 		});
 	}
+}
+
+// after a run: a new snapshot of the game, and the quests the bad save's journal has that the game's
+// journal does not, each with why (from the run's results)
+void App::transplantCheckJournal()
+{
+	_tpChecking = true;
+	_live.request({ "SNAPSHOT" }, [this](const LiveLink::Reply& r) {
+		_tpChecking = false;
+		if (!LiveLink::Ok(r)) {
+			_status = "Could not check the journal: " + LiveLink::Error(r);
+			return;
+		}
+		transplantMissing(tp::ReadSnapshot(platform::FromUtf8(LiveLink::Field(r, 0))));
+	});
+}
+
+void App::transplantMissing(const ess::transplant::Snapshot& now)
+{
+		if (!now.valid || !now.journalKnown) {
+			_status = "Could not check the journal (the snapshot has no journal list: ReSaverHelper 9 is needed).";
+			return;
+		}
+		// what the run did with each quest
+		std::map<const tp::Quest*, std::string> why;
+		for (std::size_t i = 0; i < _tpChanges.size(); ++i) {
+			if (const auto* q = _tpChanges[i].quest) {
+				why[q] = !_tpChanges[i].available ? "its mod is not in this game" : !_tpChanges[i].tick ? "it was not ticked" : "";
+			}
+		}
+		for (const auto& res : _tpResults) {
+			if (res.index < _tpChanges.size() && _tpChanges[res.index].quest && !res.ok) {
+				why[_tpChanges[res.index].quest] = res.why;
+			}
+		}
+		_tpMissing.clear();
+		for (const auto& [k, q] : _tpBad.quests) {
+			const bool inBad = _tpBad.journalKnown ? q.inJournal : q.known ? q.shown() : q.completed;
+			if (!inBad) {
+				continue;
+			}
+			const auto n = now.quests.find(k);
+			if (n != now.quests.end() && n->second.inJournal) {
+				continue;
+			}
+			TpMissing m;
+			m.name = !q.name.empty() ? q.name : !q.edid.empty() ? q.edid : Fmt("%06X", q.local);
+			m.edid = q.edid;
+			m.completed = q.completed;
+			auto w = why.find(&q);
+			m.why = w == why.end() ? "it was not in the list (nothing to bring: the good save had it as far)"
+					: !w->second.empty() ? w->second
+					: q.completed ? "the game would not complete it here"
+								  : "the game would not start it here: it starts from something in the game (a note, a person, a place)";
+			_tpMissing.push_back(std::move(m));
+		}
+		std::sort(_tpMissing.begin(), _tpMissing.end(), [](const TpMissing& a, const TpMissing& b) { return a.name < b.name; });
+		_tpChecked = true;
+		_status = _tpMissing.empty() ? "Every quest of the bad save's journal is in the game's journal now."
+									 : Fmt("%zu quest(s) of the bad save's journal are not in the game's journal: see the list.", _tpMissing.size());
 }
 
 // quests in quest-line order: a quest that leads into another one (its journal names the next quest, or
@@ -781,6 +844,46 @@ void App::drawTransplant()
 	};
 
 	ImGui::BeginChild("##tplist", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 2.4f), ImGuiChildFlags_Borders);
+	if (_tpChecking) {
+		Wrapped(theme::Caution(), "Checking the game's journal (switch to Skyrim for a moment if it takes long)...");
+	} else if (_tpChecked) {
+		if (_tpMissing.empty()) {
+			Wrapped(theme::Good(), "Every quest of the bad save's journal is in the game's journal now.");
+		} else {
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(theme::Caution()));
+			ImGui::SetNextItemOpen(true, ImGuiCond_Appearing);
+			const bool open = ImGui::CollapsingHeader(Fmt("Quests that could not be brought over (%zu)###tpmissing", _tpMissing.size()).c_str());
+			ImGui::PopStyleColor();
+			if (open) {
+				ImGui::Indent();
+				ImGui::TextWrapped("These were in the bad save's journal but are not in the game's journal now. Unfinished ones come back when "
+								   "you do what starts them in the game (read the note, talk to the person, go to the place). Completed ones "
+								   "can be finished again, or completed from the console: completequest <editor id>.");
+				std::string all;
+				for (const auto& m : _tpMissing) {
+					Dot(m.completed ? theme::Caution() : theme::Bad());
+					ImGui::TextUnformatted(m.name.c_str());
+					ImGui::SameLine();
+					ImGui::TextDisabled("[%s]  %s  -  %s", m.edid.c_str(), m.completed ? "completed in the bad save" : "in progress in the bad save", m.why.c_str());
+					all += m.name + "  [" + m.edid + "]  (" + (m.completed ? "completed" : "in progress") + "): " + m.why + "\n";
+				}
+				if (ImGui::SmallButton("Copy the list")) {
+					ImGui::SetClipboardText(all.c_str());
+				}
+				ImGui::SameLine();
+				ImGui::BeginDisabled(!_live.info().connected || _tpRunning || _tpChecking);
+				if (ImGui::SmallButton("Check the journal again")) {
+					transplantCheckJournal();
+				}
+				ImGui::EndDisabled();
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+					ImGui::SetTooltip("Quests may keep loading for a minute or two after the transplant: check again after that.");
+				}
+				ImGui::Unindent();
+			}
+		}
+		ImGui::Spacing();
+	}
 	for (int c = 0; c < static_cast<int>(tp::Category::kCount); ++c) {
 		std::vector<std::size_t> in;
 		for (std::size_t i = 0; i < _tpChanges.size(); ++i) {
@@ -899,6 +1002,8 @@ void App::drawTransplant()
 				transplantOrderQuests(_tpRun);
 				_tpPos = 0;
 				_tpResults.clear();
+				_tpMissing.clear();
+				_tpChecked = false;
 				_tpRunning = true;
 				transplantStep();
 			});
