@@ -725,6 +725,9 @@ namespace Transplant
 							continue;
 						}
 						obj->state = want;
+						// the quest's saved record must carry its objectives, or the save forgets them (a stage
+						// script that shows the same objective afterwards changes nothing, so it does not mark it)
+						qq->AddChange(RE::TESQuest::ChangeFlags::kQuestObjectives);
 						bool found = false;
 						for (auto& io : list) {
 							if (io.Objective == obj) {
