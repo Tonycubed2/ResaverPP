@@ -85,6 +85,7 @@ namespace ess::transplant
 		std::vector<Item>                items;
 		std::vector<Potion>              potions;
 		std::vector<Entry>               equips;   // equip / equipspell / equipshout records
+		std::vector<Entry>               followers;  // follower records (helper 10+)
 		std::string                      look;     // RaceMenu preset saved with the snapshot (empty: none)
 		std::vector<std::string>         plugins;  // load order (from the game; empty when unknown)
 		bool                             journalKnown = false;  // the snapshot lists the journal itself (jobj records)
@@ -108,6 +109,7 @@ namespace ess::transplant
 		kLook,
 		kFactions,
 		kQuests,
+		kFollowers,  // last: after the quests (a quest stage can move a follower or clear an alias)
 		kCount
 	};
 	const char* CategoryName(Category a_cat);

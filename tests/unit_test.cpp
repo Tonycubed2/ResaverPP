@@ -312,6 +312,25 @@ namespace
 		Check(look && look->cat == tp::Category::kAppearance && look->record.size() == 2 && look->record[1] == "ReSaverPP_Allandor_20261024" && wear &&
 				  wear->record[0] == "equip" && find("Shout selected: Unrelenting Force"),
 			"transplant: the RaceMenu look and the worn gear are listed");
+		// helper 10: followers
+		{
+			const auto g10 = write("rs_tp_good10.txt", "RSH-SNAPSHOT\t1\t1-6-1170-0\tAllandor\n"
+													   "follower\tInigo.esp\t000D62\t5700D62\tInigo\t1\t0\tInigo.esp*001D8B*0\t\n");
+			const auto b10 = write("rs_tp_bad10.txt", "RSH-SNAPSHOT\t1\t1-6-1170-0\tAllandor\n"
+													  "follower\tInigo.esp\t000D62\t5700D62\tInigo\t1\t0\tInigo.esp*001D8B*0\tSkyrim.esm*01397E*2\n"
+													  "follower\tSkyrim.esm\t0A2C94\t000A2C94\tLydia\t1\t0\tSkyrim.esm*0750BA*0\tSkyrim.esm*013989*1\n");
+			const auto c10 = tp::Diff(tp::ReadSnapshot(g10), tp::ReadSnapshot(b10));
+			const tp::Change *inigo = nullptr, *lydia = nullptr;
+			for (const auto& c : c10) {
+				inigo = c.cat == tp::Category::kFollowers && c.label.rfind("Inigo", 0) == 0 ? &c : inigo;
+				lydia = c.cat == tp::Category::kFollowers && c.label.rfind("Lydia", 0) == 0 ? &c : lydia;
+			}
+			Check(lydia && lydia->label.find("bring back") != std::string::npos && lydia->record.size() == 9 && lydia->record[0] == "follower" && inigo &&
+					  inigo->label.find("already following") != std::string::npos,
+				"transplant: followers - a missing one brought back, one already following only gets its items");
+			std::filesystem::remove(g10);
+			std::filesystem::remove(b10);
+		}
 		// helper 9: the journal list decides which quests are journal quests; one the good journal lacks is shown
 		{
 			const auto g9 = write("rs_tp_good9.txt",

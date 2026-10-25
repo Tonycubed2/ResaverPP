@@ -34,6 +34,7 @@
 //   equip       <plugin>  <local id>  <runtime id>  <name>  <right|left>  <custom name>     an item the player wears or holds (version 7)
 //   equipspell  <plugin>  <local id>  <runtime id>  <name>  <right|left|voice>             a spell in hand, or a power
 //   equipshout  <plugin>  <local id>  <runtime id>  <name>  voice                          the shout selected
+//   follower    <plugin>  <local id>  <runtime id>  <name>  <teammate 0|1>  <follower faction rank>  <aliases quest plugin*local*alias id|...>  <items plugin*local*count|...>   (version 10)
 //   controls                                          (apply only: switch the player's controls back on after the quests; version 9)
 //   look        <RaceMenu preset name>  RaceMenu     the look, saved by RaceMenu (SKSE\Plugins\CharGen\Presets\<name>.jslot)
 namespace Transplant

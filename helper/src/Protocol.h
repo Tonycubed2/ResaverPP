@@ -26,7 +26,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 9;
+	inline constexpr int            kHelperVersion = 10;
 
 	inline std::string Escape(const std::string& a_in)
 	{

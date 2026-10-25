@@ -101,6 +101,7 @@ namespace ess::transplant
 		case Category::kLook: return "Worn and held gear";
 		case Category::kFactions: return "Factions";
 		case Category::kQuests: return "Quests";
+		case Category::kFollowers: return "Followers";
 		default: return "?";
 		}
 	}
@@ -209,6 +210,13 @@ namespace ess::transplant
 				e.record = r;
 				e.name = !At(r, 6).empty() ? At(r, 6) : At(r, 4);
 				s.equips.push_back(std::move(e));
+			} else if (k == "follower") {
+				Entry e;
+				e.record = r;
+				e.name = At(r, 4);
+				e.a = At(r, 5) == "1";
+				e.b = Int(At(r, 6));
+				s.followers.push_back(std::move(e));
 			} else if (k == "look") {
 				s.look = At(r, 1);
 			} else if (k == "potion") {
@@ -551,6 +559,26 @@ namespace ess::transplant
 														   : (slot == "voice" ? "Power selected: " : "Spell in " + slot + " hand: ") + e.name;
 				add(Category::kLook, label, At(e.record, 1), 0, "Equips it after everything else is brought over (it has to be in your inventory / known by then).",
 					e.record, At(e.record, 1));
+			}
+		}
+
+		// followers: brought back to you, back in their follower mod's quest, with what they carried
+		{
+			std::set<std::string> following;
+			for (const auto& f : a_good.followers) {
+				following.insert(Lower(At(f.record, 1)) + Fmt(":%X", Hex(At(f.record, 2))));
+			}
+			for (const auto& f : a_bad.followers) {
+				const bool already = following.contains(Lower(At(f.record, 1)) + Fmt(":%X", Hex(At(f.record, 2))));
+				const auto name = f.name.empty() ? At(f.record, 2) : f.name;
+				add(Category::kFollowers, already ? name + " - already following here: give back what they carried" : name + " - bring back as your follower",
+					At(f.record, 1), already ? 0 : 1,
+					already ? "Gives them the items they carried in the bad save that they do not have now. Nothing is taken from them."
+							: "Brings them to you (brought back to life and enabled if needed), puts them back in the quest aliases that made them "
+							  "follow (their follower mod's own system), makes them your teammate and gives back what they carried. Followers with "
+							  "their own mod (Inigo, Serana, Vilja...) may also need their quest brought over (Quests). If one does not follow, talk "
+							  "to them and ask them to follow you.",
+					f.record, At(f.record, 1));
 			}
 		}
 

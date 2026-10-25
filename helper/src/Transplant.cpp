@@ -389,6 +389,57 @@ namespace Transplant
 			out.push_back(std::move(r));
 		}
 
+		// followers: every character following the player (a teammate, in the follower faction, or held by the
+		// vanilla follower quest), with the quest aliases that hold them (their mod's own follower system) and
+		// what they carry. Only placed characters (from a plugin): they are the same character in every save.
+		{
+			auto*      followerFaction = Lookup("Skyrim.esm", "05C84E") ? Lookup("Skyrim.esm", "05C84E")->As<RE::TESFaction>() : nullptr;
+			auto*      dialogueFollower = Lookup("Skyrim.esm", "0750BA");
+			const auto& [map, lock] = RE::TESForm::GetAllForms();
+			const RE::BSReadLockGuard guard{ lock };
+			if (map) {
+				for (const auto& [id, form] : *map) {
+					if (!form || form->GetFormType() != RE::FormType::ActorCharacter || IsDynamic(form) || form == player) {
+						continue;
+					}
+					auto* actor = form->As<RE::Actor>();
+					if (!actor || actor->IsDead()) {
+						continue;
+					}
+					const int rank = followerFaction ? actor->GetFactionRank(followerFaction, false) : -1;
+					std::string aliases;
+					bool        inVanilla = false;
+					if (auto* xa = actor->extraList.GetByType<RE::ExtraAliasInstanceArray>()) {
+						const RE::BSReadLockGuard aguard{ xa->lock };
+						for (auto* inst : xa->aliases) {
+							if (!inst || !inst->quest || !inst->alias || IsDynamic(inst->quest)) {
+								continue;
+							}
+							inVanilla = inVanilla || inst->quest == dialogueFollower;
+							aliases += std::format("{}{}*{:06X}*{}", aliases.empty() ? "" : "|", PluginOf(inst->quest), inst->quest->GetLocalFormID(), inst->alias->aliasID);
+						}
+					}
+					if (!actor->IsPlayerTeammate() && rank < 0 && !inVanilla) {
+						continue;
+					}
+					std::string items;
+					for (const auto& [obj, cnt] : actor->GetInventoryCounts()) {
+						if (obj && cnt > 0 && !IsDynamic(obj) && !PluginOf(obj).empty()) {
+							items += std::format("{}{}*{:06X}*{}", items.empty() ? "" : "|", PluginOf(obj), obj->GetLocalFormID(), cnt);
+						}
+					}
+					Record r{ "follower" };
+					PutForm(r, actor);
+					r.push_back(NameOf(actor->GetActorBase()).empty() ? NameOf(actor) : NameOf(actor->GetActorBase()));
+					r.push_back(actor->IsPlayerTeammate() ? "1" : "0");
+					r.push_back(std::to_string(rank));
+					r.push_back(aliases);
+					r.push_back(items);
+					out.push_back(std::move(r));
+				}
+			}
+		}
+
 		// the journal: every objective the player's journal lists, with the state it shows. This is what the
 		// journal really holds (a radiant quest done and started again since keeps its old entry only here).
 		for (const auto& io : player->GetPlayerRuntimeData().objectives) {
@@ -652,6 +703,98 @@ namespace Transplant
 			return {};
 		}
 
+		if (kind == "follower") {
+			// brings a follower back: alive and enabled, next to the player, in the same quest aliases as before
+			// (the follower mod's own system), a teammate in the follower faction, carrying at least what they
+			// carried. Nothing is taken from them.
+			auto* form = Lookup(arg(1), arg(2));
+			auto* actor = form ? form->As<RE::Actor>() : nullptr;
+			if (!actor) {
+				return "not a character in this game";
+			}
+			auto*       vm = VM::GetSingleton();
+			auto*       policy = vm ? vm->GetObjectHandlePolicy() : nullptr;
+			const auto  h = policy ? policy->GetHandleForObject(static_cast<RE::VMTypeID>(RE::Character::FORMTYPE), actor) : 0;
+			if (!vm || !h) {
+				return "no script object for this character";
+			}
+			std::string notes;
+			RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> none;
+			if (actor->IsDisabled()) {
+				vm->DispatchMethodCall(h, "Actor", "Enable", RE::MakeFunctionArguments(false), none);
+				notes += "enabled; ";
+			}
+			if (actor->IsDead()) {
+				vm->DispatchMethodCall(h, "Actor", "Resurrect", RE::MakeFunctionArguments(), none);
+				notes += "brought back to life; ";
+			}
+			// what they carry
+			int added = 0;
+			{
+				auto have = actor->GetInventoryCounts();
+				for (const auto& one : Split(arg(7), '|')) {
+					const auto p = Split(one, '*');
+					if (p.size() != 3) {
+						continue;
+					}
+					auto* item = Lookup(p[0], p[1]);
+					auto* obj = item ? item->As<RE::TESBoundObject>() : nullptr;
+					if (!obj) {
+						continue;
+					}
+					const int want = static_cast<int>(Num(p[2]));
+					const int now = have.contains(obj) ? have[obj] : 0;
+					if (want > now) {
+						actor->AddObjectToContainer(obj, nullptr, want - now, nullptr);
+						added += want - now;
+					}
+				}
+			}
+			if (added) {
+				notes += std::format("{} item(s) given back; ", added);
+			}
+			// the follower faction, and the quest aliases that made them follow
+			if (const int rank = static_cast<int>(Num(arg(6))); rank >= 0) {
+				if (auto* f = Lookup("Skyrim.esm", "05C84E")) {
+					if (auto* fac = f->As<RE::TESFaction>()) {
+						actor->AddToFaction(fac, static_cast<std::int8_t>(rank));
+					}
+				}
+			}
+			int forced = 0;
+			for (const auto& one : Split(arg(5), '|')) {
+				const auto p = Split(one, '*');
+				if (p.size() != 3) {
+					continue;
+				}
+				auto* qf = Lookup(p[0], p[1]);
+				auto* q = qf ? qf->As<RE::TESQuest>() : nullptr;
+				if (!q) {
+					continue;
+				}
+				if (!Game::Running(q)) {
+					notes += std::format("{}'s quest {} is not running; ", NameOf(actor), q->GetFormEditorID());
+					continue;
+				}
+				q->ForceRefIntoAlias(static_cast<std::uint32_t>(Num(p[2])), actor);
+				++forced;
+				if (q->GetFormID() == 0x000750BA) {  // the vanilla follower quest: one follower taken
+					if (auto* g = Lookup("Skyrim.esm", "0BCCAE")) {
+						if (auto* glob = g->As<RE::TESGlobal>()) {
+							glob->value = 1.0f;
+						}
+					}
+				}
+			}
+			if (arg(4) == "1") {
+				vm->DispatchMethodCall(h, "Actor", "SetPlayerTeammate", RE::MakeFunctionArguments(true, true), none);
+			}
+			vm->DispatchMethodCall(h, "Actor", "MoveTo",
+				RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(player), 0.0f, 0.0f, 0.0f, true), none);
+			vm->DispatchMethodCall(h, "Actor", "EvaluatePackage", RE::MakeFunctionArguments(), none);
+			spdlog::info("follower {:08X} ({}): {}{} alias(es) set", actor->GetFormID(), NameOf(actor), notes, forced);
+			return {};
+		}
 		if (kind == "controls") {
 			// after the quests: a quest's stage script can leave the player's controls switched off (a scene
 			// that never plays here); they come back on a reload only, so they are switched on again now

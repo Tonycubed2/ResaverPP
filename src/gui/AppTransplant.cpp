@@ -190,6 +190,11 @@ namespace
 		}
 		list("Potions and poisons you made", made);
 		list("Worn and held", worn);
+		std::vector<std::string> followers;
+		for (const auto& f : s.followers) {
+			followers.push_back(f.name);
+		}
+		list("Followers", followers);
 	}
 }
 
@@ -648,6 +653,10 @@ void App::drawTransplant()
 	if (!helperOk) {
 		Wrapped(theme::Caution(), info.connected ? Fmt("ReSaverHelper %s is running: version 5 or newer is needed (Optional files on the mod page).", info.helperVersion.c_str())
 												 : "ReSaverHelper is not connected: start Skyrim with ReSaverHelper.dll (version 5 or newer) installed.");
+	}
+	if (helperOk && helperAtLeast(9) && !helperAtLeast(10)) {
+		Wrapped(theme::Caution(), Fmt("ReSaverHelper %s is running: followers need version 10. Install the newest ReSaverHelper and take new snapshots.",
+									  info.helperVersion.c_str()));
 	}
 	if (helperOk && !helperAtLeast(9)) {
 		Wrapped(theme::Caution(), Fmt("ReSaverHelper %s is running: your look and worn gear need version 7, and quests brought into the journal need "
