@@ -593,9 +593,14 @@ namespace Transplant
 				player->AddObjectToContainer(obj, nullptr, count, nullptr);
 				return {};
 			}
-			// one at a time, each with its own extra data
+			// one at a time: placed at the player's feet, given its extra data, then picked up (the game moves
+			// a picked-up object's extra data into the inventory, the way it does for anything picked up)
 			for (int n = 0; n < count; ++n) {
-				auto* xl = new RE::ExtraDataList();
+				auto placed = player->PlaceObjectAtMe(obj, false);
+				if (!placed) {
+					return "the game could not create the item";
+				}
+				auto* xl = &placed->extraList;
 				if (!ench.empty()) {
 					const auto p = Split(ench, ':');
 					RE::EnchantmentItem* e = nullptr;
@@ -605,7 +610,8 @@ namespace Transplant
 						std::string              why;
 						const auto               effText = ench.substr(p[0].size() + p[1].size() + p[2].size() + 3);
 						if (!MakeEffects(effText, effs, why)) {
-							delete xl;
+							placed->Disable();
+							placed->SetDelete(true);
 							return "its enchantment: " + why;
 						}
 						auto* mgr = RE::BGSCreatedObjectManager::GetSingleton();
@@ -617,7 +623,8 @@ namespace Transplant
 						amount = p.size() >= 4 ? static_cast<std::uint16_t>(Num(p[3])) : 0;
 					}
 					if (!e) {
-						delete xl;
+						placed->Disable();
+						placed->SetDelete(true);
 						return "its enchantment could not be made";
 					}
 					xl->Add(new RE::ExtraEnchantment(e, amount, false));
@@ -659,7 +666,7 @@ namespace Transplant
 				if (!name.empty()) {
 					xl->Add(new RE::ExtraTextDisplayData(name.c_str()));
 				}
-				player->AddObjectToContainer(obj, xl, 1, nullptr);
+				player->PickUpObject(placed.get(), 1, false, false);
 			}
 			return {};
 		}
