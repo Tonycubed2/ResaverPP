@@ -214,6 +214,8 @@ private:
 	{
 		std::string name, edid, why;
 		bool        completed = false;
+		const ess::transplant::Quest* quest = nullptr;  // in _tpBad
+		std::string done;  // after "Mark as done": the outcome
 	};
 	std::vector<TpMissing> _tpMissing;
 	bool                   _tpChecking = false, _tpChecked = false;

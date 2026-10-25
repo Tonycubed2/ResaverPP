@@ -473,6 +473,7 @@ void App::transplantMissing(const ess::transplant::Snapshot& now)
 			TpMissing m;
 			m.name = !q.name.empty() ? q.name : !q.edid.empty() ? q.edid : Fmt("%06X", q.local);
 			m.edid = q.edid;
+			m.quest = &q;
 			m.completed = q.completed;
 			auto w = why.find(&q);
 			m.why = w == why.end() ? "it was not in the list (nothing to bring: the good save had it as far)"
@@ -858,14 +859,52 @@ void App::drawTransplant()
 				ImGui::Indent();
 				ImGui::TextWrapped("These were in the bad save's journal but are not in the game's journal now. Unfinished ones come back when "
 								   "you do what starts them in the game (read the note, talk to the person, go to the place). Completed ones "
-								   "can be finished again, or completed from the console: completequest <editor id>.");
+								   "can be marked as done here (like \"Mark refused quests as done\": no rewards, follow-up quests not started).");
 				std::string all;
-				for (const auto& m : _tpMissing) {
+				for (std::size_t mi = 0; mi < _tpMissing.size(); ++mi) {
+					auto& m = _tpMissing[mi];
+					ImGui::PushID(static_cast<int>(mi));
+					if (m.completed && m.quest) {
+						ImGui::BeginDisabled(!_live.info().connected || _tpRunning || !m.done.empty());
+						if (ImGui::SmallButton("Mark as done")) {
+							m.done = "marking...";
+							const auto* q = m.quest;
+							_live.request({ "RESOLVE", q->plugin, Fmt("%06X", q->local) }, [this, mi, q](const LiveLink::Reply& r) {
+								auto set = [this, mi](const std::string& a_done) {
+									if (mi < _tpMissing.size()) {
+										_tpMissing[mi].done = a_done;
+									}
+								};
+								if (!LiveLink::Ok(r)) {
+									set("not done: " + LiveLink::Error(r));
+									return;
+								}
+								_live.request({ "COMPLETE", LiveLink::Field(r, 0), "none", "" }, [this, q, set](const LiveLink::Reply& c) {
+									const bool ok = LiveLink::Ok(c) && LiveLink::Field(c, 0) != "0";
+									if (!ok) {
+										set("the game would not mark it as done");
+										return;
+									}
+									set("marked as done");
+									if (!q->objectives.empty() && helperAtLeast(9)) {  // and listed in the journal as it was
+										_live.request({ "APPLY", "questobj", q->plugin, Fmt("%06X", q->local), "", q->objectives }, [](const LiveLink::Reply&) {});
+									}
+								});
+							});
+						}
+						ImGui::EndDisabled();
+						ImGui::SameLine();
+					}
 					Dot(m.completed ? theme::Caution() : theme::Bad());
 					ImGui::TextUnformatted(m.name.c_str());
 					ImGui::SameLine();
 					ImGui::TextDisabled("[%s]  %s  -  %s", m.edid.c_str(), m.completed ? "completed in the bad save" : "in progress in the bad save", m.why.c_str());
 					all += m.name + "  [" + m.edid + "]  (" + (m.completed ? "completed" : "in progress") + "): " + m.why + "\n";
+					if (!m.done.empty()) {
+						ImGui::SameLine();
+						TextColored(m.done == "marked as done" ? theme::Good() : theme::Caution(), m.done);
+					}
+					ImGui::PopID();
 				}
 				if (ImGui::SmallButton("Copy the list")) {
 					ImGui::SetClipboardText(all.c_str());
