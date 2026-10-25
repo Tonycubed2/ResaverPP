@@ -680,11 +680,48 @@ namespace Transplant
                 auto* policy = vm ? vm->GetObjectHandlePolicy() : nullptr;
                 return policy && a_q ? policy->GetHandleForObject(RE::TESQuest::FORMTYPE, a_q) : 0;
 			};
-			// at the end: what the player's journal now lists for this quest
-			auto report = [id]() {
+			// at the end: the player's journal list is put right directly (the list the Journal menu reads), so
+			// it shows each objective exactly as the other save did. Papyrus cannot do it for a quest that has
+			// stopped (a completed one): its objectives end up "completed, not shown" and the journal skips it.
+			auto report = [id, steps]() {
 				auto*       qq = RE::TESForm::LookupByID<RE::TESQuest>(id);
 				auto*       pl = RE::PlayerCharacter::GetSingleton();
 				std::string listed;
+				int         fixed = 0, added = 0;
+				if (pl && qq) {
+					auto& list = pl->GetPlayerRuntimeData().objectives;
+					for (const auto& st : *steps) {
+						if (!(st.state & 1)) {
+							continue;  // never shown in the other save
+						}
+						const auto want = static_cast<RE::QUEST_OBJECTIVE_STATE>(st.state);
+						RE::BGSQuestObjective* obj = nullptr;
+						for (auto* o : qq->objectives) {
+							if (o && static_cast<std::int32_t>(o->index) == st.index) {
+								obj = o;
+								break;
+							}
+						}
+						if (!obj) {
+							continue;
+						}
+						obj->state = want;
+						bool found = false;
+						for (auto& io : list) {
+							if (io.Objective == obj) {
+								found = true;
+								if (io.InstanceState != want) {
+									io.InstanceState = want;
+									++fixed;
+								}
+							}
+						}
+						if (!found) {
+							list.push_back(RE::BGSInstancedQuestObjective{ obj, qq->currentInstanceID, want });
+							++added;
+						}
+					}
+				}
 				if (pl && qq) {
 					for (const auto& io : pl->GetPlayerRuntimeData().objectives) {
 						if (io.Objective && io.Objective->ownerQuest == qq) {
@@ -692,8 +729,8 @@ namespace Transplant
 						}
 					}
 				}
-				spdlog::info("questobj {:08X} ({}): running {}, completed {}, stage {}; journal lists [{}]", id, qq ? qq->GetFormEditorID() : "?",
-					Game::Running(qq), qq && qq->IsCompleted(), qq ? qq->GetCurrentStageID() : 0, listed);
+				spdlog::info("questobj {:08X} ({}): running {}, completed {}, stage {}; journal lists [{}] ({} put right, {} added)", id, qq ? qq->GetFormEditorID() : "?",
+					Game::Running(qq), qq && qq->IsCompleted(), qq ? qq->GetCurrentStageID() : 0, listed, fixed, added);
 			};
 			// one Papyrus call after the other: displayed (forced), then completed / failed
 			auto next = std::make_shared<std::function<void(std::size_t, int)>>();
@@ -727,6 +764,10 @@ namespace Transplant
 					(*next)(a_i + 1, 0);
 				}
 			};
+			if (arg(3) != "start" && !Game::Running(q)) {
+				report();  // stopped: Papyrus would only spoil the states, the list is put right directly
+				return {};
+			}
 			if (arg(3) == "start" && !Game::Running(q)) {
 				auto* vm = VM::GetSingleton();
 				const auto h = handleOf(q);
