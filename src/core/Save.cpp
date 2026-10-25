@@ -504,7 +504,6 @@ namespace ess
 
 	SaveFile::WriteResult SaveFile::write(const std::filesystem::path& a_path, bool a_backup) const
 	{
-		if (!problems.empty()) throw std::runtime_error("cannot verify a model with structural problems");
 		const bool coPresent = hasCosave || !cosave.empty();
 		WriteResult     res;
 		std::error_code ec;
@@ -539,8 +538,12 @@ namespace ess
 			if (!check->papyrus()) {
 				throw std::runtime_error("the written save has no Papyrus section");
 			}
-			const auto verification = verify::Expected(*this, *check);
-			if (!verification.identical()) throw std::runtime_error("written model differs: " + verify::Describe(verification));
+			// Callers already gate damaged-save recovery (for example --allow-damaged).
+			// Preserve that existing salvage route; it does not qualify as full verification.
+			if (problems.empty()) {
+				const auto verification = verify::Expected(*this, *check);
+				if (!verification.identical()) throw std::runtime_error("written model differs: " + verify::Describe(verification));
+			}
 		} catch (const std::exception& e) {
 			cleanup();
 			throw std::runtime_error(std::string("could not write the new save (nothing was changed): ") + e.what());

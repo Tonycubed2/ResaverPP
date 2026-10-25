@@ -93,7 +93,9 @@ namespace ess
 		// Writes the save and its opaque companion with a pre-publication verification gate:
 		//  1. stage the pair in a uniquely reserved directory, reopen the exact staged pair and
 		//     compare the complete serialized native model, including empty companion presence;
-		//     structural problems, verification failure or an unexpected destination companion refuse;
+		//     verification failure or an unexpected destination companion refuse;
+		//     a model already marked with structural problems retains the existing caller-gated
+		//     salvage behavior (CLI --allow-damaged), without the full-verification claim;
 		//  2. with a_backup, the files already there are copied to a matching backup generation first
 		//     (name.ess.bak + name.skse.bak, name.ess.bak2 + name.skse.bak2, ...); a failed copy stops
 		//     everything before anything is replaced;

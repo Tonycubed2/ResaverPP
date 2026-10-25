@@ -719,7 +719,8 @@ int main(int argc, char** argv)
 		}
 		// verify by reading it back
 		auto check = SaveFile::load(out);
-		std::printf("written %s and verified (re-read OK: %zu instances, %zu threads)\n", out.c_str(), check->papyrus()->instances.size(),
+		std::printf(save->problems.empty() ? "written %s and verified (full staged model: %zu instances, %zu threads)\n" :
+			"written %s in recovery mode (re-read OK, full model verification unavailable: %zu instances, %zu threads)\n", out.c_str(), check->papyrus()->instances.size(),
 			check->papyrus()->activeScripts.size());
 	} catch (const std::exception& e) {
 		std::fprintf(stderr, "error: %s\n", e.what());

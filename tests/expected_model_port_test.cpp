@@ -79,6 +79,19 @@ int main(int argc, char** argv) {
         std::printf("Optional disk output retained for independent inspection\n");
     }
     if(argc==3) {
+        if(std::string(argv[2])=="--salvage-fixture") {
+            const auto path=std::filesystem::u8path(argv[1]);auto co=path;co.replace_extension(".skse");
+            if(std::filesystem::exists(std::filesystem::symlink_status(path))||std::filesystem::exists(std::filesystem::symlink_status(co)))return 2;
+            auto model=Make();model.cosave.clear();model.hasCosave=true;
+            model.papyrus()->instances[0].script=999;
+            model.problems=model.papyrus()->check();
+            Check(!model.problems.empty(),"salvage fixture is explicitly structurally damaged");
+            model.write(path,false);auto reopened=SaveFile::load(path);
+            Check(!reopened->problems.empty(),"existing caller-gated salvage can retain a readable damaged model");
+            Check(!verify::Expected(model,*reopened).identical(),"salvage is not advertised as full verification");
+            std::printf("Synthetic salvage fixture retained\n");
+            std::printf("Expected-result regressions: %d passed, %d failed\n",pass,fail);return fail?1:0;
+        }
         if(std::string(argv[2])!="--expect-companion-conflict")return 2;
         const auto path=std::filesystem::u8path(argv[1]);
         auto model=Make();model.cosave.clear();model.hasCosave=true;
