@@ -651,9 +651,11 @@ namespace Transplant
 		}
 
 		if (kind == "questobj") {
-			// shows the quest's objectives in the journal the way the other save had them (displayed, then
-			// completed or failed), so a quest brought over appears in the journal. "start" in field 3: the
-			// quest is started first when it is not running (objectives of a stopped quest are not shown).
+			// shows the quest's objectives in the journal the way the other save had them (displayed, completed
+			// or failed), so a quest brought over appears in the journal. Written straight into the journal list:
+			// no Papyrus objective calls, so no on-screen notification for each one (they piled up, doubled
+			// and kept the HUD busy for minutes). "start" in field 3: the quest is started first when it is
+			// not running (objectives of a quest that is not running are left alone).
 			auto* quest = Lookup(arg(1), arg(2));
 			auto* q = quest ? quest->As<RE::TESQuest>() : nullptr;
 			if (!q) {
@@ -741,54 +743,12 @@ namespace Transplant
 				spdlog::info("questobj {:08X} ({}): running {}, completed {}, stage {}; journal lists [{}] ({} put right, {} added, {} left out: the quest is not running)", id,
 					qq ? qq->GetFormEditorID() : "?", live, finished, qq ? qq->GetCurrentStageID() : 0, listed, fixed, added, skipped);
 			};
-			// one Papyrus call after the other: displayed (forced), then completed / failed
-			auto next = std::make_shared<std::function<void(std::size_t, int)>>();
-			*next = [steps, id, next, handleOf, report](std::size_t a_i, int a_phase) {
-				if (a_i >= steps->size()) {
-					report();
-					return;
-				}
-				const auto& st = (*steps)[a_i];
-				auto*       vm = VM::GetSingleton();
-				const auto  h = handleOf(RE::TESForm::LookupByID<RE::TESQuest>(id));
-				if (!vm || !h) {
-					spdlog::info("questobj {:08X}: no script object", id);
-					return;
-				}
-				const bool shown = st.state & 1;
-				const bool completed = st.state == 2 || st.state == 3;
-				const bool failed = st.state == 4 || st.state == 5;
-				auto       go = [next, a_i](int a_ph) { return MakeLater([next, a_i, a_ph](const RE::BSScript::Variable&) { if (*next) (*next)(a_i, a_ph); }); };
-				if (a_phase == 0) {
-					auto cb = go(1);
-					if (!shown || !vm->DispatchMethodCall(h, "Quest", "SetObjectiveDisplayed", RE::MakeFunctionArguments(std::int32_t(st.index), true, true), cb)) {
-						(*next)(a_i, 1);
-					}
-				} else if (a_phase == 1 && (completed || failed)) {
-					auto cb = go(2);
-					if (!vm->DispatchMethodCall(h, "Quest", completed ? "SetObjectiveCompleted" : "SetObjectiveFailed", RE::MakeFunctionArguments(std::int32_t(st.index), true), cb)) {
-						(*next)(a_i + 1, 0);
-					}
-				} else {
-					(*next)(a_i + 1, 0);
-				}
-			};
-			if (arg(3) != "start" && !Game::Running(q)) {
-				report();  // stopped: Papyrus would only spoil the states, the list is put right directly
-				return {};
-			}
 			if (arg(3) == "start" && !Game::Running(q)) {
 				auto* vm = VM::GetSingleton();
 				const auto h = handleOf(q);
-				auto cb = MakeLater([next, id, report](const RE::BSScript::Variable& a_r) {
+				auto cb = MakeLater([id, report](const RE::BSScript::Variable& a_r) {
 					spdlog::info("questobj {:08X}: Start() returned {}", id, a_r.IsBool() ? (a_r.GetBool() ? "true" : "false") : "?");
-					if (!Game::Running(RE::TESForm::LookupByID<RE::TESQuest>(id))) {
-						report();  // it did not start: its objectives are left alone
-						return;
-					}
-					if (*next) {
-						(*next)(0, 0);
-					}
+					report();  // when it did not start, its objectives are left alone
 				});
 				if (vm && h && vm->DispatchMethodCall(h, "Quest", "Start", RE::MakeFunctionArguments(), cb)) {
 					return {};
@@ -797,7 +757,7 @@ namespace Transplant
 				report();
 				return {};
 			}
-			(*next)(0, 0);
+			report();
 			return {};
 		}
 		if (kind == "look") {
