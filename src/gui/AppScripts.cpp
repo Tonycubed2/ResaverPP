@@ -3,6 +3,7 @@
 // matching block keywords, folding, find and an outline; compile it with the game's Papyrus
 // compiler. Modelled on the npp-papyrus Notepad++ plugin (blu3mania/npp-papyrus).
 #include "App.h"
+#include "core/Text.h"
 
 #include "Platform.h"
 #include "Theme.h"
@@ -1457,8 +1458,8 @@ void App::autoDetectPaths(bool a_force)
 						   return v;
 					   }
 				   }
-				   if (const char* ad = std::getenv("APPDATA")) {
-					   return FindVortexDeployment(platform::FromUtf8(ad) / "Vortex" / (_vr ? "skyrimvr" : "skyrimse") / "mods");
+				   if (const auto ad = text::EnvPath("APPDATA"); !ad.empty()) {
+					   return FindVortexDeployment(ad / "Vortex" / (_vr ? "skyrimvr" : "skyrimse") / "mods");
 				   }
 				   return std::nullopt;
 			   }()) {

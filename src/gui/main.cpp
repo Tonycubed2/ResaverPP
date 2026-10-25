@@ -11,11 +11,13 @@
 #include "Theme.h"
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -378,7 +380,38 @@ int RunApp(int argc, char** argv)
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
-		app.draw();
+		// an error while drawing (a file name the system cannot convert, a damaged file...) is reported in
+		// the error box and the window keeps running, instead of closing
+		{
+			ImGuiErrorRecoveryState state;
+			ImGui::ErrorRecoveryStoreState(&state);
+			std::string failed;
+			try {
+				app.draw();
+			} catch (const std::exception& e) {
+				failed = e.what();
+			} catch (...) {
+				failed = "unknown error";
+			}
+			if (!failed.empty()) {
+				ImGui::ErrorRecoveryTryToRecoverState(&state);
+				static std::string last;
+				if (failed != last) {  // once per different error, not every frame
+					last = failed;
+					Log("ERROR while " + g_step + ": " + failed);
+					app.reportError("Something went wrong (ReSaver++ keeps running): " + failed + "\n\nPlease report it with ReSaverPP-startup.log.");
+				}
+				// the app's own error box may be past the point that failed: say it here too
+				const ImGuiViewport* vp = ImGui::GetMainViewport();
+				ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + 60), ImGuiCond_Always, ImVec2(0.5f, 0));
+				ImGui::SetNextWindowSize(ImVec2(std::min(760.0f, vp->WorkSize.x - 40), 0));
+				ImGui::Begin("ReSaver++ hit an error", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+				ImGui::TextWrapped("While %s: %s", g_step.c_str(), failed.c_str());
+				ImGui::Spacing();
+				ImGui::TextWrapped("Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %%TEMP%%).");
+				ImGui::End();
+			}
+		}
 		ImGui::Render();
 
 		int w, h;

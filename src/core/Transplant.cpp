@@ -101,7 +101,7 @@ namespace ess::transplant
 		case Category::kLook: return "Worn and held gear";
 		case Category::kFactions: return "Factions";
 		case Category::kQuests: return "Quests";
-		case Category::kFollowers: return "Followers";
+		case Category::kFollowers: return "YOUR FOLLOWERS: tick the ones to bring with you";
 		default: return "?";
 		}
 	}

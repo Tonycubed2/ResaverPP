@@ -579,9 +579,9 @@ void App::drawSettings()
 										   : "Chosen by you: File > Open starts here and \"Watch saves folder\" watches it.");
 	}
 	// Mod Organizer instances installed for this user (%LOCALAPPDATA%\ModOrganizer\<instance>)
-	if (const char* la = std::getenv("LOCALAPPDATA")) {
+	if (const auto la = text::EnvPath("LOCALAPPDATA"); !la.empty()) {
 		std::error_code ec;
-		const auto      root = platform::FromUtf8(la) / "ModOrganizer";
+		const auto      root = la / "ModOrganizer";
 		for (const auto& e : std::filesystem::directory_iterator(root, ec)) {
 			const auto ini = e.path() / "ModOrganizer.ini";
 			if (!e.is_directory(ec) || !std::filesystem::exists(ini, ec)) {

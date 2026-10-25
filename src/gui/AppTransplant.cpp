@@ -932,7 +932,15 @@ void App::drawTransplant()
 		}
 		ImGui::Spacing();
 	}
+	// shown in this order: your character's look, then your followers (both stand out), then the rest.
+	// (They are still put into the game in category order: followers last, after the quests.)
+	std::vector<int> shown{ static_cast<int>(tp::Category::kAppearance), static_cast<int>(tp::Category::kFollowers) };
 	for (int c = 0; c < static_cast<int>(tp::Category::kCount); ++c) {
+		if (c != shown[0] && c != shown[1]) {
+			shown.push_back(c);
+		}
+	}
+	for (const int c : shown) {
 		std::vector<std::size_t> in;
 		for (std::size_t i = 0; i < _tpChanges.size(); ++i) {
 			const auto& ch = _tpChanges[i];
@@ -948,7 +956,7 @@ void App::drawTransplant()
 			ImGui::SetNextItemOpen(openAll == 1);
 		}
 		// the character's look stands out: it is the one thing that changes how your character looks
-		const bool appearance = c == static_cast<int>(tp::Category::kAppearance);
+		const bool appearance = c == static_cast<int>(tp::Category::kAppearance) || c == static_cast<int>(tp::Category::kFollowers);
 		if (appearance) {
 			const bool light = theme::IsLight();
 			ImGui::PushStyleColor(ImGuiCol_Header, light ? ImVec4(0.12f, 0.12f, 0.14f, 1) : ImVec4(0.02f, 0.02f, 0.03f, 1));

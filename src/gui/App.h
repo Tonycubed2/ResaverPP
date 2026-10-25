@@ -161,6 +161,8 @@ public:
 	void viewScript(const std::string& a_script, const std::string& a_function = {}, const std::string& a_state = {}, int a_instruction = -1);
 	void viewScriptFile(const std::filesystem::path& a_path);  // a .psc or .pex file
 	ImFont* monoFont = nullptr;  // set by main.cpp: fixed-width font for the editor
+	// an error the frame loop caught (shown in the error box; the window keeps running)
+	void    reportError(const std::string& a_text) { _error = a_text; }
 	ImFont* titleFont = nullptr; // set by main.cpp: the big bold font of the start page logo (letters only)
 
 	// set by main.cpp: uploads RGBA pixels, returns an ImTextureID-compatible handle
