@@ -15,6 +15,9 @@ namespace Game
 	// "hud", "box", "none" or "ini" (= the INI's sNotify). Safe from any thread.
 	void Notify(const std::string& a_mode, const std::string& a_text);
 
+	// the quest is running (Papyrus IsRunning): CommonLib's TESQuest::IsRunning() is true for stopped quests too
+	bool Running(const RE::TESQuest* a_quest);
+
 	struct QuestInfo
 	{
 		bool          found = false;

@@ -114,7 +114,7 @@ namespace Server
 							Outcome o;
 							o.ok = ok;
 							if (auto* q = RE::TESForm::LookupByID<RE::TESQuest>(formID)) {
-								o.running = q->IsRunning();
+								o.running = Game::Running(q);
 								o.completed = q->IsCompleted();
 								o.stage = q->GetCurrentStageID();
 							}
@@ -177,7 +177,14 @@ namespace Server
 			if (cmd == "APPLY") {
 				auto       why = std::make_shared<std::string>("the game did not run it");
 				const auto record = std::vector<std::string>(f.begin() + 2, f.end());
-				if (!Game::RunOnMain([why, record] { *why = Transplant::Apply(record); }, kWait)) {
+				if (!Game::RunOnMain([why, record] {
+						*why = Transplant::Apply(record);
+						std::string what;
+						for (std::size_t i = 0; i < record.size() && i < 6; ++i) {
+							what += (i ? " " : "") + record[i];
+						}
+						spdlog::info("Apply {}: {}", what, why->empty() ? "done" : *why);
+					}, kWait)) {
 					return { "OK", "?" };
 				}
 				return why->empty() ? std::vector<std::string>{ "OK", "1" } : std::vector<std::string>{ "OK", "0", *why };

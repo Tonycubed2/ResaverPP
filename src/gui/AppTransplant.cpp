@@ -226,21 +226,26 @@ void App::transplantStep()
 		return;
 	}
 
-	// a quest: find it in the game, then its completion stage (or the stage it had), else mark it completed
+	// a quest: find it in the game, then its completion stage (or the stage it had), else mark it completed.
+	// Helper 9: the objectives are shown first (the quest started if needed), so a quest that ends at its
+	// stage is in the journal before it stops; then again afterwards, for the states its script changed.
 	const auto* q = ch.quest;
 	const bool  complete = ch.complete;
+	const bool  journalOnly = ch.journalOnly;
 	const bool  markRefused = _tpMarkRefused && complete;  // only quests completed in the bad save
+	const bool  before = !q->objectives.empty() && helperAtLeast(9);
 	// after the stage / mark: show the quest's objectives as the bad save had them, so the journal lists it
 	auto        shown = [this, q, done](bool a_ok, const std::string& a_why) {
-        if (!a_ok || q->objectives.empty() || !helperAtLeast(8)) {
+        if (q->objectives.empty() || !helperAtLeast(8)) {
             done(a_ok, a_why);
             return;
         }
-        _live.request({ "APPLY", "questobj", q->plugin, Fmt("%06X", q->local), "", q->objectives }, [done, a_ok, a_why](const LiveLink::Reply&) {
-            done(a_ok, a_why + (a_why.empty() ? "" : ", ") + "shown in the journal");
+        _live.request({ "APPLY", "questobj", q->plugin, Fmt("%06X", q->local), "", q->objectives }, [done, a_ok, a_why](const LiveLink::Reply& r) {
+            const bool ok = LiveLink::Ok(r) && LiveLink::Field(r, 0) != "0";
+            done(a_ok || ok, a_why + (a_why.empty() ? "" : ", ") + (ok ? "objectives shown in the journal" : "objectives not shown: " + LiveLink::Field(r, 1)));
         });
 	};
-	auto        run = [this, q, complete, markRefused, shown, done](std::uint32_t a_id) {
+	auto        run = [this, q, complete, markRefused, journalOnly, before, shown, done](std::uint32_t a_id) {
         const int stage = complete ? completionStageOf(*q) : q->stage;
         // marks the quest completed: no stage script, no rewards, follow-up quests not started
         auto      mark = [this, a_id, shown](const std::string& a_before) {
@@ -249,30 +254,41 @@ void App::transplantStep()
                 shown(ok, ok ? a_before + ", marked as done" : a_before + ", and it could not be marked as done either");
             });
         };
-        if (stage < 0) {
-            if (complete || markRefused) {
-                mark("completion stage not known (plugins not read)");
-            } else {
-                done(false, "no stage to set");
-            }
-            return;
-        }
-        _live.request({ "SETSTAGE", Fmt("%08X", a_id), std::to_string(stage), "none", "" }, [markRefused, mark, shown, done, stage](const LiveLink::Reply& r) {
-            if (!LiveLink::Ok(r)) {
-                done(false, LiveLink::Error(r));
+        auto      stageStep = [this, a_id, stage, complete, markRefused, journalOnly, mark, shown, done]() {
+            if (journalOnly) {
+                shown(true, "");
                 return;
             }
-            const auto f = LiveLink::Field(r, 0);
-            if (f == "0") {
-                if (markRefused) {
-                    mark(Fmt("refused stage %d", stage));
+            if (stage < 0) {
+                if (complete || markRefused) {
+                    mark("completion stage not known (plugins not read)");
                 } else {
-                    done(false, Fmt("refused stage %d (left as it is)", stage));
+                    shown(false, "no stage to set");
                 }
                 return;
             }
-            shown(true, f == "?" ? Fmt("stage %d set; the game is still running its script", stage) : Fmt("stage %d set", stage));
-        });
+            _live.request({ "SETSTAGE", Fmt("%08X", a_id), std::to_string(stage), "none", "" }, [markRefused, mark, shown, done, stage](const LiveLink::Reply& r) {
+                if (!LiveLink::Ok(r)) {
+                    done(false, LiveLink::Error(r));
+                    return;
+                }
+                const auto f = LiveLink::Field(r, 0);
+                if (f == "0") {
+                    if (markRefused) {
+                        mark(Fmt("refused stage %d", stage));
+                    } else {
+                        shown(false, Fmt("refused stage %d", stage));
+                    }
+                    return;
+                }
+                shown(true, f == "?" ? Fmt("stage %d set; the game is still running its script", stage) : Fmt("stage %d set", stage));
+            });
+        };
+        if (!before) {
+            stageStep();
+            return;
+        }
+        _live.request({ "APPLY", "questobj", q->plugin, Fmt("%06X", q->local), "start", q->objectives }, [stageStep](const LiveLink::Reply&) { stageStep(); });
 	};
 	if (ch.goodRuntime) {
 		run(ch.goodRuntime);
@@ -448,9 +464,9 @@ void App::drawTransplant()
 		Wrapped(theme::Caution(), info.connected ? Fmt("ReSaverHelper %s is running: version 5 or newer is needed (Optional files on the mod page).", info.helperVersion.c_str())
 												 : "ReSaverHelper is not connected: start Skyrim with ReSaverHelper.dll (version 5 or newer) installed.");
 	}
-	if (helperOk && !helperAtLeast(8)) {
-		Wrapped(theme::Caution(), Fmt("ReSaverHelper %s is running: your look and worn gear need version 7, and quests shown in the journal need "
-									  "version 8. Install the newest ReSaverHelper and take new snapshots.",
+	if (helperOk && !helperAtLeast(9)) {
+		Wrapped(theme::Caution(), Fmt("ReSaverHelper %s is running: your look and worn gear need version 7, and quests brought into the journal need "
+									  "version 9. Install the newest ReSaverHelper and take new snapshots.",
 									  info.helperVersion.c_str()));
 	}
 	if (_tpWaiting) {

@@ -24,7 +24,9 @@
 //   faction  <plugin>  <local id>  <runtime id>  <name>  <rank>
 //   marker   <plugin>  <local id>  <runtime id>  <name>  <flags: 1 visible, 2 can travel to>
 //   quest    <plugin>  <local id>  <runtime id>  <editor id|name>  <running>  <completed>  <stage>  <(empty)>  <objectives index:state,...>  <quest type>
-//   questobj <plugin>  <local id>  <runtime id>  <objectives index:state,...>     (apply only: show them in the journal as they were; version 8)
+//   jobj     <plugin>  <local id>  <runtime id>  <objective index>  <state>     an objective the player's journal lists (version 9)
+//   questobj <plugin>  <local id>  <"start"|(empty)>  <objectives index:state,...>  (apply only: show them in the journal as they were; version 8;
+//            start: start the quest first if it is not running, version 9)
 //   item     <plugin>  <local id>  <runtime id>  <name>  <count>  <custom name>  <temper>  <charge>  <enchantment>  <poison>  <quest item 0|1>  <kind: Weapons, Armor and clothing... (version 6)>
 //            enchantment / poison: "" | "F:<plugin>:<local id>:<amount>" (from a plugin) | "C:<kind>:<amount>:<effect>,<effect>..." (made in game;
 //            kind w/a = weapon/armour enchantment, amount = max charge; p = poison, amount = count) with effect = "<plugin>:<local id>:<magnitude>:<area>:<duration>"

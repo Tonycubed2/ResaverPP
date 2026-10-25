@@ -45,6 +45,7 @@ namespace ess::transplant
 		std::string      objectives;   // "index:state,..." (helper 8+; empty when unknown)
 		int              type = -1;    // quest type (0 none, 1 main, 2 Mages Guild ... 8 side); -1 unknown
 		bool             known = false;  // objectives and type were in the snapshot
+		bool             inJournal = false;  // the player's journal lists it (jobj records, helper 9+)
 		bool             shown() const;  // an objective was shown in the journal
 	};
 
@@ -86,6 +87,7 @@ namespace ess::transplant
 		std::vector<Entry>               equips;   // equip / equipspell / equipshout records
 		std::string                      look;     // RaceMenu preset saved with the snapshot (empty: none)
 		std::vector<std::string>         plugins;  // load order (from the game; empty when unknown)
+		bool                             journalKnown = false;  // the snapshot lists the journal itself (jobj records)
 		std::vector<std::string>         missingParts;  // what a partial snapshot could not read
 	};
 
@@ -124,6 +126,7 @@ namespace ess::transplant
 		bool         complete = false;
 		std::uint32_t goodRuntime = 0;  // the quest's form ID in the good game (0: look it up)
 		bool          background = false;  // a quest the journal never showed (radiant, scenes, mod setup)
+		bool          journalOnly = false; // only show it in the journal (no stage to set: the good save is as far)
 	};
 
 	std::vector<Change> Diff(const Snapshot& a_good, const Snapshot& a_bad);

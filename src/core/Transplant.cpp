@@ -117,6 +117,7 @@ namespace ess::transplant
 			return s;
 		}
 		std::string line;
+		std::map<FormKey, std::string> jobj;  // journal objectives per quest
 		if (!std::getline(f, line) || At(SplitLine(line), 0) != "RSH-SNAPSHOT") {
 			s.error = a_file.filename().string() + " is not a ReSaverHelper snapshot";
 			return s;
@@ -176,7 +177,21 @@ namespace ess::transplant
 				q.known = r.size() > 10;
 				q.objectives = At(r, 9);
 				q.type = q.known ? Int(At(r, 10)) : -1;
-				s.quests[Key(q.plugin, At(r, 2))] = std::move(q);
+				auto& slot = s.quests[Key(q.plugin, At(r, 2))];
+				q.inJournal = slot.inJournal;
+				slot = std::move(q);
+			} else if (k == "jobj") {
+				// an objective the player's journal lists: <plugin> <local> <runtime> <index> <state>. The journal is
+				// the truth (a radiant quest done and restarted since keeps its old entry there only).
+				s.journalKnown = true;
+				auto& q = s.quests[Key(At(r, 1), At(r, 2))];
+				if (q.plugin.empty()) {
+					q.plugin = At(r, 1);
+					q.local = Hex(At(r, 2));
+					q.runtime = Hex(At(r, 3));
+				}
+				q.inJournal = true;
+				jobj[Key(At(r, 1), At(r, 2))] += (jobj[Key(At(r, 1), At(r, 2))].empty() ? "" : ",") + At(r, 4) + ":" + At(r, 5);
 			} else if (k == "item") {
 				Item it;
 				it.record = r;
@@ -204,6 +219,12 @@ namespace ess::transplant
 				p.effects = At(r, 4);
 				s.potions.push_back(std::move(p));
 			}
+		}
+		// the journal's objective states win over the quest's own (they are what the journal shows)
+		for (const auto& [key, objs] : jobj) {
+			auto& q = s.quests[key];
+			q.objectives = objs;
+			q.known = true;
 		}
 		s.valid = true;
 		return s;
@@ -529,9 +550,9 @@ namespace ess::transplant
 			const bool  goodDone = g != a_good.quests.end() && g->second.completed;
 			const int   goodStage = g != a_good.quests.end() ? g->second.stage : 0;
 			const auto  name = !q.name.empty() ? q.name : !q.edid.empty() ? q.edid : Fmt("%06X", q.local);
-			// a quest of the journal: it has a type (main, guild, side, misc...) or showed an objective. Older
-			// snapshots do not say: then only completed quests count as journal quests.
-			const bool journal = q.known ? (q.type > 0 || q.shown()) : q.completed;
+			// a quest of the journal: the journal lists it (helper 9 snapshots list the journal), else it showed an
+			// objective. Snapshots without objectives do not say: then only completed quests count.
+			const bool journal = a_bad.journalKnown ? q.inJournal : q.known ? q.shown() : q.completed;
 			std::size_t ch = static_cast<std::size_t>(-1);
 			if (q.completed && !goodDone) {
 				ch = add(Category::kQuests, name + " - complete it", q.edid + "  -  " + q.plugin, journal ? 1 : 2,
@@ -549,7 +570,18 @@ namespace ess::transplant
 							  "Leave it unless you know it.",
 					{}, q.plugin);
 			}
+			bool onlyShow = false;
+			if (ch == static_cast<std::size_t>(-1) && journal && a_good.journalKnown && !goodDone && !q.objectives.empty() &&
+				(g == a_good.quests.end() || !g->second.inJournal)) {
+				// in the bad save's journal, not in the good one's, and no stage to move: show it in the journal
+				ch = add(Category::kQuests, name + " - show it in the journal", q.edid + "  -  " + q.plugin, 1,
+					"The good save is as far in this quest but its journal does not list it: starts it if needed and shows its "
+					"objectives as they were.",
+					{}, q.plugin);
+				onlyShow = true;
+			}
 			if (ch != static_cast<std::size_t>(-1)) {
+				v[ch].journalOnly = onlyShow;
 				v[ch].quest = &q;
 				v[ch].complete = q.completed;
 				v[ch].goodRuntime = g != a_good.quests.end() ? g->second.runtime : 0;

@@ -312,6 +312,34 @@ namespace
 		Check(look && look->cat == tp::Category::kAppearance && look->record.size() == 2 && look->record[1] == "ReSaverPP_Allandor_20261024" && wear &&
 				  wear->record[0] == "equip" && find("Shout selected: Unrelenting Force"),
 			"transplant: the RaceMenu look and the worn gear are listed");
+		// helper 9: the journal list decides which quests are journal quests; one the good journal lacks is shown
+		{
+			const auto g9 = write("rs_tp_good9.txt",
+				"RSH-SNAPSHOT\t1\t1-6-1170-0\tAllandor\n"
+				"quest\tSkyrim.esm\t025231\t00025231\tCR04|Hired Muscle\t1\t0\t1\t\t\t5\n"
+				"quest\tSkyrim.esm\t03F46A\t0003F46A\tFavor018|Some Light Theft\t0\t0\t0\t\t\t6\n"
+				"quest\tSkyrim.esm\t0242BA\t000242BA\tMQ105|The Way of the Voice\t0\t0\t0\t\t\t1\n");
+			const auto b9 = write("rs_tp_bad9.txt",
+				"RSH-SNAPSHOT\t1\t1-6-1170-0\tAllandor\n"
+				"quest\tSkyrim.esm\t025231\t00025231\tCR04|Hired Muscle\t1\t0\t1\t\t\t5\n"
+				"quest\tSkyrim.esm\t03F46A\t0003F46A\tFavor018|Some Light Theft\t1\t0\t200\t\t10:4,15:4\t6\n"
+				"quest\tSkyrim.esm\t0242BA\t000242BA\tMQ105|The Way of the Voice\t1\t0\t10\t\t10:1\t1\n"
+				"jobj\tSkyrim.esm\t0242BA\t000242BA\t10\t1\n"
+				"jobj\tSkyrim.esm\t025231\t00025231\t10\t3\n");
+			std::ofstream(g9, std::ios::app) << "jobj\tSkyrim.esm\t0BBBBB\t000BBBBB\t10\t1\n";
+			const auto c9 = tp::Diff(tp::ReadSnapshot(g9), tp::ReadSnapshot(b9));
+			const tp::Change *voice = nullptr, *muscle = nullptr, *theft = nullptr;
+			for (const auto& c : c9) {
+				voice = c.label.rfind("The Way of the Voice", 0) == 0 ? &c : voice;
+				muscle = c.label.rfind("Hired Muscle", 0) == 0 ? &c : muscle;
+				theft = c.label.rfind("Some Light Theft", 0) == 0 ? &c : theft;
+			}
+			Check(voice && voice->tick && !voice->background && muscle && muscle->journalOnly && muscle->tick && muscle->quest->objectives == "10:3" &&
+					  theft && theft->background && !theft->tick,
+				"transplant: helper 9 journal list: journal quests ticked, one only missing from the journal shown, background ones unticked");
+			std::filesystem::remove(g9);
+			std::filesystem::remove(b9);
+		}
 		std::filesystem::remove(good);
 		std::filesystem::remove(bad);
 	}

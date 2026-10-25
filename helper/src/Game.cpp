@@ -212,7 +212,7 @@ namespace Game
 		info.editorID = quest->GetFormEditorID() ? quest->GetFormEditorID() : "";
 		info.flags = static_cast<std::uint16_t>(quest->data.flags.underlying());
 		info.currentStage = quest->GetCurrentStageID();
-		info.running = quest->IsRunning();
+		info.running = Running(quest);
 		info.completed = quest->IsCompleted();
 		for (auto* o : quest->objectives) {
 			if (o) {
@@ -220,6 +220,11 @@ namespace Game
 			}
 		}
 		return info;
+	}
+
+	bool Running(const RE::TESQuest* a_quest)
+	{
+		return a_quest && a_quest->IsEnabled() && !a_quest->IsStopping();
 	}
 
 	void SetStage(std::uint32_t a_formID, std::uint16_t a_stage, std::function<void(bool)> a_done)
@@ -235,7 +240,7 @@ namespace Game
             const bool ok = a_result.IsBool() ? a_result.GetBool() : true;
             auto*      q = RE::TESForm::LookupByID<RE::TESQuest>(a_formID);
             spdlog::info("SetStage {:08X} stage {}: {} (running {}, completed {}, current stage {})", a_formID, a_stage, ok ? "accepted" : "refused",
-                q && q->IsRunning(), q && q->IsCompleted(), q ? q->GetCurrentStageID() : 0);
+                q && Running(q), q && q->IsCompleted(), q ? q->GetCurrentStageID() : 0);
             a_done(ok);
         });
 		if (vm && handle && vm->DispatchMethodCall(handle, "Quest", "SetStage", RE::MakeFunctionArguments(static_cast<std::int32_t>(a_stage)), cb)) {
@@ -259,7 +264,7 @@ namespace Game
 			a_done(false);
 			return;
 		}
-		spdlog::info("Complete {:08X} ({}): running {}, completed {}, current stage {}", a_formID, quest->GetFormEditorID(), quest->IsRunning(), quest->IsCompleted(),
+		spdlog::info("Complete {:08X} ({}): running {}, completed {}, current stage {}", a_formID, quest->GetFormEditorID(), Running(quest), quest->IsCompleted(),
 			quest->GetCurrentStageID());
 		// last resort, on the main thread: the console's CompleteQuest
 		auto viaConsole = [a_formID, a_done] {
@@ -317,7 +322,7 @@ namespace Game
 		g_quests.clear();
 		g_total = 0;
 		for (auto* quest : dh->GetFormArray<RE::TESQuest>()) {
-			if (!quest || !quest->IsRunning()) {
+			if (!quest || !Running(quest)) {
 				continue;
 			}
 			QuestItem qi;

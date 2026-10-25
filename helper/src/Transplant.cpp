@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Transplant.h"
 #include "Protocol.h"
+#include "Game.h"
 
 // Windows.h defines GetObject as GetObjectW, which hides BGSDefaultObjectManager::GetObject
 #ifdef GetObject
@@ -378,12 +379,27 @@ namespace Transplant
 			PutForm(r, quest);
 			const char* edid = quest->GetFormEditorID();
 			r.push_back(std::string(edid ? edid : "") + "|" + NameOf(quest));
-			r.push_back(quest->IsRunning() ? "1" : "0");
+			r.push_back(Game::Running(quest) ? "1" : "0");
 			r.push_back(quest->IsCompleted() ? "1" : "0");
 			r.push_back(std::to_string(quest->GetCurrentStageID()));
 			r.push_back(done);
 			r.push_back(objectives);
 			r.push_back(std::to_string(static_cast<int>(quest->GetType())));
+			out.push_back(std::move(r));
+		}
+
+		// the journal: every objective the player's journal lists, with the state it shows. This is what the
+		// journal really holds (a radiant quest done and started again since keeps its old entry only here).
+		for (const auto& io : player->GetPlayerRuntimeData().objectives) {
+			auto* o = io.Objective;
+			auto* q = o ? o->ownerQuest : nullptr;
+			if (!q) {
+				continue;
+			}
+			Record r{ "jobj" };
+			PutForm(r, q);
+			r.push_back(std::to_string(o->index));
+			r.push_back(std::to_string(static_cast<int>(io.InstanceState)));
 			out.push_back(std::move(r));
 		}
 
@@ -636,7 +652,8 @@ namespace Transplant
 
 		if (kind == "questobj") {
 			// shows the quest's objectives in the journal the way the other save had them (displayed, then
-			// completed or failed), so a quest brought over appears in the journal
+			// completed or failed), so a quest brought over appears in the journal. "start" in field 3: the
+			// quest is started first when it is not running (objectives of a stopped quest are not shown).
 			auto* quest = Lookup(arg(1), arg(2));
 			auto* q = quest ? quest->As<RE::TESQuest>() : nullptr;
 			if (!q) {
@@ -658,24 +675,44 @@ namespace Transplant
 				return {};
 			}
 			const auto id = q->GetFormID();
+			auto       handleOf = [](RE::TESQuest* a_q) -> RE::VMHandle {
+                auto* vm = VM::GetSingleton();
+                auto* policy = vm ? vm->GetObjectHandlePolicy() : nullptr;
+                return policy && a_q ? policy->GetHandleForObject(RE::TESQuest::FORMTYPE, a_q) : 0;
+			};
+			// at the end: what the player's journal now lists for this quest
+			auto report = [id]() {
+				auto*       qq = RE::TESForm::LookupByID<RE::TESQuest>(id);
+				auto*       pl = RE::PlayerCharacter::GetSingleton();
+				std::string listed;
+				if (pl && qq) {
+					for (const auto& io : pl->GetPlayerRuntimeData().objectives) {
+						if (io.Objective && io.Objective->ownerQuest == qq) {
+							listed += std::format("{}{}:{}", listed.empty() ? "" : ",", io.Objective->index, static_cast<int>(io.InstanceState));
+						}
+					}
+				}
+				spdlog::info("questobj {:08X} ({}): running {}, completed {}, stage {}; journal lists [{}]", id, qq ? qq->GetFormEditorID() : "?",
+					Game::Running(qq), qq && qq->IsCompleted(), qq ? qq->GetCurrentStageID() : 0, listed);
+			};
 			// one Papyrus call after the other: displayed (forced), then completed / failed
 			auto next = std::make_shared<std::function<void(std::size_t, int)>>();
-			*next = [steps, id, next](std::size_t a_i, int a_phase) {
+			*next = [steps, id, next, handleOf, report](std::size_t a_i, int a_phase) {
 				if (a_i >= steps->size()) {
+					report();
 					return;
 				}
 				const auto& st = (*steps)[a_i];
 				auto*       vm = VM::GetSingleton();
-				auto*       qq = RE::TESForm::LookupByID<RE::TESQuest>(id);
-				auto*       policy = vm ? vm->GetObjectHandlePolicy() : nullptr;
-				const auto  h = policy && qq ? policy->GetHandleForObject(RE::TESQuest::FORMTYPE, qq) : 0;
+				const auto  h = handleOf(RE::TESForm::LookupByID<RE::TESQuest>(id));
 				if (!vm || !h) {
+					spdlog::info("questobj {:08X}: no script object", id);
 					return;
 				}
 				const bool shown = st.state & 1;
 				const bool completed = st.state == 2 || st.state == 3;
 				const bool failed = st.state == 4 || st.state == 5;
-				auto       go = [next, a_i](int a_ph) { return MakeLater([next, a_i, a_ph](const RE::BSScript::Variable&) { (*next)(a_i, a_ph); }); };
+				auto       go = [next, a_i](int a_ph) { return MakeLater([next, a_i, a_ph](const RE::BSScript::Variable&) { if (*next) (*next)(a_i, a_ph); }); };
 				if (a_phase == 0) {
 					auto cb = go(1);
 					if (!shown || !vm->DispatchMethodCall(h, "Quest", "SetObjectiveDisplayed", RE::MakeFunctionArguments(std::int32_t(st.index), true, true), cb)) {
@@ -690,6 +727,20 @@ namespace Transplant
 					(*next)(a_i + 1, 0);
 				}
 			};
+			if (arg(3) == "start" && !Game::Running(q)) {
+				auto* vm = VM::GetSingleton();
+				const auto h = handleOf(q);
+				auto cb = MakeLater([next, id](const RE::BSScript::Variable& a_r) {
+					spdlog::info("questobj {:08X}: Start() returned {}", id, a_r.IsBool() ? (a_r.GetBool() ? "true" : "false") : "?");
+					if (*next) {
+						(*next)(0, 0);
+					}
+				});
+				if (vm && h && vm->DispatchMethodCall(h, "Quest", "Start", RE::MakeFunctionArguments(), cb)) {
+					return {};
+				}
+				spdlog::info("questobj {:08X}: could not call Start()", id);
+			}
 			(*next)(0, 0);
 			return {};
 		}
