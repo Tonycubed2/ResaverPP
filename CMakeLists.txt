@@ -79,6 +79,9 @@ if (RESAVERPP_TESTS)
 	enable_testing()
 	# needs nothing: regression tests built from data made in memory
 	add_test(NAME unit COMMAND rs_unit)
+	add_executable(rs_cf_topic113_test tests/cf_topic113_test.cpp)
+	target_link_libraries(rs_cf_topic113_test PRIVATE rs_core)
+	add_test(NAME topic113 COMMAND rs_cf_topic113_test)
 	# real saves: -DRESAVERPP_TEST_SAVES=<folder with .ess files>. Each is loaded, written back and
 	# compared, backups checked. A folder given without saves in it fails the run (fixtures missing).
 	set(RESAVERPP_TEST_SAVES "" CACHE PATH "Folder of .ess saves for the fixture tests")
