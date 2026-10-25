@@ -309,7 +309,7 @@ namespace
 			"transplant: quests: completed ones and further stages, not the ones already done");
 		const auto* look = find("Your look from the bad save");
 		const auto* wear = find("Wear / hold: My Blade");
-		Check(look && look->cat == tp::Category::kLook && look->record.size() == 2 && look->record[1] == "ReSaverPP_Allandor_20261024" && wear &&
+		Check(look && look->cat == tp::Category::kAppearance && look->record.size() == 2 && look->record[1] == "ReSaverPP_Allandor_20261024" && wear &&
 				  wear->record[0] == "equip" && find("Shout selected: Unrelenting Force"),
 			"transplant: the RaceMenu look and the worn gear are listed");
 		std::filesystem::remove(good);

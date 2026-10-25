@@ -93,8 +93,13 @@ public:
 			// test: bad save | good save, both read from their files
 			const auto bar = w.find('|');
 			transplantFromFile(w.substr(11, bar - 11));
-			auto good = ess::SaveFile::load(w.substr(bar + 1));
-			_tpGood = ess::transplant::FromSave(*good, "good");
+			const auto goodPath = w.substr(bar + 1);
+			if (goodPath.size() > 4 && goodPath.substr(goodPath.size() - 4) == ".txt") {
+				_tpGood = ess::transplant::ReadSnapshot(goodPath);
+			} else {
+				auto good = ess::SaveFile::load(goodPath);
+				_tpGood = ess::transplant::FromSave(*good, "good");
+			}
 			_tpDirty = true;
 			_showTransplant = true;
 		} else if (w == "settings") {

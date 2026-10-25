@@ -214,6 +214,26 @@ int main(int argc, char** argv)
 		}
 	}
 
+	// two snapshots: resaverpp-cli good.txt --transplant bad.txt
+	if (!transplantFrom.empty() && std::filesystem::path(in).extension() == ".txt") {
+		using namespace ess::transplant;
+		const auto good = ReadSnapshot(in);
+		const auto bad = std::filesystem::path(transplantFrom).extension() == ".txt" ? ReadSnapshot(transplantFrom) : Snapshot{};
+		if (!good.valid || !bad.valid) {
+			std::fprintf(stderr, "%s%s\n", good.error.c_str(), bad.error.c_str());
+			return 1;
+		}
+		std::size_t journal = 0, background = 0;
+		for (const auto& ch : Diff(good, bad)) {
+			if (ch.cat != Category::kQuests) {
+				continue;
+			}
+			(ch.background ? background : journal) += 1;
+			std::printf("  %s %s\n", ch.background ? "[background, unticked]" : "[journal, ticked]   ", ch.label.c_str());
+		}
+		std::printf("quests: %zu journal, %zu background\n", journal, background);
+		return 0;
+	}
 	try {
 		auto save = SaveFile::load(in);
 		auto* p = save->papyrus();

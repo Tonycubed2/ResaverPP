@@ -65,11 +65,32 @@ namespace ess::transplant
 			"Sneak", "Alchemy", "Speech", "Alteration", "Conjuration", "Destruction", "Illusion", "Restoration", "Enchanting" };
 	}
 
+	bool Quest::shown() const
+	{
+		for (std::size_t p = 0; p < objectives.size();) {
+			const auto colon = objectives.find(':', p);
+			if (colon == std::string::npos) {
+				break;
+			}
+			const int st = std::atoi(objectives.c_str() + colon + 1);
+			if (st & 1) {
+				return true;
+			}
+			const auto comma = objectives.find(',', colon);
+			if (comma == std::string::npos) {
+				break;
+			}
+			p = comma + 1;
+		}
+		return false;
+	}
+
 	const char* SkillName(int a_index) { return a_index >= 0 && a_index < 18 ? kSkillNames[a_index] : "?"; }
 
 	const char* CategoryName(Category a_cat)
 	{
 		switch (a_cat) {
+		case Category::kAppearance: return "YOUR CHARACTER'S LOOK: face, hair, body (RaceMenu)";
 		case Category::kCharacter: return "Character: level, skills, attributes";
 		case Category::kPerks: return "Perks";
 		case Category::kSpells: return "Spells and powers";
@@ -77,7 +98,7 @@ namespace ess::transplant
 		case Category::kMarkers: return "Map locations found";
 		case Category::kItems: return "Items and gold";
 		case Category::kMade: return "Things you made: enchanted gear, potions, poisons";
-		case Category::kLook: return "Look and worn gear";
+		case Category::kLook: return "Worn and held gear";
 		case Category::kFactions: return "Factions";
 		case Category::kQuests: return "Quests";
 		default: return "?";
@@ -152,6 +173,9 @@ namespace ess::transplant
 					}
 					q.done.push_back(Int(t.substr(p, e - p)));
 				}
+				q.known = r.size() > 10;
+				q.objectives = At(r, 9);
+				q.type = q.known ? Int(At(r, 10)) : -1;
 				s.quests[Key(q.plugin, At(r, 2))] = std::move(q);
 			} else if (k == "item") {
 				Item it;
@@ -475,7 +499,7 @@ namespace ess::transplant
 
 		// the look (RaceMenu preset) and what the character wore and held
 		if (!a_bad.look.empty()) {
-			add(Category::kLook, "Your look from the bad save (face, hair, body, overlays)", "saved by RaceMenu as preset " + a_bad.look, 1,
+			add(Category::kAppearance, "Your look from the bad save (face, hair, body, overlays)", "saved by RaceMenu as preset " + a_bad.look, 1,
 				"RaceMenu loads the preset it saved from the bad save onto your character: face, hair, body sliders, overlays. It replaces "
 				"the good save's look. Your race is not changed.",
 				{ "look", a_bad.look }, "");
@@ -505,20 +529,32 @@ namespace ess::transplant
 			const bool  goodDone = g != a_good.quests.end() && g->second.completed;
 			const int   goodStage = g != a_good.quests.end() ? g->second.stage : 0;
 			const auto  name = !q.name.empty() ? q.name : !q.edid.empty() ? q.edid : Fmt("%06X", q.local);
+			// a quest of the journal: it has a type (main, guild, side, misc...) or showed an objective. Older
+			// snapshots do not say: then only completed quests count as journal quests.
+			const bool journal = q.known ? (q.type > 0 || q.shown()) : q.completed;
 			std::size_t ch = static_cast<std::size_t>(-1);
 			if (q.completed && !goodDone) {
-				ch = add(Category::kQuests, name + " - complete it", q.edid + "  -  " + q.plugin, 1,
-					"Its completion stage runs in the game (rewards and follow-up quests happen normally). If the game refuses, it is "
-					"marked completed instead (no rewards, follow-ups do not start).",
+				ch = add(Category::kQuests, name + " - complete it", q.edid + "  -  " + q.plugin, journal ? 1 : 2,
+					journal ? "Its completion stage runs in the game (rewards and follow-up quests happen normally), then its objectives are shown "
+							  "as they were, so it is listed in the journal. If the game refuses the stage, it is marked as done instead "
+							  "(when \"Mark refused quests as done\" is ticked)."
+							: "A background quest (radiant job, scene, mod setup): the journal never showed it. Bringing it over can start or end "
+							  "things you never saw. Leave it unless you know it.",
 					{}, q.plugin);
 			} else if (!q.completed && q.running && q.stage > goodStage && !goodDone) {
-				ch = add(Category::kQuests, name + Fmt(" - stage %d (now %d)", q.stage, goodStage), q.edid + "  -  " + q.plugin, 1,
-					"Sets the quest to the stage it had; that stage's script runs. Skipped stages may leave things unfinished.", {}, q.plugin);
+				ch = add(Category::kQuests, name + Fmt(" - stage %d (now %d)", q.stage, goodStage), q.edid + "  -  " + q.plugin, journal ? 1 : 2,
+					journal ? "Sets the quest to the stage it had (its script runs) and shows its objectives as they were. If the game refuses "
+							  "the stage, it is left as it is (it was not completed in the bad save)."
+							: "A background quest (radiant job, scene, mod setup) still running in the bad save: the journal never showed it. "
+							  "Leave it unless you know it.",
+					{}, q.plugin);
 			}
 			if (ch != static_cast<std::size_t>(-1)) {
 				v[ch].quest = &q;
 				v[ch].complete = q.completed;
 				v[ch].goodRuntime = g != a_good.quests.end() ? g->second.runtime : 0;
+				v[ch].background = !journal;
+				v[ch].tick = journal && v[ch].available;
 			}
 		}
 		return v;

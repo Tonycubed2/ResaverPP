@@ -229,14 +229,24 @@ void App::transplantStep()
 	// a quest: find it in the game, then its completion stage (or the stage it had), else mark it completed
 	const auto* q = ch.quest;
 	const bool  complete = ch.complete;
-	const bool  markRefused = _tpMarkRefused;
-	auto        run = [this, q, complete, markRefused, done](std::uint32_t a_id) {
+	const bool  markRefused = _tpMarkRefused && complete;  // only quests completed in the bad save
+	// after the stage / mark: show the quest's objectives as the bad save had them, so the journal lists it
+	auto        shown = [this, q, done](bool a_ok, const std::string& a_why) {
+        if (!a_ok || q->objectives.empty() || !helperAtLeast(8)) {
+            done(a_ok, a_why);
+            return;
+        }
+        _live.request({ "APPLY", "questobj", q->plugin, Fmt("%06X", q->local), "", q->objectives }, [done, a_ok, a_why](const LiveLink::Reply&) {
+            done(a_ok, a_why + (a_why.empty() ? "" : ", ") + "shown in the journal");
+        });
+	};
+	auto        run = [this, q, complete, markRefused, shown, done](std::uint32_t a_id) {
         const int stage = complete ? completionStageOf(*q) : q->stage;
         // marks the quest completed: no stage script, no rewards, follow-up quests not started
-        auto      mark = [this, a_id, done](const std::string& a_before) {
-            _live.request({ "COMPLETE", Fmt("%08X", a_id), "none", "" }, [done, a_before](const LiveLink::Reply& r) {
+        auto      mark = [this, a_id, shown](const std::string& a_before) {
+            _live.request({ "COMPLETE", Fmt("%08X", a_id), "none", "" }, [shown, a_before](const LiveLink::Reply& r) {
                 const bool ok = LiveLink::Ok(r) && LiveLink::Field(r, 0) != "0";
-                done(ok, ok ? a_before + ", marked as done" : a_before + ", and it could not be marked as done either");
+                shown(ok, ok ? a_before + ", marked as done" : a_before + ", and it could not be marked as done either");
             });
         };
         if (stage < 0) {
@@ -247,7 +257,7 @@ void App::transplantStep()
             }
             return;
         }
-        _live.request({ "SETSTAGE", Fmt("%08X", a_id), std::to_string(stage), "none", "" }, [markRefused, mark, done, stage](const LiveLink::Reply& r) {
+        _live.request({ "SETSTAGE", Fmt("%08X", a_id), std::to_string(stage), "none", "" }, [markRefused, mark, shown, done, stage](const LiveLink::Reply& r) {
             if (!LiveLink::Ok(r)) {
                 done(false, LiveLink::Error(r));
                 return;
@@ -257,11 +267,11 @@ void App::transplantStep()
                 if (markRefused) {
                     mark(Fmt("refused stage %d", stage));
                 } else {
-                    done(false, Fmt("refused stage %d (not marked as done: \"Mark refused quests as done\" is off)", stage));
+                    done(false, Fmt("refused stage %d (left as it is)", stage));
                 }
                 return;
             }
-            done(true, f == "?" ? Fmt("stage %d set; the game is still running its script", stage) : Fmt("stage %d set", stage));
+            shown(true, f == "?" ? Fmt("stage %d set; the game is still running its script", stage) : Fmt("stage %d set", stage));
         });
 	};
 	if (ch.goodRuntime) {
@@ -363,10 +373,13 @@ std::string App::transplantGroup(const tp::Change& a_ch) const
 	if (a_ch.cat == tp::Category::kCharacter) {
 		return {};
 	}
-	if (a_ch.cat == tp::Category::kLook) {
-		return at(0) == "look" ? "Look" : "Worn and held";
+	if (a_ch.cat == tp::Category::kLook || a_ch.cat == tp::Category::kAppearance) {
+		return {};
 	}
-	return a_ch.quest ? a_ch.quest->plugin : at(1);
+	if (a_ch.quest) {
+		return a_ch.background ? "~ Background quests (not in the journal): normally leave these unticked" : a_ch.quest->plugin;
+	}
+	return at(1);
 }
 
 void App::maximizeControl(const char* a_id)
@@ -434,6 +447,11 @@ void App::drawTransplant()
 	if (!helperOk) {
 		Wrapped(theme::Caution(), info.connected ? Fmt("ReSaverHelper %s is running: version 5 or newer is needed (Optional files on the mod page).", info.helperVersion.c_str())
 												 : "ReSaverHelper is not connected: start Skyrim with ReSaverHelper.dll (version 5 or newer) installed.");
+	}
+	if (helperOk && !helperAtLeast(8)) {
+		Wrapped(theme::Caution(), Fmt("ReSaverHelper %s is running: your look and worn gear need version 7, and quests shown in the journal need "
+									  "version 8. Install the newest ReSaverHelper and take new snapshots.",
+									  info.helperVersion.c_str()));
 	}
 	if (_tpWaiting) {
 		Wrapped(theme::Caution(), "Waiting for the game: switch to Skyrim for a moment (it pauses while it is not the active window), then come back.");
@@ -617,7 +635,28 @@ void App::drawTransplant()
 		if (openAll >= 0) {
 			ImGui::SetNextItemOpen(openAll == 1);
 		}
+		// the character's look stands out: it is the one thing that changes how your character looks
+		const bool appearance = c == static_cast<int>(tp::Category::kAppearance);
+		if (appearance) {
+			const bool light = theme::IsLight();
+			ImGui::PushStyleColor(ImGuiCol_Header, light ? ImVec4(0.12f, 0.12f, 0.14f, 1) : ImVec4(0.02f, 0.02f, 0.03f, 1));
+			ImGui::PushStyleColor(ImGuiCol_HeaderHovered, light ? ImVec4(0.2f, 0.2f, 0.24f, 1) : ImVec4(0.10f, 0.08f, 0.02f, 1));
+			ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.18f, 0.14f, 0.04f, 1));
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.82f, 0.30f, 1));
+			if (openAll < 0) {
+				ImGui::SetNextItemOpen(true, ImGuiCond_Appearing);
+			}
+		}
 		const bool open = ImGui::CollapsingHeader(Fmt("%s   (%s)###cat", tp::CategoryName(static_cast<tp::Category>(c)), counts(in).c_str()).c_str());
+		if (appearance) {
+			// a glow around the header
+			const auto mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
+			auto*      dl = ImGui::GetWindowDrawList();
+			for (int g = 1; g <= 3; ++g) {
+				dl->AddRect(ImVec2(mn.x - g, mn.y - g), ImVec2(mx.x + g, mx.y + g), IM_COL32(255, 200, 70, 140 / g), 4.0f, 0, 1.5f);
+			}
+			ImGui::PopStyleColor(4);
+		}
 		if (open) {
 			ImGui::Indent();
 			tickButtons(in);

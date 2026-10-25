@@ -228,8 +228,12 @@ namespace Transplant
 			return {};
 		}
 		std::vector<Record> out;
-		const char*         dn = player->GetDisplayFullName();
-		const std::string   playerName = dn && *dn ? std::string(dn) : NameOf(player->GetActorBase());
+		// the character's own name (the display name can be changed by mods, e.g. to "The Narrator")
+		std::string         playerName = NameOf(player->GetActorBase());
+		if (playerName.empty()) {
+			const char* dn = player->GetDisplayFullName();
+			playerName = dn ? dn : "";
+		}
 		std::string         safe;
 		for (char c : playerName) {
 			safe += (std::isalnum(static_cast<unsigned char>(c)) ? c : '_');
@@ -362,12 +366,14 @@ namespace Transplant
 			if (!quest) {
 				continue;
 			}
-			std::string done;
-			if (quest->executedStages) {
-				for (const auto& st : *quest->executedStages) {
-					done += (done.empty() ? "" : ",") + std::to_string(st.data.index);
+			// objectives the journal shows or has shown (index:state; 1 shown, 2 completed, 3 completed and shown, 4 failed, 5 failed and shown)
+			std::string objectives;
+			for (auto* o : quest->objectives) {
+				if (o && o->state.underlying() != 0) {
+					objectives += std::format("{}{}:{}", objectives.empty() ? "" : ",", o->index, static_cast<int>(o->state.underlying()));
 				}
 			}
+			const std::string done;  // (the executed stage list could not be read reliably; left empty)
 			Record r{ "quest" };
 			PutForm(r, quest);
 			const char* edid = quest->GetFormEditorID();
@@ -376,6 +382,8 @@ namespace Transplant
 			r.push_back(quest->IsCompleted() ? "1" : "0");
 			r.push_back(std::to_string(quest->GetCurrentStageID()));
 			r.push_back(done);
+			r.push_back(objectives);
+			r.push_back(std::to_string(static_cast<int>(quest->GetType())));
 			out.push_back(std::move(r));
 		}
 
@@ -626,6 +634,65 @@ namespace Transplant
 			return {};
 		}
 
+		if (kind == "questobj") {
+			// shows the quest's objectives in the journal the way the other save had them (displayed, then
+			// completed or failed), so a quest brought over appears in the journal
+			auto* quest = Lookup(arg(1), arg(2));
+			auto* q = quest ? quest->As<RE::TESQuest>() : nullptr;
+			if (!q) {
+				return "not a quest in this game";
+			}
+			struct Step
+			{
+				std::int32_t index;
+				int          state;
+			};
+			auto steps = std::make_shared<std::vector<Step>>();
+			for (const auto& one : Split(arg(4), ',')) {
+				const auto p = Split(one, ':');
+				if (p.size() == 2) {
+					steps->push_back({ static_cast<std::int32_t>(Num(p[0])), static_cast<int>(Num(p[1])) });
+				}
+			}
+			if (steps->empty()) {
+				return {};
+			}
+			const auto id = q->GetFormID();
+			// one Papyrus call after the other: displayed (forced), then completed / failed
+			auto next = std::make_shared<std::function<void(std::size_t, int)>>();
+			*next = [steps, id, next](std::size_t a_i, int a_phase) {
+				if (a_i >= steps->size()) {
+					return;
+				}
+				const auto& st = (*steps)[a_i];
+				auto*       vm = VM::GetSingleton();
+				auto*       qq = RE::TESForm::LookupByID<RE::TESQuest>(id);
+				auto*       policy = vm ? vm->GetObjectHandlePolicy() : nullptr;
+				const auto  h = policy && qq ? policy->GetHandleForObject(RE::TESQuest::FORMTYPE, qq) : 0;
+				if (!vm || !h) {
+					return;
+				}
+				const bool shown = st.state & 1;
+				const bool completed = st.state == 2 || st.state == 3;
+				const bool failed = st.state == 4 || st.state == 5;
+				auto       go = [next, a_i](int a_ph) { return MakeLater([next, a_i, a_ph](const RE::BSScript::Variable&) { (*next)(a_i, a_ph); }); };
+				if (a_phase == 0) {
+					auto cb = go(1);
+					if (!shown || !vm->DispatchMethodCall(h, "Quest", "SetObjectiveDisplayed", RE::MakeFunctionArguments(std::int32_t(st.index), true, true), cb)) {
+						(*next)(a_i, 1);
+					}
+				} else if (a_phase == 1 && (completed || failed)) {
+					auto cb = go(2);
+					if (!vm->DispatchMethodCall(h, "Quest", completed ? "SetObjectiveCompleted" : "SetObjectiveFailed", RE::MakeFunctionArguments(std::int32_t(st.index), true), cb)) {
+						(*next)(a_i + 1, 0);
+					}
+				} else {
+					(*next)(a_i + 1, 0);
+				}
+			};
+			(*next)(0, 0);
+			return {};
+		}
 		if (kind == "look") {
 			if (!GetModuleHandleW(L"skee64.dll") && !GetModuleHandleW(L"skeevr.dll")) {
 				return "RaceMenu is not installed in this game";

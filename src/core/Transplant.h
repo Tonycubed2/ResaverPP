@@ -42,6 +42,10 @@ namespace ess::transplant
 		bool             running = false, completed = false;
 		int              stage = 0;
 		std::vector<int> done;
+		std::string      objectives;   // "index:state,..." (helper 8+; empty when unknown)
+		int              type = -1;    // quest type (0 none, 1 main, 2 Mages Guild ... 8 side); -1 unknown
+		bool             known = false;  // objectives and type were in the snapshot
+		bool             shown() const;  // an objective was shown in the journal
 	};
 
 	struct Item
@@ -91,6 +95,7 @@ namespace ess::transplant
 
 	enum class Category
 	{
+		kAppearance,  // the character's look (RaceMenu preset): listed first, highlighted
 		kCharacter,
 		kPerks,
 		kSpells,
@@ -118,6 +123,7 @@ namespace ess::transplant
 		const Quest* quest = nullptr;
 		bool         complete = false;
 		std::uint32_t goodRuntime = 0;  // the quest's form ID in the good game (0: look it up)
+		bool          background = false;  // a quest the journal never showed (radiant, scenes, mod setup)
 	};
 
 	std::vector<Change> Diff(const Snapshot& a_good, const Snapshot& a_bad);

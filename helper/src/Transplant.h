@@ -23,7 +23,8 @@
 //   word     <plugin>  <local id>  <runtime id>  <name>  <known 0|1>  <unlocked 0|1>
 //   faction  <plugin>  <local id>  <runtime id>  <name>  <rank>
 //   marker   <plugin>  <local id>  <runtime id>  <name>  <flags: 1 visible, 2 can travel to>
-//   quest    <plugin>  <local id>  <runtime id>  <editor id|name>  <running>  <completed>  <stage>  <done stages, comma separated>
+//   quest    <plugin>  <local id>  <runtime id>  <editor id|name>  <running>  <completed>  <stage>  <(empty)>  <objectives index:state,...>  <quest type>
+//   questobj <plugin>  <local id>  <runtime id>  <objectives index:state,...>     (apply only: show them in the journal as they were; version 8)
 //   item     <plugin>  <local id>  <runtime id>  <name>  <count>  <custom name>  <temper>  <charge>  <enchantment>  <poison>  <quest item 0|1>  <kind: Weapons, Armor and clothing... (version 6)>
 //            enchantment / poison: "" | "F:<plugin>:<local id>:<amount>" (from a plugin) | "C:<kind>:<amount>:<effect>,<effect>..." (made in game;
 //            kind w/a = weapon/armour enchantment, amount = max charge; p = poison, amount = count) with effect = "<plugin>:<local id>:<magnitude>:<area>:<duration>"
