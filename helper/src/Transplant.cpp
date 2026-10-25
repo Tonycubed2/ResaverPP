@@ -652,6 +652,12 @@ namespace Transplant
 			return {};
 		}
 
+		if (kind == "controls") {
+			// after the quests: a quest's stage script can leave the player's controls switched off (a scene
+			// that never plays here); they come back on a reload only, so they are switched on again now
+			Console("EnablePlayerControls");
+			return {};
+		}
 		if (kind == "questobj") {
 			// shows the quest's objectives in the journal the way the other save had them (displayed, completed
 			// or failed), so a quest brought over appears in the journal. Written straight into the journal list:

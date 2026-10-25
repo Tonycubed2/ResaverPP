@@ -303,6 +303,14 @@ void App::transplantStep()
 		_status = Fmt("Transplant done: %zu of %zu brought over%s. Quests may keep loading for a couple of minutes: save in the game when "
 					  "their messages stop.",
 			_tpRun.size() - failed, _tpRun.size(), failed ? Fmt(", %zu could not be (see the Transplant page)", failed).c_str() : "");
+		bool quests = false;
+		for (auto i : _tpRun) {
+			quests = quests || (i < _tpChanges.size() && _tpChanges[i].quest);
+		}
+		if (quests && helperAtLeast(9)) {
+			// a quest's stage script can leave the controls off (the player cannot move until a reload)
+			_live.request({ "APPLY", "controls" }, [](const LiveLink::Reply&) {});
+		}
 		_live.request({ "NOTIFY", liveNotifyMode(),
 						  Fmt("ReSaver++: transplant done (%zu of %zu). Quests may still be loading: wait until their messages stop, then save.",
 							  _tpRun.size() - failed, _tpRun.size()) },
