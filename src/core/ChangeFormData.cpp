@@ -294,6 +294,13 @@ namespace ess::cf
 					p.group("SUB_DATA3", [&] { ExtraDataData(p); });
 				});
 				break;
+			case 16:
+				one("ExtraExtraData4", [&] {
+					for (int i = 1; i <= 4; ++i) {
+						p.group(Fmt("SUB_DATA%d", i), [&] { ExtraDataData(p); });
+					}
+				});
+				break;
 			case 22: one("Worn", [] {}); break;
 			case 23: one("WornLeft", [] {}); break;
 			case 24:
@@ -506,10 +513,17 @@ namespace ess::cf
 				break;
 			case 133: one("AshPileRef", [&] { p.ref("REF"); }); break;
 			case 135:
-				one("TEST", [&] {
-					for (int i = 1; i <= 4; ++i) {
-						p.ref(Fmt("R%d", i));
-					}
+				one("FollowerSwimBreadcrumbs", [&] {
+					p.floats("UNK1", 3);
+					p.ref("REF");
+					p.i32("UNK2");
+					p.vsArray("BREADCRUMBS", [&] {
+						p.floats("POS1", 3);
+						p.ref("REF1");
+						p.floats("POS2", 3);
+						p.ref("REF2");
+						p.u8("UNK");
+					});
 				});
 				break;
 			case 136:
@@ -919,7 +933,7 @@ namespace ess::cf
 							const auto n = static_cast<std::uint32_t>(p.i32("COUNT"));
 							p.countedArray("ITEMS", n, [&] {
 								const auto t = p.i32("TYPE");
-								if (t == 1 || t == 2 || t == 4) {
+								if (t == 0 || t == 1 || t == 2 || t == 4) {
 									p.ref("UNK_REF");
 								} else if (t == 3) {
 									p.i32("UNK_INT");
@@ -929,6 +943,18 @@ namespace ess::cf
 							});
 						});
 					}
+				});
+			}
+			if (Bit(flags, 27)) {
+				p.group("QUEST_INSTANCES", [&] {
+					p.i32("UNK");
+					p.vsArray("INSTANCE_DATA", [&] {
+						p.i32("UNK");
+						p.vsArray("STRUCT1", [&] { p.i32("UNK"); p.ref("REF"); });
+						p.vsArray("STRUCT2", [&] { p.ref("REF"); p.i32("UNK"); });
+						p.i16("UNK16");
+						p.u8("UNK8");
+					});
 				});
 			}
 			if (Bit(flags, 26)) {
