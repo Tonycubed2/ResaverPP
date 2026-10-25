@@ -93,8 +93,10 @@ public:
 			// test: bad save | good save, both read from their files
 			const auto bar = w.find('|');
 			transplantFromFile(w.substr(11, bar - 11));
-			const auto goodPath = w.substr(bar + 1);
-			if (goodPath.size() > 4 && goodPath.substr(goodPath.size() - 4) == ".txt") {
+			const auto goodPath = bar == std::string::npos ? std::string() : w.substr(bar + 1);
+			if (bar == std::string::npos || goodPath.empty()) {
+				// bad save only
+			} else if (goodPath.size() > 4 && goodPath.substr(goodPath.size() - 4) == ".txt") {
 				_tpGood = ess::transplant::ReadSnapshot(goodPath);
 			} else {
 				auto good = ess::SaveFile::load(goodPath);

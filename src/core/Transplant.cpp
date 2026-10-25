@@ -190,7 +190,8 @@ namespace ess::transplant
 					q.local = Hex(At(r, 2));
 					q.runtime = Hex(At(r, 3));
 				}
-				q.inJournal = true;
+				// only objectives the journal shows count (state 1, 3 or 5); 0, 2 and 4 are hidden entries
+				q.inJournal = q.inJournal || (Int(At(r, 5)) & 1) != 0;
 				jobj[Key(At(r, 1), At(r, 2))] += (jobj[Key(At(r, 1), At(r, 2))].empty() ? "" : ",") + At(r, 4) + ":" + At(r, 5);
 			} else if (k == "item") {
 				Item it;

@@ -16,6 +16,7 @@
 #include <map>
 #include <set>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 
 using namespace ess;
@@ -78,6 +79,117 @@ namespace
 		return Fmt("%s%s%s: %zu quests completed, %zu items%s", s.player.empty() ? "" : (s.player + " ").c_str(), s.level > 0 ? Fmt("level %d", s.level).c_str() : "",
 			s.fromFile ? "  (read from the save file)" : "  (from the game)", done, items,
 			s.fromFile ? "" : Fmt(", %zu perks, %zu spells", s.perks.size(), s.spells.size()).c_str());
+	}
+
+	// a moving dashed frame around the last item: "do this next"
+	void Marquee()
+	{
+		const float pad = 4.0f;
+		const auto  mn = ImVec2(ImGui::GetItemRectMin().x - pad, ImGui::GetItemRectMin().y - pad);
+		const auto  mx = ImVec2(ImGui::GetItemRectMax().x + pad, ImGui::GetItemRectMax().y + pad);
+		const float w = mx.x - mn.x, h = mx.y - mn.y, per = 2 * (w + h);
+		auto        at = [&](float d) {
+            d = std::fmod(d + per, per);
+            if (d < w) {
+                return ImVec2(mn.x + d, mn.y);
+            }
+            d -= w;
+            if (d < h) {
+                return ImVec2(mx.x, mn.y + d);
+            }
+            d -= h;
+            if (d < w) {
+                return ImVec2(mx.x - d, mx.y);
+            }
+            return ImVec2(mn.x, mx.y - (d - w));
+		};
+		const float t = static_cast<float>(ImGui::GetTime());
+		const auto  alpha = static_cast<int>(170 + 85 * std::sin(t * 5.0f));
+		const auto  col = IM_COL32(255, 196, 40, alpha);
+		auto*       dl = ImGui::GetWindowDrawList();
+		dl->AddRectFilled(mn, mx, IM_COL32(255, 196, 40, 22 + static_cast<int>(18 * std::sin(t * 5.0f))), 4.0f);
+		const float dash = 12.0f, gap = 7.0f, offset = std::fmod(t * 60.0f, dash + gap);
+		for (float d = offset - (dash + gap); d < per; d += dash + gap) {
+			ImVec2 pts[7];
+			for (int k = 0; k < 7; ++k) {
+				pts[k] = at(d + dash * static_cast<float>(k) / 6.0f);
+			}
+			dl->AddPolyline(pts, 7, col, 0, 2.5f);
+		}
+	}
+
+	// what a snapshot holds, group by group (shown under step 1 while there is no good save yet)
+	void SnapshotContents(const tp::Snapshot& s)
+	{
+		auto list = [](const char* a_title, const std::vector<std::string>& a_names) {
+			if (a_names.empty()) {
+				return;
+			}
+			if (ImGui::TreeNodeEx(a_title, ImGuiTreeNodeFlags_SpanAvailWidth, "%s (%zu)", a_title, a_names.size())) {
+				std::string line;
+				for (const auto& n : a_names) {
+					line += (line.empty() ? "" : ",   ") + n;
+				}
+				ImGui::TextWrapped("%s", line.c_str());
+				ImGui::TreePop();
+			}
+		};
+		auto names = [](const std::map<tp::FormKey, tp::Entry>& a_m) {
+			std::vector<std::string> v;
+			for (const auto& [k, e] : a_m) {
+				v.push_back(e.name.empty() ? Fmt("%06X", k.local) : e.name);
+			}
+			std::sort(v.begin(), v.end());
+			return v;
+		};
+		if (s.level > 0) {
+			ImGui::Text("Level %d%s%s", s.level, s.perkPoints > 0 ? Fmt(",  %d perk point(s) to spend", s.perkPoints).c_str() : "",
+				s.look.empty() ? "" : ",  look saved (RaceMenu)");
+		}
+		std::vector<std::string> skills;
+		for (int i = 0; i < 18; ++i) {
+			if (s.skills[i].level >= 0) {
+				skills.push_back(Fmt("%s %.0f", tp::SkillName(i), s.skills[i].level));
+			}
+		}
+		list("Skills", skills);
+		list("Perks", names(s.perks));
+		list("Spells and powers", names(s.spells));
+		list("Shouts", names(s.shouts));
+		list("Words of power", names(s.words));
+		list("Map locations", names(s.markers));
+		list("Factions", names(s.factions));
+		std::vector<std::string> active, completed;
+		for (const auto& [k, q] : s.quests) {
+			const bool journal = s.journalKnown ? q.inJournal : q.known ? q.shown() : q.completed;
+			if (!journal) {
+				continue;
+			}
+			const auto n = !q.name.empty() ? q.name : !q.edid.empty() ? q.edid : Fmt("%06X", q.local);
+			(q.completed ? completed : active).push_back(n);
+		}
+		std::sort(active.begin(), active.end());
+		std::sort(completed.begin(), completed.end());
+		list("Quests in progress (journal)", active);
+		list("Quests completed (journal)", completed);
+		std::map<std::string, std::vector<std::string>> kinds;
+		for (const auto& it : s.items) {
+			const auto kind = it.record.size() > 12 && !it.record[12].empty() ? it.record[12] : std::string("Items");
+			kinds[kind].push_back(it.count > 1 ? Fmt("%s x%d", it.name.c_str(), it.count) : it.name);
+		}
+		for (auto& [k, v] : kinds) {
+			std::sort(v.begin(), v.end());
+			list(("Inventory: " + k).c_str(), v);
+		}
+		std::vector<std::string> made, worn;
+		for (const auto& p : s.potions) {
+			made.push_back(Fmt("%s x%d", p.name.c_str(), p.count));
+		}
+		for (const auto& e : s.equips) {
+			worn.push_back(e.name);
+		}
+		list("Potions and poisons you made", made);
+		list("Worn and held", worn);
 	}
 }
 
@@ -479,7 +591,13 @@ void App::drawTransplant()
 		ImGui::SeparatorText("1. The bad save: take its progress");
 		ImGui::TextWrapped("%s", Summary(_tpBad).c_str());
 		ImGui::BeginDisabled(!live || !helperOk || busy);
-		if (ImGui::Button("Snapshot the game (bad save loaded in the game)")) {
+		const bool badBtn = ImGui::Button("Snapshot the game (bad save loaded in the game)");
+		if (!_tpBad.valid && !busy) {
+			Marquee();
+			ImGui::SameLine();
+			TextColored(IM_COL32(255, 196, 40, 255), "<- step 1: start here");
+		}
+		if (badBtn) {
 			confirm("Snapshot the bad save", "Is the BAD save loaded in the game right now?\n\nReSaverHelper writes down everything about your character "
 											 "in the loaded game: level, skills, perks, spells, shouts, items, quests, map locations.\n\n"
 											 "Skyrim pauses while it is not the active window: after OK, switch to the game for a moment.",
@@ -522,7 +640,13 @@ void App::drawTransplant()
 		ImGui::SeparatorText("2. The good save: load it in the game, then snapshot it");
 		ImGui::TextWrapped("%s", Summary(_tpGood).c_str());
 		ImGui::BeginDisabled(!live || !helperOk || !_tpBad.valid || busy);
-		if (ImGui::Button(_tpGood.valid ? "Snapshot the game again (good save loaded in the game)" : "Snapshot the game (good save loaded in the game)")) {
+		const bool goodBtn = ImGui::Button(_tpGood.valid ? "Snapshot the game again (good save loaded in the game)" : "Snapshot the game (good save loaded in the game)");
+		if (_tpBad.valid && !_tpGood.valid && !busy) {
+			Marquee();
+			ImGui::SameLine();
+			TextColored(IM_COL32(255, 196, 40, 255), "<- step 2: now this");
+		}
+		if (goodBtn) {
 			confirm("Snapshot the good save", "Is the GOOD save loaded in the game right now? (Load it from the game's menu first, and make a backup save.)\n\n"
 											  "After OK, switch to the game for a moment: it pauses while it is not the active window.",
 				[this] { transplantSnapshot(false); });
@@ -540,6 +664,12 @@ void App::drawTransplant()
 		_tpDirty = false;
 	}
 	if (!_tpBad.valid || !_tpGood.valid) {
+		if (_tpBad.valid) {
+			ImGui::SeparatorText("What the bad save has (this is what can be brought over)");
+			ImGui::BeginChild("##tpbad", ImVec2(0, 0), ImGuiChildFlags_Borders);
+			SnapshotContents(_tpBad);
+			ImGui::EndChild();
+		}
 		ImGui::End();
 		return;
 	}
@@ -735,7 +865,13 @@ void App::drawTransplant()
 	}
 	ImGui::SameLine(0, 30);
 	ImGui::BeginDisabled(!live || !helperOk || run.empty() || busy);
-	if (ImGui::Button(Fmt("Transplant %zu ticked thing(s) into the game", run.size()).c_str())) {
+	const bool goBtn = ImGui::Button(Fmt("Transplant %zu ticked thing(s) into the game", run.size()).c_str());
+	if (!busy && _tpResults.empty() && !run.empty() && live && helperOk) {
+		Marquee();
+		ImGui::SameLine();
+		TextColored(IM_COL32(255, 196, 40, 255), "<- step 3: go");
+	}
+	if (goBtn) {
 		confirm("Transplant",
 			Fmt("Put %zu ticked thing(s) into the game now?\n\n"
 				"- The GOOD save must be the one loaded in the game (the one snapshotted in step 2).\n"

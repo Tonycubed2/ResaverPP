@@ -687,12 +687,21 @@ namespace Transplant
 				auto*       qq = RE::TESForm::LookupByID<RE::TESQuest>(id);
 				auto*       pl = RE::PlayerCharacter::GetSingleton();
 				std::string listed;
-				int         fixed = 0, added = 0;
+				int         fixed = 0, added = 0, skipped = 0;
+				// only a running quest, or a completed one (its finished objectives), may be listed: a quest that
+				// did not start has no people or places set up, and showing its objectives crashes the game when
+				// the journal or the compass looks for them
+				const bool live = Game::Running(qq);
+				const bool finished = qq && qq->IsCompleted();
 				if (pl && qq) {
 					auto& list = pl->GetPlayerRuntimeData().objectives;
 					for (const auto& st : *steps) {
 						if (!(st.state & 1)) {
 							continue;  // never shown in the other save
+						}
+						if (!live && !(finished && st.state != 1)) {
+							++skipped;
+							continue;
 						}
 						const auto want = static_cast<RE::QUEST_OBJECTIVE_STATE>(st.state);
 						RE::BGSQuestObjective* obj = nullptr;
@@ -729,8 +738,8 @@ namespace Transplant
 						}
 					}
 				}
-				spdlog::info("questobj {:08X} ({}): running {}, completed {}, stage {}; journal lists [{}] ({} put right, {} added)", id, qq ? qq->GetFormEditorID() : "?",
-					Game::Running(qq), qq && qq->IsCompleted(), qq ? qq->GetCurrentStageID() : 0, listed, fixed, added);
+				spdlog::info("questobj {:08X} ({}): running {}, completed {}, stage {}; journal lists [{}] ({} put right, {} added, {} left out: the quest is not running)", id,
+					qq ? qq->GetFormEditorID() : "?", live, finished, qq ? qq->GetCurrentStageID() : 0, listed, fixed, added, skipped);
 			};
 			// one Papyrus call after the other: displayed (forced), then completed / failed
 			auto next = std::make_shared<std::function<void(std::size_t, int)>>();
@@ -771,8 +780,12 @@ namespace Transplant
 			if (arg(3) == "start" && !Game::Running(q)) {
 				auto* vm = VM::GetSingleton();
 				const auto h = handleOf(q);
-				auto cb = MakeLater([next, id](const RE::BSScript::Variable& a_r) {
+				auto cb = MakeLater([next, id, report](const RE::BSScript::Variable& a_r) {
 					spdlog::info("questobj {:08X}: Start() returned {}", id, a_r.IsBool() ? (a_r.GetBool() ? "true" : "false") : "?");
+					if (!Game::Running(RE::TESForm::LookupByID<RE::TESQuest>(id))) {
+						report();  // it did not start: its objectives are left alone
+						return;
+					}
 					if (*next) {
 						(*next)(0, 0);
 					}
@@ -781,6 +794,8 @@ namespace Transplant
 					return {};
 				}
 				spdlog::info("questobj {:08X}: could not call Start()", id);
+				report();
+				return {};
 			}
 			(*next)(0, 0);
 			return {};
