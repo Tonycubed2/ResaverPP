@@ -632,6 +632,13 @@ void App::drawQuestDetail()
 	ImGui::TextUnformatted(def && !def->name.empty() ? def->name.c_str() : (def ? def->edid.c_str() : Fmt("%08X", q->formID).c_str()));
 	Dim(Fmt("%s  |  %08X  |  %s", def ? def->edid.c_str() : "?", q->formID, def ? _db->plugins()[def->plugin].c_str() : _save->pluginOf(q->formID).c_str()));
 	ImGui::Text("In this save: %s, highest stage done %d, %zu objective(s) shown in the journal", q->statusText(), q->highestDoneStage(), q->shownObjectives());
+	if (q->journalKnown) {
+		std::string js;
+		for (const auto& o : q->journal) {
+			js += (js.empty() ? "" : ",  ") + Fmt("objective %d %s", o.index, quests::ObjectiveStateText(o.state));
+		}
+		Dim(js.empty() ? std::string("The journal does not list it.") : "The journal lists: " + js);
+	}
 	if (live) {
 		auto it = _liveQuests.find(q->formID);
 		if (it != _liveQuests.end() && it->second.valid) {

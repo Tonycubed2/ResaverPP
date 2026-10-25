@@ -58,6 +58,8 @@ static void Usage()
 		"  --remove-nonexistent      Clean > Remove instances on non-existent created forms (all of them)\n"
 		"  --quests [text]           list the quests in the save (state, stage, journal objectives); with text,\n"
 		"                            details of the matching ones. Uses --sources to read the plugins.\n"
+		"  --journal                 list the quests the player's journal shows (in progress and completed), as\n"
+		"                            the save lists them. Uses --sources to name them.\n"
 		"  --allow-damaged           edit and write a save even though it has structural problems (risky)\n"
 		"  --charged                 list enchanted / charged items in inventories (max charge, charge)\n"
 		"  --fix-charges <max>       give enchanted items with max charge 0 this max charge (so they can be\n"
@@ -122,6 +124,7 @@ int main(int argc, char** argv)
 	bool                     dryRun = false, spawned = false, spawnedGone = false, charged = false, allowDamaged = false;
 	int                      fixCharges = 0;
 	bool                     questsView = false;
+	bool journalOnly = false;
 	std::string              questFilter;
 	modremove::Options       removeOpt;
 	for (int i = 2; i < argc; ++i) {
@@ -149,6 +152,9 @@ int main(int argc, char** argv)
 			termUndef = true;
 		} else if (a == "--remove-nonexistent") {
 			nonexist = true;
+		} else if (a == "--journal") {
+			questsView = true;
+			journalOnly = true;
 		} else if (a == "--quests") {
 			questsView = true;
 			if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -218,7 +224,12 @@ int main(int argc, char** argv)
 	if (!transplantFrom.empty() && std::filesystem::path(in).extension() == ".txt") {
 		using namespace ess::transplant;
 		const auto good = ReadSnapshot(in);
-		const auto bad = std::filesystem::path(transplantFrom).extension() == ".txt" ? ReadSnapshot(transplantFrom) : Snapshot{};
+		Snapshot bad;
+		if (std::filesystem::path(transplantFrom).extension() == ".txt") {
+			bad = ReadSnapshot(transplantFrom);
+		} else if (auto bs = ess::SaveFile::load(transplantFrom)) {
+			bad = FromSave(*bs, std::filesystem::path(transplantFrom).filename().string());  // partial: read without the game
+		}
 		if (!good.valid || !bad.valid) {
 			std::fprintf(stderr, "%s%s\n", good.error.c_str(), bad.error.c_str());
 			return 1;
@@ -411,6 +422,19 @@ int main(int argc, char** argv)
 				shown += q.shownObjectives();
 			}
 			std::printf("%zu quests in the save, %zu running, %zu objectives shown in the journal\n", states.size(), running, shown);
+			{
+				bool        found = false;
+				const auto  j = quests::ReadJournal(*save, &found);
+				std::size_t inJournal = 0;
+				for (const auto& q : states) {
+					inJournal += q.inJournal() ? 1 : 0;
+				}
+				if (found) {
+					std::printf("journal: %zu entries, %zu quests listed (read from the player's record)\n", j.size(), inJournal);
+				} else {
+					std::printf("journal: not found in the player's record (objective counts come from the quests' own records)\n");
+				}
+			}
 			auto lower = [](std::string x) {
 				for (auto& c : x) {
 					c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -425,7 +449,7 @@ int main(int argc, char** argv)
 				if (!needle.empty() && lower(edid).find(needle) == std::string::npos && lower(name).find(needle) == std::string::npos) {
 					continue;
 				}
-				if (needle.empty() && !(q.running() && !q.completed())) {
+				if (needle.empty() && (journalOnly ? !q.inJournal() : !(q.running() && !q.completed()))) {
 					continue;
 				}
 				if (++listed > top && needle.empty()) {
@@ -466,6 +490,13 @@ int main(int argc, char** argv)
 							}
 						}
 						std::printf("    objective %u (%s): %s\n", o.index, quests::ObjectiveStateText(state), o.text.c_str());
+					}
+					if (q.journalKnown) {
+						std::string js;
+						for (const auto& o : q.journal) {
+							js += (js.empty() ? "" : ", ") + std::to_string(o.index) + " " + quests::ObjectiveStateText(o.state);
+						}
+						std::printf("    in the journal: %s\n", js.empty() ? "no" : js.c_str());
 					}
 					for (const auto& pr : def->properties) {
 						std::printf("    property %s = %s\n", pr.name.c_str(), pr.type == 1 ? db->describe(pr.form).c_str() : pr.text.c_str());

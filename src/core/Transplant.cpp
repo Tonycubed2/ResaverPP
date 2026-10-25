@@ -335,6 +335,15 @@ namespace ess::transplant
 			x.running = q.running();
 			x.completed = q.completed();
 			x.stage = std::max(0, q.highestDoneStage());
+			if (q.journalKnown) {
+				// the journal as the save lists it: which quests it shows, and how
+				s.journalKnown = true;
+				x.inJournal = q.inJournal();
+				for (const auto& o : q.journal) {
+					x.objectives += (x.objectives.empty() ? "" : ",") + std::to_string(o.index) + ":" + std::to_string(o.state);
+				}
+				x.known = !x.objectives.empty();
+			}
 			for (const auto& [st, d] : q.stages) {
 				if (d) {
 					x.done.push_back(st);
