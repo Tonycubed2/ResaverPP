@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -62,6 +63,9 @@ namespace ess::cf
 
 		// inventory entries with an enchantment or charge (REFR containers, ACHR actors incl. the player)
 		std::vector<InvCharge> charged;
+
+		// where each change flag's data sits in the uncompressed body: bit -> [start, end) (NPC_ only)
+		std::map<int, std::pair<std::size_t, std::size_t>> sections;
 	};
 
 	// Every inventory entry with an enchantment or charge in the save, with the change form holding it.
@@ -88,6 +92,14 @@ namespace ess::cf
 	void                      SetBody(ChangeForm& a_cf, const std::vector<std::uint8_t>& a_body);  // recompresses if it was compressed
 	Decoded                   Decode(const SaveFile& a_save, const ChangeForm& a_cf, const TypeLookup& a_types = {});
 	std::vector<std::string>  FlagNames(std::uint8_t a_type, std::uint32_t a_flags);
+
+	// Removes one part of a change form: clears its change flag and cuts out the data that flag holds,
+	// keeping everything else (e.g. an NPC's changed face, so the game uses the plugin's face again,
+	// while its factions, outfits and spells stay). For change forms whose body is fully decoded and
+	// whose parts are known (NPC_). Checks the result decodes completely, else changes nothing.
+	// Returns "" when done, else why not.
+	bool        CanRemoveFlag(const ChangeForm& a_cf, int a_bit);
+	std::string RemoveFlag(const SaveFile& a_save, ChangeForm& a_cf, int a_bit);
 
 	// ReSaver "Reset Havok": zeroes the saved physics state of every object reference whose body
 	// decodes completely. Returns {reset, could not be decoded}.

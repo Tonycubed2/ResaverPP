@@ -39,6 +39,15 @@ namespace ess::cf
 
 			Reader r;
 
+			// one change flag's data: where it starts and ends in the body
+			template <class F>
+			void section(int a_bit, F f)
+			{
+				const auto start = r.pos();
+				f();
+				_out.sections[a_bit] = { start, r.pos() };
+			}
+
 			Node& add(const std::string& label, std::string value = {})
 			{
 				auto& k = top().kids;
@@ -814,62 +823,70 @@ namespace ess::cf
 		void NPC(P& p, std::uint32_t flags, bool)
 		{
 			if (Bit(flags, 0)) {
-				p.changeFormFlags();
+				p.section(0, [&] { p.changeFormFlags(); });
 			}
 			if (Bit(flags, 1)) {
-				p.bytes("ACBS", 24);
+				p.section(1, [&] { p.bytes("ACBS", 24); });
 			}
 			if (Bit(flags, 6)) {
-				p.vsArray("FACTIONRANKS", [&] {
-					p.ref("FACTION");
-					p.u8("RANK");
+				p.section(6, [&] {
+					p.vsArray("FACTIONRANKS", [&] {
+						p.ref("FACTION");
+						p.u8("RANK");
+					});
 				});
 			}
 			if (Bit(flags, 4)) {
-				p.vsArray("SPELLS", [&] { p.ref("SPELL"); });
-				p.vsArray("SPELLS_LEVELLED", [&] { p.ref("SPELL"); });
-				p.vsArray("SHOUTS", [&] { p.ref("SHOUT"); });
+				p.section(4, [&] {
+					p.vsArray("SPELLS", [&] { p.ref("SPELL"); });
+					p.vsArray("SPELLS_LEVELLED", [&] { p.ref("SPELL"); });
+					p.vsArray("SHOUTS", [&] { p.ref("SHOUT"); });
+				});
 			}
 			if (Bit(flags, 3)) {
-				p.bytes("AIDT", 20);
+				p.section(3, [&] { p.bytes("AIDT", 20); });
 			}
 			if (Bit(flags, 5)) {
-				p.wstring("FULLNAME");
+				p.section(5, [&] { p.wstring("FULLNAME"); });
 			}
 			if (Bit(flags, 9)) {
-				p.bytes("DNAM", 52);
+				p.section(9, [&] { p.bytes("DNAM", 52); });
 			}
 			if (Bit(flags, 10)) {
-				p.ref("CLASS");
+				p.section(10, [&] { p.ref("CLASS"); });
 			}
 			if (Bit(flags, 25)) {
-				p.ref("RACE");
-				p.ref("OLDRACE");
+				p.section(25, [&] {
+					p.ref("RACE");
+					p.ref("OLDRACE");
+				});
 			}
 			if (Bit(flags, 11)) {
-				p.group("FACEDATA", [&] {
-					if (p.u8("FACEPRESENT") != 0) {
-						p.ref("HAIRCOLOR");
-						p.i32("SKINTONE");
-						p.ref("SKIN");
-						p.vsArray("HEADPARTS", [&] { p.ref("PART"); });
-						if (p.u8("FACEDATAPRESENT") != 0) {
-							const auto m = p.i32("MORPHS_COUNT");
-							p.floats("MORPHS", static_cast<std::size_t>(m));
-							const auto pr = p.i32("PRESETS_COUNT");
-							p.ints("PRESETS", static_cast<std::size_t>(pr));
+				p.section(11, [&] {
+					p.group("FACEDATA", [&] {
+						if (p.u8("FACEPRESENT") != 0) {
+							p.ref("HAIRCOLOR");
+							p.i32("SKINTONE");
+							p.ref("SKIN");
+							p.vsArray("HEADPARTS", [&] { p.ref("PART"); });
+							if (p.u8("FACEDATAPRESENT") != 0) {
+								const auto m = p.i32("MORPHS_COUNT");
+								p.floats("MORPHS", static_cast<std::size_t>(m));
+								const auto pr = p.i32("PRESETS_COUNT");
+								p.ints("PRESETS", static_cast<std::size_t>(pr));
+							}
 						}
-					}
+					});
 				});
 			}
 			if (Bit(flags, 24)) {
-				p.u8("GENDER");
+				p.section(24, [&] { p.u8("GENDER"); });
 			}
 			if (Bit(flags, 12)) {
-				p.ref("DEFAULT_OUTFIT");
+				p.section(12, [&] { p.ref("DEFAULT_OUTFIT"); });
 			}
 			if (Bit(flags, 13)) {
-				p.ref("SLEEP_OUTFIT");
+				p.section(13, [&] { p.ref("SLEEP_OUTFIT"); });
 			}
 		}
 
@@ -1449,5 +1466,36 @@ namespace ess::cf
 			}
 		}
 		return fixed;
+	}
+
+	bool CanRemoveFlag(const ChangeForm& a_cf, int a_bit)
+	{
+		return static_cast<ChangeFormType>(a_cf.typeCode()) == ChangeFormType::NPC_ && a_bit > 0 && a_bit < 32 && Bit(a_cf.changeFlags, a_bit);
+	}
+
+	std::string RemoveFlag(const SaveFile& a_save, ChangeForm& a_cf, int a_bit)
+	{
+		if (!CanRemoveFlag(a_cf, a_bit)) {
+			return "only parts of an NPC_ change form can be removed, and only flags that are set";
+		}
+		const auto d = Decode(a_save, a_cf);
+		if (!d.complete) {
+			return "this change form could not be read completely (" + d.error + "): nothing changed";
+		}
+		const auto it = d.sections.find(a_bit);
+		if (it == d.sections.end()) {
+			return "this flag's data was not found: nothing changed";
+		}
+		const auto before = a_cf;
+		auto       body = Body(a_cf);
+		body.erase(body.begin() + static_cast<std::ptrdiff_t>(it->second.first), body.begin() + static_cast<std::ptrdiff_t>(it->second.second));
+		a_cf.changeFlags &= ~(1u << a_bit);
+		SetBody(a_cf, body);
+		const auto after = Decode(a_save, a_cf);
+		if (!after.complete) {
+			a_cf = before;
+			return "the result would not read back correctly: nothing changed";
+		}
+		return {};
 	}
 }

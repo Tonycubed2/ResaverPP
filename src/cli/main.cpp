@@ -58,6 +58,9 @@ static void Usage()
 		"  --remove-nonexistent      Clean > Remove instances on non-existent created forms (all of them)\n"
 		"  --quests [text]           list the quests in the save (state, stage, journal objectives); with text,\n"
 		"                            details of the matching ones. Uses --sources to read the plugins.\n"
+		"  --remove-flag <formid> <bit>  remove one part of an NPC_ change form: clear its change flag and cut out\n"
+		"                            its data, keeping the rest (e.g. 11 = NPC_FACE: the face goes back to the\n"
+		"                            plugins'). Needs -o.\n"
 		"  --journal                 list the quests the player's journal shows (in progress and completed), as\n"
 		"                            the save lists them. Uses --sources to name them.\n"
 		"  --allow-damaged           edit and write a save even though it has structural problems (risky)\n"
@@ -125,6 +128,8 @@ int main(int argc, char** argv)
 	int                      fixCharges = 0;
 	bool                     questsView = false;
 	bool journalOnly = false;
+	std::uint32_t removeFlagForm = 0;
+	int removeFlagBit = -1;
 	std::string              questFilter;
 	modremove::Options       removeOpt;
 	for (int i = 2; i < argc; ++i) {
@@ -152,6 +157,9 @@ int main(int argc, char** argv)
 			termUndef = true;
 		} else if (a == "--remove-nonexistent") {
 			nonexist = true;
+		} else if (a == "--remove-flag") {
+			removeFlagForm = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
+			removeFlagBit = std::atoi(next().c_str());
 		} else if (a == "--journal") {
 			questsView = true;
 			journalOnly = true;
@@ -254,7 +262,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0;
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0;
 		if (edits && !save->problems.empty() && !allowDamaged) {
 			std::fprintf(stderr, "error: not editing a damaged save (use --allow-damaged to write it anyway, at your own risk)\n");
 			return 3;
@@ -673,6 +681,25 @@ int main(int argc, char** argv)
 		if (!p) {
 			std::fputs("save has no Papyrus section\n", stderr);
 			return 1;
+		}
+		if (removeFlagBit >= 0) {
+			ChangeForm* target = nullptr;
+			for (auto& c : save->changeForms) {
+				if (save->formIDOf(c.refID) == removeFlagForm) {
+					target = &c;
+					break;
+				}
+			}
+			if (!target) {
+				std::fprintf(stderr, "no change form for %08X in this save\n", removeFlagForm);
+				return 1;
+			}
+			const auto why = cf::RemoveFlag(*save, *target, removeFlagBit);
+			if (!why.empty()) {
+				std::fprintf(stderr, "could not remove flag %d from %08X: %s\n", removeFlagBit, removeFlagForm, why.c_str());
+				return 1;
+			}
+			std::printf("removed change flag %d from %08X\n", removeFlagBit, removeFlagForm);
 		}
 		for (const auto& name : purge) {
 			const auto r = ops::PurgeScript(*save, name, delForms, keepInst);
