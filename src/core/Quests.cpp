@@ -506,7 +506,8 @@ namespace ess::quests
 		};
 		auto entryOk = [&](std::size_t r) {
 			const std::uint32_t ref = (d[r] << 16) | (d[r + 1] << 8) | d[r + 2];
-			return ref != 0 && (ref >> 22) != 3 && u32(r + 3) < 1000 && u32(r + 7) <= 0xFFFF && u32(r + 11) <= 5;
+			// objective indices are 16-bit (mods use 1000, 2000, 4101...); instances are small; states 0 to 5
+			return ref != 0 && (ref >> 22) != 3 && u32(r + 3) <= 0xFFFF && u32(r + 7) <= 0xFFFF && u32(r + 11) <= 5;
 		};
 		// the longest run of well-formed entries preceded by its own count
 		std::size_t bestAt = 0, bestN = 0;
