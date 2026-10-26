@@ -1571,5 +1571,12 @@ void App::openNewestAtStart()
 	}
 	if (!best.empty()) {
 		openAny(best);
+	} else {
+		std::string where;
+		for (const auto& d : dirs) {
+			where += (where.empty() ? "" : "; ") + platform::ToUtf8(d);
+		}
+		_status = "Open the newest save: no save found in " + (where.empty() ? std::string("(no saves folder found)") : where) +
+				  ". Set the saves folder in Options > Settings.";
 	}
 }

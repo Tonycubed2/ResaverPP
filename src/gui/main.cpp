@@ -335,10 +335,15 @@ int RunApp(int argc, char** argv)
 		glDeleteTextures(1, &tex);
 	};
 
-	if (argc > 1) {
+	std::error_code argEc;
+	if (argc > 1 && std::filesystem::is_regular_file(platform::FromUtf8(argv[1]), argEc)) {
 		Step("opening " + std::string(argv[1]));
 		app.openAny(platform::FromUtf8(argv[1]));
 	} else if (!std::getenv("RESAVERPP_SCREENSHOT")) {
+		// no file given (a launcher may pass something that is not a file, e.g. a Wine/Proton script): the newest save
+		if (argc > 1) {
+			Log(std::string("argument is not a file, ignored: ") + argv[1]);
+		}
 		Step("opening the newest save");
 		app.openNewestAtStart();
 	}
