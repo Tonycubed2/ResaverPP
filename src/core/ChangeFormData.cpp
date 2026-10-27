@@ -55,6 +55,8 @@ namespace ess::cf
 				}
 			}
 
+			std::string lastLabel() { return top().kids.empty() ? std::string() : top().kids.back().label; }
+
 			Node& add(const std::string& label, std::string value = {})
 			{
 				auto& k = top().kids;
@@ -809,6 +811,29 @@ namespace ess::cf
 			p.group(Fmt("EXTRADATA (%u)", n), [&] {
 				for (std::uint32_t i = 0; i < n; ++i) {
 					ExtraDataData(p);
+				}
+			});
+		}
+
+		// the reference's own extra data list, with where each entry sits (for removing single entries)
+		void TopExtraData(P& p)
+		{
+			auto& o = p.out();
+			o.hasExtras = true;
+			o.extrasCountAt = p.r.pos();
+			const auto n = p.vs("");
+			o.extrasCountEnd = p.r.pos();
+			if (n > 1024) {
+				throw Stop(Fmt("excessive extra data count %u", n));
+			}
+			p.group(Fmt("EXTRADATA (%u)", n), [&] {
+				for (std::uint32_t i = 0; i < n; ++i) {
+					ExtraEntry e;
+					e.start = p.r.pos();
+					ExtraDataData(p);
+					e.end = p.r.pos();
+					e.name = p.lastLabel();
+					o.extras.push_back(e);
 				}
 			});
 		}
@@ -2484,8 +2509,11 @@ namespace ess::cf
 		void ActorData(P& p, std::uint8_t a_version, std::int32_t a_processLevel)
 		{
 			if (a_processLevel != -1) {
+				const auto at = p.r.pos();
 				AIProcess(p, a_processLevel);
+				p.out().aiProcess = { at, p.r.pos() };
 			}
+			p.out().hasActorData = true;
 			p.group("ACTOR", [&] {
 				p.u8("UNK_278");
 				p.f32("UPDATE TARGET TIMER");
@@ -2532,12 +2560,20 @@ namespace ess::cf
 				});
 				const auto spells = static_cast<std::uint32_t>(p.r.i32());
 				p.countedArray("ADDED SPELLS", spells, [&] { p.ref("SPELL"); });
-				if (p.u8("HAS MOVEMENT CONTROLLER")) {
-					MovementController(p);
+				{
+					const auto at = p.r.pos();
+					if (p.u8("HAS MOVEMENT CONTROLLER")) {
+						MovementController(p);
+					}
+					p.out().movement = { at, p.r.pos() };
 				}
 				p.flags32("BOOL FLAGS");
-				if (p.u8("HAS COMBAT CONTROLLER")) {
-					CombatController(p);
+				{
+					const auto at = p.r.pos();
+					if (p.u8("HAS COMBAT CONTROLLER")) {
+						CombatController(p);
+					}
+					p.out().combat = { at, p.r.pos() };
 				}
 				const auto n = static_cast<std::uint32_t>(p.r.i32());
 				p.countedArray("UNK LIST", n, [&] {
@@ -2924,7 +2960,9 @@ namespace ess::cf
 				Initial(p, t);
 			}
 			Havok(p, flags);
+			p.out().levelAt = p.r.pos();
 			const auto level = p.i32("PROCESS LEVEL");
+			p.out().processLevel = level;
 			p.flags32("BOOL BITS");
 			if (Bit(flags, 0)) {
 				p.changeFormFlags();
@@ -2937,7 +2975,7 @@ namespace ess::cf
 			}
 			for (int b : { 6, 25, 9, 11, 17, 26, 29, 30, 31, 18 }) {
 				if (Bit(flags, b)) {
-					ExtraData(p);
+					TopExtraData(p);
 					break;
 				}
 			}
@@ -3599,6 +3637,186 @@ namespace ess::cf
 			}
 		}
 		return fixed;
+	}
+
+	namespace
+	{
+		struct RemovableExtra
+		{
+			const char* name;
+			const char* effect;
+		};
+		// extra data an actor can lose safely: state the game rebuilds, or falls back to the plugin for
+		const RemovableExtra kRemovableExtras[] = {
+			{ "Package", "The actor's current package (and its package data) is dropped, so its AI picks a package again when it loads. "
+						 "Useful for an NPC stuck running one package." },
+			{ "PackageData", "The actor's current package data (and the package it belongs to) is dropped, so its AI picks a package "
+							 "again when it loads." },
+			{ "PackageStartLocation", "Where the actor's current package started is dropped; the package uses its current position "
+									  "instead." },
+			{ "RunOncePacks", "The record of which run-once packages the actor already ran is dropped, so they can run again." },
+			{ "SceneData", "The actor is taken out of the scene it is in. Useful for an NPC stuck in a scene; the quest running the "
+						   "scene may need to start it again." },
+			{ "Ownership", "The actor's saved owner is dropped; the plugin's owner, or none, applies again." },
+			{ "EncounterZone", "The actor's saved encounter zone is dropped; the one from its cell or plugin applies again." },
+			{ "FactionChanges", "All of the actor's faction changes made in game are dropped: factions it joined or left and rank "
+								"changes go back to the plugin's. Note this includes follower and marriage factions." },
+			{ "DismemberedLimbs", "The actor's lost limbs are restored." },
+			{ "AttachedArrows3D", "The arrows stuck in the actor are removed." },
+			{ "CachedScale", "The actor's cached scale is dropped; the game computes it again." },
+			{ "CanTalkToPlayer", "The saved \"can talk to player\" setting is dropped; the plugin's applies again." },
+			{ "FollowerSwimBreadcrumbs", "The trail the actor follows its leader by through water is dropped; it starts a new one." },
+			{ "ForcedLandingMarker", "The landing marker the actor (usually a dragon) was forced to use is dropped." },
+			{ "ForcedTarget", "The target the actor was forced to attack is dropped." },
+			{ "HeadingTarget", "The target the actor was forced to turn toward is dropped." },
+			{ "FriendHits", "The count of times the player hit this friendly actor is dropped, so it is no longer about to turn "
+							"hostile from it." },
+			{ "Ghost", "The actor's ghost state set in game is dropped; it is solid again unless the plugin makes it a ghost." },
+			{ "GuardedRefData", "What the actor remembers guarding is dropped." },
+			{ "PlayerCrimeList", "The crimes against this actor that it remembers the player committing are dropped." },
+			{ "TextDisplayData", "The actor's display name set in game is dropped; it shows the plugin's name again." },
+		};
+
+		const RemovableExtra* FindRemovable(const std::string& a_name)
+		{
+			for (const auto& r : kRemovableExtras) {
+				if (a_name == r.name) {
+					return &r;
+				}
+			}
+			return nullptr;
+		}
+
+		void PutVsval(std::vector<std::uint8_t>& a_out, std::uint32_t a_v)
+		{
+			if (a_v < 0x40) {
+				a_out.push_back(static_cast<std::uint8_t>(a_v << 2));
+			} else if (a_v < 0x4000) {
+				const std::uint32_t v = (a_v << 2) | 1;
+				a_out.push_back(static_cast<std::uint8_t>(v));
+				a_out.push_back(static_cast<std::uint8_t>(v >> 8));
+			} else {
+				const std::uint32_t v = (a_v << 2) | 2;
+				for (int i = 0; i < 4; ++i) {
+					a_out.push_back(static_cast<std::uint8_t>(v >> (8 * i)));
+				}
+			}
+		}
+
+		bool IsPlayerActor(const ChangeForm& a_cf)
+		{
+			return static_cast<ChangeFormType>(a_cf.typeCode()) == ChangeFormType::ACHR && a_cf.refID.data == 0x400014;
+		}
+	}
+
+	bool CanRemoveExtra(const std::string& a_name) { return FindRemovable(a_name) != nullptr; }
+
+	std::string RemoveExtraEffect(const std::string& a_name)
+	{
+		const auto* r = FindRemovable(a_name);
+		return r ? r->effect : std::string();
+	}
+
+	std::string RemoveExtra(const SaveFile& a_save, ChangeForm& a_cf, std::size_t a_index)
+	{
+		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::ACHR) {
+			return "only an actor's (ACHR) extra data can be removed this way";
+		}
+		if (IsPlayerActor(a_cf)) {
+			return "the player's own record is never changed this way: nothing changed";
+		}
+		const auto d = Decode(a_save, a_cf);
+		if (!d.complete) {
+			return "this change form could not be read completely (" + d.error + "): nothing changed";
+		}
+		if (!d.hasExtras || a_index >= d.extras.size()) {
+			return "that extra data entry was not found: nothing changed";
+		}
+		const auto& name = d.extras[a_index].name;
+		if (!CanRemoveExtra(name)) {
+			return "\"" + name + "\" is not one of the entries that can be removed safely";
+		}
+		// a package and its package data go together
+		std::vector<std::size_t> drop{ a_index };
+		if (name == "Package" || name == "PackageData") {
+			const std::string partner = name == "Package" ? "PackageData" : "Package";
+			for (std::size_t i = 0; i < d.extras.size(); ++i) {
+				if (d.extras[i].name == partner) {
+					drop.push_back(i);
+				}
+			}
+		}
+		std::sort(drop.begin(), drop.end());
+		const auto before = a_cf;
+		const auto body = Body(a_cf);
+		std::vector<std::uint8_t> out(body.begin(), body.begin() + static_cast<std::ptrdiff_t>(d.extrasCountAt));
+		PutVsval(out, static_cast<std::uint32_t>(d.extras.size() - drop.size()));
+		std::size_t at = d.extrasCountEnd;
+		for (std::size_t i = 0; i < d.extras.size(); ++i) {
+			const auto& e = d.extras[i];
+			out.insert(out.end(), body.begin() + static_cast<std::ptrdiff_t>(at), body.begin() + static_cast<std::ptrdiff_t>(e.start));
+			if (std::find(drop.begin(), drop.end(), i) == drop.end()) {
+				out.insert(out.end(), body.begin() + static_cast<std::ptrdiff_t>(e.start), body.begin() + static_cast<std::ptrdiff_t>(e.end));
+			}
+			at = e.end;
+		}
+		out.insert(out.end(), body.begin() + static_cast<std::ptrdiff_t>(at), body.end());
+		SetBody(a_cf, out);
+		const auto after = Decode(a_save, a_cf);
+		if (!after.complete || after.extras.size() != d.extras.size() - drop.size()) {
+			a_cf = before;
+			return "the result would not read back correctly: nothing changed";
+		}
+		return {};
+	}
+
+	bool CanResetAI(const ChangeForm& a_cf, const Decoded& a_d)
+	{
+		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::ACHR || IsPlayerActor(a_cf) || !a_d.complete ||
+			!a_d.hasActorData) {
+			return false;
+		}
+		const bool hasMovement = a_d.movement.second > a_d.movement.first + 1;
+		const bool hasCombat = a_d.combat.second > a_d.combat.first + 1;
+		return a_d.processLevel != -1 || hasMovement || hasCombat;
+	}
+
+	std::string ResetAI(const SaveFile& a_save, ChangeForm& a_cf)
+	{
+		if (IsPlayerActor(a_cf)) {
+			return "the player's own record is never changed this way: nothing changed";
+		}
+		const auto d = Decode(a_save, a_cf);
+		if (!d.complete) {
+			return "this change form could not be read completely (" + d.error + "): nothing changed";
+		}
+		if (!CanResetAI(a_cf, d)) {
+			return "this actor has no saved AI to reset: nothing changed";
+		}
+		const auto before = a_cf;
+		auto       body = Body(a_cf);
+		// back to front, so earlier offsets stay valid
+		auto clearController = [&](const std::pair<std::size_t, std::size_t>& a_span) {
+			if (a_span.second > a_span.first + 1) {
+				body.erase(body.begin() + static_cast<std::ptrdiff_t>(a_span.first + 1), body.begin() + static_cast<std::ptrdiff_t>(a_span.second));
+			}
+			body[a_span.first] = 0;  // "has controller": no
+		};
+		clearController(d.combat);
+		clearController(d.movement);
+		if (d.processLevel != -1) {
+			body.erase(body.begin() + static_cast<std::ptrdiff_t>(d.aiProcess.first), body.begin() + static_cast<std::ptrdiff_t>(d.aiProcess.second));
+			for (int i = 0; i < 4; ++i) {
+				body[d.levelAt + i] = 0xFF;  // process level -1
+			}
+		}
+		SetBody(a_cf, body);
+		const auto after = Decode(a_save, a_cf);
+		if (!after.complete || after.processLevel != -1) {
+			a_cf = before;
+			return "the result would not read back correctly: nothing changed";
+		}
+		return {};
 	}
 
 	bool CanRemoveFlag(const ChangeForm& a_cf, int a_bit)

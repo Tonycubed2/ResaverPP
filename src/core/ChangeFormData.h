@@ -39,6 +39,12 @@ namespace ess::cf
 		std::size_t   chargeOffset = 0;
 	};
 
+	struct ExtraEntry
+	{
+		std::string name;  // as shown ("Ownership", "PackageData"...)
+		std::size_t start = 0, end = 0;
+	};
+
 	struct Decoded
 	{
 		bool        supported = false;  // the type has a decoder
@@ -64,8 +70,20 @@ namespace ess::cf
 		// inventory entries with an enchantment or charge (REFR containers, ACHR actors incl. the player)
 		std::vector<InvCharge> charged;
 
-		// where each change flag's data sits in the uncompressed body: bit -> [start, end) (NPC_ only)
+		// where each change flag's data sits in the uncompressed body: bit -> [start, end) (NPC_, ACHR)
 		std::map<int, std::pair<std::size_t, std::size_t>> sections;
+
+		// a reference's own extra data list: its count (a vsval) and each entry [start, end)
+		bool                    hasExtras = false;
+		std::size_t             extrasCountAt = 0, extrasCountEnd = 0;
+		std::vector<ExtraEntry> extras;
+
+		// an actor's AI: the process level field, the AI process data (absent at level -1), and the
+		// movement and combat controllers (each its "has" byte and data)
+		bool                                hasActorData = false;
+		std::int32_t                        processLevel = -1;
+		std::size_t                         levelAt = 0;
+		std::pair<std::size_t, std::size_t> aiProcess{ 0, 0 }, movement{ 0, 0 }, combat{ 0, 0 };
 	};
 
 	// Every inventory entry with an enchantment or charge in the save, with the change form holding it.
@@ -104,6 +122,21 @@ namespace ess::cf
 	bool        CanRemoveFlag(const ChangeForm& a_cf, int a_bit);
 	std::string RemoveFlagEffect(std::uint8_t a_type, int a_bit);  // what removing it does, for the user
 	std::string RemoveFlag(const SaveFile& a_save, ChangeForm& a_cf, int a_bit);
+
+	// Removes one entry from an actor's (ACHR) own extra data list, keeping the rest and the change
+	// flags: the game falls back to the plugin's value, or none, for that entry. Only entries that are
+	// safe to drop are offered (a package also takes its package data with it, and the reverse).
+	// Checks the result decodes completely, else changes nothing. Returns "" when done, else why not.
+	bool        CanRemoveExtra(const std::string& a_name);
+	std::string RemoveExtraEffect(const std::string& a_name);
+	std::string RemoveExtra(const SaveFile& a_save, ChangeForm& a_cf, std::size_t a_index);
+
+	// Resets an actor's (ACHR) saved AI: the process level becomes -1 (the state the game saves for
+	// actors it has no AI loaded for) and the AI process, movement controller and combat controller
+	// data are dropped, so the game builds fresh AI when the actor loads. Its stats, spells, inventory,
+	// factions and position stay. Never the player. Returns "" when done, else why not.
+	bool        CanResetAI(const ChangeForm& a_cf, const Decoded& a_decoded);
+	std::string ResetAI(const SaveFile& a_save, ChangeForm& a_cf);
 
 	// ReSaver "Reset Havok": zeroes the saved physics state of every object reference whose body
 	// decodes completely. Returns {reset, could not be decoded}.

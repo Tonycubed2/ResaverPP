@@ -63,6 +63,11 @@ static void Usage()
 		"                            face goes back to the plugins'). Actors: 1 = REFR_MOVE (back to its editor\n"
 		"                            position), 4 = REFR_SCALE, 5 = REFR_INVENTORY, 28 = REFR_ANIMATION (unstick a\n"
 		"                            frozen NPC). Not the player. Needs -o.\n"
+		"  --remove-extra <formid> <name>  remove one extra data entry from an actor (e.g. Package, SceneData,\n"
+		"                            FactionChanges, Ownership, DismemberedLimbs); the game falls back to the\n"
+		"                            plugin's value. Not the player. Needs -o.\n"
+		"  --reset-ai <formid>       reset an actor's saved AI (process, movement and combat state) so the game\n"
+		"                            builds it fresh: for NPCs stuck in combat, a package or a pose. Needs -o.\n"
 		"  --journal                 list the quests the player's journal shows (in progress and completed), as\n"
 		"                            the save lists them. Uses --sources to name them.\n"
 		"  --allow-damaged           edit and write a save even though it has structural problems (risky)\n"
@@ -132,6 +137,8 @@ int main(int argc, char** argv)
 	bool journalOnly = false;
 	std::uint32_t removeFlagForm = 0;
 	int removeFlagBit = -1;
+	std::uint32_t removeExtraForm = 0, resetAiForm = 0;
+	std::string   removeExtraName;
 	std::string              questFilter;
 	modremove::Options       removeOpt;
 	for (int i = 2; i < argc; ++i) {
@@ -159,6 +166,11 @@ int main(int argc, char** argv)
 			termUndef = true;
 		} else if (a == "--remove-nonexistent") {
 			nonexist = true;
+		} else if (a == "--remove-extra") {
+			removeExtraForm = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
+			removeExtraName = next();
+		} else if (a == "--reset-ai") {
+			resetAiForm = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
 		} else if (a == "--remove-flag") {
 			removeFlagForm = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
 			removeFlagBit = std::atoi(next().c_str());
@@ -264,7 +276,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0;
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0;
 		if (edits && !save->problems.empty() && !allowDamaged) {
 			std::fprintf(stderr, "error: not editing a damaged save (use --allow-damaged to write it anyway, at your own risk)\n");
 			return 3;
@@ -702,6 +714,52 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			std::printf("removed change flag %d from %08X\n", removeFlagBit, removeFlagForm);
+		}
+		auto findCf = [&](std::uint32_t a_form) -> ChangeForm* {
+			for (auto& c : save->changeForms) {
+				if (save->formIDOf(c.refID) == a_form) {
+					return &c;
+				}
+			}
+			return nullptr;
+		};
+		if (!removeExtraName.empty()) {
+			auto* target = findCf(removeExtraForm);
+			if (!target) {
+				std::fprintf(stderr, "no change form for %08X in this save\n", removeExtraForm);
+				return 1;
+			}
+			const auto d = cf::Decode(*save, *target);
+			std::size_t idx = d.extras.size();
+			for (std::size_t k = 0; k < d.extras.size(); ++k) {
+				if (d.extras[k].name == removeExtraName) {
+					idx = k;
+					break;
+				}
+			}
+			if (idx == d.extras.size()) {
+				std::fprintf(stderr, "%08X has no \"%s\" extra data\n", removeExtraForm, removeExtraName.c_str());
+				return 1;
+			}
+			const auto why = cf::RemoveExtra(*save, *target, idx);
+			if (!why.empty()) {
+				std::fprintf(stderr, "could not remove %s from %08X: %s\n", removeExtraName.c_str(), removeExtraForm, why.c_str());
+				return 1;
+			}
+			std::printf("removed %s from %08X\n", removeExtraName.c_str(), removeExtraForm);
+		}
+		if (resetAiForm != 0) {
+			auto* target = findCf(resetAiForm);
+			if (!target) {
+				std::fprintf(stderr, "no change form for %08X in this save\n", resetAiForm);
+				return 1;
+			}
+			const auto why = cf::ResetAI(*save, *target);
+			if (!why.empty()) {
+				std::fprintf(stderr, "could not reset the AI of %08X: %s\n", resetAiForm, why.c_str());
+				return 1;
+			}
+			std::printf("reset the AI of %08X\n", resetAiForm);
 		}
 		for (const auto& name : purge) {
 			const auto r = ops::PurgeScript(*save, name, delForms, keepInst);

@@ -383,6 +383,9 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 				});
 		}
 	}
+	if (static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::ACHR && d.complete && c.refID.data != 0x400014) {
+		actorFixes(c, d);
+	}
 	if (d.isFormList) {
 		std::size_t nulls = 0;
 		for (auto v : d.listRaw) {
@@ -407,6 +410,81 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 	}
 	for (std::size_t i = 0; i < d.root.kids.size(); ++i) {
 		drawCfNode(d.root.kids[i], 0, static_cast<int>(i));
+	}
+}
+
+// Actor (ACHR) fixes: remove single extra data entries, reset the saved AI
+void App::actorFixes(const ChangeForm& c, const cf::Decoded& d)
+{
+	const auto key = Fmt("%06X/%08X/%u/%u/%zu", c.refID.data, c.changeFlags, c.length1, c.length2, d.extras.size());
+	if (key != _actorFixKey) {  // try each removable entry on a copy, once per version of this change form
+		_actorFixKey = key;
+		_actorExtraOk.assign(d.extras.size(), 0);
+		for (std::size_t i = 0; i < d.extras.size(); ++i) {
+			if (cf::CanRemoveExtra(d.extras[i].name)) {
+				ChangeForm copy = c;
+				_actorExtraOk[i] = cf::RemoveExtra(*_save, copy, i).empty() ? 1 : 0;
+			}
+		}
+	}
+	const auto refRaw = c.refID.data;
+	const auto who = formText(_save->formIDOf(c.refID));
+	if (!d.extras.empty()) {
+		ImGui::SeparatorText("Extra data");
+		for (std::size_t i = 0; i < d.extras.size(); ++i) {
+			const auto& name = d.extras[i].name;
+			ImGui::PushID(static_cast<int>(i) + 1000);
+			ImGui::BulletText("%s", name.c_str());
+			if (i < _actorExtraOk.size() && _actorExtraOk[i]) {
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Remove")) {
+					const auto effect = cf::RemoveExtraEffect(name);
+					confirm("Remove extra data",
+						Fmt("Remove \"%s\" from this actor?\n\n%s\n\nEverything else in this change form stays. Save as a new file "
+							"afterwards and keep the original.",
+							name.c_str(), effect.c_str()),
+						[this, refRaw, i, name, who] {
+							RefID id;
+							id.data = refRaw;
+							if (auto* cfp = _save->findChangeForm(id)) {
+								const auto why = cf::RemoveExtra(*_save, *cfp, i);
+								if (why.empty()) {
+									markEdited("Removed " + name + " from " + who);
+								} else {
+									_error = "Could not remove " + name + ": " + why;
+								}
+							}
+						});
+				}
+			}
+			ImGui::PopID();
+		}
+	}
+	if (cf::CanResetAI(c, d)) {
+		ImGui::SeparatorText("AI");
+		ImGui::TextWrapped("Saved AI: process level %d%s%s.", d.processLevel,
+			d.movement.second > d.movement.first + 1 ? ", movement controller" : "",
+			d.combat.second > d.combat.first + 1 ? ", combat controller" : "");
+		if (ImGui::SmallButton("Reset this actor's AI")) {
+			confirm("Reset AI",
+				"Reset this actor's saved AI?\n\nIts AI process (current package, procedure, targets, equipped state, dialogue and "
+				"knowledge), movement and combat state are dropped and the process level set to -1, the state the game saves for "
+				"actors it has no AI loaded for. The game builds fresh AI when the actor loads. Its stats, spells, inventory, "
+				"factions and position stay.\n\nUseful for an NPC stuck in combat, stuck in a package or frozen in place.\n\nSave as "
+				"a new file afterwards and keep the original.",
+				[this, refRaw, who] {
+					RefID id;
+					id.data = refRaw;
+					if (auto* cfp = _save->findChangeForm(id)) {
+						const auto why = cf::ResetAI(*_save, *cfp);
+						if (why.empty()) {
+							markEdited("Reset the AI of " + who);
+						} else {
+							_error = "Could not reset the AI: " + why;
+						}
+					}
+				});
+		}
 	}
 }
 

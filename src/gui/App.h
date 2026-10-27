@@ -445,6 +445,7 @@ private:
 	void        drawLookup();
 	void        drawCfNode(const ess::cf::Node& n, int a_depth, int a_index);
 	void        detailChangeFormDecoded(const ess::ChangeForm& c);
+	void        actorFixes(const ess::ChangeForm& c, const ess::cf::Decoded& d);
 	void        resetHavok();
 	void        purifyFormLists();
 	void        drawBatchModal();
@@ -480,6 +481,10 @@ private:
 		std::size_t           nForms = 0, nInstances = 0;
 	};
 	PluginContents _plContents;
+
+	// actor change form fixes: which extra data entries can be removed (tried on a copy), cached per form
+	std::string       _actorFixKey;
+	std::vector<char> _actorExtraOk;
 	void                  exportPluginList();
 	void                  arrayEditor(ess::ArrayInfo& a);
 	void                  drawArraysAnalysis();
