@@ -1281,6 +1281,234 @@ namespace ess::cf
 			});
 		}
 
+		// ---- MovementControllerNPC (through the pathing stream) ----
+		static const char* kArbiters[] = { "MovementHandlerArbiter", "MovementPathManagerArbiter", "MovementPlannerArbiter",
+			"MovementPostUpdateArbiter", "MovementTweenerArbiter" };
+
+		const char* AgentName(std::uint8_t a_id)
+		{
+			switch (a_id) {
+			case 0x00: return "MovementStateFollowPath";
+			case 0x01: return "MovementStateTweener";
+			case 0x02: return "MovementHandlerAgentAngleController";
+			case 0x03: return "MovementHandlerAgentAngleGain";
+			case 0x04: return "MovementHandlerAgentAnglePassThrough";
+			case 0x05: return "MovementHandlerAgentDirectionPassThrough";
+			case 0x06: return "MovementHandlerAgentLargeDeltaIdle";
+			case 0x07: return "MovementHandlerAgentSpeedPassThrough";
+			case 0x08: return "MovementHandlerAgentStrafing";
+			case 0x09: return "MovementHandlerAgentTranslationController";
+			case 0x0A: return "MovementAgentActorState";
+			case 0x0B: return "MovementAgentActorAvoider";
+			case 0x0C: return "MovementAgentPathFollowerFlight";
+			case 0x0D: return "MovementAgentPathFollowerStandard";
+			case 0x0E: return "MovementAgentPathFollowerVirtual";
+			case 0x0F: return "MovementPlannerAgentNavmeshBounds";
+			case 0x10: return "MovementPathManagerAgentAvoidBox";
+			case 0x11: return "MovementPathManagerAgentLoadedAreaMonitor";
+			case 0x12: return "MovementPathManagerAgentStaticAvoider";
+			case 0x13: return "MovementTweenerAgentFixedDelta";
+			case 0x80: return "MovementHandlerAgentDirectControl";
+			case 0x81: return "MovementHandlerAgentPlayerControls";
+			case 0x82: return "MovementHandlerAgentPlayerControlsActionTrigger";
+			case 0x83: return "MovementHandlerAgentSprintActionTrigger";
+			case 0x84: return "MovementHandlerAgentStairsHelper";
+			case 0x85: return "MovementPlannerAgentDirectControl";
+			case 0x86: return "MovementPlannerAgentHorseControls";
+			case 0x87: return "MovementPlannerAgentKeepOffset";
+			case 0x88: return "MovementPlannerAgentWarp";
+			case 0x89: return "MovementTweenerAgentAnimationDriven";
+			case 0x8A: return "MovementTweenerAgentNodeFollower";
+			default: return nullptr;
+			}
+		}
+
+		void Stream18(P& p, const char* a_label);
+		// PathingDoor, BSPathingDoor
+		bool PathingDoorClass(std::uint32_t a_cls) { return a_cls == 0xE48B73F3 || a_cls == 0x72BFDFEF; }
+
+		// a path (the 0x70 kind of shared pathing object): ID; the first time, class ID + data
+		void PathObject(P& p, const char* a_label)
+		{
+			p.group(a_label, [&] {
+				const std::uint64_t id = p.version >= 0x4b ? p.r.u64() : p.r.u32();
+				p.add("ID", Fmt("%llX", static_cast<unsigned long long>(id)));
+				if (id == 0 || !p.pathIDs.insert(id).second) {
+					return;
+				}
+				p.add("CLASS", Fmt("%08X", p.r.u32()));
+				const auto n1 = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("NODES", n1, [&] {
+					PathingLocation(p, "LOCATION");
+					Stream18(p, "EDGE");
+				});
+				p.i32("UNK88");
+				p.i32("UNK8C");
+				const auto n2 = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("POINTS", n2, [&] {
+					PathingLocation(p, "LOCATION");
+					p.floats("VALUES", 3);
+					Stream18(p, "EDGE");
+				});
+				p.u8("UNKA8");
+				p.u8("UNKA9");
+				const auto n3 = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("POINTS2", n3, [&] {
+					PathingLocation(p, "LOCATION");
+					p.floats("VALUES", 3);
+					Stream18(p, "EDGE");
+				});
+			});
+		}
+
+		void MovementArbiter(P& p, const std::string& a_name)
+		{
+			auto tweenerEntry = [&] { p.floats("VALUES", 13); };
+			if (a_name == "MovementHandlerArbiter") {
+			} else if (a_name == "MovementPathManagerArbiter") {
+				p.i32("STATE");
+				PathingObject(p, "REQUEST");
+				PathObject(p, "PATH");
+			} else if (a_name == "MovementPlannerArbiter") {
+				p.u8("UNK24");
+			} else if (a_name == "MovementPostUpdateArbiter") {
+				p.floats("VALUES", 14);
+			} else if (a_name == "MovementTweenerArbiter") {
+				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("ENTRIES", n, [&] { tweenerEntry(); });
+				p.group("UNKD4", [&] {
+					p.i32("UNK");
+					p.floats("VALUES", 33);
+				});
+				p.floats("A", 13);
+				p.floats("B", 13);
+				p.floats("C", 13);
+				p.floats("VALUES", 4);
+			} else {
+				throw Stop("movement arbiter '" + a_name + "' is not decoded yet");
+			}
+		}
+
+		void MovementAgent(P& p, const std::string& a_name)
+		{
+			if (a_name == "MovementAgentPathFollowerVirtual") {
+				p.i32("STATE");
+				PathingObject(p, "REQUEST");
+				PathObject(p, "PATH");
+			} else {
+				throw Stop("movement agent '" + a_name + "' is not decoded yet");
+			}
+		}
+
+		// members of the movement/path family written as class ID + data (class IDs: CRC32 of names)
+		void Stream18(P& p, const char* a_label)
+		{
+			p.group(a_label, [&] {
+				const auto cls = p.r.u32();
+				p.add("CLASS", Fmt("%08X", cls));
+				if (cls == 0) {
+					return;
+				}
+				auto movementType = [&](const char* a_l) {
+					p.group(a_l, [&] {
+						p.add("NAME", p.r.wstring());
+						p.floats("SPEEDS", 10);
+						p.floats("ROTATION", 4);
+					});
+				};
+				switch (cls) {
+				case 0x5CC2A237:  // MovementMessageActivateDoor
+				case 0x7663F86A:  // MovementMessageApproachingDoor
+				case 0x2D8AD535:  // MovementMessageDoor
+					p.add("MESSAGE", "Door");
+					if (p.u8("HAS DOOR")) {
+						const auto door = p.r.u32();
+						if (door == 0x00000000) {
+						} else if (PathingDoorClass(door)) {
+							p.ref("DOOR");
+						} else {
+							throw Stop(Fmt("pathing door class %08X is not decoded yet", door));
+						}
+					}
+					break;
+				case 0xCDED4F63:  // MovementMessageNewPath
+				case 0x0F13E00F:  // MovementMessagePathCleared
+				case 0xD7578F99:  // MovementMessagePathComplete
+				case 0xABBC80DC:  // MovementMessagePathEvent
+				case 0x8BCEF6C4:  // MovementMessagePathFailed
+					p.add("MESSAGE", "Path");
+					PathingObject(p, "REQUEST");
+					break;
+				case 0xC8B4153E:  // MovementMessageBlocked
+				case 0x77A37BFA:  // MovementMessageActorCollision
+					break;
+				case 0x3BED430B:  // MovementMessageFreezeDirection
+					p.i32("FREEZE");
+					break;
+				case 0x00DC870E:  // MovementMessageJump
+					p.f32("HEIGHT");
+					break;
+				case 0x88058586:  // MovementMessageMovementTypeChange
+					movementType("FROM");
+					movementType("TO");
+					break;
+				case 0x616653D5:  // MovementMessageSetStaticPath
+					p.u8("STATIC");
+					break;
+				case 0x67DA9023:  // MovementMessageWarpToLocation
+					PathingLocation(p, "LOCATION");
+					p.floats("ANGLES", 3);
+					break;
+				default:
+					throw Stop(Fmt("movement object class %08X is not decoded yet", cls));
+				}
+			});
+		}
+
+		void MovementController(P& p)
+		{
+			p.group("MOVEMENT CONTROLLER", [&] {
+				const auto n1 = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("MESSAGES", n1, [&] { Stream18(p, "MESSAGE"); });
+				if (p.version > 0x38) {
+					const auto n2 = static_cast<std::uint32_t>(p.r.i32());
+					p.countedArray("LOCATIONS", n2, [&] {
+						PathingLocation(p, "LOCATION");
+						p.floats("VALUES", 3);
+						p.i32("UNK");
+					});
+				}
+				p.i32("STATE");
+				p.bytes("FLAGS", 7);
+				const auto na = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("ARBITERS", na, [&] {
+					std::string name;
+					if (p.version < 0x36) {
+						name = p.r.wstring();
+					} else {
+						const auto id = p.r.u8();
+						name = id < 5 ? kArbiters[id] : Fmt("arbiter %u", id);
+					}
+					p.group(name, [&] { MovementArbiter(p, name); });
+				});
+				const auto ng = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("AGENTS", ng, [&] {
+					std::string name;
+					if (p.version < 0x36) {
+						name = p.r.wstring();
+					} else {
+						const auto id = p.r.u8();
+						const auto* nm = AgentName(id);
+						name = nm ? nm : Fmt("agent %u", id);
+					}
+					p.group(name, [&] { MovementAgent(p, name); });
+				});
+				if (p.u8("HAS UNK DATA")) {
+					throw Stop("movement controller extra data is not decoded yet");
+				}
+			});
+		}
+
 		void ActorData(P& p, std::uint8_t a_version, std::int32_t a_processLevel)
 		{
 			if (a_processLevel != -1) {
@@ -1333,7 +1561,7 @@ namespace ess::cf
 				const auto spells = static_cast<std::uint32_t>(p.r.i32());
 				p.countedArray("ADDED SPELLS", spells, [&] { p.ref("SPELL"); });
 				if (p.u8("HAS MOVEMENT CONTROLLER")) {
-					throw Stop("movement controller data is not decoded yet");
+					MovementController(p);
 				}
 				p.flags32("BOOL FLAGS");
 				if (p.u8("HAS COMBAT CONTROLLER")) {
