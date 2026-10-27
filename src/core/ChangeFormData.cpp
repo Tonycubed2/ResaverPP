@@ -161,10 +161,13 @@ namespace ess::cf
 				case 1:
 					v |= std::uint32_t(r.u8()) << 8;
 					break;
-				default:
+				case 2:  // four bytes, as the game reads it (ReSaver read three)
 					v |= std::uint32_t(r.u8()) << 8;
 					v |= std::uint32_t(r.u8()) << 16;
+					v |= std::uint32_t(r.u8()) << 24;
 					break;
+				default:
+					throw Stop("invalid vsval size");
 				}
 				v >>= 2;
 				if (!l.empty()) {
@@ -971,6 +974,16 @@ namespace ess::cf
 		void ProcedureNamed(P& p, const std::string& a_name);
 
 		// a nested state of a fixed kind, present when its flag byte is set
+		// a dialogue topic: an i32 kind, then the topic form when the kind is 0, else a 4-byte value
+		void Topic(P& p)
+		{
+			if (p.i32("TOPIC KIND") == 0) {
+				p.ref("TOPIC");
+			} else {
+				p.i32("TOPIC VALUE");
+			}
+		}
+
 		void OptionalNamed(P& p, const char* a_name)
 		{
 			if (p.r.u8()) {
@@ -1437,6 +1450,62 @@ namespace ess::cf
 					OptionalLocation(p, "LOCATION");
 					p.u8("TARGET INDEX");
 					PathingObject(p, "PATH");
+				} else if (name == "Dialogue") {
+					p.i32("UNK08");
+					p.ref("SPEAKER");
+					p.ref("TARGET");
+					Topic(p);
+					p.u8("UNK28");
+				} else if (name == "DialogueActivate") {
+					OptionalLocation(p, "LOCATION");
+					OptionalLocation(p, "TARGET LOCATION");
+					p.ref("TARGET");
+					Topic(p);
+					OptionalNamed(p, "Dialogue");
+					p.u8("UNK40");
+					PathingObject(p, "PATH");
+				} else if (name == "Escort") {
+					OptionalLocation(p, "LOCATION");
+					const auto n = p.vs("COUNT");
+					p.countedArray("ESCORTED", n, [&] { p.ref("REF"); });
+					p.u8("UNK34");
+					p.u8("UNK35");
+					PathingObject(p, "PATH");
+					p.i32("UNK30");
+					p.u8("UNK36");
+					p.i32("UNK38");
+					p.i32("UNK3C");
+				} else if (name == "Flee") {
+					OptionalLocation(p, "LOCATION");
+					OptionalNamed(p, "Travel");
+					p.floats("FLEE FROM", 3);
+					p.ints("UNK2C", 6);
+					const auto n = p.vs("COUNT");
+					p.countedArray("AVOID", n, [&] { p.ref("REF"); });
+					p.ref("REF60");
+					p.ref("REF64");
+					p.bytes("FLAGS", 4);
+					PathingObject(p, "PATH");
+				} else if (name == "FlightGrab") {
+					p.ref("TARGET");
+					PathingObject(p, "PATH");
+					p.u8("UNK18");
+					p.u8("UNK19");
+				} else if (name == "Hover") {
+					OptionalLocation(p, "LOCATION");
+					p.u8("UNK18");
+				} else if (name == "Shout") {
+					OptionalLocation(p, "LOCATION");
+					OptionalNamed(p, "Travel");
+					p.ref("SHOUT");
+					p.i32("UNK30");
+					p.ref("TARGET");
+					p.i32("UNK3C");
+					p.i32("UNK10");
+					p.i32("UNK14");
+					if (p.version > 0x2e) {
+						p.ref("UNK40");
+					}
 				} else {
 					throw Stop("package procedure '" + name + "' is not decoded yet");
 				}
@@ -1486,22 +1555,66 @@ namespace ess::cf
 						ProcedureState(p);
 					}
 					break;
-				case 0:
-				case 1:
-				case 3:
-				case 4:
-				case 5:
-				case 6:
-				case 7:
-				case 8:
-				case 9:
-				case 10:
-				case 11:
-				case 15:
-				case 17:
-					break;  // no data object for these package types
+				case 2:  // EscortActorPackageData
+					p.ref("ESCORTEE");
+					break;
+				case 12:  // SandBoxActorPackageData
+					{
+						p.ints("UNK08", 8);
+						p.bytes("FLAGS", 4);
+						p.i32("UNK48");
+						p.u8("UNK50");
+						p.i32("UNK58");
+						p.ints("UNK5C", 4);
+						p.bytes("UNK6C", 7);
+						p.ref("REF14");
+						p.ref("REF4C");
+						p.ref("REF54");
+						const auto n = p.vs("COUNT");
+						p.countedArray("MARKERS", n, [&] {
+							p.ints("VALUES", 3);
+							p.ref("REF");
+						});
+					}
+					break;
+				case 13:  // PatrolActorPackageData
+					{
+						p.i32("STATE");
+						p.i32("UNK0C");
+						p.i32("UNK38");
+						p.u8("UNK35");
+						p.u8("UNK34");
+						p.i32("UNK30");
+						const auto n = p.vs("COUNT");
+						p.countedArray("VISITED", n, [&] { p.ref("REF"); });
+					}
+					break;
+				case 14:  // GuardActorPackageData
+					p.i32("UNK08");
+					p.i32("UNK14");
+					p.i32("UNK10");
+					p.ref("REF");
+					p.i32("UNK18");
+					p.i32("UNK1C");
+					p.i32("UNK20");
+					p.u8("UNK30");
+					if (p.u8("HAS LOCATION")) {
+						p.group("LOCATION", [&] {
+							const auto kind = p.u8("TYPE");
+							p.i32("RADIUS");
+							if (kind == 0 || kind == 1 || kind == 3) {
+								p.ref("REF");
+							} else if (kind == 2 || kind == 4 || kind == 5) {
+								p.i32("VALUE");
+							}
+							p.ref("CELL");
+						});
+					}
+					break;
+				case 16:  // UseWeaponActorPackageData: nothing saved
+					break;
 				default:
-					throw Stop(Fmt("package data (type %d) is not decoded yet", a_type));
+					break;  // the other package types have no data object
 				}
 			});
 		}
@@ -1525,11 +1638,11 @@ namespace ess::cf
 						CreatedPackage(p, created);
 					}
 				}
-				// the data object's kind comes from the package's own type: all Skyrim packages are
-				// template / procedure-tree packages (type 18); the byte is -1 when it has none
-				const auto data = static_cast<std::int8_t>(p.u8("DATA STATE"));
-				if (data != -1) {
-					PackageData(p, 18);
+				// the package's procedure type, or -1 when there is no data; only some types carry
+				// a data object
+				const auto type = static_cast<std::int8_t>(p.u8("PACKAGE TYPE"));
+				if (type != -1) {
+					PackageData(p, type);
 				}
 				p.f32("UNK1");
 				p.f32("UNK2");
@@ -1617,10 +1730,11 @@ namespace ess::cf
 						p.ref("REF2");
 						p.bytes("FLAGS", 5);
 					});
+				} else {  // the older layout
+					p.ref("REF");
+					p.i32("UNK18");
+					p.bytes("FLAGS", 6);
 				}
-				p.ref("REF");
-				p.i32("UNK18");
-				p.bytes("FLAGS", 6);
 			});
 			p.f32("UNK2B4");
 			p.f32("UNK2B0");
