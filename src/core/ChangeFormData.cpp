@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "ChangeFormData.h"
+#include <set>
 
 #include "ByteIO.h"
 
@@ -38,6 +39,8 @@ namespace ess::cf
 			}
 
 			Reader r;
+			std::uint8_t                 version = 0;  // the change form's version (some fields depend on it)
+			std::set<std::uint64_t>      pathIDs;      // pathing stream objects already read in this change form
 
 			// one change flag's data: where it starts and ends in the body
 			template <class F>
@@ -825,14 +828,285 @@ namespace ess::cf
 			});
 		}
 
+		// ---- packages: instance data and the procedure tree's run state ----
+		// Each procedure's run state is stored by the procedure's name ("Sequence", "Sandbox"...).
+		void ProcedureState(P& p);
+
+		void ProcedureChild(P& p)
+		{
+			ProcedureState(p);
+		}
+		void ProcedureNamed(P& p, const std::string& a_name);
+
+		// a nested state of a fixed kind, present when its flag byte is set
+		void OptionalNamed(P& p, const char* a_name)
+		{
+			if (p.r.u8()) {
+				p.group(a_name, [&] { ProcedureNamed(p, a_name); });
+			}
+		}
+
+		// An object written through the game's pathing stream (BSPathingStream): an ID, and the first
+		// time an ID appears in a change form, the object itself (class ID + its data)
+		void PathingObject(P& p, const char* a_label)
+		{
+			p.group(a_label, [&] {
+				const std::uint64_t id = p.version >= 0x4b ? p.r.u64() : p.r.u32();
+				p.add("ID", Fmt("%llX", static_cast<unsigned long long>(id)));
+				if (id == 0 || !p.pathIDs.insert(id).second) {
+					return;  // none, or written earlier in this change form
+				}
+				const auto cls = p.r.u32();
+				p.add("CLASS", Fmt("%08X", cls));
+				throw Stop(Fmt("pathing object class %08X is not decoded yet", cls));
+			});
+		}
+
+		// BGSAIWorldLocation*: a place a procedure goes to or watches, stored by kind
+		void AIWorldLocation(P& p, const char* a_label)
+		{
+			const auto kind = p.r.wstring();
+			p.group(std::string(a_label) + " (" + kind + ")", [&] {
+				if (kind == "LocRef") {
+					p.ref("REF");
+					p.f32("RADIUS");
+					p.f32("UNK1");
+					p.f32("UNK2");
+					p.u8("FLAG");
+				} else if (kind == "LocPt") {
+					p.floats("POS", 3);
+					p.ref("WORLDSPACE");
+					p.ref("CELL");
+					p.f32("RADIUS");
+					p.f32("UNK");
+					p.u8("FLAG1");
+					p.u8("FLAG2");
+				} else if (kind == "LocCell") {
+					p.ref("CELL");
+					p.floats("UNK", 3);
+				} else {
+					throw Stop("AI world location '" + kind + "' is not decoded yet");
+				}
+			});
+		}
+
+		void OptionalLocation(P& p, const char* a_label)
+		{
+			if (p.r.u8()) {
+				AIWorldLocation(p, a_label);
+			}
+		}
+
+		void ProcedureState(P& p)
+		{
+			const auto name = p.r.wstring();
+			if (name.empty()) {
+				p.add("PROCEDURE", "(none)");
+				return;
+			}
+			p.group(name, [&] { ProcedureNamed(p, name); });
+		}
+
+		void ProcedureNamed(P& p, const std::string& name)
+		{
+			{
+				if (name == "Sequence" || name == "Stacked") {
+					ProcedureChild(p);
+					p.i32("CURRENT");
+				} else if (name == "Random") {
+					ProcedureChild(p);
+					p.i32("CURRENT");
+					const auto n = p.vs("");
+					p.ints("WEIGHTS", n);
+				} else if (name == "Simultaneous") {
+					const auto n = p.vs("");
+					p.countedArray("CHILDREN", n, [&] {
+						p.i32("INDEX");
+						ProcedureChild(p);
+					});
+				} else if (name == "Sandbox") {
+					p.i32("UNK08");
+					p.i32("UNK3C");
+					p.i32("UNK68");
+					p.i32("UNK70");
+					p.u8("UNKAB");
+					p.f32("TIME1");
+					p.i32("UNK68B");
+					p.f32("TIME2");
+					p.bytes("FLAGS", 4);
+					p.i32("UNK7C");
+					p.u8("UNK84");
+					p.i32("UNK8C");
+					p.i32("UNK90");
+					p.i32("UNK94");
+					p.i32("UNK98");
+					p.i32("UNKA0");
+					p.bytes("UNKA4", 7);
+					p.ref("REF1");
+					p.ref("REF2");
+					p.ref("REF3");
+					const auto n = p.vs("");
+					p.countedArray("ENTRIES", n, [&] {
+						p.i32("UNK1");
+						p.i32("UNK2");
+						p.i32("UNK3");
+						p.ref("REF");
+					});
+					OptionalLocation(p, "LOCATION");
+					ProcedureChild(p);
+					p.i32("UNK38");
+					PathingObject(p, "PATH");
+					p.i32("UNK9C");
+					if (p.version > 0x30) {
+						p.u8("UNKB1");
+					}
+				} else if (name == "Find") {
+					OptionalLocation(p, "LOCATION");
+					p.i32("UNK");
+				} else if (name == "Guard" || name == "HoldPosition") {
+					OptionalLocation(p, "LOCATION");
+				} else if (name == "KeepAnEyeOn") {
+					OptionalLocation(p, "LOCATION");
+					OptionalLocation(p, "TARGET LOCATION");
+				} else if (name == "LockUnlock") {
+					OptionalLocation(p, "LOCATION");
+					p.u8("UNK1");
+					p.u8("UNK2");
+				} else if (name == "Wait") {
+					p.f32("TIME");
+				} else if (name == "Say") {
+					p.u8("DONE");
+				} else if (name == "Done") {
+				} else if (name == "Eat") {
+					p.ref("FOOD");
+					p.i32("UNK");
+					p.u8("UNK1");
+					p.u8("UNK2");
+				} else if (name == "Wander") {
+					OptionalLocation(p, "LOCATION");
+					p.i32("UNK10");
+					p.u8("UNK20");
+					p.i32("UNK14");
+					PathingObject(p, "PATH");
+				} else if (name == "Activate") {
+					p.u8("TARGET INDEX");
+					p.ref("TARGET");
+					OptionalLocation(p, "LOCATION");
+					p.i32("UNK28");
+					p.i32("UNK2C");
+					p.u8("UNK30");
+					p.u8("UNK31");
+					PathingObject(p, "PATH");
+				} else if (name == "SitSleep") {
+					p.u8("TARGET INDEX");
+					p.u8("UNK20");
+					OptionalNamed(p, "Activate");
+				} else if (name == "UseIdleMarker") {
+					p.u8("UNK08");
+					p.ref("MARKER");
+					p.ref("IDLE");
+					p.i32("UNK18");
+					PathingObject(p, "PATH");
+					p.u8("UNK28");
+				} else if (name == "Patrol") {
+					p.i32("UNK08");
+					p.group("PATROL DATA", [&] {
+						p.i32("UNK08");
+						p.i32("UNK0C");
+						p.i32("UNK38");
+						p.u8("UNK35");
+						p.u8("UNK34");
+						p.i32("UNK30");
+						const auto n = p.vs("");
+						p.countedArray("REFS", n, [&] { p.ref("REF"); });
+					});
+					OptionalNamed(p, "UseIdleMarker");
+					OptionalNamed(p, "SitSleep");
+					PathingObject(p, "PATH");
+					p.u8("UNK50");
+					p.u8("UNK51");
+					p.u8("UNK52");
+				} else if (name == "Travel") {
+					p.u8("UNK20");
+					p.u8("UNK21");
+					p.u8("UNK23");
+					OptionalLocation(p, "LOCATION");
+					p.u8("TARGET INDEX");
+					PathingObject(p, "PATH");
+				} else {
+					throw Stop("package procedure '" + name + "' is not decoded yet");
+				}
+			}
+		}
+
+		// one entry of a package's instance data (BGSPackageData*), by type name
+		void PackageValue(P& p)
+		{
+			p.u8("INDEX");
+			const auto type = p.r.wstring();
+			p.group(type, [&] {
+				if (type == "Bool") {
+					p.u8("VALUE");
+				} else if (type == "Int") {
+					p.i32("VALUE");
+				} else if (type == "Float") {
+					p.f32("VALUE");
+				} else {
+					throw Stop("package data value '" + type + "' is not decoded yet");
+				}
+			});
+		}
+
+		void PackageData(P& p, std::int8_t a_type)
+		{
+			p.group(Fmt("PACKAGE DATA (%d)", a_type), [&] {
+				switch (a_type) {
+				case 18:  // CustomActorPackageData: instance values, then the procedure tree's run state
+					{
+						const auto n = p.vs("");
+						p.countedArray("VALUES", n, [&] { PackageValue(p); });
+						ProcedureState(p);
+					}
+					break;
+				case 0:
+				case 1:
+				case 3:
+				case 4:
+				case 5:
+				case 6:
+				case 7:
+				case 8:
+				case 9:
+				case 10:
+				case 11:
+				case 15:
+				case 17:
+					break;  // no data object for these package types
+				default:
+					throw Stop(Fmt("package data (type %d) is not decoded yet", a_type));
+				}
+			});
+		}
+
 		// ActorPackage: the package an actor is running (AIProcess, and again in the middle-high process)
 		void ActorPackage(P& p, const char* a_name)
 		{
 			p.group(a_name, [&] {
-				p.ref("PACKAGE");
-				const auto data = static_cast<std::int8_t>(p.u8("DATA TYPE"));
+				const auto package = p.ref("PACKAGE");
+				if (!package) {
+					return;  // no package: nothing else is saved for it
+				}
+				if ((package >> 22) == 2) {  // a package created in game (FF): its type, or -1 for none
+					const auto created = static_cast<std::int8_t>(p.u8("CREATED TYPE"));
+					if (created != -1) {
+						throw Stop(Fmt("created package (type %d) is not decoded yet", created));
+					}
+				}
+				// the data object's kind comes from the package's own type: all Skyrim packages are
+				// template / procedure-tree packages (type 18); the byte is -1 when it has none
+				const auto data = static_cast<std::int8_t>(p.u8("DATA STATE"));
 				if (data != -1) {
-					throw Stop(Fmt("package data (type %d) is not decoded yet", data));
+					PackageData(p, 18);
 				}
 				p.f32("UNK1");
 				p.f32("UNK2");
@@ -1252,6 +1526,7 @@ namespace ess::cf
 		}
 		out.bodySize = body.size();
 		P          p(a_save, body, a_types, out);
+		p.version = a_cf.version;
 		const auto flags = a_cf.changeFlags;
 		const auto t = static_cast<ChangeFormType>(a_cf.typeCode());
 		out.supported = true;
