@@ -878,7 +878,7 @@ void App::pollWatch()
 
 void App::drawPlayer()
 {
-	prepareWindow("Edit player", ImVec2(0.6f, 0.8f));
+	prepareWindow("Edit player", ImVec2(0.7f, 0.85f));
 	if (!ImGui::Begin("Edit player", &_showPlayer, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
@@ -890,10 +890,26 @@ void App::drawPlayer()
 		_pvGold = _pv.gold;
 		for (int i = 0; i < 18; ++i) {
 			_pvSkills[i] = _pv.skills[i];
+			_pvLegend[i] = _pv.legendary[i];
 		}
 		_pvBounty.clear();
 		for (const auto& b : _pv.bounties) {
 			_pvBounty.push_back({ b.violent, b.nonViolent });
+		}
+		_pvLevel = _pv.level;
+		_pvXP = _pv.xp;
+		_pvPerks = _pv.perkPoints;
+		_pvSouls = 0;
+		_pvAVEdit.clear();
+		for (const auto& a : _pv.avs) {
+			_pvAVEdit[a.id] = a.base;
+			if (a.id == 133) {
+				_pvSouls = static_cast<int>(a.current());
+			}
+		}
+		_pvItemEdit.clear();
+		for (const auto& it : _pv.items) {
+			_pvItemEdit[it.item] = it.count;
 		}
 	}
 	if (!_pv.error.empty()) {
@@ -912,93 +928,332 @@ void App::drawPlayer()
 		}
 		_pvLoaded = false;  // read the values again
 	};
-
-	ImGui::SeparatorText("Gold");
-	ImGui::SetNextItemWidth(160);
-	ImGui::InputInt("##gold", &_pvGold, 100, 1000);
-	_pvGold = std::max(_pvGold, 0);
-	ImGui::SameLine();
-	ImGui::BeginDisabled(_pvGold == _pv.gold);
-	if (ImGui::Button("Set gold")) {
-		done(cf::SetPlayerGold(*_save, _pvGold), Fmt("Set the player's gold to %d", _pvGold));
-	}
-	ImGui::EndDisabled();
-	if (!_pv.hasGold) {
-		ImGui::SameLine();
-		ImGui::TextDisabled("(no gold carried: a gold entry is added)");
-	}
-
-	ImGui::SeparatorText("Skills");
-	ImGui::TextDisabled("Setting a skill starts its progress toward the next level over. Your character level is not changed.");
-	if (ImGui::BeginTable("skills", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
-		for (int i = 0; i < 18; ++i) {
-			ImGui::PushID(i);
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(cf::kSkillNames[i]);
-			ImGui::TableNextColumn();
-			ImGui::BeginDisabled(!_pv.hasSkill[i]);
-			ImGui::SetNextItemWidth(120);
-			ImGui::InputFloat("##lvl", &_pvSkills[i], 1.0f, 10.0f, "%.0f");
-			_pvSkills[i] = std::clamp(_pvSkills[i], 0.0f, 1000.0f);
-			ImGui::TableNextColumn();
-			ImGui::BeginDisabled(_pvSkills[i] == _pv.skills[i]);
-			if (ImGui::SmallButton("Set")) {
-				done(cf::SetPlayerSkill(*_save, i, _pvSkills[i]), Fmt("Set the player's %s to %.0f", cf::kSkillNames[i], _pvSkills[i]));
-			}
-			ImGui::EndDisabled();
-			ImGui::EndDisabled();
-			ImGui::PopID();
+	auto matches = [](const std::string& a_text, const char* a_filter) {
+		if (!a_filter[0]) {
+			return true;
 		}
-		ImGui::EndTable();
+		std::string t = a_text, f = a_filter;
+		std::transform(t.begin(), t.end(), t.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+		std::transform(f.begin(), f.end(), f.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+		return t.find(f) != std::string::npos;
+	};
+	auto setButton = [](bool a_changed, const char* a_label = "Set") {
+		ImGui::BeginDisabled(!a_changed);
+		const bool b = ImGui::SmallButton(a_label);
+		ImGui::EndDisabled();
+		return b;
+	};
+
+	// ---- character ----
+	if (ImGui::CollapsingHeader("Character", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::BeginTable("char", 3, ImGuiTableFlags_SizingFixedFit)) {
+			auto row = [&](const char* a_name) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(a_name);
+				ImGui::TableNextColumn();
+				ImGui::SetNextItemWidth(150);
+			};
+			row("Gold");
+			ImGui::InputInt("##gold", &_pvGold, 100, 1000);
+			_pvGold = std::max(_pvGold, 0);
+			ImGui::TableNextColumn();
+			if (setButton(_pvGold != _pv.gold, "Set##gold")) {
+				done(cf::SetPlayerGold(*_save, _pvGold), Fmt("Set the player's gold to %d", _pvGold));
+			}
+			if (_pv.hasLevel) {
+				row("Level");
+				ImGui::InputInt("##level", &_pvLevel, 1, 5);
+				_pvLevel = std::clamp(_pvLevel, 1, 65535);
+				ImGui::TableNextColumn();
+				if (setButton(_pvLevel != _pv.level, "Set##level")) {
+					done(cf::SetPlayerLevel(*_save, _pvLevel), Fmt("Set the player's level to %d", _pvLevel));
+				}
+				ImGui::SameLine();
+				ImGui::TextDisabled("(perk points and stats are not added for the levels skipped)");
+			}
+			row("Level-up XP");
+			ImGui::InputFloat("##xp", &_pvXP, 10.0f, 100.0f, "%.0f");
+			_pvXP = std::max(_pvXP, 0.0f);
+			ImGui::TableNextColumn();
+			if (setButton(_pvXP != _pv.xp, "Set##xp")) {
+				done(cf::SetPlayerXP(*_save, _pvXP), Fmt("Set the player's level-up XP to %.0f", _pvXP));
+			}
+			ImGui::SameLine();
+			ImGui::TextDisabled("of %.0f for the next level", _pv.xpNext);
+			row("Perk points");
+			ImGui::InputInt("##perks", &_pvPerks, 1, 5);
+			_pvPerks = std::clamp(_pvPerks, 0, 255);
+			ImGui::TableNextColumn();
+			if (setButton(_pvPerks != _pv.perkPoints, "Set##perks")) {
+				done(cf::SetPlayerPerkPoints(*_save, _pvPerks), Fmt("Set the player's perk points to %d", _pvPerks));
+			}
+			const bool hasSouls = std::any_of(_pv.avs.begin(), _pv.avs.end(), [](const auto& a) { return a.id == 133 && a.hasBase; });
+			if (hasSouls) {
+				int current = 0;
+				for (const auto& a : _pv.avs) {
+					if (a.id == 133) {
+						current = static_cast<int>(a.current());
+					}
+				}
+				row("Dragon souls");
+				ImGui::InputInt("##souls", &_pvSouls, 1, 5);
+				_pvSouls = std::max(_pvSouls, 0);
+				ImGui::TableNextColumn();
+				if (setButton(_pvSouls != current, "Set##souls")) {
+					done(cf::SetPlayerDragonSouls(*_save, _pvSouls), Fmt("Set the player's dragon souls to %d", _pvSouls));
+				}
+			}
+			ImGui::EndTable();
+		}
 	}
 
-	ImGui::SeparatorText("Bounty");
-	ImGui::Checkbox("Show every faction (not only those with a bounty or crimes)", &_pvAllFactions);
-	if (ImGui::BeginTable("bounty", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
-		ImGui::TableSetupColumn("Faction");
-		ImGui::TableSetupColumn("Violent");
-		ImGui::TableSetupColumn("Non-violent");
-		ImGui::TableSetupColumn("");
-		ImGui::TableHeadersRow();
-		int shown = 0;
-		for (std::size_t i = 0; i < _pv.bounties.size() && i < _pvBounty.size(); ++i) {
-			const auto& b = _pv.bounties[i];
-			const bool  any = b.violent || b.nonViolent || b.violentTotal || b.nonViolentTotal;
-			if (!_pvAllFactions && !any) {
+	// ---- skills ----
+	if (ImGui::CollapsingHeader("Skills")) {
+		ImGui::TextDisabled("Setting a skill starts its progress toward the next level over. Your character level is not changed.");
+		if (ImGui::BeginTable("skills", 5, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
+			ImGui::TableSetupColumn("Skill");
+			ImGui::TableSetupColumn("Level");
+			ImGui::TableSetupColumn("");
+			ImGui::TableSetupColumn(_pv.hasLegendary ? "Legendary" : "");
+			ImGui::TableSetupColumn("");
+			ImGui::TableHeadersRow();
+			for (int i = 0; i < 18; ++i) {
+				ImGui::PushID(i);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(cf::kSkillNames[i]);
+				ImGui::TableNextColumn();
+				ImGui::BeginDisabled(!_pv.hasSkill[i]);
+				ImGui::SetNextItemWidth(120);
+				ImGui::InputFloat("##lvl", &_pvSkills[i], 1.0f, 10.0f, "%.0f");
+				_pvSkills[i] = std::clamp(_pvSkills[i], 0.0f, 1000.0f);
+				ImGui::TableNextColumn();
+				if (setButton(_pvSkills[i] != _pv.skills[i])) {
+					done(cf::SetPlayerSkill(*_save, i, _pvSkills[i]), Fmt("Set the player's %s to %.0f", cf::kSkillNames[i], _pvSkills[i]));
+				}
+				ImGui::EndDisabled();
+				if (_pv.hasLegendary) {
+					ImGui::TableNextColumn();
+					ImGui::SetNextItemWidth(100);
+					ImGui::InputInt("##leg", &_pvLegend[i], 1, 1);
+					_pvLegend[i] = std::max(_pvLegend[i], 0);
+					ImGui::TableNextColumn();
+					if (setButton(_pvLegend[i] != _pv.legendary[i], "Set##leg")) {
+						done(cf::SetPlayerLegendary(*_save, i, _pvLegend[i]),
+							Fmt("Set the player's %s legendary count to %d", cf::kSkillNames[i], _pvLegend[i]));
+					}
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+	}
+
+	// ---- stats and other actor values ----
+	if (ImGui::CollapsingHeader("Stats and actor values")) {
+		ImGui::TextWrapped("Base is the saved value; permanent, temporary and damage are the changes on top of it. Reset drops the saved "
+						   "value and its permanent and damage changes, so your race and plugins give it again (for odd values left by "
+						   "mods). Health, Magicka, Stamina, skills and dragon souls hold your progress, so they can be set but not reset. "
+						   "Temporary changes usually come from active effects: clear them only when nothing should be affecting you.");
+		ImGui::SetNextItemWidth(250);
+		ImGui::InputTextWithHint("##avf", "filter (e.g. rate, resist, carry)", _pvAVFilter, sizeof(_pvAVFilter));
+		if (ImGui::BeginTable("avs", 7, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0, 380))) {
+			ImGui::TableSetupScrollFreeze(0, 1);
+			for (const char* h : { "Actor value", "Base", "", "Permanent", "Temporary", "Damage", "Now" }) {
+				ImGui::TableSetupColumn(h);
+			}
+			ImGui::TableHeadersRow();
+			for (const auto& a : _pv.avs) {
+				if (a.id >= 6 && a.id <= 23) {
+					continue;  // the skills have their own section
+				}
+				const std::string name = cf::ActorValueName(a.id);
+				if (!matches(name, _pvAVFilter)) {
+					continue;
+				}
+				ImGui::PushID(static_cast<int>(a.id) + 5000);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(name.c_str());
+				ImGui::TableNextColumn();
+				if (a.hasBase) {
+					auto& e = _pvAVEdit[a.id];
+					ImGui::SetNextItemWidth(110);
+					ImGui::InputFloat("##b", &e, 0, 0, "%.2f");
+					ImGui::TableNextColumn();
+					if (setButton(e != a.base)) {
+						done(cf::SetPlayerAV(*_save, a.id, e), Fmt("Set the player's %s to %g", name.c_str(), e));
+					}
+				} else {
+					ImGui::TextDisabled("(plugin)");
+					ImGui::TableNextColumn();
+				}
+				if (cf::CanResetPlayerAV(a.id) && (a.hasBase || a.permanent != 0 || a.damage != 0)) {
+					ImGui::SameLine();
+					if (ImGui::SmallButton("Reset")) {
+						done(cf::ResetPlayerAV(*_save, a.id), "Reset the player's " + name);
+					}
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%g", a.permanent);
+				if (a.permanent != 0) {
+					ImGui::SameLine();
+					if (ImGui::SmallButton("Clear##p")) {
+						done(cf::ClearPlayerAVModifiers(*_save, a.id, 1), "Cleared the permanent change to the player's " + name);
+					}
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%g", a.temporary);
+				if (a.temporary != 0) {
+					ImGui::SameLine();
+					if (ImGui::SmallButton("Clear##t")) {
+						done(cf::ClearPlayerAVModifiers(*_save, a.id, 2), "Cleared the temporary change to the player's " + name);
+					}
+				}
+				ImGui::TableNextColumn();
+				ImGui::Text("%g", a.damage);
+				if (a.damage != 0) {
+					ImGui::SameLine();
+					if (ImGui::SmallButton("Clear##d")) {
+						done(cf::ClearPlayerAVModifiers(*_save, a.id, 4), "Cleared the damage to the player's " + name);
+					}
+				}
+				ImGui::TableNextColumn();
+				if (a.hasBase) {
+					ImGui::Text("%g", a.current());
+				} else {
+					ImGui::TextDisabled("plugin %+g", a.permanent + a.temporary + a.damage);
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+	}
+
+	// ---- inventory ----
+	if (ImGui::CollapsingHeader("Inventory")) {
+		ImGui::TextWrapped("Counts are what the save adds to the character's starting inventory. Set changes the plain stack (enchanted, "
+						   "tempered or worn stacks keep their own); Remove takes every stack of the item. Removing a quest item can "
+						   "break its quest.");
+		ImGui::SetNextItemWidth(250);
+		ImGui::InputTextWithHint("##itf", "filter by name or form ID", _pvItemFilter, sizeof(_pvItemFilter));
+		if (ImGui::BeginTable("items", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0, 380))) {
+			ImGui::TableSetupScrollFreeze(0, 1);
+			for (const char* h : { "Item", "Count", "", "" }) {
+				ImGui::TableSetupColumn(h);
+			}
+			ImGui::TableHeadersRow();
+			for (const auto& it : _pv.items) {
+				const auto name = formText(it.item);
+				if (!matches(name, _pvItemFilter)) {
+					continue;
+				}
+				ImGui::PushID(static_cast<int>(it.item));
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(name.c_str());
+				if (it.hasExtra) {
+					ImGui::SameLine();
+					ImGui::TextDisabled("(special)");
+				}
+				ImGui::TableNextColumn();
+				auto& e = _pvItemEdit[it.item];
+				ImGui::SetNextItemWidth(110);
+				ImGui::InputInt("##c", &e, 1, 10);
+				e = std::max(e, 0);
+				ImGui::TableNextColumn();
+				if (setButton(e != it.count)) {
+					done(cf::SetPlayerItemCount(*_save, it.item, e), Fmt("Set the player's %s to %d", name.c_str(), e));
+				}
+				ImGui::TableNextColumn();
+				if (ImGui::SmallButton("Remove")) {
+					const auto item = it.item;
+					confirm("Remove an item", "Remove every " + name + " the player carries?",
+						[this, item, name, done] { done(cf::RemovePlayerItem(*_save, item), "Removed " + name + " from the player"); });
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+	}
+
+	// ---- spells ----
+	if (ImGui::CollapsingHeader("Spells and powers added in game")) {
+		ImGui::TextWrapped("Spells, powers and abilities the game or a mod gave you while playing. Removing a leftover from a mod you "
+						   "uninstalled is the usual use; spells from your race or from books you read stay where they are.");
+		ImGui::SetNextItemWidth(250);
+		ImGui::InputTextWithHint("##spf", "filter", _pvSpellFilter, sizeof(_pvSpellFilter));
+		for (std::size_t i = 0; i < _pv.spells.size(); ++i) {
+			const auto sp = _pv.spells[i];
+			const auto name = formText(sp);
+			if (!matches(name, _pvSpellFilter)) {
 				continue;
 			}
-			++shown;
-			ImGui::PushID(static_cast<int>(i));
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(formText(b.faction).c_str());
-			ImGui::TableNextColumn();
-			ImGui::SetNextItemWidth(110);
-			ImGui::InputInt("##v", &_pvBounty[i][0], 100, 1000);
-			ImGui::TableNextColumn();
-			ImGui::SetNextItemWidth(110);
-			ImGui::InputInt("##n", &_pvBounty[i][1], 100, 1000);
-			_pvBounty[i][0] = std::max(_pvBounty[i][0], 0);
-			_pvBounty[i][1] = std::max(_pvBounty[i][1], 0);
-			ImGui::TableNextColumn();
-			ImGui::BeginDisabled(_pvBounty[i][0] == b.violent && _pvBounty[i][1] == b.nonViolent);
-			if (ImGui::SmallButton("Set")) {
-				done(cf::SetPlayerBounty(*_save, b.faction, _pvBounty[i][0], _pvBounty[i][1]),
-					Fmt("Set the player's bounty with %s to %d", formText(b.faction).c_str(), _pvBounty[i][0] + _pvBounty[i][1]));
+			ImGui::PushID(static_cast<int>(i) + 90000);
+			if (ImGui::SmallButton("Remove")) {
+				confirm("Remove a spell", "Remove " + name + " from the player?",
+					[this, sp, name, done] { done(cf::RemovePlayerSpell(*_save, sp), "Removed " + name + " from the player"); });
 			}
-			ImGui::EndDisabled();
 			ImGui::SameLine();
-			ImGui::BeginDisabled(b.violent == 0 && b.nonViolent == 0);
-			if (ImGui::SmallButton("Clear")) {
-				done(cf::SetPlayerBounty(*_save, b.faction, 0, 0), "Cleared the player's bounty with " + formText(b.faction));
-			}
-			ImGui::EndDisabled();
+			ImGui::TextUnformatted(name.c_str());
 			ImGui::PopID();
 		}
-		ImGui::EndTable();
-		if (!shown) {
-			ImGui::TextDisabled("No bounties or crimes recorded.");
+	}
+
+	// ---- bounty ----
+	if (ImGui::CollapsingHeader("Bounty and crime")) {
+		ImGui::Checkbox("Show every faction (not only those with a bounty or crimes)", &_pvAllFactions);
+		if (ImGui::BeginTable("bounty", 5, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
+			for (const char* h : { "Faction", "Violent", "Non-violent", "", "Crime totals" }) {
+				ImGui::TableSetupColumn(h);
+			}
+			ImGui::TableHeadersRow();
+			int shown = 0;
+			for (std::size_t i = 0; i < _pv.bounties.size() && i < _pvBounty.size(); ++i) {
+				const auto& b = _pv.bounties[i];
+				const bool  any = b.violent || b.nonViolent || b.violentTotal || b.nonViolentTotal;
+				if (!_pvAllFactions && !any) {
+					continue;
+				}
+				++shown;
+				ImGui::PushID(static_cast<int>(i));
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(formText(b.faction).c_str());
+				ImGui::TableNextColumn();
+				ImGui::SetNextItemWidth(110);
+				ImGui::InputInt("##v", &_pvBounty[i][0], 100, 1000);
+				ImGui::TableNextColumn();
+				ImGui::SetNextItemWidth(110);
+				ImGui::InputInt("##n", &_pvBounty[i][1], 100, 1000);
+				_pvBounty[i][0] = std::max(_pvBounty[i][0], 0);
+				_pvBounty[i][1] = std::max(_pvBounty[i][1], 0);
+				ImGui::TableNextColumn();
+				if (setButton(_pvBounty[i][0] != b.violent || _pvBounty[i][1] != b.nonViolent)) {
+					done(cf::SetPlayerBounty(*_save, b.faction, _pvBounty[i][0], _pvBounty[i][1]),
+						Fmt("Set the player's bounty with %s to %d", formText(b.faction).c_str(), _pvBounty[i][0] + _pvBounty[i][1]));
+				}
+				ImGui::SameLine();
+				ImGui::BeginDisabled(b.violent == 0 && b.nonViolent == 0);
+				if (ImGui::SmallButton("Clear")) {
+					done(cf::SetPlayerBounty(*_save, b.faction, 0, 0), "Cleared the player's bounty with " + formText(b.faction));
+				}
+				ImGui::EndDisabled();
+				ImGui::TableNextColumn();
+				ImGui::Text("%d violent, %d non-violent", b.violentTotal, b.nonViolentTotal);
+				if (b.violentTotal || b.nonViolentTotal) {
+					ImGui::SameLine();
+					if (ImGui::SmallButton("Reset all")) {
+						done(cf::ClearPlayerCrimes(*_save, b.faction), "Cleared the player's bounty and crime record with " + formText(b.faction));
+					}
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+			if (!shown) {
+				ImGui::TextDisabled("No bounties or crimes recorded.");
+			}
 		}
 	}
 	ImGui::End();

@@ -622,6 +622,12 @@ private:
 	int                        _pvGold = 0;
 	float                      _pvSkills[18]{};
 	std::vector<std::array<int, 2>> _pvBounty;
+	int                        _pvLevel = 0, _pvPerks = 0, _pvSouls = 0;
+	float                      _pvXP = 0;
+	int                        _pvLegend[18]{};
+	std::map<std::uint32_t, float> _pvAVEdit;
+	std::map<std::uint32_t, int>   _pvItemEdit;
+	char                       _pvAVFilter[64]{}, _pvItemFilter[64]{}, _pvSpellFilter[64]{};
 	char                       _lookupBuf[256] = "";
 	bool                       _lookupAuto = false;
 	std::vector<std::uint32_t> _lookupResults;

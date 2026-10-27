@@ -1,5 +1,8 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "ChangeFormData.h"
+#include <cmath>
+#include <map>
+#include <iterator>
 #include <set>
 
 #include "ByteIO.h"
@@ -846,7 +849,8 @@ namespace ess::cf
 				const auto item = p.refResolved("ITEM");
 				const auto countAt = p.r.pos();
 				const auto count = p.i32("COUNT");
-				p.out().inventory.push_back({ item, entryAt, countAt });
+				p.out().inventory.push_back({ item, entryAt, countAt, 0 });
+				const auto entryIndex = p.out().inventory.size() - 1;
 				// the entry's extra data is a list of extra data lists, one per distinct stack (each its
 				// own enchantment, charge, health...)
 				const auto lists = p.vs("");
@@ -880,6 +884,7 @@ namespace ess::cf
 					}
 				});
 				(void)count;
+				p.out().inventory[entryIndex].endAt = p.r.pos();
 			});
 		}
 
@@ -2553,18 +2558,26 @@ namespace ess::cf
 				ActorValueModifiers(p, "STAMINA MODIFIERS");
 				ActorValueModifiers(p, "VOICE MODIFIERS");
 				p.group("ACTOR VALUES", [&] {
+					// the actor value is written as an i32 holding a signed byte (133 = DragonSouls reads as -123)
+					p.out().baseAVListAt = p.r.pos();
 					p.vsArray("BASE", [&] {
 						const auto av = p.i32("AV");
-						p.out().baseAVs.push_back({ static_cast<std::uint32_t>(av), p.r.pos() });
+						p.out().baseAVs.push_back({ static_cast<std::uint32_t>(av) & 0xFF, p.r.pos() });
 						p.f32("VALUE");
 					});
+					p.out().avModListAt = p.r.pos();
 					p.vsArray("MODIFIERS", [&] {
-						p.i32("AV");
+						const auto av = p.i32("AV");
+						p.out().avMods.push_back({ static_cast<std::uint32_t>(av) & 0xFF, p.r.pos() });
 						p.floats("PERMANENT, TEMPORARY, DAMAGE", 3);
 					});
 				});
+				p.out().addedSpellsAt = p.r.pos();
 				const auto spells = static_cast<std::uint32_t>(p.r.i32());
-				p.countedArray("ADDED SPELLS", spells, [&] { p.ref("SPELL"); });
+				p.countedArray("ADDED SPELLS", spells, [&] {
+					const auto at = p.r.pos();
+					p.out().addedSpells.push_back({ p.refResolved("SPELL"), at });
+				});
 				{
 					const auto at = p.r.pos();
 					if (p.u8("HAS MOVEMENT CONTROLLER")) {
@@ -3080,8 +3093,9 @@ namespace ess::cf
 				p.i32("UNK8DC");
 				p.ints("UNK950", 7);
 				p.group("SKILLS", [&] {
-					p.f32("UNK0");
-					p.f32("UNK4");
+					p.out().playerXPAt = p.r.pos();
+					p.f32("XP");
+					p.f32("XP FOR NEXT LEVEL");
 					const auto n = static_cast<std::uint32_t>(p.r.i32());
 					const auto total = std::max<std::uint32_t>(n, 18);
 					p.add("COUNT", std::to_string(n));
@@ -3188,7 +3202,8 @@ namespace ess::cf
 				p.vsArray("UNK5B2BB0", [&] { p.i32("VALUE"); });
 				p.ref("REFA00");
 				p.ref("REFA08");
-				p.u8("UNKB09");
+				p.out().playerPerkPointsAt = p.r.pos();
+				p.u8("PERK POINTS");
 				p.vsArray("LIST4", [&] {
 					p.ref("REF");
 					p.ints("VALUES", 2);
@@ -4079,6 +4094,43 @@ namespace ess::cf
 		}
 
 		constexpr std::uint32_t kGold = 0x0000000F;  // Gold001
+
+		// the player's base form (NPC_ 00000007): its ACBS holds the character level
+		const ChangeForm* PlayerBase(const SaveFile& a_save)
+		{
+			for (const auto& c : a_save.changeForms) {
+				if (c.refID.data == 0x400007 && static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::NPC_) {
+					return &c;
+				}
+			}
+			return nullptr;
+		}
+
+		// replaces the vsval at a_at with a_count (its width may change)
+		void RewriteVs(std::vector<std::uint8_t>& a_body, std::size_t a_at, std::uint32_t a_count)
+		{
+			const auto                b0 = a_body[a_at];
+			const std::size_t         len = (b0 & 3) == 0 ? 1 : (b0 & 3) == 1 ? 2 : 4;
+			std::vector<std::uint8_t> enc;
+			PutVsval(enc, a_count);
+			a_body.erase(a_body.begin() + static_cast<std::ptrdiff_t>(a_at), a_body.begin() + static_cast<std::ptrdiff_t>(a_at + len));
+			a_body.insert(a_body.begin() + static_cast<std::ptrdiff_t>(a_at), enc.begin(), enc.end());
+		}
+		std::uint32_t GetVs(const std::vector<std::uint8_t>& a_body, std::size_t a_at)
+		{
+			const auto b0 = a_body[a_at];
+			std::uint32_t v = b0;
+			if ((b0 & 3) == 1) {
+				v |= std::uint32_t(a_body[a_at + 1]) << 8;
+			} else if ((b0 & 3) == 2) {
+				v |= std::uint32_t(a_body[a_at + 1]) << 8 | std::uint32_t(a_body[a_at + 2]) << 16 | std::uint32_t(a_body[a_at + 3]) << 24;
+			}
+			return v >> 2;
+		}
+		void Erase(std::vector<std::uint8_t>& a_body, std::size_t a_from, std::size_t a_to)
+		{
+			a_body.erase(a_body.begin() + static_cast<std::ptrdiff_t>(a_from), a_body.begin() + static_cast<std::ptrdiff_t>(a_to));
+		}
 	}
 
 	PlayerValues ReadPlayer(const SaveFile& a_save)
@@ -4106,6 +4158,64 @@ namespace ess::cf
 				out.skills[v.id - 6] = GetF32(body, v.at);
 				out.hasSkill[v.id - 6] = true;
 			}
+		}
+		for (std::size_t i = 0; i < d.playerSkillsAt.size() && i < 18; ++i) {
+			if (cf->version > 0x49) {
+				out.legendary[i] = GetI32(body, d.playerSkillsAt[i] + 12);
+				out.hasLegendary = true;
+			}
+		}
+		if (d.playerXPAt) {
+			out.xp = GetF32(body, d.playerXPAt);
+			out.xpNext = GetF32(body, d.playerXPAt + 4);
+		}
+		if (d.playerPerkPointsAt) {
+			out.perkPoints = body[d.playerPerkPointsAt];
+		}
+		if (const auto* npc = PlayerBase(a_save)) {
+			const auto nd = Decode(a_save, *npc);
+			if (const auto it = nd.sections.find(1); nd.complete && it != nd.sections.end()) {
+				const auto nb = Body(*npc);
+				out.level = nb[it->second.first + 8] | (nb[it->second.first + 9] << 8);
+				out.hasLevel = true;
+			}
+		}
+		{
+			std::map<std::uint32_t, PlayerAV> avs;
+			for (const auto& v : d.baseAVs) {
+				auto& a = avs[v.id];
+				a.id = v.id;
+				a.hasBase = true;
+				a.base = GetF32(body, v.at);
+			}
+			for (const auto& m : d.avMods) {
+				auto& a = avs[m.id];
+				a.id = m.id;
+				a.hasMod = true;
+				a.permanent = GetF32(body, m.at);
+				a.temporary = GetF32(body, m.at + 4);
+				a.damage = GetF32(body, m.at + 8);
+			}
+			for (const auto& [id, a] : avs) {
+				out.avs.push_back(a);
+			}
+		}
+		for (const auto& e : d.inventory) {
+			const bool extra = e.endAt > e.countAt + 4 && body[e.countAt + 4] != 0;
+			bool       merged = false;
+			for (auto& it : out.items) {
+				if (it.item == e.item) {
+					it.count += GetI32(body, e.countAt);
+					it.hasExtra = it.hasExtra || extra;
+					merged = true;
+				}
+			}
+			if (!merged) {
+				out.items.push_back({ e.item, GetI32(body, e.countAt), extra });
+			}
+		}
+		for (const auto& sp : d.addedSpells) {
+			out.spells.push_back(sp.id);
 		}
 		for (const auto& c : d.crimeGold) {
 			PlayerBounty b;
@@ -4180,6 +4290,295 @@ namespace ess::cf
 				PutF32(body, at + 4, 0.0f); // and its progress toward the next level starts over
 			}
 			return {};
+		});
+	}
+
+	const char* ActorValueName(std::uint32_t a_av)
+	{
+		static const char* const names[] = { "Aggression", "Confidence", "Energy", "Morality", "Mood", "Assistance", "OneHanded", "TwoHanded",
+			"Archery", "Block", "Smithing", "HeavyArmor", "LightArmor", "Pickpocket", "Lockpicking", "Sneak", "Alchemy", "Speech", "Alteration",
+			"Conjuration", "Destruction", "Illusion", "Restoration", "Enchanting", "Health", "Magicka", "Stamina", "HealRate", "MagickaRate",
+			"StaminaRate", "SpeedMult", "InventoryWeight", "CarryWeight", "CriticalChance", "MeleeDamage", "UnarmedDamage", "Mass",
+			"VoicePoints", "VoiceRate", "DamageResist", "PoisonResist", "ResistFire", "ResistShock", "ResistFrost", "ResistMagic",
+			"ResistDisease", "PerceptionCondition", "EnduranceCondition", "LeftAttackCondition", "RightAttackCondition",
+			"LeftMobilityCondition", "RightMobilityCondition", "BrainCondition", "Paralysis", "Invisibility", "NightEye", "DetectLifeRange",
+			"WaterBreathing", "WaterWalking", "IgnoreCrippledLimbs", "Fame", "Infamy", "JumpingBonus", "WardPower", "RightItemCharge",
+			"ArmorPerks", "ShieldPerks", "WardDeflection", "Variable01", "Variable02", "Variable03", "Variable04", "Variable05",
+			"Variable06", "Variable07", "Variable08", "Variable09", "Variable10", "BowSpeedBonus", "FavorActive", "FavorsPerDay",
+			"FavorsPerDayTimer", "LeftItemCharge", "AbsorbChance", "Blindness", "WeaponSpeedMult", "ShoutRecoveryMult", "BowStaggerBonus",
+			"Telekinesis", "FavorPointsBonus", "LastBribedIntimidated", "LastFlattered", "MovementNoiseMult", "BypassVendorStolenCheck",
+			"BypassVendorKeywordCheck", "WaitingForPlayer", "OneHandedModifier", "TwoHandedModifier", "MarksmanModifier", "BlockModifier",
+			"SmithingModifier", "HeavyArmorModifier", "LightArmorModifier", "PickpocketModifier", "LockpickingModifier", "SneakingModifier",
+			"AlchemyModifier", "SpeechcraftModifier", "AlterationModifier", "ConjurationModifier", "DestructionModifier", "IllusionModifier",
+			"RestorationModifier", "EnchantingModifier", "OneHandedSkillAdvance", "TwoHandedSkillAdvance", "MarksmanSkillAdvance",
+			"BlockSkillAdvance", "SmithingSkillAdvance", "HeavyArmorSkillAdvance", "LightArmorSkillAdvance", "PickpocketSkillAdvance",
+			"LockpickingSkillAdvance", "SneakingSkillAdvance", "AlchemySkillAdvance", "SpeechcraftSkillAdvance", "AlterationSkillAdvance",
+			"ConjurationSkillAdvance", "DestructionSkillAdvance", "IllusionSkillAdvance", "RestorationSkillAdvance", "EnchantingSkillAdvance",
+			"LeftWeaponSpeedMultiply", "DragonSouls", "CombatHealthRegenMultiply", "OneHandedPowerModifier", "TwoHandedPowerModifier",
+			"MarksmanPowerModifier", "BlockPowerModifier", "SmithingPowerModifier", "HeavyArmorPowerModifier", "LightArmorPowerModifier",
+			"PickpocketPowerModifier", "LockpickingPowerModifier", "SneakingPowerModifier", "AlchemyPowerModifier", "SpeechcraftPowerModifier",
+			"AlterationPowerModifier", "ConjurationPowerModifier", "DestructionPowerModifier", "IllusionPowerModifier",
+			"RestorationPowerModifier", "EnchantingPowerModifier", "DragonRend", "AttackDamageMult", "HealRateMult", "MagickaRateMult",
+			"StaminaRateMult", "WerewolfPerks", "VampirePerks", "GrabActorOffset", "Grabbed", "DEPRECATED05", "ReflectDamage" };
+		return a_av < std::size(names) ? names[a_av] : "Unknown";
+	}
+
+	std::string SetPlayerLegendary(SaveFile& a_save, int a_skill, std::int32_t a_count)
+	{
+		if (a_skill < 0 || a_skill >= 18 || a_count < 0) {
+			return "no such skill, or a negative count";
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			if (PlayerForm(a_save)->version <= 0x49 || static_cast<std::size_t>(a_skill) >= d.playerSkillsAt.size()) {
+				return "this save does not record legendary counts";
+			}
+			PutI32(body, d.playerSkillsAt[a_skill] + 12, a_count);
+			return {};
+		});
+	}
+
+	std::string ClearPlayerCrimes(SaveFile& a_save, std::uint32_t a_faction)
+	{
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			for (const auto& c : d.crimeGold) {
+				if (c.id == a_faction) {
+					for (int i = 0; i < 4; ++i) {
+						PutI32(body, c.at + 4 * i, 0);
+					}
+					return {};
+				}
+			}
+			return "the player has no crime record with that faction";
+		});
+	}
+
+	std::string SetPlayerLevel(SaveFile& a_save, int a_level)
+	{
+		if (a_level < 1 || a_level > 65535) {
+			return "the level must be between 1 and 65535";
+		}
+		ChangeForm* npc = nullptr;
+		for (auto& c : a_save.changeForms) {
+			if (c.refID.data == 0x400007 && static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::NPC_) {
+				npc = &c;
+			}
+		}
+		if (!npc) {
+			return "this save has no change form for the player's base (00000007)";
+		}
+		const auto nd = Decode(a_save, *npc);
+		const auto it = nd.sections.find(1);
+		if (!nd.complete || it == nd.sections.end()) {
+			return "the player's base record holds no level data: nothing changed";
+		}
+		const auto before = *npc;
+		auto       nb = Body(*npc);
+		nb[it->second.first + 8] = static_cast<std::uint8_t>(a_level);
+		nb[it->second.first + 9] = static_cast<std::uint8_t>(a_level >> 8);
+		SetBody(*npc, nb);
+		if (!Decode(a_save, *npc).complete) {
+			*npc = before;
+			return "the result would not read back correctly: nothing changed";
+		}
+		// the XP needed for the next level, with the game's default settings: 75 + 25 x level
+		const auto why = EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			if (d.playerXPAt) {
+				PutF32(body, d.playerXPAt + 4, 75.0f + 25.0f * static_cast<float>(a_level));
+			}
+			return {};
+		});
+		if (!why.empty()) {
+			*npc = before;
+		}
+		return why;
+	}
+
+	std::string SetPlayerXP(SaveFile& a_save, float a_xp)
+	{
+		if (!(a_xp >= 0.0f && a_xp < 1e9f)) {
+			return "the XP must be 0 or more";
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			if (!d.playerXPAt) {
+				return "no XP data found";
+			}
+			PutF32(body, d.playerXPAt, a_xp);
+			return {};
+		});
+	}
+
+	std::string SetPlayerPerkPoints(SaveFile& a_save, int a_points)
+	{
+		if (a_points < 0 || a_points > 255) {
+			return "perk points must be between 0 and 255";
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			if (!d.playerPerkPointsAt) {
+				return "no perk point data found";
+			}
+			body[d.playerPerkPointsAt] = static_cast<std::uint8_t>(a_points);
+			return {};
+		});
+	}
+
+	std::string SetPlayerDragonSouls(SaveFile& a_save, int a_souls)
+	{
+		if (a_souls < 0 || a_souls > 100000) {
+			return "dragon souls must be 0 or more";
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			constexpr std::uint32_t kSouls = 133;
+			float base = 0;
+			bool  hasBase = false;
+			for (const auto& v : d.baseAVs) {
+				if (v.id == kSouls) {
+					base = GetF32(body, v.at);
+					hasBase = true;
+				}
+			}
+			for (const auto& m : d.avMods) {
+				if (m.id == kSouls) {  // spent souls are a permanent modifier: keep the base, adjust what was spent
+					PutF32(body, m.at, static_cast<float>(a_souls) - base);
+					return {};
+				}
+			}
+			for (const auto& v : d.baseAVs) {
+				if (v.id == kSouls) {
+					PutF32(body, v.at, static_cast<float>(a_souls));
+					return {};
+				}
+			}
+			(void)hasBase;
+			return "the player has no saved dragon soul value yet (absorb one first)";
+		});
+	}
+
+	std::string SetPlayerAV(SaveFile& a_save, std::uint32_t a_av, float a_base)
+	{
+		if (!std::isfinite(a_base)) {
+			return "not a number";
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			for (const auto& v : d.baseAVs) {
+				if (v.id == a_av) {
+					PutF32(body, v.at, a_base);
+					return {};
+				}
+			}
+			return std::string("the player has no saved base value for ") + ActorValueName(a_av);
+		});
+	}
+
+	bool CanResetPlayerAV(std::uint32_t a_av)
+	{
+		// skills, Health, Magicka, Stamina and dragon souls hold progress the race does not know about
+		return !(a_av >= 6 && a_av <= 26) && a_av != 133 && a_av < 164;
+	}
+
+	std::string ResetPlayerAV(SaveFile& a_save, std::uint32_t a_av)
+	{
+		if (!CanResetPlayerAV(a_av)) {
+			return std::string(ActorValueName(a_av)) + " holds your progress and is not reset";
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			// the permanent and damage modifiers go too (they are written after the base list, so first)
+			for (const auto& m : d.avMods) {
+				if (m.id == a_av) {
+					PutF32(body, m.at, 0.0f);
+					PutF32(body, m.at + 8, 0.0f);
+				}
+			}
+			for (const auto& v : d.baseAVs) {
+				if (v.id == a_av) {
+					const auto n = GetVs(body, d.baseAVListAt);
+					Erase(body, v.at - 4, v.at + 4);  // the AV id and its value
+					RewriteVs(body, d.baseAVListAt, n - 1);
+					return {};
+				}
+			}
+			return {};  // no saved base value: clearing the modifiers was the reset
+		});
+	}
+
+	std::string ClearPlayerAVModifiers(SaveFile& a_save, std::uint32_t a_av, int a_which)
+	{
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			for (const auto& m : d.avMods) {
+				if (m.id == a_av) {
+					for (int i = 0; i < 3; ++i) {
+						if (a_which & (1 << i)) {
+							PutF32(body, m.at + 4 * i, 0.0f);
+						}
+					}
+					return {};
+				}
+			}
+			return std::string("the player has no modifiers on ") + ActorValueName(a_av);
+		});
+	}
+
+	std::string SetPlayerItemCount(SaveFile& a_save, std::uint32_t a_item, std::int32_t a_count)
+	{
+		if (a_count < 0) {
+			return "a count cannot be negative";
+		}
+		if (a_item == kGold) {
+			return SetPlayerGold(a_save, a_count);
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			// the stack without extra data takes the count; stacks with extra data (enchanted, worn...) stay
+			std::int32_t inExtras = 0;
+			const Decoded::InvAt* plain = nullptr;
+			for (const auto& e : d.inventory) {
+				if (e.item != a_item) {
+					continue;
+				}
+				if (e.endAt > e.countAt + 4 && body[e.countAt + 4] != 0) {
+					inExtras += 0;  // counted by their own Count extra data; left alone
+				} else if (!plain) {
+					plain = &e;
+				}
+			}
+			if (!plain) {
+				return "the player has no plain stack of that item to change (only enchanted, worn or otherwise special ones)";
+			}
+			PutI32(body, plain->countAt, a_count);
+			(void)inExtras;
+			return {};
+		});
+	}
+
+	std::string RemovePlayerItem(SaveFile& a_save, std::uint32_t a_item)
+	{
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			const auto n = GetVs(body, d.inventoryCountAt);
+			std::uint32_t removed = 0;
+			for (auto it = d.inventory.rbegin(); it != d.inventory.rend(); ++it) {
+				if (it->item == a_item) {
+					Erase(body, it->entryAt, it->endAt);
+					++removed;
+				}
+			}
+			if (!removed) {
+				return "the player does not carry that item";
+			}
+			RewriteVs(body, d.inventoryCountAt, n - removed);
+			return {};
+		});
+	}
+
+	std::string RemovePlayerSpell(SaveFile& a_save, std::uint32_t a_spell)
+	{
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			for (const auto& sp : d.addedSpells) {
+				if (sp.id == a_spell) {
+					const auto n = static_cast<std::uint32_t>(GetI32(body, d.addedSpellsAt));
+					Erase(body, sp.at, sp.at + 3);
+					PutI32(body, d.addedSpellsAt, static_cast<std::int32_t>(n - 1));
+					return {};
+				}
+			}
+			return "the player does not have that spell from the game (spells from the race or plugins cannot be removed here)";
 		});
 	}
 

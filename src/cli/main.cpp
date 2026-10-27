@@ -73,6 +73,13 @@ static void Usage()
 		"  --set-skill <skill> <n>   set a skill (e.g. OneHanded, Archery, Speech) to n. Needs -o.\n"
 		"  --set-bounty <faction formid> <violent> <non-violent>  set the bounty with a hold's crime faction.\n"
 		"                            Needs -o.\n"
+		"  --set-level <n> / --set-xp <n> / --set-perks <n> / --set-souls <n>  the player's level, level-up XP,\n"
+		"                            perk points, dragon souls. Needs -o.\n"
+		"  --set-av <name> <n> / --reset-av <name> / --clear-av-mods <name>  an actor value (e.g. CarryWeight,\n"
+		"                            HealRateMult): set its base, reset it to the race's, clear permanent and\n"
+		"                            damage changes. Needs -o.\n"
+		"  --set-item <formid> <n> / --remove-item <formid> / --remove-spell <formid> / --set-legendary <skill> <n>\n"
+		"  --clear-crimes <faction formid>  bounty and crime totals with that faction to 0. Needs -o.\n"
 		"  --reset-ai <formid>       reset an actor's saved AI (process, movement and combat state) so the game\n"
 		"                            builds it fresh: for NPCs stuck in combat, a package or a pose. Needs -o.\n"
 		"  --journal                 list the quests the player's journal shows (in progress and completed), as\n"
@@ -156,6 +163,7 @@ int main(int argc, char** argv)
 	int           playerGold = -1;
 	std::vector<std::pair<std::string, float>> playerSkills;
 	std::vector<std::tuple<std::uint32_t, int, int>> playerBounties;
+	std::vector<std::pair<std::string, std::vector<std::string>>> playerEdits;  // the other player edits, in order
 	std::string   removeExtraName;
 	std::string              questFilter;
 	modremove::Options       removeOpt;
@@ -194,6 +202,12 @@ int main(int argc, char** argv)
 		} else if (a == "--set-skill") {
 			const auto name = next();
 			playerSkills.emplace_back(name, static_cast<float>(std::atof(next().c_str())));
+		} else if (a == "--set-level" || a == "--set-xp" || a == "--set-perks" || a == "--set-souls" || a == "--reset-av" ||
+				   a == "--clear-av-mods" || a == "--remove-item" || a == "--remove-spell" || a == "--clear-crimes") {
+			playerEdits.push_back({ a, { next() } });
+		} else if (a == "--set-av" || a == "--set-item" || a == "--set-legendary") {
+			const auto x = next();
+			playerEdits.push_back({ a, { x, next() } });
 		} else if (a == "--set-bounty") {
 			const auto fac = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
 			const int  v = std::atoi(next().c_str());
@@ -306,14 +320,22 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty();
 		if (playerView) {
 			const auto pv = cf::ReadPlayer(*save);
 			if (!pv.error.empty()) {
 				std::fprintf(stderr, "%s\n", pv.error.c_str());
 				return 1;
 			}
+			std::printf("level: %d  level-up XP: %g of %g  perk points: %d\n", pv.level, pv.xp, pv.xpNext, pv.perkPoints);
 			std::printf("gold: %d%s\n", pv.gold, pv.hasGold ? "" : " (none carried)");
+			for (const auto& av : pv.avs) {
+				if (av.id < 6 || av.id > 23) {
+					std::printf("av %-24s base %s  permanent %g  temporary %g  damage %g\n", cf::ActorValueName(av.id),
+						av.hasBase ? std::to_string(av.base).c_str() : "(plugin)", av.permanent, av.temporary, av.damage);
+				}
+			}
+			std::printf("items: %zu kinds, spells added in game: %zu\n", pv.items.size(), pv.spells.size());
 			for (int i = 0; i < 18; ++i) {
 				std::printf("skill %-12s %g\n", cf::kSkillNames[i], pv.skills[i]);
 			}
@@ -824,6 +846,63 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			std::printf("set the player's %s to %g\n", cf::kSkillNames[idx], level);
+		}
+		for (const auto& [op, args] : playerEdits) {
+			auto avId = [](const std::string& a_s) -> std::uint32_t {
+				for (std::uint32_t i = 0; i < 164; ++i) {
+					if (_stricmp_portable(cf::ActorValueName(i), a_s)) {
+						return i;
+					}
+				}
+				return static_cast<std::uint32_t>(std::stoul(a_s));
+			};
+			auto hex = [](const std::string& a_s) { return static_cast<std::uint32_t>(std::stoul(a_s, nullptr, 16)); };
+			auto skill = [](const std::string& a_s) {
+				for (int i = 0; i < 18; ++i) {
+					std::string a = cf::kSkillNames[i], b = a_s;
+					std::erase_if(a, [](char ch) { return ch == ' ' || ch == '-'; });
+					std::erase_if(b, [](char ch) { return ch == ' ' || ch == '-'; });
+					if (_stricmp_portable(a, b)) {
+						return i;
+					}
+				}
+				return -1;
+			};
+			std::string why;
+			try {
+				if (op == "--set-level") {
+					why = cf::SetPlayerLevel(*save, std::stoi(args[0]));
+				} else if (op == "--set-xp") {
+					why = cf::SetPlayerXP(*save, std::stof(args[0]));
+				} else if (op == "--set-perks") {
+					why = cf::SetPlayerPerkPoints(*save, std::stoi(args[0]));
+				} else if (op == "--set-souls") {
+					why = cf::SetPlayerDragonSouls(*save, std::stoi(args[0]));
+				} else if (op == "--reset-av") {
+					why = cf::ResetPlayerAV(*save, avId(args[0]));
+				} else if (op == "--clear-av-mods") {
+					why = cf::ClearPlayerAVModifiers(*save, avId(args[0]), 1 | 4);
+				} else if (op == "--remove-item") {
+					why = cf::RemovePlayerItem(*save, hex(args[0]));
+				} else if (op == "--remove-spell") {
+					why = cf::RemovePlayerSpell(*save, hex(args[0]));
+				} else if (op == "--clear-crimes") {
+					why = cf::ClearPlayerCrimes(*save, hex(args[0]));
+				} else if (op == "--set-av") {
+					why = cf::SetPlayerAV(*save, avId(args[0]), std::stof(args[1]));
+				} else if (op == "--set-item") {
+					why = cf::SetPlayerItemCount(*save, hex(args[0]), std::stoi(args[1]));
+				} else if (op == "--set-legendary") {
+					why = cf::SetPlayerLegendary(*save, skill(args[0]), std::stoi(args[1]));
+				}
+			} catch (const std::exception&) {
+				why = "bad value";
+			}
+			if (!why.empty()) {
+				std::fprintf(stderr, "%s %s: %s\n", op.c_str(), args[0].c_str(), why.c_str());
+				return 1;
+			}
+			std::printf("%s %s: done\n", op.c_str(), args[0].c_str());
 		}
 		for (const auto& [fac, v, nv] : playerBounties) {
 			const auto why = cf::SetPlayerBounty(*save, fac, v, nv);

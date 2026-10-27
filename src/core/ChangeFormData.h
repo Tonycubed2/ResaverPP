@@ -84,7 +84,7 @@ namespace ess::cf
 		struct InvAt
 		{
 			std::uint32_t item = 0;  // runtime form ID
-			std::size_t   entryAt = 0, countAt = 0;
+			std::size_t   entryAt = 0, countAt = 0, endAt = 0;
 		};
 		struct ValueAt
 		{
@@ -96,6 +96,12 @@ namespace ess::cf
 		std::vector<ValueAt>     baseAVs;         // an actor's changed base actor values: id, value offset (f32)
 		std::vector<std::size_t> playerSkillsAt;  // the player's 18 skills: level, XP, XP for next level (f32 each)
 		std::vector<ValueAt>     crimeGold;       // the player's bounties: faction, offset of 4 i32
+		std::size_t              baseAVListAt = 0, avModListAt = 0;  // the two actor value lists' counts (vsval)
+		std::vector<ValueAt>     avMods;          // actor value modifiers: id, offset of permanent, temporary, damage (f32)
+		std::size_t              addedSpellsAt = 0;  // the added spells' count (u32)
+		std::vector<ValueAt>     addedSpells;     // spell form ID, offset of its RefID
+		std::size_t              playerXPAt = 0;          // XP, XP for next level (f32 each)
+		std::size_t              playerPerkPointsAt = 0;  // u8
 
 		bool                                hasActorData = false;
 		std::int32_t                        processLevel = -1;
@@ -155,20 +161,61 @@ namespace ess::cf
 		std::uint32_t faction = 0;  // form ID
 		std::int32_t  violent = 0, nonViolent = 0, nonViolentTotal = 0, violentTotal = 0;
 	};
+	struct PlayerAV
+	{
+		std::uint32_t id = 0;
+		bool          hasBase = false, hasMod = false;
+		float         base = 0, permanent = 0, temporary = 0, damage = 0;
+		float         current() const { return base + permanent + temporary + damage; }
+	};
+	struct PlayerItem
+	{
+		std::uint32_t item = 0;  // form ID
+		std::int32_t  count = 0;
+		bool          hasExtra = false;  // enchanted, tempered, worn...
+	};
 	struct PlayerValues
 	{
 		std::string               error;  // empty when read
 		bool                      hasGold = false;
 		std::int32_t              gold = 0;
-		float                     skills[18]{};      // base skill values (One-handed ... Enchanting)
+		float                     skills[18]{};  // base skill values (One-handed ... Enchanting)
 		bool                      hasSkill[18]{};
+		std::int32_t              legendary[18]{};
+		bool                      hasLegendary = false;
 		std::vector<PlayerBounty> bounties;
+		bool                      hasLevel = false;
+		int                       level = 0;
+		float                     xp = 0, xpNext = 0;
+		int                       perkPoints = 0;
+		std::vector<PlayerAV>     avs;  // every actor value with a saved base value or modifier
+		std::vector<PlayerItem>   items;
+		std::vector<std::uint32_t> spells;  // spells and powers added in game
 	};
 	extern const char* const kSkillNames[18];
+	const char*  ActorValueName(std::uint32_t a_av);  // "Health", "DragonSouls"...
 	PlayerValues ReadPlayer(const SaveFile& a_save);
 	std::string  SetPlayerGold(SaveFile& a_save, std::int32_t a_gold);  // adds a gold entry when there is none
 	std::string  SetPlayerSkill(SaveFile& a_save, int a_skill, float a_level);
+	std::string  SetPlayerLegendary(SaveFile& a_save, int a_skill, std::int32_t a_count);
 	std::string  SetPlayerBounty(SaveFile& a_save, std::uint32_t a_faction, std::int32_t a_violent, std::int32_t a_nonViolent);
+	std::string  ClearPlayerCrimes(SaveFile& a_save, std::uint32_t a_faction);  // bounty and crime totals to 0
+	std::string  SetPlayerLevel(SaveFile& a_save, int a_level);  // also sets the XP needed for the next level
+	std::string  SetPlayerXP(SaveFile& a_save, float a_xp);
+	std::string  SetPlayerPerkPoints(SaveFile& a_save, int a_points);
+	std::string  SetPlayerDragonSouls(SaveFile& a_save, int a_souls);
+	// actor values: set the base value; reset it (the saved value and its permanent and damage modifiers are
+	// dropped, so the race and plugins give it again: not for skills, Health, Magicka, Stamina or dragon souls,
+	// whose saved values hold your progress);
+	// clear modifiers (a_which: 1 permanent, 2 temporary, 4 damage)
+	std::string  SetPlayerAV(SaveFile& a_save, std::uint32_t a_av, float a_base);
+	bool         CanResetPlayerAV(std::uint32_t a_av);
+	std::string  ResetPlayerAV(SaveFile& a_save, std::uint32_t a_av);
+	std::string  ClearPlayerAVModifiers(SaveFile& a_save, std::uint32_t a_av, int a_which);
+	// items: set the count (a stack without extra data), or remove every stack of the item
+	std::string  SetPlayerItemCount(SaveFile& a_save, std::uint32_t a_item, std::int32_t a_count);
+	std::string  RemovePlayerItem(SaveFile& a_save, std::uint32_t a_item);
+	std::string  RemovePlayerSpell(SaveFile& a_save, std::uint32_t a_spell);
 
 	// Resets an actor's (ACHR) saved AI: the process level becomes -1 (the state the game saves for
 	// actors it has no AI loaded for) and the AI process, movement controller and combat controller
