@@ -1071,6 +1071,16 @@ namespace ess::cf
 					if (p.version > 0x30) {
 						p.u8("UNKB1");
 					}
+				} else if (name == "Follow") {
+					p.ref("TARGET");
+					OptionalLocation(p, "LOCATION1");
+					OptionalLocation(p, "LOCATION2");
+					OptionalLocation(p, "LOCATION3");
+					p.i32("UNK30");
+					p.f32("MIN DISTANCE");
+					p.f32("MAX DISTANCE");
+					PathingObject(p, "PATH");
+					p.bytes("FLAGS", 5);
 				} else if (name == "Find") {
 					OptionalLocation(p, "LOCATION");
 					p.i32("UNK");
@@ -1162,6 +1172,13 @@ namespace ess::cf
 					p.i32("VALUE");
 				} else if (type == "Float") {
 					p.f32("VALUE");
+				} else if (type == "ObjectList") {
+					const auto n = p.vs("");
+					p.countedArray("ITEMS", n, [&] {
+						p.ref("REF");
+						p.ref("FORM");
+						p.floats("VALUES", 4);
+					});
 				} else {
 					throw Stop("package data value '" + type + "' is not decoded yet");
 				}
@@ -1239,6 +1256,307 @@ namespace ess::cf
 			});
 		}
 
+		// active magic effects: each carries its own size, so its data is kept as bytes
+		void ActiveEffects(P& p)
+		{
+			const auto n = p.vs("");
+			p.countedArray("ACTIVE EFFECTS", n, [&] {
+				p.ref("MAGIC ITEM");
+				p.u8("EFFECT INDEX");
+				p.vs("TYPE");
+				const auto size = p.vs("SIZE");
+				p.bytes("DATA", size);
+			});
+		}
+
+		void MiddleHighProcess(P& p)
+		{
+			p.f32("UNK2C8");
+			p.f32("UNK2CC");
+			p.f32("UNK300");
+			p.u8("UNK322");
+			p.floats("UNKE0", 3);
+			p.f32("UNK29C");
+			p.f32("UNK2E8");
+			p.u8("UNK315");
+			p.u8("UNK31B");
+			p.u8("UNK313");
+			p.f32("UNK290");
+			p.u8("UNK31C");
+			p.f32("UNK2A0");
+			p.f32("UNK2A4");
+			p.u8("UNK310");
+			p.u8("UNK321");
+			p.i16("UNK308");
+			p.f32("UNK2E4");
+			p.u8("UNK312");
+			p.f32("UNK2E0");
+			p.f32("UNK298");
+			p.u8("UNK31E");
+			p.u8("UNK31F");
+			p.u8("UNK314");
+			p.ref("UNK280");
+			p.ref("UNK210");
+			p.ref("UNK218");
+			p.ref("UNK208");
+			p.ref("UNK228");
+			p.floats("UNKD4", 3);
+			p.f32("UNK294");
+			p.u8("UNK320");
+			p.f32("UNK2C0");
+			p.i32("UNK");
+			const auto n = p.vs("");
+			p.countedArray("REFS", n, [&] { p.ref("REF"); });
+			ActorPackage(p, "PACKAGE 2");
+			ActiveEffects(p);
+			p.ref("UNK240");
+			const auto m = p.vs("");
+			p.countedArray("ITEMS", m, [&] {
+				p.ref("ITEM");
+				p.i32("UNK");
+				if (p.version > 0x2f) {
+					p.u8("UNK40");
+					p.group("DATA", [&] {
+						p.i32("UNK08");
+						p.ref("REF1");
+						p.ref("REF2");
+						p.bytes("FLAGS", 5);
+					});
+				}
+				p.ref("REF");
+				p.i32("UNK18");
+				p.bytes("FLAGS", 6);
+			});
+			p.f32("UNK2B4");
+			p.f32("UNK2B0");
+			p.f32("UNK2B8");
+			p.ref("UNKEC");
+			p.f32("UNKF0");
+			p.f32("UNK2BC");
+			p.u8("UNK325");
+			p.f32("UNK2F8");
+			p.bytes("FLAGS", 5);
+			if (p.version > 7) {
+				p.u8("UNK32D");
+			}
+			if (p.version > 0xc) {
+				p.u8("UNK32E");
+			}
+		}
+
+		// animation files loaded for an actor (resource IDs: folder hash, file hash, "hkx")
+		void AnimationFiles(P& p, const char* a_label)
+		{
+			p.group(a_label, [&] {
+				if (!p.u8("HAS ANIMATIONS")) {
+					return;
+				}
+				p.u8("UNK");
+				if (p.version > 0x34) {
+					p.u8("UNK2");
+				}
+				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("FILES", n, [&] {
+					const auto dir = p.r.u32();
+					const auto file = p.r.u32();
+					const auto ext = p.r.u32();
+					p.add("FILE", Fmt("%08X %08X %.4s", dir, file, reinterpret_cast<const char*>(&ext)));
+				});
+			});
+		}
+
+		void HighProcess(P& p)
+		{
+			p.u8("UNK454");
+			p.u8("UNK45A");
+			p.u8("UNK45B");
+			p.i16("UNK2DA");
+			p.floats("UNK1", 9);
+			p.i16("UNK448");
+			p.i16("UNK44A");
+			p.i16("UNK44C");
+			p.u8("UNK457");
+			p.floats("UNK2E8", 3);
+			p.floats("UNK2DC", 3);
+			p.floats("UNK2", 6);
+			p.u8("UNK45C");
+			p.f32("UNK390");
+			p.u8("UNK45D");
+			p.f32("UNK394");
+			p.u8("UNK46A");
+			p.f32("UNK3A0");
+			p.f32("UNK3A4");
+			p.u8("UNK451");
+			p.f32("UNK3C0");
+			p.floats("UNK2C0", 3);
+			p.u8("UNK44F");
+			p.u8("UNK44E");
+			p.f32("UNK2CC");
+			p.f32("UNK328");
+			p.u8("UNK44E_2");
+			p.u8("UNK44E_3");
+			p.i32("UNK3D0");
+			p.f32("UNK200");
+			p.u8("UNK450");
+			p.f32("UNK2A0");
+			p.f32("UNK2B0");
+			p.f32("UNK160");
+			p.f32("UNK1E0");
+			p.u8("UNK460");
+			if (p.version > 0x33) {
+				p.u8("UNK461");
+			}
+			p.u8("UNK462");
+			p.f32("UNK210");
+			p.u8("UNK466");
+			p.u8("UNK465");
+			p.f32("UNK29C");
+			p.u8("UNK");
+			p.u8("UNK2");
+			p.ref("UNK2F4");
+			p.ref("UNK");
+			p.ref("UNK138");
+			p.ref("UNK178");
+			p.ref("UNK36C");
+			p.ref("UNK348");
+			p.ref("UNK350");
+			p.ref("UNK17C");
+			p.countedArray("SLOTS", 6, [&] {
+				p.ref("REF");
+				p.u8("FLAG");
+			});
+			if (p.u8("HAS LIST")) {
+				p.group("LIST", [&] {
+					const auto n = p.vs("");
+					p.countedArray("ENTRIES", n, [&] {
+						p.add("NAME1", p.r.wstring());
+						p.add("NAME2", p.r.wstring());
+						p.i32("UNK10");
+						p.i32("UNK14");
+						p.u8("UNK38");
+						p.ref("REF1");
+						p.ref("REF2");
+						p.ref("REF3");
+						p.u8("UNK39");
+					});
+					p.i16("CURRENT");
+				});
+			}
+			{
+				const auto n = p.vs("");
+				p.countedArray("AVOID", n, [&] {
+					p.ints("VALUES", 9);
+					p.f32("UNK24");
+					p.ref("REF");
+				});
+			}
+			if (p.u8("HAS UNK3D8")) {
+				p.i32("UNK0");
+				p.floats("UNK4", 3);
+				p.f32("UNK10");
+				p.ref("REF");
+			}
+			{
+				const auto n = p.vs("CRIME_SIZE");
+				p.bytes("CRIME", n);
+			}
+			p.u8("UNK45F");
+			p.u8("UNK");
+			{
+				const auto n = p.vs("");
+				p.countedArray("PAIRS", n, [&] {
+					p.i32("UNK1");
+					p.i32("UNK2");
+					p.ref("REF1");
+					p.ref("REF2");
+				});
+			}
+			{
+				const auto n = p.vs("");
+				p.countedArray("KNOWLEDGE", n, [&] {
+					p.ref("REF");
+					p.ref("REF1");
+					p.ref("REF2");
+					p.i32("UNK40");
+					p.f32("UNK44");
+					if (p.u8("HAS DATA")) {
+						p.group("DATA", [&] {
+							p.i32("UNK10");
+							p.bytes("FLAGS", 3);
+							p.floats("POS1", 3);
+							p.floats("POS2", 3);
+							p.floats("POS3", 3);
+							p.f32("TIME1");
+							p.f32("TIME2");
+							p.f32("TIME3");
+						});
+					}
+				});
+			}
+			p.i32("UNK0");
+			p.ref("UNK8");
+			p.floats("UNK10", 6);
+			p.u8("UNK467");
+			p.f32("UNK318");
+			p.f32("UNK1FC");
+			p.f32("UNK1F4");
+			p.f32("UNK1F8");
+			p.ref("UNK358");
+			p.ref("UNKD8");
+			p.add("UNK258", p.r.wstring());
+			if (p.u8("HAS EQUIP DATA")) {
+				p.group("EQUIP DATA", [&] {
+					p.u8("UNK1");
+					p.u8("UNK455");
+					if (p.u8("HAS IDLE")) {
+						p.add("IDLE", p.r.wstring());
+						p.i32("UNK");
+					}
+					if (p.version > 0x31 && p.u8("HAS IDLE2")) {
+						p.add("IDLE2", p.r.wstring());
+					}
+					// two animation slots (3 and 4): the animation files they hold (resource IDs: folder
+					// hash, file hash, "hkx")
+					for (int slot = 3; slot < 5; ++slot) {
+						AnimationFiles(p, Fmt("ANIMATION SLOT %d", slot).c_str());
+					}
+					p.i16("UNK3F8");
+					p.i16("UNK3FA");
+					if (p.version >= 0x32) {
+						p.i32("UNK200");
+						p.u8("UNK32F");
+					}
+				});
+			}
+			p.bytes("FLAGS", 5);
+			p.f32("UNK32C");
+			p.u8("UNK470");
+			p.u8("UNK459");
+			p.f32("UNK2B4");
+			p.ref("UNKE0");
+			p.ref("UNKE8");
+			p.floats("UNK3E8", 2);
+			p.u8("UNK471");
+			if (p.version > 0xc) {
+				p.u8("UNK330");
+			}
+			if (p.version > 0xf) {
+				p.ref("UNK270");
+				p.u8("UNK463");
+				p.u8("UNK464");
+			}
+			if (p.version > 0x16) {
+				p.f32("UNK3A8");
+				p.f32("UNK3B0");
+			}
+			if (p.version > 0x24) {
+				p.u8("UNK472");
+			}
+			if (p.version > 0x26) {
+				p.u8("UNK469");
+			}
+		}
+
 		// AIProcess: present when the actor has an AI process (process level 0-3). Level 3 (low) saves
 		// only this common part; 2 adds cached values, 1 the middle-high process, 0 the high process.
 		void AIProcess(P& p, std::int32_t a_level)
@@ -1275,8 +1593,19 @@ namespace ess::cf
 				p.ref("UNKF8");
 				p.u8("UNK139");
 				p.ref("UNK128");
-				if (a_level < 3) {
-					throw Stop(Fmt("AI process data above low level (process level %d) is not decoded yet", a_level));
+				if (a_level == 3) {
+					return;
+				}
+				p.f32("CACHED VALUES");  // level 2 (middle-low) ends here
+				if (a_level == 2) {
+					return;
+				}
+				p.group("MIDDLE HIGH", [&] { MiddleHighProcess(p); });
+				if (a_level == 0) {
+					p.group("HIGH", [&] { HighProcess(p); });
+				}
+				if (p.version > 0x3d) {
+					p.u8("UNK332");
 				}
 			});
 		}
@@ -1391,7 +1720,153 @@ namespace ess::cf
 
 		void MovementAgent(P& p, const std::string& a_name)
 		{
-			if (a_name == "MovementAgentPathFollowerVirtual") {
+			auto pointList = [&](const char* a_l) {
+				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray(a_l, n, [&] { p.floats("POINT", 3); });
+				p.i32("UNK");
+			};
+			static const std::set<std::string> kEmpty = { "MovementHandlerAgentDirectControl", "MovementHandlerAgentPlayerControlsActionTrigger",
+				"MovementHandlerAgentStairsHelper", "MovementPlannerAgentDirectControl", "MovementPlannerAgentHorseControls",
+				"MovementHandlerAgentAngleGain", "MovementHandlerAgentSpeedPassThrough", "MovementHandlerAgentAnglePassThrough",
+				"MovementHandlerAgentDirectionPassThrough", "MovementHandlerAgentStrafing", "MovementStateTweener", "MovementStateFollowPath",
+				"MovementHandlerAgentAngleController", "MovementTweenerAgentNodeFollower" };
+			if (kEmpty.count(a_name)) {
+				return;
+			}
+			if (a_name == "MovementHandlerAgentPlayerControls") {
+				p.i32("UNK38");
+				p.f32("UNK48");
+				p.u8("UNK4C");
+			} else if (a_name == "MovementHandlerAgentSprintActionTrigger") {
+				if (p.version >= 0x1d) {
+					p.i32("UNK38");
+				}
+				p.u8("UNK3C");
+				p.u8("UNK3D");
+			} else if (a_name == "MovementPlannerAgentKeepOffset") {
+				p.ref("TARGET");
+				p.floats("OFFSET", 8);
+			} else if (a_name == "MovementPlannerAgentWarp") {
+				PathingLocation(p, "FROM");
+				PathingLocation(p, "TO");
+				p.f32("UNK88");
+				p.ref("REF");
+				p.i32("STATE");
+				p.i32("UNKB4");
+			} else if (a_name == "MovementTweenerAgentAnimationDriven") {
+				p.i32("STATE");
+			} else if (a_name == "MovementAgentActorState") {
+				p.group("STATE", [&] {
+					p.i32("UNK0");
+					p.floats("VALUES", 5);
+				});
+				p.f32("UNK1C");
+				if (p.version > 0x1a) {
+					p.f32("UNK20");
+				}
+				p.i32("UNK58");
+				p.i32("UNK70");
+			} else if (a_name == "MovementAgentActorAvoider") {
+				PathingObject(p, "REQUEST");
+				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("ACTORS", n, [&] {
+					p.ref("ACTOR");
+					p.floats("VALUES", 12);
+					p.i32("UNK24");
+					p.i32("UNK28");
+					p.u8("UNK3C");
+				});
+				p.i32("UNK60");
+				p.i32("UNK64");
+				p.i32("UNK68");
+			} else if (a_name == "MovementHandlerAgentTranslationController") {
+				p.u8("UNK28");
+				p.i32("UNK38");
+			} else if (a_name == "MovementTweenerAgentFixedDelta") {
+				p.floats("VALUES", 31);
+			} else if (a_name == "MovementPathManagerAgentLoadedAreaMonitor") {
+				PathObject(p, "PATH");
+			} else if (a_name == "MovementHandlerAgentLargeDeltaIdle") {
+				p.i32("UNK28");
+			} else if (a_name == "MovementPathManagerAgentAvoidBox") {
+				p.i32("STATE");
+				p.f32("UNK34");
+				PathingLocation(p, "LOCATION");
+				p.floats("VALUES", 3);
+				p.u8("UNKA8");
+				const auto door = p.r.u32();
+				if (door != 0) {
+					if (!PathingDoorClass(door)) {
+						throw Stop(Fmt("pathing door class %08X is not decoded yet", door));
+					}
+					p.ref("DOOR");
+				}
+				PolyMember(p, "LOCK", "pathing avoid");
+			} else if (a_name == "MovementPathManagerAgentStaticAvoider") {
+				if (p.version >= 0x1a) {
+					p.f32("UNK18");
+				}
+				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("BOXES", n, [&] { p.floats("VALUES", 13); });
+				p.floats("UNK1C", 5);
+				const auto m = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("SEGMENTS", m, [&] { p.ints("VALUES", 9); });
+				PathingObject(p, "REQUEST");
+				p.f32("UNKB0");
+				p.f32("UNKB4");
+				p.i32("UNKB8");
+			} else if (a_name == "MovementAgentPathFollowerStandard") {
+				p.i32("STATE");
+				PathingObject(p, "REQUEST");
+				PathObject(p, "PATH");
+				p.floats("VALUES", 7);
+				p.add("PATHING STATE ID", Fmt("%llX", static_cast<unsigned long long>(p.version >= 0x4b ? p.r.u64() : p.r.u32())));
+				p.floats("VALUES2", 3);
+				p.i32("UNK15C");
+				p.i32("UNK160");
+				p.f32("PARAMETER REACHED");
+				p.f32("GOAL REACHED");
+				p.group("PLAY IDLE", [&] {
+					if (p.u8("HAS IDLE")) {
+						p.add("IDLE", p.r.wstring());
+					}
+					p.i32("UNK10");
+				});
+				p.group("FOLLOW PATH TO PARAMETER", [&] {
+					p.floats("VALUES", 3);
+					p.i32("INDEX");
+				});
+				p.group("TURN TO ANGLE", [&] {
+					p.i32("UNK08");
+					p.floats("VALUES", 5);
+				});
+				p.group("KEEP LAST DIRECTION", [&] {
+					p.floats("VALUES", 4);
+					p.i32("INDEX");
+				});
+			} else if (a_name == "MovementPlannerAgentNavmeshBounds") {
+				p.i32("STATE");
+				p.f32("UNK44");
+				p.f32("UNK48");
+				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("BOUNDS", n, [&] {
+					p.floats("BOX", 6);
+					const auto m = static_cast<std::uint32_t>(p.r.i32());
+					p.countedArray("POINTS", m, [&] { p.floats("POINT", 3); });
+					p.i32("UNKA0");
+				});
+				PathObject(p, "PATH");
+			} else if (a_name == "MovementAgentPathFollowerFlight") {
+				p.i32("STATE");
+				p.floats("VALUES", 5);
+				PathingObject(p, "REQUEST");
+				PathObject(p, "PATH");
+				p.f32("UNK3C");
+				p.i32("UNK58");
+				p.i32("UNK5C");
+				pointList("POINTS1");
+				pointList("POINTS2");
+			} else if (a_name == "MovementAgentPathFollowerVirtual") {
 				p.i32("STATE");
 				PathingObject(p, "REQUEST");
 				PathObject(p, "PATH");
@@ -1503,8 +1978,16 @@ namespace ess::cf
 					}
 					p.group(name, [&] { MovementAgent(p, name); });
 				});
-				if (p.u8("HAS UNK DATA")) {
-					throw Stop("movement controller extra data is not decoded yet");
+				if (p.u8("HAS IDLE DATA")) {
+					AnimationFiles(p, "ANIMATIONS");
+					if (p.u8("HAS IDLE")) {
+						p.group("PLAY IDLE", [&] {
+							p.add("IDLE", p.r.wstring());
+							p.i32("UNK");
+							p.floats("VALUES", 33);
+							p.add("PATHING STATE ID", Fmt("%llX", static_cast<unsigned long long>(p.version >= 0x4b ? p.r.u64() : p.r.u32())));
+						});
+					}
 				}
 			});
 		}
