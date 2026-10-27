@@ -43,12 +43,16 @@ namespace ess::cf
 			std::set<std::uint64_t>      pathIDs;      // pathing stream objects already read in this change form
 
 			// one change flag's data: where it starts and ends in the body
+			int nested = 0;  // > 0 while reading a form embedded in this one (e.g. a leveled actor's NPC)
+
 			template <class F>
 			void section(int a_bit, F f)
 			{
 				const auto start = r.pos();
 				f();
-				_out.sections[a_bit] = { start, r.pos() };
+				if (nested == 0) {  // an embedded form's flags are not this change form's
+					_out.sections[a_bit] = { start, r.pos() };
+				}
 			}
 
 			Node& add(const std::string& label, std::string value = {})
@@ -513,7 +517,14 @@ namespace ess::cf
 					p.ref("UNK1");
 					p.ref("UNK2");
 					const auto flags = p.flags32("NPCChangeFlags");
-					p.group("NPC", [&] { NPC(p, flags, true); });
+					++p.nested;
+					try {
+						p.group("NPC", [&] { NPC(p, flags, true); });
+					} catch (...) {
+						--p.nested;
+						throw;
+					}
+					--p.nested;
 				});
 				break;
 			case 46:
@@ -2907,7 +2918,11 @@ namespace ess::cf
 		void Achr(P& p, const RefID& id, std::uint32_t flags, std::uint8_t a_version)
 		{
 			const int t = InitialType(id, flags);
-			Initial(p, t);
+			if (t == 4 && !Bit(flags, 2)) {
+				p.section(1, [&] { Initial(p, t); });  // the moved position belongs to REFR_MOVE alone
+			} else {
+				Initial(p, t);
+			}
 			Havok(p, flags);
 			const auto level = p.i32("PROCESS LEVEL");
 			p.flags32("BOOL BITS");
@@ -2918,7 +2933,7 @@ namespace ess::cf
 				p.out().baseObject = p.refResolved("BASE_OBJECT");
 			}
 			if (Bit(flags, 4)) {
-				p.f32("SCALE");
+				p.section(4, [&] { p.f32("SCALE"); });
 			}
 			for (int b : { 6, 25, 9, 11, 17, 26, 29, 30, 31, 18 }) {
 				if (Bit(flags, b)) {
@@ -2926,11 +2941,13 @@ namespace ess::cf
 					break;
 				}
 			}
-			if (Bit(flags, 5) || Bit(flags, 27)) {
+			if (Bit(flags, 5) && !Bit(flags, 27)) {
+				p.section(5, [&] { Inventory(p); });  // the inventory belongs to REFR_INVENTORY alone
+			} else if (Bit(flags, 5) || Bit(flags, 27)) {
 				Inventory(p);
 			}
 			if (Bit(flags, 28)) {
-				p.bytesVS("ANIMATIONS");
+				p.section(28, [&] { p.bytesVS("ANIMATIONS"); });
 			}
 			ActorData(p, a_version, level);
 		}
@@ -3586,13 +3603,63 @@ namespace ess::cf
 
 	bool CanRemoveFlag(const ChangeForm& a_cf, int a_bit)
 	{
-		return static_cast<ChangeFormType>(a_cf.typeCode()) == ChangeFormType::NPC_ && a_bit > 0 && a_bit < 32 && Bit(a_cf.changeFlags, a_bit);
+		if (a_bit <= 0 || a_bit >= 32 || !Bit(a_cf.changeFlags, a_bit)) {
+			return false;
+		}
+		const auto flags = a_cf.changeFlags;
+		switch (static_cast<ChangeFormType>(a_cf.typeCode())) {
+		case ChangeFormType::NPC_:
+			return true;
+		case ChangeFormType::ACHR:
+			if (a_cf.refID.data == 0x400014) {
+				return false;  // the player
+			}
+			switch (a_bit) {
+			case 1:  // REFR_MOVE: only when the saved position is there for it alone
+				return a_cf.refID.type() != RefID::Type::kCreated && !Bit(flags, 2) && !Bit(flags, 3) && !Bit(flags, 25);
+			case 4:   // REFR_SCALE
+			case 28:  // REFR_ANIMATION
+				return true;
+			case 5:  // REFR_INVENTORY, unless the leveled inventory shares the list
+				return !Bit(flags, 27);
+			default:
+				return false;
+			}
+		default:
+			return false;
+		}
+	}
+
+	std::string RemoveFlagEffect(std::uint8_t a_type, int a_bit)
+	{
+		if (static_cast<ChangeFormType>(a_type) == ChangeFormType::ACHR) {
+			switch (a_bit) {
+			case 1:
+				return "The actor's saved position is dropped, so it is placed back where the plugins put it (its editor position) when the "
+					   "save loads. Useful for an NPC stuck somewhere it cannot leave.";
+			case 4:
+				return "The actor's changed scale is dropped, so it is the size the plugins give it again.";
+			case 5:
+				return "The actor's saved inventory changes are dropped, so it carries what the plugins give it again. Anything it "
+					   "picked up, was given or had taken from it is lost.";
+			case 28:
+				return "The actor's saved animation state is dropped, so its animations start fresh when the save loads. Useful for an "
+					   "NPC frozen in a pose or stuck in an animation.";
+			default:
+				break;
+			}
+		}
+		return "The game then uses the plugin's value again for that part (for NPC_FACE: the face from the plugins, which also fixes a "
+			   "face that stopped moving after SetRace).";
 	}
 
 	std::string RemoveFlag(const SaveFile& a_save, ChangeForm& a_cf, int a_bit)
 	{
+		if (static_cast<ChangeFormType>(a_cf.typeCode()) == ChangeFormType::ACHR && a_cf.refID.data == 0x400014) {
+			return "the player's own record is never changed this way: nothing changed";
+		}
 		if (!CanRemoveFlag(a_cf, a_bit)) {
-			return "only parts of an NPC_ change form can be removed, and only flags that are set";
+			return "this flag cannot be removed from this change form (only some parts of NPC_ and ACHR change forms can, and only flags that are set)";
 		}
 		const auto d = Decode(a_save, a_cf);
 		if (!d.complete) {

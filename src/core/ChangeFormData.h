@@ -96,9 +96,13 @@ namespace ess::cf
 	// Removes one part of a change form: clears its change flag and cuts out the data that flag holds,
 	// keeping everything else (e.g. an NPC's changed face, so the game uses the plugin's face again,
 	// while its factions, outfits and spells stay). For change forms whose body is fully decoded and
-	// whose parts are known (NPC_). Checks the result decodes completely, else changes nothing.
+	// whose parts are known (NPC_, ACHR). Checks the result decodes completely, else changes nothing.
 	// Returns "" when done, else why not.
+	// ACHR (an actor reference): REFR_MOVE (back to its editor position, when the position is saved for
+	// that flag alone), REFR_SCALE, REFR_INVENTORY (when not shared with the leveled inventory) and
+	// REFR_ANIMATION. Never the player.
 	bool        CanRemoveFlag(const ChangeForm& a_cf, int a_bit);
+	std::string RemoveFlagEffect(std::uint8_t a_type, int a_bit);  // what removing it does, for the user
 	std::string RemoveFlag(const SaveFile& a_save, ChangeForm& a_cf, int a_bit);
 
 	// ReSaver "Reset Havok": zeroes the saved physics state of every object reference whose body

@@ -338,12 +338,11 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 			ImGui::PushID(bit);
 			if (ImGui::SmallButton("Remove")) {
 				const auto refRaw = c.refID.data;
+				const auto effect = cf::RemoveFlagEffect(c.typeCode(), bit);
 				confirm("Remove a change flag",
 					Fmt("Remove \"%s\" from this change form?\n\nThe flag is cleared and the data it holds is cut out; everything else in "
-						"this change form stays. The game then uses the plugin's value again for that part (for NPC_FACE: the face from "
-						"the plugins, which also fixes a face that stopped moving after SetRace).\n\nSave as a new file afterwards and "
-						"keep the original.",
-						n.c_str()),
+						"this change form stays. %s\n\nSave as a new file afterwards and keep the original.",
+						n.c_str(), effect.c_str()),
 					[this, refRaw, bit, n] {
 						RefID id;
 						id.data = refRaw;
