@@ -515,10 +515,13 @@ namespace ess::cf
 				break;
 			case 133: one("AshPileRef", [&] { p.ref("REF"); }); break;
 			case 135:
-				one("TEST", [&] {
-					for (int i = 1; i <= 4; ++i) {
-						p.ref(Fmt("R%d", i));
-					}
+				// ReSaver's "TEST" (read as four RefIDs = 12 bytes). It is the game's FollowerSwimBreadcrumbs
+				// and takes 20 bytes: the leader's position, its navmesh and a state; read as 12 bytes, all
+				// that followed (an NPC's whole inventory) was read 8 bytes off.
+				one("FollowerSwimBreadcrumbs", [&] {
+					p.floats("LEADER POS", 3);
+					p.flags32("NAVMESH");
+					p.flags32("STATE");
 				});
 				break;
 			case 136:
