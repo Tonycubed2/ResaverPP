@@ -1095,7 +1095,27 @@ void App::drawMenu()
 	// keyboard shortcuts
 	// the way back to the Save check, always in sight, in the colour of its worst finding
 	if (_save) {
-		const bool home = ImGui::MenuItem("[ Main menu ]");
+		// a fat, bold button that stands out on the menu bar
+		bool home = false;
+		{
+			const char*  label = "MAIN MENU";
+			const ImVec2 ts = ImGui::CalcTextSize(label);
+			const ImVec2 pad(ImGui::GetFontSize() * 1.1f, 2.0f);
+			const ImVec2 size(ts.x + pad.x * 2 + 1, ImGui::GetFrameHeight() - 2);
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetFontSize() * 0.5f);
+			const ImVec2 at = ImGui::GetCursorScreenPos();
+			home = ImGui::InvisibleButton("##mainmenu", size);
+			const bool hov = ImGui::IsItemHovered(), held = ImGui::IsItemActive();
+			auto*      dl = ImGui::GetWindowDrawList();
+			const ImU32 bg = ImGui::GetColorU32(held ? ImGuiCol_ButtonActive : hov ? ImGuiCol_ButtonHovered : ImGuiCol_Button);
+			dl->AddRectFilled(at, ImVec2(at.x + size.x, at.y + size.y), bg, 4.0f);
+			dl->AddRect(at, ImVec2(at.x + size.x, at.y + size.y), ImGui::GetColorU32(ImGuiCol_Text, 0.55f), 4.0f, 0, 1.5f);
+			const ImVec2 tp(at.x + pad.x, at.y + (size.y - ts.y) * 0.5f);
+			const ImU32  tc = ImGui::GetColorU32(ImGuiCol_Text);
+			dl->AddText(tp, tc, label);
+			dl->AddText(ImVec2(tp.x + 1.0f, tp.y), tc, label);  // drawn twice, a pixel apart: bold
+			ImGui::SameLine(0, ImGui::GetFontSize() * 0.8f);
+		}
 		tips::Tip("Back to the main screen: closes the open tools and shows the overview with the shortcut buttons again.");
 		if (home) {
 			goHome();
