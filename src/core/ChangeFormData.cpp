@@ -3413,7 +3413,7 @@ namespace ess::cf
 							const auto n = static_cast<std::uint32_t>(p.i32("COUNT"));
 							p.countedArray("ITEMS", n, [&] {
 								const auto t = p.i32("TYPE");
-								if (t == 1 || t == 2 || t == 4) {
+								if (t == 0 || t == 1 || t == 2 || t == 4) {
 									p.ref("UNK_REF");
 								} else if (t == 3) {
 									p.i32("UNK_INT");
@@ -3423,6 +3423,25 @@ namespace ess::cf
 							});
 						});
 					}
+				});
+			}
+			if (Bit(flags, 27)) {
+				// CHANGE_QUEST_INSTANCES (not read by ReSaver); layout worked out from Skyrim LE saves
+				p.group("QUEST_INSTANCES", [&] {
+				p.i32("UNK");
+				p.vsArray("INSTANCES", [&] {
+					p.i32("ID");
+					p.vsArray("ITEMS1", [&] {
+						p.i32("UNK");
+						p.ref("REF");
+					});
+					p.vsArray("ITEMS2", [&] {
+						p.ref("REF");
+						p.f32("VALUE");
+					});
+					p.i16("UNK2");
+					p.u8("UNK3");
+				});
 				});
 			}
 			if (Bit(flags, 26)) {
@@ -3537,11 +3556,6 @@ namespace ess::cf
 	{
 		Decoded out;
 		out.root.label = ChangeFormTypeName(a_cf.typeCode());
-		if (a_save.isLE()) {
-			// The layouts here are mapped from Skyrim SE/AE; Legendary Edition change forms differ.
-			out.error = "change form data of Skyrim Legendary Edition saves is not decoded";
-			return out;
-		}
 		std::vector<std::uint8_t> body;
 		try {
 			body = Body(a_cf);
