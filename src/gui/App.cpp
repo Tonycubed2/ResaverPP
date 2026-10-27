@@ -150,6 +150,8 @@ void App::open(const std::filesystem::path& a_path)
 		}
 		_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
 		_modsDirty = true;
+		_leftoversDirty = true;
+		recordHistory();
 		if (!_settingsLoaded) {
 			loadSettings();
 		}
@@ -876,6 +878,18 @@ void App::draw()
 	if (_showActors && _save) {
 		drawActors();
 	}
+	if (_showLeftovers && _save) {
+		drawLeftovers();
+	}
+	if (_showHistory) {
+		drawHistory();
+	}
+	if (_showPapyrusLog) {
+		drawPapyrusLog();
+	}
+	if (_showSavesMgr) {
+		drawSavesManager();
+	}
 	if (_showCompare && _save) {
 		drawCompare();
 	}
@@ -1000,6 +1014,10 @@ void App::drawMenu()
 			shortcut(Sc::kOrphans);
 		}
 		tips::Tip("Find script instances sitting on spawned (FF......) objects that no longer exist, and remove them.");
+		if (ImGui::MenuItem("Leftover items from removed mods...")) {
+			shortcut(Sc::kLeftovers);
+		}
+		tips::Tip("Items in the player's, NPCs' and containers' inventories whose mod is gone: find them and remove them.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Fix SkyUI MCM registration jam...")) {
 			shortcut(Sc::kMcm);
@@ -1047,6 +1065,19 @@ void App::drawMenu()
 		tips::Tip("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties.");
 		ImGui::MenuItem("Find NPCs (where they are, bring one to you)...", nullptr, &_showActors);
 		tips::Tip("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you.");
+		ImGui::Separator();
+		if (ImGui::MenuItem("Save history (growth over time)...")) {
+			shortcut(Sc::kHistory);
+		}
+		tips::Tip("Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing.");
+		if (ImGui::MenuItem("Papyrus log...")) {
+			shortcut(Sc::kPapyrusLog);
+		}
+		tips::Tip("Read Papyrus.0.log: errors grouped by script and mod, so you see which mod is spamming errors.");
+		if (ImGui::MenuItem("Manage saves folder...")) {
+			shortcut(Sc::kSavesMgr);
+		}
+		tips::Tip("All saves by character with size and date; delete old ones (with their .skse files) in bulk.");
 		if (ImGui::MenuItem("Analyze arrays block...", nullptr, &_showArrays)) {
 			_arraysDirty = true;
 			_homePanel = false;

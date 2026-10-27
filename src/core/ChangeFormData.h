@@ -2,6 +2,7 @@
 // Decoding of change form bodies (REFR, ACHR, NPC_, QUST, FLST, LVLN/LVLI, RELA), following
 // ReSaver's ChangeForm* classes, plus the edits built on it: Reset Havok and Purify FormLists.
 #pragma once
+#include <set>
 
 #include "Save.h"
 
@@ -242,6 +243,21 @@ namespace ess::cf
 	// saved AI so it does not keep walking an old path. Only actors the save already has a position for.
 	// Checks the result decodes completely, else changes nothing. Returns "" when done, else why not.
 	std::string MoveActorToPlayer(SaveFile& a_save, ChangeForm& a_cf);
+
+	// Every inventory entry in the save (the player, NPCs, containers): who holds what. For finding items
+	// left by mods that are gone.
+	struct InventoryEntry
+	{
+		std::uint32_t holderRefRaw = 0;  // the change form's RefID (raw)
+		std::uint32_t holder = 0;        // its form id
+		std::uint8_t  holderType = 0;    // ChangeFormType (REFR or ACHR)
+		std::uint32_t item = 0;          // the item's form id
+		std::int32_t  count = 0;
+	};
+	std::vector<InventoryEntry> ListInventories(const SaveFile& a_save);
+	// Removes every entry of the given items from one change form's inventory. Checks the result decodes
+	// completely, else changes nothing. Returns "" when done (a_removed: entries removed), else why not.
+	std::string RemoveInventoryItems(const SaveFile& a_save, ChangeForm& a_cf, const std::set<std::uint32_t>& a_items, std::size_t* a_removed = nullptr);
 
 	// ReSaver "Reset Havok": zeroes the saved physics state of every object reference whose body
 	// decodes completely. Returns {reset, could not be decoded}.

@@ -6,6 +6,8 @@
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
 #include "core/Compare.h"
+#include "core/Extras.h"
+#include "core/LoadOrder.h"
 #include "core/ModRemove.h"
 #include "core/Orphans.h"
 #include "core/Pex.h"
@@ -25,6 +27,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <map>
+#include <mutex>
 #include <memory>
 #include <thread>
 #include <tuple>
@@ -91,6 +94,14 @@ public:
 			}
 		} else if (w == "arrays") {
 			_showArrays = true;
+		} else if (w == "leftovers") {
+			_showLeftovers = true;
+		} else if (w == "history") {
+			_showHistory = true;
+		} else if (w == "plog") {
+			_showPapyrusLog = true;
+		} else if (w == "saves") {
+			_showSavesMgr = true;
 		} else if (w == "actors") {
 			_showActors = true;
 		} else if (w == "player") {
@@ -457,7 +468,8 @@ private:
 		kRemoveUnattached, kRemoveUndefined, kTerminateUndefined, kMissingMods, kOrphans,
 		kMcm, kHavok, kPurify, kBatch, kPurge,
 		kPlayer, kActors, kTransplant, kLookup,
-		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex
+		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex,
+		kLeftovers, kHistory, kPapyrusLog, kSavesMgr
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	void        drawHome();            // the shortcut buttons
@@ -465,6 +477,39 @@ private:
 	void        goHome();              // "Main menu": close the tools, back to the overview with its shortcuts
 	bool        _homePanel = true;
 	void        drawActors();
+	// leftover items, save history, Papyrus log, saves folder (AppExtras.cpp)
+	void        drawLeftovers();
+	void        drawHistory();
+	void        drawPapyrusLog();
+	void        drawSavesManager();
+	void        recordHistory();  // adds the open save's numbers to the history file
+	ess::loadorder::Active currentLoadOrder() const;
+	struct LeftoverGroup
+	{
+		std::string plugin, reason;
+		bool        selected = true;
+		std::map<std::uint32_t, std::vector<std::uint32_t>> items;  // item form id -> holders (change form RefIDs, raw)
+		std::size_t entries = 0;
+	};
+	bool                       _showLeftovers = false, _leftoversDirty = true;
+	std::vector<LeftoverGroup> _leftovers;
+	std::string                _leftoversNote;
+	bool                       _showHistory = false, _historyLoaded = false;
+	std::vector<ess::extras::SaveStat> _history;
+	std::string                _historyChar;
+	std::thread                _historyThread;
+	std::atomic<bool>          _historyBusy{ false }, _historyCancel{ false };
+	std::atomic<std::size_t>   _historyDone{ 0 }, _historyTotal{ 0 };
+	std::mutex                 _historyMutex;
+	std::vector<ess::extras::SaveStat> _historyIncoming;
+	bool                       _showPapyrusLog = false, _plogLoaded = false;
+	ess::extras::LogSummary    _plog;
+	int                        _plogOpen = -1;
+	bool                       _showSavesMgr = false, _savesLoaded = false;
+	std::vector<ess::extras::SaveInfo> _saves;
+	std::vector<char>          _saveSel;
+	int                        _keepNewest = 5;
+	std::string                _savesCharFilter;
 	void        drawCfNode(const ess::cf::Node& n, int a_depth, int a_index);
 	void        detailChangeFormDecoded(const ess::ChangeForm& c);
 	void        actorFixes(const ess::ChangeForm& c, const ess::cf::Decoded& d);

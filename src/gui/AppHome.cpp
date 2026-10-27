@@ -38,7 +38,8 @@ namespace
 bool App::anyToolOpen() const
 {
 	return _showTransplant || _missingOpen || _orphansOpen || _showAnalysis || _purgeOpen || _showLookup || _showActors || _showPlayer ||
-	       _showCompare || _batchOpen || _reportOpen || _showArrays || _showViewer || _removeOpen;
+	       _showCompare || _batchOpen || _reportOpen || _showArrays || _showViewer || _removeOpen || _showLeftovers || _showHistory ||
+	       _showPapyrusLog || _showSavesMgr;
 }
 
 void App::goHome()
@@ -47,6 +48,7 @@ void App::goHome()
 	_showCompare = _batchOpen = _reportOpen = _showArrays = _removeOpen = false;
 	_showViewer = false;
 	_showCheck = false;
+	_showLeftovers = _showHistory = _showPapyrusLog = _showSavesMgr = false;
 	if (_cat != Cat::kOverview) {
 		select(Cat::kOverview, 0);
 	}
@@ -114,6 +116,19 @@ void App::shortcut(Sc a_which)
 		_showArrays = true;
 		_arraysDirty = true;
 		break;
+	case Sc::kLeftovers:
+		_showLeftovers = true;
+		_leftoversDirty = true;
+		break;
+	case Sc::kHistory: _showHistory = true; break;
+	case Sc::kPapyrusLog:
+		_showPapyrusLog = true;
+		_plogLoaded = false;
+		break;
+	case Sc::kSavesMgr:
+		_showSavesMgr = true;
+		_savesLoaded = false;
+		break;
 	case Sc::kOpenPex:
 		if (platform::HasNativeDialogs()) {
 			if (auto f = platform::OpenFileDialog(_sourcesPath.empty() ? std::filesystem::path() : platform::FromUtf8(_sourcesPath), "pex",
@@ -158,6 +173,10 @@ void App::drawHome()
 				{ Sc::kOrphans, "Missing spawned objects", "scripts on objects that are gone",
 					"Find script instances sitting on spawned (FF......) objects that no longer exist, grouped by mod, and remove them.",
 					HomeRisk::kCaution, r ? n(r->createdWithoutForm) : -1 },
+				{ Sc::kLeftovers, "Leftover items", "items whose mod is gone",
+					"Items in the player's, NPCs' and containers' inventories whose mod is no longer installed: find them and remove them. "
+					"They can break inventory menus and cause crashes.",
+					HomeRisk::kCaution, -1 },
 				{ Sc::kMissingMods, "Mods no longer installed", "what removed mods left behind",
 					"Mods that are in this save but not in your load order: see what they left and clean it after you confirm. A renamed plugin "
 					"can be pointed at its new name instead.",
@@ -186,6 +205,9 @@ void App::drawHome()
 					"Every NPC and creature with where the save has them. Find a lost follower and bring them next to you.", HomeRisk::kCaution, -1 },
 				{ Sc::kTransplant, "Transplant progress", "from a broken save into a healthy one",
 					"Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one.", HomeRisk::kCaution, -1 },
+				{ Sc::kSavesMgr, "Manage saves folder", "delete old saves in bulk",
+					"All saves by character with size and date; delete old ones (with their .skse files) in bulk, keeping the newest.",
+					HomeRisk::kCaution, -1 },
 				{ Sc::kLookup, "Find a form", "by name or editor ID",
 					"Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it.", HomeRisk::kNone, -1 },
 			} },
@@ -200,6 +222,11 @@ void App::drawHome()
 					HomeRisk::kNone, -1 },
 				{ Sc::kReport, "Report", "text or PDF, to share when asking for help",
 					"Write a report of the save (mods, scripts, anomalies) as text or PDF.", HomeRisk::kNone, -1 },
+				{ Sc::kHistory, "Save history", "which mods keep growing",
+					"Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing.",
+					HomeRisk::kNone, -1 },
+				{ Sc::kPapyrusLog, "Papyrus log", "which mod is spamming errors",
+					"Read Papyrus.0.log: errors grouped by script and mod, with how often each happens.", HomeRisk::kNone, -1 },
 				{ Sc::kAnalysis, "Analysis", "what takes the most space and runs the most",
 					"A text report of the save: which mods and scripts take the most space and run the most.", HomeRisk::kNone, -1 },
 				{ Sc::kOpenPex, "Open script (.pex)", "read a compiled script's code",

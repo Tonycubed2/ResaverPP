@@ -4696,6 +4696,74 @@ namespace ess::cf
 		}
 	}
 
+	std::vector<InventoryEntry> ListInventories(const SaveFile& a_save)
+	{
+		std::vector<InventoryEntry> out;
+		for (const auto& c : a_save.changeForms) {
+			const auto t = static_cast<ChangeFormType>(c.typeCode());
+			if ((t != ChangeFormType::REFR && t != ChangeFormType::ACHR) || !(Bit(c.changeFlags, 5) || Bit(c.changeFlags, 27))) {
+				continue;
+			}
+			const auto d = Decode(a_save, c);
+			if (d.inventory.empty()) {
+				continue;
+			}
+			std::vector<std::uint8_t> body;
+			try {
+				body = Body(c);
+			} catch (const std::exception&) {
+				continue;
+			}
+			for (const auto& e : d.inventory) {
+				InventoryEntry x;
+				x.holderRefRaw = c.refID.data;
+				x.holder = a_save.formIDOf(c.refID);
+				x.holderType = c.typeCode();
+				x.item = e.item;
+				if (e.countAt + 4 <= body.size()) {
+					std::memcpy(&x.count, &body[e.countAt], 4);
+				}
+				out.push_back(x);
+			}
+		}
+		return out;
+	}
+
+	std::string RemoveInventoryItems(const SaveFile& a_save, ChangeForm& a_cf, const std::set<std::uint32_t>& a_items, std::size_t* a_removed)
+	{
+		if (a_removed) {
+			*a_removed = 0;
+		}
+		const auto d = Decode(a_save, a_cf);
+		if (!d.complete) {
+			return "this change form could not be read completely (" + d.error + "): nothing changed";
+		}
+		const auto saved = a_cf;
+		auto       body = Body(a_cf);
+		const auto n = GetVs(body, d.inventoryCountAt);
+		std::uint32_t removed = 0;
+		for (auto it = d.inventory.rbegin(); it != d.inventory.rend(); ++it) {
+			if (a_items.contains(it->item)) {
+				Erase(body, it->entryAt, it->endAt);
+				++removed;
+			}
+		}
+		if (!removed) {
+			return {};
+		}
+		RewriteVs(body, d.inventoryCountAt, n - removed);
+		SetBody(a_cf, body);
+		const auto after = Decode(a_save, a_cf);
+		if (!after.complete) {
+			a_cf = saved;
+			return "the inventory did not read back completely (" + after.error + "): nothing changed";
+		}
+		if (a_removed) {
+			*a_removed = removed;
+		}
+		return {};
+	}
+
 	std::vector<ActorPlace> ListActors(const SaveFile& a_save)
 	{
 		std::vector<ActorPlace> out;
