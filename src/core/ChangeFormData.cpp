@@ -793,13 +793,192 @@ namespace ess::cf
 			}
 		}
 
-		void Achr(P& p, const RefID& id, std::uint32_t flags)
+		// ---- the actor's own data, after its reference data (Actor::LoadGame in the game) ----
+		// Mapped from SkyrimSE.exe 1.6 (Actor::SaveGame / LoadGame and what they call); names from
+		// CommonLibSSE where it has them. Nothing here depends on change flags: every ACHR has it.
+
+		// MagicCaster + ActorMagicCaster state (one of the four casters: left, right, other, instant)
+		void ActorCaster(P& p)
+		{
+			p.i32("STATE");
+			p.ref("CURRENT SPELL");
+			p.f32("CAST TIME");
+			p.i32("UNK1");
+			p.ref("DESIRED TARGET");
+			p.i32("UNK2");
+			p.i32("UNK3");
+			p.ref("UNK REF");
+			p.flags32("FLAGS");
+			const auto n = p.vs("DATA_SIZE");
+			p.bytes("DATA", n);
+		}
+
+		void ActorValueModifiers(P& p, const char* a_name)
+		{
+			p.group(a_name, [&] {
+				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				std::string s;
+				for (std::uint32_t i = 0; i < n && i < 3; ++i) {
+					s += (i ? ", " : "") + Fmt("%g", p.r.f32());
+				}
+				p.add("PERMANENT, TEMPORARY, DAMAGE", s);
+			});
+		}
+
+		// ActorPackage: the package an actor is running (AIProcess, and again in the middle-high process)
+		void ActorPackage(P& p, const char* a_name)
+		{
+			p.group(a_name, [&] {
+				p.ref("PACKAGE");
+				const auto data = static_cast<std::int8_t>(p.u8("DATA TYPE"));
+				if (data != -1) {
+					throw Stop(Fmt("package data (type %d) is not decoded yet", data));
+				}
+				p.f32("UNK1");
+				p.f32("UNK2");
+				p.f32("UNK3");
+				p.i16("UNK4");
+				p.u8("UNK5");
+				p.u8("FLAGS");
+				p.ref("TARGET");
+			});
+		}
+
+		void ValueList(P& p, const char* a_name)
+		{
+			const auto n = static_cast<std::uint32_t>(p.r.i32());
+			p.countedArray(a_name, n, [&] {
+				p.i32("INDEX");
+				p.i32("VALUE");
+				p.u8("FLAG");
+			});
+		}
+
+		// AIProcess: present when the actor has an AI process (process level 0-3). Level 3 (low) saves
+		// only this common part; 2 adds cached values, 1 the middle-high process, 0 the high process.
+		void AIProcess(P& p, std::int32_t a_level)
+		{
+			p.group("AI PROCESS", [&] {
+				p.f32("UNK48");
+				p.f32("UNK4C");
+				if (p.u8("HAS UNK DATA")) {
+					p.group("UNK DATA", [&] {
+						p.floats("VALUES", 12);
+						ValueList(p, "LIST1");
+						ValueList(p, "LIST2");
+					});
+				}
+				ActorPackage(p, "CURRENT PACKAGE");
+				p.u8("UNK136");
+				p.f32("HOURS TO SLEEP?");
+				p.ref("UNK100");
+				p.i32("UNK58");
+				p.i32("UNK94");
+				p.i32("UNK98");
+				p.u8("UNK138");
+				p.i16("UNK134");
+				p.floats("TIMESTAMP", 2);
+				p.ref("UNK120");
+				const auto n = p.vs("");
+				p.countedArray("REFS", n, [&] { p.ref("REF"); });
+				const auto m = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("PAIRS", m, [&] {
+					p.ref("REF1");
+					p.ref("REF2");
+				});
+				p.ref("UNKF0");
+				p.ref("UNKF8");
+				p.u8("UNK139");
+				p.ref("UNK128");
+				if (a_level < 3) {
+					throw Stop(Fmt("AI process data above low level (process level %d) is not decoded yet", a_level));
+				}
+			});
+		}
+
+		void ActorData(P& p, std::uint8_t a_version, std::int32_t a_processLevel)
+		{
+			if (a_processLevel != -1) {
+				AIProcess(p, a_processLevel);
+			}
+			p.group("ACTOR", [&] {
+				p.u8("UNK_278");
+				p.f32("UPDATE TARGET TIMER");
+				p.f32("VOICE TIMER");
+				p.f32("LAST UPDATE (AGE)");
+				p.f32("CHECK DEAD BODY TIMER");
+				p.i32("ACTION VALUE");
+				p.f32("TIMER ON ACTION");
+				p.i32("UNK_11C");
+				p.i32("EMOTION TYPE");
+				p.i32("EMOTION VALUE");
+				p.i32("CRITICAL STAGE");
+				p.i32("THIEF CRIME STAMP");
+				p.i32("LAST SEEN TIME");
+				p.f32("BASE HEIGHT");
+				p.ref("KILLER");
+				p.group("ACTOR STATE", [&] { p.bytes("BITS", 18); });
+				p.ref("UNK HANDLE");
+				const auto mask = p.u8("MAGIC CASTERS");
+				static const char* kSlots[4] = { "LEFT HAND CASTER", "RIGHT HAND CASTER", "OTHER CASTER", "INSTANT CASTER" };
+				for (int i = 0; i < 4; ++i) {
+					if (mask & (1u << i)) {
+						p.group(kSlots[i], [&] { ActorCaster(p); });
+					}
+				}
+				p.ref("SELECTED SPELL LEFT");
+				p.ref("SELECTED SPELL RIGHT");
+				p.ref("SELECTED SPELL OTHER");
+				p.ref("SELECTED SPELL INSTANT");
+				p.ref("SELECTED POWER");
+				ActorValueModifiers(p, "HEALTH MODIFIERS");
+				ActorValueModifiers(p, "MAGICKA MODIFIERS");
+				ActorValueModifiers(p, "STAMINA MODIFIERS");
+				ActorValueModifiers(p, "VOICE MODIFIERS");
+				p.group("ACTOR VALUES", [&] {
+					p.vsArray("BASE", [&] {
+						p.i32("AV");
+						p.f32("VALUE");
+					});
+					p.vsArray("MODIFIERS", [&] {
+						p.i32("AV");
+						p.floats("PERMANENT, TEMPORARY, DAMAGE", 3);
+					});
+				});
+				const auto spells = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("ADDED SPELLS", spells, [&] { p.ref("SPELL"); });
+				if (p.u8("HAS MOVEMENT CONTROLLER")) {
+					throw Stop("movement controller data is not decoded yet");
+				}
+				p.flags32("BOOL FLAGS");
+				if (p.u8("HAS COMBAT CONTROLLER")) {
+					throw Stop("combat controller data is not decoded yet");
+				}
+				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("UNK LIST", n, [&] {
+					p.ref("REF");
+					p.i32("VALUE");
+				});
+				p.i32("INTIMIDATE / BRIBE DAY");
+				if (a_version > 0x27) {
+					p.f32("UNDERWATER TIMER");
+				}
+				if (a_version > 0x2a) {
+					p.ref("EXCLUSIVE BRANCH");
+				}
+				if (a_version > 0x2c) {
+					p.u8("UNK_27B");
+				}
+			});
+		}
+
+		void Achr(P& p, const RefID& id, std::uint32_t flags, std::uint8_t a_version)
 		{
 			const int t = InitialType(id, flags);
 			Initial(p, t);
 			Havok(p, flags);
-			p.i32("UNKNOWN_INTEGER");
-			p.bytes("UNKNOWN_BYTES", 4);
+			const auto level = p.i32("PROCESS LEVEL");
+			p.flags32("BOOL BITS");
 			if (Bit(flags, 0)) {
 				p.changeFormFlags();
 			}
@@ -821,6 +1000,7 @@ namespace ess::cf
 			if (Bit(flags, 28)) {
 				p.bytesVS("ANIMATIONS");
 			}
+			ActorData(p, a_version, level);
 		}
 
 		void NPC(P& p, std::uint32_t flags, bool)
@@ -1081,7 +1261,7 @@ namespace ess::cf
 				Refr(p, a_cf.refID, flags);
 				break;
 			case ChangeFormType::ACHR:
-				Achr(p, a_cf.refID, flags);
+				Achr(p, a_cf.refID, flags, a_cf.version);
 				break;
 			case ChangeFormType::NPC_:
 				NPC(p, flags, false);
