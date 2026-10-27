@@ -776,7 +776,7 @@ namespace ess
 	{
 		w.u16(header);
 		if (w.le) {
-			if (strings.size() < 0xFFFF) {
+			if (strings.size() <= 0xFFF0) {
 				w.u16(static_cast<std::uint16_t>(strings.size()));
 			} else {
 				w.u16(0xFFFF);

@@ -322,7 +322,9 @@ namespace ess
 			for (unsigned i = 0; i < full; ++i) {
 				save->plugins.full.push_back(r.wstring());
 			}
-			if (save->formVersion >= 78) {
+			// light plugins: SE form version 78+; Skyrim LE with LE Light Support writes form version 75 and
+			// the same list (a u16 count and the names) when a light plugin is active
+			if (save->formVersion >= 78 || (save->isLE() && save->formVersion == 75)) {
 				save->plugins.hasLite = true;
 				const auto lite = r.u16();
 				for (unsigned i = 0; i < lite; ++i) {

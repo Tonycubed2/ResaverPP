@@ -153,7 +153,7 @@ namespace ess
 		{
 			if (!le) {
 				u32(v);
-			} else if (v < 0xFFFF) {
+			} else if (v <= 0xFFF0) {  // the cutoff the game uses (with Crash Fixes / LE Light Support)
 				u16(static_cast<std::uint16_t>(v));
 			} else {
 				u16(0xFFFF);
