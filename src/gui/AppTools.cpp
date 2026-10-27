@@ -5,6 +5,7 @@
 
 #include "Platform.h"
 #include "Theme.h"
+#include "Tips.h"
 
 #include "imgui.h"
 
@@ -188,8 +189,10 @@ void App::drawLookup()
 	ImGui::TextDisabled("Editor ID, name, or hex form ID. Placed references show their base object after \"->\".");
 	ImGui::SetNextItemWidth(-120);
 	bool go = ImGui::InputTextWithHint("##look", "e.g. Nazeem, WhiterunGuard, 00013BBF", _lookupBuf, sizeof(_lookupBuf), ImGuiInputTextFlags_EnterReturnsTrue);
+	tips::Tip("Type part of an editor ID (e.g. WhiterunGuard), a name shown in game (e.g. Nazeem) or a hex form ID, then press Enter. Searches every plugin of this save's load order.");
 	ImGui::SameLine();
 	go |= ImGui::Button("Search", ImVec2(110, 0));
+	tips::Tip("Search the plugins for forms matching the text. Each result shows whether the save changed it and how many scripts sit on it.");
 	if (_lookupAuto) {
 		go = true;
 		_lookupAuto = false;
@@ -254,6 +257,9 @@ void App::drawLookup()
 				if (li.hasCf && ImGui::SmallButton("form")) {
 					select(Cat::kChangeForms, li.cfRaw);
 				}
+				if (li.hasCf) {
+					tips::Tip("Open the change form: everything the game saved about this form (position, inventory, AI, flags...).");
+				}
 				if (li.scripts) {
 					ImGui::SameLine();
 					if (ImGui::SmallButton("scripts")) {
@@ -261,6 +267,7 @@ void App::drawLookup()
 						std::snprintf(_filter, sizeof(_filter), "%08X", id);
 						_rowsDirty = true;
 					}
+					tips::Tip("Show the script instances attached to this form (the Script Instances list, filtered to it).");
 				}
 				ImGui::PopID();
 			}
@@ -288,17 +295,21 @@ void App::drawCfNode(const cf::Node& n, int a_depth, int a_index)
 				id.data = n.refRaw;
 				const auto* target = _save->findChangeForm(id);
 				ImGui::BulletText("%s: %s", n.label.c_str(), n.formID ? formText(n.formID).c_str() : Fmt("RefID %06X", n.refRaw).c_str());
+				tips::Tip(tips::Explain(n.label));
 				if (target) {
 					ImGui::SameLine();
 					if (ImGui::SmallButton("go")) {
 						select(Cat::kChangeForms, n.refRaw);
 					}
+					tips::Tip("Go to the change form of what this points at.");
 				}
 			}
 		} else {
 			ImGui::BulletText("%s: %s", n.label.c_str(), n.value.c_str());
+			tips::Tip(tips::Explain(n.label));
 		}
-	} else if (ImGui::TreeNodeEx(n.label.c_str(), a_depth < 2 ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+	} else if (const bool open = ImGui::TreeNodeEx(n.label.c_str(), a_depth < 2 ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+			   tips::Tip(tips::Explain(n.label)), open) {
 		for (std::size_t i = 0; i < n.kids.size(); ++i) {
 			drawCfNode(n.kids[i], a_depth + 1, static_cast<int>(i));
 		}
@@ -332,6 +343,7 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 	}
 	for (const auto& n : names) {
 		ImGui::BulletText("%s", n.c_str());
+		tips::Tip(tips::Explain(n));
 		const int bit = std::atoi(n.c_str());
 		if (d.complete && cf::CanRemoveFlag(c, bit) && fid != 0x7) {  // not the player: that would reset your own character
 			ImGui::SameLine();
@@ -355,6 +367,13 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 							}
 						}
 					});
+			}
+			if (const char* what = tips::Explain(n)) {
+				tips::Tipf("%s\n\nRemove clears this flag and cuts out the data it holds, so the game uses what the plugin says instead. "
+						   "Asks first. Edit only while the game is not using this save; save as a new file and keep the original.", what);
+			} else {
+				tips::Tip("Remove clears this flag and cuts out the data it holds, so the game uses what the plugin says instead. Asks "
+						  "first. Save as a new file and keep the original.");
 			}
 			ImGui::PopID();
 		}
@@ -382,6 +401,10 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 					}
 				});
 		}
+		if (d.complete) {
+			tips::Tip("Zero this object's saved physics state; it falls back to its resting position when the cell loads. Fixes objects "
+					  "that fly off, shake or sink through the floor.");
+		}
 	}
 	if (static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::ACHR && d.complete) {
 		actorFixes(c, d);
@@ -398,6 +421,8 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 				const auto r = cf::PurifyFormLists(*_save, false, c.refID.data);
 				markChanged(Fmt("Removed %zu null entries from the form list", r.entries));
 			}
+			tips::Tip("Remove the empty (null) entries from this list. They are left behind when a form it held no longer exists, e.g. after "
+					  "uninstalling a mod; scripts walking the list can trip on them.");
 		}
 	}
 	ImGui::SeparatorText("Decoded data");
@@ -435,6 +460,7 @@ void App::actorFixes(const ChangeForm& c, const cf::Decoded& d)
 			const auto& name = d.extras[i].name;
 			ImGui::PushID(static_cast<int>(i) + 1000);
 			ImGui::BulletText("%s", name.c_str());
+			tips::Tip(tips::Explain(name));
 			if (i < _actorExtraOk.size() && _actorExtraOk[i]) {
 				ImGui::SameLine();
 				if (ImGui::SmallButton("Remove")) {
@@ -457,6 +483,13 @@ void App::actorFixes(const ChangeForm& c, const cf::Decoded& d)
 								}
 							}
 						});
+				}
+				{
+					const char* what = tips::Explain(name);
+					const auto  effect = cf::RemoveExtraEffect(name);
+					tips::Tipf("%s%s%s\n\nRemove cuts only this entry out of the actor's saved data (tested on a copy first). Asks first; "
+							   "save as a new file and keep the original.",
+						what ? what : "", what ? "\n\n" : "", effect.c_str());
 				}
 			}
 			ImGui::PopID();
@@ -487,6 +520,8 @@ void App::actorFixes(const ChangeForm& c, const cf::Decoded& d)
 					}
 				});
 		}
+		tips::Tip("Drop this actor's saved AI (package, procedure, targets, movement and combat state) so the game builds it fresh when "
+				  "the actor loads. Fixes NPCs stuck in combat, in a package or frozen in place. Stats, inventory and position stay.");
 	}
 }
 
@@ -547,20 +582,24 @@ void App::drawBatchModal()
 		ImGui::TextWrapped("One script per line (ReSaver's batch list format). \"Name*\" matches every script starting with Name; "
 						   "\"Name @@ reason\" asks first; lines starting with ; or # are ignored.");
 		ImGui::InputTextMultiline("##batch", _batchBuf, sizeof(_batchBuf), ImVec2(-1, -ImGui::GetFrameHeightWithSpacing() * 1.5f));
+		tips::Tip("One script name per line. Name* matches every script starting with Name; \"Name @@ reason\" asks before purging; lines starting with ; or # are comments.");
 		if (ImGui::Button("Find these scripts", ImVec2(180, 0))) {
 			_batchMatches = batch::Resolve(*_save, _batchBuf);
 			_batchResolved = true;
 		}
+		tips::Tip("Look up which of the listed scripts are in this save. Nothing is changed yet: you get a list to review first.");
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 		}
+		tips::Tip("Close without changing anything.");
 	} else {
 		ImGui::Text("%zu script(s) in this save match. Untick any you want to keep:", _batchMatches.size());
 		ImGui::BeginChild("bm", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 1.5f), ImGuiChildFlags_Borders);
 		for (auto& m : _batchMatches) {
 			ImGui::PushID(&m);
 			ImGui::Checkbox(Fmt("%s   (%zu instances, %zu threads)", m.script.c_str(), m.instances, m.threads).c_str(), &m.selected);
+			tips::Tip("Ticked scripts are purged: their running threads, queued calls and instances are deleted. Untick one to keep it.");
 			if (!m.prompt.empty()) {
 				ImGui::SameLine();
 				TextColored(theme::Warn(), "@@ " + m.prompt);
@@ -577,10 +616,13 @@ void App::drawBatchModal()
 				r.stacks, r.messages, r.instances));
 		}
 		ImGui::EndDisabled();
+		tips::Tip("Delete everything the ticked scripts left in the save: threads, suspended stacks, queued calls and instances. Only for "
+				  "mods you uninstalled; save as a new file and keep the original.");
 		ImGui::SameLine();
 		if (ImGui::Button("Back", ImVec2(120, 0))) {
 			_batchResolved = false;
 		}
+		tips::Tip("Go back and edit the list of scripts.");
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
@@ -621,6 +663,7 @@ void App::drawCompare()
 		}
 		ImGui::SetClipboardText(all.c_str());
 	}
+	tips::Tip("Copy the whole comparison as text, e.g. to paste into a bug report or forum post.");
 	ImGui::Separator();
 	ImGui::BeginChild("cmp");
 	for (const auto& l : _compareLines) {
@@ -652,12 +695,14 @@ void App::drawReportModal()
 	ImGui::TextWrapped("Write a report of this save. Choose what goes in it:");
 	ImGui::Spacing();
 	ImGui::Checkbox("Mods and plugins with their scripts and instances", &_reportOpt.mods);
+	tips::Tip("Include every mod with its scripts, instances and running threads.");
 	ImGui::Indent(32);
 	ImGui::PushTextWrapPos(0);
 	ImGui::TextDisabled("Every mod, every script on its objects, its instances and running threads (like the Mods view).");
 	ImGui::PopTextWrapPos();
 	ImGui::Unindent(32);
 	ImGui::Checkbox("Anomalies found", &_reportOpt.anomalies);
+	tips::Tip("Include problems ReSaver++ found: undefined or unattached scripts, stuck threads, MCM jams, null form list entries and more.");
 	ImGui::Indent(32);
 	ImGui::PushTextWrapPos(0);
 	ImGui::TextDisabled("Analysis findings, undefined / unattached / looping scripts, terminated threads, MCM jam, form lists with null "
@@ -666,6 +711,7 @@ void App::drawReportModal()
 	ImGui::Unindent(32);
 	ImGui::Separator();
 	ImGui::Checkbox("Export the report as a PDF (otherwise a .txt file)", &_reportOpt.pdf);
+	tips::Tip("Ticked: a PDF you can open in any viewer. Unticked: a plain text file, easy to paste into a forum post.");
 	if (!_db && _sources.scanned()) {
 		ImGui::TextDisabled(namesLoading() ? "Plugin names are still being read; the report will show form IDs only." : "");
 	}
@@ -687,6 +733,7 @@ void App::drawReportModal()
 		}
 	}
 	ImGui::EndDisabled();
+	tips::Tip("Choose where to save the report and write it. The save itself is not changed.");
 	ImGui::SameLine();
 	if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 		ImGui::CloseCurrentPopup();
@@ -945,7 +992,9 @@ void App::drawPlayer()
 	};
 
 	// ---- character ----
-	if (ImGui::CollapsingHeader("Character", ImGuiTreeNodeFlags_DefaultOpen)) {
+	const bool hChar = ImGui::CollapsingHeader("Character", ImGuiTreeNodeFlags_DefaultOpen);
+	tips::Tip("Gold, character level, level-up progress, unspent perk points and dragon souls.");
+	if (hChar) {
 		if (ImGui::BeginTable("char", 3, ImGuiTableFlags_SizingFixedFit)) {
 			auto row = [&](const char* a_name) {
 				ImGui::TableNextRow();
@@ -956,38 +1005,46 @@ void App::drawPlayer()
 			};
 			row("Gold");
 			ImGui::InputInt("##gold", &_pvGold, 100, 1000);
+			tips::Tip("The gold your character carries. Type a new amount, then press Set.");
 			_pvGold = std::max(_pvGold, 0);
 			ImGui::TableNextColumn();
 			if (setButton(_pvGold != _pv.gold, "Set##gold")) {
 				done(cf::SetPlayerGold(*_save, _pvGold), Fmt("Set the player's gold to %d", _pvGold));
 			}
+			tips::Tip("Write the new gold amount into the loaded save (nothing is written to disk until File > Save).");
 			if (_pv.hasLevel) {
 				row("Level");
 				ImGui::InputInt("##level", &_pvLevel, 1, 5);
+				tips::Tip("Your character level. Changing it does not grant the perk points, health, magicka or stamina of the levels skipped.");
 				_pvLevel = std::clamp(_pvLevel, 1, 65535);
 				ImGui::TableNextColumn();
 				if (setButton(_pvLevel != _pv.level, "Set##level")) {
 					done(cf::SetPlayerLevel(*_save, _pvLevel), Fmt("Set the player's level to %d", _pvLevel));
 				}
+				tips::Tip("Write the new character level into the loaded save. Enemies that scale with you follow the new level.");
 				ImGui::SameLine();
 				ImGui::TextDisabled("(perk points and stats are not added for the levels skipped)");
 			}
 			row("Level-up XP");
 			ImGui::InputFloat("##xp", &_pvXP, 10.0f, 100.0f, "%.0f");
+			tips::Tip("Experience toward the next character level (the bar in the skills menu). Reaching the amount on the right lets you level up.");
 			_pvXP = std::max(_pvXP, 0.0f);
 			ImGui::TableNextColumn();
 			if (setButton(_pvXP != _pv.xp, "Set##xp")) {
 				done(cf::SetPlayerXP(*_save, _pvXP), Fmt("Set the player's level-up XP to %.0f", _pvXP));
 			}
+			tips::Tip("Write the new level-up progress into the loaded save.");
 			ImGui::SameLine();
 			ImGui::TextDisabled("of %.0f for the next level", _pv.xpNext);
 			row("Perk points");
 			ImGui::InputInt("##perks", &_pvPerks, 1, 5);
+			tips::Tip("Perk points you have not spent yet (0 to 255).");
 			_pvPerks = std::clamp(_pvPerks, 0, 255);
 			ImGui::TableNextColumn();
 			if (setButton(_pvPerks != _pv.perkPoints, "Set##perks")) {
 				done(cf::SetPlayerPerkPoints(*_save, _pvPerks), Fmt("Set the player's perk points to %d", _pvPerks));
 			}
+			tips::Tip("Write the new number of unspent perk points into the loaded save.");
 			const bool hasSouls = std::any_of(_pv.avs.begin(), _pv.avs.end(), [](const auto& a) { return a.id == 133 && a.hasBase; });
 			if (hasSouls) {
 				int current = 0;
@@ -998,18 +1055,22 @@ void App::drawPlayer()
 				}
 				row("Dragon souls");
 				ImGui::InputInt("##souls", &_pvSouls, 1, 5);
+				tips::Tip("Dragon souls you have not spent yet; each unlocks a shout word.");
 				_pvSouls = std::max(_pvSouls, 0);
 				ImGui::TableNextColumn();
 				if (setButton(_pvSouls != current, "Set##souls")) {
 					done(cf::SetPlayerDragonSouls(*_save, _pvSouls), Fmt("Set the player's dragon souls to %d", _pvSouls));
 				}
+				tips::Tip("Write the new number of dragon souls into the loaded save.");
 			}
 			ImGui::EndTable();
 		}
 	}
 
 	// ---- skills ----
-	if (ImGui::CollapsingHeader("Skills")) {
+	const bool hSkills = ImGui::CollapsingHeader("Skills");
+	tips::Tip("Your 18 skills: their levels and how often each was made legendary.");
+	if (hSkills) {
 		ImGui::TextDisabled("Setting a skill starts its progress toward the next level over. Your character level is not changed.");
 		if (ImGui::BeginTable("skills", 5, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
 			ImGui::TableSetupColumn("Skill");
@@ -1027,22 +1088,26 @@ void App::drawPlayer()
 				ImGui::BeginDisabled(!_pv.hasSkill[i]);
 				ImGui::SetNextItemWidth(120);
 				ImGui::InputFloat("##lvl", &_pvSkills[i], 1.0f, 10.0f, "%.0f");
+				tips::Tipf("Your %s skill level. Raising skills normally also counts toward your character level; setting it here does not.", cf::kSkillNames[i]);
 				_pvSkills[i] = std::clamp(_pvSkills[i], 0.0f, 1000.0f);
 				ImGui::TableNextColumn();
 				if (setButton(_pvSkills[i] != _pv.skills[i])) {
 					done(cf::SetPlayerSkill(*_save, i, _pvSkills[i]), Fmt("Set the player's %s to %.0f", cf::kSkillNames[i], _pvSkills[i]));
 				}
+				tips::Tip("Write the new skill level into the loaded save. Its progress toward the next skill level starts over.");
 				ImGui::EndDisabled();
 				if (_pv.hasLegendary) {
 					ImGui::TableNextColumn();
 					ImGui::SetNextItemWidth(100);
 					ImGui::InputInt("##leg", &_pvLegend[i], 1, 1);
+					tips::Tip("How many times this skill was made legendary (reset to 15 for its perk points back).");
 					_pvLegend[i] = std::max(_pvLegend[i], 0);
 					ImGui::TableNextColumn();
 					if (setButton(_pvLegend[i] != _pv.legendary[i], "Set##leg")) {
 						done(cf::SetPlayerLegendary(*_save, i, _pvLegend[i]),
 							Fmt("Set the player's %s legendary count to %d", cf::kSkillNames[i], _pvLegend[i]));
 					}
+					tips::Tip("Write the new legendary count into the loaded save. It only changes the counter (and the stat the game shows), not your perks.");
 				}
 				ImGui::PopID();
 			}
@@ -1051,13 +1116,16 @@ void App::drawPlayer()
 	}
 
 	// ---- stats and other actor values ----
-	if (ImGui::CollapsingHeader("Stats and actor values")) {
+	const bool hAV = ImGui::CollapsingHeader("Stats and actor values");
+	tips::Tip("Every actor value the save stores for you (carry weight, regen rates, resistances...), with the changes active effects and items make to them. Use Reset for odd values a mod left behind.");
+	if (hAV) {
 		ImGui::TextWrapped("Base is the saved value; permanent, temporary and damage are the changes on top of it. Reset drops the saved "
 						   "value and its permanent and damage changes, so your race and plugins give it again (for odd values left by "
 						   "mods). Health, Magicka, Stamina, skills and dragon souls hold your progress, so they can be set but not reset. "
 						   "Temporary changes usually come from active effects: clear them only when nothing should be affecting you.");
 		ImGui::SetNextItemWidth(250);
 		ImGui::InputTextWithHint("##avf", "filter (e.g. rate, resist, carry)", _pvAVFilter, sizeof(_pvAVFilter));
+		tips::Tip("Show only actor values whose name contains this text.");
 		if (ImGui::BeginTable("avs", 7, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0, 380))) {
 			ImGui::TableSetupScrollFreeze(0, 1);
 			for (const char* h : { "Actor value", "Base", "", "Permanent", "Temporary", "Damage", "Now" }) {
@@ -1081,10 +1149,12 @@ void App::drawPlayer()
 					auto& e = _pvAVEdit[a.id];
 					ImGui::SetNextItemWidth(110);
 					ImGui::InputFloat("##b", &e, 0, 0, "%.2f");
+					tips::Tip(tips::Explain(name) ? tips::Explain(name) : "The saved base value of this actor value. Type a new value, then press Set.");
 					ImGui::TableNextColumn();
 					if (setButton(e != a.base)) {
 						done(cf::SetPlayerAV(*_save, a.id, e), Fmt("Set the player's %s to %g", name.c_str(), e));
 					}
+					tips::Tip("Write the new base value into the loaded save.");
 				} else {
 					ImGui::TextDisabled("(plugin)");
 					ImGui::TableNextColumn();
@@ -1094,6 +1164,7 @@ void App::drawPlayer()
 					if (ImGui::SmallButton("Reset")) {
 						done(cf::ResetPlayerAV(*_save, a.id), "Reset the player's " + name);
 					}
+					tips::Tip("Drop the saved value and its permanent and damage changes, so your race, perks and plugins decide it again. For odd values a mod left behind.");
 				}
 				ImGui::TableNextColumn();
 				ImGui::Text("%g", a.permanent);
@@ -1102,6 +1173,7 @@ void App::drawPlayer()
 					if (ImGui::SmallButton("Clear##p")) {
 						done(cf::ClearPlayerAVModifiers(*_save, a.id, 1), "Cleared the permanent change to the player's " + name);
 					}
+					tips::Tip("Zero the permanent change (from perks, quest rewards or mods). Effects still active may add theirs back.");
 				}
 				ImGui::TableNextColumn();
 				ImGui::Text("%g", a.temporary);
@@ -1110,6 +1182,7 @@ void App::drawPlayer()
 					if (ImGui::SmallButton("Clear##t")) {
 						done(cf::ClearPlayerAVModifiers(*_save, a.id, 2), "Cleared the temporary change to the player's " + name);
 					}
+					tips::Tip("Zero the temporary change (from active effects: worn enchantments, potions, spells). Only when nothing should be affecting you: worn items do not re-add theirs until re-equipped.");
 				}
 				ImGui::TableNextColumn();
 				ImGui::Text("%g", a.damage);
@@ -1118,6 +1191,7 @@ void App::drawPlayer()
 					if (ImGui::SmallButton("Clear##d")) {
 						done(cf::ClearPlayerAVModifiers(*_save, a.id, 4), "Cleared the damage to the player's " + name);
 					}
+					tips::Tip("Zero the damage (e.g. lost health or magicka): the value is back to full.");
 				}
 				ImGui::TableNextColumn();
 				if (a.hasBase) {
@@ -1132,12 +1206,15 @@ void App::drawPlayer()
 	}
 
 	// ---- inventory ----
-	if (ImGui::CollapsingHeader("Inventory")) {
+	const bool hInv = ImGui::CollapsingHeader("Inventory");
+	tips::Tip("Items your character carries beyond the starting inventory: change counts or remove items.");
+	if (hInv) {
 		ImGui::TextWrapped("Counts are what the save adds to the character's starting inventory. Set changes the plain stack (enchanted, "
 						   "tempered or worn stacks keep their own); Remove takes every stack of the item. Removing a quest item can "
 						   "break its quest.");
 		ImGui::SetNextItemWidth(250);
 		ImGui::InputTextWithHint("##itf", "filter by name or form ID", _pvItemFilter, sizeof(_pvItemFilter));
+		tips::Tip("Show only items whose name or form ID contains this text.");
 		if (ImGui::BeginTable("items", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY, ImVec2(0, 380))) {
 			ImGui::TableSetupScrollFreeze(0, 1);
 			for (const char* h : { "Item", "Count", "", "" }) {
@@ -1161,17 +1238,20 @@ void App::drawPlayer()
 				auto& e = _pvItemEdit[it.item];
 				ImGui::SetNextItemWidth(110);
 				ImGui::InputInt("##c", &e, 1, 10);
+				tips::Tip("How many the save adds to your starting inventory. Type a new count, then press Set.");
 				e = std::max(e, 0);
 				ImGui::TableNextColumn();
 				if (setButton(e != it.count)) {
 					done(cf::SetPlayerItemCount(*_save, it.item, e), Fmt("Set the player's %s to %d", name.c_str(), e));
 				}
+				tips::Tip("Write the new count of the plain stack into the loaded save. Enchanted, tempered or worn stacks keep their own counts.");
 				ImGui::TableNextColumn();
 				if (ImGui::SmallButton("Remove")) {
 					const auto item = it.item;
 					confirm("Remove an item", "Remove every " + name + " the player carries?",
 						[this, item, name, done] { done(cf::RemovePlayerItem(*_save, item), "Removed " + name + " from the player"); });
 				}
+				tips::Tip("Remove every stack of this item from your character (asks first). Removing a quest item can break its quest.");
 				ImGui::PopID();
 			}
 			ImGui::EndTable();
@@ -1225,6 +1305,7 @@ void App::drawPlayer()
 		}
 		ImGui::SetNextItemWidth(250);
 		ImGui::InputTextWithHint("##spf", "filter spells, powers and abilities", _pvSpellFilter, sizeof(_pvSpellFilter));
+		tips::Tip("Show only spells, powers and abilities whose name, editor ID or form ID contains this text.");
 		int gi = 0;
 		for (auto& g : groups) {
 			++gi;
@@ -1232,7 +1313,9 @@ void App::drawPlayer()
 				continue;
 			}
 			ImGui::PushID(gi + 70000);
-			if (ImGui::CollapsingHeader(Fmt("%s (%zu)", g.title, g.rows.size()).c_str())) {
+			const bool hSp = ImGui::CollapsingHeader(Fmt("%s (%zu)", g.title, g.rows.size()).c_str());
+			tips::Tip(g.note);
+			if (hSp) {
 				ImGui::TextDisabled("%s", g.note);
 				if (ImGui::BeginTable("sp", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
 						ImVec2(0, std::min(360.0f, 30.0f + 26.0f * static_cast<float>(g.rows.size()))))) {
@@ -1258,6 +1341,7 @@ void App::drawPlayer()
 							confirm("Remove from the player", "Remove " + label + " from the player?",
 								[this, sp, label, done] { done(cf::RemovePlayerSpell(*_save, sp), "Removed " + label + " from the player"); });
 						}
+						tips::Tip("Take this from your character (asks first). For an ability, its constant effect stops. Spells your race or plugins give you are not listed here and stay.");
 						ImGui::TableNextColumn();
 						if (inGame.empty()) {
 							ImGui::TextDisabled("(no name)");
@@ -1281,8 +1365,11 @@ void App::drawPlayer()
 	}
 
 	// ---- bounty ----
-	if (ImGui::CollapsingHeader("Bounty and crime")) {
+	const bool hCrime = ImGui::CollapsingHeader("Bounty and crime");
+	tips::Tip("Your bounty in each hold and the crimes on record with each faction. Clear a bounty or wipe the record.");
+	if (hCrime) {
 		ImGui::Checkbox("Show every faction (not only those with a bounty or crimes)", &_pvAllFactions);
+		tips::Tip("Also list factions you have no bounty or crimes with, e.g. to give yourself a bounty.");
 		if (ImGui::BeginTable("bounty", 5, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
 			for (const char* h : { "Faction", "Violent", "Non-violent", "", "Crime totals" }) {
 				ImGui::TableSetupColumn(h);
@@ -1303,9 +1390,11 @@ void App::drawPlayer()
 				ImGui::TableNextColumn();
 				ImGui::SetNextItemWidth(110);
 				ImGui::InputInt("##v", &_pvBounty[i][0], 100, 1000);
+				tips::Tip("Bounty for violent crimes (assault, murder). Guards attack on sight above 1000.");
 				ImGui::TableNextColumn();
 				ImGui::SetNextItemWidth(110);
 				ImGui::InputInt("##n", &_pvBounty[i][1], 100, 1000);
+				tips::Tip("Bounty for non-violent crimes (theft, trespassing, pickpocketing).");
 				_pvBounty[i][0] = std::max(_pvBounty[i][0], 0);
 				_pvBounty[i][1] = std::max(_pvBounty[i][1], 0);
 				ImGui::TableNextColumn();
@@ -1313,12 +1402,14 @@ void App::drawPlayer()
 					done(cf::SetPlayerBounty(*_save, b.faction, _pvBounty[i][0], _pvBounty[i][1]),
 						Fmt("Set the player's bounty with %s to %d", formText(b.faction).c_str(), _pvBounty[i][0] + _pvBounty[i][1]));
 				}
+				tips::Tip("Write the new bounty with this faction into the loaded save.");
 				ImGui::SameLine();
 				ImGui::BeginDisabled(b.violent == 0 && b.nonViolent == 0);
 				if (ImGui::SmallButton("Clear")) {
 					done(cf::SetPlayerBounty(*_save, b.faction, 0, 0), "Cleared the player's bounty with " + formText(b.faction));
 				}
 				ImGui::EndDisabled();
+				tips::Tip("Set both bounties with this faction to 0. Your crime record (the totals on the right) stays.");
 				ImGui::TableNextColumn();
 				ImGui::Text("%d violent, %d non-violent", b.violentTotal, b.nonViolentTotal);
 				if (b.violentTotal || b.nonViolentTotal) {
@@ -1326,6 +1417,7 @@ void App::drawPlayer()
 					if (ImGui::SmallButton("Reset all")) {
 						done(cf::ClearPlayerCrimes(*_save, b.faction), "Cleared the player's bounty and crime record with " + formText(b.faction));
 					}
+					tips::Tip("Clear the bounty and the crime totals with this faction: a clean record, as if no crime was ever reported.");
 				}
 				ImGui::PopID();
 			}

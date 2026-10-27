@@ -6,6 +6,7 @@
 #include "App.h"
 
 #include "Theme.h"
+#include "Tips.h"
 
 #include "imgui.h"
 
@@ -139,6 +140,7 @@ void App::drawModCharged(const std::string& a_plugin)
 	if (broken) {
 		ImGui::SetNextItemWidth(120);
 		ImGui::InputInt("Max charge to give them", &_chargeFixValue, 100, 500);
+		tips::Tip("The maximum enchantment charge given to the broken items. A grand or black soul gem holds 3000.");
 		_chargeFixValue = std::clamp(_chargeFixValue, 1, 65535);
 		ImGui::SameLine();
 		ImGui::TextDisabled("(a grand or black soul gem holds 3000)");
@@ -152,6 +154,7 @@ void App::drawModCharged(const std::string& a_plugin)
 			const auto n = cf::FixCharges(*_save, static_cast<std::uint16_t>(_chargeFixValue), only);
 			markEdited(Fmt("Gave %zu item(s) of %s a max charge of %d", n, a_plugin.c_str(), _chargeFixValue));
 		}
+		tips::Tip("Give these enchanted items a maximum charge so they can be recharged with soul gems again (their max charge was lost, often after a mod was removed).");
 		ImGui::TextDisabled("Only the edited save in memory changes; write it with File > Save As.");
 	}
 }

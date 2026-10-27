@@ -7,6 +7,7 @@
 
 #include "Platform.h"
 #include "Theme.h"
+#include "Tips.h"
 
 #include "core/PapyrusCompiler.h"
 #include "core/PapyrusSyntax.h"
@@ -254,9 +255,7 @@ void App::scriptItem(const std::string& a_script, const std::string& a_function,
 	if (a_script.empty()) {
 		return;
 	}
-	if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal | ImGuiHoveredFlags_NoSharedDelay)) {
-		ImGui::SetTooltip("Double-click to view %s%s", a_script.c_str(), a_function.empty() ? "" : " at this point");
-	}
+	tips::Tipf("Double-click to view %s%s", a_script.c_str(), a_function.empty() ? "" : " at this point");
 	if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
 		viewScript(a_script, a_function, a_state, a_instruction);
 	}
@@ -592,10 +591,12 @@ void App::drawDoc(ScriptDoc& d)
 	if (ImGui::Button("Save") || (keys && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))) {
 		saveDoc(d, false);
 	}
+	tips::Tip("Save the script source (Ctrl+S). Compile it afterwards so the game uses the change.");
 	ImGui::SameLine();
 	if (ImGui::Button("Save as...") || (keys && io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))) {
 		saveDoc(d, true);
 	}
+	tips::Tip("Save the source under another name or folder (Ctrl+Shift+S).");
 	ImGui::SameLine();
 	ImGui::TextDisabled("|");
 	ImGui::SameLine();
@@ -605,13 +606,12 @@ void App::drawDoc(ScriptDoc& d)
 		startCompile(d);
 	}
 	ImGui::EndDisabled();
-	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("Compile with the game's Papyrus compiler.\nOutput: %s", platform::ToUtf8(compileOutputFolder(d)).c_str());
-	}
+	tips::Tipf("Compile with the game's Papyrus compiler.\nOutput: %s", platform::ToUtf8(compileOutputFolder(d)).c_str());
 	ImGui::SameLine();
 	if (ImGui::Button("Compile settings...")) {
 		_showCompileSettings = true;
 	}
+	tips::Tip("Where the Papyrus compiler is, its flags, import folders and where compiled scripts go.");
 	ImGui::SameLine();
 	ImGui::TextDisabled("|");
 	ImGui::SameLine();
@@ -624,20 +624,24 @@ void App::drawDoc(ScriptDoc& d)
 		findNext(io.KeyShift);
 		ImGui::SetKeyboardFocusHere(-1);
 	}
+	tips::Tip("Find text in the script. Enter finds the next match, Shift+Enter the previous one (F3 / Shift+F3 too).");
 	ImGui::SameLine();
 	if (ImGui::ArrowButton("##prev", ImGuiDir_Up) || (keys && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_F3, false))) {
 		findNext(true);
 	}
+	tips::Tip("Previous match (Shift+F3).");
 	ImGui::SameLine();
 	if (ImGui::ArrowButton("##next", ImGuiDir_Down) || (keys && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_F3, false))) {
 		findNext(false);
 	}
+	tips::Tip("Next match (F3).");
 	ImGui::SameLine();
 	if (ImGui::Button("Go to line") || (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_G, false))) {
 		_gotoLine = ed.GetCursorPosition().mLine + 1;
 		_gotoOpen = true;
 		ImGui::OpenPopup("gotoline");
 	}
+	tips::Tip("Jump to a line number (Ctrl+G).");
 	if (ImGui::BeginPopup("gotoline")) {
 		ImGui::SetNextItemWidth(120);
 		if (_gotoOpen) {
@@ -648,18 +652,22 @@ void App::drawDoc(ScriptDoc& d)
 			ed.ScrollToLine(std::clamp(_gotoLine, 1, ed.GetTotalLines()) - 1);
 			ImGui::CloseCurrentPopup();
 		}
+		tips::Tip("Line number to jump to; press Enter.");
 		ImGui::EndPopup();
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Fold all")) {
 		ed.FoldAll();
 	}
+	tips::Tip("Collapse every function and block so only their first lines show.");
 	ImGui::SameLine();
 	if (ImGui::Button("Unfold all")) {
 		ed.UnfoldAll();
 	}
+	tips::Tip("Expand every folded block.");
 	ImGui::SameLine();
 	ImGui::Checkbox("Outline", &d.showOutline);
+	tips::Tip("Show a list of the script's properties, variables, events and functions beside the code; click one to jump to it.");
 
 	// ---- where it came from
 	if (d.decompiled) {
@@ -713,9 +721,7 @@ void App::drawDoc(ScriptDoc& d)
 				if (ImGui::Selectable(label.c_str(), it.line == cur)) {
 					ed.ScrollToLine(it.line);
 				}
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
-					ImGui::SetTooltip("%s", it.detail.c_str());
-				}
+				tips::Tipf("%s", it.detail.c_str());
 				ImGui::PopID();
 			}
 			ImGui::EndChild();
@@ -900,6 +906,7 @@ void App::drawDoc(ScriptDoc& d)
 				}
 				ImGui::SetClipboardText(all.c_str());
 			}
+			tips::Tip("Copy the disassembly to the clipboard.");
 			ImGui::SameLine();
 			ImGui::TextDisabled("The compiled script the game loads, instruction by instruction.");
 			if (monoFont) {
@@ -1246,6 +1253,7 @@ void App::drawCompileSettings()
 	ImGui::SeparatorText("Papyrus compiler");
 	const auto detected = papc::FindCompiler(gameFolder());
 	pathInput("##compiler", _compilerSetting, detected ? platform::ToUtf8(*detected).c_str() : "path to PapyrusCompiler.exe");
+	tips::Tip("Path to PapyrusCompiler.exe (comes with the Creation Kit). Leave empty to use the one in the game folder.");
 	ImGui::SameLine();
 	if (ImGui::Button("Browse...##c") && platform::HasNativeDialogs()) {
 		if (auto p = platform::OpenFileDialog(gameFolder(), "exe", "PapyrusCompiler.exe")) {
@@ -1253,6 +1261,7 @@ void App::drawCompileSettings()
 			changed = true;
 		}
 	}
+	tips::Tip("Pick PapyrusCompiler.exe.");
 	if (_compilerSetting.empty()) {
 		if (detected) {
 			ImGui::TextDisabled("Using the one found in the game folder.");
@@ -1267,16 +1276,23 @@ void App::drawCompileSettings()
 		_compileFlags = flags;
 		changed = true;
 	}
+	tips::Tip("The compiler flags file, usually TESV_Papyrus_Flags.flg. It must be in one of the import folders.");
 	changed |= ImGui::Checkbox("Optimize (-op)", &_compileOptimize);
+	tips::Tip("Compile with optimizations: smaller, slightly faster scripts. Debug-only lines are dropped.");
 	ImGui::SameLine();
 	changed |= ImGui::Checkbox("Anonymize the .pex (blank the source path, user and machine names it stores)", &_compileAnonymize);
+	tips::Tip("Blank the source path, user name and machine name the compiler writes into the .pex, so they are not shared when you publish it.");
 
 	ImGui::SeparatorText("Where the compiled .pex goes");
 	changed |= ImGui::RadioButton("The script's own mod (<mod>\\Scripts)", &_compileOutMode, 0);
+	tips::Tip("Put the compiled .pex in the Scripts folder of the mod the source came from, replacing its script.");
 	changed |= ImGui::RadioButton("Mod Organizer's Overwrite folder (Overwrite\\Scripts)", &_compileOutMode, 1);
+	tips::Tip("Put the compiled .pex in Mod Organizer's Overwrite folder, which wins over every mod. Easy to undo: delete it there.");
 	changed |= ImGui::RadioButton("This folder:", &_compileOutMode, 2);
+	tips::Tip("Put the compiled .pex in the folder you choose.");
 	ImGui::SameLine();
 	pathInput("##outdir", _compileOutDir, "folder");
+	tips::Tip("The folder compiled scripts go to when \"This folder\" is chosen.");
 	ImGui::SameLine();
 	if (ImGui::Button("Browse...##o") && platform::HasNativeDialogs()) {
 		if (auto p = platform::PickFolderDialog("Folder for compiled scripts")) {
@@ -1285,7 +1301,9 @@ void App::drawCompileSettings()
 			changed = true;
 		}
 	}
+	tips::Tip("Pick the folder for compiled scripts.");
 	changed |= ImGui::Checkbox("Keep a .pex.bak of a compiled script before replacing it (once)", &_compileBackup);
+	tips::Tip("Before replacing a compiled script the first time, keep the original as .pex.bak so you can go back.");
 
 	ImGui::SeparatorText("Extra import folders (searched first; one per line)");
 	char imports[4096];
@@ -1294,6 +1312,7 @@ void App::drawCompileSettings()
 		_compileImports = imports;
 		changed = true;
 	}
+	tips::Tip("Extra folders with script sources the compiler looks in first (one per line), e.g. SKSE or SkyUI sources.");
 	std::size_t enabled = 0;
 	for (const auto& [dir, on] : _sources.sourceDirs) {
 		enabled += on ? 1 : 0;
@@ -1326,15 +1345,18 @@ void App::drawDecompilePrompt()
 	if (ImGui::Checkbox("Always decompile without asking", &_decompileAlways)) {
 		saveSettings();
 	}
+	tips::Tip("Decompile scripts without a source right away from now on, without this question.");
 	ImGui::Spacing();
 	if (ImGui::Button("Decompile", ImVec2(140, 0))) {
 		ImGui::CloseCurrentPopup();
 		openDoc(_decompileScript, {}, true, _decompileFn, _decompileState, _decompileInstr);
 	}
+	tips::Tip("Turn the compiled script back into readable source with the built-in decompiler. Comments and original layout are not recoverable.");
 	ImGui::SameLine();
 	if (ImGui::Button("Cancel", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
 		ImGui::CloseCurrentPopup();
 	}
+	tips::Tip("Close without opening the script.");
 	ImGui::EndPopup();
 }
 

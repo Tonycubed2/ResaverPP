@@ -5,6 +5,7 @@
 #include "App.h"
 
 #include "Theme.h"
+#include "Tips.h"
 
 #include "imgui.h"
 
@@ -46,10 +47,8 @@ namespace
 	// "needs the running game" hint on a disabled button
 	void LiveHint(const LiveLink::Info& a_info)
 	{
-		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-			ImGui::SetTooltip("%s", !a_info.connected ? "Start Skyrim with ReSaverHelper.dll installed to use this (optional download on the ReSaver Plus page)."
+		tips::Tipf("%s", !a_info.connected ? "Start Skyrim with ReSaverHelper.dll installed to use this (optional download on the ReSaver Plus page)."
 														: "Load a save in the game first.");
-		}
 	}
 }
 
@@ -295,9 +294,7 @@ void App::drawQuestNotifyChoice()
 	if (ImGui::Combo("##qnotify", &_liveNotify, modes, 3)) {
 		saveSettings();
 	}
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("How the game tells you what ReSaver++ did (also in Options > Settings > Live game).");
-	}
+	tips::Tip("How the game tells you what ReSaver++ did (also in Options > Settings > Live game).");
 }
 
 // ---- live status (status bar) -------------------------------------------------------------------
@@ -308,9 +305,7 @@ void App::drawLiveStatus()
 	const auto info = _live.info();
 	if (!info.connected) {
 		ImGui::TextDisabled("Live game: not connected");
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("Start Skyrim with ReSaverHelper.dll installed to complete quests, set stages and refresh the journal from here.");
-		}
+		tips::Tip("Start Skyrim with ReSaverHelper.dll installed to complete quests, set stages and refresh the journal from here.");
 		return;
 	}
 	TextColored(theme::Good(), Fmt("Live game: %s %s%s", info.runtime.c_str(), info.gameVersion.c_str(), info.inGame ? "" : " (main menu)"));
@@ -361,12 +356,10 @@ void App::drawRefreshJournal(bool a_compact)
 	ImGui::EndDisabled();
 	if (!can) {
 		LiveHint(info);
-	} else if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("For every running quest, each objective the journal shows is hidden and shown again (completed / failed\n"
+	} else tips::Tip("For every running quest, each objective the journal shows is hidden and shown again (completed / failed\n"
 						  "put back), so the game rebuilds its list. Brings back quests and objectives the journal stopped showing\n"
 						  "(the same fix as Quest Journal Limit Bug Fixer).\n\n"
 						  "Make a save in the game first and keep menus closed until it is done (helper 4 waits for them).");
-	}
 	if (_liveRefresh.running) {
 		ImGui::SameLine();
 		const float frac = _liveRefresh.total ? float(_liveRefresh.done) / float(_liveRefresh.total) : 0.0f;
@@ -400,11 +393,9 @@ void App::drawRefreshJournal(bool a_compact)
 		});
 	}
 	ImGui::EndDisabled();
-	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("%s", info.connected ? "Saved in ReSaverHelper.ini (bRefreshJournalOnLoad). The helper waits a few seconds after the load,\n"
+	tips::Tipf("%s", info.connected ? "Saved in ReSaverHelper.ini (bRefreshJournalOnLoad). The helper waits a few seconds after the load,\n"
 											   "then refreshes and tells you when it is done."
 											   : "Start the game with ReSaverHelper.dll to change this, or set bRefreshJournalOnLoad=1 in ReSaverHelper.ini.");
-	}
 }
 
 // ---- list -----------------------------------------------------------------------------------------
@@ -438,16 +429,19 @@ void App::drawQuestsList()
 	ImGui::SetNextItemWidth(-1);
 	const char* shows[] = { "In the journal", "Running", "Completed", "All in this save", "Every quest in the game" };
 	ImGui::Combo("##qshow", &_questShow, shows, 5);
+	tips::Tip("Which quests to list: those your journal shows, running ones, completed ones, every quest in this save, or every quest in your plugins.");
 	ImGui::AlignTextToFramePadding();
 	ImGui::TextUnformatted("Search");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(_questFilter[0] ? -60.0f : -1.0f);
 	ImGui::InputTextWithHint("##qfilter", "any word of the quest name, its editor ID or form ID", _questFilter, sizeof(_questFilter));
+	tips::Tip("Type any word of a quest's name, its editor ID or its form ID to find it.");
 	if (_questFilter[0]) {
 		ImGui::SameLine();
 		if (ImGui::Button("Clear", ImVec2(-1, 0))) {
 			_questFilter[0] = 0;
 		}
+		tips::Tip("Clear the search.");
 	}
 	if (_questShow == 4 && !_db) {
 		Dim("Every quest in the game comes from your plugins: they are not read yet.");
@@ -651,6 +645,7 @@ void App::drawQuestDetail()
 		if (ImGui::SmallButton("Check in game")) {
 			liveQuest(q->formID);
 		}
+		tips::Tip("Ask the running game for this quest's current stage and state.");
 	}
 
 	// ---- actions
@@ -695,6 +690,9 @@ void App::drawQuestDetail()
 		LiveHint(info);
 	} else if (completion.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 		ImGui::SetTooltip("No stage of this quest is marked as completing it.");
+	} else if (live) {
+		tips::Tip("Set the quest to its completion stage in the running game. The stage's own script runs, so rewards are given and "
+				  "follow-up quests start the normal way. Make a save in the game first.");
 	}
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!live || !helperAtLeast(3));
@@ -711,6 +709,9 @@ void App::drawQuestDetail()
 		LiveHint(info);
 	} else if (!helperAtLeast(3) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 		ImGui::SetTooltip("Needs ReSaverHelper version 3 (you have version %s).", info.helperVersion.c_str());
+	} else if (live) {
+		tips::Tip("Mark the quest completed in the running game without running its stage script: no rewards, and follow-up quests do "
+				  "not start. Use it when the game refuses the completion stage.");
 	}
 	ImGui::SameLine();
 	// set any stage
@@ -723,7 +724,9 @@ void App::drawQuestDetail()
 	_setStageIdx = std::clamp(_setStageIdx, 0, std::max(0, static_cast<int>(stageList.size()) - 1));
 	ImGui::SetNextItemWidth(110);
 	ImGui::BeginDisabled(stageList.empty());
-	if (ImGui::BeginCombo("##stage", stageList.empty() ? "stage" : Fmt("stage %u", stageList[_setStageIdx]).c_str())) {
+	const bool tipOpen722 = ImGui::BeginCombo("##stage", stageList.empty() ? "stage" : Fmt("stage %u", stageList[_setStageIdx]).c_str());
+	tips::Tip("The stage \"Set stage in game\" and \"Copy console command\" use. Stages come from the quest's plugin.");
+	if (tipOpen722) {
 		for (int i = 0; i < static_cast<int>(stageList.size()); ++i) {
 			if (ImGui::Selectable(Fmt("stage %u", stageList[i]).c_str(), i == _setStageIdx)) {
 				_setStageIdx = i;
@@ -742,6 +745,9 @@ void App::drawQuestDetail()
 	ImGui::EndDisabled();
 	if (!live) {
 		LiveHint(info);
+	} else {
+		tips::Tip("Set the quest to the stage picked on the left in the running game. That stage's script runs. Skipping stages can "
+				  "leave things unfinished; make a save in the game first.");
 	}
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!def || def->edid.empty() || (completion.empty() && stageList.empty()));
@@ -751,9 +757,7 @@ void App::drawQuestDetail()
 		_status = Fmt("Copied: setstage %s %u  (paste it into the game's console with Ctrl+V)", def->edid.c_str(), st);
 	}
 	ImGui::EndDisabled();
-	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("Copies the console command that completes the quest (its completion stage), or sets the stage picked on the left.");
-	}
+	tips::Tip("Copies the console command that completes the quest (its completion stage), or sets the stage picked on the left.");
 	ImGui::TextDisabled("The game confirms with:");
 	ImGui::SameLine();
 	drawQuestNotifyChoice();
@@ -782,6 +786,7 @@ void App::drawQuestDetail()
 				}
 				ImGui::PushID(static_cast<int>(c.formID));
 				ImGui::Checkbox(c.name.c_str(), &c.tick);
+				tips::Tip("Ticked quests are completed first, oldest first, before this one.");
 				ImGui::SameLine();
 				ImGui::TextDisabled("stage %u%s", c.stage, c.alternative ? "   (one of several ways here)" : "");
 				ImGui::PopID();
@@ -813,6 +818,7 @@ void App::drawQuestDetail()
 						runChain();
 					});
 			}
+			tips::Tip("Complete the ticked earlier quests of this quest line one after the other, then this one, each through its own completion stage. Stops if the game refuses a stage.");
 			ImGui::EndDisabled();
 			if (!live) {
 				LiveHint(info);

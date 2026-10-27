@@ -6,6 +6,7 @@
 
 #include "Platform.h"
 #include "Theme.h"
+#include "Tips.h"
 
 #include "core/LoadOrder.h"
 #include "core/ModRemove.h"
@@ -245,13 +246,12 @@ void App::drawMissingBanner()
 		}
 		_missingOpen = true;
 	}
+	tips::Tip("List the mods this save used that are no longer installed, with what each left behind, and remove their leftovers into a new save file. Nothing changes until you confirm.");
 	ImGui::SameLine();
 	if (ImGui::Button("Hide")) {
 		_missingDismissed = true;
 	}
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("Hides this until the next save is opened. Clean > Mods and scripts no longer installed... brings it back.");
-	}
+	tips::Tip("Hides this until the next save is opened. Clean > Mods and scripts no longer installed... brings it back.");
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
 }
@@ -333,6 +333,7 @@ void App::drawMissingModal()
 			ImGui::BeginDisabled(nothing);
 			ImGui::Checkbox(m.plugin.c_str(), &m.selected);
 			ImGui::EndDisabled();
+			tips::Tip(nothing ? "This mod left nothing in the save: there is nothing to remove." : "Ticked: remove this mod's leftovers (its changed forms, scripts, instances and threads). A safety check runs first and refuses removals that would break the save.");
 			ImGui::TableSetColumnIndex(1);
 			if (m.installed) {
 				TextColored(theme::Warn(), "installed but not enabled" + (m.folder.empty() ? std::string() : " (" + m.folder + ")"));
@@ -361,6 +362,7 @@ void App::drawMissingModal()
 				if (ImGui::SmallButton("details")) {
 					ImGui::OpenPopup("plan");
 				}
+				tips::Tip("Show exactly what would be removed for this mod, or why the safety check refused it.");
 				if (ImGui::BeginPopup("plan")) {
 					ImGui::PushTextWrapPos(ImGui::GetFontSize() * 45);
 					ImGui::TextUnformatted(m.planText.c_str());
@@ -378,6 +380,7 @@ void App::drawMissingModal()
 							_missingScripts.size())
 							.c_str(),
 			&_removeMissingScripts);
+		tips::Tip("Also delete the threads, queued calls and instances of scripts whose files exist nowhere any more. The game cannot run them, so they only cost load time and log errors.");
 		if (ImGui::TreeNode("missing scripts", "Show them")) {
 			for (const auto& [name, n] : _missingScripts) {
 				ImGui::BulletText("%s  (%zu in use)", name.c_str(), n);
@@ -397,6 +400,7 @@ void App::drawMissingModal()
 									  "mods folder in Options > Settings first. Removing a script a mod still uses restarts its quests and its MCM.",
 							  _sourcesPath.c_str(), _sources.modsScanned, _sources.pexFound));
 		ImGui::Checkbox(Fmt("Also remove these %zu script(s) (only if you uninstalled their mods)", _unfoundScripts.size()).c_str(), &_removeUnfoundScripts);
+		tips::Tip("Only tick this if you really uninstalled these mods. If they are still installed and ReSaver++ just looked in the wrong folder, removing them restarts their quests and MCM.");
 		if (ImGui::TreeNode("unfound scripts", "Show them")) {
 			for (const auto& [name, n] : _unfoundScripts) {
 				ImGui::BulletText("%s  (%zu in use)", name.c_str(), n);
@@ -477,9 +481,11 @@ void App::drawMissingModal()
 		}
 	}
 	ImGui::EndDisabled();
+	tips::Tip("Remove the ticked leftovers and write the result as a NEW save file next to the original (the original is kept). Load the new save in the game and check it before playing on.");
 	ImGui::SameLine();
 	if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 		ImGui::CloseCurrentPopup();
 	}
+	tips::Tip("Close without changing anything.");
 	ImGui::EndPopup();
 }

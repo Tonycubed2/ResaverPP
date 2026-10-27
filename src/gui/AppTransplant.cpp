@@ -8,6 +8,7 @@
 
 #include "Platform.h"
 #include "Theme.h"
+#include "Tips.h"
 
 #include "imgui.h"
 
@@ -602,9 +603,7 @@ void App::maximizeControl(const char* a_id)
 	const auto  back = ImGui::GetCursorPos();
 	ImGui::SetCursorPos(ImVec2(ImGui::GetWindowContentRegionMax().x - w, back.y));
 	toggle |= ImGui::SmallButton(label);
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("%s (or double-click the title bar)", maxed ? "Back to the size it had" : "Fill the whole ReSaver++ window");
-	}
+	tips::Tipf("%s (or double-click the title bar)", maxed ? "Back to the size it had" : "Fill the whole ReSaver++ window");
 	ImGui::SetCursorPos(back);
 	if (toggle) {
 		if (maxed) {
@@ -680,6 +679,7 @@ void App::drawTransplant()
 		ImGui::TextWrapped("%s", Summary(_tpBad).c_str());
 		ImGui::BeginDisabled(!live || !helperOk || busy);
 		const bool badBtn = ImGui::Button("Snapshot the game (bad save loaded in the game)");
+		tips::Tip("Load the BAD save in the game first. ReSaverHelper then writes down your character as the game sees it: level, skills, perks, spells, shouts, items, quests, map locations. Nothing is changed.");
 		if (!_tpBad.valid && !busy) {
 			Marquee();
 			ImGui::SameLine();
@@ -698,16 +698,15 @@ void App::drawTransplant()
 				transplantFromFile(*p);
 			}
 		}
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("For a save the game cannot load at all. Without the game only part of it can be read:\n"
+		tips::Tip("For a save the game cannot load at all. Without the game only part of it can be read:\n"
 							  "quests, items, spells and shouts, level. Not skills, perks, words of power, map locations or things you made.");
-		}
 		if (_save) {
 			if (ImGui::SmallButton("Use the save open in ReSaver++")) {
 				_tpBad = tp::FromSave(*_save, platform::ToUtf8(_path.filename()));
 				transplantNames(_tpBad, *_save);
 				_tpDirty = true;
 			}
+			tips::Tip("Use the save opened in ReSaver++ as the bad save, without the game. Only part of it can be read this way (no skills, perks or map locations).");
 		}
 		ImGui::SameLine();
 		if (ImGui::SmallButton("Open a snapshot file...") && platform::HasNativeDialogs()) {
@@ -715,6 +714,7 @@ void App::drawTransplant()
 				transplantFromFile(*p);
 			}
 		}
+		tips::Tip("Open a snapshot ReSaverHelper wrote earlier (a .txt file in Documents\\My Games\\...\\SKSE\\ReSaverHelper).");
 		ImGui::EndDisabled();
 		if (_tpBad.valid && _tpBad.fromFile) {
 			std::string parts;
@@ -729,6 +729,7 @@ void App::drawTransplant()
 		ImGui::TextWrapped("%s", Summary(_tpGood).c_str());
 		ImGui::BeginDisabled(!live || !helperOk || !_tpBad.valid || busy);
 		const bool goodBtn = ImGui::Button(_tpGood.valid ? "Snapshot the game again (good save loaded in the game)" : "Snapshot the game (good save loaded in the game)");
+		tips::Tip("Load the GOOD save (an older save that works) in the game first, and make a backup save. ReSaverHelper writes down what it has, so ReSaver++ can list what the bad save has on top.");
 		if (_tpBad.valid && !_tpGood.valid && !busy) {
 			Marquee();
 			ImGui::SameLine();
@@ -777,10 +778,12 @@ void App::drawTransplant()
 	if (ImGui::SmallButton("Expand all")) {
 		openAll = 1;
 	}
+	tips::Tip("Open every group below.");
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Collapse all")) {
 		openAll = 0;
 	}
+	tips::Tip("Fold every group below.");
 	ImGui::SameLine();
 	ImGui::BeginDisabled(_tpRunning);
 	if (ImGui::SmallButton("Tick everything")) {
@@ -788,16 +791,19 @@ void App::drawTransplant()
 			c.tick = c.available;
 		}
 	}
+	tips::Tip("Tick everything that can be brought over (things whose mod is not in the game stay unticked).");
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Untick everything")) {
 		for (auto& c : _tpChanges) {
 			c.tick = false;
 		}
 	}
+	tips::Tip("Untick everything, e.g. to then tick only the few things you want.");
 	ImGui::EndDisabled();
 	ImGui::SameLine(0, 20);
 	ImGui::SetNextItemWidth(-1);
 	ImGui::InputTextWithHint("##tpfilter", "search (opens the groups that match)", _tpFilter, sizeof(_tpFilter));
+	tips::Tip("Show only the things whose name contains this text; the groups that match open.");
 	const auto needle = Lower(_tpFilter);
 	if (!needle.empty()) {
 		openAll = 1;
@@ -813,6 +819,7 @@ void App::drawTransplant()
 		ImGui::BeginDisabled(!ch.available || _tpRunning);
 		ImGui::Checkbox("##t", &ch.tick);
 		ImGui::EndDisabled();
+		tips::Tip(ch.available ? "Ticked things are put into the game when you press Transplant." : "Cannot be brought over: the mod it comes from is not in the game.");
 		ImGui::SameLine();
 		Dot(RiskCol(ch.risk));
 		ImGui::TextUnformatted(ch.label.c_str());
@@ -837,12 +844,14 @@ void App::drawTransplant()
 				_tpChanges[i].tick = _tpChanges[i].available;
 			}
 		}
+		tips::Tip("Tick everything in this group.");
 		ImGui::SameLine();
 		if (ImGui::SmallButton("Untick all")) {
 			for (auto i : a_in) {
 				_tpChanges[i].tick = false;
 			}
 		}
+		tips::Tip("Untick everything in this group.");
 		ImGui::EndDisabled();
 	};
 	auto counts = [&](const std::vector<std::size_t>& a_in) {
@@ -863,6 +872,7 @@ void App::drawTransplant()
 			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(theme::Caution()));
 			ImGui::SetNextItemOpen(true, ImGuiCond_Appearing);
 			const bool open = ImGui::CollapsingHeader(Fmt("Quests that could not be brought over (%zu)###tpmissing", _tpMissing.size()).c_str());
+			tips::Tip("Quests from the bad save's journal that are not in the game's journal after the transplant, and why.");
 			ImGui::PopStyleColor();
 			if (open) {
 				ImGui::Indent();
@@ -902,6 +912,7 @@ void App::drawTransplant()
 							});
 						}
 						ImGui::EndDisabled();
+						tips::Tip("Mark this quest completed in the game, as it was in the bad save. No rewards are given and follow-up quests do not start.");
 						ImGui::SameLine();
 					}
 					Dot(m.completed ? theme::Caution() : theme::Bad());
@@ -918,15 +929,14 @@ void App::drawTransplant()
 				if (ImGui::SmallButton("Copy the list")) {
 					ImGui::SetClipboardText(all.c_str());
 				}
+				tips::Tip("Copy these quests and why they are missing as text.");
 				ImGui::SameLine();
 				ImGui::BeginDisabled(!_live.info().connected || _tpRunning || _tpChecking);
 				if (ImGui::SmallButton("Check the journal again")) {
 					transplantCheckJournal();
 				}
 				ImGui::EndDisabled();
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-					ImGui::SetTooltip("Quests may keep loading for a minute or two after the transplant: check again after that.");
-				}
+				tips::Tip("Quests may keep loading for a minute or two after the transplant: check again after that.");
 				ImGui::Unindent();
 			}
 		}
@@ -968,6 +978,7 @@ void App::drawTransplant()
 			}
 		}
 		const bool open = ImGui::CollapsingHeader(Fmt("%s   (%s)###cat", tp::CategoryName(static_cast<tp::Category>(c)), counts(in).c_str()).c_str());
+		tips::Tip("One kind of progress the bad save has and the good one does not. Open it to tick what to bring over.");
 		if (appearance) {
 			// a glow around the header
 			const auto mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
@@ -1031,15 +1042,14 @@ void App::drawTransplant()
 	ImGui::BeginDisabled(_tpRunning);
 	ImGui::Checkbox("Mark refused quests as done", &_tpMarkRefused);
 	ImGui::EndDisabled();
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("When the game refuses a quest's stage (its people or places are not set up in this save), the quest is marked\n"
+	tips::Tip("When the game refuses a quest's stage (its people or places are not set up in this save), the quest is marked\n"
 						  "completed instead, and the list says so (\"refused stage 10, marked as done\"). Marked quests give no rewards\n"
 						  "and do not start the quests that normally follow them. This applies to quests that were only further along in\n"
 						  "the bad save too. Untick to leave refused quests as they are.");
-	}
 	ImGui::SameLine(0, 30);
 	ImGui::BeginDisabled(!live || !helperOk || run.empty() || busy);
 	const bool goBtn = ImGui::Button(Fmt("Transplant %zu ticked thing(s) into the game", run.size()).c_str());
+	tips::Tip("Put the ticked things into the game the normal way (the good save must be loaded). Make a save in the game first; then save in the game when it is done for a clean save.");
 	if (!busy && _tpResults.empty() && !run.empty() && live && helperOk) {
 		Marquee();
 		ImGui::SameLine();

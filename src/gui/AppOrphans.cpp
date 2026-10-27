@@ -5,6 +5,7 @@
 #include "App.h"
 
 #include "Theme.h"
+#include "Tips.h"
 
 #include "core/Orphans.h"
 
@@ -133,9 +134,11 @@ void App::drawOrphansModal()
 			if (ImGui::Checkbox("##sel", &tick)) {
 				_orphanSel[gi] = tick ? 1 : 0;
 			}
+			tips::Tip("Ticked: remove this mod's script instances that sit on spawned objects that no longer exist.");
 			ImGui::TableNextColumn();
 			const bool open = ImGui::TreeNodeEx("##mod", ImGuiTreeNodeFlags_SpanAvailWidth, "%s  (%zu script%s)", g.mod.c_str(),
 				g.scripts.size(), g.scripts.size() == 1 ? "" : "s");
+			tips::Tip("Open to see the scripts of this mod that have instances on missing spawned objects.");
 			ImGui::TableNextColumn();
 			ImGui::PushStyleColor(ImGuiCol_Text, StatusColor(g.status));
 			ImGui::TextUnformatted(orphans::StatusText(g.status));
@@ -158,9 +161,7 @@ void App::drawOrphansModal()
 					if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
 						viewScript(s.script);
 					}
-					if (ImGui::IsItemHovered()) {
-						ImGui::SetTooltip("Double-click to view the script");
-					}
+					tips::Tip("Double-click to view the script");
 					ImGui::Unindent();
 					ImGui::TableNextColumn();
 					ImGui::TableNextColumn();
@@ -184,16 +185,20 @@ void App::drawOrphansModal()
 			_orphanSel[i] = DefaultTick(_orphans[i].status) ? 1 : 0;
 		}
 	}
+	tips::Tip("Tick only the mods that are no longer installed: the safest choice.");
 	ImGui::SameLine();
 	if (ImGui::Button("Tick all")) {
 		std::fill(_orphanSel.begin(), _orphanSel.end(), 1);
 	}
+	tips::Tip("Tick every mod in the list, including installed ones.");
 	ImGui::SameLine();
 	if (ImGui::Button("Tick none")) {
 		std::fill(_orphanSel.begin(), _orphanSel.end(), 0);
 	}
+	tips::Tip("Untick every mod.");
 	ImGui::SameLine();
 	ImGui::Checkbox("Keep the held ones (safer)", &_orphansKeepHeld);
+	tips::Tip("Held instances are still pointed at by a script variable or array. Keeping them avoids breaking a script that still uses them.");
 
 	std::set<EID> ids;
 	for (std::size_t i = 0; i < _orphans.size(); ++i) {
@@ -217,10 +222,12 @@ void App::drawOrphansModal()
 		markEdited(Fmt("Removed %zu instance(s) on missing spawned objects", n));
 	}
 	ImGui::EndDisabled();
+	tips::Tip("Delete the ticked script instances from the loaded save. Nothing is written until File > Save As; keep the original.");
 	ImGui::SameLine();
 	if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 		ImGui::CloseCurrentPopup();
 	}
+	tips::Tip("Close without changing anything.");
 	ImGui::SameLine();
 	TextColored(theme::Dim(), "Only the edited save in memory changes; write it with File > Save As.");
 	ImGui::EndPopup();

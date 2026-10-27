@@ -3,6 +3,7 @@
 
 #include "Platform.h"
 #include "Theme.h"
+#include "Tips.h"
 
 #include "core/Text.h"
 
@@ -420,12 +421,14 @@ void App::varValueWidget(const Variable& v, const char* a_id)
 			if (ImGui::SmallButton("go")) {
 				select(Cat::kInstances, x->value);
 			}
+			tips::Tip("Go: jump to what this points at, in its own list.");
 			ImGui::SameLine();
 		}
 	} else if (IsArrayType(x->type) && x->value != 0 && p.findArray(x->value)) {
 		if (ImGui::SmallButton("go")) {
 			select(Cat::kArrays, x->value);
 		}
+		tips::Tip("Go: jump to what this points at, in its own list.");
 		ImGui::SameLine();
 	}
 	ImGui::TextWrapped("%s", text.c_str());
@@ -457,6 +460,7 @@ void App::varsTable(const char* a_id, std::vector<Variable>& a_vars, const std::
 				if (ImGui::SmallButton("edit")) {
 					beginEdit(&a_vars[i]);
 				}
+				tips::Tip("Change this variable's value. Scripts read the new value when the save loads. Back up your save first.");
 				ImGui::PopID();
 				ImGui::SameLine();
 				varValueWidget(a_vars[i], std::to_string(i).c_str());
@@ -794,6 +798,7 @@ void App::draw()
 		if (ImGui::Button("Open save...", ImVec2(180, 0))) {
 			startOpenDialog();
 		}
+		tips::Tip("Pick a Skyrim save (.ess) to inspect and clean.");
 		ImGui::Spacing();
 		centered("or drag a .ess file onto this window (a .pex script shows its code)", true);
 	} else {
@@ -898,14 +903,17 @@ void App::drawMenu()
 		if (ImGui::MenuItem("Open...", "Ctrl+O")) {
 			startOpenDialog();
 		}
+		tips::Tip("Open a save (.ess) to inspect and clean. You can also drag a save onto the window.");
 		if (ImGui::MenuItem("Save", "Ctrl+S", false, _save != nullptr)) {
 			confirm("Overwrite save", "Write the edits over " + platform::ToUtf8(_path.filename()) +
 										  "?\n\nThe current file is kept next to it as a .bak copy.",
 				[this] { doSave(_path); });
 		}
+		tips::Tip("Write your edits over the open save. The old file is kept next to it as a .bak copy.");
 		if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S", false, _save != nullptr)) {
 			startSaveAsDialog();
 		}
+		tips::Tip("Write your edits to a new save file and leave the original untouched. The safest way to try a cleanup.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Compare to another save...", nullptr, false, _save != nullptr)) {
 			if (platform::HasNativeDialogs()) {
@@ -916,10 +924,12 @@ void App::drawMenu()
 				compareWith(other);
 			}
 		}
+		tips::Tip("Compare this save with another one (e.g. an older, healthy save) to see which scripts, threads and change forms grew or appeared.");
 		bool watch = _watch;
 		if (ImGui::MenuItem("Watch saves folder (open new saves automatically)", nullptr, &watch)) {
 			setWatching(watch);
 		}
+		tips::Tip("When the game writes a new save (quicksave, autosave...), open it here automatically. Handy for watching script load while you play.");
 		if (ImGui::BeginMenu("Compression when saving")) {
 			const char* comp[] = { "Keep the save's compression", "LZ4 (game default)", "zlib", "Uncompressed" };
 			for (int i = 0; i < 4; ++i) {
@@ -927,12 +937,14 @@ void App::drawMenu()
 					_saveCompression = i - 1;
 					saveSettings();
 				}
+				tips::Tip("How the save's data is compressed when ReSaver++ writes it. LZ4 is what the game uses; all of them load in the game.");
 			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::MenuItem("Export plugin list...", nullptr, false, _save != nullptr)) {
 			exportPluginList();
 		}
+		tips::Tip("Write the save's load order (every plugin it was made with) to a text file, e.g. to share when asking for help.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Open script (.pex)...")) {
 			if (platform::HasNativeDialogs()) {
@@ -944,10 +956,12 @@ void App::drawMenu()
 				openScript(s);
 			}
 		}
+		tips::Tip("Open a compiled Papyrus script (.pex) and read its decompiled code, without a save.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Exit")) {
 			requestQuit();
 		}
+		tips::Tip("Close ReSaver++. You are asked first if there are unsaved edits.");
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Clean", _save != nullptr)) {
@@ -957,15 +971,18 @@ void App::drawMenu()
 				Fmt("Delete %zu script instances that are attached to nothing?", _report ? _report->unattached : 0),
 				[this, p] { markEdited(Fmt("Removed %zu unattached instances", ops::RemoveUnattachedInstances(*p))); });
 		}
+		tips::Tip("Delete script instances that are attached to no object (their object is gone). They do nothing but take space. Usually safe; back up your save first.");
 		if (ImGui::MenuItem("Remove undefined elements")) {
 			confirm("Remove undefined elements",
 				"Delete scripts whose .pex is no longer installed, their instances and references, and terminate threads running them?",
 				[this, p] { markEdited(Fmt("Removed/terminated %zu undefined elements", ops::RemoveUndefinedElements(*p))); });
 		}
+		tips::Tip("Delete scripts whose .pex file is no longer installed (a removed mod), with their instances and references, and end threads running them. Back up your save first.");
 		if (ImGui::MenuItem("Terminate undefined threads")) {
 			confirm("Terminate undefined threads", "Terminate every thread that runs a script that is no longer installed?",
 				[this, p] { markEdited(Fmt("Terminated %zu undefined threads", ops::TerminateUndefinedThreads(*p))); });
 		}
+		tips::Tip("End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy.");
 		{
 			const bool any = !_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty();
 			if (ImGui::MenuItem("Mods and scripts no longer installed...", nullptr, false, any)) {
@@ -983,69 +1000,93 @@ void App::drawMenu()
 		if (ImGui::MenuItem("Remove instances on missing spawned objects...")) {
 			openOrphans();
 		}
+		tips::Tip("Find script instances sitting on spawned (FF......) objects that no longer exist, and remove them.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Fix SkyUI MCM registration jam...")) {
 			fixMcmJam();
 		}
+		tips::Tip("Clear a stuck SkyUI mod-menu (MCM) registration, the usual cause of mod menus that never appear.");
 		if (ImGui::MenuItem("Reset Havok...")) {
 			resetHavok();
 		}
+		tips::Tip("Clear the saved physics state of objects, so they settle again when loaded. Fixes objects that fly around or jitter.");
 		if (ImGui::MenuItem("Purify FormLists...")) {
 			purifyFormLists();
 		}
+		tips::Tip("Remove entries in form lists that point at things that no longer exist (left by removed mods).");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Batch Clean...")) {
 			_batchOpen = true;
 		}
+		tips::Tip("Run several cleanup steps in one go, with a preview of what each will remove.");
 		if (ImGui::MenuItem("Purge a script...")) {
 			_purgeName[0] = 0;
 			_purgeOpen = true;
 		}
+		tips::Tip("Remove everything of one script by name: its running threads, queued calls and instances. Use for a script that floods the save.");
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Tools", _save != nullptr)) {
 		if (ImGui::MenuItem("Save check...", "F2", false, _save != nullptr)) {
 			_showCheck = true;
 		}
+		tips::Tip("Everything ReSaver++ noticed about this save, and what can safely be done about it.");
 		ImGui::MenuItem("Transplant progress from a bad save...", nullptr, &_showTransplant);
+		tips::Tip("Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one.");
 		ImGui::MenuItem("Analysis", nullptr, &_showAnalysis);
+		tips::Tip("A text report of the save: which mods and scripts take the most space and run the most.");
 		if (ImGui::MenuItem("Report...")) {
 			_reportOpen = true;
 		}
+		tips::Tip("Write a report of the save (mods, scripts, anomalies) as text or PDF, e.g. to share when asking for help.");
 		ImGui::Separator();
 		ImGui::MenuItem("Find form by name / editor ID...", nullptr, &_showLookup);
+		tips::Tip("Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it.");
 		if (ImGui::MenuItem("Edit player (gold, skills, bounty)...", nullptr, &_showPlayer)) {
 			_pvLoaded = false;
 		}
+		tips::Tip("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties.");
 		if (ImGui::MenuItem("Analyze arrays block...", nullptr, &_showArrays)) {
 			_arraysDirty = true;
 		}
+		tips::Tip("Look at the save's script arrays: which are biggest, and which nothing points at any more.");
 		if (ImGui::MenuItem(_db ? "Read plugin names again" : "Read plugin names", nullptr, false, _sources.scanned() && !namesLoading())) {
 			startNames(true);
 		}
+		tips::Tip("Read your installed plugins so forms show their in-game names and editor IDs instead of bare numbers.");
 		if (ImGui::MenuItem("Read plugin names automatically", nullptr, &_autoNames)) {
 			saveSettings();
 		}
+		tips::Tip("Read plugin names every time a save is opened.");
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Options")) {
 		ImGui::MenuItem("Settings...", nullptr, &_showSettings);
+		tips::Tip("Game folder, saves folders, live-game options and more.");
 		if (ImGui::BeginMenu("Theme")) {
 			for (int k = 0; k < 3; ++k) {
 				if (ImGui::MenuItem(theme::Name(static_cast<theme::Kind>(k)), nullptr, static_cast<int>(theme::Current()) == k)) {
 					setTheme(k);
 				}
+				tips::Tip("Change the colours of ReSaver++.");
 			}
 			ImGui::EndMenu();
 		}
+		if (ImGui::MenuItem("Show hover tips", nullptr, &tips::g_enabled)) {
+			saveSettings();
+		}
+		tips::Tip("Explanations that appear when you rest the mouse on something for 3 seconds. Untick to turn them off.");
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Help")) {
 		ImGui::MenuItem("Show log", nullptr, &_showLog);
+		tips::Tip("What ReSaver++ did and found, step by step. Useful when something goes wrong.");
 		ImGui::MenuItem("Support...", nullptr, &_showSupport);
+		tips::Tip("Where to get help, and what to include when you ask.");
 		if (ImGui::MenuItem("About")) {
 			_showAbout = true;
 		}
+		tips::Tip("Version and licences.");
 		ImGui::EndMenu();
 	}
 
@@ -1057,9 +1098,7 @@ void App::drawMenu()
 		ImGui::PushStyleColor(ImGuiCol_Text, col);
 		const bool  click = ImGui::MenuItem(worst == Risk::kRisky ? "Save check (risky)" : worst == Risk::kCaution ? "Save check (look)" : "Save check (OK)");
 		ImGui::PopStyleColor();
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("Everything ReSaver++ noticed about this save, and what can safely be done about it (F2).");
-		}
+		tips::Tip("Everything ReSaver++ noticed about this save, and what can safely be done about it (F2).");
 		if (click) {
 			_showCheck = true;
 		}
@@ -1104,6 +1143,7 @@ void App::drawCategories()
                 _rowsDirty = true;
             }
         }
+        tips::Tip(tips::Explain(CatName(c)));
         if (warn) {
             ImGui::PopStyleColor();
         }
@@ -1154,12 +1194,14 @@ void App::drawList()
 	if (ImGui::InputTextWithHint("##filter", "filter (case-insensitive)", _filter, sizeof(_filter))) {
 		_rowsDirty = true;
 	}
+	tips::Tip("Show only rows containing this text (any case). Matches names, IDs and the other text shown in each row.");
 	const bool flaggable = _cat == Cat::kScripts || _cat == Cat::kInstances || _cat == Cat::kReferences || _cat == Cat::kThreads || _cat == Cat::kUnbinds;
 	if (flaggable) {
 		ImGui::SameLine();
 		if (ImGui::Checkbox("problems only", &_onlyFlagged)) {
 			_rowsDirty = true;
 		}
+		tips::Tip("Show only elements ReSaver++ flagged: undefined (mod removed), unattached, or otherwise suspect.");
 	}
 	ImGui::SameLine();
 	const bool filtersActive = drawFiltersButton();
@@ -1170,10 +1212,8 @@ void App::drawList()
 		_rowsDirty = true;
 		saveSettings();
 	}
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("Sorting (ReSaver's Data > Sorting):\nSize = the element's own size (variables, elements, frames, bytes)\n"
+	tips::Tip("Sorting (ReSaver's Data > Sorting):\nSize = the element's own size (variables, elements, frames, bytes)\n"
 						  "Mass = size including what it owns (arrays of an instance, variables of a thread's frames, ...)");
-	}
 	if (!_pluginFilter.empty()) {
 		TextColored(theme::Warn(), "Only elements of " + _pluginFilter);
 		ImGui::SameLine();
@@ -1181,6 +1221,7 @@ void App::drawList()
 			_pluginFilter.clear();
 			_rowsDirty = true;
 		}
+		tips::Tip("Show elements of every plugin again.");
 	}
 	if (filtersActive) {
 		TextColored(theme::Warn(), "Filters are active (see Filters).");
@@ -1196,6 +1237,7 @@ void App::drawList()
 		if (ImGui::Button("Export plugin list...")) {
 			exportPluginList();
 		}
+		tips::Tip("Write the save's load order to a text file.");
 	}
 	const bool deletable = _cat != Cat::kStrings && _cat != Cat::kPlugins;
 	if (deletable) {
@@ -1209,11 +1251,13 @@ void App::drawList()
 			deleteSelected();
 		}
 		ImGui::EndDisabled();
+		tips::Tip("Delete every element the list shows right now (after your filter). Check the filter first. Back up your save first.");
 		ImGui::SameLine();
 		ImGui::BeginDisabled(_selected.empty());
 		if (ImGui::Button("Delete selected")) {
 			deleteSelected();
 		}
+		tips::Tip("Delete the selected elements from the save. Ctrl/Shift-click to select several. Back up your save first.");
 		if (_cat == Cat::kThreads) {
 			ImGui::SameLine();
 			if (ImGui::Button("Terminate selected")) {
@@ -1224,6 +1268,7 @@ void App::drawList()
 				confirm("Terminate threads", Fmt("Terminate %zu thread(s)? They finish as soon as the game resumes them.", ids.size()),
 					[this, ids] { markEdited(Fmt("Terminated %zu threads", ops::TerminateThreads(*_save->papyrus(), ids))); });
 			}
+			tips::Tip("End the selected running scripts. They stop the moment the game resumes them; the scripts and their data stay.");
 		}
 		if (_cat == Cat::kInstances) {
 			ImGui::SameLine();
@@ -1246,6 +1291,7 @@ void App::drawList()
 						markEdited(Fmt("Deleted %zu instances and %zu spawned objects", a, b));
 					});
 			}
+			tips::Tip("Delete the selected instances and also the in-game-created (FF......) objects they sit on. Objects from plugins are never deleted.");
 		}
 		if (_cat == Cat::kScripts) {
 			ImGui::SameLine();
@@ -1272,6 +1318,7 @@ void App::drawList()
 							tot.stacks, tot.messages, tot.instances, tot.forms));
 					});
 			}
+			tips::Tip("Remove every running thread, queued call and instance of the selected scripts. The scripts themselves stay defined.");
 		}
 		ImGui::EndDisabled();
 	}
@@ -1332,6 +1379,7 @@ void App::drawList()
 				}
 				_focus = r.key;
 			}
+			tips::Tip("Click to see the details. Ctrl-click adds to the selection, Shift-click selects a range.");
 			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
 				viewRowScript(r.key);  // double-click: the script viewer
 			}
@@ -1506,12 +1554,15 @@ void App::detailChangeForm(std::uint64_t k)
 		if (ImGui::SmallButton("go")) {
 			select(Cat::kInstances, i->id);
 		}
+		tips::Tip("Go: jump to what this points at, in its own list.");
 		ImGui::SameLine();
 		ImGui::TextUnformatted(_save->papyrus()->str(i->script).c_str());
 		ImGui::PopID();
 	}
 	detailChangeFormDecoded(*c);
-	if (ImGui::CollapsingHeader("Raw data (first 512 bytes, as stored)")) {
+	const bool rawOpen = ImGui::CollapsingHeader("Raw data (first 512 bytes, as stored)");
+	tips::Tip("The record's bytes exactly as the save stores them (after decompression), in hex. For checking by hand.");
+	if (rawOpen) {
 		std::string hex;
 		for (std::size_t i = 0; i < c->data.size() && i < 512; ++i) {
 			hex += Fmt("%02X%s", c->data[i], (i % 16 == 15) ? "\n" : " ");
@@ -1543,6 +1594,7 @@ void App::detailScript(std::uint64_t k)
 	if (ImGui::SmallButton("View script")) {
 		viewScript(p.str(s->name));
 	}
+	tips::Tip("Show this script's decompiled code.");
 	if (ops::IsScriptUndefined(p, *s)) {
 		TextColored(theme::Bad(), "UNDEFINED: the game could not load this script's .pex when the save was made (mod removed?).");
 	}
@@ -1578,6 +1630,7 @@ void App::detailScript(std::uint64_t k)
 		_focus.reset();
 		return;
 	}
+	tips::Tip("List every place this script is attached (its instances).");
 	ImGui::SameLine();
 	if (ImGui::Button("Show its threads")) {
 		_cat = Cat::kThreads;
@@ -1587,6 +1640,7 @@ void App::detailScript(std::uint64_t k)
 		_focus.reset();
 		return;
 	}
+	tips::Tip("List the running copies (threads) of this script.");
 	ImGui::SeparatorText(Fmt("Members (%zu own)", s->members.size()).c_str());
 	if (ImGui::BeginTable("members", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
 		ImGui::TableSetupColumn("Name");
@@ -1616,6 +1670,7 @@ void App::detailInstance(std::uint64_t k)
 	if (ImGui::SmallButton("View script")) {
 		viewScript(p.str(i->script));
 	}
+	tips::Tip("Show this script's decompiled code.");
 	if (ops::IsUnattached(*i)) {
 		TextColored(theme::Warn(), "UNATTACHED: not attached to any object. Clean > Remove unattached instances deletes these.");
 	}
@@ -1640,6 +1695,9 @@ void App::detailInstance(std::uint64_t k)
 			select(Cat::kChangeForms, i->refID.data);
 			return;
 		}
+		if (_save->findChangeForm(i->refID)) {
+			tips::Tip("Show the saved state of the object this script is attached to.");
+		}
 	}
 	if (i->data) {
 		ImGui::SeparatorText(Fmt("Variables (%zu)", i->data->vars.size()).c_str());
@@ -1663,6 +1721,7 @@ void App::detailInstance(std::uint64_t k)
 			default: break;
 			}
 		}
+		tips::Tip("Go: jump to what this points at, in its own list.");
 		ImGui::SameLine();
 		ImGui::TextUnformatted(r.where.c_str());
 		ImGui::PopID();
@@ -1710,6 +1769,7 @@ void App::detailArray(std::uint64_t k)
 		if (ImGui::SmallButton("go")) {
 			select(r.kind == ops::Referrer::Kind::kThread ? Cat::kThreads : r.kind == ops::Referrer::Kind::kArray ? Cat::kArrays : Cat::kInstances, r.id);
 		}
+		tips::Tip("Go: jump to what this points at, in its own list.");
 		ImGui::SameLine();
 		ImGui::TextUnformatted(r.where.c_str());
 		ImGui::PopID();
@@ -1720,6 +1780,7 @@ void App::detailArray(std::uint64_t k)
 			select(r.kind == ops::Referrer::Kind::kThread ? Cat::kThreads : r.kind == ops::Referrer::Kind::kArray ? Cat::kArrays : Cat::kInstances, r.id);
 			return;
 		}
+		tips::Tip("Jump to the first thing that holds this array.");
 	} else {
 		TextColored(theme::Warn(), "Nothing holds this array (Tools > Analyze arrays block lists all such arrays).");
 	}
@@ -1763,11 +1824,15 @@ void App::detailThread(std::uint64_t k)
 		auto& f = d.frames[fi];
 		const auto  title = Fmt("Frame %zu: %s.%s  (%s)%s##f%zu", fi, p.str(f.baseName).c_str(), p.str(f.event).c_str(), p.str(f.scriptName).c_str(),
 			 ops::IsFrameNative(f) ? "  native" : ops::IsFrameZeroed(f) ? "  zeroed" : "", fi);
-		if (ImGui::CollapsingHeader(title.c_str(), fi + 1 == d.frames.size() || fi == 0 ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+		const bool frameOpen = ImGui::CollapsingHeader(title.c_str(), fi + 1 == d.frames.size() || fi == 0 ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+		tips::Tip("One call on this thread's stack: Frame 0 is the first call, the last frame is where the thread is right now. "
+				  "\"native\" = waiting on the game engine; \"zeroed\" = its data was cleared.");
+		if (frameOpen) {
 			ImGui::PushID(static_cast<int>(fi));
 			if (ImGui::SmallButton(fi + 1 == d.frames.size() ? "View script where it is stopped" : "View script at this call")) {
 				viewScript(p.str(f.baseName), p.str(f.event), f.status ? p.str(*f.status) : std::string(), static_cast<int>(f.ptr));
 			}
+			tips::Tip("Show the script's code at the line this call was at when you saved.");
 			if (BeginKV("frame")) {
 				KV("Owner", describeVar(f.owner));
 				KV("Returns", p.str(f.returnType));
@@ -1810,11 +1875,17 @@ void App::detailMessage(std::uint64_t k)
 		viewScript(p.str(m.data->scriptName), p.str(m.data->event));
 	}
 	if (m.data) {
+		tips::Tip("Show the code of the function this call will run.");
+	}
+	if (m.data) {
 		ImGui::SameLine();
 	}
 	if (m.id && p.findActive(*m.id) && ImGui::Button("Go to thread")) {
 		select(Cat::kThreads, *m.id);
 		return;
+	}
+	if (m.id && p.findActive(*m.id)) {
+		tips::Tip("Show the running thread this call belongs to.");
 	}
 	if (m.data) {
 		ImGui::SeparatorText("Arguments");
@@ -1845,11 +1916,17 @@ void App::detailSuspended(std::uint64_t k)
 			viewScript(p.str(s.data->scriptName), p.str(s.data->event));
 		}
 		if (s.data) {
+			tips::Tip("Show the code where this paused call will continue.");
+		}
+		if (s.data) {
 			ImGui::SameLine();
 		}
 		if (p.findActive(id) && ImGui::Button("Go to thread")) {
 			select(Cat::kThreads, id);
 			return;
+		}
+		if (p.findActive(id)) {
+			tips::Tip("Show the running thread this paused call belongs to.");
 		}
 		if (s.data) {
 			ImGui::SeparatorText("Arguments");
@@ -1869,6 +1946,7 @@ void App::detailUnbind(std::uint64_t k)
 		if (ImGui::Button("Go to instance")) {
 			select(Cat::kInstances, k);
 		}
+		tips::Tip("Show the script instance waiting to be detached.");
 	} else {
 		TextColored(theme::Warn(), "The instance it refers to is not in the save.");
 	}
@@ -1936,6 +2014,7 @@ void App::drawAnalysis()
 		if (ImGui::Button("Copy report to clipboard")) {
 			ImGui::SetClipboardText(ops::FormatReport(*_report, 40).c_str());
 		}
+		tips::Tip("Copy this report so you can paste it into a post or a message.");
 		ImGui::Separator();
 		ImGui::BeginChild("rep");
 		ImGui::TextUnformatted(ops::FormatReport(*_report, 40).c_str());
@@ -1955,14 +2034,17 @@ void App::drawModals()
 		ImGui::TextUnformatted("Mod Organizer mods folder (or the game's Data folder):");
 		ImGui::SetNextItemWidth(700);
 		ImGui::InputText("##scanpath", _scanPathBuf, sizeof(_scanPathBuf));
+		tips::Tip("Your Mod Organizer 'mods' folder, or the game's Data folder. ReSaver++ reads which mod ships which script from here.");
 		if (ImGui::Button("Scan", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 			scanSources(platform::FromUtf8(_scanPathBuf));
 		}
+		tips::Tip("Read every mod in this folder (nothing is changed).");
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 		}
+		tips::Tip("Close this without changing anything.");
 		ImGui::EndPopup();
 	}
 	if (_confirmOpen) {
@@ -1983,11 +2065,13 @@ void App::drawModals()
 				act();
 			}
 		}
+		tips::Tip("Go ahead (Enter). Nothing is written to disk until you save.");
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
 			_confirmAction = nullptr;
 			ImGui::CloseCurrentPopup();
 		}
+		tips::Tip("Close this without changing anything.");
 		ImGui::EndPopup();
 	}
 
@@ -2001,6 +2085,7 @@ void App::drawModals()
 			_error.clear();
 			ImGui::CloseCurrentPopup();
 		}
+		tips::Tip("Close this message.");
 		ImGui::EndPopup();
 	}
 
@@ -2019,24 +2104,26 @@ void App::drawModals()
 	if (ImGui::BeginPopupModal("Purge a script", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 		ImGui::TextWrapped("Removes every thread, suspended stack, function message and instance of the script. The script itself stays defined.");
 		ImGui::InputTextWithHint("##pname", "script name, e.g. Firefly", _purgeName, sizeof(_purgeName));
+		tips::Tip("The script's name as shown in the Scripts list, without .pex.");
 		ImGui::Checkbox("Only stop its running and queued work; keep its instances and their data", &_purgeKeep);
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("Use this for a mod you keep installed, e.g. a stuck MCM registration (QuickLootIEMCM).\n"
+		tips::Tip("Use this for a mod you keep installed, e.g. a stuck MCM registration (QuickLootIEMCM).\n"
 							  "Other scripts' properties that point at the script stay valid, and its settings are kept.");
-		}
 		ImGui::BeginDisabled(_purgeKeep);
 		ImGui::Checkbox("Also delete the spawned (FF......) objects its instances sit on", &_purgeForms);
 		ImGui::EndDisabled();
+		tips::Tip("Also delete in-game-created objects its instances sit on. Objects from plugins are never deleted.");
 		if (ImGui::Button("Purge", ImVec2(120, 0)) && _purgeName[0]) {
 			auto x = ops::PurgeScript(*_save, _purgeName, _purgeForms && !_purgeKeep, _purgeKeep);
 			ImGui::CloseCurrentPopup();
 			markEdited(Fmt("Purged %s: %zu threads, %zu stacks, %zu messages, %zu instances, %zu spawned objects", _purgeName, x.threads, x.stacks,
 				x.messages, x.instances, x.forms));
 		}
+		tips::Tip("Remove it now. Nothing is written to disk until you save.");
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 		}
+		tips::Tip("Close this without changing anything.");
 		ImGui::EndPopup();
 	}
 
@@ -2047,14 +2134,17 @@ void App::drawModals()
 	if (ImGui::BeginPopupModal("Open save", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 		ImGui::SetNextItemWidth(700);
 		ImGui::InputText("##path", _pathBuf, sizeof(_pathBuf));
+		tips::Tip("Full path of the save file to open.");
 		if (ImGui::Button("Open", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 			open(platform::FromUtf8(_pathBuf));
 		}
+		tips::Tip("Open this save.");
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 		}
+		tips::Tip("Close this without changing anything.");
 		ImGui::EndPopup();
 	}
 	if (_savePathPopup) {
@@ -2064,14 +2154,17 @@ void App::drawModals()
 	if (ImGui::BeginPopupModal("Save as", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 		ImGui::SetNextItemWidth(700);
 		ImGui::InputText("##spath", _pathBuf, sizeof(_pathBuf));
+		tips::Tip("Full path of the new save file.");
 		if (ImGui::Button("Save", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 			doSave(platform::FromUtf8(_pathBuf));
 		}
+		tips::Tip("Write the save to this path.");
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 		}
+		tips::Tip("Close this without changing anything.");
 		ImGui::EndPopup();
 	}
 
@@ -2089,6 +2182,7 @@ void App::drawModals()
 		if (ImGui::Button("Close", ImVec2(120, 0))) {
 			ImGui::CloseCurrentPopup();
 		}
+		tips::Tip("Close this window.");
 		ImGui::EndPopup();
 	}
 }
@@ -2187,14 +2281,18 @@ void App::editPopup()
 	switch (v->type) {
 	case VType::kInt:
 		ImGui::InputInt("##int", &_editInt);
+		tips::Tip("The new whole-number value.");
 		apply = ImGui::Button("Apply", ImVec2(120, 0));
+		tips::Tip("Use this value. Nothing is written to disk until you save.");
 		if (apply) {
 			v->value = static_cast<std::uint32_t>(_editInt);
 		}
 		break;
 	case VType::kFloat:
 		ImGui::InputFloat("##flt", &_editFloat, 0, 0, "%.6g");
+		tips::Tip("The new decimal value.");
 		apply = ImGui::Button("Apply", ImVec2(120, 0));
+		tips::Tip("Use this value. Nothing is written to disk until you save.");
 		if (apply) {
 			std::uint32_t bits;
 			std::memcpy(&bits, &_editFloat, 4);
@@ -2203,7 +2301,9 @@ void App::editPopup()
 		break;
 	case VType::kBool:
 		ImGui::Checkbox("True", &_editBool);
+		tips::Tip("Ticked = True, unticked = False.");
 		apply = ImGui::Button("Apply", ImVec2(120, 0));
+		tips::Tip("Use this value. Nothing is written to disk until you save.");
 		if (apply) {
 			v->value = _editBool ? 1 : 0;
 		}
@@ -2211,7 +2311,9 @@ void App::editPopup()
 	case VType::kString:
 		ImGui::SetNextItemWidth(480);
 		ImGui::InputText("##str", _editStr, sizeof(_editStr));
+		tips::Tip("The new text.");
 		apply = ImGui::Button("Apply", ImVec2(120, 0));
+		tips::Tip("Use this value. Nothing is written to disk until you save.");
 		if (apply) {
 			v->value = p.internString(text::FromUtf8(_editStr, p.str(static_cast<TStr>(v->value))));
 		}
@@ -2222,6 +2324,9 @@ void App::editPopup()
 	default:
 		ImGui::TextWrapped("Object, array and struct links can only be cleared. Clearing makes the script see None here.");
 		apply = v->value != 0 && ImGui::Button("Set to None", ImVec2(160, 0));
+		if (v->value != 0) {
+			tips::Tip("Clear the link: the script will see None here. Scripts not expecting None may log errors.");
+		}
 		if (apply) {
 			v->value = 0;
 		}
@@ -2237,6 +2342,7 @@ void App::editPopup()
 		_editVar = nullptr;
 		ImGui::CloseCurrentPopup();
 	}
+	tips::Tip("Close this without changing anything.");
 	ImGui::EndPopup();
 }
 
@@ -2287,6 +2393,8 @@ void App::loadSettings()
 			text::SetCodePage(static_cast<unsigned>(std::strtoul(line.c_str() + 9, nullptr, 10)));
 		} else if (line.rfind("game=", 0) == 0) {
 			se.gamePath = line.substr(5);
+		} else if (line.rfind("tips=", 0) == 0) {
+			tips::g_enabled = line.substr(5) != "0";
 		} else if (line.rfind("check_on_open=", 0) == 0) {
 			_checkOnOpen = line.substr(14) != "0";
 		} else if (line.rfind("saves_dir=", 0) == 0) {
@@ -2350,6 +2458,7 @@ void App::saveSettings()
 	f << "open_newest=" << (_openNewest ? 1 : 0) << "\n";
 	f << "game=" << se.gamePath << "\n";
 	f << "check_on_open=" << (_checkOnOpen ? 1 : 0) << "\n";
+	f << "tips=" << (tips::g_enabled ? 1 : 0) << "\n";
 	f << "saves_dir=" << _savesDirSe << "\n";
 	f << "saves_dir_vr=" << _savesDirVr << "\n";
 	f << "last_dir=" << _lastDirSe << "\n";
@@ -2513,11 +2622,10 @@ void App::drawModsList()
 	}
 	ImGui::SetNextItemWidth(-260);
 	bool changed = ImGui::InputTextWithHint("##modfilter", "filter mods", _filter, sizeof(_filter));
+	tips::Tip("Show only mods whose name contains this text.");
 	ImGui::SameLine();
 	changed |= ImGui::Checkbox("only mods with scripts or enchanted items", &_modsOnlyScripts);
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in any inventory. Untick to list every plugin in the save.");
-	}
+	tips::Tip("Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in any inventory. Untick to list every plugin in the save.");
 
 	if (ImGui::Button(_sources.empty() ? "Find script sources (.pex)..." : "Rescan script sources...")) {
 		if (platform::HasNativeDialogs()) {
@@ -2529,6 +2637,7 @@ void App::drawModsList()
 			_scanPathPopup = true;
 		}
 	}
+	tips::Tip("Point ReSaver++ at your mods (Mod Organizer 'mods' folder or Data) so each script is credited to the mod that ships it, and missing mods are spotted. Nothing is changed.");
 	ImGui::SameLine();
 	if (_sources.empty()) {
 		ImGui::TextDisabled("not scanned: scripts are credited to the mod whose object runs them");
@@ -2538,7 +2647,9 @@ void App::drawModsList()
 			ImGui::TextDisabled("MO2 profile:");
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(260);
-			if (ImGui::BeginCombo("##profile", _profile.c_str())) {
+			const bool profOpen = ImGui::BeginCombo("##profile", _profile.c_str());
+			tips::Tip("The Mod Organizer profile whose mod order decides which mod gets credit for a script several mods ship.");
+			if (profOpen) {
 				for (const auto& pr : _mo2->profiles) {
 					const std::string label = pr + (pr == _mo2->selectedProfile ? "  (active in MO2)" : "");
 					if (ImGui::Selectable(label.c_str(), pr == _profile) && pr != _profile) {
@@ -2645,6 +2756,7 @@ void App::drawModsList()
 			if (ImGui::Selectable(load.empty() ? "--" : load.c_str(), sel, ImGuiSelectableFlags_SpanAllColumns)) {
 				_focus = idx;
 			}
+			tips::Tip("Click to see this mod's scripts and what they are doing.");
 			ImGui::TableSetColumnIndex(1);
 			if (r.kind != mods::Kind::kPlugin && r.kind != mods::Kind::kLight) {
 				TextColored(theme::Dim(), r.name);
@@ -2667,9 +2779,7 @@ void App::drawModsList()
 					ImGui::Text("%zu", r.providedInSave);
 					ImGui::SameLine(0, 2);
 					ImGui::TextDisabled("of %zu", r.shipped.size());
-					if (ImGui::IsItemHovered()) {
-						ImGui::SetTooltip("%zu of the %zu scripts this mod ships are in this save.", r.providedInSave, r.shipped.size());
-					}
+					tips::Tipf("%zu of the %zu scripts this mod ships are in this save.", r.providedInSave, r.shipped.size());
 				} else {
 					ImGui::Text("%zu", r.providedInSave);
 				}
@@ -2759,38 +2869,34 @@ void App::detailMod(std::uint64_t k)
 		killThreads(allThreads, {}, "all scripts of " + r.name, true);
 	}
 	ImGui::EndDisabled();
+	tips::Tip("End every running script of this mod. They stop the moment the game resumes them; scripts and data stay.");
 	ImGui::SameLine();
 	ImGui::BeginDisabled(allThreads.empty());
 	if (ImGui::Button(Fmt("Stop all (%zu)", allThreads.size()).c_str())) {
 		killThreads(allThreads, {}, "all running scripts of " + r.name, false);
 	}
 	ImGui::EndDisabled();
+	tips::Tip("Delete this mod's running threads and their queued calls, keeping its scripts and data. Safe for a mod you keep.");
 	ImGui::SameLine();
 	ImGui::BeginDisabled(allThreads.empty() && allInst.empty());
 	if (ImGui::Button(Fmt("Kill all its scripts (%zu)", allInst.size()).c_str())) {
 		killThreads(allThreads, allInst, "all scripts of " + r.name, false);
 	}
 	ImGui::EndDisabled();
-	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are left alone.");
-	}
+	tips::Tip("Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are left alone.");
 	ImGui::BeginDisabled(allThreads.empty() && everyInst.empty());
 	if (ImGui::Button(Fmt("Kill all instances (%zu)", everyInst.size()).c_str())) {
 		killThreads(allThreads, everyInst, "every script instance on " + r.name + "'s objects (engine bindings included)", false);
 	}
 	ImGui::EndDisabled();
-	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("Deletes its running threads and EVERY script instance on its objects, including the game's\n"
+	tips::Tip("Deletes its running threads and EVERY script instance on its objects, including the game's\n"
 						  "engine bindings (Form, Quest, ReferenceAlias, ...). The game recreates the bindings of plugin\n"
 						  "objects on the next load with default values; spawned objects they sit on are deleted.");
-	}
 	ImGui::SameLine();
 	if (ImGui::Button("Report...")) {
 		_reportOpen = true;
 	}
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("Write a report: every mod with its scripts and instances, and the anomalies found (text or PDF).");
-	}
+	tips::Tip("Write a report: every mod with its scripts and instances, and the anomalies found (text or PDF).");
 	if (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight || r.kind == mods::Kind::kFolder) {
 		ImGui::SameLine();
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.18f, 0.18f, 1.0f));
@@ -2801,10 +2907,8 @@ void App::detailMod(std::uint64_t k)
 			_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources.empty() ? nullptr : &_sources, _removeOpt));
 		}
 		ImGui::PopStyleColor(2);
-		if (ImGui::IsItemHovered()) {
-			ImGui::SetTooltip("Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\n"
+		tips::Tip("Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\n"
 							  "and writes the result to a NEW save file. Your current save is not overwritten.");
-		}
 	}
 
 	ImGui::SeparatorText("Scripts running on this mod's objects");
@@ -2875,9 +2979,7 @@ void App::detailMod(std::uint64_t k)
 			ImGui::TableSetColumnIndex(0);
 			if (s->engineType) {
 				TextColored(theme::Dim(), s->script + "  (engine type)");
-				if (ImGui::IsItemHovered()) {
-					ImGui::SetTooltip("Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill.", s->script.c_str());
-				}
+				tips::Tipf("Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill.", s->script.c_str());
 			} else {
 				ImGui::TextUnformatted(s->script.c_str());
 				scriptItem(s->script);
@@ -2901,24 +3003,21 @@ void App::detailMod(std::uint64_t k)
 				killThreads(s->threads, {}, s->script + " on " + r.name, true);
 			}
 			ImGui::EndDisabled();
-			if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-				ImGui::SetTooltip("Terminate: its running threads end the moment the game resumes them.");
-			}
+			tips::Tip("Terminate: its running threads end the moment the game resumes them.");
 			ImGui::SameLine();
 			ImGui::BeginDisabled(s->threads.empty());
 			if (ImGui::SmallButton("Stop")) {
 				killThreads(s->threads, {}, s->script + " on " + r.name, false);
 			}
 			ImGui::EndDisabled();
-			if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-				ImGui::SetTooltip("Stop: delete its running threads and their queued calls; keep the script and its data.\nSafe for a mod you keep (e.g. a stuck MCM).");
-			}
+			tips::Tip("Stop: delete its running threads and their queued calls; keep the script and its data.\nSafe for a mod you keep (e.g. a stuck MCM).");
 			ImGui::SameLine();
 			ImGui::BeginDisabled(s->engineType && s->threads.empty());
 			if (ImGui::SmallButton("Kill")) {
 				killThreads(s->threads, s->engineType ? std::set<EID>{} : s->instances, s->script + " on " + r.name, false);
 			}
 			ImGui::EndDisabled();
+			tips::Tip("Delete its running threads and its instances (for engine types, only the threads). For a mod you are removing.");
 			ImGui::SameLine();
 			if (ImGui::SmallButton("Show")) {
 				_cat = s->threads.empty() ? Cat::kInstances : Cat::kThreads;
@@ -2930,6 +3029,7 @@ void App::detailMod(std::uint64_t k)
 				ImGui::EndTable();
 				return;
 			}
+			tips::Tip("List its threads (or instances) in the main list.");
 			ImGui::PopID();
 		}
 		ImGui::EndTable();
@@ -2979,6 +3079,7 @@ void App::detailMod(std::uint64_t k)
 						});
 				}
 				ImGui::EndDisabled();
+				tips::Tip("Remove every thread, queued call and instance of this script in the whole save, plus the spawned objects they sit on.");
 				ImGui::PopID();
 			}
 			ImGui::EndTable();
@@ -3035,7 +3136,9 @@ void App::drawRemoveModModal()
 	const auto& plan = *_removePlan;
 	bool        replan = false;
 	replan |= ImGui::Checkbox("Also remove its scripts from other mods' objects (scripts only this mod provides)", &_removeOpt.otherObjects);
+	tips::Tip("Also remove this mod's scripts where they are attached to objects of other mods (only scripts nothing else provides).");
 	replan |= ImGui::Checkbox("Delete spawned objects that only carried its scripts", &_removeOpt.spawnedObjects);
+	tips::Tip("Delete in-game-created objects whose only purpose was to carry this mod's scripts.");
 	if (replan) {
 		_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources.empty() ? nullptr : &_sources, _removeOpt));
 		ImGui::EndPopup();
@@ -3084,11 +3187,13 @@ void App::drawRemoveModModal()
 		}
 	}
 	ImGui::EndDisabled();
+	tips::Tip("Apply the plan and write a NEW save file (named below). Your current save is not overwritten.");
 	ImGui::SameLine();
 	if (ImGui::Button("Cancel", ImVec2(120, 0))) {
 		_removePlan.reset();
 		ImGui::CloseCurrentPopup();
 	}
+	tips::Tip("Close this without changing anything.");
 	ImGui::EndPopup();
 }
 

@@ -9,6 +9,7 @@
 
 #include "Platform.h"
 #include "Theme.h"
+#include "Tips.h"
 
 #include "imgui.h"
 
@@ -424,6 +425,7 @@ void App::drawSaveCheck()
 			if (RiskButton(o.label, o.risk, o.enabled)) {
 				o.act();
 			}
+			tips::Tip(o.risk == Risk::kRisky ? "Risky: this can break a mod or a quest. Read the note beside it, and keep a backup of the save." : o.risk == Risk::kCaution ? "Look first: usually fine, but read the note beside it before using it." : "Safe: does not harm the game. Nothing is written until you save (File > Save or Save As).");
 			ImGui::SameLine();
 			const float x = ImGui::GetCursorPosX();
 			TextWrappedAt(RiskColor(o.risk), std::string(RiskWord(o.risk)) + ": " + o.why, x);
@@ -437,11 +439,13 @@ void App::drawSaveCheck()
 	if (ImGui::Checkbox("Show this when a save opens", &_checkOnOpen)) {
 		saveSettings();
 	}
+	tips::Tip("Open this save check window by itself every time you open a save.");
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 140);
 	if (ImGui::Button("Close", ImVec2(120, 0))) {
 		_showCheck = false;
 	}
+	tips::Tip("Close the save check. Open it again with Tools > Save check (F2) or the button on the Overview page.");
 	ImGui::End();
 }
 
@@ -483,4 +487,5 @@ void App::drawCheckSummary()
 		_showCheck = true;
 		ImGui::SetWindowFocus("Save check");
 	}
+	tips::Tip("Open the list of everything ReSaver++ noticed about this save, with what can safely be done about each (F2).");
 }
