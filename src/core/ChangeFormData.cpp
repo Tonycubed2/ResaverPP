@@ -286,6 +286,128 @@ namespace ess::cf
 			p.ref("ref4");
 		}
 
+		// PackageLocation / PackageTarget of a package created in game
+		void PackageLocation(P& p)
+		{
+			p.group("LOCATION", [&] {
+				const auto type = p.u8("TYPE");
+				p.i32("RADIUS");
+				switch (type) {
+				case 0:
+				case 1:
+				case 2:
+				case 3:
+				case 4:
+					p.ref("REF");
+					break;
+				case 5:
+				case 8:
+				case 9:
+				case 10:
+					p.i32("VALUE");
+					break;
+				case 11:
+					p.u8("VALUE");
+					break;
+				default:
+					break;
+				}
+			});
+		}
+
+		void PackageTarget(P& p)
+		{
+			p.group("TARGET", [&] {
+				const auto type = p.u8("TYPE");
+				p.i32("COUNT");
+				switch (type) {
+				case 0:
+				case 1:
+				case 3:
+					p.ref("REF");
+					break;
+				case 2:
+				case 4:
+				case 5:
+					p.i32("VALUE");
+					break;
+				default:
+					break;
+				}
+			});
+		}
+
+		// a package created in game (FF form): TESPackage::LoadGame of its class
+		void CreatedPackage(P& p, std::int8_t a_type)
+		{
+			p.group(Fmt("CREATED PACKAGE (type %d)", a_type), [&] {
+				switch (a_type) {
+				case 0x0f:
+				case 0x15:
+				case 0x17:
+				case 0x18:
+				case 0x1c:
+					throw Stop(Fmt("created package (type %d) is not decoded yet", a_type));
+				default:
+					break;
+				}
+				p.bytes("PACKAGE DATA", 12);
+				const auto mask = p.u8("PARTS");
+				if (mask & 1) {
+					PackageLocation(p);
+				}
+				if (mask & 2) {
+					PackageTarget(p);
+				}
+				if (mask & 4) {
+					p.group("TYPE DATA", [&] {
+						auto optLocation = [&] {
+							if (p.u8("HAS LOCATION")) {
+								PackageLocation(p);
+							}
+						};
+						switch (a_type) {
+						case 1:   // Follow
+						case 2:   // Escort
+							p.i32("UNK10");
+							optLocation();
+							break;
+						case 3:   // Eat
+						case 8:   // UseItemAt
+						case 9:   // Ambush
+							optLocation();
+							break;
+						case 13:  // Patrol
+							p.u8("UNK8");
+							p.u8("UNK9");
+							break;
+						case 15:  // Dialogue
+						case 16:  // UseWeapon
+							throw Stop(Fmt("created package data (type %d) is not decoded yet", a_type));
+						default:
+							break;
+						}
+					});
+				}
+				p.i32("UNKD8");
+				if (a_type == 0x16) {  // FleePackage
+					p.u8("UNK110");
+					p.u8("UNK111");
+					p.floats("POS", 3);
+					p.f32("UNK104");
+					p.u8("UNK112");
+					p.u8("UNK113");
+					p.u8("UNK114");
+					p.ref("REF1");
+					p.ref("REF2");
+					const auto n = p.vs("");
+					p.countedArray("REFS", n, [&] { p.ref("REF"); });
+				}
+			});
+		}
+
+		void PackageDataExtra(P& p, std::int8_t a_type);
+
 		void ExtraDataData(P& p)
 		{
 			const auto type = p.r.u8();
@@ -472,6 +594,14 @@ namespace ess::cf
 				});
 				break;
 			case 104: one("OpenCloseActivateRef", [&] { p.ref("REF"); }); break;
+			case 108:
+				one("PackageData", [&] {
+					const auto type = static_cast<std::int8_t>(p.u8("TYPE"));
+					if (type != -1) {
+						PackageDataExtra(p, type);
+					}
+				});
+				break;
 			case 106:
 				one("Ammo", [&] {
 					p.ref("REF");
@@ -856,6 +986,17 @@ namespace ess::cf
 			kPathingRequestFlee = 0xFA2763CE,
 			kPathingRequestFly = 0x3C5FF134,
 			kPathingRequestStopMoving = 0x8B2152AF,
+			kPathingRequestClosestGoal = 0xF31543AB,
+			kPathingRequestCover = 0x0618E573,
+			kPathingRequestFlyAction = 0xA5021751,
+			kPathingRequestFlyHover = 0x8353103B,
+			kPathingRequestFlyLand = 0xF075EEF7,
+			kPathingRequestFlyOrbit = 0xCDF9A2FC,
+			kPathingRequestFlyTakeOff = 0x98C4C679,
+			kPathingRequestHide = 0x0528E757,
+			kPathingRequestLOS = 0x54DACA55,
+			kPathingRequestOptimalLocation = 0xCA622528,
+			kPathingRequestRotate = 0xC702BB5B,
 		};
 
 		// a polymorphic member: class ID, then that class's data (family = which loader it is)
@@ -935,14 +1076,113 @@ namespace ess::cf
 			p.i32("UNK_F0");
 		}
 
+		void OptionalRef(P& p, const char* a_label)
+		{
+			if (p.r.u8()) {
+				p.ref(a_label);
+			}
+		}
+
+		// PathingRequestFly: the shared part of every flying request
+		void FlyRequest(P& p)
+		{
+			BSPathingRequest(p);
+			OptionalRef(p, "TARGET");
+			OptionalRef(p, "NAVMESH REF");
+			p.f32("UNK110");
+			if (p.version > 0x3b) {
+				p.u8("UNK114");
+				p.f32("UNK118");
+				p.f32("UNK11C");
+			}
+			if (p.version > 0x44) {
+				p.u8("UNK120");
+			}
+		}
+
 		void PathingObjectData(P& p, std::uint32_t a_cls)
 		{
 			switch (a_cls) {
 			case kBSPathingRequest:
 			case kPathingRequest:
 			case kPathingRequestStopMoving:
+			case kPathingRequestRotate:
+			case kPathingRequestCover:
 				BSPathingRequest(p);
 				break;
+			case kPathingRequestFlee:
+				BSPathingRequest(p);
+				p.f32("FLEE DISTANCE");
+				break;
+			case kPathingRequestFly:
+			case kPathingRequestFlyTakeOff:
+				FlyRequest(p);
+				break;
+			case kPathingRequestFlyLand:
+				FlyRequest(p);
+				p.floats("LAND POS", 3);
+				p.i32("UNK13");
+				p.f32("UNK14");
+				p.u8("UNK15");
+				if (p.version > 1) {
+					p.ref("LAND REF");
+				}
+				break;
+			case kPathingRequestFlyAction:
+				FlyRequest(p);
+				p.i32("ACTION");
+				OptionalRef(p, "TARGET");
+				p.floats("POS", 3);
+				OptionalRef(p, "REF2");
+				OptionalRef(p, "REF3");
+				OptionalRef(p, "REF4");
+				p.u8("UNK158");
+				p.i32("UNK15C");
+				break;
+			case kPathingRequestFlyHover:
+			{
+				FlyRequest(p);
+				p.floats("HOVER", 3);
+				const auto n = p.r.u32();
+				p.countedArray("GOALS", n, [&] {
+					PathingLocation(p, "LOCATION");
+					p.floats("VALUES", 7);
+				});
+				break;
+			}
+			case kPathingRequestFlyOrbit:
+				FlyRequest(p);
+				p.f32("RADIUS");
+				p.i32("UNK12C");
+				if (p.version > 0x42) {
+					p.floats("UNK130", 3);
+				}
+				break;
+			case kPathingRequestHide:
+				BSPathingRequest(p);
+				PathingLocation(p, "HIDE FROM");
+				p.f32("UNK130");
+				break;
+			case kPathingRequestLOS:
+			{
+				BSPathingRequest(p);
+				const auto n = p.r.u32();
+				p.countedArray("POINTS", n, [&] { p.floats("POS", 3); });
+				p.floats("UNK120", 5);
+				break;
+			}
+			case kPathingRequestOptimalLocation:
+				BSPathingRequest(p);
+				p.floats("UNK100", 4);
+				break;
+			case kPathingRequestClosestGoal:
+			{
+				BSPathingRequest(p);
+				const auto n = p.r.u32();
+				p.countedArray("GOALS", n, [&] { PathingLocation(p, "LOCATION"); });
+				p.i32("UNK118");
+				break;
+			}
 			case kPathingRequestClosePoint:
 				BSPathingRequest(p);
 				p.f32("UNK130");
@@ -1081,6 +1321,47 @@ namespace ess::cf
 					p.f32("MAX DISTANCE");
 					PathingObject(p, "PATH");
 					p.bytes("FLAGS", 5);
+				} else if (name == "UseWeapon") {
+					OptionalLocation(p, "LOCATION");
+					OptionalLocation(p, "TARGET LOCATION");
+					OptionalNamed(p, "Travel");
+					p.ref("WEAPON");
+					p.i32("UNK28");
+					p.ref("TARGET");
+					p.i16("UNK34");
+					p.i16("UNK36");
+					p.i16("UNK38");
+					p.i32("UNK3C");
+				} else if (name == "UseMagic") {
+					OptionalLocation(p, "LOCATION");
+					OptionalLocation(p, "TARGET LOCATION");
+					OptionalNamed(p, "Travel");
+					p.ref("SPELL");
+					p.i32("UNK40");
+					p.i32("UNK18");
+					if (p.version > 10) {
+						p.ref("TARGET");
+					}
+					p.ref("TARGET2");
+					p.i16("UNK50");
+					p.i32("UNK54");
+					if (p.version >= 0x1e) {
+						p.i32("UNK10");
+						p.i32("UNK14");
+					}
+					if (p.version > 0x2b) {
+						p.i32("UNK4C");
+					}
+				} else if (name == "Orbit") {
+					p.u8("UNK18");
+					OptionalLocation(p, "LOCATION");
+					p.u8("UNK19");
+				} else if (name == "Acquire") {
+					p.i32("UNK08");
+					p.ref("TARGET");
+					p.i32("UNK10");
+					p.ref("ITEM");
+					OptionalNamed(p, "Activate");
 				} else if (name == "Find") {
 					OptionalLocation(p, "LOCATION");
 					p.i32("UNK");
@@ -1160,6 +1441,9 @@ namespace ess::cf
 			}
 		}
 
+		void PackageLocation(P& p);
+		void PackageTarget(P& p);
+
 		// one entry of a package's instance data (BGSPackageData*), by type name
 		void PackageValue(P& p)
 		{
@@ -1172,6 +1456,10 @@ namespace ess::cf
 					p.i32("VALUE");
 				} else if (type == "Float") {
 					p.f32("VALUE");
+				} else if (type == "SingleRef" || type == "Ref" || type == "TargetSelector") {
+					PackageTarget(p);
+				} else if (type == "Location") {
+					PackageLocation(p);
 				} else if (type == "ObjectList") {
 					const auto n = p.vs("");
 					p.countedArray("ITEMS", n, [&] {
@@ -1216,6 +1504,11 @@ namespace ess::cf
 			});
 		}
 
+		void PackageDataExtra(P& p, std::int8_t a_type)
+		{
+			PackageData(p, a_type);
+		}
+
 		// ActorPackage: the package an actor is running (AIProcess, and again in the middle-high process)
 		void ActorPackage(P& p, const char* a_name)
 		{
@@ -1227,7 +1520,7 @@ namespace ess::cf
 				if ((package >> 22) == 2) {  // a package created in game (FF): its type, or -1 for none
 					const auto created = static_cast<std::int8_t>(p.u8("CREATED TYPE"));
 					if (created != -1) {
-						throw Stop(Fmt("created package (type %d) is not decoded yet", created));
+						CreatedPackage(p, created);
 					}
 				}
 				// the data object's kind comes from the package's own type: all Skyrim packages are
