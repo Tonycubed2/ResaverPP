@@ -347,6 +347,8 @@ namespace ess
 					std::uint32_t base = 0;
 					std::uint32_t big = 0;
 					const bool     isQuest = Is(h, "QUST");
+					const bool     isSpell = Is(h, "SPEL");
+					std::uint8_t   spellType = 0xFF;
 					quests::QuestDef qd;
 					for (std::size_t p = 0; p + 6 <= n;) {
 						const auto* st = d + p;
@@ -371,6 +373,8 @@ namespace ess
 							} else {
 								full.assign(reinterpret_cast<const char*>(d + p), strnlen(reinterpret_cast<const char*>(d + p), len));
 							}
+						} else if (isSpell && Is(st, "SPIT") && len >= 12) {
+							spellType = static_cast<std::uint8_t>(U32(d + p + 8));
 						} else if (placed && Is(st, "NAME") && len == 4) {
 							std::uint32_t b;
 							if (toRuntime(U32(d + p), b)) {
@@ -440,6 +444,9 @@ namespace ess
 					}
 					if (base) {
 						f.base = base;
+					}
+					if (isSpell) {
+						f.spellType = spellType;
 					}
 					if (isQuest) {
 						qd.edid = GameTextToUtf8(edid);

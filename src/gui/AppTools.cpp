@@ -1178,26 +1178,105 @@ void App::drawPlayer()
 		}
 	}
 
-	// ---- spells ----
-	if (ImGui::CollapsingHeader("Spells and powers added in game")) {
-		ImGui::TextWrapped("Spells, powers and abilities the game or a mod gave you while playing. Removing a leftover from a mod you "
-						   "uninstalled is the usual use; spells from your race or from books you read stay where they are.");
-		ImGui::SetNextItemWidth(250);
-		ImGui::InputTextWithHint("##spf", "filter", _pvSpellFilter, sizeof(_pvSpellFilter));
+	// ---- spells, powers, abilities: the ones added in game, by their type in the plugins ----
+	{
+		struct Group
+		{
+			const char* title;
+			const char* note;
+			std::vector<std::size_t> rows;
+		};
+		Group groups[] = {
+			{ "Spells added in game", "Spells in your magic menu that you learned or a mod gave you.", {} },
+			{ "Powers added in game", "Greater and lesser powers in your magic menu.", {} },
+			{ "Abilities added in game",
+				"Constant effects (shown under Active Effects, not as spells). Mods often leave these behind; removing one stops its effect.", {} },
+			{ "Diseases, addictions and other effects", "Diseases, addictions, poisons and other spell types.", {} },
+			{ "Not found in your plugins",
+				"No plugin of this save defines these (or plugin names are not loaded yet): usually leftovers from a removed mod.", {} },
+		};
+		auto groupOf = [this](std::uint32_t a_id) -> int {
+			const auto* f = _db ? _db->find(a_id) : nullptr;
+			if (!f) {
+				return 4;
+			}
+			if (_db->type(*f) != "SPEL") {
+				return 3;
+			}
+			switch (f->spellType) {
+			case 0:
+				return 0;
+			case 2:
+			case 3:
+				return 1;
+			case 4:
+				return 2;
+			default:
+				return 3;
+			}
+		};
 		for (std::size_t i = 0; i < _pv.spells.size(); ++i) {
-			const auto sp = _pv.spells[i];
-			const auto name = formText(sp);
-			if (!matches(name, _pvSpellFilter)) {
+			groups[groupOf(_pv.spells[i])].rows.push_back(i);
+		}
+		if (!_db) {
+			TextColored(theme::Warn(),
+				"Plugin names are not loaded, so spells cannot be told apart from powers or shown by name. Load them (Tools > Read plugin "
+				"names) to split the list.");
+		}
+		ImGui::SetNextItemWidth(250);
+		ImGui::InputTextWithHint("##spf", "filter spells, powers and abilities", _pvSpellFilter, sizeof(_pvSpellFilter));
+		int gi = 0;
+		for (auto& g : groups) {
+			++gi;
+			if (g.rows.empty()) {
 				continue;
 			}
-			ImGui::PushID(static_cast<int>(i) + 90000);
-			if (ImGui::SmallButton("Remove")) {
-				confirm("Remove a spell", "Remove " + name + " from the player?",
-					[this, sp, name, done] { done(cf::RemovePlayerSpell(*_save, sp), "Removed " + name + " from the player"); });
+			ImGui::PushID(gi + 70000);
+			if (ImGui::CollapsingHeader(Fmt("%s (%zu)", g.title, g.rows.size()).c_str())) {
+				ImGui::TextDisabled("%s", g.note);
+				if (ImGui::BeginTable("sp", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+						ImVec2(0, std::min(360.0f, 30.0f + 26.0f * static_cast<float>(g.rows.size()))))) {
+					ImGui::TableSetupScrollFreeze(0, 1);
+					for (const char* h : { "", "Name in game", "Editor ID", "Form" }) {
+						ImGui::TableSetupColumn(h);
+					}
+					ImGui::TableHeadersRow();
+					for (const auto i : g.rows) {
+						const auto  sp = _pv.spells[i];
+						const auto* f = _db ? _db->find(sp) : nullptr;
+						const auto  inGame = f ? _db->name(*f) : std::string();
+						const auto  edid = f ? _db->edid(*f) : std::string();
+						const auto  form = Fmt("%08X", sp) + (f ? " (" + _db->pluginName(*f) + ")" : std::string());
+						if (!matches(inGame + " " + edid + " " + form, _pvSpellFilter)) {
+							continue;
+						}
+						ImGui::PushID(static_cast<int>(i) + 90000);
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						if (ImGui::SmallButton("Remove")) {
+							const auto label = inGame.empty() ? (edid.empty() ? form : edid) : inGame;
+							confirm("Remove from the player", "Remove " + label + " from the player?",
+								[this, sp, label, done] { done(cf::RemovePlayerSpell(*_save, sp), "Removed " + label + " from the player"); });
+						}
+						ImGui::TableNextColumn();
+						if (inGame.empty()) {
+							ImGui::TextDisabled("(no name)");
+						} else {
+							ImGui::TextUnformatted(inGame.c_str());
+						}
+						ImGui::TableNextColumn();
+						ImGui::TextUnformatted(edid.c_str());
+						ImGui::TableNextColumn();
+						ImGui::TextDisabled("%s", form.c_str());
+						ImGui::PopID();
+					}
+					ImGui::EndTable();
+				}
 			}
-			ImGui::SameLine();
-			ImGui::TextUnformatted(name.c_str());
 			ImGui::PopID();
+		}
+		if (_pv.spells.empty()) {
+			ImGui::TextDisabled("No spells, powers or abilities were added in game.");
 		}
 	}
 
