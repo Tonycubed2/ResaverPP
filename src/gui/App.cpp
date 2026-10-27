@@ -130,6 +130,7 @@ void App::open(const std::filesystem::path& a_path)
 		_focus.reset();
 		_rowsDirty = true;
 		_cat = Cat::kOverview;
+		_homePanel = true;
 		if (_shotTex && freeTexture) {
 			freeTexture(_shotTex);
 			_shotTex = 0;
@@ -808,9 +809,24 @@ void App::draw()
 		drawCategories();
 		ImGui::SameLine();
 		if (_cat == Cat::kOverview) {
-			ImGui::BeginChild("##overview", ImVec2(0, 0), ImGuiChildFlags_Borders);
-			drawOverview();
-			ImGui::EndChild();
+			if (anyToolOpen()) {
+				_homePanel = false;  // a tool was opened (menu or shortcut): it gets the screen
+			}
+			if (_homePanel) {
+				ImGui::BeginGroup();  // both halves in the right-hand column
+				const float topH = std::max(ImGui::GetContentRegionAvail().y * 0.5f, 200.0f);
+				ImGui::BeginChild("##overview", ImVec2(0, topH), ImGuiChildFlags_Borders);
+				drawOverview();
+				ImGui::EndChild();
+				ImGui::BeginChild("##home", ImVec2(0, 0), ImGuiChildFlags_Borders);
+				drawHome();
+				ImGui::EndChild();
+				ImGui::EndGroup();
+			} else {
+				ImGui::BeginChild("##overview", ImVec2(0, 0), ImGuiChildFlags_Borders);
+				drawOverview();
+				ImGui::EndChild();
+			}
 		} else {
 			const float listW = ImGui::GetContentRegionAvail().x * 0.48f;
 			ImGui::BeginChild("##list", ImVec2(listW, 0), ImGuiChildFlags_Borders);
@@ -922,13 +938,7 @@ void App::drawMenu()
 		tips::Tip("Write your edits to a new save file and leave the original untouched. The safest way to try a cleanup.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Compare to another save...", nullptr, false, _save != nullptr)) {
-			if (platform::HasNativeDialogs()) {
-				if (auto p = platform::OpenSaveDialog(_path.parent_path())) {
-					compareWith(*p);
-				}
-			} else if (const char* other = std::getenv("RESAVERPP_TEST_COMPARE")) {
-				compareWith(other);
-			}
+			shortcut(Sc::kCompare);
 		}
 		tips::Tip("Compare this save with another one (e.g. an older, healthy save) to see which scripts, threads and change forms grew or appeared.");
 		bool watch = _watch;
@@ -953,14 +963,7 @@ void App::drawMenu()
 		tips::Tip("Write the save's load order (every plugin it was made with) to a text file, e.g. to share when asking for help.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Open script (.pex)...")) {
-			if (platform::HasNativeDialogs()) {
-				if (auto p = platform::OpenFileDialog(_sourcesPath.empty() ? std::filesystem::path() : platform::FromUtf8(_sourcesPath), "pex",
-						"Open compiled Papyrus script")) {
-					openScript(*p);
-				}
-			} else if (const char* s = std::getenv("RESAVERPP_TEST_PEX")) {
-				openScript(s);
-			}
+			shortcut(Sc::kOpenPex);
 		}
 		tips::Tip("Open a compiled Papyrus script (.pex) and read its decompiled code, without a save.");
 		ImGui::Separator();
@@ -971,32 +974,22 @@ void App::drawMenu()
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Clean", _save != nullptr)) {
-		auto* p = _save ? _save->papyrus() : nullptr;
 		if (ImGui::MenuItem("Remove unattached instances")) {
-			confirm("Remove unattached instances",
-				Fmt("Delete %zu script instances that are attached to nothing?", _report ? _report->unattached : 0),
-				[this, p] { markEdited(Fmt("Removed %zu unattached instances", ops::RemoveUnattachedInstances(*p))); });
+			shortcut(Sc::kRemoveUnattached);
 		}
 		tips::Tip("Delete script instances that are attached to no object (their object is gone). They do nothing but take space. Usually safe; back up your save first.");
 		if (ImGui::MenuItem("Remove undefined elements")) {
-			confirm("Remove undefined elements",
-				"Delete scripts whose .pex is no longer installed, their instances and references, and terminate threads running them?",
-				[this, p] { markEdited(Fmt("Removed/terminated %zu undefined elements", ops::RemoveUndefinedElements(*p))); });
+			shortcut(Sc::kRemoveUndefined);
 		}
 		tips::Tip("Delete scripts whose .pex file is no longer installed (a removed mod), with their instances and references, and end threads running them. Back up your save first.");
 		if (ImGui::MenuItem("Terminate undefined threads")) {
-			confirm("Terminate undefined threads", "Terminate every thread that runs a script that is no longer installed?",
-				[this, p] { markEdited(Fmt("Terminated %zu undefined threads", ops::TerminateUndefinedThreads(*p))); });
+			shortcut(Sc::kTerminateUndefined);
 		}
 		tips::Tip("End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy.");
 		{
 			const bool any = !_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty();
 			if (ImGui::MenuItem("Mods and scripts no longer installed...", nullptr, false, any)) {
-				_missingDismissed = false;  // the banner comes back too
-				for (auto& m : _missing) {
-					m.planned = false;
-				}
-				_missingOpen = true;
+				shortcut(Sc::kMissingMods);
 			}
 			if (!any && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 				ImGui::SetTooltip(_installKnown ? "Nothing to remove: every mod in this save is in your load order and every script was found."
@@ -1004,30 +997,29 @@ void App::drawMenu()
 			}
 		}
 		if (ImGui::MenuItem("Remove instances on missing spawned objects...")) {
-			openOrphans();
+			shortcut(Sc::kOrphans);
 		}
 		tips::Tip("Find script instances sitting on spawned (FF......) objects that no longer exist, and remove them.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Fix SkyUI MCM registration jam...")) {
-			fixMcmJam();
+			shortcut(Sc::kMcm);
 		}
 		tips::Tip("Clear a stuck SkyUI mod-menu (MCM) registration, the usual cause of mod menus that never appear.");
 		if (ImGui::MenuItem("Reset Havok...")) {
-			resetHavok();
+			shortcut(Sc::kHavok);
 		}
 		tips::Tip("Clear the saved physics state of objects, so they settle again when loaded. Fixes objects that fly around or jitter.");
 		if (ImGui::MenuItem("Purify FormLists...")) {
-			purifyFormLists();
+			shortcut(Sc::kPurify);
 		}
 		tips::Tip("Remove entries in form lists that point at things that no longer exist (left by removed mods).");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Batch Clean...")) {
-			_batchOpen = true;
+			shortcut(Sc::kBatch);
 		}
 		tips::Tip("Run several cleanup steps in one go, with a preview of what each will remove.");
 		if (ImGui::MenuItem("Purge a script...")) {
-			_purgeName[0] = 0;
-			_purgeOpen = true;
+			shortcut(Sc::kPurge);
 		}
 		tips::Tip("Remove everything of one script by name: its running threads, queued calls and instances. Use for a script that floods the save.");
 		ImGui::EndMenu();
@@ -1042,7 +1034,7 @@ void App::drawMenu()
 		ImGui::MenuItem("Analysis", nullptr, &_showAnalysis);
 		tips::Tip("A text report of the save: which mods and scripts take the most space and run the most.");
 		if (ImGui::MenuItem("Report...")) {
-			_reportOpen = true;
+			shortcut(Sc::kReport);
 		}
 		tips::Tip("Write a report of the save (mods, scripts, anomalies) as text or PDF, e.g. to share when asking for help.");
 		ImGui::Separator();
@@ -1050,12 +1042,14 @@ void App::drawMenu()
 		tips::Tip("Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it.");
 		if (ImGui::MenuItem("Edit player (gold, skills, bounty)...", nullptr, &_showPlayer)) {
 			_pvLoaded = false;
+			_homePanel = false;
 		}
 		tips::Tip("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties.");
 		ImGui::MenuItem("Find NPCs (where they are, bring one to you)...", nullptr, &_showActors);
 		tips::Tip("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you.");
 		if (ImGui::MenuItem("Analyze arrays block...", nullptr, &_showArrays)) {
 			_arraysDirty = true;
+			_homePanel = false;
 		}
 		tips::Tip("Look at the save's script arrays: which are biggest, and which nothing points at any more.");
 		if (ImGui::MenuItem(_db ? "Read plugin names again" : "Read plugin names", nullptr, false, _sources.scanned() && !namesLoading())) {
@@ -1101,6 +1095,11 @@ void App::drawMenu()
 	// keyboard shortcuts
 	// the way back to the Save check, always in sight, in the colour of its worst finding
 	if (_save) {
+		const bool home = ImGui::MenuItem("[ Main menu ]");
+		tips::Tip("Back to the main screen: closes the open tools and shows the overview with the shortcut buttons again.");
+		if (home) {
+			goHome();
+		}
 		const Risk  worst = checkWorst();
 		const auto  col = worst == Risk::kRisky ? theme::Bad() : worst == Risk::kCaution ? theme::Caution() : theme::Good();
 		ImGui::PushStyleColor(ImGuiCol_Text, col);

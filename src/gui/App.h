@@ -451,6 +451,19 @@ private:
 	bool        namesLoading() const;
 	void        drawLookup();
 	void        drawPlayer();
+	// Main screen shortcuts: the Clean and Tools menu entries as buttons under the overview (AppHome.cpp)
+	enum class Sc
+	{
+		kRemoveUnattached, kRemoveUndefined, kTerminateUndefined, kMissingMods, kOrphans,
+		kMcm, kHavok, kPurify, kBatch, kPurge,
+		kPlayer, kActors, kTransplant, kLookup,
+		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex
+	};
+	void        shortcut(Sc a_which);  // what the menu entry or the button does
+	void        drawHome();            // the shortcut buttons
+	bool        anyToolOpen() const;
+	void        goHome();              // "Main menu": close the tools, back to the overview with its shortcuts
+	bool        _homePanel = true;
 	void        drawActors();
 	void        drawCfNode(const ess::cf::Node& n, int a_depth, int a_index);
 	void        detailChangeFormDecoded(const ess::ChangeForm& c);
