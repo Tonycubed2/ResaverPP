@@ -278,6 +278,11 @@ namespace ess::cf
 		void NPC(P& p, std::uint32_t flags, bool inlined);
 		void CombatController(P& p);
 		void CombatObjectData(P& p, std::uint32_t a_cls);
+		void CombatPathingRequest(P& p);
+		void PolicyTail(P& p);
+		void CombatObject(P& p, const char* a_label);
+		void PathObject(P& p, const char* a_label);
+		void PathingObject(P& p, const char* a_label);
 
 		void NonActorMagicCaster(P& p)
 		{
@@ -465,7 +470,7 @@ namespace ess::cf
 			case 32: one("UNKNOWN32", [] {}); break;
 			case 33: one("Ownership", [&] { p.ref("OWNER"); }); break;
 			case 34: one("Global", [&] { p.ref("UNK"); }); break;
-			case 35: one("Rank", [&] { p.ref("RANKID"); }); break;
+			case 35: one("Rank", [&] { p.i32("RANK"); }); break;  // an i32 (ReSaver read a RefID)
 			case 36:
 				one("Count", [&] {
 					const auto v = p.i16("COUNT");
@@ -653,13 +658,19 @@ namespace ess::cf
 				break;
 			case 133: one("AshPileRef", [&] { p.ref("REF"); }); break;
 			case 135:
-				// ReSaver's "TEST" (read as four RefIDs = 12 bytes). It is the game's FollowerSwimBreadcrumbs
-				// and takes 20 bytes: the leader's position, its navmesh and a state; read as 12 bytes, all
-				// that followed (an NPC's whole inventory) was read 8 bytes off.
+				// ReSaver's "TEST" (read as four RefIDs = 12 bytes). It is the game's FollowerSwimBreadcrumbs:
+				// the leader's position and navmesh, a state, then the trail of crumbs left behind
 				one("FollowerSwimBreadcrumbs", [&] {
 					p.floats("LEADER POS", 3);
-					p.flags32("NAVMESH");
-					p.flags32("STATE");
+					p.ref("NAVMESH");
+					p.i32("STATE");
+					p.vsArray("CRUMBS", [&] {
+						p.floats("FROM", 3);
+						p.ref("FROM NAVMESH");
+						p.floats("TO", 3);
+						p.ref("TO NAVMESH");
+						p.u8("FLAG");
+					});
 				});
 				break;
 			case 136:
@@ -1207,9 +1218,60 @@ namespace ess::cf
 				p.u8("UNK139");
 				p.u8("UNK13A");
 				break;
+			// CombatPathingRequestGeneric<goal policy, search policy>: the class ID is the XOR of the three
+			// name CRCs. A save writes the combat request part, then the policy's own state
+			case 0x6EF0A66B:  // FindTargetLocation
+			case 0x89454196:  // FindHideCover
+			case 0xEB5BBC23:  // FindCover
+				CombatPathingRequest(p);
+				CombatObject(p, "SEARCH");
+				PolicyTail(p);
+				break;
+			case 0xD28D1F59:  // ExitWater
+				CombatPathingRequest(p);
+				PolicyTail(p);
+				break;
+			case 0x3A33B38C:  // FlankDistant
+				CombatPathingRequest(p);
+				p.floats("POS1", 3);
+				p.floats("POS2", 3);
+				p.f32("UNK130");
+				PolicyTail(p);
+				break;
+			case 0x5361450C:  // SearchWander
+				CombatPathingRequest(p);
+				p.ref("REF");
+				p.floats("POS", 3);
+				PolicyTail(p);
+				break;
+			case 0x5C2673E7:  // FindAttackLocation
+			case 0xB8D9F89B:  // Flank
+			case 0xC55295FF:  // Flee
+			case 0xED6B30CF:  // Retreat
+			case 0x0E3458E4:  // ReturnToCombatArea
+			case 0xECE12544:  // Search
+				throw Stop(Fmt("combat pathing request %08X is not decoded yet", a_cls));
 			default:
 				throw Stop(Fmt("pathing object class %08X is not decoded yet", a_cls));
 			}
+		}
+
+		// CombatPathingRequest: the pathing request, the actor, two values, its path and a combat object
+		void CombatPathingRequest(P& p)
+		{
+			BSPathingRequest(p);
+			p.ref("ACTOR");
+			p.i32("UNK104");
+			p.i32("UNK108");
+			PathObject(p, "PATH");
+			CombatObject(p, "OBJECT");
+		}
+
+		// the shared end of every combat pathing policy: a pathing object and four flags
+		void PolicyTail(P& p)
+		{
+			PathingObject(p, "RESULT");
+			p.bytes("FLAGS", 4);
 		}
 
 		// An object written through the game's pathing stream (BSPathingStream): an ID, and the first
@@ -1849,6 +1911,10 @@ namespace ess::cf
 						p.u8("UNK39");
 					});
 					p.i16("CURRENT");
+					p.ref("REF20");
+					p.ref("REF28");
+					p.ref("REF30");
+					p.ref("REF38");
 				});
 			}
 			{
@@ -2326,6 +2392,9 @@ namespace ess::cf
 				case 0xC8B4153E:  // MovementMessageBlocked
 				case 0x77A37BFA:  // MovementMessageActorCollision
 					break;
+				case 0x0000001D:  // a message filed under a plain number rather than a name CRC; it
+					              // saves nothing (the controller fields line up right after it)
+					break;
 				case 0x3BED430B:  // MovementMessageFreezeDirection
 					p.i32("FREEZE");
 					break;
@@ -2589,6 +2658,28 @@ namespace ess::cf
 				p.ref("REF2");
 				p.f32("TIMER");
 				p.i32("UNK58");
+				break;
+			case 0x9C2C29FA:  // CombatTargetLocationSearch
+				{
+					CombatObject(p, "OBJECT");
+					const auto n = p.vs("COUNT");
+					p.countedArray("IDS", n, [&] { p.i32("ID"); });
+					const auto m = p.vs("COUNT");
+					p.countedArray("CANDIDATES", m, [&] {
+						p.ints("VALUES", 5);
+						p.floats("POS", 3);
+					});
+					p.ref("TARGET");
+					p.ref("REF2");
+					p.ref("REF3");
+					p.floats("POS", 3);
+					p.ints("UNK60", 3);
+					p.i32("UNK6C");
+				}
+				break;
+			case 0xC331439E:  // CombatTargetLocationSearchResult
+				CombatObject(p, "SEARCH");
+				CombatObject(p, "LOCATION");
 				break;
 			case 0xD6E95B87:  // CombatTargetSelector
 			case 0xF7B17BBC:  // CombatTargetSelectorFixed
