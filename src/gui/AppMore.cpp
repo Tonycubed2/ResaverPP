@@ -2,6 +2,7 @@
 // The rest of ReSaver's features: filters, plugin actions, array editing, arrays analysis,
 // plugin list export, log, settings, support links, script (.pex) viewer.
 #include "App.h"
+#include <algorithm>
 
 #include "Platform.h"
 #include "Theme.h"
@@ -10,7 +11,6 @@
 
 #include "imgui.h"
 
-#include <algorithm>
 #include <cctype>
 #include <cinttypes>
 #include <cstdio>
@@ -177,6 +177,160 @@ void App::pluginActions(const std::set<std::string>& a_plugins)
 		if (ImGui::IsItemHovered()) {
 			ImGui::SetTooltip("Change Forms, Script Instances and threads then show only this plugin's elements.");
 		}
+	}
+}
+
+// The change forms, script instances and threads a plugin's buttons above would delete, so they can be looked
+// through first: in collapsible groups (change forms by type, instances by script), each in form ID order;
+// clicking one opens it in its own list.
+void App::pluginContents(const std::set<std::string>& a_plugins)
+{
+	auto& pc = _plContents;
+	if (pc.plugins != a_plugins || pc.gen != _editGen || pc.save != _save.get()) {
+		pc = PluginContents{};
+		pc.plugins = a_plugins;
+		pc.gen = _editGen;
+		pc.save = _save.get();
+		const auto sel = ops::SelectPluginElements(*_save, a_plugins, true, true);
+
+		// change forms, by type
+		std::map<std::string, std::vector<std::pair<std::uint32_t, PluginContents::Row>>> forms;
+		for (const auto& c : _save->changeForms) {
+			if (!sel.changeForms.count(c.refID.data)) {
+				continue;
+			}
+			const auto  fid = _save->formIDOf(c.refID);
+			std::string name = _db ? _db->describe(fid) : std::string();
+			forms[ChangeFormTypeName(c.typeCode())].push_back({ fid, { c.refID.data, Fmt("%08X", fid), Fmt("%u bytes", static_cast<unsigned>(c.data.size())), std::move(name) } });
+		}
+		for (auto& [type, rows] : forms) {
+			std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+			auto& g = pc.forms.emplace_back(type, std::vector<PluginContents::Row>{});
+			for (auto& r : rows) {
+				g.second.push_back(std::move(r.second));
+			}
+			pc.nForms += g.second.size();
+		}
+
+		// script instances, by script
+		if (const auto* p = _save->papyrus()) {
+			std::map<std::string, std::vector<std::pair<std::uint32_t, PluginContents::Row>>> inst;
+			for (const auto& i : p->instances) {
+				if (!sel.instances.count(i.id)) {
+					continue;
+				}
+				std::string text = "on  " + formLabel(i.refID);
+				if (ops::IsUnattached(i)) {
+					text += "  [UNATTACHED]";
+				}
+				inst[p->str(i.script)].push_back(
+					{ _save->formIDOf(i.refID), { static_cast<std::uint64_t>(i.id), std::move(text), {}, {} } });
+			}
+			for (auto& [script, rows] : inst) {
+				std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+				auto& g = pc.instances.emplace_back(script, std::vector<PluginContents::Row>{});
+				for (auto& r : rows) {
+					g.second.push_back(std::move(r.second));
+				}
+				pc.nInstances += g.second.size();
+			}
+			for (const auto& a : p->activeScripts) {
+				if (sel.threads.count(a.id)) {
+					pc.threads.push_back({ static_cast<std::uint64_t>(a.id), threadLabel(a), {}, {} });
+				}
+			}
+			std::sort(pc.threads.begin(), pc.threads.end(), [](const auto& a, const auto& b) { return a.key < b.key; });
+		}
+	}
+
+	ImGui::Separator();
+	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+	ImGui::TextWrapped("What the buttons above would delete. Open a group to look through it; click a line to open it.");
+	ImGui::PopStyleColor();
+	if (!ImGui::BeginChild("##plcontents", ImVec2(0, 0), ImGuiChildFlags_None)) {
+		ImGui::EndChild();
+		return;
+	}
+	Cat target = Cat::kChangeForms;
+	std::optional<std::uint64_t> go;
+	// screenshots: RESAVERPP_TEST_PLOPEN=1 opens everything, =2 everything but the change forms
+	static const char* testOpen = std::getenv("RESAVERPP_TEST_PLOPEN");
+	bool               skipForms = testOpen && testOpen[0] == '2';
+	auto open = [&] {
+		if (testOpen && !skipForms) {
+			ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+		}
+	};
+	auto rows = [&](const std::vector<PluginContents::Row>& a_rows, Cat a_cat) {
+		ImGuiListClipper clip;
+		clip.Begin(static_cast<int>(a_rows.size()));
+		while (clip.Step()) {
+			for (int r = clip.DisplayStart; r < clip.DisplayEnd; ++r) {
+				const auto& row = a_rows[r];
+				ImGui::PushID(r);
+				const float x = ImGui::GetCursorPosX();
+				if (ImGui::Selectable("##row", false, ImGuiSelectableFlags_AllowOverlap)) {
+					go = row.key;
+					target = a_cat;
+				}
+				if (ImGui::IsItemHovered()) {
+					ImGui::SetTooltip("Click to open it in its list");
+				}
+				ImGui::SameLine(x);
+				ImGui::TextUnformatted(row.text.c_str());
+				float next = x + ImGui::CalcTextSize(row.text.c_str()).x + ImGui::GetFontSize();
+				if (!row.right.empty()) {
+					const float col = x + ImGui::CalcTextSize("00000000").x + ImGui::CalcTextSize("0000000 bytes").x + ImGui::GetFontSize();
+					ImGui::SameLine(col - ImGui::CalcTextSize(row.right.c_str()).x);
+					ImGui::TextUnformatted(row.right.c_str());
+					next = col + ImGui::GetFontSize();
+				}
+				if (!row.rest.empty()) {
+					ImGui::SameLine(next);
+					ImGui::TextUnformatted(row.rest.c_str());
+				}
+				ImGui::PopID();
+			}
+		}
+	};
+	auto groups = [&](const PluginContents::Groups& a_groups, Cat a_cat) {
+		for (const auto& [name, list] : a_groups) {
+			open();
+			if (ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth, "%s  (%zu)", name.c_str(), list.size())) {
+				rows(list, a_cat);
+				ImGui::TreePop();
+			}
+		}
+	};
+	if (pc.nForms == 0 && pc.nInstances == 0 && pc.threads.empty()) {
+		ImGui::TextDisabled("Nothing of this plugin is in the save.");
+	}
+	open();
+	if (pc.nForms && ImGui::CollapsingHeader(Fmt("Change forms (%zu)###plcf", pc.nForms).c_str())) {
+		ImGui::PushID("cf");
+		groups(pc.forms, Cat::kChangeForms);
+		ImGui::PopID();
+	}
+	skipForms = false;
+	open();
+	if (pc.nInstances && ImGui::CollapsingHeader(Fmt("Script instances (%zu), by script###plsi", pc.nInstances).c_str())) {
+		ImGui::PushID("si");
+		groups(pc.instances, Cat::kInstances);
+		ImGui::PopID();
+	}
+	open();
+	if (!pc.threads.empty() && ImGui::CollapsingHeader(Fmt("Threads running on them (%zu)###plth", pc.threads.size()).c_str())) {
+		ImGui::PushID("th");
+		rows(pc.threads, Cat::kThreads);
+		ImGui::PopID();
+	}
+	ImGui::EndChild();
+	if (go) {
+		if (!_pluginFilter.empty()) {
+			_pluginFilter.clear();
+			_rowsDirty = true;
+		}
+		select(target, *go);
 	}
 }
 

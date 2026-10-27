@@ -1460,6 +1460,12 @@ void App::detailPlugin(std::uint64_t k)
 	ImGui::Text("%zu change forms belong to this plugin.", forms);
 	ImGui::Spacing();
 	pluginActions({ list[i] });
+	ImGui::Spacing();
+	auto sel = selectedPlugins();
+	if (sel.size() < 2 || !sel.count(list[i])) {
+		sel = { list[i] };
+	}
+	pluginContents(sel);
 }
 
 void App::detailChangeForm(std::uint64_t k)

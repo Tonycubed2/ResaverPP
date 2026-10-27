@@ -460,6 +460,26 @@ private:
 	bool                  drawFiltersButton();
 	void                  pluginActions(const std::set<std::string>& a_plugins);
 	std::set<std::string> selectedPlugins() const;
+	// what a plugin's buttons would delete, listed under them (grouped, collapsible, click to open)
+	void pluginContents(const std::set<std::string>& a_plugins);
+	struct PluginContents
+	{
+		struct Row
+		{
+			std::uint64_t key = 0;
+			std::string   text;   // first column (form ID / thread)
+			std::string   right;  // second column (size), right-aligned
+			std::string   rest;   // the rest (name, "on" form)
+		};
+		using Groups = std::vector<std::pair<std::string, std::vector<Row>>>;
+		std::set<std::string> plugins;
+		std::uint64_t         gen = UINT64_MAX;
+		const void*           save = nullptr;
+		Groups                forms, instances;  // by change form type / by script
+		std::vector<Row>      threads;
+		std::size_t           nForms = 0, nInstances = 0;
+	};
+	PluginContents _plContents;
 	void                  exportPluginList();
 	void                  arrayEditor(ess::ArrayInfo& a);
 	void                  drawArraysAnalysis();
