@@ -846,6 +846,117 @@ namespace ess::cf
 			}
 		}
 
+		// ---- pathing stream objects. Polymorphic objects are written as a class ID: Bethesda's CRC32 of
+		// the class name (e.g. 330EB0E3 = "PathingRequest") ----
+		enum : std::uint32_t
+		{
+			kBSPathingRequest = 0x0534ED31,
+			kPathingRequest = 0x330EB0E3,
+			kPathingRequestClosePoint = 0xEB5ED874,
+			kPathingRequestFlee = 0xFA2763CE,
+			kPathingRequestFly = 0x3C5FF134,
+			kPathingRequestStopMoving = 0x8B2152AF,
+		};
+
+		// a polymorphic member: class ID, then that class's data (family = which loader it is)
+		void PolyMember(P& p, const char* a_label, const char* a_family)
+		{
+			p.group(a_label, [&] {
+				const auto cls = p.r.u32();
+				p.add("CLASS", Fmt("%08X", cls));
+				if (cls == 0) {
+					return;
+				}
+				switch (cls) {
+				case 0xA5E9A03C:  // PathingCell: the cell, or (no cell) the worldspace
+					if (!p.ref("CELL")) {
+						p.ref("WORLDSPACE");
+					} else {
+						p.i32("UNK");
+					}
+					return;
+				case 0x5826A5DD:  // PathingLockData
+					if (p.u8("LOCKED")) {
+						p.ref("REF");
+						if (p.version > 0x15) {
+							p.u8("UNK");
+						}
+					}
+					return;
+				case 0x0C28D1C5:  // MovementParameters
+					p.floats("VALUES", 5);
+					return;
+				default:
+					throw Stop(Fmt("%s class %08X is not decoded yet", a_family, cls));
+				}
+			});
+		}
+
+		// BSPathingLocation: a point on the navmesh
+		void PathingLocation(P& p, const char* a_label)
+		{
+			p.group(a_label, [&] {
+				p.floats("POS", 3);
+				PolyMember(p, "SPACE", "pathing space");
+				p.ref("CELL/WORLD");
+				p.i16("TRIANGLE");
+				p.u8("FLAG1");
+				p.u8("FLAG2");
+			});
+		}
+
+		void BSPathingRequest(P& p)
+		{
+			PathingLocation(p, "START");
+			p.f32("START UNK");
+			p.group("GOAL", [&] {
+				PathingLocation(p, "LOCATION");
+				p.floats("VALUES", 7);
+			});
+			const auto n = static_cast<std::uint32_t>(p.r.i32());
+			p.countedArray("SEGMENTS", n, [&] { p.ints("VALUES", 9); });
+			p.ints("UNK4", 4);
+			p.group("PARAMS", [&] {
+				p.i32("UNK1");
+				p.i32("UNK2");
+				p.i16("UNK3");
+				p.i16("UNK4");
+			});
+			p.group("AVOID", [&] {
+				p.i32("UNK1");
+				p.i32("UNK2");
+				p.i32("UNK3");
+				PolyMember(p, "OBJECT", "pathing avoid");
+				p.ref("REF");
+			});
+			PolyMember(p, "BUILDER", "path builder");
+			const auto m = static_cast<std::uint32_t>(p.r.i32());
+			p.countedArray("REFS", m, [&] { p.ref("REF"); });
+			p.i32("UNK_F0");
+		}
+
+		void PathingObjectData(P& p, std::uint32_t a_cls)
+		{
+			switch (a_cls) {
+			case kBSPathingRequest:
+			case kPathingRequest:
+			case kPathingRequestStopMoving:
+				BSPathingRequest(p);
+				break;
+			case kPathingRequestClosePoint:
+				BSPathingRequest(p);
+				p.f32("UNK130");
+				p.f32("UNK134");
+				p.u8("UNK138");
+				PathingLocation(p, "CLOSE POINT");
+				p.u8("UNK139");
+				p.u8("UNK13A");
+				break;
+			default:
+				throw Stop(Fmt("pathing object class %08X is not decoded yet", a_cls));
+			}
+		}
+
 		// An object written through the game's pathing stream (BSPathingStream): an ID, and the first
 		// time an ID appears in a change form, the object itself (class ID + its data)
 		void PathingObject(P& p, const char* a_label)
@@ -858,7 +969,7 @@ namespace ess::cf
 				}
 				const auto cls = p.r.u32();
 				p.add("CLASS", Fmt("%08X", cls));
-				throw Stop(Fmt("pathing object class %08X is not decoded yet", cls));
+				PathingObjectData(p, cls);
 			});
 		}
 
