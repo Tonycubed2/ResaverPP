@@ -80,6 +80,23 @@ namespace ess::cf
 
 		// an actor's AI: the process level field, the AI process data (absent at level -1), and the
 		// movement and combat controllers (each its "has" byte and data)
+		// values that can be edited in place (offsets in the body)
+		struct InvAt
+		{
+			std::uint32_t item = 0;  // runtime form ID
+			std::size_t   entryAt = 0, countAt = 0;
+		};
+		struct ValueAt
+		{
+			std::uint32_t id = 0;  // actor value / faction form ID
+			std::size_t   at = 0;
+		};
+		std::size_t              inventoryCountAt = 0;  // the inventory's count (a vsval)
+		std::vector<InvAt>       inventory;
+		std::vector<ValueAt>     baseAVs;         // an actor's changed base actor values: id, value offset (f32)
+		std::vector<std::size_t> playerSkillsAt;  // the player's 18 skills: level, XP, XP for next level (f32 each)
+		std::vector<ValueAt>     crimeGold;       // the player's bounties: faction, offset of 4 i32
+
 		bool                                hasActorData = false;
 		std::int32_t                        processLevel = -1;
 		std::size_t                         levelAt = 0;
@@ -118,7 +135,7 @@ namespace ess::cf
 	// Returns "" when done, else why not.
 	// ACHR (an actor reference): REFR_MOVE (back to its editor position, when the position is saved for
 	// that flag alone), REFR_SCALE, REFR_INVENTORY (when not shared with the leveled inventory) and
-	// REFR_ANIMATION. Never the player.
+	// REFR_ANIMATION. The player: only REFR_SCALE and REFR_ANIMATION.
 	bool        CanRemoveFlag(const ChangeForm& a_cf, int a_bit);
 	std::string RemoveFlagEffect(std::uint8_t a_type, int a_bit);  // what removing it does, for the user
 	std::string RemoveFlag(const SaveFile& a_save, ChangeForm& a_cf, int a_bit);
@@ -128,8 +145,30 @@ namespace ess::cf
 	// safe to drop are offered (a package also takes its package data with it, and the reverse).
 	// Checks the result decodes completely, else changes nothing. Returns "" when done, else why not.
 	bool        CanRemoveExtra(const std::string& a_name);
+	bool        CanRemoveExtraFrom(const ChangeForm& a_cf, const std::string& a_name);  // the player only gets a few
 	std::string RemoveExtraEffect(const std::string& a_name);
 	std::string RemoveExtra(const SaveFile& a_save, ChangeForm& a_cf, std::size_t a_index);
+
+	// ---- the player's character: read and change gold, skills and bounties in place ----
+	struct PlayerBounty
+	{
+		std::uint32_t faction = 0;  // form ID
+		std::int32_t  violent = 0, nonViolent = 0, nonViolentTotal = 0, violentTotal = 0;
+	};
+	struct PlayerValues
+	{
+		std::string               error;  // empty when read
+		bool                      hasGold = false;
+		std::int32_t              gold = 0;
+		float                     skills[18]{};      // base skill values (One-handed ... Enchanting)
+		bool                      hasSkill[18]{};
+		std::vector<PlayerBounty> bounties;
+	};
+	extern const char* const kSkillNames[18];
+	PlayerValues ReadPlayer(const SaveFile& a_save);
+	std::string  SetPlayerGold(SaveFile& a_save, std::int32_t a_gold);  // adds a gold entry when there is none
+	std::string  SetPlayerSkill(SaveFile& a_save, int a_skill, float a_level);
+	std::string  SetPlayerBounty(SaveFile& a_save, std::uint32_t a_faction, std::int32_t a_violent, std::int32_t a_nonViolent);
 
 	// Resets an actor's (ACHR) saved AI: the process level becomes -1 (the state the game saves for
 	// actors it has no AI loaded for) and the AI process, movement controller and combat controller

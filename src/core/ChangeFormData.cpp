@@ -840,9 +840,13 @@ namespace ess::cf
 
 		void Inventory(P& p)
 		{
+			p.out().inventoryCountAt = p.r.pos();
 			p.vsArray("INVENTORY", [&] {
+				const auto entryAt = p.r.pos();
 				const auto item = p.refResolved("ITEM");
+				const auto countAt = p.r.pos();
 				const auto count = p.i32("COUNT");
+				p.out().inventory.push_back({ item, entryAt, countAt });
 				// the entry's extra data is a list of extra data lists, one per distinct stack (each its
 				// own enchantment, charge, health...)
 				const auto lists = p.vs("");
@@ -2550,7 +2554,8 @@ namespace ess::cf
 				ActorValueModifiers(p, "VOICE MODIFIERS");
 				p.group("ACTOR VALUES", [&] {
 					p.vsArray("BASE", [&] {
-						p.i32("AV");
+						const auto av = p.i32("AV");
+						p.out().baseAVs.push_back({ static_cast<std::uint32_t>(av), p.r.pos() });
 						p.f32("VALUE");
 					});
 					p.vsArray("MODIFIERS", [&] {
@@ -3081,11 +3086,12 @@ namespace ess::cf
 					const auto total = std::max<std::uint32_t>(n, 18);
 					p.add("COUNT", std::to_string(n));
 					p.countedArray("SKILLS", total, [&] {
+						p.out().playerSkillsAt.push_back(p.r.pos());
 						p.f32("LEVEL");
 						p.f32("XP");
-						p.f32("LEGENDARY");
+						p.f32("XP FOR NEXT LEVEL");
 						if (v > 0x49) {
-							p.i32("UNK");
+							p.i32("LEGENDARY");
 						}
 					});
 				});
@@ -3130,16 +3136,20 @@ namespace ess::cf
 				p.i32("UNKCD5750_1");
 				p.i32("UNKCD5750_2");
 				PlayerCamera(p);
-				p.vsArray("CRIMES1", [&] {
-					p.ref("FACTION");
-					p.ints("VALUES", 4);
+				p.vsArray("CRIME GOLD", [&] {  // per faction: bounties and crime totals
+					const auto faction = p.refResolved("FACTION");
+					p.out().crimeGold.push_back({ faction, p.r.pos() });
+					p.i32("VIOLENT BOUNTY");
+					p.i32("NONVIOLENT BOUNTY");
+					p.i32("NONVIOLENT TOTAL");
+					p.i32("VIOLENT TOTAL");
 				});
 				p.ref("REF89C");
 				p.i32("UNKAF0");
 				p.i32("UNKAF4");
 				p.ref("REF9F8");
 				p.i32("UNKADC");
-				p.vsArray("CRIMES2", [&] {
+				p.vsArray("STOLEN ITEM VALUES", [&] {
 					p.ref("FACTION");
 					p.ints("VALUES", 2);
 				});
@@ -3991,7 +4001,218 @@ namespace ess::cf
 		}
 	}
 
+	// ---- the player's character ----
+	const char* const kSkillNames[18] = { "One-handed", "Two-handed", "Archery", "Block", "Smithing", "Heavy Armor", "Light Armor",
+		"Pickpocket", "Lockpicking", "Sneak", "Alchemy", "Speech", "Alteration", "Conjuration", "Destruction", "Illusion", "Restoration",
+		"Enchanting" };
+
+	namespace
+	{
+		ChangeForm* PlayerForm(SaveFile& a_save)
+		{
+			RefID id;
+			id.data = 0x400014;
+			return a_save.findChangeForm(id);
+		}
+		const ChangeForm* PlayerForm(const SaveFile& a_save)
+		{
+			for (const auto& c : a_save.changeForms) {
+				if (c.refID.data == 0x400014 && static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::ACHR) {
+					return &c;
+				}
+			}
+			return nullptr;
+		}
+
+		std::int32_t GetI32(const std::vector<std::uint8_t>& a_b, std::size_t a_at)
+		{
+			std::uint32_t v = 0;
+			for (int i = 0; i < 4; ++i) {
+				v |= std::uint32_t(a_b[a_at + i]) << (8 * i);
+			}
+			return static_cast<std::int32_t>(v);
+		}
+		void PutI32(std::vector<std::uint8_t>& a_b, std::size_t a_at, std::int32_t a_v)
+		{
+			const auto v = static_cast<std::uint32_t>(a_v);
+			for (int i = 0; i < 4; ++i) {
+				a_b[a_at + i] = static_cast<std::uint8_t>(v >> (8 * i));
+			}
+		}
+		float GetF32(const std::vector<std::uint8_t>& a_b, std::size_t a_at)
+		{
+			const auto v = static_cast<std::uint32_t>(GetI32(a_b, a_at));
+			float      f;
+			std::memcpy(&f, &v, 4);
+			return f;
+		}
+		void PutF32(std::vector<std::uint8_t>& a_b, std::size_t a_at, float a_f)
+		{
+			std::uint32_t v;
+			std::memcpy(&v, &a_f, 4);
+			PutI32(a_b, a_at, static_cast<std::int32_t>(v));
+		}
+
+		// decodes the player, lets a_edit change the body, writes it back only if it still decodes completely
+		template <class F>
+		std::string EditPlayer(SaveFile& a_save, F a_edit)
+		{
+			auto* cf = PlayerForm(a_save);
+			if (!cf) {
+				return "this save has no player change form";
+			}
+			const auto d = Decode(a_save, *cf);
+			if (!d.complete) {
+				return "the player's record could not be read completely (" + d.error + "): nothing changed";
+			}
+			auto body = Body(*cf);
+			if (auto why = a_edit(d, body); !why.empty()) {
+				return why;
+			}
+			const auto before = *cf;
+			SetBody(*cf, body);
+			if (!Decode(a_save, *cf).complete) {
+				*cf = before;
+				return "the result would not read back correctly: nothing changed";
+			}
+			return {};
+		}
+
+		constexpr std::uint32_t kGold = 0x0000000F;  // Gold001
+	}
+
+	PlayerValues ReadPlayer(const SaveFile& a_save)
+	{
+		PlayerValues out;
+		const auto*  cf = PlayerForm(a_save);
+		if (!cf) {
+			out.error = "this save has no player change form";
+			return out;
+		}
+		const auto d = Decode(a_save, *cf);
+		if (!d.complete) {
+			out.error = "the player's record could not be read completely (" + d.error + ")";
+			return out;
+		}
+		const auto body = Body(*cf);
+		for (const auto& e : d.inventory) {
+			if (e.item == kGold) {
+				out.hasGold = true;
+				out.gold += GetI32(body, e.countAt);
+			}
+		}
+		for (const auto& v : d.baseAVs) {
+			if (v.id >= 6 && v.id < 24) {
+				out.skills[v.id - 6] = GetF32(body, v.at);
+				out.hasSkill[v.id - 6] = true;
+			}
+		}
+		for (const auto& c : d.crimeGold) {
+			PlayerBounty b;
+			b.faction = c.id;
+			b.violent = GetI32(body, c.at);
+			b.nonViolent = GetI32(body, c.at + 4);
+			b.nonViolentTotal = GetI32(body, c.at + 8);
+			b.violentTotal = GetI32(body, c.at + 12);
+			out.bounties.push_back(b);
+		}
+		return out;
+	}
+
+	std::string SetPlayerGold(SaveFile& a_save, std::int32_t a_gold)
+	{
+		if (a_gold < 0) {
+			return "gold cannot be negative";
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			bool first = true;
+			for (const auto& e : d.inventory) {
+				if (e.item == kGold) {
+					PutI32(body, e.countAt, first ? a_gold : 0);  // one stack holds it all
+					first = false;
+				}
+			}
+			if (!first) {
+				return {};
+			}
+			if (!Bit(PlayerForm(a_save)->changeFlags, 5)) {
+				return "the player has no saved inventory to add gold to";
+			}
+			// no gold yet: add an entry (Gold001, the count, no extra data) and raise the inventory's count
+			std::size_t len = 0;
+			const auto  n = static_cast<std::uint32_t>(d.inventory.size());
+			const auto  b0 = body[d.inventoryCountAt];
+			len = (b0 & 3) == 0 ? 1 : (b0 & 3) == 1 ? 2 : 4;
+			std::vector<std::uint8_t> count;
+			PutVsval(count, n + 1);
+			std::vector<std::uint8_t> entry{ 0x40, 0x00, 0x0F, 0, 0, 0, 0, 0 };  // RefID 40000F = Gold001
+			PutI32(entry, 3, a_gold);
+			const auto end = d.inventoryCountAt + len;
+			body.insert(body.begin() + static_cast<std::ptrdiff_t>(end), entry.begin(), entry.end());
+			body.erase(body.begin() + static_cast<std::ptrdiff_t>(d.inventoryCountAt), body.begin() + static_cast<std::ptrdiff_t>(end));
+			body.insert(body.begin() + static_cast<std::ptrdiff_t>(d.inventoryCountAt), count.begin(), count.end());
+			return {};
+		});
+	}
+
+	std::string SetPlayerSkill(SaveFile& a_save, int a_skill, float a_level)
+	{
+		if (a_skill < 0 || a_skill >= 18) {
+			return "no such skill";
+		}
+		if (!(a_level >= 0.0f && a_level <= 1000.0f)) {
+			return "the skill level must be between 0 and 1000";
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			bool found = false;
+			for (const auto& v : d.baseAVs) {
+				if (v.id == static_cast<std::uint32_t>(a_skill + 6)) {
+					PutF32(body, v.at, a_level);
+					found = true;
+				}
+			}
+			if (!found) {
+				return std::string("the player's saved values have no ") + kSkillNames[a_skill] + " entry";
+			}
+			if (static_cast<std::size_t>(a_skill) < d.playerSkillsAt.size()) {
+				const auto at = d.playerSkillsAt[a_skill];
+				PutF32(body, at, a_level);  // the skill's level in the leveling data
+				PutF32(body, at + 4, 0.0f); // and its progress toward the next level starts over
+			}
+			return {};
+		});
+	}
+
+	std::string SetPlayerBounty(SaveFile& a_save, std::uint32_t a_faction, std::int32_t a_violent, std::int32_t a_nonViolent)
+	{
+		if (a_violent < 0 || a_nonViolent < 0) {
+			return "a bounty cannot be negative";
+		}
+		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			for (const auto& c : d.crimeGold) {
+				if (c.id == a_faction) {
+					PutI32(body, c.at, a_violent);
+					PutI32(body, c.at + 4, a_nonViolent);
+					return {};
+				}
+			}
+			return "the player has no crime record with that faction";
+		});
+	}
+
+
 	bool CanRemoveExtra(const std::string& a_name) { return FindRemovable(a_name) != nullptr; }
+
+	bool CanRemoveExtraFrom(const ChangeForm& a_cf, const std::string& a_name)
+	{
+		if (!CanRemoveExtra(a_name)) {
+			return false;
+		}
+		if (IsPlayerActor(a_cf)) {  // the player: only what cannot hurt the character
+			return a_name == "DismemberedLimbs" || a_name == "AttachedArrows3D" || a_name == "Ghost";
+		}
+		return true;
+	}
 
 	std::string RemoveExtraEffect(const std::string& a_name)
 	{
@@ -4004,9 +4225,6 @@ namespace ess::cf
 		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::ACHR) {
 			return "only an actor's (ACHR) extra data can be removed this way";
 		}
-		if (IsPlayerActor(a_cf)) {
-			return "the player's own record is never changed this way: nothing changed";
-		}
 		const auto d = Decode(a_save, a_cf);
 		if (!d.complete) {
 			return "this change form could not be read completely (" + d.error + "): nothing changed";
@@ -4015,7 +4233,7 @@ namespace ess::cf
 			return "that extra data entry was not found: nothing changed";
 		}
 		const auto& name = d.extras[a_index].name;
-		if (!CanRemoveExtra(name)) {
+		if (!CanRemoveExtraFrom(a_cf, name)) {
 			return "\"" + name + "\" is not one of the entries that can be removed safely";
 		}
 		// a package and its package data go together
@@ -4111,8 +4329,8 @@ namespace ess::cf
 		case ChangeFormType::NPC_:
 			return true;
 		case ChangeFormType::ACHR:
-			if (a_cf.refID.data == 0x400014) {
-				return false;  // the player
+			if (a_cf.refID.data == 0x400014) {  // the player: only what cannot hurt the character
+				return a_bit == 4 || a_bit == 28;
 			}
 			switch (a_bit) {
 			case 1:  // REFR_MOVE: only when the saved position is there for it alone
@@ -4155,9 +4373,6 @@ namespace ess::cf
 
 	std::string RemoveFlag(const SaveFile& a_save, ChangeForm& a_cf, int a_bit)
 	{
-		if (static_cast<ChangeFormType>(a_cf.typeCode()) == ChangeFormType::ACHR && a_cf.refID.data == 0x400014) {
-			return "the player's own record is never changed this way: nothing changed";
-		}
 		if (!CanRemoveFlag(a_cf, a_bit)) {
 			return "this flag cannot be removed from this change form (only some parts of NPC_ and ACHR change forms can, and only flags that are set)";
 		}

@@ -383,7 +383,7 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 				});
 		}
 	}
-	if (static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::ACHR && d.complete && c.refID.data != 0x400014) {
+	if (static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::ACHR && d.complete) {
 		actorFixes(c, d);
 	}
 	if (d.isFormList) {
@@ -421,7 +421,7 @@ void App::actorFixes(const ChangeForm& c, const cf::Decoded& d)
 		_actorFixKey = key;
 		_actorExtraOk.assign(d.extras.size(), 0);
 		for (std::size_t i = 0; i < d.extras.size(); ++i) {
-			if (cf::CanRemoveExtra(d.extras[i].name)) {
+			if (cf::CanRemoveExtraFrom(c, d.extras[i].name)) {
 				ChangeForm copy = c;
 				_actorExtraOk[i] = cf::RemoveExtra(*_save, copy, i).empty() ? 1 : 0;
 			}
@@ -439,10 +439,12 @@ void App::actorFixes(const ChangeForm& c, const cf::Decoded& d)
 				ImGui::SameLine();
 				if (ImGui::SmallButton("Remove")) {
 					const auto effect = cf::RemoveExtraEffect(name);
+					const bool player = refRaw == 0x400014;
 					confirm("Remove extra data",
-						Fmt("Remove \"%s\" from this actor?\n\n%s\n\nEverything else in this change form stays. Save as a new file "
+						Fmt("Remove \"%s\" from %s?\n\n%s\n\nEverything else in this change form stays.%s Save as a new file "
 							"afterwards and keep the original.",
-							name.c_str(), effect.c_str()),
+							name.c_str(), player ? "YOUR CHARACTER" : "this actor", effect.c_str(),
+							player ? "\n\nThis is your own character: test the new save before playing on with it." : ""),
 						[this, refRaw, i, name, who] {
 							RefID id;
 							id.data = refRaw;
@@ -868,4 +870,136 @@ void App::pollWatch()
 			open(path);
 		}
 	}
+}
+
+// ==========================================================================================
+// Player editor: gold, skills, bounties
+// ==========================================================================================
+
+void App::drawPlayer()
+{
+	prepareWindow("Edit player", ImVec2(0.6f, 0.8f));
+	if (!ImGui::Begin("Edit player", &_showPlayer, ImGuiWindowFlags_NoCollapse)) {
+		ImGui::End();
+		return;
+	}
+	maximizeControl("Edit player");
+	if (!_pvLoaded) {
+		_pv = cf::ReadPlayer(*_save);
+		_pvLoaded = true;
+		_pvGold = _pv.gold;
+		for (int i = 0; i < 18; ++i) {
+			_pvSkills[i] = _pv.skills[i];
+		}
+		_pvBounty.clear();
+		for (const auto& b : _pv.bounties) {
+			_pvBounty.push_back({ b.violent, b.nonViolent });
+		}
+	}
+	if (!_pv.error.empty()) {
+		TextColored(theme::Warn(), "Cannot edit the player: " + _pv.error);
+		ImGui::End();
+		return;
+	}
+	ImGui::NewLine();
+	ImGui::TextWrapped("Changes are made in the loaded save; nothing is written until you use File > Save or Save As. Keep the original "
+					   "save and test the new one before playing on with it.");
+	auto done = [this](const std::string& a_why, const std::string& a_what) {
+		if (a_why.empty()) {
+			markChanged(a_what);
+		} else {
+			_error = "Could not change the player: " + a_why;
+		}
+		_pvLoaded = false;  // read the values again
+	};
+
+	ImGui::SeparatorText("Gold");
+	ImGui::SetNextItemWidth(160);
+	ImGui::InputInt("##gold", &_pvGold, 100, 1000);
+	_pvGold = std::max(_pvGold, 0);
+	ImGui::SameLine();
+	ImGui::BeginDisabled(_pvGold == _pv.gold);
+	if (ImGui::Button("Set gold")) {
+		done(cf::SetPlayerGold(*_save, _pvGold), Fmt("Set the player's gold to %d", _pvGold));
+	}
+	ImGui::EndDisabled();
+	if (!_pv.hasGold) {
+		ImGui::SameLine();
+		ImGui::TextDisabled("(no gold carried: a gold entry is added)");
+	}
+
+	ImGui::SeparatorText("Skills");
+	ImGui::TextDisabled("Setting a skill starts its progress toward the next level over. Your character level is not changed.");
+	if (ImGui::BeginTable("skills", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
+		for (int i = 0; i < 18; ++i) {
+			ImGui::PushID(i);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(cf::kSkillNames[i]);
+			ImGui::TableNextColumn();
+			ImGui::BeginDisabled(!_pv.hasSkill[i]);
+			ImGui::SetNextItemWidth(120);
+			ImGui::InputFloat("##lvl", &_pvSkills[i], 1.0f, 10.0f, "%.0f");
+			_pvSkills[i] = std::clamp(_pvSkills[i], 0.0f, 1000.0f);
+			ImGui::TableNextColumn();
+			ImGui::BeginDisabled(_pvSkills[i] == _pv.skills[i]);
+			if (ImGui::SmallButton("Set")) {
+				done(cf::SetPlayerSkill(*_save, i, _pvSkills[i]), Fmt("Set the player's %s to %.0f", cf::kSkillNames[i], _pvSkills[i]));
+			}
+			ImGui::EndDisabled();
+			ImGui::EndDisabled();
+			ImGui::PopID();
+		}
+		ImGui::EndTable();
+	}
+
+	ImGui::SeparatorText("Bounty");
+	ImGui::Checkbox("Show every faction (not only those with a bounty or crimes)", &_pvAllFactions);
+	if (ImGui::BeginTable("bounty", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
+		ImGui::TableSetupColumn("Faction");
+		ImGui::TableSetupColumn("Violent");
+		ImGui::TableSetupColumn("Non-violent");
+		ImGui::TableSetupColumn("");
+		ImGui::TableHeadersRow();
+		int shown = 0;
+		for (std::size_t i = 0; i < _pv.bounties.size() && i < _pvBounty.size(); ++i) {
+			const auto& b = _pv.bounties[i];
+			const bool  any = b.violent || b.nonViolent || b.violentTotal || b.nonViolentTotal;
+			if (!_pvAllFactions && !any) {
+				continue;
+			}
+			++shown;
+			ImGui::PushID(static_cast<int>(i));
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(formText(b.faction).c_str());
+			ImGui::TableNextColumn();
+			ImGui::SetNextItemWidth(110);
+			ImGui::InputInt("##v", &_pvBounty[i][0], 100, 1000);
+			ImGui::TableNextColumn();
+			ImGui::SetNextItemWidth(110);
+			ImGui::InputInt("##n", &_pvBounty[i][1], 100, 1000);
+			_pvBounty[i][0] = std::max(_pvBounty[i][0], 0);
+			_pvBounty[i][1] = std::max(_pvBounty[i][1], 0);
+			ImGui::TableNextColumn();
+			ImGui::BeginDisabled(_pvBounty[i][0] == b.violent && _pvBounty[i][1] == b.nonViolent);
+			if (ImGui::SmallButton("Set")) {
+				done(cf::SetPlayerBounty(*_save, b.faction, _pvBounty[i][0], _pvBounty[i][1]),
+					Fmt("Set the player's bounty with %s to %d", formText(b.faction).c_str(), _pvBounty[i][0] + _pvBounty[i][1]));
+			}
+			ImGui::EndDisabled();
+			ImGui::SameLine();
+			ImGui::BeginDisabled(b.violent == 0 && b.nonViolent == 0);
+			if (ImGui::SmallButton("Clear")) {
+				done(cf::SetPlayerBounty(*_save, b.faction, 0, 0), "Cleared the player's bounty with " + formText(b.faction));
+			}
+			ImGui::EndDisabled();
+			ImGui::PopID();
+		}
+		ImGui::EndTable();
+		if (!shown) {
+			ImGui::TextDisabled("No bounties or crimes recorded.");
+		}
+	}
+	ImGui::End();
 }

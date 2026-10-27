@@ -846,6 +846,9 @@ void App::draw()
 	if (_showLookup && _save) {
 		drawLookup();
 	}
+	if (_showPlayer && _save) {
+		drawPlayer();
+	}
 	if (_showCompare && _save) {
 		drawCompare();
 	}
@@ -1011,6 +1014,9 @@ void App::drawMenu()
 		}
 		ImGui::Separator();
 		ImGui::MenuItem("Find form by name / editor ID...", nullptr, &_showLookup);
+		if (ImGui::MenuItem("Edit player (gold, skills, bounty)...", nullptr, &_showPlayer)) {
+			_pvLoaded = false;
+		}
 		if (ImGui::MenuItem("Analyze arrays block...", nullptr, &_showArrays)) {
 			_arraysDirty = true;
 		}

@@ -1,6 +1,7 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #pragma once
 
+#include <array>
 #include "core/Transplant.h"
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
@@ -90,6 +91,9 @@ public:
 			}
 		} else if (w == "arrays") {
 			_showArrays = true;
+		} else if (w == "player") {
+			_showPlayer = true;
+			_pvLoaded = false;
 		} else if (w.rfind("transplant:", 0) == 0) {
 			// test: bad save | good save, both read from their files
 			const auto bar = w.find('|');
@@ -443,6 +447,7 @@ private:
 	void        pollNames();
 	bool        namesLoading() const;
 	void        drawLookup();
+	void        drawPlayer();
 	void        drawCfNode(const ess::cf::Node& n, int a_depth, int a_index);
 	void        detailChangeFormDecoded(const ess::ChangeForm& c);
 	void        actorFixes(const ess::ChangeForm& c, const ess::cf::Decoded& d);
@@ -609,6 +614,14 @@ private:
 	bool                                     _autoNames = true;
 	// lookup
 	bool                       _showLookup = false;
+	bool                       _showPlayer = false;
+	// player editor: the values read from the save, and the edits being typed
+	bool                       _pvLoaded = false;
+	bool                       _pvAllFactions = false;
+	ess::cf::PlayerValues      _pv;
+	int                        _pvGold = 0;
+	float                      _pvSkills[18]{};
+	std::vector<std::array<int, 2>> _pvBounty;
 	char                       _lookupBuf[256] = "";
 	bool                       _lookupAuto = false;
 	std::vector<std::uint32_t> _lookupResults;

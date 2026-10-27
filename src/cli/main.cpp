@@ -1,3 +1,5 @@
+#include <cctype>
+#include <tuple>
 // ReSaver++ command line - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
@@ -66,6 +68,11 @@ static void Usage()
 		"  --remove-extra <formid> <name>  remove one extra data entry from an actor (e.g. Package, SceneData,\n"
 		"                            FactionChanges, Ownership, DismemberedLimbs); the game falls back to the\n"
 		"                            plugin's value. Not the player. Needs -o.\n"
+		"  --player                  show the player's gold, skills and bounties\n"
+		"  --set-gold <n>            set the gold the player carries. Needs -o.\n"
+		"  --set-skill <skill> <n>   set a skill (e.g. OneHanded, Archery, Speech) to n. Needs -o.\n"
+		"  --set-bounty <faction formid> <violent> <non-violent>  set the bounty with a hold's crime faction.\n"
+		"                            Needs -o.\n"
 		"  --reset-ai <formid>       reset an actor's saved AI (process, movement and combat state) so the game\n"
 		"                            builds it fresh: for NPCs stuck in combat, a package or a pose. Needs -o.\n"
 		"  --journal                 list the quests the player's journal shows (in progress and completed), as\n"
@@ -92,6 +99,13 @@ static void Usage()
 		"  --names                   with --sources: read the plugins and print form-name statistics\n"
 		"  --find <text>             with --sources: find forms by editor ID / name / hex form ID\n"
 		"  --dry-run                 with --remove-mod: only print the safety check\n");
+}
+
+static bool _stricmp_portable(const std::string& a_a, const std::string& a_b)
+{
+	return a_a.size() == a_b.size() && std::equal(a_a.begin(), a_a.end(), a_b.begin(), [](char x, char y) {
+		return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+	});
 }
 
 int main(int argc, char** argv)
@@ -138,6 +152,10 @@ int main(int argc, char** argv)
 	std::uint32_t removeFlagForm = 0;
 	int removeFlagBit = -1;
 	std::uint32_t removeExtraForm = 0, resetAiForm = 0;
+	bool          playerView = false;
+	int           playerGold = -1;
+	std::vector<std::pair<std::string, float>> playerSkills;
+	std::vector<std::tuple<std::uint32_t, int, int>> playerBounties;
 	std::string   removeExtraName;
 	std::string              questFilter;
 	modremove::Options       removeOpt;
@@ -169,6 +187,18 @@ int main(int argc, char** argv)
 		} else if (a == "--remove-extra") {
 			removeExtraForm = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
 			removeExtraName = next();
+		} else if (a == "--player") {
+			playerView = true;
+		} else if (a == "--set-gold") {
+			playerGold = std::atoi(next().c_str());
+		} else if (a == "--set-skill") {
+			const auto name = next();
+			playerSkills.emplace_back(name, static_cast<float>(std::atof(next().c_str())));
+		} else if (a == "--set-bounty") {
+			const auto fac = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
+			const int  v = std::atoi(next().c_str());
+			const int  nv = std::atoi(next().c_str());
+			playerBounties.emplace_back(fac, v, nv);
 		} else if (a == "--reset-ai") {
 			resetAiForm = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
 		} else if (a == "--remove-flag") {
@@ -276,7 +306,25 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0;
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty();
+		if (playerView) {
+			const auto pv = cf::ReadPlayer(*save);
+			if (!pv.error.empty()) {
+				std::fprintf(stderr, "%s\n", pv.error.c_str());
+				return 1;
+			}
+			std::printf("gold: %d%s\n", pv.gold, pv.hasGold ? "" : " (none carried)");
+			for (int i = 0; i < 18; ++i) {
+				std::printf("skill %-12s %g\n", cf::kSkillNames[i], pv.skills[i]);
+			}
+			for (const auto& b : pv.bounties) {
+				if (b.violent || b.nonViolent || b.violentTotal || b.nonViolentTotal) {
+					std::printf("faction %08X: bounty %d violent + %d non-violent (crime totals %d violent, %d non-violent)\n", b.faction,
+						b.violent, b.nonViolent, b.violentTotal, b.nonViolentTotal);
+				}
+			}
+			return 0;
+		}
 		if (edits && !save->problems.empty() && !allowDamaged) {
 			std::fprintf(stderr, "error: not editing a damaged save (use --allow-damaged to write it anyway, at your own risk)\n");
 			return 3;
@@ -747,6 +795,43 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			std::printf("removed %s from %08X\n", removeExtraName.c_str(), removeExtraForm);
+		}
+		if (playerGold >= 0) {
+			const auto why = cf::SetPlayerGold(*save, playerGold);
+			if (!why.empty()) {
+				std::fprintf(stderr, "could not set gold: %s\n", why.c_str());
+				return 1;
+			}
+			std::printf("set the player's gold to %d\n", playerGold);
+		}
+		for (const auto& [name, level] : playerSkills) {
+			int idx = -1;
+			for (int i = 0; i < 18; ++i) {
+				std::string a = cf::kSkillNames[i], b = name;
+				std::erase_if(a, [](char ch) { return ch == ' ' || ch == '-'; });
+				std::erase_if(b, [](char ch) { return ch == ' ' || ch == '-'; });
+				if (_stricmp_portable(a, b)) {
+					idx = i;
+				}
+			}
+			if (idx < 0) {
+				std::fprintf(stderr, "no skill called %s\n", name.c_str());
+				return 1;
+			}
+			const auto why = cf::SetPlayerSkill(*save, idx, level);
+			if (!why.empty()) {
+				std::fprintf(stderr, "could not set %s: %s\n", cf::kSkillNames[idx], why.c_str());
+				return 1;
+			}
+			std::printf("set the player's %s to %g\n", cf::kSkillNames[idx], level);
+		}
+		for (const auto& [fac, v, nv] : playerBounties) {
+			const auto why = cf::SetPlayerBounty(*save, fac, v, nv);
+			if (!why.empty()) {
+				std::fprintf(stderr, "could not set the bounty with %08X: %s\n", fac, why.c_str());
+				return 1;
+			}
+			std::printf("set the player's bounty with %08X to %d violent + %d non-violent\n", fac, v, nv);
 		}
 		if (resetAiForm != 0) {
 			auto* target = findCf(resetAiForm);
