@@ -91,6 +91,8 @@ public:
 			}
 		} else if (w == "arrays") {
 			_showArrays = true;
+		} else if (w == "actors") {
+			_showActors = true;
 		} else if (w == "player") {
 			_showPlayer = true;
 			_pvLoaded = false;
@@ -341,6 +343,7 @@ private:
 		std::size_t changeForms = 0, scripts = 0, instances = 0, threads = 0;
 		bool        planned = false, blocked = false;
 		std::string planText;
+		std::vector<std::string> renamedTo;  // enabled plugins that look like this one renamed (Mod.esp -> Mod.esl)
 	};
 	std::vector<MissingMod> _missing;
 	std::string             _missingSource;  // which load order it was compared with
@@ -448,6 +451,7 @@ private:
 	bool        namesLoading() const;
 	void        drawLookup();
 	void        drawPlayer();
+	void        drawActors();
 	void        drawCfNode(const ess::cf::Node& n, int a_depth, int a_index);
 	void        detailChangeFormDecoded(const ess::ChangeForm& c);
 	void        actorFixes(const ess::ChangeForm& c, const ess::cf::Decoded& d);
@@ -614,6 +618,22 @@ private:
 	bool                                     _autoNames = true;
 	// lookup
 	bool                       _showLookup = false;
+	// Find NPCs window: every actor with where the save has it
+	struct ActorRow
+	{
+		ess::cf::ActorPlace place;
+		std::string         name, where, filterKey;
+		float               distance = -1;  // from the player, when in the same cell or worldspace
+	};
+	bool                       _showActors = false;
+	std::vector<ActorRow>      _actorRows;
+	const void*                _actorRowsSave = nullptr;
+	const void*                _actorRowsDb = nullptr;
+	std::uint64_t              _actorRowsGen = UINT64_MAX;
+	char                       _actorFilter[128] = {};
+	bool                       _actorNearOnly = false, _actorMovedOnly = true;
+	int                        _actorSortCol = 2;
+	bool                       _actorSortAsc = true;
 	bool                       _showPlayer = false;
 	// player editor: the values read from the save, and the edits being typed
 	bool                       _pvLoaded = false;

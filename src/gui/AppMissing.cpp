@@ -193,8 +193,25 @@ void App::checkMissingPlugins()
 			}
 		}
 	}
+	// renamed rather than removed (Mod.esp -> Mod.esl, ...): offer to point the save at the new name instead
+	{
+		std::vector<std::string> enabled;
+		for (const auto& low : active.plugins) {
+			std::string name = low;
+			if (const auto path = _sources.pluginPath(low)) {
+				name = platform::ToUtf8(path->filename());
+			}
+			enabled.push_back(name);
+		}
+		for (auto& m : _missing) {
+			m.renamedTo = ops::RenameCandidates(*_save, m.plugin, enabled);
+		}
+	}
 	// nothing left of it: nothing to clean, the game already dropped it
 	for (auto& m : _missing) {
+		if (!m.renamedTo.empty()) {
+			m.selected = false;  // probably renamed: never cleaned by default
+		}
 		if (m.changeForms == 0 && m.scripts == 0 && m.threads == 0) {
 			m.selected = false;
 		}
@@ -335,7 +352,34 @@ void App::drawMissingModal()
 			ImGui::EndDisabled();
 			tips::Tip(nothing ? "This mod left nothing in the save: there is nothing to remove." : "Ticked: remove this mod's leftovers (its changed forms, scripts, instances and threads). A safety check runs first and refuses removals that would break the save.");
 			ImGui::TableSetColumnIndex(1);
-			if (m.installed) {
+			if (!m.renamedTo.empty()) {
+				TextColored(theme::Warn(), "renamed? Now enabled as:");
+				for (const auto& to : m.renamedTo) {
+					ImGui::PushID(to.c_str());
+					ImGui::BulletText("%s", to.c_str());
+					ImGui::SameLine();
+					if (ImGui::SmallButton("Point the save at it")) {
+						const auto from = m.plugin;
+						confirm("Point the save at a renamed plugin",
+							"Change the save's entry " + from + " to " + to + "?\n\nUse this when you renamed the plugin (for example .esp to .esl). "
+							"The game then finds it under its new name and keeps everything the save holds from it: placed objects, NPC "
+							"changes, quest progress and its scripts.\n\nDo NOT use it if the plugin's records were renumbered (\"compacted\", "
+							"e.g. by ESLifier or xEdit's Compact FormIDs): then the save's ids no longer match, and only a new game or "
+							"undoing the conversion helps.\n\nKeep a copy of the original save.",
+							[this, from, to] {
+								if (auto why = ops::RenamePlugin(*_save, from, to); !why.empty()) {
+									_error = "Could not point the save at " + to + ": " + why;
+									return;
+								}
+								markChanged("The save now loads " + to + " where it had " + from);
+								checkMissingPlugins();
+							});
+					}
+					tips::Tip("Rename this plugin's entry in the save to the enabled plugin, so the game keeps the mod's data in this save. Only "
+							  "for a renamed plugin, not a compacted one.");
+					ImGui::PopID();
+				}
+			} else if (m.installed) {
 				TextColored(theme::Warn(), "installed but not enabled" + (m.folder.empty() ? std::string() : " (" + m.folder + ")"));
 			} else {
 				ImGui::TextUnformatted("not installed");

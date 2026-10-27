@@ -80,6 +80,11 @@ static void Usage()
 		"                            damage changes. Needs -o.\n"
 		"  --set-item <formid> <n> / --remove-item <formid> / --remove-spell <formid> / --set-legendary <skill> <n>\n"
 		"  --clear-crimes <faction formid>  bounty and crime totals with that faction to 0. Needs -o.\n"
+		"  --npcs [formid text]      list every actor with where the save has it (cell or worldspace and position)\n"
+		"  --move-to-player <formid> move an actor (e.g. a lost follower) next to the player and reset its AI.\n"
+		"                            Only actors the game has moved before. Needs -o.\n"
+		"  --rename-plugin <old> <new>  point the save at a renamed plugin (e.g. Mod.esp -> Mod.esl), so the game\n"
+		"                            finds it again and keeps its data. Not for compacted plugins. Needs -o.\n"
 		"  --reset-ai <formid>       reset an actor's saved AI (process, movement and combat state) so the game\n"
 		"                            builds it fresh: for NPCs stuck in combat, a package or a pose. Needs -o.\n"
 		"  --journal                 list the quests the player's journal shows (in progress and completed), as\n"
@@ -159,6 +164,10 @@ int main(int argc, char** argv)
 	std::uint32_t removeFlagForm = 0;
 	int removeFlagBit = -1;
 	std::uint32_t removeExtraForm = 0, resetAiForm = 0;
+	std::vector<std::uint32_t> moveToPlayer;
+	bool          npcsView = false;
+	std::string   npcFilter;
+	std::vector<std::pair<std::string, std::string>> renamePlugins;
 	bool          playerView = false;
 	int           playerGold = -1;
 	std::vector<std::pair<std::string, float>> playerSkills;
@@ -213,6 +222,16 @@ int main(int argc, char** argv)
 			const int  v = std::atoi(next().c_str());
 			const int  nv = std::atoi(next().c_str());
 			playerBounties.emplace_back(fac, v, nv);
+		} else if (a == "--move-to-player") {
+			moveToPlayer.push_back(static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)));
+		} else if (a == "--npcs") {
+			npcsView = true;
+			if (i + 1 < argc && argv[i + 1][0] != '-') {
+				npcFilter = argv[++i];
+			}
+		} else if (a == "--rename-plugin") {
+			const auto from = next();
+			renamePlugins.emplace_back(from, next());
 		} else if (a == "--reset-ai") {
 			resetAiForm = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
 		} else if (a == "--remove-flag") {
@@ -320,7 +339,32 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty();
+		if (npcsView) {
+			std::size_t shown = 0, total = 0, placed = 0;
+			std::string flt = npcFilter;
+			for (auto& ch : flt) {
+				ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+			}
+			for (const auto& a : cf::ListActors(*save)) {
+				++total;
+				placed += a.hasPosition ? 1 : 0;
+				char id[16];
+				std::snprintf(id, sizeof(id), "%08X", a.formID);
+				if (!flt.empty() && std::string(id).find(flt) == std::string::npos) {
+					continue;
+				}
+				++shown;
+				if (!a.hasPosition) {
+					std::printf("%08X  %s  at its plugin's position (never moved)\n", a.formID, a.isPlayer ? "PLAYER" : "      ");
+				} else {
+					std::printf("%08X  %s  in %08X  at %.0f, %.0f, %.0f%s\n", a.formID, a.isPlayer ? "PLAYER" : "      ", a.cell, a.pos[0],
+						a.pos[1], a.pos[2], a.startCell ? (" (started in " + [&] { char b[16]; std::snprintf(b, 16, "%08X", a.startCell); return std::string(b); }() + ")").c_str() : "");
+				}
+			}
+			std::printf("%zu actors, %zu with a saved position, %zu listed\n", total, placed, shown);
+			return 0;
+		}
 		if (playerView) {
 			const auto pv = cf::ReadPlayer(*save);
 			if (!pv.error.empty()) {
@@ -911,6 +955,25 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			std::printf("set the player's bounty with %08X to %d violent + %d non-violent\n", fac, v, nv);
+		}
+		for (const auto& [from, to] : renamePlugins) {
+			if (const auto why = ops::RenamePlugin(*save, from, to); !why.empty()) {
+				std::fprintf(stderr, "could not rename %s: %s\n", from.c_str(), why.c_str());
+				return 1;
+			}
+			std::printf("the save now loads %s where it had %s\n", to.c_str(), from.c_str());
+		}
+		for (const auto fid : moveToPlayer) {
+			auto* target = findCf(fid);
+			if (!target) {
+				std::fprintf(stderr, "no change form for %08X in this save\n", fid);
+				return 1;
+			}
+			if (const auto why = cf::MoveActorToPlayer(*save, *target); !why.empty()) {
+				std::fprintf(stderr, "could not move %08X: %s\n", fid, why.c_str());
+				return 1;
+			}
+			std::printf("moved %08X next to the player\n", fid);
 		}
 		if (resetAiForm != 0) {
 			auto* target = findCf(resetAiForm);

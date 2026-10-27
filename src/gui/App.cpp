@@ -857,6 +857,9 @@ void App::draw()
 	if (_showPlayer && _save) {
 		drawPlayer();
 	}
+	if (_showActors && _save) {
+		drawActors();
+	}
 	if (_showCompare && _save) {
 		drawCompare();
 	}
@@ -1049,6 +1052,8 @@ void App::drawMenu()
 			_pvLoaded = false;
 		}
 		tips::Tip("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties.");
+		ImGui::MenuItem("Find NPCs (where they are, bring one to you)...", nullptr, &_showActors);
+		tips::Tip("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you.");
 		if (ImGui::MenuItem("Analyze arrays block...", nullptr, &_showArrays)) {
 			_arraysDirty = true;
 		}

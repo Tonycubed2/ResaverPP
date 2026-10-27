@@ -4688,6 +4688,121 @@ namespace ess::cf
 		return {};
 	}
 
+	namespace
+	{
+		std::uint32_t Raw3(const std::vector<std::uint8_t>& b, std::size_t at)
+		{
+			return (static_cast<std::uint32_t>(b[at]) << 16) | (static_cast<std::uint32_t>(b[at + 1]) << 8) | b[at + 2];
+		}
+	}
+
+	std::vector<ActorPlace> ListActors(const SaveFile& a_save)
+	{
+		std::vector<ActorPlace> out;
+		for (const auto& c : a_save.changeForms) {
+			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::ACHR) {
+				continue;
+			}
+			ActorPlace a;
+			a.refRaw = c.refID.data;
+			a.formID = a_save.formIDOf(c.refID);
+			a.isPlayer = IsPlayerActor(c);
+			const int t = InitialType(c.refID, c.changeFlags);
+			if (t == 4 || t == 5 || t == 6) {
+				std::vector<std::uint8_t> b;
+				try {
+					b = Body(c);
+				} catch (const std::exception&) {
+					out.push_back(a);
+					continue;
+				}
+				if (b.size() >= 27) {
+					a.hasPosition = true;
+					RefID cell;
+					cell.data = Raw3(b, 0);
+					a.cell = a_save.formIDOf(cell);
+					std::memcpy(a.pos, &b[3], 12);
+					std::memcpy(a.rot, &b[15], 12);
+					if (t == 6 && b.size() >= 34) {
+						RefID st;
+						st.data = Raw3(b, 27);
+						a.startCell = a_save.formIDOf(st);
+					}
+					if (t == 5 && b.size() >= 31) {
+						RefID base;
+						base.data = Raw3(b, 28);
+						a.baseObject = a_save.formIDOf(base);
+					}
+				}
+			}
+			out.push_back(a);
+		}
+		return out;
+	}
+
+	std::string MoveActorToPlayer(SaveFile& a_save, ChangeForm& a_cf)
+	{
+		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::ACHR) {
+			return "this is not an actor";
+		}
+		if (IsPlayerActor(a_cf)) {
+			return "this is the player";
+		}
+		const auto* player = PlayerForm(a_save);
+		if (!player) {
+			return "this save has no player change form";
+		}
+		const int pt = InitialType(player->refID, player->changeFlags);
+		const auto pb = Body(*player);
+		if ((pt != 4 && pt != 6) || pb.size() < 27) {
+			return "the save has no position for the player";
+		}
+		const int t = InitialType(a_cf.refID, a_cf.changeFlags);
+		if (t == 0) {
+			return "the game never moved this actor, so the save has no position for it (it stands where its plugin "
+				   "places it). Use the console in game instead: prid <its form id>, then moveto player";
+		}
+		if (Bit(a_cf.changeFlags, 2)) {
+			return "this actor has saved physics (Havok) data; moving it is not supported";
+		}
+		const auto before = Decode(a_save, a_cf);
+		if (!before.complete) {
+			return "this actor could not be read completely (" + before.error + "): nothing changed";
+		}
+		const auto saved = a_cf;
+		auto       body = Body(a_cf);
+		// a little in front of the player, facing them
+		float ppos[3], prot[3];
+		std::memcpy(ppos, &pb[3], 12);
+		std::memcpy(prot, &pb[15], 12);
+		const float ang = prot[2];
+		float       npos[3] = { ppos[0] + 96.0f * std::sin(ang), ppos[1] + 96.0f * std::cos(ang), ppos[2] };
+		float       nrot[3] = { 0.0f, 0.0f, ang + 3.14159265f };
+		const bool  sameCell = body[0] == pb[0] && body[1] == pb[1] && body[2] == pb[2];
+		if (t == 4 && !sameCell) {
+			// it changes cell: the game keeps where it started (REFR_CELL_CHANGED and the starting cell)
+			const std::uint8_t extra[7] = { body[0], body[1], body[2], 0xFF, 0xFF, 0xFF, 0xFF };
+			body.insert(body.begin() + 27, extra, extra + 7);
+			a_cf.changeFlags |= 1u << 3;
+		}
+		std::memcpy(&body[0], &pb[0], 3);
+		std::memcpy(&body[3], npos, 12);
+		std::memcpy(&body[15], nrot, 12);
+		SetBody(a_cf, body);
+		const auto moved = Decode(a_save, a_cf);
+		if (!moved.complete) {
+			a_cf = saved;
+			return "the moved actor did not read back completely (" + moved.error + "): nothing changed";
+		}
+		if (CanResetAI(a_cf, moved)) {
+			if (auto why = ResetAI(a_save, a_cf); !why.empty()) {
+				a_cf = saved;
+				return "could not reset its AI (" + why + "): nothing changed";
+			}
+		}
+		return {};
+	}
+
 	bool CanResetAI(const ChangeForm& a_cf, const Decoded& a_d)
 	{
 		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::ACHR || IsPlayerActor(a_cf) || !a_d.complete ||

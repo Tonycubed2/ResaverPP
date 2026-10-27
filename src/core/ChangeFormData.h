@@ -224,6 +224,25 @@ namespace ess::cf
 	bool        CanResetAI(const ChangeForm& a_cf, const Decoded& a_decoded);
 	std::string ResetAI(const SaveFile& a_save, ChangeForm& a_cf);
 
+	// Where every actor (ACHR) is, as the save has it. Actors the game never moved have no position in
+	// the save (they stand where their plugin places them): hasPosition false.
+	struct ActorPlace
+	{
+		std::uint32_t refRaw = 0;    // the change form's RefID (raw)
+		std::uint32_t formID = 0;    // the actor reference's form id
+		std::uint32_t baseObject = 0;  // set for actors created in game (their base NPC)
+		bool          hasPosition = false;
+		std::uint32_t cell = 0;       // the cell (interior) or worldspace (exterior) it is in
+		std::uint32_t startCell = 0;  // where its plugin put it, when it changed cell
+		float         pos[3]{}, rot[3]{};
+		bool          isPlayer = false;
+	};
+	std::vector<ActorPlace> ListActors(const SaveFile& a_save);
+	// Moves an actor next to the player (same cell or worldspace, a little in front of them) and resets its
+	// saved AI so it does not keep walking an old path. Only actors the save already has a position for.
+	// Checks the result decodes completely, else changes nothing. Returns "" when done, else why not.
+	std::string MoveActorToPlayer(SaveFile& a_save, ChangeForm& a_cf);
+
 	// ReSaver "Reset Havok": zeroes the saved physics state of every object reference whose body
 	// decodes completely. Returns {reset, could not be decoded}.
 	struct HavokResult

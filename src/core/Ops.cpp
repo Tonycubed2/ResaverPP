@@ -2,6 +2,8 @@
 #include "Ops.h"
 
 #include <algorithm>
+#include <cctype>
+#include <set>
 #include <cstdio>
 #include <map>
 #include <unordered_map>
@@ -906,6 +908,68 @@ namespace ess::ops
 		section("Function messages", r.messagesByFunction);
 		section("Script instances by script", r.instancesByScript);
 		section("Change forms by type", r.changeFormsByType);
+		return out;
+	}
+
+	namespace
+	{
+		std::string LowerName(std::string a)
+		{
+			for (auto& c : a) {
+				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			}
+			return a;
+		}
+		std::string Stem(const std::string& a)
+		{
+			const auto dot = a.find_last_of('.');
+			return LowerName(dot == std::string::npos ? a : a.substr(0, dot));
+		}
+		bool PluginExt(const std::string& a)
+		{
+			const auto l = LowerName(a);
+			return l.size() > 4 && (l.ends_with(".esp") || l.ends_with(".esm") || l.ends_with(".esl"));
+		}
+	}
+
+	std::string RenamePlugin(SaveFile& s, const std::string& a_from, const std::string& a_to)
+	{
+		if (!PluginExt(a_to) || a_to.size() > 255 || a_to.find_first_of("\\/:*?\"<>|") != std::string::npos) {
+			return "\"" + a_to + "\" is not a plugin file name (.esp, .esm or .esl)";
+		}
+		std::string* entry = nullptr;
+		for (auto* list : { &s.plugins.full, &s.plugins.lite }) {
+			for (auto& p : *list) {
+				if (LowerName(p) == LowerName(a_to) && LowerName(p) != LowerName(a_from)) {
+					return "the save already has a plugin named " + a_to + ": nothing changed";
+				}
+				if (LowerName(p) == LowerName(a_from)) {
+					entry = &p;
+				}
+			}
+		}
+		if (!entry) {
+			return "the save has no plugin named " + a_from;
+		}
+		*entry = a_to;
+		return {};
+	}
+
+	std::vector<std::string> RenameCandidates(const SaveFile& s, const std::string& a_missing, const std::vector<std::string>& a_installed)
+	{
+		std::set<std::string> inSave;
+		for (const auto* list : { &s.plugins.full, &s.plugins.lite }) {
+			for (const auto& p : *list) {
+				inSave.insert(LowerName(p));
+			}
+		}
+		std::vector<std::string> out;
+		const auto stem = Stem(a_missing);
+		for (const auto& p : a_installed) {
+			if (!inSave.contains(LowerName(p)) && LowerName(p) != LowerName(a_missing) && Stem(p) == stem && PluginExt(p)) {
+				out.push_back(p);
+			}
+		}
 		return out;
 	}
 }
