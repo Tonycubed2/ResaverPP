@@ -98,6 +98,19 @@ namespace ess
 			_pos += n;
 			return s;
 		}
+		// Skyrim Legendary Edition saves: Papyrus string indices are 16-bit (0xFFFF = a 32-bit index
+		// follows) and object/array ids 32-bit. Special Edition: 32-bit strings, 64-bit ids.
+		bool          le = false;
+		std::uint32_t tstr()
+		{
+			if (!le) {
+				return u32();
+			}
+			const std::uint16_t v = u16();
+			return v == 0xFFFF ? u32() : v;
+		}
+		std::uint64_t eid() { return le ? u32() : u64(); }
+
 		// u32 length-prefixed string
 		std::string lstring()
 		{
@@ -134,6 +147,27 @@ namespace ess
 			buf.insert(buf.end(), b, b + n);
 		}
 		void bytes(const std::vector<std::uint8_t>& v) { buf.insert(buf.end(), v.begin(), v.end()); }
+
+		bool le = false;  // see Reader::le
+		void tstr(std::uint32_t v)
+		{
+			if (!le) {
+				u32(v);
+			} else if (v < 0xFFFF) {
+				u16(static_cast<std::uint16_t>(v));
+			} else {
+				u16(0xFFFF);
+				u32(v);
+			}
+		}
+		void eid(std::uint64_t v)
+		{
+			if (le) {
+				u32(static_cast<std::uint32_t>(v));
+			} else {
+				u64(v);
+			}
+		}
 		void wstring(const std::string& s)
 		{
 			u16(static_cast<std::uint16_t>(s.size()));

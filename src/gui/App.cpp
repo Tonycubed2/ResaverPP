@@ -135,10 +135,13 @@ void App::open(const std::filesystem::path& a_path)
 			_shotTex = 0;
 		}
 		const auto& h = _save->header;
-		if (uploadTexture && h.shotWidth && h.shotHeight && h.screenshot.size() >= std::size_t(h.shotWidth) * h.shotHeight * 4) {
-			std::vector<std::uint8_t> px = h.screenshot;
-			for (std::size_t i = 3; i < px.size(); i += 4) {
-				px[i] = 255;
+		const std::size_t bpp = h.isLE() ? 3 : 4;
+		if (uploadTexture && h.shotWidth && h.shotHeight && h.screenshot.size() >= std::size_t(h.shotWidth) * h.shotHeight * bpp) {
+			std::vector<std::uint8_t> px(std::size_t(h.shotWidth) * h.shotHeight * 4, 255);
+			for (std::size_t i = 0, n = std::size_t(h.shotWidth) * h.shotHeight; i < n; ++i) {
+				for (std::size_t c = 0; c < 3; ++c) {
+					px[i * 4 + c] = h.screenshot[i * bpp + c];
+				}
 			}
 			_shotTex = uploadTexture(px.data(), static_cast<int>(h.shotWidth), static_cast<int>(h.shotHeight));
 			_shotW = static_cast<int>(h.shotWidth);
@@ -184,7 +187,7 @@ void App::doSave(const std::filesystem::path& a_path)
 		return;
 	}
 	try {
-		if (_saveCompression >= 0) {
+		if (_saveCompression >= 0 && !_save->isLE()) {  // Legendary Edition saves are never compressed
 			_save->header.compression = static_cast<Compression>(_saveCompression);
 		}
 		// staged, read back, previous files kept as name.ess.bak + name.skse.bak (one generation each),
@@ -791,7 +794,7 @@ void App::draw()
 			ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ImGui::CalcTextSize(a_text).x) * 0.5f);
 			a_dim ? ImGui::TextDisabled("%s", a_text) : ImGui::TextUnformatted(a_text);
 		};
-		centered("Skyrim Special Edition / Anniversary Edition / VR save editor", true);
+		centered("Skyrim Special Edition / Anniversary Edition / VR / Legendary Edition save editor", true);
 		ImGui::Spacing();
 		ImGui::Spacing();
 		ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 180) * 0.5f);
@@ -1974,9 +1977,10 @@ void App::drawOverview()
 	if (BeginKV("hdr")) {
 		KV("File", platform::ToUtf8(_path.filename()));
 		KV("Save number", std::to_string(h.saveNumber));
-		KV("Format", Fmt("save version %u, form version %u, %s", h.version, _save->formVersion,
+		KV("Format", Fmt("%ssave version %u, form version %u, %s", h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
 						 h.compression == Compression::kLZ4 ? "LZ4" : h.compression == Compression::kZlib ? "zlib" : "uncompressed"));
-		KV("Plugins", Fmt("%zu full + %zu light", _save->plugins.full.size(), _save->plugins.lite.size()));
+		KV("Plugins", _save->plugins.hasLite ? Fmt("%zu full + %zu light", _save->plugins.full.size(), _save->plugins.lite.size())
+											: Fmt("%zu", _save->plugins.full.size()));
 		KV("Body size", Fmt("%.1f MB", _save->originalBodySize / 1048576.0));
 		ImGui::EndTable();
 	}
@@ -2173,7 +2177,7 @@ void App::drawModals()
 		_showAbout = false;
 	}
 	if (ImGui::BeginPopupModal("About ReSaver++", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-		ImGui::TextUnformatted("ReSaver++ version " RESAVERPP_VERSION "  -  Skyrim SE/AE save editor");
+		ImGui::TextUnformatted("ReSaver++ version " RESAVERPP_VERSION "  -  Skyrim SE/AE/VR/LE save editor");
 		ImGui::Spacing();
 		ImGui::TextUnformatted("A C++ port of ReSaver (FallrimTools) by Mark Fairchild.");
 		ImGui::TextUnformatted("Licensed under the Apache License 2.0, like the original.");

@@ -3537,6 +3537,11 @@ namespace ess::cf
 	{
 		Decoded out;
 		out.root.label = ChangeFormTypeName(a_cf.typeCode());
+		if (a_save.isLE()) {
+			// The layouts here are mapped from Skyrim SE/AE; Legendary Edition change forms differ.
+			out.error = "change form data of Skyrim Legendary Edition saves is not decoded";
+			return out;
+		}
 		std::vector<std::uint8_t> body;
 		try {
 			body = Body(a_cf);
