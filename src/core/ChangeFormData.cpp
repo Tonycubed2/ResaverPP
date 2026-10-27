@@ -2951,6 +2951,285 @@ namespace ess::cf
 			});
 		}
 
+		// ---- the player's own data, after its actor data (PlayerCharacter::LoadGame) ----
+
+		// a third person camera state (also bleedout); horse and dragon cameras add a target
+		void ThirdPersonCamera(P& p)
+		{
+			p.floats("OFFSET", 3);
+			p.f32("UNK74");
+			p.bytes("UNKD4", 8);
+			p.u8("UNKDC");
+			p.f32("UNK84");
+			p.wstring("NODE");
+		}
+
+		void PlayerCamera(P& p)
+		{
+			p.group("CAMERA", [&] {
+				p.u8("UNK160");
+				p.u8("UNK162");
+				p.f32("UNK13C");
+				p.f32("UNK140");
+				p.group("FIRST PERSON", [&] {
+					p.f32("UNK68");
+					if (p.version > 0x14) {
+						p.f32("UNK6C");
+						p.f32("UNK70");
+						p.u8("UNK85");
+						p.u8("UNK86");
+					}
+				});
+				p.group("THIRD PERSON", [&] { ThirdPersonCamera(p); });
+				// auto vanity, VATS, free, iron sights, furniture and tween menu save nothing
+				p.group("HORSE", [&] {
+					ThirdPersonCamera(p);
+					p.u8("UNKF0");
+					p.ref("HORSE");
+					p.i32("UNKEC");
+				});
+				// the transition state saves nothing
+				p.group("BLEEDOUT", [&] { ThirdPersonCamera(p); });
+				p.group("ANIMATED", [&] { ThirdPersonCamera(p); });
+				if (p.version > 0x40) {
+					p.group("DRAGON", [&] {
+						ThirdPersonCamera(p);
+						p.u8("UNKF0");
+						p.ref("DRAGON");
+						p.i32("UNKEC");
+					});
+				}
+				p.i32("CURRENT STATE");
+				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				p.countedArray("STATE STACK", n, [&] { p.i32("STATE"); });
+				if (p.version > 0x12) {
+					p.f32("UNK158");
+					p.f32("UNK15C");
+					p.u8("UNK164");
+				}
+			});
+		}
+
+		void PlayerSkin(P& p)
+		{
+			p.group("SKIN", [&] {
+				if (p.version < 0x1c) {
+					p.ref("RACE");
+					p.ref("RACE2");
+				} else {
+					p.ref("RACE OLD");
+					p.ref("RACE");
+					p.ref("RACE2");
+				}
+				if (p.version > 4) {
+					p.i32("UNK");
+				}
+				for (const char* name : { "TINTS", "TINTS2" }) {
+					const auto n = static_cast<std::uint32_t>(p.r.i32());
+					p.countedArray(name, n, [&] {
+						p.i16("INDEX");
+						p.i32("COLOR");
+						p.f32("ALPHA");
+					});
+				}
+				p.ref("REF");
+			});
+		}
+
+		void PlayerData(P& p)
+		{
+			p.group("PLAYER", [&] {
+				const auto& v = p.version;
+				p.u8("UNK_BOOL1");
+				p.i32("UNK8EC");
+				p.bytes("FLAGS1", 2);
+				p.i32("UNK904");
+				p.i32("UNK910");
+				p.u8("UNKB08");
+				p.i32("UNK914");
+				p.bytes("FLAGS2", 4);
+				p.i32("UNK928");
+				p.floats("POS", 3);
+				p.i32("UNK900");
+				p.i32("UNK938");
+				p.u8("FLAG3");
+				p.u8("UNKB0A");
+				p.vsArray("TIMES", [&] {
+					p.i32("ID");
+					if (v < 0x4c) {
+						p.i32("TICK");
+					} else {
+						p.bytes("TICK", 8);
+					}
+				});
+				p.i32("UNK980");
+				p.u8("FLAG4");
+				p.i32("UNKAFC");
+				p.i32("UNK8D4");
+				p.i32("UNK8D8");
+				p.bytes("FLAGS5", 2);
+				p.ints("UNK988", 7);
+				p.f32("UNK6E0");
+				p.bytes("FLAGS6", 2);
+				p.i32("UNK7D8");
+				p.i32("UNK8DC");
+				p.ints("UNK950", 7);
+				p.group("SKILLS", [&] {
+					p.f32("UNK0");
+					p.f32("UNK4");
+					const auto n = static_cast<std::uint32_t>(p.r.i32());
+					const auto total = std::max<std::uint32_t>(n, 18);
+					p.add("COUNT", std::to_string(n));
+					p.countedArray("SKILLS", total, [&] {
+						p.f32("LEVEL");
+						p.f32("XP");
+						p.f32("LEGENDARY");
+						if (v > 0x49) {
+							p.i32("UNK");
+						}
+					});
+				});
+				p.floats("UNK498", 3);
+				p.f32("UNKAD8");
+				p.vsArray("POSITIONS", [&] {
+					p.floats("POS", 3);
+					p.f32("TIME");
+				});
+				p.ref("REF940");
+				p.ref("REF");
+				p.ref("UNK766D20_1");
+				p.ref("UNK766D20_2");
+				p.ref("REF6B8");
+				p.ref("REF6C8");
+				p.ref("REF8D0");
+				p.ref("REF9C0");
+				{
+					const auto n = p.vs("COUNT");
+					p.countedArray("TELEPORT", n, [&] {
+						const auto idx = static_cast<std::uint32_t>(p.i32("INDEX"));
+						if (idx < 15) {
+							p.i32("VALUE");
+							p.ref("REF");
+						}
+					});
+				}
+				p.vsArray("QUEST OBJECTIVES", [&] {
+					p.ref("QUEST");
+					p.i16("OBJECTIVE");
+					p.u8("TARGET");
+				});
+				p.vsArray("QUEST TARGETS", [&] {
+					p.ref("QUEST");
+					p.i32("UNK");
+					p.i32("UNK2");
+					p.i32("UNK3");
+				});
+				p.i32("UNK");
+				p.i32("UNK550E80_1");
+				p.i32("UNK550E80_2");
+				p.i32("UNKCD5750_1");
+				p.i32("UNKCD5750_2");
+				PlayerCamera(p);
+				p.vsArray("CRIMES1", [&] {
+					p.ref("FACTION");
+					p.ints("VALUES", 4);
+				});
+				p.ref("REF89C");
+				p.i32("UNKAF0");
+				p.i32("UNKAF4");
+				p.ref("REF9F8");
+				p.i32("UNKADC");
+				p.vsArray("CRIMES2", [&] {
+					p.ref("FACTION");
+					p.ints("VALUES", 2);
+				});
+				p.vsArray("LIST1", [&] {
+					p.ref("REF");
+					p.u8("FLAG");
+				});
+				p.vsArray("LIST2", [&] { p.ref("REF"); });
+				p.vsArray("LIST3", [&] {
+					p.ref("REF");
+					p.i32("VALUE");
+				});
+				p.u8("FLAG7");
+				if (static_cast<std::int8_t>(p.u8("UNK_I8")) != -1) {
+					p.i16("UNK_I16");
+				}
+				p.ref("REF630");
+				p.floats("UNK638", 3);
+				p.i32("UNKAE0");
+				p.ref("REF91C");
+				p.ref("REF448");
+				p.ref("REF920");
+				PlayerSkin(p);
+				p.i32("UNK728");
+				p.ref("REF720");
+				p.vsArray("CRIMES3", [&] {
+					p.ref("FACTION");
+					for (int i = 0; i < 4; ++i) {
+						p.i16(Fmt("VALUE%d", i));
+					}
+				});
+				p.bytes("FLAGS8", 3);
+				if (v > 6) {
+					p.bytes("FLAGS9", 3);
+				}
+				p.vsArray("UNK5B2BB0", [&] { p.i32("VALUE"); });
+				p.ref("REFA00");
+				p.ref("REFA08");
+				p.u8("UNKB09");
+				p.vsArray("LIST4", [&] {
+					p.ref("REF");
+					p.ints("VALUES", 2);
+				});
+				if (v > 0xd) {
+					p.i32("UNK90C");
+				}
+				if (v > 0x11) {
+					p.bytes("FLAGS10", 3);
+				}
+				if (v > 0x3a) {
+					p.i32("UNKAE4");
+					p.ref("REFAE8");
+					p.u8("FLAG11");
+				}
+				if (v > 0x3c && p.u8("HAS UNKBD8")) {
+					p.group("UNKBD8", [&] {
+						for (int i = 0; i < 4; ++i) {
+							p.ref(Fmt("REF%d", i));
+						}
+						p.ref("REF28");
+						if (v > 0x3e) {
+							p.ref("REF30");
+							p.ref("REF38");
+						}
+						if (v > 0x3f) {
+							p.ref("REF20");
+						}
+					});
+				}
+				if (v < 0x48) {
+					if (v > 0x43) {
+						p.u8("UNK19B7D4");
+					}
+				} else {
+					p.i32("UNK19B7D4");
+				}
+				if (v > 0x45) {
+					p.u8("UNK19B7D1");
+				}
+				if (v > 0x46) {
+					p.u8("UNK2013D80");
+					p.u8("UNK19B7D2");
+					p.i32("UNK19B7D8");
+				}
+				if (v > 0x4c) {
+					p.u8("FLAG12");
+				}
+			});
+		}
+
 		void Achr(P& p, const RefID& id, std::uint32_t flags, std::uint8_t a_version)
 		{
 			const int t = InitialType(id, flags);
@@ -2988,6 +3267,9 @@ namespace ess::cf
 				p.section(28, [&] { p.bytesVS("ANIMATIONS"); });
 			}
 			ActorData(p, a_version, level);
+			if (id.data == 0x400014) {  // the player: PlayerCharacter's own data follows
+				PlayerData(p);
+			}
 		}
 
 		void NPC(P& p, std::uint32_t flags, bool)
