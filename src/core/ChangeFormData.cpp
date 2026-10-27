@@ -273,6 +273,8 @@ namespace ess::cf
 
 		void ExtraData(P& p);
 		void NPC(P& p, std::uint32_t flags, bool inlined);
+		void CombatController(P& p);
+		void CombatObjectData(P& p, std::uint32_t a_cls);
 
 		void NonActorMagicCaster(P& p)
 		{
@@ -2341,7 +2343,7 @@ namespace ess::cf
 				}
 				p.flags32("BOOL FLAGS");
 				if (p.u8("HAS COMBAT CONTROLLER")) {
-					throw Stop("combat controller data is not decoded yet");
+					CombatController(p);
 				}
 				const auto n = static_cast<std::uint32_t>(p.r.i32());
 				p.countedArray("UNK LIST", n, [&] {
@@ -2358,6 +2360,342 @@ namespace ess::cf
 				if (a_version > 0x2c) {
 					p.u8("UNK_27B");
 				}
+			});
+		}
+
+		// CombatInventoryItemMagicT<item, caster>: the game files each pairing under the XOR of the
+		// three name CRCs; every pairing loads like CombatInventoryItemMagic
+		constexpr std::uint32_t kMagicItemPairings[] = {
+			0x03ADDFBA, 0x091A0CDA, 0x09B2C33F, 0x0A158F4F, 0x0A90173E, 0x0BC670CF,
+			0x12C735BF, 0x1448419A, 0x15D7FD71, 0x1A294A22, 0x1B0C8C0D, 0x25B25C08,
+			0x2A4CEB5B, 0x2B692D74, 0x2CC9133E, 0x37F333C8, 0x397CB368, 0x397FADA3,
+			0x3A702E36, 0x3AF5B647, 0x3D66C842, 0x40AE6A73, 0x42721666, 0x42DAD983,
+			0x4AE38186, 0x506496B1, 0x5141509E, 0x59AF2F03, 0x5D061FA6, 0x63CD085E,
+			0x67D77374, 0x6958F3D4, 0x69CA8E7A, 0x6EDA46B4, 0x70CBCB0A, 0x7118348A,
+			0x719DACFB, 0x7262D322, 0x72BF78FA, 0x81AA2A4D, 0x89C18538, 0x8B689D10,
+			0x8BB536C8, 0x8CC8A35A, 0x8DED6575, 0x90C0C048, 0x964FB46D, 0x9EDD3D46,
+			0x9EDE238D, 0xAD319910, 0xADB40161, 0xAEB89C3F, 0xB276735F, 0xB5F4C63F,
+			0xBB0D3C69, 0xBF613DB5, 0xC075E391, 0xC46C8670, 0xCAC230F1, 0xCE6B0054,
+			0xCEF97DFA, 0xD2636346, 0xD346A569, 0xD51EF6D4, 0xD76A4524, 0xDD27AED1,
+			0xE5D08683, 0xECDDB343, 0xED420FA8, 0xF06526D5, 0xF31FC17D, 0xF39A590C,
+			0xF4092709, 0xFAA79188, 0xFE9CDC83,
+		};
+
+		// A combat object (CombatObject subclass), written by reference: a u32 ID where 0 is none, an
+		// even ID points at an object written earlier and an odd ID is followed by the class and data
+		void CombatObject(P& p, const char* a_label)
+		{
+			p.group(a_label, [&] {
+				const auto id = p.r.u32();
+				p.add("ID", Fmt("%X", id));
+				if ((id & 1) == 0) {
+					return;
+				}
+				const auto cls = p.r.u32();
+				p.add("CLASS", Fmt("%08X", cls));
+				CombatObjectData(p, cls);
+			});
+		}
+
+		void CombatObjectData(P& p, std::uint32_t a_cls)
+		{
+			const auto aimBase = [&] {
+				p.floats("POS", 3);
+				p.ref("REF");
+				p.i32("UNK34");
+				p.i32("UNK38");
+				p.i32("UNK3C");
+				p.f32("TIMER");
+				p.i32("UNK44");
+			};
+			const auto areaBase = [&] {
+				p.ref("REF");
+				p.i32("UNK28");
+				p.u8("UNK2C");
+				p.u8("UNK2D");
+			};
+			const auto itemBase = [&] {
+				p.ref("ITEM");
+				p.i32("UNK18");
+				p.ref("SOURCE");
+				p.i32("UNK28");
+			};
+			const auto areaLocation = [&] {
+				p.bytes("UNK20", 8);
+				p.floats("POS", 3);
+				p.ref("CELL");
+			};
+			switch (a_cls) {
+			case 0xC8F87A78:  // CombatObject
+			case 0x860CC21F:  // CombatAimControllerBase
+			case 0xE588E90D:  // CombatPathSpeedController
+				break;
+			case 0x86D330A0:  // CombatAimController
+			case 0xBE236AC9:  // CombatDisableAimController
+				aimBase();
+				break;
+			case 0x64927B7C:  // CombatMeleeAimController
+				aimBase();
+				p.i32("UNK48");
+				p.u8("UNK4C");
+				p.i32("UNK50");
+				break;
+			case 0x5AD9B53F:  // CombatTrackTargetAimController
+				aimBase();
+				p.i32("UNK48");
+				p.u8("UNK4C");
+				break;
+			case 0xF06E7A91:  // CombatProjectileAimController
+				aimBase();
+				p.ref("PROJECTILE");
+				p.ints("UNK50", 3);
+				p.floats("VECTORS", 15);
+				p.ints("UNK98", 3);
+				p.f32("UNKB0");
+				p.floats("UNKB4", 3);
+				p.f32("UNKC0");
+				p.wstring("NODE");
+				break;
+			case 0x3888CDCA:  // CombatArea
+				areaBase();
+				p.f32("TIMER");
+				p.i32("UNK24");
+				break;
+			case 0xA9BDAAFE:  // CombatAreaStandard
+			case 0x2E71F18B:  // CombatAreaRadius
+				areaBase();
+				areaLocation();
+				p.i32("UNK48");
+				break;
+			case 0x55FAB455:  // CombatAreaHoldPosition
+			case 0x55C1257B:  // CombatAreaReference
+				areaBase();
+				areaLocation();
+				p.i32("UNK48");
+				p.ref("REF2");
+				p.f32("TIMER");
+				p.i32("UNK58");
+				break;
+			case 0xD6E95B87:  // CombatTargetSelector
+			case 0xF7B17BBC:  // CombatTargetSelectorFixed
+				p.ref("TARGET");
+				p.i32("UNK1C");
+				p.i32("UNK20");
+				break;
+			case 0xC3719B85:  // CombatTargetSelectorStandard
+				p.ref("TARGET");
+				p.i32("UNK1C");
+				p.i32("UNK20");
+				p.f32("TIMER");
+				p.i32("UNK2C");
+				break;
+			case 0x1F7409DD:  // CombatInventoryItem
+				itemBase();
+				break;
+			case 0x4C526266:  // CombatInventoryItemComposite
+				itemBase();
+				p.ref("REF");
+				break;
+			case 0x9C2A0B47:  // CombatInventoryItemMagic
+			case 0xAC4FAA3E:  // CombatInventoryItemPotion
+			case 0x0BEE2410:  // CombatInventoryItemScroll
+			case 0x5545E40C:  // CombatInventoryItemShout
+			case 0xD74211FB:  // CombatInventoryItemStaff
+				itemBase();
+				p.ints("UNK30", 5);
+				p.i32("EFFECT INDEX");
+				break;
+			case 0x5ACB99C8:  // CombatInventoryItemMelee
+				itemBase();
+				p.i32("UNK30");
+				break;
+			case 0x8121581D:  // CombatInventoryItemOneHandedBlock
+			case 0xF86AC87B:  // CombatInventoryItemShield
+			case 0x66D5D91E:  // CombatInventoryItemTorch
+				itemBase();
+				if (p.version > 0x20) {
+					p.i32("UNK30");
+				}
+				break;
+			case 0x71B72E31:  // CombatInventoryItemRanged
+				itemBase();
+				p.ref("AMMO");
+				p.i32("UNK38");
+				p.i32("UNK3C");
+				break;
+			case 0x51B14DE6:  // CombatMagicCaster
+			case 0x11126C48:  // CombatMagicCasterArmor
+			case 0x3DBA3C9A:  // CombatMagicCasterBoundItem
+			case 0x22784EA4:  // CombatMagicCasterCloak
+			case 0xB6B0FCAD:  // CombatMagicCasterDisarm
+			case 0xA3055CFB:  // CombatMagicCasterInvisibility
+			case 0xC52FCE43:  // CombatMagicCasterLight
+			case 0xEC01479B:  // CombatMagicCasterParalyze
+			case 0x02212AB0:  // CombatMagicCasterScript
+			case 0xE694BC11:  // CombatMagicCasterStagger
+			case 0xD2CA5063:  // CombatMagicCasterSummon
+			case 0x5AD2B911:  // CombatMagicCasterTargetEffect
+				CombatObject(p, "ITEM");
+				break;
+			case 0x41A74F91:  // CombatMagicCasterOffensive
+				CombatObject(p, "ITEM");
+				p.bytes("UNK20", 8);
+				p.f32("TIMER");
+				p.i32("UNK2C");
+				break;
+			case 0x0304EC9F:  // CombatMagicCasterReanimate
+				CombatObject(p, "ITEM");
+				CombatObject(p, "OBJECT");
+				p.ref("TARGET");
+				break;
+			case 0x58A60AE1:  // CombatMagicCasterRestore
+				CombatObject(p, "ITEM");
+				p.f32("UNK20");
+				p.i32("UNK24");
+				p.i32("UNK28");
+				break;
+			case 0x22FDD6D5:  // CombatMagicCasterWard
+				CombatObject(p, "ITEM");
+				p.f32("TIMER");
+				p.i32("UNK24");
+				break;
+			default:
+				if (std::find(std::begin(kMagicItemPairings), std::end(kMagicItemPairings), a_cls) !=
+					std::end(kMagicItemPairings)) {
+					itemBase();
+					p.ints("UNK30", 5);
+					p.i32("EFFECT INDEX");
+					break;
+				}
+				throw Stop(Fmt("combat object class %08X is not decoded yet", a_cls));
+			}
+		}
+
+		void CombatObjects(P& p, const char* a_label)
+		{
+			const auto n = p.vs("COUNT");
+			p.countedArray(a_label, n, [&] { CombatObject(p, "OBJECT"); });
+		}
+
+		void CombatController(P& p)
+		{
+			p.group("COMBAT CONTROLLER", [&] {
+				p.ref("ATTACKER");
+				p.ref("TARGET");
+				p.i32("COMBAT GROUP");
+				p.bytes("FLAGS", 6);
+				p.i32("UNK4C");
+				p.bytes("UNK44", 8);
+				CombatObjects(p, "AIM CONTROLLERS");
+				p.i32("CURRENT AIM CONTROLLER");
+				p.i32("PREVIOUS AIM CONTROLLER");
+				CombatObjects(p, "AREAS");
+				p.i32("CURRENT AREA");
+				CombatObjects(p, "TARGET SELECTORS");
+				CombatObject(p, "CURRENT TARGET SELECTOR");
+				CombatObject(p, "PREVIOUS TARGET SELECTOR");
+				p.group("STATE", [&] {
+					p.bytes("FLAGS", 6);
+					p.i32("UNK0C");
+					p.bytes("UNK10", 12);
+					p.i32("UNK4C");
+					p.u8("UNK6C");
+					p.u8("UNK6D");
+					p.ints("UNK70", 3);
+					p.i32("UNK00");
+					p.u8("UNK04");
+					p.floats("UNK1C", 4);
+					p.bytes("TIMERS", 32);
+					const auto n = p.vs("COUNT");
+					p.countedArray("POSITIONS", n, [&] {
+						p.floats("POS", 3);
+						p.ref("CELL");
+						p.f32("TIME");
+					});
+					const auto m = p.vs("COUNT");
+					p.countedArray("UNK50", m, [&] { p.ref("REF"); });
+					p.u8("UNKA0");
+					p.bytes("UNKAC", 8);
+					p.bytes("UNKA4", 8);
+					p.bytes("UNKB4", 8);
+					p.f32("UNK68");
+				});
+				p.group("INVENTORY", [&] {
+					p.ints("UNK19C", 10);
+					p.u8("UNK1C4");
+					p.i32("UNK190");
+					p.bytes("UNK194", 8);
+					for (int i = 0; i < 7; ++i) {
+						CombatObjects(p, "ITEMS");
+					}
+					for (int i = 0; i < 2; ++i) {
+						p.group("ITEM LIST", [&] {
+							CombatObjects(p, "ITEMS");
+							p.ints("UNK", 4);
+							p.i32("UNK28");
+						});
+					}
+					const auto n = p.vs("COUNT");
+					p.countedArray("RATED ITEMS", n, [&] {
+						CombatObject(p, "ITEM");
+						p.f32("RATING");
+					});
+					const auto a = p.vs("COUNT");
+					p.countedArray("REFS1", a, [&] { p.ref("REF"); });
+					const auto b = p.vs("COUNT");
+					p.countedArray("REFS2", b, [&] { p.ref("REF"); });
+					const auto c = p.vs("COUNT");
+					p.countedArray("COUNTS", c, [&] {
+						p.ref("REF");
+						p.i32("COUNT");
+					});
+				});
+				p.group("BLACKBOARD", [&] {
+					const auto n = p.vs("COUNT");
+					p.countedArray("VALUES", n, [&] {
+						const auto name = p.r.wstring();
+						p.group(name, [&] {
+							// the game's six blackboard keys and their value types
+							if (name == "TargetUnreachableDistance") {
+								p.f32("VALUE");
+							} else if (name == "AcquireWeaponTimer") {
+								p.f32("TIMER");
+								p.f32("INTERVAL");
+							} else if (name == "CombatDisarmedTimeStamp" || name == "CoverSearchFailedTimeStamp" ||
+									   name == "FindAttackLocationFailedTimeStamp") {
+								p.f32("TIME STAMP");
+							} else if (name == "LastFleeDoor") {
+								p.ref("DOOR");
+								p.f32("TIME STAMP");
+							} else {
+								throw Stop("combat blackboard key '" + name + "' is not decoded yet");
+							}
+						});
+					});
+					p.i32("UNK40");
+				});
+				p.group("BEHAVIOR CONTROLLER", [&] {
+					p.i32("UNK70");
+					if (p.u8("HAS TREE")) {
+						// the running behavior tree is written with its size up front
+						const auto size = p.vs("TREE SIZE");
+						p.bytes("TREE STATE", size);
+					}
+					const auto n = p.vs("COUNT");
+					p.countedArray("THREAD IDS", n, [&] { p.i32("ID"); });
+					const auto m = p.vs("COUNT");
+					p.countedArray("NAMED", m, [&] {
+						p.wstring("NAME");
+						p.i32("THREAD");
+						const auto a = p.vs("COUNT");
+						p.countedArray("THREADS", a, [&] { p.i32("ID"); });
+						const auto b = p.vs("COUNT");
+						p.countedArray("PAIRS", b, [&] {
+							p.i32("UNK");
+							p.i32("THREAD");
+						});
+					});
+				});
 			});
 		}
 
