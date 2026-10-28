@@ -72,12 +72,13 @@ namespace ess::merge
 		kCellWater,      // a cell's water (height, type, textures, currents)
 		kCellRegions,    // the regions a cell belongs to
 		kCellOther,      // a cell's location, owner, encounter zone, music, acoustics, image space, flags...
-		kOther,          // anything else
+		kRenumberFix,    // references to a compacted light plugin's old form numbers, pointed at its new ones
 		kCount
 	};
 	const char*  CategoryName(Category a_cat);
 	int          CategoryRisk(Category a_cat);
-	const char*  CategoryWhy(Category a_cat);  // what can go wrong, for the menu's hover text
+	const char*  CategoryWhy(Category a_cat);     // what can go wrong, for the menu's hover text
+	const char*  CategoryDetail(Category a_cat);  // everything it covers, record by record
 
 	struct Options
 	{

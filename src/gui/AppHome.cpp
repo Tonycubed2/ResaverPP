@@ -12,10 +12,63 @@
 
 #include "imgui.h"
 
+#include <cmath>
+#include <set>
+
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 
 using namespace ess;
+
+namespace
+{
+	// "marching ants" around a rectangle, in a lighter shade of the button colour
+	void DrawMarquee(ImVec2 a_min, ImVec2 a_max)
+	{
+		auto*      dl = ImGui::GetWindowDrawList();
+		const ImVec4 c = ImGui::GetStyleColorVec4(ImGuiCol_Button);
+		const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+		float        hh, ss, vv;
+		ImGui::ColorConvertRGBtoHSV(c.x, c.y, c.z, hh, ss, vv);
+		// dark themes: a lighter shade of the button colour. Light themes, where the buttons are already pale and
+		// a lighter shade would vanish into the white page: the same hue, stronger, so the border shows.
+		if (0.299f * bg.x + 0.587f * bg.y + 0.114f * bg.z < 0.5f) {
+			ss = ss * 0.75f;
+			vv = vv + (1.0f - vv) * 0.55f;
+		} else {
+			ss = std::max(ss, 0.55f);
+			vv = std::min(vv, 0.80f);
+		}
+		float r, g, b2;
+		ImGui::ColorConvertHSVtoRGB(hh, ss, vv, r, g, b2);
+		const ImU32 col = ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b2, 1.0f));
+		const float pad = 2.0f, dash = 7.0f, gap = 5.0f, thick = 2.0f;
+		const ImVec2 a(a_min.x - pad, a_min.y - pad), b(a_max.x + pad, a_max.y + pad);
+		const float  w = b.x - a.x, h = b.y - a.y, per = 2 * (w + h);
+		auto point = [&](float d) {
+			d = std::fmod(d, per);
+			if (d < 0) d += per;
+			if (d < w) return ImVec2(a.x + d, a.y);
+			d -= w;
+			if (d < h) return ImVec2(b.x, a.y + d);
+			d -= h;
+			if (d < w) return ImVec2(b.x - d, b.y);
+			d -= w;
+			return ImVec2(a.x, b.y - d);
+		};
+		const float off = static_cast<float>(std::fmod(ImGui::GetTime() * 28.0, dash + gap));
+		for (float d = off; d < per + off; d += dash + gap) {
+			// a dash can turn a corner: draw it in small steps
+			ImVec2 prev = point(d);
+			for (float s = 1.0f; s <= dash; s += 1.0f) {
+				const ImVec2 p = point(d + s);
+				dl->AddLine(prev, p, col, thick);
+				prev = p;
+			}
+		}
+	}
+}
 
 namespace
 {
@@ -129,6 +182,8 @@ void App::shortcut(Sc a_which)
 		_showSavesMgr = true;
 		_savesLoaded = false;
 		break;
+	case Sc::kMerge: _showMerge = true; break;
+	case Sc::kFileConflicts: _showAssets = true; break;
 	case Sc::kOpenPex:
 		if (platform::HasNativeDialogs()) {
 			if (auto f = platform::OpenFileDialog(_sourcesPath.empty() ? std::filesystem::path() : platform::FromUtf8(_sourcesPath), "pex",
@@ -157,7 +212,7 @@ void App::drawHome()
 	const auto  n = [&](std::size_t v) { return r ? static_cast<long long>(v) : -1LL; };
 	const bool  anyMissing = !_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty();
 
-	const std::vector<std::pair<const char*, std::vector<Button>>> groups = {
+	const std::vector<std::pair<const char*, std::vector<Button>>> saveGroups = {
 		{ "Clean",
 			{
 				{ Sc::kRemoveUndefined, "Remove missing scripts", "scripts of mods you removed",
@@ -196,8 +251,6 @@ void App::drawHome()
 					HomeRisk::kRisky, -1 },
 				{ Sc::kBatch, "Batch Clean", "several cleanups in one go",
 					"Run several cleanup steps in one go, with a preview of what each will remove.", HomeRisk::kCaution, -1 },
-				{ Sc::kPapyrusLog, "Papyrus log", "which mod is spamming errors",
-					"Read Papyrus.0.log: errors grouped by script and mod, with how often each happens.", HomeRisk::kNone, -1 },
 			} },
 		{ "Your game",
 			{
@@ -213,8 +266,6 @@ void App::drawHome()
 				{ Sc::kHistory, "Save history", "which mods keep growing",
 					"Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing.",
 					HomeRisk::kNone, -1 },
-				{ Sc::kLookup, "Find a form", "by name or editor ID",
-					"Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it.", HomeRisk::kNone, -1 },
 			} },
 		{ "Look into it",
 			{
@@ -229,17 +280,58 @@ void App::drawHome()
 					"Write a report of the save (mods, scripts, anomalies) as text or PDF.", HomeRisk::kNone, -1 },
 				{ Sc::kAnalysis, "Analysis", "what takes the most space and runs the most",
 					"A text report of the save: which mods and scripts take the most space and run the most.", HomeRisk::kNone, -1 },
+			} },
+	};
+	// the second tab: tools for the mods and the load order rather than the save
+	const std::vector<std::pair<const char*, std::vector<Button>>> modGroups = {
+		{ "Patch your load order",
+			{
+				{ Sc::kMerge, "Merged patch", "one plugin with every mod's changes",
+					"Read every plugin of your load order and build one light plugin that keeps the changes of every mod that edits the "
+					"same leveled lists, containers, NPCs, keywords, items, spells and cells. You choose what is merged.",
+					HomeRisk::kCaution, -1 },
+			} },
+		{ "Check your mods",
+			{
+				{ Sc::kFileConflicts, "File conflicts", "which mod overrides which mod's files",
+					"Which mods override which mods' files, loose and inside archives (BSAs), in the order the game uses them. Scripts "
+					"overridden by another mod's copy are listed first.",
+					HomeRisk::kNone, -1 },
+				{ Sc::kPapyrusLog, "Papyrus log", "which mod is spamming errors",
+					"Read Papyrus.0.log: errors grouped by script and mod, with how often each happens.", HomeRisk::kNone, -1 },
+			} },
+		{ "Look up",
+			{
+				{ Sc::kLookup, "Find a form", "by name or editor ID",
+					"Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it.", HomeRisk::kNone, -1 },
 				{ Sc::kOpenPex, "Open script (.pex)", "read a compiled script's code",
 					"Open a compiled Papyrus script (.pex) and read its decompiled code.", HomeRisk::kNone, -1 },
 			} },
 	};
+	const std::vector<std::pair<const char*, std::vector<Button>>>* saveGroupsForNoSave = nullptr;
+	// the big features get a moving border (a marquee) in a lighter shade of the button colour
+	const std::set<Sc> major = { Sc::kTransplant, Sc::kPlayer, Sc::kActors, Sc::kMods, Sc::kLeftovers, Sc::kBatch, Sc::kMerge,
+		Sc::kFileConflicts };
 
+	auto noSave = modGroups;
+	if (!_save) {
+		// no save open: the tools that work on the mods alone (Find a form needs a save)
+		for (auto& g : noSave) {
+			std::erase_if(g.second, [](const Button& b) { return b.which == Sc::kLookup; });
+		}
+		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+		ImGui::TextWrapped("These work on your mods and load order and need no save:");
+		ImGui::PopStyleColor();
+		ImGui::Spacing();
+		saveGroupsForNoSave = &noSave;
+	}
 	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-	ImGui::TextWrapped("Shortcuts: the same as the Clean and Tools menus. Green is safe, yellow: read what it does first, red: risky. "
+	if (_save) ImGui::TextWrapped("Shortcuts: the same as the Clean and Tools menus. Green is safe, yellow: read what it does first, red: risky. "
 	                   "Every change is made in the loaded save and only written with File > Save or Save As.");
 	ImGui::PopStyleColor();
 	ImGui::Spacing();
-	if (!ImGui::BeginTable("home", static_cast<int>(groups.size()), ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_PadOuterX)) {
+	auto drawGroups = [&](const char* a_id, const std::vector<std::pair<const char*, std::vector<Button>>>& groups) {
+	if (!ImGui::BeginTable(a_id, 4, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_PadOuterX)) {
 		return;
 	}
 	for (const auto& [title, buttons] : groups) {
@@ -268,6 +360,9 @@ void App::drawHome()
 			}
 			ImGui::SetCursorScreenPos(ImVec2(at.x + 8, at.y));
 			const bool click = ImGui::Button(label.c_str(), ImVec2(-FLT_MIN, 0));
+			if (major.contains(b.which) && !nothing) {
+				DrawMarquee(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+			}
 			ImGui::EndDisabled();
 			if (nothing) {
 				tips::Tip("Nothing to do: this save has none.");
@@ -284,4 +379,22 @@ void App::drawHome()
 		}
 	}
 	ImGui::EndTable();
+	};
+	if (saveGroupsForNoSave) {
+		drawGroups("homenosave", *saveGroupsForNoSave);
+		return;
+	}
+	if (ImGui::BeginTabBar("hometabs")) {
+		if (ImGui::BeginTabItem("Your save")) {
+			drawGroups("homesave", saveGroups);
+			ImGui::EndTabItem();
+		}
+		static bool modsFirst = std::getenv("RESAVERPP_TEST_HOMETAB") != nullptr;  // for screenshots
+		if (ImGui::BeginTabItem("Your mods and load order", nullptr, modsFirst ? ImGuiTabItemFlags_SetSelected : 0)) {
+			modsFirst = false;
+			drawGroups("homemods", modGroups);
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
+	}
 }

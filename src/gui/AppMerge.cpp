@@ -109,8 +109,9 @@ void App::drawMergedPatch()
 	// ---- what to merge -----------------------------------------------------------------------------
 	ImGui::Spacing();
 	if (ImGui::CollapsingHeader("What to merge", ImGuiTreeNodeFlags_DefaultOpen)) {
-		ImGui::TextWrapped("Untick a kind of change to leave it to the winning mod, as the game does without a patch. Green is safe; yellow: "
-						   "read what can go wrong first (hover a row); red: risky, check those records after building.");
+		ImGui::TextWrapped("Untick a kind of change to leave it to the winning mod, as the game does without a patch. Under each kind is "
+						   "everything it covers. SAFE: nothing to check. CAUTION: hover the row for what can go wrong. RISKY: check the "
+						   "records it changed after building (they are listed in red below and in the report).");
 		// how many changes of each kind the last build made
 		std::size_t counts[static_cast<int>(merge::Category::kCount)] = {};
 		if (_mergeResult) {
@@ -164,7 +165,11 @@ void App::drawMergedPatch()
 				ImGui::TextUnformatted(risk >= 2 ? "RISKY" : risk == 1 ? "CAUTION" : "SAFE");
 				ImGui::PopStyleColor();
 				ImGui::TableNextColumn();
-				ImGui::TextUnformatted(merge::CategoryName(cat));
+				ImGui::TextWrapped("%s", merge::CategoryName(cat));
+				tips::Tip(merge::CategoryWhy(cat));
+				ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+				ImGui::TextWrapped("%s", merge::CategoryDetail(cat));
+				ImGui::PopStyleColor();
 				tips::Tip(merge::CategoryWhy(cat));
 				ImGui::TableNextColumn();
 				if (_mergeResult) {

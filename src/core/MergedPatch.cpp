@@ -996,7 +996,7 @@ namespace ess::merge
 			if (r == "FLST") return Category::kFormLists;
 			if (r == "NPC_") return Category::kNpcLists;
 			if (r == "CELL") return Category::kCellRegions;
-			return Category::kOther;
+			return Category::kItemValues;
 		}
 
 		Category UnitCategory(const char* rec, const std::set<std::string>& u)
@@ -1012,8 +1012,8 @@ namespace ess::merge
 			}
 			if (r == "NPC_" && has("PNAM")) return Category::kNpcFace;
 			if (has("EFID")) return Category::kEffects;
-			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || has("OBND") || (r == "BOOK" && has("CNAM"))) return Category::kNames;
-			if (has("MODL") || has("MOD2") || has("MOD3") || has("MOD4") || has("ICON") || has("ICO2") || has("DEST") || has("MDOB") ||
+			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || (r == "BOOK" && has("CNAM"))) return Category::kNames;
+			if (has("OBND") || has("MODL") || has("MOD2") || has("MOD3") || has("MOD4") || has("ICON") || has("ICO2") || has("DEST") || has("MDOB") ||
 				has("BODT"))
 				return Category::kModels;
 			if (r == "NPC_") return Category::kNpcValues;
@@ -1375,7 +1375,7 @@ namespace ess::merge
 							if (target != v.plugin && _plugins[target].light) {
 								// a light plugin has no forms above 0xFFF: an old number from before it was compacted
 								const auto obj = static_cast<std::uint32_t>(k & 0xFFFFFF);
-								auto it = _remap.find({ target, obj });
+								auto it = _opt.enabled[static_cast<int>(Category::kRenumberFix)] ? _remap.find({ target, obj }) : _remap.end();
 								if (it != _remap.end()) {
 									fixedKey = (k & ~std::uint64_t(0xFFFFFF)) | it->second;
 									_fixed[{ v.plugin, target }].insert(obj);
@@ -1806,7 +1806,7 @@ namespace ess::merge
 						mr.edid = edidOf(win.rec);
 						mr.id = idText(k);
 						mr.winner = _plugins[win.plugin].name;
-						note(mr, "fixed " + std::to_string(n) + " reference(s) to renumbered forms of a compacted plugin", Category::kOther);
+						note(mr, "fixed " + std::to_string(n) + " reference(s) to renumbered forms of a compacted plugin", Category::kRenumberFix);
 						_patched.push_back({ k, std::move(*c) });
 						_res.merged.push_back(std::move(mr));
 					};
@@ -1868,7 +1868,7 @@ namespace ess::merge
 					mr.id = idText(k);
 					mr.winner = _plugins[win.plugin].name;
 					if (winFixes) {
-						note(mr, "fixed " + std::to_string(winFixes) + " reference(s) to renumbered forms of a compacted plugin", Category::kOther);
+						note(mr, "fixed " + std::to_string(winFixes) + " reference(s) to renumbered forms of a compacted plugin", Category::kRenumberFix);
 					}
 					// the values first: each plugin's changes in load order, so the last one to change a part wins
 					for (std::size_t i = 1; i < vs.size(); ++i) {
@@ -2106,24 +2106,117 @@ namespace ess::merge
 	const char* CategoryName(Category a_cat)
 	{
 		switch (a_cat) {
-		case Category::kLeveledLists: return "Leveled lists (items, NPCs, spells)";
+		case Category::kLeveledLists: return "Leveled lists: entries of leveled items, leveled NPCs and leveled spells";
 		case Category::kContainers: return "Container items";
 		case Category::kOutfits: return "Outfit items";
-		case Category::kFormLists: return "Form lists";
+		case Category::kFormLists: return "Form list entries";
 		case Category::kKeywords: return "Keywords";
-		case Category::kNpcLists: return "NPC factions, spells, perks and items";
+		case Category::kNpcLists: return "NPC factions, spells, perks and inventory";
 		case Category::kNpcFace: return "NPC faces and races";
-		case Category::kNpcValues: return "NPC stats, AI, skills and other values";
-		case Category::kItemValues: return "Item values (value, weight, damage, armour, costs)";
-		case Category::kEffects: return "Magic effects and their conditions";
-		case Category::kNames: return "Names, descriptions and editor IDs";
-		case Category::kModels: return "Models, icons and destruction";
-		case Category::kScripts: return "Scripts on records";
+		case Category::kNpcValues: return "NPC stats, AI, skills, class, voice, outfits, packages and other NPC settings";
+		case Category::kItemValues: return "Values and settings of weapons, armour, ammo, items, books, potions, ingredients, scrolls, spells, containers and leveled lists";
+		case Category::kEffects: return "Magic effects (with their conditions) of potions, ingredients, scrolls and spells";
+		case Category::kNames: return "Names, descriptions, book text and editor IDs";
+		case Category::kModels: return "Models, textures, icons, armatures, body slots, bounds and destruction";
+		case Category::kScripts: return "Scripts attached to records, with their properties";
 		case Category::kCellLighting: return "Cell lighting";
 		case Category::kCellWater: return "Cell water";
 		case Category::kCellRegions: return "Cell regions";
-		case Category::kCellOther: return "Cell location, owner, music and other settings";
-		default: return "Other";
+		case Category::kCellOther: return "Cell location, owner, encounter zone, music, sound, image space, flags and grid";
+		case Category::kRenumberFix: return "Fix references to compacted light (ESL) plugins";
+		default: return "?";
+		}
+	}
+
+	const char* CategoryDetail(Category a_cat)
+	{
+		switch (a_cat) {
+		case Category::kLeveledLists:
+			return "Leveled item, leveled NPC and leveled spell lists: each entry (level, the item, NPC, spell or list it gives, count, and "
+				   "the entry's owner and condition data) and the entry count. What every mod added or removed is combined. A list that "
+				   "would grow past 255 entries is left to the winning mod. The list's own settings are under Values and settings.";
+		case Category::kContainers:
+			return "Containers (chests, barrels, sacks, merchant chests...): each item with its count, owner and condition data, and the "
+				   "item count. What every mod added or removed, and count changes, are combined.";
+		case Category::kOutfits:
+			return "Outfits (what NPCs wear by default and to sleep): the armour pieces and leveled items in each outfit. What every mod "
+				   "added or removed is combined.";
+		case Category::kFormLists:
+			return "Form lists (lists of forms that scripts, conditions, crafting and quests read): their entries. What every mod added "
+				   "or removed is combined; added entries go at the end.";
+		case Category::kKeywords:
+			return "Keywords on NPCs, armour, weapons, ammunition, misc items, keys, soul gems, books, potions, ingredients, scrolls and "
+				   "spells, with the keyword count. What every mod added or removed is combined.";
+		case Category::kNpcLists:
+			return "NPCs: factions (with rank), spells, shouts and leveled spells (with their count), perks (with rank and the perk "
+				   "count), and inventory items (with count, owner and condition data, and the item count). What every mod added or "
+				   "removed, and rank or count changes, are combined.";
+		case Category::kNpcFace:
+			return "NPCs, taken as one set from the last mod that changed any part of it: race, head parts (head, eyes, hair, brows, "
+				   "beard, scars), hair colour, face texture set, texture lighting colour, face morphs (nose, jaw, cheeks, eyes, brows, "
+				   "lips, chin), face parts (nose, eyes, mouth), and every tint layer (skin tone, war paint, dirt...) with its colour, "
+				   "strength and preset.";
+		case Category::kNpcValues:
+			return "NPCs, each value from the last mod that changed it. Configuration: flags (female, essential, protected, unique, "
+				   "respawn, auto-calc stats, PC level mult, summonable, doesn't bleed, simple actor, ghost, invulnerable...), level or "
+				   "level multiplier, minimum and maximum calculated level, health, magicka and stamina offsets, speed multiplier, "
+				   "template flags (which parts come from the template) and bleedout override. AI data: aggression, confidence, energy, "
+				   "morality, mood, assistance, aggro radius (warn, warn/attack, attack). Skills: value and offset of all 18 skills, base "
+				   "health, magicka and stamina, far-away model distance, geared-up weapons. Also: template, class, voice type, combat "
+				   "style, gift filter, crime faction, death item, skin, far-away model, attack race, attacks (damage, chance, spell, "
+				   "flags), height, weight, sound level, sound types or the NPC they are inherited from, default outfit, sleeping outfit, "
+				   "default package list, AI packages, and the spectator, observe-dead-body, guard-warn and combat override package lists.";
+		case Category::kItemValues:
+			return "Each value from the last mod that changed it. Weapons: value, weight, damage, animation type, speed, reach, flags, "
+				   "sight FOV, VATS to-hit chance, attack animation, number of projectiles, embedded weapon actor value, minimum and "
+				   "maximum range, on-hit behaviour, flags 2, attack animation multiplier, fire rate, rumble, damage-to-weapon multiplier, "
+				   "shots per second, skill, resist, stagger, critical damage, critical % multiplier, critical on death, critical spell "
+				   "effect, detection sound level, template, scope effect, embedded weapon node, impact data set, 1st person model "
+				   "object, attack, attack 2D, attack loop, attack fail, idle, equip and unequip sounds. Armour: value, weight, armour "
+				   "rating, race, template, ragdoll constraint template. Weapons and armour: enchantment and enchantment amount, equip "
+				   "type, block bash impact data and material. Ammunition: projectile, flags, damage, value, weight, short name. Misc "
+				   "items and keys: value, weight. Soul gems: value, weight, contained soul, capacity, linked soul gem. Books: flags "
+				   "(teaches a skill or a spell, can't be taken), type, the skill or spell taught, value, weight, inventory art. Potions: "
+				   "weight, value, flags (food, poison, medicine...), addiction and addiction chance, consume sound, equip type. "
+				   "Ingredients: value, weight, flags. Scrolls and spells: base cost, flags, type, charge time, cast type, delivery, cast "
+				   "duration, range, half-cost perk, equip type, and the scroll's value and weight. Items: pick-up and put-down sounds. "
+				   "Containers: flags (respawns, show owner...), weight, open and close sounds. Leveled lists: chance none, flags "
+				   "(calculate from all levels, calculate for each item in count, use all), chance-none global.";
+		case Category::kEffects:
+			return "Potions, ingredients, scrolls and spells: the whole list of magic effects, each with its magnitude, area and duration "
+				   "and its conditions, taken as one list from the last mod that changed it.";
+		case Category::kNames:
+			return "Editor IDs, names, NPC short names, descriptions, book text and book descriptions, from the last mod that changed "
+				   "each (e.g. typo fixes), on every merged record type, cells included.";
+		case Category::kModels:
+			return "From the last mod that changed each: models with their texture data and alternate textures (world model, male and "
+				   "female world models, 1st person model, scope model), inventory icons (male and female), armour armatures (ARMA), "
+				   "biped body slots and armour type (light, heavy, clothing), object bounds, menu display object (spells, scrolls), and "
+				   "destruction data (health, stages, explosion, debris, damaged models).";
+		case Category::kScripts:
+			return "The scripts attached to NPCs, containers, armour, weapons, ammunition, misc items, keys, books, potions and "
+				   "ingredients, with every property value, taken as one set from the last mod that changed it.";
+		case Category::kCellLighting:
+			return "Cells, taken as one set from the last mod that changed any part of it: ambient colour, directional colour, "
+				   "rotation and fade, fog colours (near, far), fog near, far, power, maximum and clip distance, light fade begin and "
+				   "end, which of these come from the lighting template, and the lighting template.";
+		case Category::kCellWater:
+			return "Cells, taken as one set from the last mod that changed any part of it: water height, water type, water noise "
+				   "texture, water environment map, and water currents (velocities).";
+		case Category::kCellRegions:
+			return "Cells: the regions they belong to (they bring weather, ambient sounds, map names and region objects). What every "
+				   "mod added or removed is combined.";
+		case Category::kCellOther:
+			return "Cells, each from the last mod that changed it: location, owner (an NPC or a faction) and required faction rank, "
+				   "encounter zone, music type, acoustic space, image space, sky and weather from a region, lock list, cell flags "
+				   "(interior, has water, can't travel from here, no LOD water, public area, hand changed, show sky, use sky lighting), "
+				   "exterior grid position and land flags, terrain visibility (occlusion) data and maximum height data.";
+		case Category::kRenumberFix:
+			return "A plugin made for an older version of a light (ESL) plugin, before it was compacted, points at its forms by their "
+				   "old numbers (e.g. a hair or body patch for an NPC overhaul): those references are pointed at the same forms' new "
+				   "numbers. The pairs are worked out from records both plugins change; only numbers that pair up the same way every "
+				   "time are fixed. Unticked, those references stay broken, as without the patch.";
+		default: return "";
 		}
 	}
 
@@ -2149,43 +2242,49 @@ namespace ess::merge
 	const char* CategoryWhy(Category a_cat)
 	{
 		switch (a_cat) {
-		case Category::kLeveledLists: return "What each mod added to or removed from a leveled list is kept. Safe.";
-		case Category::kContainers: return "What each mod added to or removed from a container is kept. Safe.";
-		case Category::kOutfits: return "Items each mod added to or removed from an outfit are kept. Safe.";
+		case Category::kLeveledLists: return "Safe: entries every mod added stay, entries a mod removed stay removed.";
+		case Category::kContainers: return "Safe: items every mod added stay, items a mod removed stay removed.";
+		case Category::kOutfits:
+			return "Safe as a rule. Two mods that each give an NPC a different outfit piece for the same body slot can leave both in the "
+				   "outfit; the game equips one of them.";
 		case Category::kFormLists:
-			return "Form lists are combined. Some scripts read a form list by position: an entry added at the end is fine, but a mod "
-				   "that relies on the exact order may see a different one.";
-		case Category::kKeywords: return "Keywords each mod added or removed are kept. Safe.";
+			return "Some scripts read a form list by position. An entry added at the end is fine, but a script that relies on the exact "
+				   "order of a list another mod changed may see a different entry.";
+		case Category::kKeywords: return "Safe: keywords every mod added stay, keywords a mod removed stay removed.";
 		case Category::kNpcLists:
-			return "Factions, spells, perks and items of NPCs are combined. An NPC can end up with abilities from two overhauls at once "
-				   "(e.g. two perk sets).";
+			return "An NPC can end up with the factions, spells and perks of two overhauls at once (e.g. two perk sets or two "
+				   "combat styles' spells), which makes it stronger or behave in ways neither mod meant.";
 		case Category::kNpcFace:
-			return "An NPC's face and race are taken from the last mod that changed them. That mod's face files (FaceGen) must win in your "
-				   "mod order too, or the face turns dark or wrong.";
+			return "The face must match the face files (FaceGen) the game loads for that NPC, which come from your mod order, not the "
+				   "plugin order. If the mod whose face is taken does not also win the FaceGen files, the face turns dark or wrong.";
 		case Category::kNpcValues:
-			return "NPC stats, AI, skills, outfits and the like are taken value by value from the last mod that changed each. Mods meant "
-				   "to work as a set (e.g. a combat overhaul's stats) can end up mixed.";
-		case Category::kItemValues: return "Value, weight, damage, armour rating and costs, value by value from the last mod that changed each.";
+			return "Values are taken one by one from different mods. Mods meant to work as a set (e.g. a combat overhaul's levels, "
+				   "stats and AI) can end up mixed with another mod's values.";
+		case Category::kItemValues:
+			return "Safe as a rule: each value is the last change made to it. Balance mods meant as a set can be mixed with another "
+				   "mod's values, as with the NPC values.";
 		case Category::kEffects:
-			return "A potion's, ingredient's, scroll's or spell's effects are taken as one list from the last mod that changed them. Safe "
-				   "unless two mods each changed different effects.";
-		case Category::kNames: return "Names, descriptions and editor IDs from the last mod that changed them (e.g. typo fixes). Safe.";
-		case Category::kModels: return "Models and icons from the last mod that changed them. Safe.";
+			return "The effects are one list from one mod: if two mods each changed different effects of the same potion or spell, only "
+				   "the later mod's list is kept.";
+		case Category::kNames: return "Safe: names, descriptions and editor IDs do not change how anything works.";
+		case Category::kModels:
+			return "Safe as a rule. A model from one mod with textures from another can look wrong if the other mod's meshes are not "
+				   "installed; body slots decide what can be worn together.";
 		case Category::kScripts:
-			return "Scripts attached to a record, with their properties, are taken from the last mod that changed them. If two mods each "
-				   "add their own script to the same record, only one keeps it: check those records.";
+			return "Two mods that each add their own script to the same record cannot both keep it: only the later mod's scripts stay, "
+				   "and the other mod's feature on that record stops working. Check these records.";
 		case Category::kCellLighting:
-			return "A cell's lighting (and lighting template) from the last mod that changed it, as one set. Fine when that is your lighting "
-				   "mod; if a mod that only meant to change something else carries old lighting and loads later, it wins.";
+			return "The lighting of the last mod that changed it wins. Fine when that is your lighting mod; if a mod that only meant to "
+				   "change something else carries old lighting and loads later, its lighting wins.";
 		case Category::kCellWater:
-			return "A cell's water height, type and currents from the last mod that changed them, as one set. A wrong water height floods "
-				   "or empties an area: check cells two water mods touch.";
-		case Category::kCellRegions: return "The regions each mod added to or removed from a cell are kept (weather, sounds, map names).";
+			return "A wrong water height floods an area or leaves it dry. Check cells that two water or city mods change.";
+		case Category::kCellRegions: return "Regions every mod added stay. A cell in two regions gets weather and sounds from both.";
 		case Category::kCellOther:
-			return "A cell's location, owner, encounter zone, music, acoustics, image space and flags, each from the last mod that changed "
-				   "it. Location and encounter zone drive quests, crime and respawns: merging two mods' settings can be what neither "
-				   "meant. Check these cells.";
-		default: return "Anything else, from the last mod that changed it.";
+			return "Location and encounter zone drive quests, crime, respawning and leveled enemies; owner decides what counts as "
+				   "stealing. Mixing two mods' settings can be what neither meant. Check these cells.";
+		case Category::kRenumberFix:
+			return "Points broken references at the forms they were meant for. A pairing is only used when it is the same everywhere.";
+		default: return "";
 		}
 	}
 

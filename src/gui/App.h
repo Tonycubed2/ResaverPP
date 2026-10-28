@@ -478,7 +478,7 @@ private:
 		kMcm, kHavok, kPurify, kBatch, kPurge,
 		kPlayer, kActors, kTransplant, kLookup,
 		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex,
-		kLeftovers, kHistory, kPapyrusLog, kSavesMgr
+		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	void        drawHome();            // the shortcut buttons
