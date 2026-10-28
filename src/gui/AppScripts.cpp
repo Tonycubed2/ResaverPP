@@ -1591,6 +1591,14 @@ void App::openNewestAtStart()
 			}
 		}
 	}
+	if (startupLog) {
+		std::string where;
+		for (const auto& d : dirs) {
+			where += (where.empty() ? "" : "; ") + platform::ToUtf8(d);
+		}
+		startupLog("newest save: looked in " + (where.empty() ? std::string("(no folder)") : where) + ": " +
+				   (best.empty() ? std::string("none found") : platform::ToUtf8(best)));
+	}
 	if (!best.empty()) {
 		openAny(best);
 	} else {

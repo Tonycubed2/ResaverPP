@@ -132,7 +132,8 @@ namespace ess::cf
 
 	std::vector<std::uint8_t> Body(const ChangeForm& a_cf);                        // decompressed
 	void                      SetBody(ChangeForm& a_cf, const std::vector<std::uint8_t>& a_body);  // recompresses if it was compressed
-	Decoded                   Decode(const SaveFile& a_save, const ChangeForm& a_cf, const TypeLookup& a_types = {});
+	// a_inventoryOnly: stop once the inventory (and its charged items) is read; much faster for actors, whose AI data follows
+	Decoded                   Decode(const SaveFile& a_save, const ChangeForm& a_cf, const TypeLookup& a_types = {}, bool a_inventoryOnly = false);
 	std::vector<std::string>  FlagNames(std::uint8_t a_type, std::uint32_t a_flags);
 
 	// Removes one part of a change form: clears its change flag and cuts out the data that flag holds,

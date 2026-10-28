@@ -330,6 +330,7 @@ int RunApp(int argc, char** argv)
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
 		return tex;
 	};
+	app.startupLog = [](const std::string& a_line) { Log(a_line); };
 	app.freeTexture = [](std::uint64_t t) {
 		GLuint tex = static_cast<GLuint>(t);
 		glDeleteTextures(1, &tex);
@@ -475,6 +476,7 @@ int RunApp(int argc, char** argv)
 	ImGui::DestroyContext();
 	glfwDestroyWindow(window);
 	glfwTerminate();
+	Log("last status: " + app.statusLine());
 	Step("closed normally");
 	return 0;
 }

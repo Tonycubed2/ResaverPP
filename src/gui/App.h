@@ -192,6 +192,9 @@ public:
 	// set by main.cpp: uploads RGBA pixels, returns an ImTextureID-compatible handle
 	std::function<std::uint64_t(const std::uint8_t*, int, int)> uploadTexture;
 	std::function<void(std::uint64_t)>                          freeTexture;
+	// a line for the start-up log (ReSaverPP-startup.log): what was opened and how long it took, for reports
+	std::function<void(const std::string&)>                     startupLog;
+	std::string                                                 statusLine() const { return _error.empty() ? _status : _status + "  |  error: " + _error; }
 
 	// Save check (AppCheck.cpp): how likely something is to break the game
 	enum class Risk

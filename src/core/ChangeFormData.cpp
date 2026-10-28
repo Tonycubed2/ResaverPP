@@ -32,6 +32,10 @@ namespace ess::cf
 		};
 
 		// ---- tree-building reader ----------------------------------------------------------
+		struct InventoryRead  // thrown to stop decoding once the inventory is read (Decode's a_inventoryOnly)
+		{
+		};
+
 		class P
 		{
 		public:
@@ -43,6 +47,7 @@ namespace ess::cf
 
 			Reader r;
 			std::uint8_t                 version = 0;  // the change form's version (some fields depend on it)
+			bool                         inventoryOnly = false;  // stop once the inventory is read (see Decode)
 			std::set<std::uint64_t>      pathIDs;      // pathing stream objects already read in this change form
 
 			// one change flag's data: where it starts and ends in the body
@@ -962,6 +967,9 @@ namespace ess::cf
 			}
 			if (Bit(flags, 5) || Bit(flags, 27)) {
 				Inventory(p);
+				if (p.inventoryOnly) {
+					throw InventoryRead{};
+				}
 			}
 			// ReSaver reads a separate promotion list here; SE saves keep it in the PromotedRef extra
 			// data instead (checked against real saves), so there is no list to read.
@@ -3288,6 +3296,9 @@ namespace ess::cf
 			} else if (Bit(flags, 5) || Bit(flags, 27)) {
 				Inventory(p);
 			}
+			if (p.inventoryOnly) {
+				throw InventoryRead{};  // the actor's own data (AI, movement...) is the slow part, and not needed
+			}
 			if (Bit(flags, 28)) {
 				p.section(28, [&] { p.bytesVS("ANIMATIONS"); });
 			}
@@ -3552,7 +3563,7 @@ namespace ess::cf
 		}
 	}
 
-	Decoded Decode(const SaveFile& a_save, const ChangeForm& a_cf, const TypeLookup& a_types)
+	Decoded Decode(const SaveFile& a_save, const ChangeForm& a_cf, const TypeLookup& a_types, bool a_inventoryOnly)
 	{
 		Decoded out;
 		out.root.label = ChangeFormTypeName(a_cf.typeCode());
@@ -3566,6 +3577,8 @@ namespace ess::cf
 		out.bodySize = body.size();
 		P          p(a_save, body, a_types, out);
 		p.version = a_cf.version;
+		p.inventoryOnly = a_inventoryOnly;
+		bool stoppedEarly = false;
 		const auto flags = a_cf.changeFlags;
 		const auto t = static_cast<ChangeFormType>(a_cf.typeCode());
 		out.supported = true;
@@ -3601,10 +3614,15 @@ namespace ess::cf
 				out.supported = false;
 				break;
 			}
+		} catch (const InventoryRead&) {
+			stoppedEarly = true;
 		} catch (const std::exception& e) {
 			out.error = e.what();
 		}
 		out.consumed = p.r.pos();
+		if (stoppedEarly) {
+			return out;  // only the inventory was wanted
+		}
 		if (out.supported && out.error.empty() && p.r.remaining()) {
 			out.error = Fmt("%zu byte(s) at the end were not decoded", p.r.remaining());
 		}
@@ -3906,7 +3924,7 @@ namespace ess::cf
 			if ((t != ChangeFormType::REFR && t != ChangeFormType::ACHR) || !((c.changeFlags >> 5) & 1 || (c.changeFlags >> 27) & 1)) {
 				continue;  // no inventory in this change form
 			}
-			const auto d = Decode(a_save, c);
+			const auto d = Decode(a_save, c, {}, true);
 			for (const auto& e : d.charged) {
 				out.push_back({ c.refID.data, c.refID.isZero() ? 0 : a_save.formIDOf(c.refID), e });
 			}
@@ -4704,7 +4722,7 @@ namespace ess::cf
 			if ((t != ChangeFormType::REFR && t != ChangeFormType::ACHR) || !(Bit(c.changeFlags, 5) || Bit(c.changeFlags, 27))) {
 				continue;
 			}
-			const auto d = Decode(a_save, c);
+			const auto d = Decode(a_save, c, {}, true);
 			if (d.inventory.empty()) {
 				continue;
 			}

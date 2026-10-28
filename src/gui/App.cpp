@@ -100,6 +100,8 @@ namespace
 void App::open(const std::filesystem::path& a_path)
 {
 	++_editGen;
+	const auto t0 = std::chrono::steady_clock::now();
+	auto       ms = [&] { return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count(); };
 	try {
 		auto s = SaveFile::load(a_path);
 		if (!s->papyrus()) {
@@ -164,6 +166,10 @@ void App::open(const std::filesystem::path& a_path)
 		// known when the scan of the mods is done; that can take a while inside Mod Organizer)
 		checkMissingPlugins();
 		_status = "Loaded " + platform::ToUtf8(a_path.filename());
+		if (startupLog) {
+			startupLog("opened " + platform::ToUtf8(a_path) + " in " + std::to_string(ms()) + " ms; mods folder: " +
+					   (_sourcesPath.empty() ? std::string("(not set)") : _sourcesPath) + (scanning() ? " (reading it now)" : ""));
+		}
 		// a save whose structure does not add up may not be written back faithfully: look, don't save
 		_readOnly = !_save->problems.empty();
 		if (_readOnly) {
@@ -177,6 +183,9 @@ void App::open(const std::filesystem::path& a_path)
 		_showCheck = _checkOnOpen || _readOnly;  // everything noticed about the save, in one window
 	} catch (const std::exception& e) {
 		_error = std::string("Could not open ") + platform::ToUtf8(a_path.filename()) + ":\n\n" + e.what();
+		if (startupLog) {
+			startupLog("could not open " + platform::ToUtf8(a_path) + ": " + e.what());
+		}
 	}
 }
 
