@@ -1835,6 +1835,17 @@ namespace ess::merge
 						_res.skipped.push_back(label + ": a plugin deletes it");
 						continue;
 					}
+					// a partial form (record flag 0x4000, cells and some other types) holds only some of the record: the game
+					// fills in the rest from the version before it. Merged as a whole record, what it leaves out would look
+					// removed, and a patch built on it may not hold more than it does.
+					bool partial = false;
+					for (const auto& v : vs) {
+						partial = partial || (v.rec.flags & 0x4000);
+					}
+					if (partial && (Is(win.rec.sig, "CELL") || Is(win.rec.sig, "WRLD"))) {
+						_res.skipped.push_back(label + ": a plugin's version is a partial form (the game combines those itself)");
+						continue;
+					}
 					std::vector<CRec> cv;
 					std::string       err;
 					std::size_t       winFixes = 0;
