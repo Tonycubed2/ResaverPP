@@ -235,6 +235,14 @@ void App::drawMergedPatch()
 				ImGui::BulletText("%s", s.c_str());
 			}
 		}
+		if (!r.fixes.empty() && ImGui::CollapsingHeader(Fmt("Broken references the patch fixes (%zu)###fixes", r.fixes.size()).c_str(),
+									  ImGuiTreeNodeFlags_DefaultOpen)) {
+			for (const auto& s : r.fixes) {
+				ImGui::PushStyleColor(ImGuiCol_Text, theme::Good());
+				ImGui::BulletText("%s", s.c_str());
+				ImGui::PopStyleColor();
+			}
+		}
 		if (!r.warnings.empty() && ImGui::CollapsingHeader(Fmt("Problems in your load order (%zu)###warnings", r.warnings.size()).c_str(),
 										 ImGuiTreeNodeFlags_DefaultOpen)) {
 			for (const auto& s : r.warnings) {

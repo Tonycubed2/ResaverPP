@@ -79,6 +79,7 @@ namespace ess::merge
 		std::vector<std::string>  skipped;  // records with conflicts that could not be merged, and why
 		std::vector<std::string>  missing;  // plugins of the load order whose file was not found
 		std::vector<std::string>  warnings;  // problems of the load order itself, found while reading it
+		std::vector<std::string>  fixes;     // problems of the load order the patch fixes
 		std::size_t               pluginsRead = 0, recordsRead = 0, conflicts = 0;
 
 		std::string report() const;

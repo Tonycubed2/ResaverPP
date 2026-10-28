@@ -512,6 +512,27 @@ namespace
 		Check(np && list(np, "SNAM", 0) == std::vector<std::uint32_t>{ 0x960, 0x961 } && list(np, "SPLO", 0) == std::vector<std::uint32_t>{ 0x970, 0x971 } &&
 				  list(np, "SPCT", 0) == std::vector<std::uint32_t>{ 2 },
 			"merge: NPC gets ModA's faction and ModB's spell");
+		// a plugin made for an uncompacted light master: Hair.esp points at Light.esp's head part by its old number 0x1810;
+		// Light.esp's own version of the NPC shows the new number 0x810 at the same place
+		auto npc2 = [](std::uint32_t a_part) {
+			return MR("NPC_", 0x800, { MS("EDID", { 'N', 0 }), MS("ACBS", std::vector<std::uint8_t>(24, 0)), MS("RNAM", U32v({ 0x980 })),
+				MS("DATA", {}), MS("PNAM", U32v({ a_part })) });
+		};
+		save("Light.esp", merge::WritePlugin({ "Base.esm" }, 0x200, { MR("MISC", 0x01000810, { MS("EDID", { 'H', 0 }) }), npc2(0x01000810) }));
+		save("Hair.esp", merge::WritePlugin({ "Base.esm", "Light.esp" }, 0x200, { npc2(0x01001810) }));
+		merge::Options o2;
+		o2.loadOrder = { "Base.esm", "Light.esp", "Hair.esp" };
+		o2.findPlugin = o.findPlugin;
+		const auto r2 = merge::Build(o2);
+		save("Patch2.esp", r2.file);
+		const auto pf2 = merge::ReadPlugin(dir / "Patch2.esp");
+		const merge::Record* n2 = nullptr;
+		for (const auto& rec : pf2.records) {
+			if (std::memcmp(rec.sig, "NPC_", 4) == 0) n2 = &rec;
+		}
+		Check(r2.ok && r2.fixes.size() == 1 && r2.warnings.empty() && n2 && list(n2, "PNAM", 0) == std::vector<std::uint32_t>{ 0x01000810 } &&
+				  pf2.masters == std::vector<std::string>{ "Base.esm", "Light.esp" },
+			"merge: a reference to a compacted light master's old number is pointed at its new number");
 		fs::remove_all(dir);
 	}
 }

@@ -717,6 +717,7 @@ namespace ess::merge
 					_res.error = "cancelled";
 					return;
 				}
+				learnRenumbering();
 				merge();
 				if (cancelled()) {
 					_res.error = "cancelled";
@@ -874,7 +875,7 @@ namespace ess::merge
 			}
 
 			// the comparable form of one version of a record; nullopt (with a reason) if it cannot be read safely
-			std::optional<CRec> canon(const Ver& v, std::string& err)
+			std::optional<CRec> canon(const Ver& v, std::string& err, std::size_t* a_remapped = nullptr)
 			{
 				CRec c;
 				std::memcpy(c.sig, v.rec.sig, 4);
@@ -996,13 +997,25 @@ namespace ess::merge
 							return std::nullopt;
 						}
 						std::memset(cs.data.data() + o, 0, 4);
-						cs.ids.push_back({ o, k });
-						if (k && (k & 0xFFFFFF) > 0xFFF) {
+						auto fixedKey = k;
+						if (k && (k & 0xFFFFFF) > 0xFFF && !_learning) {
 							const int target = static_cast<int>(k >> 32) - 1;
 							if (target != v.plugin && _plugins[target].light) {
-								++_badLight[{ v.plugin, target }];
+								// a light plugin has no forms above 0xFFF: an old number from before it was compacted
+								const auto obj = static_cast<std::uint32_t>(k & 0xFFFFFF);
+								auto it = _remap.find({ target, obj });
+								if (it != _remap.end()) {
+									fixedKey = (k & ~std::uint64_t(0xFFFFFF)) | it->second;
+									_fixed[{ v.plugin, target }].insert(obj);
+									if (a_remapped) {
+										++*a_remapped;
+									}
+								} else {
+									_badLight[{ v.plugin, target }].insert(obj);
+								}
 							}
 						}
+						cs.ids.push_back({ o, fixedKey });
 					}
 					c.subs.push_back(std::move(cs));
 				}
@@ -1179,6 +1192,60 @@ namespace ess::merge
 				return {};
 			}
 
+			// A plugin made for an older version of a light master points at its forms by their old numbers. Where
+			// it overrides a record the master also has, the same place in both versions shows the old number and
+			// the new one (Bijin AIO - Hair Physics.esp and Bijin AIO.esp: each NPC's head parts). Only numbers
+			// that always pair with the same new number are used.
+			void learnRenumbering()
+			{
+				std::map<std::pair<int, std::uint32_t>, std::set<std::uint32_t>> votes;
+				_learning = true;
+				for (const auto k : _order) {
+					if (cancelled()) {
+						break;
+					}
+					const auto& vs = _versions[k];
+					for (std::size_t i = 1; i < vs.size(); ++i) {
+						const auto& P = _plugins[vs[i].plugin];
+						for (std::size_t j = 0; j < i; ++j) {
+							const int m = vs[j].plugin;
+							if (!_plugins[m].light || !P.masterSet.contains(m)) {
+								continue;
+							}
+							std::string err;
+							auto a = canon(vs[i], err), b = canon(vs[j], err);
+							if (!a || !b) {
+								continue;
+							}
+							std::map<std::string, std::vector<const CSub*>> bs;
+							for (const auto& sb : b->subs) bs[Sig(sb.sig)].push_back(&sb);
+							std::map<std::string, std::size_t> seen;
+							for (const auto& sa : a->subs) {
+								const auto  sig = Sig(sa.sig);
+								const auto  n = seen[sig]++;
+								const auto& list = bs[sig];
+								if (n >= list.size() || list[n]->ids.size() != sa.ids.size()) {
+									continue;
+								}
+								for (std::size_t t = 0; t < sa.ids.size(); ++t) {
+									const auto ka = sa.ids[t].second, kb = list[n]->ids[t].second;
+									if (ka && kb && (ka >> 32) == static_cast<std::uint64_t>(m + 1) && (kb >> 32) == (ka >> 32) &&
+										(ka & 0xFFFFFF) > 0xFFF && (kb & 0xFFFFFF) <= 0xFFF) {
+										votes[{ m, static_cast<std::uint32_t>(ka & 0xFFFFFF) }].insert(static_cast<std::uint32_t>(kb & 0xFFFFFF));
+									}
+								}
+							}
+						}
+					}
+				}
+				_learning = false;
+				for (const auto& [old, news] : votes) {
+					if (news.size() == 1) {
+						_remap[old] = *news.begin();
+					}
+				}
+			}
+
 			void merge()
 			{
 				if (_progress) {
@@ -1193,11 +1260,35 @@ namespace ess::merge
 					if (_progress) ++_progress->done;
 					auto& vs = _versions[k];
 					const int definer = static_cast<int>(k >> 32) - 1;
-					if (vs.size() < 3 || vs.front().plugin != definer) {
-						continue;  // fewer than two overrides (or its own plugin is not loaded): nothing to merge
+					if (vs.front().plugin != definer) {
+						continue;  // its own plugin is not loaded
 					}
 					const auto& win = vs.back();
 					const std::string label = Sig(win.rec.sig) + " " + edidOf(win.rec) + " [" + idText(k) + "]";
+					// only one version that counts: nothing to merge, but its references to renumbered forms can be fixed
+					auto fixOnly = [&] {
+						if (_remap.empty() || (win.rec.flags & 0x20)) {
+							return;
+						}
+						std::string err;
+						std::size_t n = 0;
+						auto        c = canon(win, err, &n);
+						if (!c || !n) {
+							return;
+						}
+						MergedRecord mr;
+						mr.type = Sig(win.rec.sig);
+						mr.edid = edidOf(win.rec);
+						mr.id = idText(k);
+						mr.winner = _plugins[win.plugin].name;
+						mr.changes.push_back("fixed " + std::to_string(n) + " reference(s) to renumbered forms of a compacted plugin");
+						_patched.push_back({ k, std::move(*c) });
+						_res.merged.push_back(std::move(mr));
+					};
+					if (vs.size() < 3) {
+						fixOnly();
+						continue;
+					}
 					// all overrides the same? then there is no conflict
 					bool differ = false;
 					for (std::size_t i = 2; i < vs.size() && !differ; ++i) {
@@ -1207,6 +1298,7 @@ namespace ess::merge
 								   }));
 					}
 					if (!differ) {
+						fixOnly();
 						continue;
 					}
 					++_res.conflicts;
@@ -1220,8 +1312,10 @@ namespace ess::merge
 					}
 					std::vector<CRec> cv;
 					std::string       err;
-					for (const auto& v : vs) {
-						auto c = canon(v, err);
+					std::size_t       winFixes = 0;
+					for (std::size_t vi = 0; vi < vs.size(); ++vi) {
+						const auto& v = vs[vi];
+						auto c = canon(v, err, vi + 1 == vs.size() ? &winFixes : nullptr);
 						if (!c) {
 							break;
 						}
@@ -1237,6 +1331,9 @@ namespace ess::merge
 					mr.edid = edidOf(win.rec);
 					mr.id = idText(k);
 					mr.winner = _plugins[win.plugin].name;
+					if (winFixes) {
+						mr.changes.push_back("fixed " + std::to_string(winFixes) + " reference(s) to renumbered forms of a compacted plugin");
+					}
 					bool failed = false;
 					for (const auto& sp : Lists(win.rec.sig)) {
 						auto list = entries(patch, sp);
@@ -1268,7 +1365,7 @@ namespace ess::merge
 						_res.skipped.push_back(label + ": " + err);
 						continue;
 					}
-					if (SameSubs(patch, cv.back())) {
+					if (SameSubs(patch, cv.back()) && !winFixes) {
 						continue;  // the winning override already has everything
 					}
 					_patched.push_back({ k, std::move(patch) });
@@ -1298,11 +1395,16 @@ namespace ess::merge
 						}
 					}
 				}
-				for (const auto& [pt, n] : _badLight) {
-					_res.warnings.push_back(_plugins[pt.first].name + " points " + std::to_string(n) + " time(s) at forms of " + _plugins[pt.second].name +
+				for (const auto& [pt, olds] : _fixed) {
+					_res.fixes.push_back(_plugins[pt.first].name + " was made for an older version of " + _plugins[pt.second].name +
+										 ", before it was compacted: " + std::to_string(olds.size()) +
+										 " of its references to it used old form numbers. The patch points them at the same forms' new numbers.");
+				}
+				for (const auto& [pt, olds] : _badLight) {
+					_res.warnings.push_back(_plugins[pt.first].name + " points at " + std::to_string(olds.size()) + " form(s) of " + _plugins[pt.second].name +
 											" numbered above 0xFFF, but " + _plugins[pt.second].name + " is light (ESL) and has no such forms: " +
-											_plugins[pt.first].name + " was made for an older, uncompacted version of it. Those references are "
-											"broken in your game with or without the patch; the patch keeps them as they are.");
+											_plugins[pt.first].name + " was made for an older, uncompacted version of it, and the new numbers "
+											"could not be worked out for these. They stay broken, with or without the patch.");
 				}
 				if (lo.size() > 254) {
 					_res.error = "the patch would need " + std::to_string(lo.size()) + " masters; a plugin can have at most 254";
@@ -1359,7 +1461,11 @@ namespace ess::merge
 			std::vector<std::uint64_t>                       _order;  // record keys in the order first seen
 			std::unordered_set<std::uint64_t>                _npcs;
 			std::vector<std::pair<std::uint64_t, CRec>>      _patched;
-			std::map<std::pair<int, int>, std::size_t>      _badLight;  // (plugin, light master) -> references above 0xFFF
+			// references to light (ESL) masters numbered above 0xFFF: old numbers from before the master was compacted.
+			// (plugin, light master) -> the old numbers, fixed or not
+			std::map<std::pair<int, int>, std::set<std::uint32_t>> _badLight, _fixed;
+			std::map<std::pair<int, std::uint32_t>, std::uint32_t> _remap;  // (light master, old number) -> its number now
+			bool                                             _learning = false;
 		};
 	}
 
@@ -1408,6 +1514,11 @@ namespace ess::merge
 		o << pluginsRead << " plugins read, " << recordsRead << " records of the merged types.\n";
 		o << conflicts << " records are changed differently by two or more plugins.\n";
 		o << merged.size() << " of them were merged into the patch; " << skipped.size() << " could not be merged (the winning plugin's version stays).\n\n";
+		if (!fixes.empty()) {
+			o << "Broken references fixed by the patch:\n";
+			for (const auto& w : fixes) o << "  " << w << "\n";
+			o << "\n";
+		}
 		if (!warnings.empty()) {
 			o << "Problems in the load order itself (not caused by the patch):\n";
 			for (const auto& w : warnings) o << "  " << w << "\n";
