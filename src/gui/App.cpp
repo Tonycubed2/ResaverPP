@@ -890,6 +890,9 @@ void App::draw()
 	if (_showSavesMgr) {
 		drawSavesManager();
 	}
+	if (_showMerge) {
+		drawMergedPatch();
+	}
 	if (_showCompare && _save) {
 		drawCompare();
 	}
@@ -1078,6 +1081,11 @@ void App::drawMenu()
 			shortcut(Sc::kSavesMgr);
 		}
 		tips::Tip("All saves by character with size and date; delete old ones (with their .skse files) in bulk.");
+		if (ImGui::MenuItem("Merged patch (combine mod conflicts)...", nullptr, &_showMerge)) {
+			_homePanel = false;
+		}
+		tips::Tip("Read every plugin in your load order and build one patch that combines the changes of mods that edit the same "
+				  "leveled lists, containers, NPCs, keywords, form lists and outfits.");
 		if (ImGui::MenuItem("Analyze arrays block...", nullptr, &_showArrays)) {
 			_arraysDirty = true;
 			_homePanel = false;

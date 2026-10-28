@@ -10,6 +10,8 @@
 #include "core/PluginDB.h"
 
 #include <chrono>
+#include "core/LoadOrder.h"
+#include "core/MergedPatch.h"
 #include "core/Mods.h"
 #include "core/Ops.h"
 #include "core/ScriptSources.h"
@@ -38,6 +40,8 @@ static void Usage()
 		"usage: resaverpp-cli <save.ess> [actions] [-o <out.ess>]\n"
 		"       resaverpp-cli <script.pex>       disassemble a compiled script\n"
 		"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
+		"       resaverpp-cli --merged-patch <out.esp> --sources <mods folder> [--profile <folder>] [--game <folder>]\n"
+		"                 build a merged patch of the profile's load order (a report is written next to it)\n"
 		"\n"
 		"  (no action)               print the analysis report\n"
 		"  --purge-script <name>     delete every thread, suspended stack, message and instance of a script\n"
@@ -120,6 +124,77 @@ static bool _stricmp_portable(const std::string& a_a, const std::string& a_b)
 	});
 }
 
+// resaverpp-cli --merged-patch <out.esp> --sources <mods> [--profile <dir>] [--game <dir>] [--plugins-txt <file>] [--language <lang>]
+static int MergedPatchMain(int argc, char** argv)
+{
+	if (argc < 3) {
+		Usage();
+		return 1;
+	}
+	const std::filesystem::path out = argv[2];
+	std::filesystem::path       mods, profile, game, pluginsTxt, overwrite;
+	std::string                 language = "english";
+	for (int i = 3; i < argc; ++i) {
+		const std::string a = argv[i];
+		auto              next = [&]() -> std::string {
+            if (i + 1 >= argc) {
+                std::fprintf(stderr, "missing value after %s\n", a.c_str());
+                std::exit(1);
+            }
+            return argv[++i];
+		};
+		if (a == "--sources") mods = next();
+		else if (a == "--profile") profile = next();
+		else if (a == "--game") game = next();
+		else if (a == "--plugins-txt") pluginsTxt = next();
+		else if (a == "--overwrite") overwrite = next();
+		else if (a == "--language") language = next();
+		else {
+			std::fprintf(stderr, "unknown option %s\n", a.c_str());
+			return 1;
+		}
+	}
+	if (mods.empty()) {
+		std::fprintf(stderr, "--sources <MO2 mods folder or game Data folder> is needed\n");
+		return 1;
+	}
+	if (auto mo2 = FindMo2Instance(mods)) {
+		if (profile.empty()) profile = mo2->profilesDir / mo2->selectedProfile;
+		if (overwrite.empty()) overwrite = mo2->overwriteDir;
+		if (game.empty()) game = mo2->gamePath;
+	}
+	if (pluginsTxt.empty()) {
+		pluginsTxt = profile.empty() ? loadorder::GamePluginsTxt() : profile / "plugins.txt";
+	}
+	const auto order = profile.empty() ? std::vector<std::string>{} : LoadModList(profile);
+	ScriptSources src;
+	const auto    t0 = std::chrono::steady_clock::now();
+	src.scan(mods, order.empty() ? nullptr : &order, overwrite, game.empty() ? std::filesystem::path{} : game / "Data");
+	std::printf("scanned %zu mod folders, %zu strings files\n", src.modsScanned, src.stringsFiles.size());
+	merge::Options opt;
+	opt.loadOrder = merge::ReadLoadOrder(pluginsTxt, game);
+	opt.language = language;
+	opt.patchName = out.filename().string();
+	merge::UseSources(opt, src);
+	std::printf("load order: %zu plugins (%s)\n", opt.loadOrder.size(), pluginsTxt.string().c_str());
+	const auto r = merge::Build(opt);
+	const auto secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+	if (!r.ok) {
+		std::fprintf(stderr, "error: %s\n", r.error.c_str());
+		return 2;
+	}
+	{
+		std::ofstream f(out, std::ios::binary);
+		f.write(reinterpret_cast<const char*>(r.file.data()), static_cast<std::streamsize>(r.file.size()));
+	}
+	auto rep = out;
+	rep.replace_extension(".txt");
+	std::ofstream(rep) << r.report();
+	std::printf("%zu plugins read, %zu conflicting records, %zu merged, %zu not merged, %zu masters; %.1f s\nwrote %s and %s\n", r.pluginsRead,
+		r.conflicts, r.merged.size(), r.skipped.size(), r.masters.size(), secs, out.string().c_str(), rep.string().c_str());
+	return 0;
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 2 || !std::strcmp(argv[1], "-h") || !std::strcmp(argv[1], "--help")) {
@@ -149,6 +224,9 @@ int main(int argc, char** argv)
 				return 2;
 			}
 		}
+	}
+	if (std::string(argv[1]) == "--merged-patch") {
+		return MergedPatchMain(argc, argv);
 	}
 	std::vector<std::string> purge;
 	bool                     fixMcm = false, delForms = false, keepInst = false, unattached = false, undefined = false, termUndef = false, nonexist = false;

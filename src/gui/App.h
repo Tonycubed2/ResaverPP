@@ -7,6 +7,7 @@
 #include "core/ChangeFormData.h"
 #include "core/Compare.h"
 #include "core/Extras.h"
+#include "core/MergedPatch.h"
 #include "core/LoadOrder.h"
 #include "core/ModRemove.h"
 #include "core/Orphans.h"
@@ -102,6 +103,8 @@ public:
 			_showPapyrusLog = true;
 		} else if (w == "saves") {
 			_showSavesMgr = true;
+		} else if (w == "merge") {
+			_showMerge = true;
 		} else if (w == "actors") {
 			_showActors = true;
 		} else if (w == "player") {
@@ -479,6 +482,7 @@ private:
 	void        drawActors();
 	// leftover items, save history, Papyrus log, saves folder (AppExtras.cpp)
 	void        drawLeftovers();
+	void        drawMergedPatch();
 	void        drawHistory();
 	void        drawPapyrusLog();
 	void        drawSavesManager();
@@ -510,6 +514,15 @@ private:
 	std::vector<char>          _saveSel;
 	int                        _keepNewest = 5;
 	std::string                _savesCharFilter;
+	// merged patch
+	bool                                   _showMerge = false;
+	std::thread                            _mergeThread;
+	std::unique_ptr<ess::merge::Progress>  _mergeProgress;
+	std::unique_ptr<ess::merge::Result>    _mergeResult, _mergeIncoming;
+	std::atomic<bool>                      _mergeBusy{ false };
+	std::string                            _mergeSaved;  // where the last patch was written
+	std::size_t                            _mergeLoadOrder = 0;
+	bool                                   _mergeWaitScan = false;  // build once the mods scan is done
 	void        drawCfNode(const ess::cf::Node& n, int a_depth, int a_index);
 	void        detailChangeFormDecoded(const ess::ChangeForm& c);
 	void        actorFixes(const ess::ChangeForm& c, const ess::cf::Decoded& d);
