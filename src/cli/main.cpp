@@ -187,6 +187,9 @@ static int MergedPatchMain(int argc, char** argv)
 		std::ofstream f(out, std::ios::binary);
 		f.write(reinterpret_cast<const char*>(r.file.data()), static_cast<std::streamsize>(r.file.size()));
 	}
+	for (const auto& w : r.warnings) {
+		std::printf("warning: %s\n", w.c_str());
+	}
 	auto rep = out;
 	rep.replace_extension(".txt");
 	std::ofstream(rep) << r.report();

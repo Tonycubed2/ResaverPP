@@ -216,7 +216,7 @@ namespace ess::merge
 	}
 
 	std::vector<std::uint8_t> WritePlugin(const std::vector<std::string>& a_masters, std::uint32_t a_headerFlags,
-		const std::vector<Record>& a_records, const std::string& a_author, const std::string& a_desc)
+		const std::vector<Record>& a_records, const std::string& a_author, const std::string& a_desc, float a_hedrVersion)
 	{
 		// group the records by type, groups in the game's order
 		std::map<int, std::pair<std::string, std::vector<const Record*>>> groups;
@@ -263,7 +263,7 @@ namespace ess::merge
 		{
 			Sub hedr;
 			std::memcpy(hedr.sig, "HEDR", 4);
-			const float ver = 1.7f;
+			const float ver = a_hedrVersion;
 			std::uint32_t vb;
 			std::memcpy(&vb, &ver, 4);
 			Put32(hedr.data, vb);
@@ -380,6 +380,30 @@ namespace ess::merge
 			add(e);
 		}
 		return out;
+	}
+
+	namespace
+	{
+		// records of the plugin itself (not overrides) numbered above 0xFFF, every group, headers only
+		std::size_t CountLightOverflow(const std::filesystem::path& a_file, std::uint32_t a_masters)
+		{
+			std::ifstream f(a_file, std::ios::binary);
+			std::uint8_t  h[24];
+			if (!f.read(reinterpret_cast<char*>(h), 24)) {
+				return 0;
+			}
+			f.seekg(U32(h + 4), std::ios::cur);
+			std::size_t over = 0;
+			while (f.read(reinterpret_cast<char*>(h), 24)) {
+				if (std::memcmp(h, "GRUP", 4) == 0) {
+					continue;  // step into the group
+				}
+				const auto id = U32(h + 12);
+				over += (id >> 24) >= a_masters && (id & 0xFFFFFF) > 0xFFF ? 1 : 0;
+				f.seekg(U32(h + 4), std::ios::cur);
+			}
+			return over;
+		}
 	}
 
 	// ======================================================================================
@@ -567,7 +591,7 @@ namespace ess::merge
 		struct PInfo
 		{
 			std::string           name;
-			bool                  found = false, localized = false;
+			bool                  found = false, localized = false, light = false;
 			std::vector<int>      masterLo;  // load order index of each master (-1: not loaded)
 			std::set<int>         masterSet;
 			bool                  stringsLoaded = false;
@@ -770,6 +794,7 @@ namespace ess::merge
 					}
 					p.found = true;
 					p.localized = pf.flags & 0x80;
+					p.light = pf.flags & 0x200;
 					for (const auto& m : pf.masters) {
 						auto it = index.find(Lower(m));
 						const int lo = it == index.end() || it->second >= static_cast<int>(i) ? -1 : it->second;
@@ -779,6 +804,15 @@ namespace ess::merge
 						}
 					}
 					++_res.pluginsRead;
+					if (pf.flags & 0x200) {
+						// a light plugin can only number its own forms 0x000-0xFFF; the game cuts higher ones short
+						const auto over = CountLightOverflow(*path, static_cast<std::uint32_t>(pf.masters.size()));
+						if (over) {
+							_res.warnings.push_back(p.name + " is flagged light (ESL) but numbers " + std::to_string(over) +
+													" of its own forms above 0xFFF. The game cuts those IDs short, so they point at "
+													"other forms or at nothing; the mod needs compacting in SSEEdit, or the ESL flag removed.");
+						}
+					}
 					for (auto& r : pf.records) {
 						bool ok;
 						const auto k = key(static_cast<int>(i), r.formID, ok);
@@ -963,6 +997,12 @@ namespace ess::merge
 						}
 						std::memset(cs.data.data() + o, 0, 4);
 						cs.ids.push_back({ o, k });
+						if (k && (k & 0xFFFFFF) > 0xFFF) {
+							const int target = static_cast<int>(k >> 32) - 1;
+							if (target != v.plugin && _plugins[target].light) {
+								++_badLight[{ v.plugin, target }];
+							}
+						}
 					}
 					c.subs.push_back(std::move(cs));
 				}
@@ -1258,6 +1298,12 @@ namespace ess::merge
 						}
 					}
 				}
+				for (const auto& [pt, n] : _badLight) {
+					_res.warnings.push_back(_plugins[pt.first].name + " points " + std::to_string(n) + " time(s) at forms of " + _plugins[pt.second].name +
+											" numbered above 0xFFF, but " + _plugins[pt.second].name + " is light (ESL) and has no such forms: " +
+											_plugins[pt.first].name + " was made for an older, uncompacted version of it. Those references are "
+											"broken in your game with or without the patch; the patch keeps them as they are.");
+				}
 				if (lo.size() > 254) {
 					_res.error = "the patch would need " + std::to_string(lo.size()) + " masters; a plugin can have at most 254";
 					return;
@@ -1267,9 +1313,16 @@ namespace ess::merge
 					idx[p] = static_cast<std::uint32_t>(_res.masters.size());
 					_res.masters.push_back(_plugins[p].name);
 				}
+				// form IDs below 0x800 of other plugins than Skyrim.esm: a header version 1.70 plugin reads those as
+				// Skyrim.esm's hardcoded forms, so the patch needs version 1.71 then (as plugins with such forms have)
+				bool low = false;
 				auto raw = [&](std::uint64_t k) -> std::uint32_t {
 					if (!k) {
 						return 0;
+					}
+					const int p = static_cast<int>(k >> 32) - 1;
+					if ((k & 0xFFFFFF) < 0x800 && Lower(_plugins[p].name) != "skyrim.esm") {
+						low = true;
 					}
 					return (idx.at(static_cast<int>(k >> 32) - 1) << 24) | static_cast<std::uint32_t>(k & 0xFFFFFF);
 				};
@@ -1294,7 +1347,7 @@ namespace ess::merge
 				}
 				// only overrides, no new forms: flagged light (ESL), so it takes no load order slot
 				_res.file = WritePlugin(_res.masters, 0x200, recs, "ReSaver Plus",
-					"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.");
+					"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.", low ? 1.71f : 1.7f);
 				_res.ok = true;
 			}
 
@@ -1306,6 +1359,7 @@ namespace ess::merge
 			std::vector<std::uint64_t>                       _order;  // record keys in the order first seen
 			std::unordered_set<std::uint64_t>                _npcs;
 			std::vector<std::pair<std::uint64_t, CRec>>      _patched;
+			std::map<std::pair<int, int>, std::size_t>      _badLight;  // (plugin, light master) -> references above 0xFFF
 		};
 	}
 
@@ -1354,6 +1408,11 @@ namespace ess::merge
 		o << pluginsRead << " plugins read, " << recordsRead << " records of the merged types.\n";
 		o << conflicts << " records are changed differently by two or more plugins.\n";
 		o << merged.size() << " of them were merged into the patch; " << skipped.size() << " could not be merged (the winning plugin's version stays).\n\n";
+		if (!warnings.empty()) {
+			o << "Problems in the load order itself (not caused by the patch):\n";
+			for (const auto& w : warnings) o << "  " << w << "\n";
+			o << "\n";
+		}
 		if (!missing.empty()) {
 			o << "Plugins of the load order that were not found or not read:\n";
 			for (const auto& m : missing) o << "  " << m << "\n";

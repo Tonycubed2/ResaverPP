@@ -78,6 +78,7 @@ namespace ess::merge
 		std::vector<MergedRecord> merged;
 		std::vector<std::string>  skipped;  // records with conflicts that could not be merged, and why
 		std::vector<std::string>  missing;  // plugins of the load order whose file was not found
+		std::vector<std::string>  warnings;  // problems of the load order itself, found while reading it
 		std::size_t               pluginsRead = 0, recordsRead = 0, conflicts = 0;
 
 		std::string report() const;
@@ -108,7 +109,8 @@ namespace ess::merge
 		std::vector<Sub> subs;
 	};
 	std::vector<std::uint8_t> WritePlugin(const std::vector<std::string>& a_masters, std::uint32_t a_headerFlags,
-		const std::vector<Record>& a_records, const std::string& a_author = "ReSaver Plus", const std::string& a_desc = {});
+		const std::vector<Record>& a_records, const std::string& a_author = "ReSaver Plus", const std::string& a_desc = {},
+		float a_hedrVersion = 1.7f);
 	struct PluginFile
 	{
 		std::vector<std::string> masters;

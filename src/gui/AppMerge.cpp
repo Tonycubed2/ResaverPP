@@ -235,6 +235,14 @@ void App::drawMergedPatch()
 				ImGui::BulletText("%s", s.c_str());
 			}
 		}
+		if (!r.warnings.empty() && ImGui::CollapsingHeader(Fmt("Problems in your load order (%zu)###warnings", r.warnings.size()).c_str(),
+										 ImGuiTreeNodeFlags_DefaultOpen)) {
+			for (const auto& s : r.warnings) {
+				ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
+				ImGui::BulletText("%s", s.c_str());
+				ImGui::PopStyleColor();
+			}
+		}
 		if (!r.missing.empty() && ImGui::CollapsingHeader(Fmt("Plugins not found (%zu)###missing", r.missing.size()).c_str())) {
 			for (const auto& s : r.missing) {
 				ImGui::BulletText("%s", s.c_str());
