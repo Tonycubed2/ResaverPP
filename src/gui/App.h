@@ -530,6 +530,8 @@ private:
 	std::string                            _mergeSaved;  // where the last patch was written
 	std::size_t                            _mergeLoadOrder = 0;
 	bool                                   _mergeWaitScan = false;  // build once the mods scan is done
+	bool                                   _mergeOff[static_cast<int>(ess::merge::Category::kCount)] = {};  // kinds the player turned off
+	bool                                   _mergeOptionsChanged = false;  // since the last build
 	// file conflicts (loose files and BSAs)
 	bool                                   _showAssets = false;
 	std::thread                            _assetsThread;

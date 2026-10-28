@@ -619,6 +619,63 @@ namespace
 			}
 			Check(ok4, "merge: a potion gets ModA's effect with its condition (keyword remapped to Extra.esm) and ModB's weight");
 		}
+		// cells: an interior cell (ModA's lighting, ModB's location) and an exterior one in a worldspace (ModA's region, ModB's water height)
+		{
+			auto lighting = [](std::uint8_t a_v) { return std::vector<std::uint8_t>(92, a_v); };
+			auto f32 = [](float a_v) { std::vector<std::uint8_t> v(4); std::memcpy(v.data(), &a_v, 4); return v; };
+			auto interior = [&](std::uint8_t a_light, std::uint32_t a_loc) {
+				std::vector<merge::Sub> subs{ MS("EDID", { 'I', 0 }), MS("DATA", { 1, 0 }), MS("XCLL", lighting(a_light)) };
+				if (a_loc) subs.push_back(MS("XLCN", U32v({ a_loc })));
+				auto r = MR("CELL", 0x860, subs);
+				r.groups = { { 2, 0 }, { 3, 6 } };
+				return r;
+			};
+			auto exterior = [&](std::vector<std::uint32_t> a_regions, float a_water) {
+				std::vector<merge::Sub> subs{ MS("DATA", { 2, 0 }), MS("XCLC", std::vector<std::uint8_t>(12, 0)), MS("XCLW", f32(a_water)) };
+				if (!a_regions.empty()) {
+					std::vector<std::uint8_t> v(a_regions.size() * 4);
+					std::memcpy(v.data(), a_regions.data(), v.size());
+					subs.push_back(MS("XCLR", v));
+				}
+				auto r = MR("CELL", 0x871, subs);
+				r.groups = { { 1, 0x870 }, { 4, 0 }, { 5, 0 } };
+				return r;
+			};
+			auto world = MR("WRLD", 0x870, { MS("EDID", { 'W', 0 }), MS("CNAM", U32v({ 0x880 })), MS("DATA", { 0 }), MS("OFST", { 1, 2, 3, 4 }) });
+			save("Base5.esm", merge::WritePlugin({}, 1, { interior(1, 0), world, exterior({ 0x890 }, 0.0f) }));
+			save("A5.esp", merge::WritePlugin({ "Base5.esm" }, 0, { interior(2, 0), world, exterior({ 0x890, 0x891 }, 0.0f) }));
+			save("B5.esp", merge::WritePlugin({ "Base5.esm" }, 0, { interior(1, 0x8A0), world, exterior({ 0x890 }, -50.0f) }));
+			merge::Options o5;
+			o5.loadOrder = { "Base5.esm", "A5.esp", "B5.esp" };
+			o5.findPlugin = o.findPlugin;
+			const auto r5 = merge::Build(o5);
+			save("Patch5.esp", r5.file);
+			const auto pf5 = merge::ReadPlugin(dir / "Patch5.esp", { "CELL", "WRLD" });
+			const merge::Record *ic = nullptr, *ec = nullptr, *w = nullptr;
+			for (const auto& rec : pf5.records) {
+				if (rec.formID == 0x860) ic = &rec;
+				if (rec.formID == 0x871) ec = &rec;
+				if (rec.formID == 0x870) w = &rec;
+			}
+			bool ok5 = r5.ok && r5.merged.size() == 2 && ic && ec && w;
+			if (ok5) {
+				float water = 0;
+				std::memcpy(&water, subOf(ec, "XCLW")->data(), 4);
+				ok5 = (*subOf(ic, "XCLL"))[0] == 2 && list(ic, "XLCN", 0) == std::vector<std::uint32_t>{ 0x8A0 } && ic->groups.size() == 2 &&
+					  ic->groups[1].second == 6 && water == -50.0f && subOf(ec, "XCLR")->size() == 8 && ec->groups.size() == 3 &&
+					  ec->groups[0].first == 1 && ec->groups[0].second == 0x870 && !subOf(w, "OFST") && subOf(w, "CNAM");
+			}
+			if (!ok5) {
+				std::printf("%s\n", r5.report().c_str());
+				for (const auto& rec : pf5.records) {
+					std::printf("  %.4s %08X groups:", rec.sig, rec.formID);
+					for (auto& g : rec.groups) std::printf(" (%d,%X)", g.first, g.second);
+					for (auto& sb : rec.subs) std::printf(" %.4s[%zu]", sb.sig, sb.data.size());
+					std::printf("\n");
+				}
+			}
+			Check(ok5, "merge: cells (ModA's lighting and region, ModB's location and water) in their groups, worldspace copied in without OFST");
+		}
 		Check(ok3, "merge: values merged field by field (ModA's essential flag and face, ModB's health and aggression; winner's armour value)");
 		fs::remove_all(dir);
 	}

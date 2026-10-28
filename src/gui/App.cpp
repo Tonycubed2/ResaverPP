@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -2459,6 +2460,13 @@ void App::loadSettings()
 			_sortMode = std::clamp(std::atoi(line.c_str() + 5), 0, 3);
 		} else if (line.rfind("compression=", 0) == 0) {
 			_saveCompression = std::clamp(std::atoi(line.c_str() + 12), -1, 2);
+		} else if (line.rfind("merge_off=", 0) == 0) {
+			for (auto& off : _mergeOff) off = false;
+			std::stringstream ss(line.substr(10));
+			for (std::string n; std::getline(ss, n, ',');) {
+				const int i = std::atoi(n.c_str());
+				if (!n.empty() && i >= 0 && i < static_cast<int>(merge::Category::kCount)) _mergeOff[i] = true;
+			}
 		} else if (line.rfind("names=", 0) == 0) {
 			_autoNames = line.substr(6) != "0";
 		} else if (line.rfind("watch=", 0) == 0 && line.substr(6) == "1") {
@@ -2539,6 +2547,13 @@ void App::saveSettings()
 	f << "sort=" << _sortMode << "\n";
 	f << "compression=" << _saveCompression << "\n";
 	f << "watch=" << (_watch ? 1 : 0) << "\n";
+	{
+		std::string off;
+		for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
+			if (_mergeOff[i]) off += (off.empty() ? "" : ",") + std::to_string(i);
+		}
+		f << "merge_off=" << off << "\n";
+	}
 	f << "open_newest=" << (_openNewest ? 1 : 0) << "\n";
 	f << "game=" << se.gamePath << "\n";
 	f << "check_on_open=" << (_checkOnOpen ? 1 : 0) << "\n";

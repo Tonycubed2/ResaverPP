@@ -10,7 +10,8 @@
 // Lists (leveled lists, inventories, factions, spells, perks, keywords, form lists, outfits) are merged
 // entry by entry; every other part of a record value by value (stage 2), parts that belong together as
 // one block. Types: leveled lists, containers, form lists, outfits, NPCs, armour, weapons, ammo, misc
-// items, keys, soul gems, books, potions, ingredients, scrolls and spells.
+// items, keys, soul gems, books, potions, ingredients, scrolls, spells, and cells (interior and exterior,
+// with their worldspace copied in as the parent).
 #pragma once
 
 #include <atomic>
@@ -67,6 +68,10 @@ namespace ess::merge
 		kNames,          // names, descriptions, editor IDs, bounds
 		kModels,         // models, icons, destruction data
 		kScripts,        // scripts attached to records (VMAD) with their properties
+		kCellLighting,   // a cell's lighting and lighting template
+		kCellWater,      // a cell's water (height, type, textures, currents)
+		kCellRegions,    // the regions a cell belongs to
+		kCellOther,      // a cell's location, owner, encounter zone, music, acoustics, image space, flags...
 		kOther,          // anything else
 		kCount
 	};
@@ -76,8 +81,8 @@ namespace ess::merge
 
 	struct Options
 	{
-		bool                     enabled[static_cast<int>(Category::kCount)] = { true, true, true, true, true, true, true, true, true, true, true,
-            true, true, true };  // which kinds of changes are merged
+		bool enabled[static_cast<int>(Category::kCount)] = { true, true, true, true, true, true, true, true, true, true, true, true, true,
+			true, true, true, true, true };  // which kinds of changes are merged
 		std::vector<std::string> loadOrder;  // enabled plugins, in load order
 		// where a plugin file is (empty: not found, the plugin is left out and reported)
 		std::function<std::optional<std::filesystem::path>(const std::string&)> findPlugin;
@@ -137,6 +142,9 @@ namespace ess::merge
 		std::uint32_t    flags = 0, formID = 0;
 		std::uint16_t    version = 44;
 		std::vector<Sub> subs;
+		// cells: the groups the record sits in below its top group, outermost first, as (group type, label):
+		// interior cells (2 block, 3 sub-block); exterior cells (1 worldspace = its form ID, 4 block, 5 sub-block)
+		std::vector<std::pair<std::int32_t, std::uint32_t>> groups;
 	};
 	std::vector<std::uint8_t> WritePlugin(const std::vector<std::string>& a_masters, std::uint32_t a_headerFlags,
 		const std::vector<Record>& a_records, const std::string& a_author = "ReSaver Plus", const std::string& a_desc = {},

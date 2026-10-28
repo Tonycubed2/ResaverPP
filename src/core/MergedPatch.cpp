@@ -176,6 +176,73 @@ namespace ess::merge
 				f.seekg(size - 24, std::ios::cur);
 				continue;
 			}
+			if (std::memcmp(h + 8, "CELL", 4) == 0 || std::memcmp(h + 8, "WRLD", 4) == 0) {
+				// cells and worldspaces: walk the nested groups, keep the CELL and WRLD records with the groups they sit
+				// in, and skip everything inside a cell (placed objects, landscape, navmeshes: types 6 to 10)
+				struct Open
+				{
+					std::int32_t         type;
+					std::uint32_t        label;
+					std::streamoff       end;
+				};
+				std::vector<Open> stack;
+				const auto        topEnd = static_cast<std::streamoff>(f.tellg()) + static_cast<std::streamoff>(size - 24);
+				std::vector<std::uint8_t> data;
+				while (static_cast<std::streamoff>(f.tellg()) < topEnd) {
+					while (!stack.empty() && static_cast<std::streamoff>(f.tellg()) >= stack.back().end) {
+						stack.pop_back();
+					}
+					std::uint8_t r[24];
+					if (!f.read(reinterpret_cast<char*>(r), 24)) {
+						throw std::runtime_error("a cell group is cut off");
+					}
+					if (std::memcmp(r, "GRUP", 4) == 0) {
+						const auto gs = U32(r + 4);
+						const auto type = static_cast<std::int32_t>(U32(r + 12));
+						if (gs < 24) {
+							throw std::runtime_error("a group with a bad size");
+						}
+						if (type >= 6) {
+							f.seekg(gs - 24, std::ios::cur);
+							continue;
+						}
+						stack.push_back({ type, U32(r + 8), static_cast<std::streamoff>(f.tellg()) + static_cast<std::streamoff>(gs - 24) });
+						continue;
+					}
+					const auto dataSize = U32(r + 4);
+					if (std::memcmp(r, "CELL", 4) != 0 && std::memcmp(r, "WRLD", 4) != 0) {
+						f.seekg(dataSize, std::ios::cur);
+						continue;
+					}
+					Record rec;
+					std::memcpy(rec.sig, r, 4);
+					rec.flags = U32(r + 8);
+					rec.formID = U32(r + 12);
+					rec.version = U16(r + 20);
+					data.resize(dataSize);
+					if (!f.read(reinterpret_cast<char*>(data.data()), static_cast<std::streamsize>(dataSize))) {
+						throw std::runtime_error("a cell record is cut off");
+					}
+					const std::uint8_t* d = data.data();
+					std::size_t         n = dataSize;
+					if (rec.flags & 0x40000) {
+						if (n < 4) {
+							throw std::runtime_error("a compressed record is too short");
+						}
+						inflated = DecompressZlib(d + 4, n - 4, U32(d));
+						d = inflated.data();
+						n = inflated.size();
+						rec.flags &= ~0x40000u;
+					}
+					rec.subs = ParseSubs(d, n);
+					for (const auto& o : stack) {
+						rec.groups.push_back({ o.type, o.label });
+					}
+					pf.records.push_back(std::move(rec));
+				}
+				f.seekg(topEnd);
+				continue;
+			}
 			grp.resize(size - 24);
 			if (!f.read(reinterpret_cast<char*>(grp.data()), static_cast<std::streamsize>(grp.size()))) {
 				throw std::runtime_error("a group is cut off");
@@ -222,6 +289,14 @@ namespace ess::merge
 		// group the records by type, groups in the game's order
 		std::map<int, std::pair<std::string, std::vector<const Record*>>> groups;
 		for (const auto& r : a_records) {
+			// exterior cells live under their worldspace
+			const char* top = Is(r.sig, "CELL") && !r.groups.empty() && r.groups[0].first == 1 ? "WRLD" : r.sig;
+			if (top != r.sig) {
+				auto& g = groups[GroupRank(top) * 10000 + 0];
+				g.first = "WRLD";
+				g.second.push_back(&r);
+				continue;
+			}
 			auto& g = groups[GroupRank(r.sig) * 10000 + 0];
 			if (g.first.empty() || g.first == Sig(r.sig)) {
 				g.first = Sig(r.sig);
@@ -235,30 +310,83 @@ namespace ess::merge
 		}
 		std::vector<std::uint8_t> body;
 		std::uint32_t             count = 0;
+		auto writeRecord = [&](std::vector<std::uint8_t>& o, const Record* r) {
+			std::vector<std::uint8_t> d;
+			WriteSubs(d, r->subs);
+			PutSig(o, r->sig);
+			Put32(o, static_cast<std::uint32_t>(d.size()));
+			Put32(o, r->flags & ~0x40000u);
+			Put32(o, r->formID);
+			Put32(o, 0);  // version control
+			Put16(o, r->version);
+			Put16(o, 0);
+			o.insert(o.end(), d.begin(), d.end());
+			++count;
+		};
+		auto writeGroup = [&](std::vector<std::uint8_t>& o, std::uint32_t a_label, std::int32_t a_type, const std::vector<std::uint8_t>& a_content) {
+			PutSig(o, "GRUP");
+			Put32(o, static_cast<std::uint32_t>(a_content.size() + 24));
+			Put32(o, a_label);
+			Put32(o, static_cast<std::uint32_t>(a_type));
+			Put32(o, 0);
+			Put32(o, 0);
+			o.insert(o.end(), a_content.begin(), a_content.end());
+			++count;
+		};
+		std::uint32_t sigLabel;
 		for (auto& [rank, g] : groups) {
 			std::sort(g.second.begin(), g.second.end(), [](const Record* a, const Record* b) { return a->formID < b->formID; });
+			std::memcpy(&sigLabel, g.first.data(), 4);
 			std::vector<std::uint8_t> gb;
-			for (const auto* r : g.second) {
-				std::vector<std::uint8_t> d;
-				WriteSubs(d, r->subs);
-				PutSig(gb, r->sig);
-				Put32(gb, static_cast<std::uint32_t>(d.size()));
-				Put32(gb, r->flags & ~0x40000u);
-				Put32(gb, r->formID);
-				Put32(gb, 0);  // version control
-				Put16(gb, r->version);
-				Put16(gb, 0);
-				gb.insert(gb.end(), d.begin(), d.end());
-				++count;
+			if (g.first == "CELL") {
+				// interior cells: block (type 2) > sub-block (type 3) > cell
+				std::map<std::uint32_t, std::map<std::uint32_t, std::vector<const Record*>>> blocks;
+				for (const auto* r : g.second) {
+					const auto b = r->groups.size() > 0 ? r->groups[0].second : 0, sb = r->groups.size() > 1 ? r->groups[1].second : 0;
+					blocks[b][sb].push_back(r);
+				}
+				for (const auto& [b, subs] : blocks) {
+					std::vector<std::uint8_t> bb;
+					for (const auto& [sb, recs] : subs) {
+						std::vector<std::uint8_t> sbb;
+						for (const auto* r : recs) writeRecord(sbb, r);
+						writeGroup(bb, sb, 3, sbb);
+					}
+					writeGroup(gb, b, 2, bb);
+				}
+			} else if (g.first == "WRLD") {
+				// each worldspace, then its children group (type 1): its persistent cell, then block (4) > sub-block (5) > cell
+				for (const auto* w : g.second) {
+					if (std::memcmp(w->sig, "WRLD", 4) != 0) continue;
+					writeRecord(gb, w);
+					std::vector<const Record*> persistent;
+					std::map<std::uint32_t, std::map<std::uint32_t, std::vector<const Record*>>> blocks;
+					for (const auto* r : g.second) {
+						if (std::memcmp(r->sig, "CELL", 4) != 0 || r->groups.empty() || r->groups[0].second != w->formID) continue;
+						if (r->groups.size() < 3) {
+							persistent.push_back(r);
+						} else {
+							blocks[r->groups[1].second][r->groups[2].second].push_back(r);
+						}
+					}
+					if (persistent.empty() && blocks.empty()) continue;
+					std::vector<std::uint8_t> wb;
+					for (const auto* r : persistent) writeRecord(wb, r);
+					for (const auto& [b, subs] : blocks) {
+						std::vector<std::uint8_t> bb;
+						for (const auto& [sb, recs] : subs) {
+							std::vector<std::uint8_t> sbb;
+							for (const auto* r : recs) writeRecord(sbb, r);
+							writeGroup(bb, sb, 5, sbb);
+						}
+						writeGroup(wb, b, 4, bb);
+					}
+					writeGroup(gb, w->formID, 1, wb);
+				}
+			} else {
+				for (const auto* r : g.second) writeRecord(gb, r);
 			}
-			PutSig(body, "GRUP");
-			Put32(body, static_cast<std::uint32_t>(gb.size() + 24));
-			PutSig(body, g.first.c_str());
-			Put32(body, 0);  // top group
-			Put32(body, 0);
-			Put32(body, 0);
-			body.insert(body.end(), gb.begin(), gb.end());
-			++count;
+			writeGroup(body, sigLabel, 0, gb);
 		}
 		std::vector<Sub> hs;
 		{
@@ -462,6 +590,7 @@ namespace ess::merge
 			kAlchEnit,  // ALCH ENIT: addiction and consume sound
 			kSpit,      // SPIT: half-cost perk
 			kCtda,      // a condition: form IDs depend on the function
+			kDrop,      // left out of the patch (WRLD's large-reference and offset tables: xEdit never copies them either)
 		};
 
 		Kind Layout(const char* rec, const char* sub)
@@ -491,6 +620,21 @@ namespace ess::merge
 			} else if (r == "AMMO") {
 				if (s == "DATA") return Kind::kForm0;
 				if (s == "ONAM") return Kind::kNone;
+			} else if (r == "CELL") {
+				if (s == "DATA" || s == "XCLC" || s == "XCLL" || s == "TVDT" || s == "MHDT" || s == "LNAM" || s == "XCLW" || s == "XNAM" ||
+					s == "XWCN" || s == "XWCS" || s == "XWCU" || s == "XRNK" || s == "XWEM")
+					return Kind::kNone;
+				if (s == "LTMP" || s == "XLCN" || s == "XCWT" || s == "XOWN" || s == "XILL" || s == "XCCM" || s == "XCAS" || s == "XEZN" ||
+					s == "XCMO" || s == "XCIM")
+					return Kind::kForm0;
+				if (s == "XCLR") return Kind::kFormArr;
+			} else if (r == "WRLD") {
+				if (s == "RNAM" || s == "OFST") return Kind::kDrop;
+				if (s == "MHDT" || s == "WCTR" || s == "PNAM" || s == "NAM4" || s == "DNAM" || s == "MNAM" || s == "ONAM" || s == "NAMA" ||
+					s == "DATA" || s == "NAM0" || s == "NAM9" || s == "NNAM" || s == "XNAM" || s == "XWEM" || s == "TNAM" || s == "UNAM" || s == "CLSZ")
+					return Kind::kNone;
+				if (s == "LTMP" || s == "XEZN" || s == "XLCN" || s == "WNAM" || s == "CNAM" || s == "NAM2" || s == "NAM3" || s == "ZNAM")
+					return Kind::kForm0;
 			} else if (r == "MISC" || r == "KEYM") {
 				if (s == "DATA") return Kind::kNone;
 			} else if (r == "SLGM") {
@@ -663,6 +807,9 @@ namespace ess::merge
 			if (r == "CONT") {
 				return { { "CNTO", "COED", "COCT", 4, true, false, 0, "items" } };
 			}
+			if (r == "CELL") {
+				return { { "XCLR", nullptr, nullptr, 0, false, true, 0, "regions" } };
+			}
 			if (r == "FLST") {
 				return { { "LNAM", nullptr, nullptr, 0, false, false, 0, "forms" } };
 			}
@@ -723,6 +870,11 @@ namespace ess::merge
 				s = "EDID VMAD OBND FULL KSIZ KWDA MDOB ETYP DESC MODL MODT MODS DEST DSTD DMDL DMDT DMDS DSTF YNAM ZNAM DATA SPIT EFID EFIT "
 					"CTDA CIS1 CIS2";
 			else if (r == "SPEL") s = "EDID OBND FULL KSIZ KWDA MDOB ETYP DESC SPIT EFID EFIT CTDA CIS1 CIS2";
+			else if (r == "CELL")
+				s = "EDID FULL DATA XCLC XCLL TVDT MHDT LTMP LNAM XCLW XNAM XCLR XLCN XWCN XWCS XWCU XCWT XOWN XRNK XILL XWEM XCCM XCAS XEZN XCMO XCIM";
+			else if (r == "WRLD")
+				s = "EDID RNAM MHDT FULL WCTR LTMP XEZN XLCN WNAM PNAM CNAM NAM2 NAM3 NAM4 DNAM ICON MNAM ONAM NAMA DATA NAM0 NAM9 ZNAM NNAM XNAM XWEM "
+					"TNAM UNAM OFST CLSZ";
 			std::vector<std::string> out;
 			std::istringstream       in(s);
 			for (std::string w; in >> w;) {
@@ -732,7 +884,7 @@ namespace ess::merge
 		}
 
 		const std::vector<std::string> kTypes = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "NPC_", "ARMO", "WEAP", "AMMO", "MISC", "KEYM",
-			"SLGM", "BOOK", "ALCH", "INGR", "SCRL", "SPEL" };
+			"SLGM", "BOOK", "ALCH", "INGR", "SCRL", "SPEL", "CELL", "WRLD" };
 
 		std::string Serialize(const std::vector<CSub>& subs)
 		{
@@ -759,6 +911,7 @@ namespace ess::merge
 		{
 			std::uint32_t off, size;
 			bool          flags = false;
+			bool          unused = false;  // padding: plugins differ in it without meaning anything, never merged
 		};
 
 		std::vector<std::vector<std::string>> Groups(const char* rec)
@@ -776,6 +929,11 @@ namespace ess::merge
 				g.push_back({ "ATKD", "ATKE" });
 				g.push_back({ "CSDT", "CSDI", "CSDC", "CSCR" });
 			}
+			if (r == "CELL") {
+				g.push_back({ "XCLL", "LTMP", "LNAM" });                                   // lighting
+				g.push_back({ "XCLW", "XCWT", "XNAM", "XWEM", "XWCN", "XWCS", "XWCU" });  // water
+				g.push_back({ "XOWN", "XRNK" });                                           // owner
+			}
 			if (r == "ALCH" || r == "INGR" || r == "SCRL" || r == "SPEL") {
 				g.push_back({ "EFID", "EFIT", "CTDA", "CIS1", "CIS2" });  // the magic effects with their conditions, as one list
 			}
@@ -786,33 +944,37 @@ namespace ess::merge
 		{
 			const std::string k = std::string(rec, 4) + "." + std::string(sub, 4);
 			std::vector<Field> f;
-			auto seq = [&](std::initializer_list<int> sizes, std::initializer_list<int> flagIdx = {}) {
+			auto seq = [&](std::initializer_list<int> sizes, std::initializer_list<int> flagIdx = {}, std::initializer_list<int> unusedIdx = {}) {
 				std::uint32_t o = 0;
 				int           i = 0;
 				for (int sz : sizes) {
-					bool fl = false;
+					bool fl = false, un = false;
 					for (int x : flagIdx) fl = fl || x == i;
-					f.push_back({ o, static_cast<std::uint32_t>(sz), fl });
+					for (int x : unusedIdx) un = un || x == i;
+					f.push_back({ o, static_cast<std::uint32_t>(sz), fl, un });
 					o += static_cast<std::uint32_t>(sz);
 					++i;
 				}
 			};
 			if (k == "NPC_.ACBS") seq({ 4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 }, { 0, 8 });
-			else if (k == "NPC_.AIDT") seq({ 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4 });
+			else if (k == "NPC_.AIDT") seq({ 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4 }, {}, { 7 });
 			else if (k == "NPC_.DNAM") {
 				for (std::uint32_t i = 0; i < 36; ++i) f.push_back({ i, 1, false });
-				f.push_back({ 36, 2 }); f.push_back({ 38, 2 }); f.push_back({ 40, 2 }); f.push_back({ 42, 2 });
-				f.push_back({ 44, 4 }); f.push_back({ 48, 1 }); f.push_back({ 49, 3 });
+				f.push_back({ 36, 2 }); f.push_back({ 38, 2 }); f.push_back({ 40, 2 }); f.push_back({ 42, 2, false, true });
+				f.push_back({ 44, 4 }); f.push_back({ 48, 1 }); f.push_back({ 49, 3, false, true });
 			}
 			else if (k == "WEAP.DATA") seq({ 4, 4, 2 });
-			else if (k == "WEAP.DNAM") seq({ 1, 3, 4, 4, 2, 2, 4, 4, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 8, 4, 4, 4 }, { 4, 15 });
-			else if (k == "WEAP.CRDT") { if (a_size == 24) seq({ 2, 2, 4, 1, 7, 4, 4 }); else seq({ 2, 2, 4, 1, 3, 4 }); }
+			else if (k == "WEAP.DNAM")
+				seq({ 1, 3, 4, 4, 2, 2, 4, 4, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 8, 4, 4, 4 }, { 4, 15 }, { 1, 5 });
+			else if (k == "WEAP.CRDT") { if (a_size == 24) seq({ 2, 2, 4, 1, 7, 4, 4 }, {}, { 1, 4, 6 }); else seq({ 2, 2, 4, 1, 3, 4 }, {}, { 1, 4 }); }
 			else if (k == "ARMO.DATA") seq({ 4, 4 });
 			else if (k == "AMMO.DATA") { if (a_size == 20) seq({ 4, 4, 4, 4, 4 }, { 1 }); else seq({ 4, 4, 4, 4 }, { 1 }); }
 			else if (k == "CONT.DATA") seq({ 1, 4 }, { 0 });
 			else if (k == "LVLI.LVLF" || k == "LVLN.LVLF" || k == "LVSP.LVLF") seq({ 1 }, { 0 });
+			else if (k == "CELL.DATA") { if (a_size == 2) seq({ 2 }, { 0 }); else seq({ 1 }, { 0 }); }
+			else if (k == "CELL.XCLC") seq({ 4, 4, 1, 3 }, { 2 }, { 3 });
 			else if (k == "MISC.DATA" || k == "KEYM.DATA" || k == "SLGM.DATA" || k == "INGR.DATA" || k == "SCRL.DATA") seq({ 4, 4 });
-			else if (k == "BOOK.DATA") seq({ 1, 1, 2, 4, 4, 4 }, { 0 });
+			else if (k == "BOOK.DATA") seq({ 1, 1, 2, 4, 4, 4 }, { 0 }, { 2 });
 			else if (k == "ALCH.ENIT") seq({ 4, 4, 4, 4, 4 }, { 1 });
 			else if (k == "INGR.ENIT") seq({ 4, 4 }, { 1 });
 			else if (k == "SCRL.SPIT" || k == "SPEL.SPIT") seq({ 4, 4, 4, 4, 4, 4, 4, 4, 4 }, { 1 });
@@ -833,6 +995,7 @@ namespace ess::merge
 			if (r == "OTFT") return Category::kOutfits;
 			if (r == "FLST") return Category::kFormLists;
 			if (r == "NPC_") return Category::kNpcLists;
+			if (r == "CELL") return Category::kCellRegions;
 			return Category::kOther;
 		}
 
@@ -841,6 +1004,12 @@ namespace ess::merge
 			const std::string r(rec, 4);
 			auto has = [&](const char* s) { return u.contains(s); };
 			if (has("VMAD")) return Category::kScripts;
+			if (r == "CELL") {
+				if (has("XCLL")) return Category::kCellLighting;
+				if (has("XCLW")) return Category::kCellWater;
+				if (has("EDID") || has("FULL")) return Category::kNames;
+				return Category::kCellOther;
+			}
 			if (r == "NPC_" && has("PNAM")) return Category::kNpcFace;
 			if (has("EFID")) return Category::kEffects;
 			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || has("OBND") || (r == "BOOK" && has("CNAM"))) return Category::kNames;
@@ -1045,6 +1214,7 @@ namespace ess::merge
 						err = "has a part (" + Sig(s.sig) + ") ReSaver Plus does not know yet";
 						return std::nullopt;
 					case Kind::kNone: break;
+					case Kind::kDrop: continue;
 					case Kind::kLString:
 						if (_plugins[v.plugin].localized) {
 							if (s.data.size() != 4) {
@@ -1558,7 +1728,7 @@ namespace ess::merge
 						if (!fields.empty()) {
 							std::size_t n = 0;
 							for (const auto& f : fields) {
-								if (SameField(b[0], o[0], f) || SameField(p[0], o[0], f)) {
+								if (f.unused || SameField(b[0], o[0], f) || SameField(p[0], o[0], f)) {
 									continue;
 								}
 								if (f.flags) {
@@ -1614,6 +1784,9 @@ namespace ess::merge
 					const int definer = static_cast<int>(k >> 32) - 1;
 					if (vs.front().plugin != definer) {
 						continue;  // its own plugin is not loaded
+					}
+					if (Is(vs.back().rec.sig, "WRLD")) {
+						continue;  // worldspaces are not merged: one is copied in only as the parent of an exterior cell
 					}
 					const auto& win = vs.back();
 					const std::string label = Sig(win.rec.sig) + " " + edidOf(win.rec) + " [" + idText(k) + "]";
@@ -1747,6 +1920,42 @@ namespace ess::merge
 			void write()
 			{
 				// masters: the plugin of every patched record and of every form a patched record points to
+				// an exterior cell needs its worldspace in the patch (the winning version, as xEdit copies it)
+				std::unordered_map<std::uint64_t, std::uint64_t> cellWorld;  // cell key -> worldspace key
+				{
+					std::set<std::uint64_t>            have;
+					std::vector<std::pair<std::uint64_t, CRec>> parents;
+					for (const auto& [k, c] : _patched) have.insert(k);
+					std::vector<std::uint64_t> drop;
+					for (const auto& [k, c] : _patched) {
+						if (!Is(c.sig, "CELL")) continue;
+						const auto& win = _versions[k].back();
+						if (win.rec.groups.empty() || win.rec.groups[0].first != 1) continue;
+						bool       ok;
+						const auto wk = key(win.plugin, win.rec.groups[0].second, ok);
+						auto       wv = _versions.find(wk);
+						std::string err = "its worldspace was not found";
+						std::optional<CRec> wc;
+						if (ok && wv != _versions.end() && !wv->second.empty()) {
+							wc = canon(wv->second.back(), err);
+						}
+						if (!wc) {
+							drop.push_back(k);
+							_res.skipped.push_back("CELL " + idText(k) + ": its worldspace could not be copied (" + err + ")");
+							continue;
+						}
+						cellWorld[k] = wk;
+						if (have.insert(wk).second) parents.push_back({ wk, std::move(*wc) });
+					}
+					if (!drop.empty()) {
+						std::erase_if(_patched, [&](const auto& x) { return std::find(drop.begin(), drop.end(), x.first) != drop.end(); });
+						std::erase_if(_res.merged, [&](const MergedRecord& m) {
+							for (const auto d : drop) if (m.id == idText(d) && m.type == "CELL") return true;
+							return false;
+						});
+					}
+					for (auto& p : parents) _patched.push_back(std::move(p));
+				}
 				std::set<int> lo;
 				auto need = [&](std::uint64_t k, const std::string& why) {
 					if (!k) {
@@ -1806,6 +2015,12 @@ namespace ess::merge
 					r.flags = c.flags & ~0x40000u;
 					r.version = c.version;
 					r.formID = raw(k);
+					if (Is(c.sig, "CELL")) {
+						r.groups = _versions[k].back().rec.groups;  // the winner's block and sub-block
+						if (auto it = cellWorld.find(k); it != cellWorld.end() && !r.groups.empty()) {
+							r.groups[0].second = raw(it->second);
+						}
+					}
 					for (const auto& s : c.subs) {
 						Sub o;
 						std::memcpy(o.sig, s.sig, 4);
@@ -1893,6 +2108,10 @@ namespace ess::merge
 		case Category::kNames: return "Names, descriptions and editor IDs";
 		case Category::kModels: return "Models, icons and destruction";
 		case Category::kScripts: return "Scripts on records";
+		case Category::kCellLighting: return "Cell lighting";
+		case Category::kCellWater: return "Cell water";
+		case Category::kCellRegions: return "Cell regions";
+		case Category::kCellOther: return "Cell location, owner, music and other settings";
 		default: return "Other";
 		}
 	}
@@ -1909,6 +2128,7 @@ namespace ess::merge
 		case Category::kModels:
 			return 0;
 		case Category::kScripts:
+		case Category::kCellOther:
 			return 2;
 		default:
 			return 1;
@@ -1943,6 +2163,17 @@ namespace ess::merge
 		case Category::kScripts:
 			return "Scripts attached to a record, with their properties, are taken from the last mod that changed them. If two mods each "
 				   "add their own script to the same record, only one keeps it: check those records.";
+		case Category::kCellLighting:
+			return "A cell's lighting (and lighting template) from the last mod that changed it, as one set. Fine when that is your lighting "
+				   "mod; if a mod that only meant to change something else carries old lighting and loads later, it wins.";
+		case Category::kCellWater:
+			return "A cell's water height, type and currents from the last mod that changed them, as one set. A wrong water height floods "
+				   "or empties an area: check cells two water mods touch.";
+		case Category::kCellRegions: return "The regions each mod added to or removed from a cell are kept (weather, sounds, map names).";
+		case Category::kCellOther:
+			return "A cell's location, owner, encounter zone, music, acoustics, image space and flags, each from the last mod that changed "
+				   "it. Location and encounter zone drive quests, crime and respawns: merging two mods' settings can be what neither "
+				   "meant. Check these cells.";
 		default: return "Anything else, from the last mod that changed it.";
 		}
 	}

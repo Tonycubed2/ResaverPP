@@ -83,6 +83,10 @@ void App::drawMergedPatch()
 	// waiting for the scan of the mods, then the build starts by itself
 	auto start = [this, pluginsTxt] {
 		auto opt = std::make_shared<merge::Options>();
+		for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
+			opt->enabled[i] = !_mergeOff[i];
+		}
+		_mergeOptionsChanged = false;
 		opt->loadOrder = merge::ReadLoadOrder(pluginsTxt, gameFolder());
 		opt->patchName = kPatchName;
 		auto src = std::make_shared<ScriptSources>(_sources);
@@ -100,6 +104,79 @@ void App::drawMergedPatch()
 	if (_mergeWaitScan && !scanning() && _sources.scanned()) {
 		_mergeWaitScan = false;
 		start();
+	}
+
+	// ---- what to merge -----------------------------------------------------------------------------
+	ImGui::Spacing();
+	if (ImGui::CollapsingHeader("What to merge", ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::TextWrapped("Untick a kind of change to leave it to the winning mod, as the game does without a patch. Green is safe; yellow: "
+						   "read what can go wrong first (hover a row); red: risky, check those records after building.");
+		// how many changes of each kind the last build made
+		std::size_t counts[static_cast<int>(merge::Category::kCount)] = {};
+		if (_mergeResult) {
+			for (const auto& m : _mergeResult->merged) {
+				for (const auto c : m.categories) ++counts[static_cast<int>(c)];
+			}
+		}
+		if (ImGui::SmallButton("Tick all")) {
+			for (auto& off : _mergeOff) off = false;
+			_mergeOptionsChanged = true;
+			saveSettings();
+		}
+		tips::Tip("Merge every kind of change.");
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Only the green ones")) {
+			for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
+				_mergeOff[i] = merge::CategoryRisk(static_cast<merge::Category>(i)) > 0;
+			}
+			_mergeOptionsChanged = true;
+			saveSettings();
+		}
+		tips::Tip("Merge only the safe kinds: leveled lists, containers, outfits, keywords, item values, names and models.");
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Green and yellow")) {
+			for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
+				_mergeOff[i] = merge::CategoryRisk(static_cast<merge::Category>(i)) > 1;
+			}
+			_mergeOptionsChanged = true;
+			saveSettings();
+		}
+		tips::Tip("Leave out the risky kinds (scripts on records; a cell's location, owner, music and other settings).");
+		if (ImGui::BeginTable("mergekinds", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
+			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 1.6f);
+			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("CAUTION").x + ImGui::GetFontSize());
+			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 4.0f);
+			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 1.5f);
+			for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
+				const auto cat = static_cast<merge::Category>(i);
+				const int  risk = merge::CategoryRisk(cat);
+				ImGui::PushID(i);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				bool on = !_mergeOff[i];
+				if (ImGui::Checkbox("##on", &on)) {
+					_mergeOff[i] = !on;
+					_mergeOptionsChanged = true;
+					saveSettings();
+				}
+				ImGui::TableNextColumn();
+				ImGui::PushStyleColor(ImGuiCol_Text, risk >= 2 ? theme::Bad() : risk == 1 ? theme::Caution() : theme::Good());
+				ImGui::TextUnformatted(risk >= 2 ? "RISKY" : risk == 1 ? "CAUTION" : "SAFE");
+				ImGui::PopStyleColor();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(merge::CategoryName(cat));
+				tips::Tip(merge::CategoryWhy(cat));
+				ImGui::TableNextColumn();
+				if (_mergeResult) {
+					ImGui::TextDisabled("%zu change(s) last time", counts[i]);
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+		if (_mergeOptionsChanged && _mergeResult) {
+			Colored(theme::Warn(), "Changed since the last build: build again to apply.");
+		}
 	}
 
 	ImGui::Spacing();

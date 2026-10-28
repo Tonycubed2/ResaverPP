@@ -42,7 +42,8 @@ static void Usage()
 		"       resaverpp-cli <script.pex>       disassemble a compiled script\n"
 		"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
 		"       resaverpp-cli --merged-patch <out.esp> --sources <mods folder> [--profile <folder>] [--game <folder>]\n"
-		"                 build a merged patch of the profile's load order (a report is written next to it)\n"
+		"                 build a merged patch of the profile's load order (a report is written next to it);\n"
+		"                 --only-safe merges only the safe kinds of changes, --no-risky leaves out the risky ones\n"
 		"       resaverpp-cli --file-conflicts <report.txt> --sources <mods folder> [--profile <folder>] [--game <folder>]\n"
 		"                 which mods override which mods' loose files and archive (BSA) files\n"
 		"\n"
@@ -137,6 +138,7 @@ static int MergedPatchMain(int argc, char** argv)
 	const std::filesystem::path out = argv[2];
 	std::filesystem::path       mods, profile, game, pluginsTxt, overwrite;
 	std::string                 language = "english";
+	int                         maxRisk = 2;
 	for (int i = 3; i < argc; ++i) {
 		const std::string a = argv[i];
 		auto              next = [&]() -> std::string {
@@ -152,6 +154,7 @@ static int MergedPatchMain(int argc, char** argv)
 		else if (a == "--plugins-txt") pluginsTxt = next();
 		else if (a == "--overwrite") overwrite = next();
 		else if (a == "--language") language = next();
+		else if (a == "--only-safe" || a == "--no-risky") maxRisk = a == "--only-safe" ? 0 : 1;
 		else {
 			std::fprintf(stderr, "unknown option %s\n", a.c_str());
 			return 1;
@@ -178,6 +181,9 @@ static int MergedPatchMain(int argc, char** argv)
 	opt.loadOrder = merge::ReadLoadOrder(pluginsTxt, game);
 	opt.language = language;
 	opt.patchName = out.filename().string();
+	for (int c = 0; c < static_cast<int>(merge::Category::kCount); ++c) {
+		opt.enabled[c] = merge::CategoryRisk(static_cast<merge::Category>(c)) <= maxRisk;
+	}
 	merge::UseSources(opt, src);
 	std::printf("load order: %zu plugins (%s)\n", opt.loadOrder.size(), pluginsTxt.string().c_str());
 	const auto r = merge::Build(opt);
