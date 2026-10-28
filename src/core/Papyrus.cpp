@@ -5,6 +5,7 @@
 
 #include <cctype>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <cstdint>
 #include <unordered_set>
@@ -588,9 +589,28 @@ namespace ess
 			const ThreadID id = r.u32();
 			auto*          as = findActive(id);
 			if (!as) {
-				throw FormatError("active script data for unknown id", pos);
+				char b[200];
+				std::snprintf(b, sizeof(b), "active script data for unknown id 0x%08X (entry %zu of %zu, after thread 0x%08X)", id, i,
+					activeScripts.size(), activeDataOrder.empty() ? 0u : activeDataOrder.back());
+				throw FormatError(b, pos);
 			}
 			as->data = ReadActiveData(r);
+			// A thread whose bottom (first) frame is a native function, e.g. a latent native call such as
+			// Actor.PathToReference started on its own, has no byte after its frames: the game writes that byte
+			// only when the bottom frame is script code. Check against the next thread's id where there is one.
+			if (as->data->unknown5 && !as->data->frames.empty() && (as->data->frames.front().fnFlags & 0x02)) {
+				bool without = true;
+				if (i + 1 < activeScripts.size() && r.remaining() >= 4) {
+					std::uint32_t with = 0, back = 0;
+					std::memcpy(&with, r.here(), 4);
+					std::memcpy(&back, r.here() - 1, 4);
+					without = !findActive(with) && findActive(back);
+				}
+				if (without) {
+					r.seek(r.pos() - 1);
+					as->data->unknown5.reset();
+				}
+			}
 			activeDataOrder.push_back(id);
 		}
 
