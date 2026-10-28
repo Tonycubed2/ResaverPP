@@ -893,6 +893,9 @@ void App::draw()
 	if (_showMerge) {
 		drawMergedPatch();
 	}
+	if (_showAssets) {
+		drawFileConflicts();
+	}
 	if (_showCompare && _save) {
 		drawCompare();
 	}
@@ -1086,6 +1089,11 @@ void App::drawMenu()
 		}
 		tips::Tip("Read every plugin in your load order and build one patch that combines the changes of mods that edit the same "
 				  "leveled lists, containers, NPCs, keywords, form lists and outfits.");
+		if (ImGui::MenuItem("File conflicts (loose files and BSAs)...", nullptr, &_showAssets)) {
+			_homePanel = false;
+		}
+		tips::Tip("Which mods override which mods' files, loose and inside archives (BSAs), in the order the game uses them. "
+				  "Scripts overridden by another mod's copy are listed first.");
 		if (ImGui::MenuItem("Analyze arrays block...", nullptr, &_showArrays)) {
 			_arraysDirty = true;
 			_homePanel = false;

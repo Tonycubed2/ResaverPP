@@ -533,6 +533,52 @@ namespace
 		Check(r2.ok && r2.fixes.size() == 1 && r2.warnings.empty() && n2 && list(n2, "PNAM", 0) == std::vector<std::uint32_t>{ 0x01000810 } &&
 				  pf2.masters == std::vector<std::string>{ "Base.esm", "Light.esp" },
 			"merge: a reference to a compacted light master's old number is pointed at its new number");
+		// stage 2, values: ModA makes the NPC essential (a flag bit) and gives it a new face; ModB (the winner) changes its
+		// health offset and aggression. Both change the armour's value: the winner's stays.
+		auto npc3 = [](std::uint32_t a_flags, std::uint16_t a_health, std::uint32_t a_part, std::uint8_t a_aggr, std::uint32_t a_value) {
+			std::vector<std::uint8_t> acbs(24, 0), aidt(20, 0);
+			std::memcpy(acbs.data(), &a_flags, 4);
+			std::memcpy(acbs.data() + 20, &a_health, 2);
+			aidt[0] = a_aggr;
+			return std::vector<merge::Record>{
+				MR("NPC_", 0x801, { MS("EDID", { 'M', 0 }), MS("ACBS", acbs), MS("RNAM", U32v({ 0x980 })), MS("AIDT", aidt), MS("DATA", {}),
+									  MS("PNAM", U32v({ a_part })), MS("QNAM", std::vector<std::uint8_t>(12, static_cast<std::uint8_t>(a_part))) }),
+				MR("ARMO", 0x831, { MS("EDID", { 'B', 0 }), MS("DATA", U32v({ a_value, 0 })), MS("DNAM", U32v({ 0 })) }) };
+		};
+		save("Base3.esm", merge::WritePlugin({}, 1, npc3(0x10, 0, 0x990, 0, 10)));
+		save("A3.esp", merge::WritePlugin({ "Base3.esm" }, 0, npc3(0x12, 0, 0x991, 0, 20)));
+		save("B3.esp", merge::WritePlugin({ "Base3.esm" }, 0, npc3(0x10, 50, 0x990, 2, 30)));
+		merge::Options o3;
+		o3.loadOrder = { "Base3.esm", "A3.esp", "B3.esp" };
+		o3.findPlugin = o.findPlugin;
+		const auto r3 = merge::Build(o3);
+		save("Patch3.esp", r3.file);
+		const auto pf3 = merge::ReadPlugin(dir / "Patch3.esp");
+		const merge::Record *n3 = nullptr, *a3 = nullptr;
+		for (const auto& rec : pf3.records) {
+			if (std::memcmp(rec.sig, "NPC_", 4) == 0) n3 = &rec;
+			if (std::memcmp(rec.sig, "ARMO", 4) == 0) a3 = &rec;
+		}
+		auto subOf = [](const merge::Record* r, const char* sig) -> const std::vector<std::uint8_t>* {
+			for (const auto& sb : r->subs) {
+				if (std::memcmp(sb.sig, sig, 4) == 0) return &sb.data;
+			}
+			return nullptr;
+		};
+		bool ok3 = r3.ok && n3 && !a3;  // the armour: only the winner's change counts, so it needs no patch
+		if (ok3) {
+			std::uint32_t flags;
+			std::uint16_t health;
+			std::memcpy(&flags, subOf(n3, "ACBS")->data(), 4);
+			std::memcpy(&health, subOf(n3, "ACBS")->data() + 20, 2);
+			ok3 = flags == 0x12 && health == 50 && (*subOf(n3, "AIDT"))[0] == 2 && list(n3, "PNAM", 0) == std::vector<std::uint32_t>{ 0x991 } &&
+				  (*subOf(n3, "QNAM"))[0] == 0x91;
+		}
+		if (!ok3) {
+			std::printf("%s", r3.report().c_str());
+			if (n3) for (const auto& sb : n3->subs) { std::printf("  %.4s:", sb.sig); for (auto b : sb.data) std::printf(" %02X", b); std::printf("\n"); }
+		}
+		Check(ok3, "merge: values merged field by field (ModA's essential flag and face, ModB's health and aggression; winner's armour value)");
 		fs::remove_all(dir);
 	}
 }

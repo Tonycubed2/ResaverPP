@@ -10,6 +10,7 @@
 #include "core/PluginDB.h"
 
 #include <chrono>
+#include "core/AssetConflicts.h"
 #include "core/LoadOrder.h"
 #include "core/MergedPatch.h"
 #include "core/Mods.h"
@@ -42,6 +43,8 @@ static void Usage()
 		"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
 		"       resaverpp-cli --merged-patch <out.esp> --sources <mods folder> [--profile <folder>] [--game <folder>]\n"
 		"                 build a merged patch of the profile's load order (a report is written next to it)\n"
+		"       resaverpp-cli --file-conflicts <report.txt> --sources <mods folder> [--profile <folder>] [--game <folder>]\n"
+		"                 which mods override which mods' loose files and archive (BSA) files\n"
 		"\n"
 		"  (no action)               print the analysis report\n"
 		"  --purge-script <name>     delete every thread, suspended stack, message and instance of a script\n"
@@ -201,6 +204,54 @@ static int MergedPatchMain(int argc, char** argv)
 	return 0;
 }
 
+// resaverpp-cli --file-conflicts <report.txt> --sources <mods> [--profile <dir>] [--game <dir>] [--overwrite <dir>]
+static int FileConflictsMain(int argc, char** argv)
+{
+	if (argc < 3) {
+		Usage();
+		return 1;
+	}
+	const std::filesystem::path out = argv[2];
+	assets::Input               in;
+	std::filesystem::path       profile, game;
+	for (int i = 3; i < argc; ++i) {
+		const std::string a = argv[i];
+		auto              next = [&]() -> std::string {
+            if (i + 1 >= argc) {
+                std::fprintf(stderr, "missing value after %s\n", a.c_str());
+                std::exit(1);
+            }
+            return argv[++i];
+		};
+		if (a == "--sources") in.modsDir = next();
+		else if (a == "--profile") profile = next();
+		else if (a == "--game") game = next();
+		else if (a == "--overwrite") in.overwrite = next();
+		else {
+			std::fprintf(stderr, "unknown option %s\n", a.c_str());
+			return 1;
+		}
+	}
+	if (auto mo2 = in.modsDir.empty() ? std::nullopt : FindMo2Instance(in.modsDir)) {
+		if (profile.empty()) profile = mo2->profilesDir / mo2->selectedProfile;
+		if (in.overwrite.empty()) in.overwrite = mo2->overwriteDir;
+		if (game.empty()) game = mo2->gamePath;
+	}
+	if (!profile.empty()) {
+		in.modsLowFirst = LoadModList(profile);
+		std::reverse(in.modsLowFirst.begin(), in.modsLowFirst.end());
+	}
+	if (!game.empty()) in.gameData = game / "Data";
+	in.loadOrder = merge::ReadLoadOrder(profile.empty() ? loadorder::GamePluginsTxt() : profile / "plugins.txt", game);
+	const auto t0 = std::chrono::steady_clock::now();
+	const auto r = assets::Find(in);
+	std::ofstream(out) << r.report();
+	std::printf("%zu files, %zu archives, %zu mod folders; %zu conflicting paths (%zu scripts), %zu mod pairs; %.1f s\nwrote %s\n", r.files,
+		r.archives, r.modsRead, r.conflicts.size(), r.scriptConflicts, r.pairs.size(),
+		std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), out.string().c_str());
+	return 0;
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 2 || !std::strcmp(argv[1], "-h") || !std::strcmp(argv[1], "--help")) {
@@ -233,6 +284,9 @@ int main(int argc, char** argv)
 	}
 	if (std::string(argv[1]) == "--merged-patch") {
 		return MergedPatchMain(argc, argv);
+	}
+	if (std::string(argv[1]) == "--file-conflicts") {
+		return FileConflictsMain(argc, argv);
 	}
 	std::vector<std::string> purge;
 	bool                     fixMcm = false, delForms = false, keepInst = false, unattached = false, undefined = false, termUndef = false, nonexist = false;

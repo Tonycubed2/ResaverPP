@@ -7,6 +7,7 @@
 #include "core/ChangeFormData.h"
 #include "core/Compare.h"
 #include "core/Extras.h"
+#include "core/AssetConflicts.h"
 #include "core/MergedPatch.h"
 #include "core/LoadOrder.h"
 #include "core/ModRemove.h"
@@ -105,6 +106,8 @@ public:
 			_showSavesMgr = true;
 		} else if (w == "merge") {
 			_showMerge = true;
+		} else if (w == "files") {
+			_showAssets = true;
 		} else if (w == "actors") {
 			_showActors = true;
 		} else if (w == "player") {
@@ -483,6 +486,7 @@ private:
 	// leftover items, save history, Papyrus log, saves folder (AppExtras.cpp)
 	void        drawLeftovers();
 	void        drawMergedPatch();
+	void        drawFileConflicts();
 	void        drawHistory();
 	void        drawPapyrusLog();
 	void        drawSavesManager();
@@ -523,6 +527,14 @@ private:
 	std::string                            _mergeSaved;  // where the last patch was written
 	std::size_t                            _mergeLoadOrder = 0;
 	bool                                   _mergeWaitScan = false;  // build once the mods scan is done
+	// file conflicts (loose files and BSAs)
+	bool                                   _showAssets = false;
+	std::thread                            _assetsThread;
+	std::unique_ptr<ess::assets::Progress> _assetsProgress;
+	std::unique_ptr<ess::assets::Result>   _assetsResult, _assetsIncoming;
+	std::atomic<bool>                      _assetsBusy{ false };
+	char                                   _assetsFilter[128] = "";
+	bool                                   _assetsScriptsOnly = false, _assetsHideGame = true;
 	void        drawCfNode(const ess::cf::Node& n, int a_depth, int a_index);
 	void        detailChangeFormDecoded(const ess::ChangeForm& c);
 	void        actorFixes(const ess::ChangeForm& c, const ess::cf::Decoded& d);

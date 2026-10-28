@@ -697,6 +697,70 @@ namespace ess::merge
 			return s;
 		}
 
+		// ---- stage 2: the parts of a record that are not lists ----------------------------------------
+		// A unit is merged as one block: subrecords that only make sense together (a model and its texture
+		// data, an NPC's face, destruction stages) are taken from one plugin. Structs with a known layout are
+		// merged field by field, flags bit by bit.
+		struct Field
+		{
+			std::uint32_t off, size;
+			bool          flags = false;
+		};
+
+		std::vector<std::vector<std::string>> Groups(const char* rec)
+		{
+			const std::string r(rec, 4);
+			std::vector<std::vector<std::string>> g = { { "MOD2", "MO2T", "MO2S" }, { "MOD3", "MO3T", "MO3S" }, { "MOD4", "MO4T", "MO4S" },
+				{ "ICON", "MICO" }, { "ICO2", "MIC2" }, { "DEST", "DSTD", "DMDL", "DMDT", "DMDS", "DSTF" }, { "EITM", "EAMT" }, { "BODT", "BOD2" } };
+			if (r != "ARMO") {
+				g.push_back({ "MODL", "MODT", "MODS" });  // a model (ARMO's MODL are armatures, a unit of their own)
+			}
+			if (r == "NPC_") {
+				// the face: head parts, colours, morphs and tints must match the FaceGen files of one mod
+				g.push_back({ "PNAM", "HCLF", "FTST", "QNAM", "NAM9", "NAMA", "TINI", "TINC", "TINV", "TIAS" });
+				g.push_back({ "ATKD", "ATKE" });
+				g.push_back({ "CSDT", "CSDI", "CSDC", "CSCR" });
+			}
+			return g;
+		}
+
+		std::vector<Field> Fields(const char* rec, const char* sub, std::size_t a_size)
+		{
+			const std::string k = std::string(rec, 4) + "." + std::string(sub, 4);
+			std::vector<Field> f;
+			auto seq = [&](std::initializer_list<int> sizes, std::initializer_list<int> flagIdx = {}) {
+				std::uint32_t o = 0;
+				int           i = 0;
+				for (int sz : sizes) {
+					bool fl = false;
+					for (int x : flagIdx) fl = fl || x == i;
+					f.push_back({ o, static_cast<std::uint32_t>(sz), fl });
+					o += static_cast<std::uint32_t>(sz);
+					++i;
+				}
+			};
+			if (k == "NPC_.ACBS") seq({ 4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 }, { 0, 8 });
+			else if (k == "NPC_.AIDT") seq({ 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4 });
+			else if (k == "NPC_.DNAM") {
+				for (std::uint32_t i = 0; i < 36; ++i) f.push_back({ i, 1, false });
+				f.push_back({ 36, 2 }); f.push_back({ 38, 2 }); f.push_back({ 40, 2 }); f.push_back({ 42, 2 });
+				f.push_back({ 44, 4 }); f.push_back({ 48, 1 }); f.push_back({ 49, 3 });
+			}
+			else if (k == "WEAP.DATA") seq({ 4, 4, 2 });
+			else if (k == "WEAP.DNAM") seq({ 1, 3, 4, 4, 2, 2, 4, 4, 1, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 8, 4, 4, 4 }, { 4, 15 });
+			else if (k == "WEAP.CRDT") { if (a_size == 24) seq({ 2, 2, 4, 1, 7, 4, 4 }); else seq({ 2, 2, 4, 1, 3, 4 }); }
+			else if (k == "ARMO.DATA") seq({ 4, 4 });
+			else if (k == "AMMO.DATA") { if (a_size == 20) seq({ 4, 4, 4, 4, 4 }, { 1 }); else seq({ 4, 4, 4, 4 }, { 1 }); }
+			else if (k == "CONT.DATA") seq({ 1, 4 }, { 0 });
+			else if (k == "LVLI.LVLF" || k == "LVLN.LVLF" || k == "LVSP.LVLF") seq({ 1 }, { 0 });
+			std::uint32_t total = 0;
+			for (const auto& x : f) total += x.size;
+			if (total != a_size) {
+				f.clear();  // another size than the layout: merged as a whole
+			}
+			return f;
+		}
+
 		struct Entry
 		{
 			std::string       key;    // identity (with an occurrence number for repeats)
@@ -1246,6 +1310,136 @@ namespace ess::merge
 				}
 			}
 
+			static std::vector<CSub> Block(const CRec& c, const std::set<std::string>& sigs)
+			{
+				std::vector<CSub> out;
+				for (const auto& s : c.subs) {
+					if (sigs.contains(Sig(s.sig))) out.push_back(s);
+				}
+				return out;
+			}
+
+			// puts a block where the unit is in the record (or belongs, by the type's order)
+			static void SetBlock(CRec& c, const std::set<std::string>& sigs, const std::vector<CSub>& block)
+			{
+				std::vector<CSub> kept;
+				std::size_t       pos = SIZE_MAX;
+				for (const auto& s : c.subs) {
+					if (sigs.contains(Sig(s.sig))) {
+						if (pos == SIZE_MAX) pos = kept.size();
+						continue;
+					}
+					kept.push_back(s);
+				}
+				if (pos == SIZE_MAX && !block.empty()) {
+					const auto order = Order(c.sig);
+					auto rank = [&](const char* sig) {
+						for (std::size_t i = 0; i < order.size(); ++i) {
+							if (Is(sig, order[i].c_str())) return static_cast<int>(i);
+						}
+						return -1;
+					};
+					const int mine = rank(block.front().sig);
+					pos = kept.size();
+					if (mine >= 0) {
+						for (std::size_t i = 0; i < kept.size(); ++i) {
+							if (rank(kept[i].sig) > mine) {
+								pos = i;
+								break;
+							}
+						}
+					}
+				}
+				if (pos == SIZE_MAX) pos = kept.size();
+				kept.insert(kept.begin() + static_cast<std::ptrdiff_t>(pos), block.begin(), block.end());
+				c.subs = std::move(kept);
+			}
+
+			static bool SameField(const CSub& a, const CSub& b, const Field& f)
+			{
+				if (std::memcmp(a.data.data() + f.off, b.data.data() + f.off, f.size) != 0) return false;
+				std::vector<std::uint64_t> ia, ib;
+				for (const auto& [o, k] : a.ids) if (o >= f.off && o < f.off + f.size) ia.push_back(k);
+				for (const auto& [o, k] : b.ids) if (o >= f.off && o < f.off + f.size) ib.push_back(k);
+				return ia == ib;
+			}
+
+			// a_patch gets the parts of a_ovr that differ from a_base; returns what was taken
+			std::string applyUnits(CRec& a_patch, const CRec& a_base, const CRec& a_ovr)
+			{
+				// the list parts are merged entry by entry, not here
+				std::set<std::string> listSigs;
+				for (const auto& sp : Lists(a_patch.sig)) {
+					listSigs.insert(sp.entry);
+					if (sp.follower) listSigs.insert(sp.follower);
+					if (sp.count) listSigs.insert(sp.count);
+				}
+				// the units: the groups, then every other part on its own
+				std::vector<std::set<std::string>> units;
+				std::set<std::string>              grouped;
+				for (const auto& g : Groups(a_patch.sig)) {
+					units.emplace_back(g.begin(), g.end());
+					grouped.insert(g.begin(), g.end());
+				}
+				for (const CRec* c : std::initializer_list<const CRec*>{ &a_base, &a_ovr, &a_patch }) {
+					for (const auto& s : c->subs) {
+						const auto sig = Sig(s.sig);
+						if (!grouped.contains(sig) && !listSigs.contains(sig)) {
+							grouped.insert(sig);
+							units.push_back({ sig });
+						}
+					}
+				}
+				std::vector<std::string> taken;
+				for (const auto& u : units) {
+					const auto b = Block(a_base, u), o = Block(a_ovr, u);
+					if (Serialize(b) == Serialize(o)) {
+						continue;  // this plugin did not change it
+					}
+					auto       p = Block(a_patch, u);
+					const auto name = u.size() > 1 && u.contains("PNAM") ? std::string("face") : Sig(o.empty() ? b.front().sig : o.front().sig);
+					// one struct in all three: field by field
+					if (u.size() == 1 && b.size() == 1 && o.size() == 1 && p.size() == 1 && b[0].data.size() == o[0].data.size() &&
+						o[0].data.size() == p[0].data.size()) {
+						const auto fields = Fields(a_patch.sig, o[0].sig, o[0].data.size());
+						if (!fields.empty()) {
+							std::size_t n = 0;
+							for (const auto& f : fields) {
+								if (SameField(b[0], o[0], f) || SameField(p[0], o[0], f)) {
+									continue;
+								}
+								if (f.flags) {
+									for (std::uint32_t i = 0; i < f.size; ++i) {
+										const auto mask = static_cast<std::uint8_t>(b[0].data[f.off + i] ^ o[0].data[f.off + i]);
+										p[0].data[f.off + i] = static_cast<std::uint8_t>((p[0].data[f.off + i] & ~mask) | (o[0].data[f.off + i] & mask));
+									}
+								} else {
+									std::memcpy(p[0].data.data() + f.off, o[0].data.data() + f.off, f.size);
+									std::erase_if(p[0].ids, [&](const auto& x) { return x.first >= f.off && x.first < f.off + f.size; });
+									for (const auto& x : o[0].ids) {
+										if (x.first >= f.off && x.first < f.off + f.size) p[0].ids.push_back(x);
+									}
+									std::sort(p[0].ids.begin(), p[0].ids.end());
+								}
+								++n;
+							}
+							if (n) {
+								SetBlock(a_patch, u, p);
+								taken.push_back(name + " (" + std::to_string(n) + (n == 1 ? " value)" : " values)"));
+							}
+							continue;
+						}
+					}
+					if (Serialize(p) != Serialize(o)) {
+						SetBlock(a_patch, u, o);
+						taken.push_back(name);
+					}
+				}
+				std::string out;
+				for (const auto& t : taken) out += (out.empty() ? "" : ", ") + t;
+				return out;
+			}
+
 			void merge()
 			{
 				if (_progress) {
@@ -1333,6 +1527,20 @@ namespace ess::merge
 					mr.winner = _plugins[win.plugin].name;
 					if (winFixes) {
 						mr.changes.push_back("fixed " + std::to_string(winFixes) + " reference(s) to renumbered forms of a compacted plugin");
+					}
+					// the values first: each plugin's changes in load order, so the last one to change a part wins
+					for (std::size_t i = 1; i < vs.size(); ++i) {
+						std::size_t b = 0;
+						for (std::size_t j = i; j-- > 1;) {
+							if (_plugins[vs[i].plugin].masterSet.contains(vs[j].plugin)) {
+								b = j;
+								break;
+							}
+						}
+						const auto what = applyUnits(patch, cv[b], cv[i]);
+						if (!what.empty() && i + 1 != vs.size()) {
+							mr.changes.push_back(_plugins[vs[i].plugin].name + ": " + what);
+						}
 					}
 					bool failed = false;
 					for (const auto& sp : Lists(win.rec.sig)) {

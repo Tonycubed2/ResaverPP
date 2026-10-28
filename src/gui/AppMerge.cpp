@@ -12,6 +12,8 @@
 #include "imgui.h"
 
 #include <cstdio>
+#include <algorithm>
+#include <cctype>
 #include <fstream>
 
 using namespace ess;
@@ -256,6 +258,146 @@ void App::drawMergedPatch()
 				ImGui::BulletText("%s", s.c_str());
 			}
 		}
+	}
+	ImGui::EndChild();
+	ImGui::End();
+}
+
+// ==========================================================================================
+// file conflicts: loose files and archives
+// ==========================================================================================
+
+void App::drawFileConflicts()
+{
+	prepareWindow("File conflicts", ImVec2(0.8f, 0.85f));
+	if (!ImGui::Begin("File conflicts", &_showAssets, ImGuiWindowFlags_NoCollapse)) {
+		ImGui::End();
+		return;
+	}
+	maximizeControl("File conflicts");
+	if (!_assetsBusy && _assetsThread.joinable()) {
+		_assetsThread.join();
+		_assetsResult = std::move(_assetsIncoming);
+	}
+	ImGui::NewLine();
+	ImGui::TextWrapped("When two mods have the same file (a mesh, texture, script...), the game uses one of them. Loose files beat every "
+					   "archive (BSA); among loose files your mod order decides; among archives the plugin load order. This lists which "
+					   "mod overrides which, loose and inside archives. A script overridden by another mod's copy is worth a look: one "
+					   "of the two mods may not work as its author meant.");
+	if (!_mo2) {
+		Colored(theme::Warn(), "Without Mod Organizer only the game's Data folder can be read: files a mod manager already copied over each "
+							   "other there cannot be told apart any more. Archives against loose files still show.");
+	}
+	ImGui::BeginDisabled(_assetsBusy);
+	if (ImGui::Button(_assetsResult ? "Look again" : "Find file conflicts")) {
+		assets::Input in;
+		if (_mo2) {
+			in.modsDir = _mo2->modsDir;
+			in.overwrite = _mo2->overwriteDir;
+			if (!_profile.empty()) {
+				in.modsLowFirst = LoadModList(_mo2->profilesDir / platform::FromUtf8(_profile));
+				std::reverse(in.modsLowFirst.begin(), in.modsLowFirst.end());
+			}
+		}
+		if (!gameFolder().empty()) {
+			in.gameData = gameFolder() / "Data";
+		}
+		const auto pluginsTxt =
+			_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_vr);
+		in.loadOrder = merge::ReadLoadOrder(pluginsTxt, gameFolder());
+		_assetsProgress = std::make_unique<assets::Progress>();
+		_assetsBusy = true;
+		auto* prog = _assetsProgress.get();
+		_assetsThread = std::thread([this, in, prog] {
+			auto r = std::make_unique<assets::Result>(assets::Find(in, prog));
+			_assetsIncoming = std::move(r);
+			_assetsBusy = false;
+		});
+	}
+	ImGui::EndDisabled();
+	tips::Tip("Read the file list of every enabled mod and every archive the game loads (the files themselves are not opened).");
+	if (_assetsBusy && _assetsProgress) {
+		ImGui::SameLine();
+		const auto total = _assetsProgress->total.load(), done = _assetsProgress->done.load();
+		ImGui::ProgressBar(total ? static_cast<float>(done) / static_cast<float>(total) : 0.0f, ImVec2(-1, 0),
+			Fmt("%s  %zu / %zu", _assetsProgress->current().c_str(), done, total).c_str());
+	}
+	if (!_assetsResult || _assetsBusy) {
+		ImGui::End();
+		return;
+	}
+	const auto& r = *_assetsResult;
+	ImGui::Text("%zu files in %zu folders and %zu archives; %zu paths come from more than one place (%zu scripts).", r.files, r.modsRead,
+		r.archives, r.conflicts.size(), r.scriptConflicts);
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 18);
+	ImGui::InputTextWithHint("##assetfilter", "Filter: mod name or file", _assetsFilter, sizeof(_assetsFilter));
+	tips::Tip("Show only pairs where a mod's name or one of the files contains this text.");
+	ImGui::SameLine();
+	ImGui::Checkbox("Only scripts", &_assetsScriptsOnly);
+	tips::Tip("Only pairs where one mod overrides another's scripts (.pex).");
+	ImGui::SameLine();
+	ImGui::Checkbox("Hide the base game", &_assetsHideGame);
+	tips::Tip("Hide mods overriding the base game's own files: replacing them is what most mods are for.");
+	if (ImGui::Button("Save the full list...")) {
+		if (auto f = platform::SaveFileDialog("ReSaverPP File Conflicts.txt", "txt", "File conflicts")) {
+			std::ofstream(*f) << r.report(100000);
+			_status = "Wrote " + platform::ToUtf8(*f);
+		}
+	}
+	tips::Tip("Write every conflict to a text file.");
+	auto lower = [](std::string x) {
+		for (auto& c : x) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		return x;
+	};
+	const auto flt = lower(_assetsFilter);
+	if (ImGui::BeginChild("assetlist", ImVec2(0, 0), ImGuiChildFlags_Borders)) {
+		std::size_t shown = 0;
+		for (std::size_t pi = 0; pi < r.pairs.size(); ++pi) {
+			const auto& p = r.pairs[pi];
+			if ((_assetsScriptsOnly && !p.scripts) || (_assetsHideGame && p.loser == "Game Data")) {
+				continue;
+			}
+			if (!flt.empty() && lower(p.winner).find(flt) == std::string::npos && lower(p.loser).find(flt) == std::string::npos) {
+				bool any = false;
+				for (const auto ci : p.conflicts) {
+					if (r.conflicts[ci].path.find(flt) != std::string::npos) {
+						any = true;
+						break;
+					}
+				}
+				if (!any) continue;
+			}
+			if (++shown > 2000) {
+				ImGui::TextDisabled("... more: narrow the filter");
+				break;
+			}
+			ImGui::PushID(static_cast<int>(pi));
+			const auto head = Fmt("%s  overrides  %s:  %zu file(s)%s", p.winner.c_str(), p.loser.c_str(), p.files,
+				p.scripts ? Fmt(", %zu script(s)", p.scripts).c_str() : "");
+			if (p.scripts) ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
+			const bool open = ImGui::TreeNode(head.c_str());
+			if (p.scripts) ImGui::PopStyleColor();
+			if (open) {
+				std::size_t n = 0;
+				for (const auto ci : p.conflicts) {
+					const auto& c = r.conflicts[ci];
+					if (_assetsScriptsOnly && !c.path.ends_with(".pex")) continue;
+					if (++n > 500) {
+						ImGui::TextDisabled("... %zu more (Save the full list)", p.conflicts.size() - 500);
+						break;
+					}
+					std::string from;
+					for (std::size_t i = 0; i < c.sources.size(); ++i) {
+						from += (i ? "  <  " : "") + r.sources[c.sources[i]].label();
+					}
+					ImGui::TextUnformatted(c.path.c_str());
+					tips::Tipf("Lowest to highest (the last one is used):\n%s", from.c_str());
+				}
+				ImGui::TreePop();
+			}
+			ImGui::PopID();
+		}
+		if (!shown) ImGui::TextDisabled("Nothing to show with these filters.");
 	}
 	ImGui::EndChild();
 	ImGui::End();

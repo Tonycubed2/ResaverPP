@@ -62,10 +62,13 @@ App::~App()
 	if (_mergeProgress) {
 		_mergeProgress->cancel = true;
 	}
+	if (_assetsProgress) {
+		_assetsProgress->cancel = true;
+	}
 	// Background work only reads files. Give it a moment to stop, then leave without it: inside Mod
 	// Organizer reading one large archive can take long, and MO2 stays locked while this process exists.
 	auto busy = [&] {
-		return (_dbThread.joinable() && !_dbDone) || (_scanThread.joinable() && !_scanDone) || scriptJobsBusy() || _historyBusy || _mergeBusy;
+		return (_dbThread.joinable() && !_dbDone) || (_scanThread.joinable() && !_scanDone) || scriptJobsBusy() || _historyBusy || _mergeBusy || _assetsBusy;
 	};
 	const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(2);
 	while (busy() && std::chrono::steady_clock::now() < until) {
@@ -87,6 +90,9 @@ App::~App()
 	}
 	if (_mergeThread.joinable()) {
 		_mergeThread.join();
+	}
+	if (_assetsThread.joinable()) {
+		_assetsThread.join();
 	}
 }
 
