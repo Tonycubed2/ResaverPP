@@ -16,6 +16,10 @@
 #include "imgui_impl_opengl3.h"
 
 #include <GLFW/glfw3.h>
+#ifdef _WIN32
+#	define GLFW_EXPOSE_NATIVE_WIN32
+#	include <GLFW/glfw3native.h>
+#endif
 
 #include <algorithm>
 #include <cstdio>
@@ -33,6 +37,37 @@ static FILE* _wfopen_compat(const std::filesystem::path& p, const char* m) { ret
 
 namespace
 {
+#ifdef _WIN32
+	// The window's title bar follows the theme: dark mode for the grey and dark themes, and on Windows 11 the
+	// title bar takes the colour of the menu bar below it, so the window looks like one piece.
+	void MatchTitleBar(GLFWwindow* a_window)
+	{
+		using SetAttr = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
+		static const auto set = []() -> SetAttr {
+			HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
+			return dwm ? reinterpret_cast<SetAttr>(reinterpret_cast<void*>(GetProcAddress(dwm, "DwmSetWindowAttribute"))) : nullptr;
+		}();
+		HWND hwnd = glfwGetWin32Window(a_window);
+		if (!set || !hwnd) {
+			return;
+		}
+		const BOOL dark = theme::IsLight() ? FALSE : TRUE;
+		// 20: DWMWA_USE_IMMERSIVE_DARK_MODE (Windows 10 20H1 and later); 19 on earlier Windows 10 builds
+		if (FAILED(set(hwnd, 20, &dark, sizeof(dark)))) {
+			set(hwnd, 19, &dark, sizeof(dark));
+		}
+		auto ref = [](const ImVec4& c) {
+			auto b = [](float v) { return static_cast<DWORD>(std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f); };
+			return static_cast<COLORREF>(b(c.x) | (b(c.y) << 8) | (b(c.z) << 16));
+		};
+		const auto& col = ImGui::GetStyle().Colors;
+		const COLORREF caption = ref(col[ImGuiCol_MenuBarBg]), text = ref(col[ImGuiCol_Text]), border = ref(col[ImGuiCol_Border]);
+		set(hwnd, 35, &caption, sizeof(caption));  // DWMWA_CAPTION_COLOR (Windows 11; ignored before)
+		set(hwnd, 36, &text, sizeof(text));        // DWMWA_TEXT_COLOR
+		set(hwnd, 34, &border, sizeof(border));    // DWMWA_BORDER_COLOR
+	}
+#endif
+
 	// ---- start-up log: ReSaverPP-startup.log next to the exe (else in %TEMP%) -------------------------
 	// A window that opens and closes at once says nothing: this file says how far the start got, what
 	// OpenGL the PC has, and where it crashed. Overwritten at every start.
@@ -371,8 +406,17 @@ int RunApp(int argc, char** argv)
 	int         frame = 0;
 	const double shotDelay = std::getenv("RESAVERPP_SHOT_DELAY") ? std::atof(std::getenv("RESAVERPP_SHOT_DELAY")) : 0.0;
 
+#ifdef _WIN32
+	int titleTheme = -1;  // the theme the title bar was last matched to
+#endif
 	while (!app.wantsQuit()) {
 		glfwPollEvents();
+#ifdef _WIN32
+		if (static_cast<int>(theme::Current()) != titleTheme) {
+			titleTheme = static_cast<int>(theme::Current());
+			MatchTitleBar(window);
+		}
+#endif
 		if (glfwWindowShouldClose(window)) {
 			glfwSetWindowShouldClose(window, GLFW_FALSE);
 			app.requestQuit();
