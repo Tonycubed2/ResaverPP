@@ -817,13 +817,6 @@ void App::draw()
 		tips::Tip("Pick a Skyrim save (.ess) to inspect and clean.");
 		ImGui::Spacing();
 		centered("or drag a .ess file onto this window (a .pex script shows its code)", true);
-		ImGui::Spacing();
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-		if (!anyToolOpen()) {
-			drawHome();
-		}
 	} else {
 		drawCategories();
 		ImGui::SameLine();

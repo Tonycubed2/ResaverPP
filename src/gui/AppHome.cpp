@@ -23,10 +23,10 @@ using namespace ess;
 
 namespace
 {
-	// "marching ants" around a rectangle, in a lighter shade of the button colour
+	// a still border around the big features, in a shade of the button colour
 	void DrawMarquee(ImVec2 a_min, ImVec2 a_max)
 	{
-		auto*      dl = ImGui::GetWindowDrawList();
+		auto*        dl = ImGui::GetWindowDrawList();
 		const ImVec4 c = ImGui::GetStyleColorVec4(ImGuiCol_Button);
 		const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
 		float        hh, ss, vv;
@@ -40,33 +40,11 @@ namespace
 			ss = std::max(ss, 0.55f);
 			vv = std::min(vv, 0.80f);
 		}
-		float r, g, b2;
-		ImGui::ColorConvertHSVtoRGB(hh, ss, vv, r, g, b2);
-		const ImU32 col = ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b2, 1.0f));
-		const float pad = 2.0f, dash = 7.0f, gap = 5.0f, thick = 2.0f;
-		const ImVec2 a(a_min.x - pad, a_min.y - pad), b(a_max.x + pad, a_max.y + pad);
-		const float  w = b.x - a.x, h = b.y - a.y, per = 2 * (w + h);
-		auto point = [&](float d) {
-			d = std::fmod(d, per);
-			if (d < 0) d += per;
-			if (d < w) return ImVec2(a.x + d, a.y);
-			d -= w;
-			if (d < h) return ImVec2(b.x, a.y + d);
-			d -= h;
-			if (d < w) return ImVec2(b.x - d, b.y);
-			d -= w;
-			return ImVec2(a.x, b.y - d);
-		};
-		const float off = static_cast<float>(std::fmod(ImGui::GetTime() * 28.0, dash + gap));
-		for (float d = off; d < per + off; d += dash + gap) {
-			// a dash can turn a corner: draw it in small steps
-			ImVec2 prev = point(d);
-			for (float s = 1.0f; s <= dash; s += 1.0f) {
-				const ImVec2 p = point(d + s);
-				dl->AddLine(prev, p, col, thick);
-				prev = p;
-			}
-		}
+		float r, g, b;
+		ImGui::ColorConvertHSVtoRGB(hh, ss, vv, r, g, b);
+		const float pad = 2.0f;
+		dl->AddRect(ImVec2(a_min.x - pad, a_min.y - pad), ImVec2(a_max.x + pad, a_max.y + pad),
+			ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b, 1.0f)), ImGui::GetStyle().FrameRounding + pad, 0, 2.0f);
 	}
 }
 
@@ -308,25 +286,12 @@ void App::drawHome()
 					"Open a compiled Papyrus script (.pex) and read its decompiled code.", HomeRisk::kNone, -1 },
 			} },
 	};
-	const std::vector<std::pair<const char*, std::vector<Button>>>* saveGroupsForNoSave = nullptr;
-	// the big features get a moving border (a marquee) in a lighter shade of the button colour
+	// the big features get a border in a shade of the button colour
 	const std::set<Sc> major = { Sc::kTransplant, Sc::kPlayer, Sc::kActors, Sc::kMods, Sc::kLeftovers, Sc::kBatch, Sc::kMerge,
 		Sc::kFileConflicts };
 
-	auto noSave = modGroups;
-	if (!_save) {
-		// no save open: the tools that work on the mods alone (Find a form needs a save)
-		for (auto& g : noSave) {
-			std::erase_if(g.second, [](const Button& b) { return b.which == Sc::kLookup; });
-		}
-		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-		ImGui::TextWrapped("These work on your mods and load order and need no save:");
-		ImGui::PopStyleColor();
-		ImGui::Spacing();
-		saveGroupsForNoSave = &noSave;
-	}
 	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-	if (_save) ImGui::TextWrapped("Shortcuts: the same as the Clean and Tools menus. Green is safe, yellow: read what it does first, red: risky. "
+	ImGui::TextWrapped("Shortcuts: the same as the Clean and Tools menus. Green is safe, yellow: read what it does first, red: risky. "
 	                   "Every change is made in the loaded save and only written with File > Save or Save As.");
 	ImGui::PopStyleColor();
 	ImGui::Spacing();
@@ -380,17 +345,13 @@ void App::drawHome()
 	}
 	ImGui::EndTable();
 	};
-	if (saveGroupsForNoSave) {
-		drawGroups("homenosave", *saveGroupsForNoSave);
-		return;
-	}
 	if (ImGui::BeginTabBar("hometabs")) {
 		if (ImGui::BeginTabItem("Your save")) {
 			drawGroups("homesave", saveGroups);
 			ImGui::EndTabItem();
 		}
 		static bool modsFirst = std::getenv("RESAVERPP_TEST_HOMETAB") != nullptr;  // for screenshots
-		if (ImGui::BeginTabItem("Your mods and load order", nullptr, modsFirst ? ImGuiTabItemFlags_SetSelected : 0)) {
+		if (ImGui::BeginTabItem("Your mods: Merged patch, File conflicts", nullptr, modsFirst ? ImGuiTabItemFlags_SetSelected : 0)) {
 			modsFirst = false;
 			drawGroups("homemods", modGroups);
 			ImGui::EndTabItem();
