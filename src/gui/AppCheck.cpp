@@ -208,9 +208,10 @@ std::vector<App::CheckItem> App::checkItems()
 			it.what = "Their script files were not found when this save was made, so the game cannot run them: dead data.";
 			CheckOption o;
 			o.label = "Remove undefined elements";
-			o.risk = Risk::kSafe;
-			o.why = "The game cannot use these scripts any more. Only if you reinstalled that mod after this save was made would its data "
-					"still matter.";
+			o.risk = Risk::kCaution;
+			o.why = "The game cannot use these scripts any more, but stopping their threads also ends the scripts that called them, which "
+					"can leave a quest or mod waiting forever. If that mod is installed again, or a script it extends is only missing for "
+					"now, its data still matters. Back up the save and check it in game.";
 			o.act = [this, p] {
 				confirm("Remove undefined elements",
 					"Delete scripts whose .pex is no longer installed, their instances and references, and terminate threads running them?"
