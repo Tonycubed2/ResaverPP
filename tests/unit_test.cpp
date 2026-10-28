@@ -573,6 +573,10 @@ namespace
 			std::memcpy(&health, subOf(n3, "ACBS")->data() + 20, 2);
 			ok3 = flags == 0x12 && health == 50 && (*subOf(n3, "AIDT"))[0] == 2 && list(n3, "PNAM", 0) == std::vector<std::uint32_t>{ 0x991 } &&
 				  (*subOf(n3, "QNAM"))[0] == 0x91;
+			std::string order;
+			for (const auto& sb : n3->subs) order += std::string(sb.sig, 4) + " ";
+			ok3 = ok3 && order == "EDID ACBS RNAM AIDT DATA PNAM QNAM ";
+			if (!ok3) std::printf("order: %s\n", order.c_str());
 		}
 		if (!ok3) {
 			std::printf("%s", r3.report().c_str());

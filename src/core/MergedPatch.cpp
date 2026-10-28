@@ -717,7 +717,8 @@ namespace ess::merge
 			}
 			if (r == "NPC_") {
 				// the face: head parts, colours, morphs and tints must match the FaceGen files of one mod
-				g.push_back({ "PNAM", "HCLF", "FTST", "QNAM", "NAM9", "NAMA", "TINI", "TINC", "TINV", "TIAS" });
+				// (and the race: tint layers and head parts are the race's)
+				g.push_back({ "RNAM", "PNAM", "HCLF", "FTST", "QNAM", "NAM9", "NAMA", "TINI", "TINC", "TINV", "TIAS" });
 				g.push_back({ "ATKD", "ATKE" });
 				g.push_back({ "CSDT", "CSDI", "CSDC", "CSCR" });
 			}
@@ -1319,39 +1320,48 @@ namespace ess::merge
 				return out;
 			}
 
-			// puts a block where the unit is in the record (or belongs, by the type's order)
+			// puts a block into the record: each subrecord where its type belongs (a unit can be spread over the record,
+			// like an NPC's face: head parts after the skills, tints at the end), keeping the block's own order
 			static void SetBlock(CRec& c, const std::set<std::string>& sigs, const std::vector<CSub>& block)
 			{
+				const auto order = Order(c.sig);
+				auto rank = [&](const char* sig) {
+					for (std::size_t i = 0; i < order.size(); ++i) {
+						if (Is(sig, order[i].c_str())) return static_cast<int>(i);
+					}
+					return -1;
+				};
 				std::vector<CSub> kept;
-				std::size_t       pos = SIZE_MAX;
+				std::size_t       firstRemoved = SIZE_MAX;
 				for (const auto& s : c.subs) {
 					if (sigs.contains(Sig(s.sig))) {
-						if (pos == SIZE_MAX) pos = kept.size();
+						if (firstRemoved == SIZE_MAX) firstRemoved = kept.size();
 						continue;
 					}
 					kept.push_back(s);
 				}
-				if (pos == SIZE_MAX && !block.empty()) {
-					const auto order = Order(c.sig);
-					auto rank = [&](const char* sig) {
-						for (std::size_t i = 0; i < order.size(); ++i) {
-							if (Is(sig, order[i].c_str())) return static_cast<int>(i);
-						}
-						return -1;
-					};
-					const int mine = rank(block.front().sig);
-					pos = kept.size();
-					if (mine >= 0) {
-						for (std::size_t i = 0; i < kept.size(); ++i) {
-							if (rank(kept[i].sig) > mine) {
+				std::size_t last = 0;  // just after the block's previous subrecord
+				bool        any = false;
+				for (const auto& b : block) {
+					const int   mine = rank(b.sig);
+					std::size_t pos;
+					if (mine < 0) {
+						pos = any ? last : (firstRemoved == SIZE_MAX ? kept.size() : firstRemoved);
+					} else {
+						pos = kept.size();
+						for (std::size_t i = any ? last : 0; i < kept.size(); ++i) {
+							const int r = rank(kept[i].sig);
+							if (r > mine) {
 								pos = i;
 								break;
 							}
 						}
 					}
+					kept.insert(kept.begin() + static_cast<std::ptrdiff_t>(pos), b);
+					last = pos + 1;
+					any = true;
+					if (firstRemoved != SIZE_MAX && pos <= firstRemoved) ++firstRemoved;
 				}
-				if (pos == SIZE_MAX) pos = kept.size();
-				kept.insert(kept.begin() + static_cast<std::ptrdiff_t>(pos), block.begin(), block.end());
 				c.subs = std::move(kept);
 			}
 
