@@ -203,6 +203,8 @@ void App::doSave(const std::filesystem::path& a_path)
 		if (_saveCompression >= 0 && !_save->isLE()) {  // Legendary Edition saves are never compressed
 			_save->header.compression = static_cast<Compression>(_saveCompression);
 		}
+		// the save as it was opened goes to the archive first (File > Restore an archived save)
+		archiveBeforeWrite(a_path);
 		// staged, read back, previous files kept as name.ess.bak + name.skse.bak (one generation each),
 		// rolled back if the co-save cannot be written
 		const auto wr = _save->write(a_path, true);
@@ -216,7 +218,7 @@ void App::doSave(const std::filesystem::path& a_path)
 		_dirty = false;
 		_status = "Saved and verified " + platform::ToUtf8(a_path.filename()) +
 				  (wr.backup.empty() ? std::string() : "  (previous file kept as " + platform::ToUtf8(wr.backup.filename()) +
-															   (wr.cosaveBackup.empty() ? "" : " + " + platform::ToUtf8(wr.cosaveBackup.filename())) + ")");
+															   (wr.cosaveBackup.empty() ? "" : " + " + platform::ToUtf8(wr.cosaveBackup.filename())) + ")") + _archiveNote;
 	} catch (const std::exception& e) {
 		_error = std::string("Save failed:\n\n") + e.what();
 	}
@@ -900,6 +902,9 @@ void App::draw()
 	if (_showSavesMgr) {
 		drawSavesManager();
 	}
+	if (_showArchive) {
+		drawArchive();
+	}
 	if (_showMerge) {
 		drawMergedPatch();
 	}
@@ -966,6 +971,12 @@ void App::drawMenu()
 			startSaveAsDialog();
 		}
 		tips::Tip("Write your edits to a new save file and leave the original untouched. The safest way to try a cleanup.");
+		if (ImGui::MenuItem("Restore an archived save...", nullptr, &_showArchive)) {
+			_archiveLoaded = false;
+			_archiveMsg.clear();
+		}
+		tips::Tip("The last 10 saves ReSaver Plus wrote over or edited, kept before every save it writes. See each one's screenshot and put "
+				  "one back. Works without a save open.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Compare to another save...", nullptr, false, _save != nullptr)) {
 			shortcut(Sc::kCompare);

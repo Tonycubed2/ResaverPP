@@ -5,6 +5,7 @@
 #include "core/Ops.h"
 #include "core/Pex.h"
 #include "core/Save.h"
+#include "core/SaveArchive.h"
 #include "core/Transplant.h"
 
 #include <filesystem>
@@ -251,6 +252,52 @@ namespace
 				  "Save68_00000000_1_416C6C616E646F72_Tamriel_010446_20261024080619withoutSomeMod1_16_1.ess",
 			"edited save name: letters and digits only");
 		Check(n("my save.ess", "edited") == "my save_edited.ess", "edited save name: other names get _tag");
+	}
+
+
+	void TestSaveArchive()
+	{
+		namespace ar = ess::archive;
+		namespace fs = std::filesystem;
+		const auto base = fs::temp_directory_path() / "rs_archive_test";
+		fs::remove_all(base);
+		const auto saves = base / "Saves", arch = base / "Archive";
+		fs::create_directories(saves);
+		const auto ess = saves / "Save5_ABCDEF01_0_4E616D65_Whiterun_000101_20261025142859_5_1.ess";
+		auto co = ess;
+		co.replace_extension(".skse");
+		auto write = [&](const std::string& a_text) {
+			std::ofstream(ess, std::ios::binary) << a_text;
+			std::ofstream(co, std::ios::binary) << "co-" + a_text;
+		};
+		auto read = [](const fs::path& p) {
+			std::ifstream f(p, std::ios::binary);
+			return std::string(std::istreambuf_iterator<char>(f), {});
+		};
+		write("v0");
+		Check(ar::Add(arch, ess, ess, "Saved over it").has_value(), "archive: a save is archived");
+		Check(!ar::Add(arch, ess, ess, "Saved over it").has_value(), "archive: the same unchanged save is not archived twice");
+		for (int i = 1; i <= 11; ++i) {
+			write("v" + std::to_string(i) + std::string(static_cast<std::size_t>(i), 'x'));  // a new size each time
+			ar::Add(arch, ess, ess, "Saved over it");
+		}
+		auto all = ar::List(arch);
+		Check(all.size() == ar::kKeep, "archive: only the newest 10 are kept");
+		Check(!all.empty() && read(all.front().ess) == "v11" + std::string(11, 'x') && read(all.front().skse) == "co-v11" + std::string(11, 'x'),
+			"archive: newest first, with its .skse");
+		Check(read(all.back().ess) == "v2xx", "archive: the oldest ones were deleted");
+		// put the oldest back: the file there now is archived first and the oldest entry must survive until it is copied
+		write("current");
+		const auto oldest = all.back();
+		const auto p = ar::RestoreInPlace(arch, oldest);
+		Check(p == ess && read(ess) == "v2xx" && read(co) == "co-v2xx", "archive: restore in place puts the save and its .skse back");
+		all = ar::List(arch);
+		Check(all.size() == ar::kKeep && read(all.front().ess) == "current" && all.front().reason == "Replaced by a restore",
+			"archive: the replaced save was archived first");
+		const auto copy = ar::RestoreAsCopy(all.front());
+		Check(copy.filename().string().find("restored") != std::string::npos && read(copy) == "current" && read(ess) == "v2xx",
+			"archive: restore as a copy leaves the save alone");
+		fs::remove_all(base);
 	}
 
 	void TestTransplant()
@@ -691,6 +738,7 @@ int main()
 	TestPapyrusRoundTrip();
 	TestEditedName();
 	TestTransplant();
+	TestSaveArchive();
 	TestMergedPatch();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;

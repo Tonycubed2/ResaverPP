@@ -9,6 +9,7 @@
 #include "core/Extras.h"
 #include "core/AssetConflicts.h"
 #include "core/MergedPatch.h"
+#include "core/SaveArchive.h"
 #include "core/LoadOrder.h"
 #include "core/ModRemove.h"
 #include "core/Orphans.h"
@@ -67,6 +68,7 @@ public:
 
 	~App();
 	void open(const std::filesystem::path& a_path);
+	void testShowArchive() { _showArchive = true; }
 	void openAny(const std::filesystem::path& a_path);  // .ess, .pex or ModOrganizer.ini
 	void openNewestAtStart();  // with "Open the newest save at start" on: opens it (main.cpp, when no file was given)
 	void draw();  // whole UI for one frame
@@ -523,6 +525,23 @@ private:
 	std::string                _savesCharFilter;
 	// merged patch
 	bool                                   _showMerge = false;
+	// File > Restore an archived save
+	struct ArchiveShot
+	{
+		std::uint64_t tex = 0;
+		int           w = 0, h = 0;
+	};
+	bool                                   _showArchive = false, _archiveLoaded = false;
+	std::vector<ess::archive::Entry>       _archive;
+	std::vector<ArchiveShot>               _archiveShots;
+	int                                    _archiveSel = 0;
+	std::string                            _archiveMsg, _archiveNote;
+	std::filesystem::path                  archiveFolder() const;
+	void                                   loadArchive();
+	void                                   freeArchiveShots();
+	void                                   archiveBeforeWrite(const std::filesystem::path& a_target);
+	void                                   drawArchive();
+	void                                   drawArchiveButtons(const ess::archive::Entry& a_entry);
 	std::thread                            _mergeThread;
 	std::unique_ptr<ess::merge::Progress>  _mergeProgress;
 	std::unique_ptr<ess::merge::Result>    _mergeResult, _mergeIncoming;

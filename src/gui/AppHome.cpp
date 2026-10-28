@@ -70,7 +70,7 @@ bool App::anyToolOpen() const
 {
 	return _showTransplant || _missingOpen || _orphansOpen || _showAnalysis || _purgeOpen || _showLookup || _showActors || _showPlayer ||
 	       _showCompare || _batchOpen || _reportOpen || _showArrays || _showViewer || _removeOpen || _showLeftovers || _showHistory ||
-	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets;
+	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets || _showArchive;
 }
 
 void App::goHome()
@@ -79,7 +79,7 @@ void App::goHome()
 	_showCompare = _batchOpen = _reportOpen = _showArrays = _removeOpen = false;
 	_showViewer = false;
 	_showCheck = false;
-	_showLeftovers = _showHistory = _showPapyrusLog = _showSavesMgr = _showMerge = _showAssets = false;
+	_showLeftovers = _showHistory = _showPapyrusLog = _showSavesMgr = _showMerge = _showAssets = _showArchive = false;
 	if (_cat != Cat::kOverview) {
 		select(Cat::kOverview, 0);
 	}

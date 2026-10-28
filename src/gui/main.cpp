@@ -385,6 +385,9 @@ int RunApp(int argc, char** argv)
 	}
 	Step("drawing the first frames");
 	int drawn = 0;
+	if (std::getenv("RESAVERPP_TEST_ARCHIVE")) {
+		app.testShowArchive();
+	}
 	if (const char* t = std::getenv("RESAVERPP_TEST_CAT")) {
 		app.testSelect(std::atoi(t), std::getenv("RESAVERPP_TEST_FILTER"), std::getenv("RESAVERPP_TEST_ANALYSIS") != nullptr);
 		if (const char* rm = std::getenv("RESAVERPP_TEST_REMOVE")) {
