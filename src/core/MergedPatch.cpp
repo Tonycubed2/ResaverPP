@@ -2070,6 +2070,21 @@ namespace ess::merge
 	{
 		Result r;
 		try {
+			// Legendary Edition (Skyrim.esm's header has record version 43, SE/AE 44) cannot load the patch: it is written
+			// in the SE format and flagged light (ESL), which LE does not have
+			if (a_opt.findPlugin) {
+				if (const auto esm = a_opt.findPlugin("Skyrim.esm")) {
+					std::ifstream f(*esm, std::ios::binary);
+					unsigned char h[24] = {};
+					if (f.read(reinterpret_cast<char*>(h), sizeof(h)) && std::memcmp(h, "TES4", 4) == 0 && (h[20] | (h[21] << 8)) < 44) {
+						r.ok = false;
+						r.error = "This is a Skyrim Legendary Edition load order. The merged patch is made for Skyrim Special Edition and "
+						          "Anniversary Edition (and VR) only: it is written in their plugin format and flagged light (ESL), which "
+						          "Legendary Edition cannot load. Nothing was written.";
+						return r;
+					}
+				}
+			}
 			Builder b(a_opt, a_progress, r);
 			b.run();
 		} catch (const std::exception& e) {
