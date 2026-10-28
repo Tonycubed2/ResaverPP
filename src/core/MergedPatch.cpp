@@ -5,6 +5,7 @@
 #include "MergedPatch.h"
 
 #include "Bsa.h"
+#include "ConditionFunctions.h"
 #include "Save.h"  // DecompressZlib
 #include "ScriptSources.h"
 
@@ -352,9 +353,19 @@ namespace ess::merge
 		for (const char* p : { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" }) {
 			add(p);
 		}
+		// the game loads the Creation Club files listed in Skyrim.ccc (and _ResourcePack.esl) by itself: Mod
+		// Organizer does not mark them enabled in plugins.txt
+		std::set<std::string> always = { "_resourcepack.esl" };
+		std::error_code       ec;
+		{
+			std::ifstream ccc(a_gameFolder / "Skyrim.ccc");
+			for (std::string line; std::getline(ccc, line);) {
+				line = trim(line);
+				if (!line.empty()) always.insert(Lower(line));
+			}
+		}
 		// Mod Organizer keeps the full order (Creation Club files included) in loadorder.txt
 		const auto loadorderTxt = a_pluginsTxt.parent_path() / "loadorder.txt";
-		std::error_code ec;
 		if (std::filesystem::exists(loadorderTxt, ec)) {
 			std::ifstream f(loadorderTxt);
 			for (std::string line; std::getline(f, line);) {
@@ -363,7 +374,9 @@ namespace ess::merge
 					continue;
 				}
 				const auto low = Lower(line);
-				if (enabledLow.contains(low) || seen.contains(low)) {
+				const bool cc = always.contains(low) || (a_gameFolder.empty() && low.rfind("cc", 0) == 0 && enabledLow.empty() == false &&
+															 (low.ends_with(".esl") || low.ends_with(".esm")));
+				if (enabledLow.contains(low) || seen.contains(low) || cc) {
 					add(line);
 				}
 			}
@@ -445,6 +458,10 @@ namespace ess::merge
 			kAtkd,
 			kLvlo,
 			kCrdt,
+			kBookData,  // BOOK DATA: a spell's form ID when the book teaches one
+			kAlchEnit,  // ALCH ENIT: addiction and consume sound
+			kSpit,      // SPIT: half-cost perk
+			kCtda,      // a condition: form IDs depend on the function
 		};
 
 		Kind Layout(const char* rec, const char* sub)
@@ -474,6 +491,23 @@ namespace ess::merge
 			} else if (r == "AMMO") {
 				if (s == "DATA") return Kind::kForm0;
 				if (s == "ONAM") return Kind::kNone;
+			} else if (r == "MISC" || r == "KEYM") {
+				if (s == "DATA") return Kind::kNone;
+			} else if (r == "SLGM") {
+				if (s == "DATA" || s == "SOUL" || s == "SLCP") return Kind::kNone;
+				if (s == "NAM0") return Kind::kForm0;
+			} else if (r == "BOOK") {
+				if (s == "DATA") return Kind::kBookData;
+				if (s == "INAM") return Kind::kForm0;
+				if (s == "CNAM") return Kind::kLString;
+			} else if (r == "ALCH") {
+				if (s == "DATA") return Kind::kNone;
+				if (s == "ENIT") return Kind::kAlchEnit;
+			} else if (r == "INGR") {
+				if (s == "DATA" || s == "ENIT") return Kind::kNone;
+			} else if (r == "SCRL" || r == "SPEL") {
+				if (s == "DATA") return Kind::kNone;
+				if (s == "SPIT") return Kind::kSpit;
 			} else if (r == "NPC_") {
 				static const char* const forms[] = { "SNAM", "INAM", "VTCK", "TPLT", "RNAM", "SPLO", "WNAM", "ANAM", "ATKR", "SPOR", "OCOR", "GWOR",
 					"ECOR", "PRKR", "PKID", "CNAM", "PNAM", "HCLF", "ZNAM", "GNAM", "CSDI", "CSCR", "DOFT", "SOFT", "DPLT", "CRIF", "FTST" };
@@ -498,7 +532,10 @@ namespace ess::merge
 			if (s == "MODS" || s == "MO2S" || s == "MO3S" || s == "MO4S" || s == "DMDS") return Kind::kAltTex;
 			if (s == "DSTD") return Kind::kDstd;
 			if (s == "KWDA") return Kind::kFormArr;
-			if (s == "CNTO" || s == "EITM" || s == "ETYP" || s == "BIDS" || s == "BAMT" || s == "YNAM" || s == "ZNAM") return Kind::kForm0;
+			if (s == "CNTO" || s == "EITM" || s == "ETYP" || s == "BIDS" || s == "BAMT" || s == "YNAM" || s == "ZNAM" || s == "MDOB" || s == "EFID")
+				return Kind::kForm0;
+			if (s == "EFIT" || s == "CIS1" || s == "CIS2") return Kind::kNone;
+			if (s == "CTDA") return Kind::kCtda;
 			if (s == "COED") return Kind::kCoed;
 			return Kind::kUnknown;
 		}
@@ -642,7 +679,8 @@ namespace ess::merge
 				// adding back the old ones would draw both meshes
 				return { { "KWDA", nullptr, "KSIZ", 4, false, true, 0, "keywords" } };
 			}
-			if (r == "WEAP" || r == "AMMO") {
+			if (r == "WEAP" || r == "AMMO" || r == "MISC" || r == "KEYM" || r == "SLGM" || r == "BOOK" || r == "ALCH" || r == "INGR" || r == "SCRL" ||
+				r == "SPEL") {
 				return { { "KWDA", nullptr, "KSIZ", 4, false, true, 0, "keywords" } };
 			}
 			return {};
@@ -670,6 +708,21 @@ namespace ess::merge
 				s = "EDID VMAD OBND FULL MODL MODT MODS ICON MICO EITM EAMT DEST DSTD DMDL DMDT DMDS DSTF ETYP BIDS BAMT YNAM ZNAM KSIZ KWDA DESC "
 					"MOD3 MO3T MO3S EFSD NNAM INAM WNAM SNAM XNAM NAM7 TNAM UNAM NAM9 NAM8 DATA DNAM CRDT VNAM CNAM";
 			else if (r == "AMMO") s = "EDID VMAD OBND FULL MODL MODT MODS ICON MICO DEST DSTD DMDL DMDT DMDS DSTF YNAM ZNAM DESC KSIZ KWDA DATA ONAM";
+			else if (r == "MISC" || r == "KEYM") s = "EDID VMAD OBND FULL MODL MODT MODS ICON MICO DEST DSTD DMDL DMDT DMDS DSTF YNAM ZNAM KSIZ KWDA DATA";
+			else if (r == "SLGM")
+				s = "EDID OBND FULL MODL MODT MODS ICON MICO DEST DSTD DMDL DMDT DMDS DSTF YNAM ZNAM KSIZ KWDA DATA SOUL SLCP NAM0";
+			else if (r == "BOOK")
+				s = "EDID VMAD OBND FULL MODL MODT MODS ICON MICO DESC DEST DSTD DMDL DMDT DMDS DSTF YNAM ZNAM KSIZ KWDA DATA INAM CNAM";
+			else if (r == "ALCH")
+				s = "EDID VMAD OBND FULL KSIZ KWDA DESC MODL MODT MODS DEST DSTD DMDL DMDT DMDS DSTF ICON MICO YNAM ZNAM ETYP DATA ENIT EFID EFIT "
+					"CTDA CIS1 CIS2";
+			else if (r == "INGR")
+				s = "EDID VMAD OBND FULL KSIZ KWDA MODL MODT MODS ICON MICO DEST DSTD DMDL DMDT DMDS DSTF ETYP YNAM ZNAM DATA ENIT EFID EFIT "
+					"CTDA CIS1 CIS2";
+			else if (r == "SCRL")
+				s = "EDID VMAD OBND FULL KSIZ KWDA MDOB ETYP DESC MODL MODT MODS DEST DSTD DMDL DMDT DMDS DSTF YNAM ZNAM DATA SPIT EFID EFIT "
+					"CTDA CIS1 CIS2";
+			else if (r == "SPEL") s = "EDID OBND FULL KSIZ KWDA MDOB ETYP DESC SPIT EFID EFIT CTDA CIS1 CIS2";
 			std::vector<std::string> out;
 			std::istringstream       in(s);
 			for (std::string w; in >> w;) {
@@ -678,7 +731,8 @@ namespace ess::merge
 			return out;
 		}
 
-		const std::vector<std::string> kTypes = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "NPC_", "ARMO", "WEAP", "AMMO" };
+		const std::vector<std::string> kTypes = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "NPC_", "ARMO", "WEAP", "AMMO", "MISC", "KEYM",
+			"SLGM", "BOOK", "ALCH", "INGR", "SCRL", "SPEL" };
 
 		std::string Serialize(const std::vector<CSub>& subs)
 		{
@@ -722,6 +776,9 @@ namespace ess::merge
 				g.push_back({ "ATKD", "ATKE" });
 				g.push_back({ "CSDT", "CSDI", "CSDC", "CSCR" });
 			}
+			if (r == "ALCH" || r == "INGR" || r == "SCRL" || r == "SPEL") {
+				g.push_back({ "EFID", "EFIT", "CTDA", "CIS1", "CIS2" });  // the magic effects with their conditions, as one list
+			}
 			return g;
 		}
 
@@ -754,12 +811,44 @@ namespace ess::merge
 			else if (k == "AMMO.DATA") { if (a_size == 20) seq({ 4, 4, 4, 4, 4 }, { 1 }); else seq({ 4, 4, 4, 4 }, { 1 }); }
 			else if (k == "CONT.DATA") seq({ 1, 4 }, { 0 });
 			else if (k == "LVLI.LVLF" || k == "LVLN.LVLF" || k == "LVSP.LVLF") seq({ 1 }, { 0 });
+			else if (k == "MISC.DATA" || k == "KEYM.DATA" || k == "SLGM.DATA" || k == "INGR.DATA" || k == "SCRL.DATA") seq({ 4, 4 });
+			else if (k == "BOOK.DATA") seq({ 1, 1, 2, 4, 4, 4 }, { 0 });
+			else if (k == "ALCH.ENIT") seq({ 4, 4, 4, 4, 4 }, { 1 });
+			else if (k == "INGR.ENIT") seq({ 4, 4 }, { 1 });
+			else if (k == "SCRL.SPIT" || k == "SPEL.SPIT") seq({ 4, 4, 4, 4, 4, 4, 4, 4, 4 }, { 1 });
 			std::uint32_t total = 0;
 			for (const auto& x : f) total += x.size;
 			if (total != a_size) {
 				f.clear();  // another size than the layout: merged as a whole
 			}
 			return f;
+		}
+
+		Category ListCategory(const char* rec, const ListSpec& sp)
+		{
+			const std::string r(rec, 4), e(sp.entry, 4);
+			if (e == "KWDA") return Category::kKeywords;
+			if (r == "LVLI" || r == "LVLN" || r == "LVSP") return Category::kLeveledLists;
+			if (r == "CONT") return Category::kContainers;
+			if (r == "OTFT") return Category::kOutfits;
+			if (r == "FLST") return Category::kFormLists;
+			if (r == "NPC_") return Category::kNpcLists;
+			return Category::kOther;
+		}
+
+		Category UnitCategory(const char* rec, const std::set<std::string>& u)
+		{
+			const std::string r(rec, 4);
+			auto has = [&](const char* s) { return u.contains(s); };
+			if (has("VMAD")) return Category::kScripts;
+			if (r == "NPC_" && has("PNAM")) return Category::kNpcFace;
+			if (has("EFID")) return Category::kEffects;
+			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || has("OBND") || (r == "BOOK" && has("CNAM"))) return Category::kNames;
+			if (has("MODL") || has("MOD2") || has("MOD3") || has("MOD4") || has("ICON") || has("ICO2") || has("DEST") || has("MDOB") ||
+				has("BODT"))
+				return Category::kModels;
+			if (r == "NPC_") return Category::kNpcValues;
+			return Category::kItemValues;
 		}
 
 		struct Entry
@@ -1039,6 +1128,53 @@ namespace ess::merge
 						}
 						offs = { 4 };
 						break;
+					case Kind::kBookData:
+						if (s.data.size() < 8) {
+							err = "book DATA is too short";
+							return std::nullopt;
+						}
+						if ((s.data[0] & 0x04) && !(s.data[0] & 0x01)) {
+							offs = { 4 };  // teaches a spell
+						}
+						break;
+					case Kind::kAlchEnit:
+						if (s.data.size() != 20) {
+							err = "ENIT has an unexpected size";
+							return std::nullopt;
+						}
+						offs = { 8, 16 };
+						break;
+					case Kind::kSpit:
+						if (s.data.size() != 36) {
+							err = "SPIT has an unexpected size";
+							return std::nullopt;
+						}
+						offs = { 32 };
+						break;
+					case Kind::kCtda:
+						{
+							if (s.data.size() != 32) {
+								err = "a condition has an unexpected size";
+								return std::nullopt;
+							}
+							const auto fn = U16(s.data.data() + 8);
+							const ConditionFunction* cf = nullptr;
+							for (const auto& f : kConditionFunctions) {
+								if (f.index == fn) {
+									cf = &f;
+									break;
+								}
+							}
+							if (!cf || cf->p1 == 2 || cf->p2 == 2) {
+								err = "a condition uses function " + std::to_string(fn) + ", whose parameters ReSaver Plus cannot read yet";
+								return std::nullopt;
+							}
+							if (s.data[0] & 0x04) offs.push_back(4);  // compared with a global variable
+							if (cf->p1 == 1) offs.push_back(12);
+							if (cf->p2 == 1) offs.push_back(16);
+							if (U32(s.data.data() + 20) == 2) offs.push_back(24);  // run on a reference
+							break;
+						}
 					case Kind::kCrdt:
 						if (s.data.size() == 24) {
 							offs = { 16 };
@@ -1058,7 +1194,8 @@ namespace ess::merge
 						bool ok;
 						const auto k = key(v.plugin, U32(cs.data.data() + o), ok);
 						if (!ok) {
-							err = "points to a form of a plugin that is not loaded";
+							err = "points to a form of a plugin that is not loaded (" + Sig(s.sig) + " in " + _plugins[v.plugin].name + ": " +
+								  Hex(U32(cs.data.data() + o), 8) + ")";
 							return std::nullopt;
 						}
 						std::memset(cs.data.data() + o, 0, 4);
@@ -1375,7 +1512,8 @@ namespace ess::merge
 			}
 
 			// a_patch gets the parts of a_ovr that differ from a_base; returns what was taken
-			std::string applyUnits(CRec& a_patch, const CRec& a_base, const CRec& a_ovr)
+			// a_patch gets the parts of a_ovr that differ from a_base; returns what was taken, by kind
+			std::map<Category, std::string> applyUnits(CRec& a_patch, const CRec& a_base, const CRec& a_ovr)
 			{
 				// the list parts are merged entry by entry, not here
 				std::set<std::string> listSigs;
@@ -1400,8 +1538,13 @@ namespace ess::merge
 						}
 					}
 				}
-				std::vector<std::string> taken;
+				std::map<Category, std::string> taken;
+				auto took = [&](Category c, const std::string& what) { taken[c] += (taken[c].empty() ? "" : ", ") + what; };
 				for (const auto& u : units) {
+					const auto cat = UnitCategory(a_patch.sig, u);
+					if (!_opt.enabled[static_cast<int>(cat)]) {
+						continue;
+					}
 					const auto b = Block(a_base, u), o = Block(a_ovr, u);
 					if (Serialize(b) == Serialize(o)) {
 						continue;  // this plugin did not change it
@@ -1435,19 +1578,24 @@ namespace ess::merge
 							}
 							if (n) {
 								SetBlock(a_patch, u, p);
-								taken.push_back(name + " (" + std::to_string(n) + (n == 1 ? " value)" : " values)"));
+								took(cat, name + " (" + std::to_string(n) + (n == 1 ? " value)" : " values)"));
 							}
 							continue;
 						}
 					}
 					if (Serialize(p) != Serialize(o)) {
 						SetBlock(a_patch, u, o);
-						taken.push_back(name);
+						took(cat, name);
 					}
 				}
-				std::string out;
-				for (const auto& t : taken) out += (out.empty() ? "" : ", ") + t;
-				return out;
+				return taken;
+			}
+
+			static void note(MergedRecord& a_mr, const std::string& a_text, Category a_cat)
+			{
+				a_mr.changes.push_back(a_text);
+				a_mr.categories.push_back(a_cat);
+				a_mr.risk = std::max(a_mr.risk, CategoryRisk(a_cat));
 			}
 
 			void merge()
@@ -1485,7 +1633,7 @@ namespace ess::merge
 						mr.edid = edidOf(win.rec);
 						mr.id = idText(k);
 						mr.winner = _plugins[win.plugin].name;
-						mr.changes.push_back("fixed " + std::to_string(n) + " reference(s) to renumbered forms of a compacted plugin");
+						note(mr, "fixed " + std::to_string(n) + " reference(s) to renumbered forms of a compacted plugin", Category::kOther);
 						_patched.push_back({ k, std::move(*c) });
 						_res.merged.push_back(std::move(mr));
 					};
@@ -1536,7 +1684,7 @@ namespace ess::merge
 					mr.id = idText(k);
 					mr.winner = _plugins[win.plugin].name;
 					if (winFixes) {
-						mr.changes.push_back("fixed " + std::to_string(winFixes) + " reference(s) to renumbered forms of a compacted plugin");
+						note(mr, "fixed " + std::to_string(winFixes) + " reference(s) to renumbered forms of a compacted plugin", Category::kOther);
 					}
 					// the values first: each plugin's changes in load order, so the last one to change a part wins
 					for (std::size_t i = 1; i < vs.size(); ++i) {
@@ -1547,13 +1695,18 @@ namespace ess::merge
 								break;
 							}
 						}
-						const auto what = applyUnits(patch, cv[b], cv[i]);
-						if (!what.empty() && i + 1 != vs.size()) {
-							mr.changes.push_back(_plugins[vs[i].plugin].name + ": " + what);
+						for (const auto& [cat, what] : applyUnits(patch, cv[b], cv[i])) {
+							if (i + 1 != vs.size()) {
+								note(mr, _plugins[vs[i].plugin].name + ": " + what, cat);
+							}
 						}
 					}
 					bool failed = false;
 					for (const auto& sp : Lists(win.rec.sig)) {
+						const auto cat = ListCategory(win.rec.sig, sp);
+						if (!_opt.enabled[static_cast<int>(cat)]) {
+							continue;
+						}
 						auto list = entries(patch, sp);
 						const auto before = Serialize([&] { std::vector<CSub> a; for (auto& e : list) a.insert(a.end(), e.subs.begin(), e.subs.end()); return a; }());
 						for (std::size_t i = 1; i < vs.size(); ++i) {
@@ -1567,7 +1720,7 @@ namespace ess::merge
 							}
 							const auto what = apply(list, entries(cv[b], sp), entries(cv[i], sp), sp);
 							if (!what.empty() && i + 1 != vs.size()) {
-								mr.changes.push_back(_plugins[vs[i].plugin].name + ": " + what);
+								note(mr, _plugins[vs[i].plugin].name + ": " + what, cat);
 							}
 						}
 						const auto after = Serialize([&] { std::vector<CSub> a; for (auto& e : list) a.insert(a.end(), e.subs.begin(), e.subs.end()); return a; }());
@@ -1724,6 +1877,76 @@ namespace ess::merge
 		};
 	}
 
+	const char* CategoryName(Category a_cat)
+	{
+		switch (a_cat) {
+		case Category::kLeveledLists: return "Leveled lists (items, NPCs, spells)";
+		case Category::kContainers: return "Container items";
+		case Category::kOutfits: return "Outfit items";
+		case Category::kFormLists: return "Form lists";
+		case Category::kKeywords: return "Keywords";
+		case Category::kNpcLists: return "NPC factions, spells, perks and items";
+		case Category::kNpcFace: return "NPC faces and races";
+		case Category::kNpcValues: return "NPC stats, AI, skills and other values";
+		case Category::kItemValues: return "Item values (value, weight, damage, armour, costs)";
+		case Category::kEffects: return "Magic effects and their conditions";
+		case Category::kNames: return "Names, descriptions and editor IDs";
+		case Category::kModels: return "Models, icons and destruction";
+		case Category::kScripts: return "Scripts on records";
+		default: return "Other";
+		}
+	}
+
+	int CategoryRisk(Category a_cat)
+	{
+		switch (a_cat) {
+		case Category::kLeveledLists:
+		case Category::kContainers:
+		case Category::kOutfits:
+		case Category::kKeywords:
+		case Category::kNames:
+		case Category::kItemValues:
+		case Category::kModels:
+			return 0;
+		case Category::kScripts:
+			return 2;
+		default:
+			return 1;
+		}
+	}
+
+	const char* CategoryWhy(Category a_cat)
+	{
+		switch (a_cat) {
+		case Category::kLeveledLists: return "What each mod added to or removed from a leveled list is kept. Safe.";
+		case Category::kContainers: return "What each mod added to or removed from a container is kept. Safe.";
+		case Category::kOutfits: return "Items each mod added to or removed from an outfit are kept. Safe.";
+		case Category::kFormLists:
+			return "Form lists are combined. Some scripts read a form list by position: an entry added at the end is fine, but a mod "
+				   "that relies on the exact order may see a different one.";
+		case Category::kKeywords: return "Keywords each mod added or removed are kept. Safe.";
+		case Category::kNpcLists:
+			return "Factions, spells, perks and items of NPCs are combined. An NPC can end up with abilities from two overhauls at once "
+				   "(e.g. two perk sets).";
+		case Category::kNpcFace:
+			return "An NPC's face and race are taken from the last mod that changed them. That mod's face files (FaceGen) must win in your "
+				   "mod order too, or the face turns dark or wrong.";
+		case Category::kNpcValues:
+			return "NPC stats, AI, skills, outfits and the like are taken value by value from the last mod that changed each. Mods meant "
+				   "to work as a set (e.g. a combat overhaul's stats) can end up mixed.";
+		case Category::kItemValues: return "Value, weight, damage, armour rating and costs, value by value from the last mod that changed each.";
+		case Category::kEffects:
+			return "A potion's, ingredient's, scroll's or spell's effects are taken as one list from the last mod that changed them. Safe "
+				   "unless two mods each changed different effects.";
+		case Category::kNames: return "Names, descriptions and editor IDs from the last mod that changed them (e.g. typo fixes). Safe.";
+		case Category::kModels: return "Models and icons from the last mod that changed them. Safe.";
+		case Category::kScripts:
+			return "Scripts attached to a record, with their properties, are taken from the last mod that changed them. If two mods each "
+				   "add their own script to the same record, only one keeps it: check those records.";
+		default: return "Anything else, from the last mod that changed it.";
+		}
+	}
+
 	std::string Result::report() const
 	{
 		std::ostringstream o;
@@ -1755,7 +1978,10 @@ namespace ess::merge
 		o << "\nMerged records (the winning plugin first, then what each other plugin's changes added (+), removed (-) or changed (~)):\n";
 		for (const auto& r : merged) {
 			o << "  " << r.type << " " << (r.edid.empty() ? "" : r.edid + " ") << "[" << r.id << "]  winner " << r.winner << "\n";
-			for (const auto& c : r.changes) o << "      " << c << "\n";
+			for (std::size_t i = 0; i < r.changes.size(); ++i) {
+				static const char* const tag[] = { "[safe]   ", "[caution]", "[risky]  " };
+				o << "      " << (i < r.categories.size() ? tag[CategoryRisk(r.categories[i])] : "") << " " << r.changes[i] << "\n";
+			}
 		}
 		if (!skipped.empty()) {
 			o << "\nNot merged:\n";

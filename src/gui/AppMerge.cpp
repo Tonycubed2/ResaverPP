@@ -214,7 +214,11 @@ void App::drawMergedPatch()
 					for (const auto& c : m.changes) {
 						changes += (changes.empty() ? "" : ";  ") + c;
 					}
+					// green: only safe kinds of changes; yellow: read first; red: risky (see the report for each change)
+					const std::uint32_t riskCol = m.risk >= 2 ? theme::Bad() : m.risk == 1 ? theme::Caution() : theme::Good();
+					ImGui::PushStyleColor(ImGuiCol_Text, riskCol);
 					ImGui::Text("%s %s [%s]", m.type.c_str(), m.edid.c_str(), m.id.c_str());
+					ImGui::PopStyleColor();
 					tips::Tipf("Starts from %s (the winning mod).%s%s", m.winner.c_str(), changes.empty() ? "" : "\nAdded from the others: ",
 						changes.c_str());
 					ImGui::SameLine();

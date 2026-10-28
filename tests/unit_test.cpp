@@ -582,6 +582,43 @@ namespace
 			std::printf("%s", r3.report().c_str());
 			if (n3) for (const auto& sb : n3->subs) { std::printf("  %.4s:", sb.sig); for (auto b : sb.data) std::printf(" %02X", b); std::printf("\n"); }
 		}
+		// stage 3: a potion. ModA (masters Base4, Extra) gives it a conditioned effect pointing at Extra's keyword; ModB, the winner,
+		// changes its weight. The patch has both, the condition's keyword pointing at Extra.esp.
+		{
+			auto ctda = [](std::uint32_t a_keyword) {
+				std::vector<std::uint8_t> c(32, 0);
+				const std::uint16_t       fn = 560;  // HasKeyword: parameter 1 is a keyword
+				std::memcpy(c.data() + 8, &fn, 2);
+				std::memcpy(c.data() + 12, &a_keyword, 4);
+				return c;
+			};
+			auto potion = [&](float a_weight, std::uint32_t a_effect, std::uint32_t a_keyword) {
+				std::vector<std::uint8_t> w(4), enit(20, 0);
+				std::memcpy(w.data(), &a_weight, 4);
+				std::vector<merge::Sub> subs{ MS("EDID", { 'P', 0 }), MS("DATA", w), MS("ENIT", enit), MS("EFID", U32v({ a_effect })),
+					MS("EFIT", std::vector<std::uint8_t>(12, 0)) };
+				if (a_keyword) subs.push_back(MS("CTDA", ctda(a_keyword)));
+				return MR("ALCH", 0x840, subs);
+			};
+			save("Base4.esm", merge::WritePlugin({}, 1, { potion(1.0f, 0x850, 0) }));
+			save("Extra.esm", merge::WritePlugin({}, 1, { MR("KYWD", 0x01000900, { MS("EDID", { 'K', 0 }) }) }));
+			save("A4.esp", merge::WritePlugin({ "Base4.esm", "Extra.esm" }, 0, { potion(1.0f, 0x851, 0x01000900) }));
+			save("B4.esp", merge::WritePlugin({ "Base4.esm" }, 0, { potion(2.0f, 0x850, 0) }));
+			merge::Options o4;
+			o4.loadOrder = { "Base4.esm", "Extra.esm", "A4.esp", "B4.esp" };
+			o4.findPlugin = o.findPlugin;
+			const auto r4 = merge::Build(o4);
+			save("Patch4.esp", r4.file);
+			const auto pf4 = merge::ReadPlugin(dir / "Patch4.esp");
+			bool ok4 = r4.ok && pf4.records.size() == 1 && pf4.masters == std::vector<std::string>{ "Base4.esm", "Extra.esm" };
+			if (ok4) {
+				const auto* p4 = &pf4.records[0];
+				float wgt = 0;
+				std::memcpy(&wgt, subOf(p4, "DATA")->data(), 4);
+				ok4 = wgt == 2.0f && list(p4, "EFID", 0) == std::vector<std::uint32_t>{ 0x851 } && list(p4, "CTDA", 12) == std::vector<std::uint32_t>{ 0x01000900 };
+			}
+			Check(ok4, "merge: a potion gets ModA's effect with its condition (keyword remapped to Extra.esm) and ModB's weight");
+		}
 		Check(ok3, "merge: values merged field by field (ModA's essential flag and face, ModB's health and aggression; winner's armour value)");
 		fs::remove_all(dir);
 	}

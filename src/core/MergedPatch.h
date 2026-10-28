@@ -7,9 +7,10 @@
 //    version among that plugin's masters), and what it added to or removed from a list is applied;
 //  - a mod becomes a master of the patch only when a patched record comes from it, or a value in a
 //    patched record points at one of its forms (like xEdit's "copy as override").
-// Stage 1 merges lists: leveled items/NPCs/spells, container and NPC inventories, NPC factions,
-// spells and perks, keywords (NPCs, armour, weapons, ammo), form lists and
-// outfits. Every other value keeps the winning override, as the game does without a patch.
+// Lists (leveled lists, inventories, factions, spells, perks, keywords, form lists, outfits) are merged
+// entry by entry; every other part of a record value by value (stage 2), parts that belong together as
+// one block. Types: leveled lists, containers, form lists, outfits, NPCs, armour, weapons, ammo, misc
+// items, keys, soul gems, books, potions, ingredients, scrolls and spells.
 #pragma once
 
 #include <atomic>
@@ -49,8 +50,34 @@ namespace ess::merge
 		std::string        _cur;
 	};
 
+	// What kinds of changes are merged. Each has a risk, for the page where players choose what to merge:
+	// 0 safe (green), 1 read first (yellow), 2 risky (red).
+	enum class Category : std::uint8_t
+	{
+		kLeveledLists,   // entries of leveled items, NPCs and spells
+		kContainers,     // container items
+		kOutfits,        // outfit items
+		kFormLists,      // form list entries
+		kKeywords,       // keywords on items and NPCs
+		kNpcLists,       // NPC factions, spells, perks and items
+		kNpcFace,        // an NPC's face and race
+		kNpcValues,      // NPC stats, AI, skills, outfits, voice, class...
+		kItemValues,     // value, weight, damage, armour rating, effect costs...
+		kEffects,        // magic effects of potions, ingredients, scrolls and spells (with their conditions)
+		kNames,          // names, descriptions, editor IDs, bounds
+		kModels,         // models, icons, destruction data
+		kScripts,        // scripts attached to records (VMAD) with their properties
+		kOther,          // anything else
+		kCount
+	};
+	const char*  CategoryName(Category a_cat);
+	int          CategoryRisk(Category a_cat);
+	const char*  CategoryWhy(Category a_cat);  // what can go wrong, for the menu's hover text
+
 	struct Options
 	{
+		bool                     enabled[static_cast<int>(Category::kCount)] = { true, true, true, true, true, true, true, true, true, true, true,
+            true, true, true };  // which kinds of changes are merged
 		std::vector<std::string> loadOrder;  // enabled plugins, in load order
 		// where a plugin file is (empty: not found, the plugin is left out and reported)
 		std::function<std::optional<std::filesystem::path>(const std::string&)> findPlugin;
@@ -66,6 +93,8 @@ namespace ess::merge
 		std::string              id;       // "Skyrim.esm:0x01A2B3"
 		std::string              winner;   // the plugin whose version the patch starts from
 		std::vector<std::string> changes;  // "ModA.esp: +2 entries", ...
+		std::vector<Category>    categories;  // the kind of each change
+		int                      risk = 0;    // the highest risk of its changes
 	};
 
 	struct Result
