@@ -385,6 +385,9 @@ int RunApp(int argc, char** argv)
 	}
 	Step("drawing the first frames");
 	int drawn = 0;
+	if (const char* e = std::getenv("RESAVERPP_TEST_EDITPROP")) {
+		app.testEditProperty(e);
+	}
 	if (std::getenv("RESAVERPP_TEST_ARCHIVE")) {
 		app.testShowArchive();
 	}

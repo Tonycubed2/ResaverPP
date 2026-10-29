@@ -17,6 +17,7 @@
 #include "core/Ops.h"
 #include "core/ScriptSources.h"
 #include "core/Orphans.h"
+#include "core/PropertyEdit.h"
 #include "core/Quests.h"
 #include "core/Transplant.h"
 #include <functional>
@@ -73,6 +74,10 @@ static void Usage()
 		"                            face goes back to the plugins'). Actors: 1 = REFR_MOVE (back to its editor\n"
 		"                            position), 4 = REFR_SCALE, 5 = REFR_INVENTORY, 28 = REFR_ANIMATION (unstick a\n"
 		"                            frozen NPC). Not the player. Needs -o.\n"
+		"  --set-property <object> <property> <formid>  point a script's object property (a Spell, Weapon, Quest...)\n"
+		"                            at a form, like filling it in the Creation Kit. <object>: the script instance's id\n"
+		"                            (as the GUI shows it) or Script@formid (the script on that form, e.g.\n"
+		"                            MyQuestScript@0A012345). <formid>: 0A012345 or Plugin.esp:012345. Needs -o.\n"
 		"  --remove-extra <formid> <name>  remove one extra data entry from an actor (e.g. Package, SceneData,\n"
 		"                            FactionChanges, Ownership, DismemberedLimbs); the game falls back to the\n"
 		"                            plugin's value. Not the player. Needs -o.\n"
@@ -308,6 +313,7 @@ int main(int argc, char** argv)
 	std::uint32_t removeFlagForm = 0;
 	int removeFlagBit = -1;
 	std::uint32_t removeExtraForm = 0, resetAiForm = 0;
+	std::vector<std::tuple<std::string, std::string, std::string>> setProps;
 	std::vector<std::uint32_t> moveToPlayer;
 	bool          npcsView = false;
 	std::string   npcFilter;
@@ -345,6 +351,10 @@ int main(int argc, char** argv)
 			termUndef = true;
 		} else if (a == "--remove-nonexistent") {
 			nonexist = true;
+		} else if (a == "--set-property") {
+			const auto obj = next();
+			const auto prop = next();
+			setProps.emplace_back(obj, prop, next());
 		} else if (a == "--remove-extra") {
 			removeExtraForm = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
 			removeExtraName = next();
@@ -483,7 +493,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty();
 		if (npcsView) {
 			std::size_t shown = 0, total = 0, placed = 0;
 			std::string flt = npcFilter;
@@ -981,6 +991,84 @@ int main(int argc, char** argv)
 			}
 			return nullptr;
 		};
+		for (const auto& [objText, propName, formText] : setProps) {
+			auto* pp = save->papyrus();
+			if (!pp) {
+				std::fprintf(stderr, "this save has no Papyrus data\n");
+				return 1;
+			}
+			auto&            p = *pp;
+			ScriptInstance*  inst = nullptr;
+			const auto       at = objText.find('@');
+			auto lower = [](std::string x) {
+				for (auto& c : x) {
+					c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+				}
+				return x;
+			};
+			if (at == std::string::npos) {
+				inst = p.findInstance(std::stoull(objText, nullptr, 16));
+			} else {
+				const auto sc = lower(objText.substr(0, at));
+				const auto fid = props::ParseFormID(*save, objText.substr(at + 1));
+				for (auto& i : p.instances) {
+					if (lower(p.str(i.script)) == sc && save->formIDOf(i.refID) == fid) {
+						inst = &i;
+						break;
+					}
+				}
+			}
+			if (!inst || !inst->data) {
+				std::fprintf(stderr, "no script instance %s in this save\n", objText.c_str());
+				return 1;
+			}
+			// the script's members, parents first (the order of the instance's variables)
+			std::vector<const Script*> chain;
+			for (const Script* sc = p.findScript(inst->script); sc && chain.size() < 32; sc = p.findScript(sc->parent)) {
+				chain.push_back(sc);
+				if (p.str(sc->parent).empty()) {
+					break;
+				}
+			}
+			std::vector<std::pair<std::string, std::string>> members;  // name, type
+			for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+				for (const auto& m : (*it)->members) {
+					members.emplace_back(p.str(m.name), p.str(m.type));
+				}
+			}
+			std::size_t idx = members.size();
+			for (std::size_t k = 0; k < members.size(); ++k) {
+				const auto n = lower(members[k].first);
+				if (n == lower(propName) || n == "::" + lower(propName) + "_var") {
+					idx = k;
+					break;
+				}
+			}
+			if (idx >= members.size() || idx >= inst->data->vars.size()) {
+				std::fprintf(stderr, "%s has no property %s; its variables:\n", p.str(inst->script).c_str(), propName.c_str());
+				for (const auto& [n, t] : members) {
+					std::fprintf(stderr, "  %s %s\n", t.c_str(), n.c_str());
+				}
+				return 1;
+			}
+			const auto fid = props::ParseFormID(*save, formText);
+			if (!fid) {
+				std::fprintf(stderr, "not a form id of a plugin in this save: %s\n", formText.c_str());
+				return 1;
+			}
+			auto&      var = inst->data->vars[idx];
+			std::string type = members[idx].second;
+			if (var.type == VType::kRef) {
+				type = p.str(var.refType);
+			}
+			const auto scriptName = p.str(inst->script);  // inst can move when an object is added
+			const auto o = props::PointAt(*save, var, type, fid);
+			if (!o.ok) {
+				std::fprintf(stderr, "could not set %s: %s\n", members[idx].first.c_str(), o.message.c_str());
+				return 1;
+			}
+			std::printf("%s.%s now points at %08X: %s\n", scriptName.c_str(), members[idx].first.c_str(), fid, o.message.c_str());
+		}
 		if (!removeExtraName.empty()) {
 			auto* target = findCf(removeExtraForm);
 			if (!target) {

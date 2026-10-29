@@ -386,6 +386,38 @@ std::vector<std::string> App::memberNames(TStr a_script) const
 	return names;
 }
 
+namespace
+{
+	// a declared type that is not an object: int, float, bool, string, or any array
+	bool IsBaseType(const std::string& a_type)
+	{
+		std::string t;
+		for (char c : a_type) {
+			t += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		return t == "int" || t == "float" || t == "bool" || t == "string" || t == "var" || (t.size() > 2 && t.ends_with("[]"));
+	}
+}
+
+std::vector<std::string> App::memberTypes(TStr a_script) const
+{
+	const auto&                p = *_save->papyrus();
+	std::vector<const Script*> chain;
+	for (const Script* s = p.findScript(a_script); s && chain.size() < 32; s = p.findScript(s->parent)) {
+		chain.push_back(s);
+		if (p.str(s->parent).empty()) {
+			break;
+		}
+	}
+	std::vector<std::string> types;
+	for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+		for (const auto& m : (*it)->members) {
+			types.push_back(p.str(m.type));
+		}
+	}
+	return types;
+}
+
 std::string App::describeVar(const Variable& v) const
 {
 	const auto& p = *_save->papyrus();
@@ -453,7 +485,7 @@ void App::varValueWidget(const Variable& v, const char* a_id)
 	ImGui::PopID();
 }
 
-void App::varsTable(const char* a_id, std::vector<Variable>& a_vars, const std::vector<std::string>& a_names)
+void App::varsTable(const char* a_id, std::vector<Variable>& a_vars, const std::vector<std::string>& a_names, const std::vector<std::string>& a_types)
 {
 	if (a_vars.empty()) {
 		ImGui::TextDisabled("(no variables)");
@@ -476,9 +508,10 @@ void App::varsTable(const char* a_id, std::vector<Variable>& a_vars, const std::
 				ImGui::TableSetColumnIndex(2);
 				ImGui::PushID(i);
 				if (ImGui::SmallButton("edit")) {
-					beginEdit(&a_vars[i]);
+					beginEdit(&a_vars[i], i < static_cast<int>(a_types.size()) ? a_types[i] : std::string());
 				}
-				tips::Tip("Change this variable's value. Scripts read the new value when the save loads. Back up your save first.");
+				tips::Tip("Change this variable's value; an object property (a spell, a weapon, a quest...) can be pointed at any form, like "
+						  "filling a property in the Creation Kit. Scripts read the new value when the save loads. Back up your save first.");
 				ImGui::PopID();
 				ImGui::SameLine();
 				varValueWidget(a_vars[i], std::to_string(i).c_str());
@@ -1796,7 +1829,7 @@ void App::detailInstance(std::uint64_t k)
 	}
 	if (i->data) {
 		ImGui::SeparatorText(Fmt("Variables (%zu)", i->data->vars.size()).c_str());
-		varsTable("vars", i->data->vars, memberNames(i->script));
+		varsTable("vars", i->data->vars, memberNames(i->script), memberTypes(i->script));
 	}
 	const auto refs = ops::FindReferrers(p, i->id);
 	ImGui::SeparatorText(Fmt("Referenced by (%zu)", refs.size()).c_str());
@@ -2335,9 +2368,23 @@ void App::drawStatus()
 // variable editing
 // ==========================================================================================
 
-void App::beginEdit(Variable* a_var)
+void App::beginEdit(Variable* a_var, const std::string& a_type)
 {
 	_editVar = a_var;
+	_editType = a_type;
+	_editFind[0] = 0;
+	_editFormID[0] = 0;
+	_editPick = 0;
+	_editMsg.clear();
+	{
+		const Variable* x = a_var;
+		if (x->type == VType::kVariant && x->inner) {
+			x = x->inner.get();
+		}
+		if (x->type == VType::kRef && _save->papyrus()) {
+			_editType = _save->papyrus()->str(x->refType);  // what the variable holds
+		}
+	}
 	Variable* v = a_var;
 	if (v->type == VType::kVariant && v->inner) {
 		v = v->inner.get();
@@ -2355,7 +2402,7 @@ void App::editPopup()
 		ImGui::OpenPopup("Edit value");
 		_editOpen = false;
 	}
-	ImGui::SetNextWindowSize(ImVec2(520, 0));
+	ImGui::SetNextWindowSize(ImVec2(_editType.empty() ? 520.0f : ImGui::GetFontSize() * 44, 0));  // object properties: room for the form picker
 	if (!ImGui::BeginPopupModal("Edit value", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 		return;
 	}
@@ -2414,11 +2461,19 @@ void App::editPopup()
 			v->value = p.internString(text::FromUtf8(_editStr, p.str(static_cast<TStr>(v->value))));
 		}
 		break;
+	case VType::kRef:
 	case VType::kNull:
-		ImGui::TextDisabled("This variable holds nothing; there is no value to edit.");
-		break;
+		if (!_editType.empty() && !IsArrayType(v->type) && !(v->type == VType::kNull && IsBaseType(_editType))) {
+			apply = formPicker(*v);
+			break;
+		}
+		if (v->type == VType::kNull) {
+			ImGui::TextDisabled("This variable holds nothing, and its type is not known here; there is no value to edit.");
+			break;
+		}
+		[[fallthrough]];
 	default:
-		ImGui::TextWrapped("Object, array and struct links can only be cleared. Clearing makes the script see None here.");
+		ImGui::TextWrapped("Array and struct links can only be cleared. Clearing makes the script see None here.");
 		apply = v->value != 0 && ImGui::Button("Set to None", ImVec2(160, 0));
 		if (v->value != 0) {
 			tips::Tip("Clear the link: the script will see None here. Scripts not expecting None may log errors.");

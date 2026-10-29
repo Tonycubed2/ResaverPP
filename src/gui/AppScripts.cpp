@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <fstream>
 #include <thread>
+#include <ctime>
 #include <unordered_set>
 
 using namespace ess;
@@ -54,6 +55,8 @@ struct ScriptDoc
 	std::vector<papc::Message>            messages;
 	std::vector<std::string>              output;
 	std::string                           summary, commandLine;
+	std::string                           compileLog;  // the whole report of the last compile (PapyrusCompileLog.txt)
+	std::filesystem::path                 compileLogFile;
 	int                                   threadLine = -1;
 	bool                                  showOutline = true;
 	float                                 zoom = 1.0f;
@@ -70,6 +73,10 @@ struct CompileJob
 	std::weak_ptr<ScriptDoc> doc;
 	std::string              script;
 	std::filesystem::path    output;
+	papc::Request            request;
+	std::filesystem::path    psc;  // the source as opened (empty: not saved yet)
+	bool                     unsaved = false;
+	std::time_t              started = 0;
 };
 
 namespace
@@ -95,6 +102,76 @@ namespace
 		ImGui::PushStyleColor(ImGuiCol_Text, col);
 		ImGui::TextWrapped("%s", s.c_str());
 		ImGui::PopStyleColor();
+	}
+
+
+	// The whole report of a compile, for PapyrusCompileLog.txt, Copy and Save as
+	std::string BuildCompileLog(const CompileJob& a_job, const papc::Result& a_r, const std::string& a_summary)
+	{
+		std::string out;
+		auto        line = [&](const std::string& a) { out += a + "\r\n"; };
+		char        when[64] = "?";
+		std::tm     tm{};
+#ifdef _WIN32
+		localtime_s(&tm, &a_job.started);
+#else
+		localtime_r(&a_job.started, &tm);
+#endif
+		std::strftime(when, sizeof(when), "%Y-%m-%d %H:%M:%S", &tm);
+		std::size_t warnings = 0;
+		for (const auto& m : a_r.messages) {
+			if (Lower(m.text).find("warning") != std::string::npos) {
+				++warnings;
+			}
+		}
+		const auto& q = a_job.request;
+		line("ReSaver Plus - Papyrus compile log");
+		line("==================================");
+		line("");
+		line("Script:      " + a_job.script);
+		line("Source:      " + (a_job.psc.empty() ? std::string("(not saved yet: the text in the editor was compiled)") : platform::ToUtf8(a_job.psc)) +
+			 (a_job.unsaved && !a_job.psc.empty() ? "  (with unsaved edits: the text in the editor was compiled)" : ""));
+		line("Compiled:    " + platform::ToUtf8(q.source));
+		line(std::string("Started:     ") + when);
+		line("Result:      " + std::string(!a_r.ran ? "the compiler could not be run" : a_r.ok ? "OK, .pex written" : "FAILED, no .pex written") +
+			 (a_r.ran ? Fmt(" (exit code %d)", a_r.exitCode) : std::string()));
+		line(Fmt("Messages:    %zu error(s), %zu warning(s)", a_r.messages.size() - warnings, warnings));
+		line("Summary:     " + a_summary);
+		line("");
+		line("Compiler:    " + platform::ToUtf8(q.compiler));
+		line("Flags file:  " + q.flags);
+		line(std::string("Optimize:    ") + (q.optimize ? "yes" : "no"));
+		line(std::string("Anonymize:   ") + (q.anonymize ? "yes" : "no"));
+		line("Output to:   " + platform::ToUtf8(q.output));
+		if (a_r.ok) {
+			line("Written:     " + platform::ToUtf8(a_r.pex));
+		}
+		line(Fmt("Import folders (%zu, searched in this order):", q.imports.size()));
+		for (std::size_t i = 0; i < q.imports.size(); ++i) {
+			line(Fmt("  %2zu. ", i + 1) + platform::ToUtf8(q.imports[i]));
+		}
+		if (a_r.importsDropped) {
+			line(Fmt("  (%zu of them were left out: the command line was too long)", a_r.importsDropped));
+		}
+		if (!a_r.error.empty()) {
+			line("Note:        " + a_r.error);
+		}
+		line("");
+		line("Command line:");
+		line("  " + a_r.commandLine);
+		line("");
+		line(Fmt("Errors and warnings (%zu), as file(line,column): message", a_r.messages.size()));
+		line("------------------------------------------------------------");
+		for (const auto& m : a_r.messages) {
+			line(m.file + Fmt("(%d,%d): ", m.line, m.column) + m.text);
+		}
+		line("");
+		line(Fmt("Everything the compiler printed (%zu lines)", a_r.output.size()));
+		line("------------------------------------------------------------");
+		for (const auto& l : a_r.output) {
+			line(l);
+		}
+		return out;
 	}
 
 	std::string ReadAll(const std::filesystem::path& p)
@@ -822,13 +899,49 @@ void App::drawDoc(ScriptDoc& d)
 		if (d.compiled) {
 			ImGui::BeginChild("compile", ImVec2(0, 0), ImGuiChildFlags_Borders);
 			TextColored(d.compileOk ? theme::Good() : theme::Bad(), d.summary);
+			if (!d.compileLog.empty()) {
+				if (ImGui::SmallButton("Copy everything")) {
+					ImGui::SetClipboardText(d.compileLog.c_str());
+					_status = "The whole compile log is on the clipboard.";
+				}
+				tips::Tip("Copy the whole report to the clipboard: the script, every error and warning with its line and column, the counts, the "
+						  "import folders, the compiler settings and everything the compiler printed.");
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Save as...")) {
+					if (auto f = platform::SaveFileDialog(Fmt("PapyrusCompileLog - %s.txt", d.name.c_str()), "txt", "Compile log")) {
+						std::ofstream out(*f, std::ios::binary | std::ios::trunc);
+						out << d.compileLog;
+						_status = out ? "Saved " + platform::ToUtf8(f->filename()) : "Could not write " + platform::ToUtf8(*f);
+					}
+				}
+				tips::Tip("Save the whole report to a text file.");
+				if (!d.compileLogFile.empty()) {
+					ImGui::SameLine();
+					if (ImGui::SmallButton("Open the log")) {
+						platform::OpenWithDefaultApp(d.compileLogFile);
+					}
+					tips::Tipf("Every compile also writes its report to\n%s\n(replaced by the next compile).", platform::ToUtf8(d.compileLogFile).c_str());
+					ImGui::SameLine();
+					ImGui::TextDisabled("also in %s", platform::ToUtf8(d.compileLogFile.filename()).c_str());
+				}
+			}
 			for (std::size_t i = 0; i < d.messages.size(); ++i) {
 				const auto& m = d.messages[i];
 				const auto  stem = platform::ToUtf8(platform::FromUtf8(m.file).stem());
 				const bool  here = Lower(stem) == Lower(d.name);
 				ImGui::PushID(static_cast<int>(i));
 				const std::string label = (here ? std::string() : stem + ".psc ") + Fmt("line %d, col %d:  ", m.line, m.column) + m.text;
-				if (ImGui::Selectable(label.c_str())) {
+				const bool clicked = ImGui::Selectable(label.c_str());
+				if (ImGui::BeginPopupContextItem("msgmenu")) {
+					if (ImGui::MenuItem("Copy this line")) {
+						ImGui::SetClipboardText((m.file + Fmt("(%d,%d): ", m.line, m.column) + m.text).c_str());
+					}
+					if (ImGui::MenuItem("Copy everything")) {
+						ImGui::SetClipboardText(d.compileLog.c_str());
+					}
+					ImGui::EndPopup();
+				}
+				if (clicked) {
 					if (here) {
 						ed.ScrollToLine(m.line - 1);
 						ed.SetCursorPosition(TextEditor::Coordinates(std::max(0, m.line - 1), std::max(0, ed.ColumnOfIndex(m.line - 1, m.column))));
@@ -1177,6 +1290,10 @@ void App::startCompile(ScriptDoc& d)
 	}
 	job->script = script;
 	job->output = req.output;
+	job->request = req;
+	job->psc = d.psc;
+	job->unsaved = d.textModified || d.psc.empty();
+	job->started = std::time(nullptr);
 	CompileJob* raw = job.get();
 	job->thread = std::thread([raw, req] {
 		raw->result = papc::Compile(req);
@@ -1221,6 +1338,16 @@ void App::pollCompile()
 		d.summary = Fmt("%zu error(s): click one to go to it.", r.messages.size());
 	} else {
 		d.summary = "The compiler did not write " + job->script + ".pex (see the compiler output below).";
+	}
+	// the whole report, also written next to the program (overwritten by the next compile)
+	d.compileLog = BuildCompileLog(*job, r, d.summary);
+	d.compileLogFile = platform::SettingsFile().parent_path() / "PapyrusCompileLog.txt";
+	{
+		std::ofstream f(d.compileLogFile, std::ios::binary | std::ios::trunc);
+		f << d.compileLog;
+		if (!f) {
+			d.compileLogFile.clear();
+		}
 	}
 	_status = d.summary;
 }

@@ -10,6 +10,7 @@
 #include "core/AssetConflicts.h"
 #include "core/MergedPatch.h"
 #include "core/SaveArchive.h"
+#include "core/PropertyEdit.h"
 #include "core/LoadOrder.h"
 #include "core/ModRemove.h"
 #include "core/Orphans.h"
@@ -69,6 +70,7 @@ public:
 	~App();
 	void open(const std::filesystem::path& a_path);
 	void testShowArchive() { _showArchive = true; }
+	void testEditProperty(const std::string& a_spec);  // "Script@formid:property" (screenshots)
 	void openAny(const std::filesystem::path& a_path);  // .ess, .pex or ModOrganizer.ini
 	void openNewestAtStart();  // with "Open the newest save at start" on: opens it (main.cpp, when no file was given)
 	void draw();  // whole UI for one frame
@@ -329,8 +331,10 @@ private:
 	void        select(Cat a_cat, std::uint64_t a_key);
 	std::string describeVar(const ess::Variable& v) const;
 	void        varValueWidget(const ess::Variable& v, const char* a_id);
-	void        varsTable(const char* a_id, std::vector<ess::Variable>& a_vars, const std::vector<std::string>& a_names);
+	void        varsTable(const char* a_id, std::vector<ess::Variable>& a_vars, const std::vector<std::string>& a_names,
+		const std::vector<std::string>& a_types = {});
 	std::vector<std::string> memberNames(ess::TStr a_script) const;
+	std::vector<std::string> memberTypes(ess::TStr a_script) const;  // declared types, same order as memberNames
 	std::string formLabel(const ess::RefID& a_id) const;
 	std::string instanceLabel(const ess::ScriptInstance& i) const;
 	std::string threadLabel(const ess::ActiveScript& a) const;
@@ -343,7 +347,8 @@ private:
 
 	// variable editing
 	void editPopup();
-	void beginEdit(ess::Variable* a_var);
+	void beginEdit(ess::Variable* a_var, const std::string& a_type = {});
+	bool formPicker(ess::Variable& a_var);  // the edit window for an object property; true when it was changed
 
 	// mods view
 	void drawModsList();
@@ -689,6 +694,11 @@ private:
 	float          _editFloat = 0;
 	bool           _editBool = false;
 	char           _editStr[1024] = "";
+	std::string    _editType;              // the variable's declared type (object properties)
+	char           _editFind[128] = "";    // search text of the form picker
+	char           _editFormID[96] = "";   // a typed form id
+	std::uint32_t  _editPick = 0;          // the form picked
+	std::string    _editMsg;
 
 	// mods view
 	std::unique_ptr<ess::mods::Table> _mods;
