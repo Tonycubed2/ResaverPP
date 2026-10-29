@@ -764,6 +764,13 @@ void App::drawDoc(ScriptDoc& d)
 	if (!d.note.empty()) {
 		TextColored(theme::Warn(), d.note);
 	}
+	if (_save && !d.analysis.properties.empty()) {
+		// like the Creation Kit's property window: click a property on the left to set it
+		const auto target = scriptTargetLabel(d.analysis.scriptName.empty() ? d.name : d.analysis.scriptName);
+		if (!target.empty()) {
+			TextColored(theme::Good(), "Click a property on the left to set its value in this save, " + target + ".");
+		}
+	}
 	if (!d.analysis.problems.empty()) {
 		TextColored(theme::Warn(), "Blocks: " + d.analysis.problems.front() + (d.analysis.problems.size() > 1 ? Fmt("  (+%zu more)", d.analysis.problems.size() - 1) : ""));
 	}

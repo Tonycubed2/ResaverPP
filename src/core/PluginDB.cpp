@@ -527,6 +527,20 @@ namespace ess
 		return s;
 	}
 
+	std::vector<std::uint32_t> PluginDB::ofType(const std::string& a_type) const
+	{
+		std::vector<std::uint32_t> out;
+		if (a_type.size() != 4) {
+			return out;
+		}
+		for (const auto& [id, f] : _forms) {
+			if (std::memcmp(f.type, a_type.data(), 4) == 0) {
+				out.push_back(id);
+			}
+		}
+		return out;
+	}
+
 	std::vector<std::uint32_t> PluginDB::search(const std::string& a_text, std::size_t a_max) const
 	{
 		std::vector<std::uint32_t> out;

@@ -362,6 +362,14 @@ private:
 		ess::EID    instance = 0;
 		std::size_t var = 0;
 	};
+	// the object a script window sets properties on: opened from an object (script instance) = that object;
+	// opened from the script itself = every object that has it. Lower-case script name -> instance id.
+	std::map<std::string, ess::EID> _scriptBinding;
+	std::string             scriptTargetLabel(const std::string& a_script);  // "on Barrel02Static [REFR]" / "on all 4608 objects..."
+	std::vector<PropTarget> scriptTargets(const std::string& a_script, std::size_t a_var, ess::TStr a_scriptName);
+	std::vector<std::uint32_t> _pickerList;    // forms of the picker's type, sorted by name
+	std::string                _pickerListType;
+	bool                       _pickerDoubleClick = false;  // closes when the mouse button is up (else the release hits the list behind)
 	std::vector<PropTarget> _propTargets;      // the objects whose value the chooser offers
 	std::vector<PropTarget> _editAllTargets;   // "all of them": the picked form goes to each
 	std::string             _propScript, _propName, _propType;

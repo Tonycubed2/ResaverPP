@@ -64,6 +64,8 @@ namespace ess
 		// Forms whose editor ID or name contains the text (case-insensitive). Exact hex form IDs
 		// match too.
 		std::vector<std::uint32_t> search(const std::string& a_text, std::size_t a_max) const;
+		// Every form of one record type ("SPEL"), as the last plugin that defines it has it.
+		std::vector<std::uint32_t> ofType(const std::string& a_type) const;
 
 		// QUST records (the last override of each), with stages, journal entries, objectives and
 		// stage scripts: what the Quests view shows

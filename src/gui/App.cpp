@@ -388,6 +388,13 @@ std::vector<std::string> App::memberNames(TStr a_script) const
 
 namespace
 {
+	std::string LowerStr(std::string a)
+	{
+		for (auto& c : a) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		return a;
+	}
 	// a declared type that is not an object: int, float, bool, string, or any array
 	bool IsBaseType(const std::string& a_type)
 	{
@@ -509,6 +516,9 @@ void App::varsTable(const char* a_id, std::vector<Variable>& a_vars, const std::
 				ImGui::PushID(i);
 				if (ImGui::SmallButton("edit")) {
 					_propName = i < static_cast<int>(a_names.size()) ? a_names[i] : std::string();
+					if (_propName.starts_with("::") && _propName.ends_with("_var") && _propName.size() > 6) {
+						_propName = _propName.substr(2, _propName.size() - 6);  // an Auto property's hidden variable: show the property's name
+					}
 					_propScript.clear();
 					beginEdit(&a_vars[i], i < static_cast<int>(a_types.size()) ? a_types[i] : std::string());
 				}
@@ -1757,6 +1767,7 @@ void App::detailScript(std::uint64_t k)
 	scriptItem(p.str(s->name));
 	ImGui::SameLine();
 	if (ImGui::SmallButton("View script")) {
+		_scriptBinding.erase(LowerStr(p.str(s->name)));  // from the script itself: its properties are set on every object with it
 		viewScript(p.str(s->name));
 	}
 	tips::Tip("Show this script's decompiled code.");
@@ -1849,6 +1860,11 @@ void App::detailScript(std::uint64_t k)
 		ImGui::PushID(static_cast<int>(idx));
 		const auto header = "on " + formLabel(i.refID) + Fmt("  (%zu values)", i.data->vars.size());
 		if (ImGui::CollapsingHeader(header.c_str(), n == 1 ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+			if (ImGui::SmallButton("Open the script for this object")) {
+				_scriptBinding[LowerStr(p.str(i.script))] = i.id;
+				viewScript(p.str(i.script));
+			}
+			tips::Tip("Open the script; the properties you click on its left side are set on this object only.");
 			varsTable("svars", i.data->vars, names, types);
 		}
 		ImGui::PopID();
@@ -1882,6 +1898,7 @@ void App::detailInstance(std::uint64_t k)
 	scriptItem(p.str(i->script));
 	ImGui::SameLine();
 	if (ImGui::SmallButton("View script")) {
+		_scriptBinding[LowerStr(p.str(i->script))] = i->id;  // from this object: properties clicked in the script window are set on it
 		viewScript(p.str(i->script));
 	}
 	tips::Tip("Show this script's decompiled code.");
@@ -2505,9 +2522,19 @@ void App::editPopup()
 	if (v->type == VType::kVariant && v->inner) {
 		v = v->inner.get();
 	}
-	ImGui::Text("Type: %s", VTypeName(v->type));
-	ImGui::TextWrapped("Current: %s", describeVar(*_editVar).c_str());
-	ImGui::Separator();
+	const bool picker = (v->type == VType::kRef || v->type == VType::kNull) && !_editType.empty() &&
+						!(v->type == VType::kNull && IsBaseType(_editType));
+	if (!picker) {  // the form picker shows the property and its value itself
+		if (!_propName.empty()) {
+			ImGui::TextUnformatted(_propName.c_str());
+		}
+		ImGui::Text("Type: %s", VTypeName(v->type));
+		ImGui::TextWrapped("Current: %s", describeVar(*_editVar).c_str());
+		if (!_editAllTargets.empty()) {
+			ImGui::TextDisabled("Set on all %zu objects that have this script", _editAllTargets.size());
+		}
+		ImGui::Separator();
+	}
 
 	bool apply = false;
 	switch (v->type) {
@@ -2552,7 +2579,7 @@ void App::editPopup()
 		break;
 	case VType::kRef:
 	case VType::kNull:
-		if (!_editType.empty() && !IsArrayType(v->type) && !(v->type == VType::kNull && IsBaseType(_editType))) {
+		if (picker && !IsArrayType(v->type)) {
 			apply = formPicker(*v);
 			break;
 		}
@@ -2571,6 +2598,17 @@ void App::editPopup()
 			v->value = 0;
 		}
 		break;
+	}
+	if (apply && !picker && !_editAllTargets.empty() && _save->papyrus()) {
+		// opened from the script itself: the same value on every object that has it
+		const Variable value = *_editVar;
+		for (const auto& t : _editAllTargets) {
+			if (auto* inst = _save->papyrus()->findInstance(t.instance); inst && inst->data && t.var < inst->data->vars.size()) {
+				inst->data->vars[t.var] = value;
+			}
+		}
+		_editDone = Fmt("%s set on %zu objects", _propName.c_str(), _editAllTargets.size());
+		_editAllTargets.clear();
 	}
 	if (apply) {
 		markChanged(_editDone.empty() ? std::string("Edited a variable") : _editDone);
