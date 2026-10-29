@@ -1356,10 +1356,11 @@ void App::drawCompileResults()
 			ImGui::TextDisabled("also in %s", platform::ToUtf8(d.compileLogFile.filename()).c_str());
 		}
 	}
-	ImGui::Separator();
-	ImGui::BeginChild("##msgs", ImVec2(0, 0));
+	// three parts, each with a bar under it to drag: the errors, what the compiler printed, the command line
+	const float avail = ImGui::GetContentRegionAvail().y;
 	if (!d.messages.empty()) {
-		ImGui::TextDisabled("%zu message(s): click one to go to that line, right-click to copy it.", d.messages.size());
+		ImGui::SeparatorText(Fmt("Errors and warnings (%zu): click one to go to that line, right-click to copy it", d.messages.size()).c_str());
+		ImGui::BeginChild("##msgs", ImVec2(0, avail * 0.4f), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY);
 	}
 	for (std::size_t i = 0; i < d.messages.size(); ++i) {
 		const auto& m = d.messages[i];
@@ -1398,14 +1399,19 @@ void App::drawCompileResults()
 		}
 		ImGui::PopID();
 	}
-	if (ImGui::CollapsingHeader("Everything the compiler printed", d.messages.empty() && !d.compileOk ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
-		for (const auto& l : d.output) {
-			ImGui::TextUnformatted(l.c_str());
-		}
+	if (!d.messages.empty()) {
+		ImGui::EndChild();
 	}
-	if (ImGui::CollapsingHeader("Command line (compiler, flags, import folders)")) {
-		ImGui::TextWrapped("%s", d.commandLine.c_str());
+	ImGui::SeparatorText("Everything the compiler printed");
+	ImGui::BeginChild("##out", ImVec2(0, avail * (d.messages.empty() ? 0.45f : 0.3f)), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY);
+	for (const auto& l : d.output) {
+		ImGui::TextUnformatted(l.c_str());
 	}
+	ImGui::EndChild();
+	tips::Tip("Drag the bar under this box to make it taller or shorter.");
+	ImGui::SeparatorText("Command line (compiler, flags, import folders)");
+	ImGui::BeginChild("##cmd", ImVec2(0, 0), ImGuiChildFlags_Borders);
+	ImGui::TextWrapped("%s", d.commandLine.c_str());
 	ImGui::EndChild();
 	ImGui::End();
 }
