@@ -64,8 +64,10 @@ void App::drawMergedPatch()
 					   "uses the one loaded last, and the other mod's additions are lost. The merged patch reads every plugin in your "
 					   "load order and writes one plugin that keeps both: what each mod added or removed is combined. Every other value "
 					   "stays as the winning mod has it, as the game does without a patch.");
-	ImGui::TextWrapped("The patch is a light (ESL-flagged) plugin, so it takes no load order slot. It only needs a mod as a master when a "
-					   "patched record comes from that mod or points at one of its forms. Rebuild it after you add, remove or reorder mods.");
+	ImGui::TextWrapped("On Special Edition and Anniversary Edition the patch is a light (ESL-flagged) plugin, so it takes no load order "
+					   "slot. On Legendary Edition (found automatically) it is a normal plugin in LE's format and needs one slot. It only "
+					   "needs a mod as a master when a patched record comes from that mod or points at one of its forms. Rebuild it after "
+					   "you add, remove or reorder mods.");
 	ImGui::Spacing();
 	ImGui::TextDisabled("Load order: %s", platform::ToUtf8(pluginsTxt).c_str());
 	if (_mo2 && !_profile.empty()) {
@@ -223,6 +225,9 @@ void App::drawMergedPatch()
 	}
 	ImGui::Text("%zu of %zu plugins read. %zu records are changed differently by two or more plugins.", r.pluginsRead, _mergeLoadOrder, r.conflicts);
 	Colored(theme::Good(), Fmt("%zu records merged into the patch, with %zu masters.", r.merged.size(), r.masters.size()));
+	if (r.legendary) {
+		ImGui::TextDisabled("Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes one load order slot.");
+	}
 	if (!r.skipped.empty()) {
 		ImGui::TextDisabled("%zu could not be merged; for those the winning mod's version stays, as without a patch.", r.skipped.size());
 	}
@@ -280,7 +285,8 @@ void App::drawMergedPatch()
 		} else {
 			ImGui::TextWrapped("Enable %s in your mod manager or the game's launcher and keep it last in the load order.", kPatchName);
 		}
-		ImGui::TextWrapped("Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed.");
+		ImGui::TextWrapped(r.legendary ? "Before playing, you can open it in TES5Edit (Check for Errors) to see what it changed."
+									   : "Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed.");
 	}
 
 	// details

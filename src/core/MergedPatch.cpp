@@ -284,7 +284,8 @@ namespace ess::merge
 	}
 
 	std::vector<std::uint8_t> WritePlugin(const std::vector<std::string>& a_masters, std::uint32_t a_headerFlags,
-		const std::vector<Record>& a_records, const std::string& a_author, const std::string& a_desc, float a_hedrVersion)
+		const std::vector<Record>& a_records, const std::string& a_author, const std::string& a_desc, float a_hedrVersion,
+		std::uint16_t a_headerRecordVersion)
 	{
 		// group the records by type, groups in the game's order
 		std::map<int, std::pair<std::string, std::vector<const Record*>>> groups;
@@ -435,7 +436,7 @@ namespace ess::merge
 		Put32(out, a_headerFlags);
 		Put32(out, 0);
 		Put32(out, 0);
-		Put16(out, 44);
+		Put16(out, a_headerRecordVersion);
 		Put16(out, 0);
 		out.insert(out.end(), hd.begin(), hd.end());
 		out.insert(out.end(), body.begin(), body.end());
@@ -469,13 +470,28 @@ namespace ess::merge
 		std::vector<std::string> enabled;
 		std::set<std::string>    enabledLow;
 		{
-			std::ifstream f(a_pluginsTxt);
+			// SE/AE: enabled lines start with '*'. Legendary Edition has no marks: every plugin listed is enabled.
+			// Only read that way when the game is LE (TESV.exe, or the game's own %LOCALAPPDATA%\Skyrim\plugins.txt):
+			// an SE file with every plugin disabled has no marks either.
+			std::vector<std::string> marked, listed;
+			std::ifstream            f(a_pluginsTxt);
 			for (std::string line; std::getline(f, line);) {
 				line = trim(line);
-				if (!line.empty() && line[0] == '*') {
-					enabled.push_back(trim(line.substr(1)));
-					enabledLow.insert(Lower(enabled.back()));
+				if (line.empty() || line[0] == '#') {
+					continue;
 				}
+				if (line[0] == '*') {
+					marked.push_back(trim(line.substr(1)));
+				} else {
+					listed.push_back(line);
+				}
+			}
+			std::error_code lec;
+			const bool      le = (!a_gameFolder.empty() && std::filesystem::exists(a_gameFolder / "TESV.exe", lec)) ||
+			                Lower(a_pluginsTxt.parent_path().filename().string()) == "skyrim";
+			enabled = marked.empty() && le ? listed : marked;
+			for (const auto& e : enabled) {
+				enabledLow.insert(Lower(e));
 			}
 		}
 		for (const char* p : { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" }) {
@@ -1118,7 +1134,7 @@ namespace ess::merge
 					}
 					p.found = true;
 					p.localized = pf.flags & 0x80;
-					p.light = pf.flags & 0x200;
+					p.light = !_opt.legendary && (pf.flags & 0x200);  // Legendary Edition has no light plugins
 					for (const auto& m : pf.masters) {
 						auto it = index.find(Lower(m));
 						const int lo = it == index.end() || it->second >= static_cast<int>(i) ? -1 : it->second;
@@ -1128,7 +1144,7 @@ namespace ess::merge
 						}
 					}
 					++_res.pluginsRead;
-					if (pf.flags & 0x200) {
+					if (p.light) {
 						// a light plugin can only number its own forms 0x000-0xFFF; the game cuts higher ones short
 						const auto over = CountLightOverflow(*path, static_cast<std::uint32_t>(pf.masters.size()));
 						if (over) {
@@ -2044,9 +2060,28 @@ namespace ess::merge
 					}
 					recs.push_back(std::move(r));
 				}
-				// only overrides, no new forms: flagged light (ESL), so it takes no load order slot
-				_res.file = WritePlugin(_res.masters, 0x200, recs, "ReSaver Plus",
-					"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.", low ? 1.71f : 1.7f);
+				if (_opt.legendary) {
+					// Legendary Edition: a normal plugin in its own format (header 0.94, record version 43). It has no
+					// light plugins, so the patch takes a load order slot: the game loads at most 255 plugins.
+					std::size_t used = 0;
+					for (const auto& p : _plugins) {
+						if (Lower(p.name) != Lower(_opt.patchName)) {
+							++used;
+						}
+					}
+					if (used >= 255) {
+						_res.warnings.push_back("Legendary Edition loads at most 255 plugins and your load order already has " +
+												std::to_string(used) + ". The patch needs a slot of its own: disable or merge a plugin, or the "
+												"game will not load the patch (or the plugins after it).");
+					}
+					_res.file = WritePlugin(_res.masters, 0, recs, "ReSaver Plus",
+						"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.", 0.94f, 43);
+				} else {
+					// only overrides, no new forms: flagged light (ESL), so it takes no load order slot
+					_res.file = WritePlugin(_res.masters, 0x200, recs, "ReSaver Plus",
+						"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.", low ? 1.71f : 1.7f);
+				}
+				_res.legendary = _opt.legendary;
 				_res.ok = true;
 			}
 
@@ -2070,22 +2105,19 @@ namespace ess::merge
 	{
 		Result r;
 		try {
-			// Legendary Edition (Skyrim.esm's header has record version 43, SE/AE 44) cannot load the patch: it is written
-			// in the SE format and flagged light (ESL), which LE does not have
-			if (a_opt.findPlugin) {
-				if (const auto esm = a_opt.findPlugin("Skyrim.esm")) {
+			// Legendary Edition: Skyrim.esm's header has record version 43 (SE/AE 44). The patch is then written in
+			// LE's format, as a normal plugin (LE has no light plugins).
+			Options opt = a_opt;
+			if (opt.findPlugin) {
+				if (const auto esm = opt.findPlugin("Skyrim.esm")) {
 					std::ifstream f(*esm, std::ios::binary);
 					unsigned char h[24] = {};
 					if (f.read(reinterpret_cast<char*>(h), sizeof(h)) && std::memcmp(h, "TES4", 4) == 0 && (h[20] | (h[21] << 8)) < 44) {
-						r.ok = false;
-						r.error = "This is a Skyrim Legendary Edition load order. The merged patch is made for Skyrim Special Edition and "
-						          "Anniversary Edition (and VR) only: it is written in their plugin format and flagged light (ESL), which "
-						          "Legendary Edition cannot load. Nothing was written.";
-						return r;
+						opt.legendary = true;
 					}
 				}
 			}
-			Builder b(a_opt, a_progress, r);
+			Builder b(opt, a_progress, r);
 			b.run();
 		} catch (const std::exception& e) {
 			r.ok = false;
@@ -2310,7 +2342,9 @@ namespace ess::merge
 		o << "=========================\n\n";
 		o << pluginsRead << " plugins read, " << recordsRead << " records of the merged types.\n";
 		o << conflicts << " records are changed differently by two or more plugins.\n";
-		o << merged.size() << " of them were merged into the patch; " << skipped.size() << " could not be merged (the winning plugin's version stays).\n\n";
+		o << merged.size() << " of them were merged into the patch; " << skipped.size() << " could not be merged (the winning plugin's version stays).\n";
+		o << (legendary ? "Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes a load order slot.\n\n"
+		                : "The patch is a light (ESL-flagged) plugin: it takes no load order slot.\n\n");
 		if (!fixes.empty()) {
 			o << "Broken references fixed by the patch:\n";
 			for (const auto& w : fixes) o << "  " << w << "\n";

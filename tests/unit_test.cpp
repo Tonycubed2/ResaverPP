@@ -473,6 +473,67 @@ namespace
 		return MR("LVLI", a_id, std::move(subs));
 	}
 
+	// Skyrim Legendary Edition: Skyrim.esm's header has record version 43; the patch is a normal plugin in LE's format
+	void TestMergedPatchLE()
+	{
+		namespace fs = std::filesystem;
+		const auto dir = fs::temp_directory_path() / "rs_merge_test_le";
+		fs::remove_all(dir);
+		fs::create_directories(dir);
+		auto save = [&](const char* a_name, const std::vector<std::uint8_t>& a_data) {
+			std::ofstream(dir / a_name, std::ios::binary).write(reinterpret_cast<const char*>(a_data.data()), static_cast<std::streamsize>(a_data.size()));
+		};
+		auto le = [](merge::Record r) {
+			r.version = 43;
+			return r;
+		};
+		save("Skyrim.esm", merge::WritePlugin({}, 1, { le(Leveled(0x810, { 0x900, 0x901 })) }, "t", {}, 0.94f, 43));
+		save("ModA.esp", merge::WritePlugin({ "Skyrim.esm" }, 0, { le(Leveled(0x810, { 0x900, 0x901, 0x902 })) }, "t", {}, 0.94f, 43));
+		// LE ignores the ESL flag: a plugin that carries it is still a normal plugin there
+		save("ModB.esp", merge::WritePlugin({ "Skyrim.esm" }, 0x200, { le(Leveled(0x810, { 0x900, 0x901, 0x903 })) }, "t", {}, 0.94f, 43));
+		// LE plugins.txt: no '*' marks, every listed plugin is enabled
+		{
+			std::ofstream(dir / "plugins.txt") << "# This file is used by Skyrim to keep track of your downloaded content.\r\nModA.esp\r\nModB.esp\r\n";
+		}
+		merge::Options o;
+		Check(merge::ReadLoadOrder(dir / "plugins.txt", {}).size() == 5, "merge: an SE plugins.txt without '*' marks has nothing enabled");
+		fs::create_directories(dir / "game");
+		std::ofstream(dir / "game" / "TESV.exe") << "x";
+		o.loadOrder = merge::ReadLoadOrder(dir / "plugins.txt", dir / "game");
+		Check(o.loadOrder.size() == 7 && o.loadOrder[5] == "ModA.esp" && o.loadOrder[6] == "ModB.esp",
+			"merge LE: plugins.txt without '*' marks reads every listed plugin as enabled");
+		o.loadOrder = { "Skyrim.esm", "ModA.esp", "ModB.esp" };
+		o.findPlugin = [&](const std::string& n) -> std::optional<fs::path> { return dir / n; };
+		const auto r = merge::Build(o);
+		Check(r.ok && r.legendary, "merge LE: built, Legendary Edition found from Skyrim.esm's header");
+		Check(r.merged.size() == 1, "merge LE: the leveled list is merged");
+		save("Patch.esp", r.file);
+		const auto pf = merge::ReadPlugin(dir / "Patch.esp");
+		Check(pf.flags == 0, "merge LE: the patch is not light-flagged");
+		Check(r.file.size() > 36 && (r.file[20] | (r.file[21] << 8)) == 43, "merge LE: header record version 43");
+		float hedr = 0;
+		std::memcpy(&hedr, r.file.data() + 30, 4);
+		Check(std::memcmp(r.file.data() + 24, "HEDR", 4) == 0 && hedr > 0.93f && hedr < 0.95f, "merge LE: HEDR version 0.94");
+		bool both = false, v43 = false;
+		for (const auto& rec : pf.records) {
+			if (std::memcmp(rec.sig, "LVLI", 4) == 0) {
+				v43 = rec.version == 43;
+				std::vector<std::uint32_t> items;
+				for (const auto& sb : rec.subs) {
+					if (std::memcmp(sb.sig, "LVLO", 4) == 0 && sb.data.size() >= 8) {
+						std::uint32_t v;
+						std::memcpy(&v, sb.data.data() + 4, 4);
+						items.push_back(v & 0xFFFFFF);
+					}
+				}
+				both = std::find(items.begin(), items.end(), 0x902u) != items.end() && std::find(items.begin(), items.end(), 0x903u) != items.end();
+			}
+		}
+		Check(both, "merge LE: both mods' additions are in the patch");
+		Check(v43, "merge LE: records keep LE's record version 43");
+		fs::remove_all(dir);
+	}
+
 	void TestMergedPatch()
 	{
 		namespace fs = std::filesystem;
@@ -740,6 +801,7 @@ int main()
 	TestTransplant();
 	TestSaveArchive();
 	TestMergedPatch();
+	TestMergedPatchLE();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

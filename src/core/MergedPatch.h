@@ -12,6 +12,8 @@
 // one block. Types: leveled lists, containers, form lists, outfits, NPCs, armour, weapons, ammo, misc
 // items, keys, soul gems, books, potions, ingredients, scrolls, spells, and cells (interior and exterior,
 // with their worldspace copied in as the parent).
+// Skyrim SE/AE/VR: the patch is a light (ESL-flagged) plugin. Skyrim Legendary Edition (found from Skyrim.esm's
+// header): a normal plugin in LE's format, since LE has no light plugins.
 #pragma once
 
 #include <atomic>
@@ -91,6 +93,9 @@ namespace ess::merge
 		std::function<std::vector<std::uint8_t>(const std::string&)> readStrings;
 		std::string language = "english";
 		std::string patchName = "ReSaverPP Merged Patch.esp";
+		// Skyrim Legendary Edition load order: set by Build itself from Skyrim.esm's header (record version 43).
+		// The patch is then a normal plugin in LE's format (no light plugins there), so it needs a load order slot.
+		bool legendary = false;
 	};
 
 	struct MergedRecord
@@ -116,6 +121,7 @@ namespace ess::merge
 		std::vector<std::string>  warnings;  // problems of the load order itself, found while reading it
 		std::vector<std::string>  fixes;     // problems of the load order the patch fixes
 		std::size_t               pluginsRead = 0, recordsRead = 0, conflicts = 0;
+		bool                      legendary = false;  // built for Skyrim Legendary Edition (a normal plugin, not light)
 
 		std::string report() const;
 	};
@@ -128,7 +134,8 @@ namespace ess::merge
 
 	// The load order from a plugins.txt (Mod Organizer profile or the game's own): the plugins the
 	// game always loads first (base game masters, then the Creation Club files in Skyrim.ccc), then
-	// the enabled lines in file order.
+	// the enabled lines in file order. SE/AE mark enabled plugins with '*'; Legendary Edition (TESV.exe in
+	// the game folder) has no marks and every line listed is enabled.
 	std::vector<std::string> ReadLoadOrder(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder);
 
 	// Low level, for tests: one record of a plugin and a minimal plugin writer.
@@ -149,7 +156,7 @@ namespace ess::merge
 	};
 	std::vector<std::uint8_t> WritePlugin(const std::vector<std::string>& a_masters, std::uint32_t a_headerFlags,
 		const std::vector<Record>& a_records, const std::string& a_author = "ReSaver Plus", const std::string& a_desc = {},
-		float a_hedrVersion = 1.7f);
+		float a_hedrVersion = 1.7f, std::uint16_t a_headerRecordVersion = 44);
 	struct PluginFile
 	{
 		std::vector<std::string> masters;

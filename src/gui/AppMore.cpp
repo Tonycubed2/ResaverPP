@@ -737,12 +737,12 @@ void App::drawSettings()
 	ImGui::TextWrapped("Game folder: %s", gameFolder().empty() ? "(not found)" : platform::ToUtf8(gameFolder()).c_str());
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Change...##game") && platform::HasNativeDialogs()) {
-		if (auto p = platform::PickFolderDialog(_vr ? "Pick the Skyrim VR folder (the one with SkyrimVR.exe)" : "Pick the Skyrim Special Edition folder (the one with SkyrimSE.exe)")) {
+		if (auto p = platform::PickFolderDialog(_vr ? "Pick the Skyrim VR folder (the one with SkyrimVR.exe)" : "Pick the Skyrim folder (the one with SkyrimSE.exe, or TESV.exe for Legendary Edition)")) {
 			_gamePath = platform::ToUtf8(*p);
 			ch = true;
 		}
 	}
-	tips::Tip("Pick the game folder (the one with SkyrimSE.exe or SkyrimVR.exe). Needed for the Papyrus compiler and the Data folder.");
+	tips::Tip("Pick the game folder (the one with SkyrimSE.exe, SkyrimVR.exe or, for Legendary Edition, TESV.exe). Needed for the Papyrus compiler and the Data folder.");
 	{
 		const auto comp = compilerPath();
 		std::error_code ec;

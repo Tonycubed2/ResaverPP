@@ -60,6 +60,13 @@ namespace ess::loadorder
 				found = true;
 			}
 		}
+		if (!found) {
+			// Skyrim Legendary Edition keeps its plugins.txt in %LOCALAPPDATA%\Skyrim
+			std::error_code ec;
+			if (const auto le = base / "Skyrim" / "plugins.txt"; std::filesystem::exists(le, ec)) {
+				return le;
+			}
+		}
 		return best;
 	}
 
