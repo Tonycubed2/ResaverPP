@@ -661,7 +661,7 @@ namespace ess::cf
 					p.u8("UNK1");
 					p.i32("UNK2");
 					p.ref("REF2");
-					p.group("DATA2", [&] {
+					p.vsArray("DATA2", [&] {
 						p.wstring("TEXT1");
 						p.wstring("TEXT2");
 						p.i32("UNK1");
@@ -672,6 +672,8 @@ namespace ess::cf
 						p.ref("REF3");
 						p.u8("UNK4");
 					});
+					p.flags16("UNK_U16");
+					for (int i = 1; i <= 4; ++i) p.ref(Fmt("FOOTER_REF%d", i));
 				});
 				break;
 			case 120:
