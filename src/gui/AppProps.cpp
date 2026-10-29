@@ -177,7 +177,7 @@ bool App::formPicker(Variable& a_var)
 	return changed;
 }
 
-void App::testEditProperty(const std::string& a_spec)
+void App::testEditProperty(const std::string& a_spec, bool a_open)
 {
 	if (!_save || !_save->papyrus()) {
 		return;
@@ -193,6 +193,9 @@ void App::testEditProperty(const std::string& a_spec)
 	for (auto& i : p.instances) {
 		if (Lower(p.str(i.script)) == script && _save->formIDOf(i.refID) == fid && i.data) {
 			select(Cat::kInstances, i.id);
+			if (!a_open) {
+				return;
+			}
 			const auto names = memberNames(i.script);
 			const auto types = memberTypes(i.script);
 			for (std::size_t k = 0; k < names.size() && k < i.data->vars.size(); ++k) {

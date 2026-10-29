@@ -70,7 +70,7 @@ public:
 	~App();
 	void open(const std::filesystem::path& a_path);
 	void testShowArchive() { _showArchive = true; }
-	void testEditProperty(const std::string& a_spec);  // "Script@formid:property" (screenshots)
+	void testEditProperty(const std::string& a_spec, bool a_open = true);  // "Script@formid:property" (screenshots)
 	void openAny(const std::filesystem::path& a_path);  // .ess, .pex or ModOrganizer.ini
 	void openNewestAtStart();  // with "Open the newest save at start" on: opens it (main.cpp, when no file was given)
 	void draw();  // whole UI for one frame

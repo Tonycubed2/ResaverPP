@@ -388,6 +388,9 @@ int RunApp(int argc, char** argv)
 	if (const char* e = std::getenv("RESAVERPP_TEST_EDITPROP")) {
 		app.testEditProperty(e);
 	}
+	if (const char* e = std::getenv("RESAVERPP_TEST_SELECTPROP")) {
+		app.testEditProperty(e, false);
+	}
 	if (std::getenv("RESAVERPP_TEST_ARCHIVE")) {
 		app.testShowArchive();
 	}

@@ -633,6 +633,32 @@ void App::drawQuestDetail()
 		}
 		Dim(js.empty() ? std::string("The journal does not list it.") : "The journal lists: " + js);
 	}
+	// the quest's scripts with their property values (editable, like in the Creation Kit's quest window)
+	if (auto* pp = _save ? _save->papyrus() : nullptr) {
+		auto&       p = *pp;
+		std::size_t count = 0;
+		for (const auto& i : p.instances) {
+			if (i.data && _save->formIDOf(i.refID) == q->formID) {
+				++count;
+			}
+		}
+		if (count && ImGui::CollapsingHeader(Fmt("Scripts on this quest and their properties (%zu)", count).c_str())) {
+			Dim("Click edit to change a property's value in this save; an object property (a Spell, an Actor, a Quest...) can be pointed at "
+				"any form. Then save (File > Save As).");
+			for (std::size_t idx = 0; idx < p.instances.size(); ++idx) {
+				auto& i = p.instances[idx];
+				if (!i.data || _save->formIDOf(i.refID) != q->formID) {
+					continue;
+				}
+				ImGui::PushID(static_cast<int>(idx));
+				if (ImGui::TreeNodeEx(Fmt("%s  (%zu values)", p.str(i.script).c_str(), i.data->vars.size()).c_str(), count == 1 ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+					varsTable("qvars", i.data->vars, memberNames(i.script), memberTypes(i.script));
+					ImGui::TreePop();
+				}
+				ImGui::PopID();
+			}
+		}
+	}
 	if (live) {
 		auto it = _liveQuests.find(q->formID);
 		if (it != _liveQuests.end() && it->second.valid) {

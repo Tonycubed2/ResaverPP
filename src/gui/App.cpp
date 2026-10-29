@@ -1769,8 +1769,13 @@ void App::detailScript(std::uint64_t k)
 		return;
 	}
 	tips::Tip("List the running copies (threads) of this script.");
-	ImGui::SeparatorText(Fmt("Members (%zu own)", s->members.size()).c_str());
-	if (ImGui::BeginTable("members", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
+	// the values: each object this script is attached to keeps its own, and they can be edited here
+	ImGui::SeparatorText("Property values in this save");
+	if (n == 0) {
+		ImGui::TextWrapped("Nothing in this save has this script attached, so there are no values to edit. The game stores a script's "
+						   "property values with each object it is attached to.");
+	if (ImGui::CollapsingHeader(Fmt("Its properties and variables: names and types (%zu own)###members", s->members.size()).c_str(), n == 0 ? ImGuiTreeNodeFlags_DefaultOpen : 0) &&
+		ImGui::BeginTable("members", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
 		ImGui::TableSetupColumn("Name");
 		ImGui::TableSetupColumn("Type");
 		ImGui::TableHeadersRow();
@@ -1783,6 +1788,50 @@ void App::detailScript(std::uint64_t k)
 		}
 		ImGui::EndTable();
 	}
+
+		return;
+	}
+	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+	ImGui::TextWrapped("Each object this script is attached to keeps its own values. Click edit to change one: numbers, text and true/false "
+					   "directly; an object property (a Spell, a Weapon, a Quest...) can be pointed at any form, like filling it in the "
+					   "Creation Kit. Then save (File > Save As).");
+	ImGui::PopStyleColor();
+	const auto names = memberNames(s->name);
+	const auto types = memberTypes(s->name);
+	const TStr sname = s->name;  // s stays valid; instances can move when an edit adds an object
+	std::size_t shown = 0;
+	for (std::size_t idx = 0; idx < p.instances.size(); ++idx) {
+		auto& i = p.instances[idx];
+		if (i.script != sname || !i.data) {
+			continue;
+		}
+		if (++shown > 100) {
+			ImGui::TextDisabled("... %zu more: use Show its instances to find one", n - 100);
+			break;
+		}
+		ImGui::PushID(static_cast<int>(idx));
+		const auto header = "on " + formLabel(i.refID) + Fmt("  (%zu values)", i.data->vars.size());
+		if (ImGui::CollapsingHeader(header.c_str(), n == 1 ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+			varsTable("svars", i.data->vars, names, types);
+		}
+		ImGui::PopID();
+	}
+	ImGui::Spacing();
+	if (ImGui::CollapsingHeader(Fmt("Its properties and variables: names and types (%zu own)###members", s->members.size()).c_str(), n == 0 ? ImGuiTreeNodeFlags_DefaultOpen : 0) &&
+		ImGui::BeginTable("members", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
+		ImGui::TableSetupColumn("Name");
+		ImGui::TableSetupColumn("Type");
+		ImGui::TableHeadersRow();
+		for (const auto& m : s->members) {
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::TextUnformatted(p.str(m.name).c_str());
+			ImGui::TableSetColumnIndex(1);
+			ImGui::TextUnformatted(p.str(m.type).c_str());
+		}
+		ImGui::EndTable();
+	}
+
 }
 
 void App::detailInstance(std::uint64_t k)
@@ -1873,7 +1922,7 @@ void App::detailReference(std::uint64_t k)
 	}
 	if (r->data) {
 		ImGui::SeparatorText("Variables");
-		varsTable("rvars", r->data->vars, memberNames(r->script));
+		varsTable("rvars", r->data->vars, memberNames(r->script), memberTypes(r->script));
 	}
 }
 
