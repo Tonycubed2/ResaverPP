@@ -82,6 +82,9 @@ if (RESAVERPP_TESTS)
 	# real saves: -DRESAVERPP_TEST_SAVES=<folder with .ess files>. Each is loaded, written back and
 	# compared, backups checked. A folder given without saves in it fails the run (fixtures missing).
 	set(RESAVERPP_TEST_SAVES "" CACHE PATH "Folder of .ess saves for the fixture tests")
+	add_executable(rs_decode_diagnostics_port_test tests/decode_diagnostics_port_test.cpp)
+	target_link_libraries(rs_decode_diagnostics_port_test PRIVATE rs_core)
+	add_test(NAME decode_diagnostics COMMAND rs_decode_diagnostics_port_test)
 	if (RESAVERPP_TEST_SAVES)
 		file(GLOB RS_TEST_SAVES "${RESAVERPP_TEST_SAVES}/*.ess")
 		if (NOT RS_TEST_SAVES)
