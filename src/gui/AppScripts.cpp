@@ -779,9 +779,9 @@ void App::drawDoc(ScriptDoc& d)
 		return;
 	}
 	if (ImGui::BeginTabItem("Source")) {
-		const float bottom = d.compiled ? 150.0f : 0.0f;
+		const float bottom = 0.0f;  // the compiler's results have their own window
 		const float statusH = ImGui::GetTextLineHeightWithSpacing();
-		const float h = ImGui::GetContentRegionAvail().y - bottom - statusH - (d.compiled ? ImGui::GetStyle().ItemSpacing.y : 0);
+		const float h = ImGui::GetContentRegionAvail().y - bottom - statusH;
 
 		// outline
 		if (d.showOutline) {
@@ -910,81 +910,6 @@ void App::drawDoc(ScriptDoc& d)
 			ed.GetTotalLines(), d.textModified ? "modified" : d.psc.empty() ? "not saved yet" : "saved", d.compiling ? "   |   compiling..." : "");
 		ImGui::EndGroup();
 
-		// compiler messages
-		if (d.compiled) {
-			ImGui::BeginChild("compile", ImVec2(0, 0), ImGuiChildFlags_Borders);
-			TextColored(d.compileOk ? theme::Good() : theme::Bad(), d.summary);
-			if (!d.compileLog.empty()) {
-				if (ImGui::SmallButton("Copy everything")) {
-					ImGui::SetClipboardText(d.compileLog.c_str());
-					_status = "The whole compile log is on the clipboard.";
-				}
-				tips::Tip("Copy the whole report to the clipboard: the script, every error and warning with its line and column, the counts, the "
-						  "import folders, the compiler settings and everything the compiler printed.");
-				ImGui::SameLine();
-				if (ImGui::SmallButton("Save as...")) {
-					if (auto f = platform::SaveFileDialog(Fmt("PapyrusCompileLog - %s.txt", d.name.c_str()), "txt", "Compile log")) {
-						std::ofstream out(*f, std::ios::binary | std::ios::trunc);
-						out << d.compileLog;
-						_status = out ? "Saved " + platform::ToUtf8(f->filename()) : "Could not write " + platform::ToUtf8(*f);
-					}
-				}
-				tips::Tip("Save the whole report to a text file.");
-				if (!d.compileLogFile.empty()) {
-					ImGui::SameLine();
-					if (ImGui::SmallButton("Open the log")) {
-						platform::OpenWithDefaultApp(d.compileLogFile);
-					}
-					tips::Tipf("Every compile also writes its report to\n%s\n(replaced by the next compile).", platform::ToUtf8(d.compileLogFile).c_str());
-					ImGui::SameLine();
-					ImGui::TextDisabled("also in %s", platform::ToUtf8(d.compileLogFile.filename()).c_str());
-				}
-			}
-			for (std::size_t i = 0; i < d.messages.size(); ++i) {
-				const auto& m = d.messages[i];
-				const auto  stem = platform::ToUtf8(platform::FromUtf8(m.file).stem());
-				const bool  here = Lower(stem) == Lower(d.name);
-				ImGui::PushID(static_cast<int>(i));
-				const std::string label = (here ? std::string() : stem + ".psc ") + Fmt("line %d, col %d:  ", m.line, m.column) + m.text;
-				const bool clicked = ImGui::Selectable(label.c_str());
-				if (ImGui::BeginPopupContextItem("msgmenu")) {
-					if (ImGui::MenuItem("Copy this line")) {
-						ImGui::SetClipboardText((m.file + Fmt("(%d,%d): ", m.line, m.column) + m.text).c_str());
-					}
-					if (ImGui::MenuItem("Copy everything")) {
-						ImGui::SetClipboardText(d.compileLog.c_str());
-					}
-					ImGui::EndPopup();
-				}
-				if (clicked) {
-					if (here) {
-						ed.ScrollToLine(m.line - 1);
-						ed.SetCursorPosition(TextEditor::Coordinates(std::max(0, m.line - 1), std::max(0, ed.ColumnOfIndex(m.line - 1, m.column))));
-					} else if (stem != "<unknown>") {
-						viewScript(stem);
-						for (auto& x : _docs) {
-							if (Lower(x->name) == Lower(stem)) {
-								x->editor.ScrollToLine(m.line - 1);
-							}
-						}
-					}
-				}
-				ImGui::PopID();
-			}
-			if (d.messages.empty() && !d.compileOk && !d.output.empty()) {
-				for (const auto& l : d.output) {
-					ImGui::TextUnformatted(l.c_str());
-				}
-			}
-			if (ImGui::TreeNode("Compiler output")) {
-				ImGui::TextWrapped("%s", d.commandLine.c_str());
-				for (const auto& l : d.output) {
-					ImGui::TextUnformatted(l.c_str());
-				}
-				ImGui::TreePop();
-			}
-			ImGui::EndChild();
-		}
 		ImGui::EndTabItem();
 	}
 
@@ -1316,6 +1241,13 @@ void App::startCompile(ScriptDoc& d)
 	});
 	_compileJob = job;
 	d.compiling = true;
+	for (const auto& x : _docs) {
+		if (x.get() == &d) {
+			_compileResultsDoc = x;
+		}
+	}
+	_showCompileResults = true;
+	_compileResultsFocus = true;
 	d.summary = "Compiling " + script + "...";
 	_status = d.summary;
 }
@@ -1354,6 +1286,9 @@ void App::pollCompile()
 	} else {
 		d.summary = "The compiler did not write " + job->script + ".pex (see the compiler output below).";
 	}
+	_compileResultsDoc = doc;
+	_showCompileResults = true;
+	_compileResultsFocus = true;
 	// the whole report, also written next to the program (overwritten by the next compile)
 	d.compileLog = BuildCompileLog(*job, r, d.summary);
 	d.compileLogFile = platform::SettingsFile().parent_path() / "PapyrusCompileLog.txt";
@@ -1365,6 +1300,114 @@ void App::pollCompile()
 		}
 	}
 	_status = d.summary;
+}
+
+
+// The compiler's results in a window of their own (move it, resize it, maximize it), like the Creation Kit's
+void App::drawCompileResults()
+{
+	auto doc = _compileResultsDoc.lock();
+	if (!doc || !doc->compiled) {
+		_showCompileResults = false;
+		return;
+	}
+	auto& d = *doc;
+	auto& ed = d.editor;
+	const std::string title = "Compile results - " + d.name + "###compileresults";
+	prepareWindow("###compileresults", ImVec2(0.6f, 0.5f));
+	if (_compileResultsFocus) {
+		ImGui::SetNextWindowFocus();
+		_compileResultsFocus = false;
+	}
+	if (!ImGui::Begin(title.c_str(), &_showCompileResults, ImGuiWindowFlags_NoCollapse)) {
+		ImGui::End();
+		return;
+	}
+	maximizeControl("###compileresults");
+	if (d.compiling) {
+		ImGui::TextUnformatted(("Compiling " + d.name + "...").c_str());
+		ImGui::End();
+		return;
+	}
+	TextColored(d.compileOk ? theme::Good() : theme::Bad(), d.summary);
+	if (!d.compileLog.empty()) {
+		if (ImGui::SmallButton("Copy everything")) {
+			ImGui::SetClipboardText(d.compileLog.c_str());
+			_status = "The whole compile log is on the clipboard.";
+		}
+		tips::Tip("Copy the whole report to the clipboard: the script, every error and warning with its line and column, the counts, the "
+				  "import folders, the compiler settings and everything the compiler printed.");
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Save as...")) {
+			if (auto f = platform::SaveFileDialog(Fmt("PapyrusCompileLog - %s.txt", d.name.c_str()), "txt", "Compile log")) {
+				std::ofstream out(*f, std::ios::binary | std::ios::trunc);
+				out << d.compileLog;
+				_status = out ? "Saved " + platform::ToUtf8(f->filename()) : "Could not write " + platform::ToUtf8(*f);
+			}
+		}
+		tips::Tip("Save the whole report to a text file.");
+		if (!d.compileLogFile.empty()) {
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Open the log")) {
+				platform::OpenWithDefaultApp(d.compileLogFile);
+			}
+			tips::Tipf("Every compile also writes its report to\n%s\n(replaced by the next compile).", platform::ToUtf8(d.compileLogFile).c_str());
+			ImGui::SameLine();
+			ImGui::TextDisabled("also in %s", platform::ToUtf8(d.compileLogFile.filename()).c_str());
+		}
+	}
+	ImGui::Separator();
+	ImGui::BeginChild("##msgs", ImVec2(0, 0));
+	if (!d.messages.empty()) {
+		ImGui::TextDisabled("%zu message(s): click one to go to that line, right-click to copy it.", d.messages.size());
+	}
+	for (std::size_t i = 0; i < d.messages.size(); ++i) {
+		const auto& m = d.messages[i];
+		const auto  stem = platform::ToUtf8(platform::FromUtf8(m.file).stem());
+		const bool  here = Lower(stem) == Lower(d.name);
+		ImGui::PushID(static_cast<int>(i));
+		const std::string label = (here ? std::string() : stem + ".psc ") + Fmt("line %d, col %d:  ", m.line, m.column) + m.text;
+		const bool clicked = ImGui::Selectable(label.c_str());
+		if (ImGui::BeginPopupContextItem("msgmenu")) {
+			if (ImGui::MenuItem("Copy this line")) {
+				ImGui::SetClipboardText((m.file + Fmt("(%d,%d): ", m.line, m.column) + m.text).c_str());
+			}
+			if (ImGui::MenuItem("Copy everything")) {
+				ImGui::SetClipboardText(d.compileLog.c_str());
+			}
+			ImGui::EndPopup();
+		}
+		if (clicked) {
+			_showViewer = true;  // the script window comes forward, on this script
+			for (std::size_t k = 0; k < _docs.size(); ++k) {
+				if (_docs[k].get() == &d) {
+					_docSelect = static_cast<int>(k);
+				}
+			}
+			if (here) {
+				ed.ScrollToLine(m.line - 1);
+				ed.SetCursorPosition(TextEditor::Coordinates(std::max(0, m.line - 1), std::max(0, ed.ColumnOfIndex(m.line - 1, m.column))));
+			} else if (stem != "<unknown>") {
+				viewScript(stem);
+				for (auto& x : _docs) {
+					if (Lower(x->name) == Lower(stem)) {
+						x->editor.ScrollToLine(m.line - 1);
+					}
+				}
+			}
+		}
+		ImGui::PopID();
+	}
+	if (ImGui::CollapsingHeader("Everything the compiler printed", d.messages.empty() && !d.compileOk ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+		for (const auto& l : d.output) {
+			ImGui::TextUnformatted(l.c_str());
+		}
+	}
+	if (ImGui::CollapsingHeader("Command line (compiler, flags, import folders)")) {
+		ImGui::TextWrapped("%s", d.commandLine.c_str());
+	}
+	ImGui::EndChild();
+	ImGui::End();
 }
 
 void App::stopScriptJobs()

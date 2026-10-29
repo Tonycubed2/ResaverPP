@@ -677,6 +677,9 @@ private:
 	void placeCursor(ScriptDoc& d, const std::string& a_function, const std::string& a_state, int a_instruction);
 	bool saveDoc(ScriptDoc& d, bool a_saveAs);
 	void startCompile(ScriptDoc& d);
+	void drawCompileResults();
+	std::weak_ptr<ScriptDoc> _compileResultsDoc;
+	bool                     _showCompileResults = false, _compileResultsFocus = false;
 	void pollCompile();
 	void stopScriptJobs();
 	bool scriptJobsBusy() const;  // a compile is running

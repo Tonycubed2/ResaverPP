@@ -979,6 +979,9 @@ void App::draw()
 	} else {
 		_viewerFocused = false;
 	}
+	if (_showCompileResults) {
+		drawCompileResults();
+	}
 	if (_showCompileSettings) {
 		drawCompileSettings();
 	}
