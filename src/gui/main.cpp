@@ -388,6 +388,10 @@ int RunApp(int argc, char** argv)
 	if (const char* e = std::getenv("RESAVERPP_TEST_EDITPROP")) {
 		app.testEditProperty(e);
 	}
+	if (const char* e = std::getenv("RESAVERPP_TEST_SCRIPTPROP")) {  // "Script:Property": as clicking it in the script window's outline
+		const std::string t = e;
+		app.testScriptProperty(t.substr(0, t.find(':')), t.substr(t.find(':') + 1));
+	}
 	if (const char* e = std::getenv("RESAVERPP_TEST_SELECTPROP")) {
 		app.testEditProperty(e, false);
 	}

@@ -508,6 +508,8 @@ void App::varsTable(const char* a_id, std::vector<Variable>& a_vars, const std::
 				ImGui::TableSetColumnIndex(2);
 				ImGui::PushID(i);
 				if (ImGui::SmallButton("edit")) {
+					_propName = i < static_cast<int>(a_names.size()) ? a_names[i] : std::string();
+					_propScript.clear();
 					beginEdit(&a_vars[i], i < static_cast<int>(a_types.size()) ? a_types[i] : std::string());
 				}
 				tips::Tip("Change this variable's value; an object property (a spell, a weapon, a quest...) can be pointed at any form, like "
@@ -2203,6 +2205,7 @@ void App::drawAnalysis()
 
 void App::drawModals()
 {
+	propertyChooserPopup();
 	editPopup();
 	if (_scanPathPopup) {
 		ImGui::OpenPopup("Script sources folder");
@@ -2419,6 +2422,8 @@ void App::drawStatus()
 
 void App::beginEdit(Variable* a_var, const std::string& a_type)
 {
+	_editAllTargets.clear();  // "all of them" is set again by the chooser right after
+	_editDone.clear();
 	_editVar = a_var;
 	_editType = a_type;
 	_editFind[0] = 0;
@@ -2533,13 +2538,15 @@ void App::editPopup()
 		break;
 	}
 	if (apply) {
-		markChanged("Edited a variable");
+		markChanged(_editDone.empty() ? std::string("Edited a variable") : _editDone);
+		_editDone.clear();
 		_editVar = nullptr;
 		ImGui::CloseCurrentPopup();
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Cancel", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
 		_editVar = nullptr;
+		_editAllTargets.clear();
 		ImGui::CloseCurrentPopup();
 	}
 	tips::Tip("Close this without changing anything.");

@@ -797,8 +797,16 @@ void App::drawDoc(ScriptDoc& d)
 				const std::string label = (it.state.empty() || it.type == psc::OutlineItem::Type::kState ? "" : it.state + ".") + it.name + (it.native ? "  (native)" : "");
 				if (ImGui::Selectable(label.c_str(), it.line == cur)) {
 					ed.ScrollToLine(it.line);
+					if (it.type == psc::OutlineItem::Type::kProperty) {
+						// a property: fill its value in the open save, like the Creation Kit's property window
+						editScriptProperty(d.analysis.scriptName.empty() ? d.name : d.analysis.scriptName, it.name);
+					}
 				}
-				tips::Tipf("%s", it.detail.c_str());
+				if (it.type == psc::OutlineItem::Type::kProperty) {
+					tips::Tipf("%s\n\nClick to set this property's value in the open save (pick a form, like in the Creation Kit).", it.detail.c_str());
+				} else {
+					tips::Tipf("%s", it.detail.c_str());
+				}
 				ImGui::PopID();
 			}
 			ImGui::EndChild();

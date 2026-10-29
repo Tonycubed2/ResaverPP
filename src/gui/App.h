@@ -70,6 +70,7 @@ public:
 	~App();
 	void open(const std::filesystem::path& a_path);
 	void testShowArchive() { _showArchive = true; }
+	void testScriptProperty(const std::string& a_script, const std::string& a_prop) { editScriptProperty(a_script, a_prop); }
 	void testEditProperty(const std::string& a_spec, bool a_open = true);  // "Script@formid:property" (screenshots)
 	void openAny(const std::filesystem::path& a_path);  // .ess, .pex or ModOrganizer.ini
 	void openNewestAtStart();  // with "Open the newest save at start" on: opens it (main.cpp, when no file was given)
@@ -348,7 +349,19 @@ private:
 	// variable editing
 	void editPopup();
 	void beginEdit(ess::Variable* a_var, const std::string& a_type = {});
-	bool formPicker(ess::Variable& a_var);  // the edit window for an object property; true when it was changed
+	bool formPicker(ess::Variable& a_var);
+	// from the script window's outline: set a property of that script in the open save
+	void editScriptProperty(const std::string& a_script, const std::string& a_property);
+	void propertyChooserPopup();
+	struct PropTarget
+	{
+		ess::EID    instance = 0;
+		std::size_t var = 0;
+	};
+	std::vector<PropTarget> _propTargets;      // the objects whose value the chooser offers
+	std::vector<PropTarget> _editAllTargets;   // "all of them": the picked form goes to each
+	std::string             _propScript, _propName, _propType;
+	bool                    _propChooserOpen = false;  // the edit window for an object property; true when it was changed
 
 	// mods view
 	void drawModsList();
@@ -699,6 +712,7 @@ private:
 	char           _editFormID[96] = "";   // a typed form id
 	std::uint32_t  _editPick = 0;          // the form picked
 	std::string    _editMsg;
+	std::string    _editDone;  // what an edit did, for the status line
 
 	// mods view
 	std::unique_ptr<ess::mods::Table> _mods;

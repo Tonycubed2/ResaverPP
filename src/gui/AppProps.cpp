@@ -149,13 +149,38 @@ bool App::formPicker(Variable& a_var)
 	}
 	const bool hasValue = cur->type == VType::kRef && cur->value != 0;
 	ImGui::BeginDisabled(_editPick == 0);
-	if (ImGui::Button("Use this form", ImVec2(160, 0))) {
-		const auto o = props::PointAt(*_save, a_var, _editType, _editPick);
-		if (o.ok) {
-			_status = o.message;
-			changed = true;
+	if (ImGui::Button(_editAllTargets.empty() ? "Use this form" : Fmt("Use it for all %zu", _editAllTargets.size()).c_str(), ImVec2(160, 0))) {
+		if (_editAllTargets.empty()) {
+			const auto o = props::PointAt(*_save, a_var, _editType, _editPick);
+			if (o.ok) {
+				_editDone = _propName.empty() ? "Property set: " + o.message : _propName + " set: " + o.message;
+				changed = true;
+			} else {
+				_editMsg = o.message;
+			}
 		} else {
-			_editMsg = o.message;
+			// every object of the script; found again each time, since adding an object can move them
+			std::size_t done = 0;
+			std::string why;
+			for (const auto& t : _editAllTargets) {
+				auto* inst = p.findInstance(t.instance);
+				if (!inst || !inst->data || t.var >= inst->data->vars.size()) {
+					continue;
+				}
+				const auto o = props::PointAt(*_save, inst->data->vars[t.var], _editType, _editPick);
+				if (o.ok) {
+					++done;
+				} else {
+					why = o.message;
+				}
+			}
+			if (done) {
+				_editDone = Fmt("%s set on %zu object(s) with %s", _propName.c_str(), done, _propScript.c_str());
+				changed = true;
+				_editAllTargets.clear();
+			} else {
+				_editMsg = why.empty() ? std::string("Nothing was changed.") : why;
+			}
 		}
 	}
 	ImGui::EndDisabled();
@@ -207,4 +232,125 @@ void App::testEditProperty(const std::string& a_spec, bool a_open)
 			}
 		}
 	}
+}
+
+// ---- from the script window's outline -------------------------------------------------------------
+
+void App::editScriptProperty(const std::string& a_script, const std::string& a_property)
+{
+	if (!_save || !_save->papyrus()) {
+		_error = "Open a save to set " + a_property + " in it: a property's value is kept in each save, with each object the script is on.";
+		return;
+	}
+	auto&      p = *_save->papyrus();
+	const auto script = Lower(a_script);
+	const auto prop = Lower(a_property);
+	_propTargets.clear();
+	_editAllTargets.clear();
+	_propScript = a_script;
+	_propName = a_property;
+	_propType.clear();
+	TStr        scriptName = UINT32_MAX;
+	std::size_t varIdx = SIZE_MAX;
+	for (const auto& sc : p.scripts) {
+		if (Lower(p.str(sc.name)) == script) {
+			scriptName = sc.name;
+			break;
+		}
+	}
+	if (scriptName == UINT32_MAX) {
+		_error = "Nothing in this save uses " + a_script + ", so it has no value for " + a_property + " to set.";
+		return;
+	}
+	// an Auto property's value is the hidden variable ::<name>_var; a variable is its own name
+	const auto names = memberNames(scriptName);
+	const auto types = memberTypes(scriptName);
+	for (std::size_t k = 0; k < names.size(); ++k) {
+		const auto n = Lower(names[k]);
+		if (n == "::" + prop + "_var" || n == prop) {
+			varIdx = k;
+			_propType = k < types.size() ? types[k] : std::string();
+			break;
+		}
+	}
+	if (varIdx == SIZE_MAX) {
+		_error = a_property + " has no stored value in the save: only Auto properties and script variables keep one (a full property "
+							   "reads another variable or a function).";
+		return;
+	}
+	for (const auto& i : p.instances) {
+		if (i.script == scriptName && i.data && varIdx < i.data->vars.size()) {
+			_propTargets.push_back({ i.id, varIdx });
+		}
+	}
+	if (_propTargets.empty()) {
+		_error = "Nothing in this save has " + a_script + " attached, so it has no value for " + a_property + " to set.";
+		return;
+	}
+	if (_propTargets.size() == 1) {
+		auto* inst = p.findInstance(_propTargets[0].instance);
+		beginEdit(&inst->data->vars[varIdx], _propType);
+		return;
+	}
+	_propChooserOpen = true;  // several objects carry this script: which one?
+}
+
+void App::propertyChooserPopup()
+{
+	if (_propChooserOpen) {
+		ImGui::OpenPopup("Which object?");
+		_propChooserOpen = false;
+	}
+	ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 44, 0));
+	if (!ImGui::BeginPopupModal("Which object?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		return;
+	}
+	if (!_save || !_save->papyrus()) {
+		ImGui::CloseCurrentPopup();
+		ImGui::EndPopup();
+		return;
+	}
+	auto& p = *_save->papyrus();
+	ImGui::PushTextWrapPos(ImGui::GetFontSize() * 42);
+	ImGui::TextWrapped("%zu objects in this save have %s attached, and each keeps its own %s. Pick the one to change, or change them all.",
+		_propTargets.size(), _propScript.c_str(), _propName.c_str());
+	ImGui::PopTextWrapPos();
+	bool close = false;
+	if (ImGui::Button(Fmt("All %zu of them", _propTargets.size()).c_str())) {
+		auto* inst = p.findInstance(_propTargets[0].instance);
+		if (inst && inst->data) {
+			beginEdit(&inst->data->vars[_propTargets[0].var], _propType);
+			_editAllTargets = _propTargets;
+		}
+		close = true;
+	}
+	tips::Tip("Set the same value on every object that has this script.");
+	if (ImGui::BeginChild("##objs", ImVec2(ImGui::GetFontSize() * 42, ImGui::GetFontSize() * 18), ImGuiChildFlags_Borders)) {
+		ImGuiListClipper clip;
+		clip.Begin(static_cast<int>(_propTargets.size()));
+		while (clip.Step()) {
+			for (int k = clip.DisplayStart; k < clip.DisplayEnd; ++k) {
+				const auto& t = _propTargets[k];
+				auto*       inst = p.findInstance(t.instance);
+				if (!inst || !inst->data || t.var >= inst->data->vars.size()) {
+					continue;
+				}
+				ImGui::PushID(k);
+				const auto text = "on " + formLabel(inst->refID) + "   =   " + describeVar(inst->data->vars[t.var]);
+				if (ImGui::Selectable(text.c_str())) {
+					beginEdit(&inst->data->vars[t.var], _propType);
+					close = true;
+				}
+				ImGui::PopID();
+			}
+		}
+	}
+	ImGui::EndChild();
+	if (ImGui::Button("Cancel", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+		close = true;
+	}
+	if (close) {
+		ImGui::CloseCurrentPopup();
+	}
+	ImGui::EndPopup();
 }
