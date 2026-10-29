@@ -107,6 +107,8 @@ namespace ess::ops
 		std::string   where;
 	};
 	std::vector<Referrer> FindReferrers(const Papyrus& p, EID a_target);
+	// One traversal for multiple targets. includeSelf controls identity self-edges, not cross-target edges.
+	std::vector<Referrer> FindReferrers(const Papyrus& p, const std::set<EID>& targets, bool includeSelf = false);
 
 	// ---- analysis ------------------------------------------------------------------------
 	struct Count

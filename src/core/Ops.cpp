@@ -662,38 +662,45 @@ namespace ess::ops
 
 	// ---- queries -----------------------------------------------------------------------------
 
-	static bool VarRefersTo(const Variable& v, EID target)
+	static bool VarRefersTo(const Variable& v, const std::set<EID>& targets, std::optional<EID> excludedSelf = {})
 	{
 		if (v.type == VType::kVariant) {
-			return v.inner && VarRefersTo(*v.inner, target);
+			return v.inner && VarRefersTo(*v.inner, targets, excludedSelf);
 		}
-		return (v.type == VType::kRef || v.type == VType::kStruct || IsArrayType(v.type)) && v.value == target;
+		return (v.type == VType::kRef || v.type == VType::kStruct || IsArrayType(v.type)) &&
+			targets.contains(v.value) && (!excludedSelf || v.value != *excludedSelf);
 	}
 
 	std::vector<Referrer> FindReferrers(const Papyrus& p, EID a_target)
 	{
+		return FindReferrers(p, std::set<EID>{a_target});
+	}
+
+	std::vector<Referrer> FindReferrers(const Papyrus& p, const std::set<EID>& targets, bool includeSelf)
+	{
 		std::vector<Referrer> out;
+		if (targets.empty()) return out;
 		auto                  scanVars = [&](const std::vector<Variable>& vars, Referrer::Kind k, std::uint64_t id, const std::string& owner) {
             for (std::size_t i = 0; i < vars.size(); ++i) {
-                if (VarRefersTo(vars[i], a_target)) {
+                const bool hasElementIdentity = k == Referrer::Kind::kInstance || k == Referrer::Kind::kReference || k == Referrer::Kind::kArray;
+                const std::optional<EID> excluded = !includeSelf && hasElementIdentity ? std::optional<EID>{id} : std::nullopt;
+                if (VarRefersTo(vars[i], targets, excluded)) {
                     out.push_back({ k, id, owner + " var[" + std::to_string(i) + "]" });
                 }
             }
 		};
 		for (const auto& i : p.instances) {
-			if (i.id != a_target && i.data) {
+			if (i.data) {
 				scanVars(i.data->vars, Referrer::Kind::kInstance, i.id, p.str(i.script));
 			}
 		}
 		for (const auto& r : p.references) {
-			if (r.id != a_target && r.data) {
+			if (r.data) {
 				scanVars(r.data->vars, Referrer::Kind::kReference, r.id, p.str(r.script));
 			}
 		}
 		for (const auto& a : p.arrays) {
-			if (a.id != a_target) {
-				scanVars(a.vars, Referrer::Kind::kArray, a.id, std::string("array ") + VTypeName(a.type));
-			}
+			scanVars(a.vars, Referrer::Kind::kArray, a.id, std::string("array ") + VTypeName(a.type));
 		}
 		for (const auto& t : p.activeScripts) {
 			if (!t.data) {
@@ -701,7 +708,7 @@ namespace ess::ops
 			}
 			for (const auto& f : t.data->frames) {
 				const std::string where = p.str(f.baseName) + "." + p.str(f.event);
-				if (VarRefersTo(f.owner, a_target)) {
+				if (VarRefersTo(f.owner, targets)) {
 					out.push_back({ Referrer::Kind::kThread, t.id, where + " (owner)" });
 				}
 				scanVars(f.vars, Referrer::Kind::kThread, t.id, where);
