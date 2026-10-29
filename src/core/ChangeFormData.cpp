@@ -524,8 +524,14 @@ namespace ess::cf
 			case 44: one("MapMarker", [&] { p.u8("UNK"); }); break;
 			case 45:
 				one("LeveledCreature", [&] {
-					p.ref("UNK1");
-					p.ref("UNK2");
+					// the actor's base NPC, which the game builds from the template every time the save loads (so it
+					// is a created FF form that is never stored in the save), and the template it is built from
+					const auto base = p.refResolved("LEVELED_BASE");
+					const auto tmpl = p.refResolved("LEVELED_TEMPLATE");
+					if (p.nested == 0 && !p.out().leveledBase) {
+						p.out().leveledBase = base;
+						p.out().leveledTemplate = tmpl;
+					}
 					const auto flags = p.flags32("NPCChangeFlags");
 					++p.nested;
 					try {
@@ -4780,6 +4786,23 @@ namespace ess::cf
 			*a_removed = removed;
 		}
 		return {};
+	}
+
+	std::vector<LeveledActor> ListLeveledActors(const SaveFile& a_save)
+	{
+		std::vector<LeveledActor> out;
+		for (const auto& c : a_save.changeForms) {
+			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::ACHR) {
+				continue;
+			}
+			// the leveled creature entry sits in the actor's extra data, which comes before its inventory: the
+			// inventory-only read stops right after it, before the slow AI data
+			const auto d = Decode(a_save, c, {}, true);
+			if (d.leveledBase) {
+				out.push_back({ c.refID.data, a_save.formIDOf(c.refID), d.leveledBase, d.leveledTemplate });
+			}
+		}
+		return out;
 	}
 
 	std::vector<ActorPlace> ListActors(const SaveFile& a_save)

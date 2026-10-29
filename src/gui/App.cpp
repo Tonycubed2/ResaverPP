@@ -931,6 +931,9 @@ void App::draw()
 	if (_showHistory) {
 		drawHistory();
 	}
+	if (_showCrashLog && _save) {
+		drawCrashLog();
+	}
 	if (_showPapyrusLog) {
 		drawPapyrusLog();
 	}
@@ -1132,6 +1135,11 @@ void App::drawMenu()
 			shortcut(Sc::kHistory);
 		}
 		tips::Tip("Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing.");
+		if (ImGui::MenuItem("Crash log (what crashed)...")) {
+			shortcut(Sc::kCrashLog);
+		}
+		tips::Tip("Read your newest crash log and find the objects it names in this save. A spawned or leveled NPC that crashes the "
+		          "game while the save loads can be removed here.");
 		if (ImGui::MenuItem("Papyrus log...")) {
 			shortcut(Sc::kPapyrusLog);
 		}
@@ -1355,6 +1363,33 @@ void App::drawList()
 	}
 	if (filtersActive) {
 		TextColored(theme::Warn(), "Filters are active (see Filters).");
+	}
+	if (_cat == Cat::kChangeForms && _rows.empty() && _filter[0]) {
+		// a form ID the save has no change form for: a leveled actor's base NPC is rebuilt at every load and never
+		// saved; point at the actor that uses it
+		std::string t = _filter;
+		t.erase(0, t.find_first_not_of(" \t"));
+		t.erase(t.find_last_not_of(" \t") + 1);
+		if (t.size() > 2 && (t[0] == '0') && (t[1] == 'x' || t[1] == 'X')) {
+			t = t.substr(2);
+		}
+		if (t.size() == 8 && t.find_first_not_of("0123456789abcdefABCDEF") == std::string::npos) {
+			const auto id = static_cast<std::uint32_t>(std::stoul(t, nullptr, 16));
+			const auto [hint, actor] = missingFormHint(id);
+			if (!hint.empty()) {
+				ImGui::PushTextWrapPos(0);
+				TextColored(theme::Warn(), hint);
+				ImGui::PopTextWrapPos();
+				if (actor) {
+					if (ImGui::SmallButton(Fmt("Show actor %08X", actor).c_str())) {
+						std::snprintf(_filter, sizeof(_filter), "%08X", actor);
+						_rowsDirty = true;
+						_focusFirstRow = true;
+					}
+					tips::Tip("List the actor's change form instead. If a crash log names it at the crash, Tools > Crash log can remove it.");
+				}
+			}
+		}
 	}
 	ImGui::TextDisabled("%zu shown, %zu selected  (Ctrl/Shift-click to multi-select, Ctrl+A selects all shown)", _rows.size(), _selected.size());
 

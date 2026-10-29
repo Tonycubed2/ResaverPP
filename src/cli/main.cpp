@@ -3,6 +3,7 @@
 // ReSaver++ command line - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
+#include "core/CrashLog.h"
 #include "core/Compare.h"
 #include "core/ModRemove.h"
 #include "core/Report.h"
@@ -34,6 +35,17 @@
 #include <vector>
 
 using namespace ess;
+
+namespace
+{
+	template <class... A>
+	std::string Fmt(const char* a_fmt, A... a_args)
+	{
+		char buf[512];
+		std::snprintf(buf, sizeof(buf), a_fmt, a_args...);
+		return buf;
+	}
+}
 
 static void Usage()
 {
@@ -94,6 +106,12 @@ static void Usage()
 		"  --set-item <formid> <n> / --remove-item <formid> / --remove-spell <formid> / --set-legendary <skill> <n>\n"
 		"  --clear-crimes <faction formid>  bounty and crime totals with that faction to 0. Needs -o.\n"
 		"  --npcs [formid text]      list every actor with where the save has it (cell or worldspace and position)\n"
+		"  --crash-log <file>        read a crash log (Crash Logger, Trainwreck, .NET Script Framework) and find the\n"
+		"                            forms it names in this save, including leveled actors whose base NPC the game\n"
+		"                            rebuilds at every load (that base is not in the save; the actor is)\n"
+		"  --remove-crash-actors     with --crash-log: delete the spawned/leveled actors the game was loading when it\n"
+		"                            crashed (the likely cause). Needs -o.\n"
+		"  --delete-form <formid>    delete one change form (e.g. a broken spawned actor FF0040DF). Needs -o.\n"
 		"  --move-to-player <formid> move an actor (e.g. a lost follower) next to the player and reset its AI.\n"
 		"                            Only actors the game has moved before. Needs -o.\n"
 		"  --rename-plugin <old> <new>  point the save at a renamed plugin (e.g. Mod.esp -> Mod.esl), so the game\n"
@@ -316,6 +334,9 @@ int main(int argc, char** argv)
 	std::vector<std::tuple<std::string, std::string, std::string>> setProps;
 	std::vector<std::uint32_t> moveToPlayer;
 	bool          npcsView = false;
+	std::string   crashLogFile;
+	bool          removeCrashActors = false;
+	std::vector<std::uint32_t> deleteForms;
 	std::string   npcFilter;
 	std::vector<std::pair<std::string, std::string>> renamePlugins;
 	bool          playerView = false;
@@ -378,6 +399,12 @@ int main(int argc, char** argv)
 			playerBounties.emplace_back(fac, v, nv);
 		} else if (a == "--move-to-player") {
 			moveToPlayer.push_back(static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)));
+		} else if (a == "--crash-log") {
+			crashLogFile = next();
+		} else if (a == "--remove-crash-actors") {
+			removeCrashActors = true;
+		} else if (a == "--delete-form") {
+			deleteForms.push_back(static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)));
 		} else if (a == "--npcs") {
 			npcsView = true;
 			if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -493,7 +520,48 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty();
+		std::vector<crashlog::Finding> crashFindings;
+		if (!crashLogFile.empty()) {
+			const auto log = crashlog::Read(crashLogFile);
+			if (!log.ok) {
+				std::fprintf(stderr, "could not read %s: %s\n", crashLogFile.c_str(), log.error.c_str());
+				return 1;
+			}
+			std::printf("%s%s%s\n", log.tool.empty() ? "crash log" : log.tool.c_str(), log.time.empty() ? "" : ", ", log.time.c_str());
+			if (!log.exception.empty()) {
+				std::printf("%s\n", log.exception.c_str());
+			}
+			crashFindings = crashlog::Match(log, *save, crashlog::LeveledBases(*save));
+			for (const auto& f : crashFindings) {
+				std::string what;
+				switch (f.kind) {
+				case crashlog::Kind::kChanged:
+					what = Fmt("in the save: %s change form%s", f.cfType.c_str(), f.created ? " (spawned/created)" : "");
+					break;
+				case crashlog::Kind::kRebuiltBase:
+					what = f.refRaw ? Fmt("not in the save: the base NPC the game rebuilds for leveled actor %08X (%s change form)", f.target, f.cfType.c_str())
+					                : std::string("not in the save: a leveled actor's rebuilt base NPC");
+					break;
+				case crashlog::Kind::kTemporary: what = "not in the save (made by the game after loading)"; break;
+				case crashlog::Kind::kPlugin: what = "a plugin's form the save did not change"; break;
+				}
+				std::printf("%s %08X  %-24s %-34s x%-3zu %s%s\n", f.suspect ? "**" : "  ", f.form.id, f.form.type.substr(0, 24).c_str(),
+					("\"" + f.form.name.substr(0, 32) + "\"").c_str(), f.form.hits, what.c_str(), f.scripts ? Fmt(", %zu scripts", f.scripts).c_str() : "");
+			}
+			std::size_t sus = 0;
+			for (const auto& f : crashFindings) {
+				sus += f.suspect ? 1 : 0;
+			}
+			std::printf(sus ? "** = a spawned or leveled actor the game was loading when it crashed: the likely cause\n"
+			                : "no spawned or leveled actor of this save was being loaded when it crashed\n");
+			if (!edits) {
+				return 0;
+			}
+		} else if (removeCrashActors) {
+			std::fputs("--remove-crash-actors needs --crash-log\n", stderr);
+			return 1;
+		}
 		if (npcsView) {
 			std::size_t shown = 0, total = 0, placed = 0;
 			std::string flt = npcFilter;
@@ -1206,6 +1274,31 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			std::printf("moved %08X next to the player\n", fid);
+		}
+		{
+			std::set<std::uint32_t> del;
+			for (const auto fid : deleteForms) {
+				auto* target = findCf(fid);
+				if (!target) {
+					std::fprintf(stderr, "no change form for %08X in this save\n", fid);
+					return 1;
+				}
+				del.insert(target->refID.data);
+			}
+			if (removeCrashActors) {
+				for (const auto& f : crashFindings) {
+					if (f.suspect) {
+						del.insert(f.refRaw);
+					}
+				}
+				if (del.empty()) {
+					std::fputs("the crash log names no spawned or leveled actor of this save at the crash: nothing to remove\n", stderr);
+					return 1;
+				}
+			}
+			if (!del.empty()) {
+				std::printf("deleted %zu change form(s)\n", ops::DeleteChangeForms(*save, del));
+			}
 		}
 		if (resetAiForm != 0) {
 			auto* target = findCf(resetAiForm);

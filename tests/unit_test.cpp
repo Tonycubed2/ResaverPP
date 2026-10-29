@@ -1,5 +1,6 @@
 // ReSaver++ unit and regression tests that need no save files: each builds the data it needs in memory.
 // Run by CTest (rs_unit). Exit code 0 = all passed.
+#include "core/CrashLog.h"
 #include "core/MergedPatch.h"
 #include "core/ModRemove.h"
 #include "core/Ops.h"
@@ -789,6 +790,94 @@ namespace
 	}
 }
 
+// crash log: a leveled actor's rebuilt base NPC (never in the save) leads to the actor, which is the likely cause
+void TestCrashLog()
+{
+	const std::string text =
+		"CRASH TIME: 2026-10-28 22:29:47\n"
+		"Skyrim SSE v1.6.1170\n"
+		"CrashLoggerSSE v1-16-0-0 Oct  7 2025 06:54:42\n"
+		"\n"
+		"Unhandled exception \"EXCEPTION_ACCESS_VIOLATION\" at 0x7FF6C100889D SkyrimSE.exe+01D889D\tcmp rdx, [rax]\n"
+		"\n"
+		"PROBABLE CALL STACK:\n"
+		"\t[ 0] 0x7FF6C100889D        SkyrimSE.exe+01D889D -> 14413+0x5D\tcmp rdx, [rax]\n"
+		"\t[ 3] 0x7FF6C0FE72F8        SkyrimSE.exe+01B72F8 -> 13723+0x6E8\tmov rcx, rbx\n"
+		"\t\tName: \"GuardFaction\"\n"
+		"\t\tFormID: 0x00086EEE\n"
+		"\t\tFormType: Faction (11)\n"
+		"\n"
+		"REGISTERS:\n"
+		"\tR13 0x20E2A75EED0      (TESNPC*)\n"
+		"\t\tFlags: 0x00000008 \n"
+		"\t\tName: \"Whiterun Militia Warrior\"\n"
+		"\t\tFormID: 0xFF000998\n"
+		"\t\tFormType: NPC (43)\n"
+		"\tR14 0x20E2AA2ACA0      (Character*)\n"
+		"\t\tFlags: 0x00200008 \n"
+		"\t\tFormID: 0xFF0040DF\n"
+		"\t\tFormType: ActorCharacter (62)\n"
+		"\t\tObject Reference: \n"
+		"\t\tFormID: 0x00000000\n"
+		"\n"
+		"STACK:\n"
+		"\t[RSP+10  ] 0x20E2AA2ACA0      (Character*)\n"
+		"\t\tFormID: 0xFF0040DF\n"
+		"\t\tFormType: ActorCharacter (62)\n"
+		"\t[RSP+20  ] 0x20E2AA2ACA0      (Character*)\n"
+		"\t\tName: \"Spirit\"\n"
+		"\t\tFormID: 0xFF0040DE\n"
+		"\t\tFormType: ActorCharacter (62)\n";
+	const auto log = ess::crashlog::Parse(text);
+	Check(log.ok && log.tool == "Crash Logger" && log.time == "2026-10-28 22:29:47", "crash log: tool and time read");
+	Check(log.exception.find("EXCEPTION_ACCESS_VIOLATION") != std::string::npos, "crash log: exception line read");
+	Check(log.forms.size() == 4, "crash log: four forms (the null form ID is skipped)");
+	const ess::crashlog::Form* actor = nullptr;
+	const ess::crashlog::Form* base = nullptr;
+	const ess::crashlog::Form* spirit = nullptr;
+	for (const auto& f : log.forms) {
+		actor = f.id == 0xFF0040DF ? &f : actor;
+		base = f.id == 0xFF000998 ? &f : base;
+		spirit = f.id == 0xFF0040DE ? &f : spirit;
+	}
+	Check(actor && actor->hits == 2 && actor->atCrash && actor->name.empty() && actor->type == "ActorCharacter (62)",
+		"crash log: the actor, at the crash, not given the NPC's name");
+	Check(base && base->name == "Whiterun Militia Warrior" && base->type == "NPC (43)", "crash log: the base NPC with its name and type");
+	Check(spirit && !spirit->atCrash, "crash log: a form only in the stack memory is not at the crash");
+	Check(!log.forms.empty() && log.forms.back().id == 0xFF0040DE, "crash log: forms at the crash come first");
+
+	ess::SaveFile save;
+	auto achr = [](std::uint32_t a_created) {
+		ess::ChangeForm c;
+		c.refID.data = (2u << 22) | (a_created & 0x3FFFFF);
+		c.typeField = static_cast<std::uint8_t>(ess::ChangeFormType::ACHR);
+		return c;
+	};
+	save.changeForms.push_back(achr(0x40DF));
+	save.changeForms.push_back(achr(0x40DE));
+	save.reindexChangeForms();
+	const std::vector<ess::crashlog::LeveledBase> leveled = { { 0xFF000998, (2u << 22) | 0x40DF, 0xFF0040DF, 0xEF001E0A } };
+	const auto found = ess::crashlog::Match(log, save, leveled);
+	std::size_t suspects = 0;
+	bool        baseToActor = false, spiritNotSuspect = false, faction = false;
+	for (const auto& f : found) {
+		suspects += f.suspect ? 1 : 0;
+		if (f.form.id == 0xFF000998) {
+			baseToActor = f.kind == ess::crashlog::Kind::kRebuiltBase && f.target == 0xFF0040DF && f.refRaw == ((2u << 22) | 0x40DF) && f.suspect;
+		}
+		if (f.form.id == 0xFF0040DE) {
+			spiritNotSuspect = f.kind == ess::crashlog::Kind::kChanged && !f.suspect;
+		}
+		if (f.form.id == 0x00086EEE) {
+			faction = f.kind == ess::crashlog::Kind::kPlugin && !f.suspect;
+		}
+	}
+	Check(baseToActor, "crash log: the rebuilt base NPC FF000998 leads to its actor FF0040DF");
+	Check(suspects == 2 && found.size() == 4 && found[0].suspect && found[1].suspect, "crash log: the actor (twice: itself and its base) is the likely cause, listed first");
+	Check(spiritNotSuspect, "crash log: an actor only in stack memory is not the likely cause");
+	Check(faction, "crash log: an unchanged plugin form is reported as the plugin's");
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -802,6 +891,7 @@ int main()
 	TestSaveArchive();
 	TestMergedPatch();
 	TestMergedPatchLE();
+	TestCrashLog();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

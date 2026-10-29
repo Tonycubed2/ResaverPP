@@ -124,6 +124,10 @@ namespace tips
 				add("ACTOR_EXTRA_MERCHANT_CONTAINER", "Its merchant chest.");
 				add("ACTOR_EXTRA_DISMEMBERED_LIMBS", "Limbs it lost.");
 				add("ACTOR_LEVELED_ACTOR", "Which actor its leveled list rolled.");
+				add("LEVELED_BASE", "The base NPC the game builds for this actor from its template every time the save loads. It is a created "
+				                    "FF form that is never stored in the save, so searching for it finds this actor instead. A crash log that "
+				                    "names it means this actor.");
+				add("LEVELED_TEMPLATE", "The plugin's NPC or leveled list this actor is built from.");
 				add("ACTOR_DISPOSITION_MODIFIERS", "How it feels about others.");
 				add("ACTOR_TEMP_MODIFIERS", "Temporary changes to its actor values.");
 				add("ACTOR_DAMAGE_MODIFIERS", "Damage to its actor values (lost health, magicka, stamina).");

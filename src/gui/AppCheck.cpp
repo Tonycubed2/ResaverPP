@@ -107,6 +107,53 @@ std::vector<App::CheckItem> App::checkItems()
 		v.push_back(std::move(it));
 	}
 
+	// the newest crash log came after this save and names one of its spawned or leveled actors
+	if (const auto& cc = crashCheck(); !cc.suspects.empty()) {
+		CheckItem it;
+		it.level = Risk::kRisky;
+		std::string ids;
+		for (const auto& f : cc.suspects) {
+			ids += (ids.empty() ? "" : ", ") + Fmt("%08X", f.target);
+		}
+		it.title = Fmt("Your newest crash log names %s from this save", cc.suspects.size() == 1 ? ("spawned NPC " + ids).c_str()
+		                                                                                        : Fmt("%zu spawned NPCs", cc.suspects.size()).c_str());
+		it.what = Fmt("The game crashed%s%s while working on %s, a spawned or leveled NPC this save has (%s). A crash while loading a "
+					  "save is often one such NPC whose saved data no longer fits your mods. The log may name its base NPC first (an NPC "
+					  "FF......); the game rebuilds that at every load, so it is not in the save: the NPC itself is.",
+			cc.time.empty() ? "" : " on ", cc.time.c_str(), ids.c_str(), platform::ToUtf8(cc.file.filename()).c_str());
+		for (const auto& f : cc.suspects) {
+			CheckOption o;
+			o.label = Fmt("Remove NPC %08X from the save", f.target);
+			o.risk = Risk::kCaution;
+			o.why = "Deletes only this NPC's saved data; the game drops it when the save loads, and a mod that spawns it can make a new one. "
+					"Write the save with File > Save As and load that.";
+			const auto raw = f.refRaw;
+			const auto id = f.target;
+			o.act = [this, raw, id] {
+				confirm(Fmt("Remove NPC %08X", id),
+					Fmt("Delete the saved data of spawned/leveled NPC %08X, which your newest crash log names?\n\nOnly the save in memory "
+						"changes: write it with File > Save As (under a new name) and load that.",
+						id),
+					[this, raw, id] {
+						ops::DeleteChangeForms(*_save, { raw });
+						markEdited(Fmt("Removed NPC %08X (named in the crash log)", id));
+					});
+			};
+			it.options.push_back(std::move(o));
+		}
+		CheckOption o;
+		o.label = "Open the crash log...";
+		o.risk = Risk::kSafe;
+		o.why = "Only shows information: every form the log names and what this save has of each.";
+		o.act = [this] {
+			_showCrashLog = true;
+			_clogLoaded = false;
+			_showCheck = false;
+		};
+		it.options.push_back(std::move(o));
+		v.push_back(std::move(it));
+	}
+
 	// mods no longer in the load order, scripts no longer installed
 	if (!_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty()) {
 		std::size_t gone = 0, disabled = 0;

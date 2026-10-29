@@ -5,6 +5,7 @@
 #include "core/Transplant.h"
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
+#include "core/CrashLog.h"
 #include "core/Compare.h"
 #include "core/Extras.h"
 #include "core/AssetConflicts.h"
@@ -105,6 +106,9 @@ public:
 			_showLeftovers = true;
 		} else if (w == "history") {
 			_showHistory = true;
+		} else if (w == "crashlog") {
+			_showCrashLog = true;
+			_clogLoaded = false;
 		} else if (w == "plog") {
 			_showPapyrusLog = true;
 		} else if (w == "saves") {
@@ -498,7 +502,7 @@ private:
 		kMcm, kHavok, kPurify, kBatch, kPurge,
 		kPlayer, kActors, kTransplant, kLookup,
 		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex,
-		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts
+		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	void        drawHome();            // the shortcut buttons
@@ -512,6 +516,24 @@ private:
 	void        drawFileConflicts();
 	void        drawHistory();
 	void        drawPapyrusLog();
+	void        drawCrashLog();
+	std::vector<std::filesystem::path> crashLogFolders();
+	std::filesystem::path newestCrashLog(std::filesystem::file_time_type* a_time = nullptr);
+	// Save check: the newest crash log, when it is newer than this save and names a spawned or leveled actor of it
+	struct CrashCheck
+	{
+		std::filesystem::path               file;
+		std::string                         time;
+		std::vector<ess::crashlog::Finding> suspects;  // one per actor
+	};
+	const CrashCheck& crashCheck();
+	CrashCheck            _crashCheck;
+	const void*           _crashCheckSave = nullptr;
+	std::uint64_t         _crashCheckGen = UINT64_MAX;
+	// leveled actors' rebuilt base NPCs (not in the save; crash logs name them), read once per save and edit
+	const std::vector<ess::crashlog::LeveledBase>& leveledBases();
+	// for a form ID the save has no change form for: the hint line and the actor it means (0 if none)
+	std::pair<std::string, std::uint32_t> missingFormHint(std::uint32_t a_formID);
 	void        drawSavesManager();
 	void        recordHistory();  // adds the open save's numbers to the history file
 	ess::loadorder::Active currentLoadOrder() const;
@@ -533,6 +555,14 @@ private:
 	std::atomic<std::size_t>   _historyDone{ 0 }, _historyTotal{ 0 };
 	std::mutex                 _historyMutex;
 	std::vector<ess::extras::SaveStat> _historyIncoming;
+	bool                       _showCrashLog = false, _clogLoaded = false;
+	ess::crashlog::Log         _clog;
+	std::vector<ess::crashlog::Finding> _clogFindings;
+	const void*                _clogSave = nullptr;
+	std::uint64_t              _clogGen = UINT64_MAX;
+	std::vector<ess::crashlog::LeveledBase> _leveledBases;
+	const void*                _leveledSave = nullptr;
+	std::uint64_t              _leveledGen = UINT64_MAX;
 	bool                       _showPapyrusLog = false, _plogLoaded = false;
 	ess::extras::LogSummary    _plog;
 	int                        _plogOpen = -1;

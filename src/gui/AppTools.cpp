@@ -238,6 +238,38 @@ void App::drawLookup()
 		}
 	}
 	ImGui::Text("%zu result(s)%s", _lookupResults.size(), _lookupResults.size() >= 2000 ? " (first 2000)" : "");
+	{
+		// spawned (FF) forms are not in any plugin: say what the save has instead (a leveled actor's rebuilt base NPC
+		// points at the actor)
+		std::string t = _lookupBuf;
+		t.erase(0, t.find_first_not_of(" \t"));
+		t.erase(t.find_last_not_of(" \t") + 1);
+		if (t.size() > 2 && t[0] == '0' && (t[1] == 'x' || t[1] == 'X')) {
+			t = t.substr(2);
+		}
+		if (t.size() == 8 && t.find_first_not_of("0123456789abcdefABCDEF") == std::string::npos && (t[0] == 'f' || t[0] == 'F') &&
+			(t[1] == 'f' || t[1] == 'F')) {
+			const auto id = static_cast<std::uint32_t>(std::stoul(t, nullptr, 16));
+			const auto [hint, actor] = missingFormHint(id);
+			if (!hint.empty()) {
+				ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
+				ImGui::TextWrapped("%s", hint.c_str());
+				ImGui::PopStyleColor();
+			}
+			const auto shown = actor ? actor : id;
+			for (const auto& c : _save->changeForms) {
+				if (_save->formIDOf(c.refID) == shown) {
+					if (ImGui::SmallButton(Fmt("Show change form %08X", shown).c_str())) {
+						std::snprintf(_filter, sizeof(_filter), "%08X", shown);
+						select(Cat::kChangeForms, c.refID.data);
+						_rowsDirty = true;
+					}
+					tips::Tip("Spawned forms are not in your plugins, only in the save: open its change form in the main window.");
+					break;
+				}
+			}
+		}
+	}
 	if (ImGui::BeginTable("look", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableSetupColumn("Form ID", ImGuiTableColumnFlags_WidthFixed, 80);

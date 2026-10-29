@@ -608,6 +608,337 @@ void App::drawPapyrusLog()
 }
 
 // ==========================================================================================
+// crash log: the objects a crash log names, found in the open save
+// ==========================================================================================
+
+const std::vector<crashlog::LeveledBase>& App::leveledBases()
+{
+	if (_leveledSave != _save.get() || _leveledGen != _editGen) {
+		_leveledSave = _save.get();
+		_leveledGen = _editGen;
+		_leveledBases = _save ? crashlog::LeveledBases(*_save) : std::vector<crashlog::LeveledBase>{};
+	}
+	return _leveledBases;
+}
+
+std::pair<std::string, std::uint32_t> App::missingFormHint(std::uint32_t a_formID)
+{
+	if (!_save || (a_formID >> 24) != 0xFF) {
+		return {};
+	}
+	for (const auto& c : _save->changeForms) {
+		if (_save->formIDOf(c.refID) == a_formID) {
+			return {};  // it is in the save
+		}
+	}
+	for (const auto& l : leveledBases()) {
+		if (l.base == a_formID) {
+			return { Fmt("%08X is not stored in this save: it is the base NPC of leveled actor %08X. The game builds it again from its "
+						 "template (%s) every time the save loads, so it has no change form. The actor %08X is what the save has.",
+						 a_formID, l.actor, formText(l.templ).c_str(), l.actor),
+				l.actor };
+		}
+	}
+	return { Fmt("%08X is not in this save. A spawned (FF) form that a crash log names but the save does not have was made by the "
+				 "game after the save loaded, usually for an actor or object the save does have. Tools > Crash log reads the whole log "
+				 "and finds those.",
+				 a_formID),
+		0 };
+}
+
+// where the crash loggers write: Crash Logger (the SKSE folder), Trainwreck (SKSE\Crashlogs), .NET Script Framework
+// (Data\NetScriptFramework\Crash, mostly Legendary Edition)
+std::vector<std::filesystem::path> App::crashLogFolders()
+{
+	std::vector<std::filesystem::path> v;
+	auto docs = [&](const std::filesystem::path& a_saves) {
+		for (auto d : { a_saves.parent_path() / "SKSE", a_saves.parent_path() / "SKSE" / "Crashlogs" }) {
+			if (std::find(v.begin(), v.end(), d) == v.end()) {
+				v.push_back(d);
+			}
+		}
+	};
+	if (!_path.empty()) {
+		docs(_path.parent_path());
+	}
+	docs(savesFolder());
+	docs(platform::DefaultSavesFolder(_vr));
+	if (_save && _save->isLE()) {
+		docs(platform::DefaultSavesFolder(false).parent_path().parent_path() / "Skyrim" / "Saves");
+	}
+	if (const auto g = gameFolder(); !g.empty()) {
+		v.push_back(g / "Data" / "NetScriptFramework" / "Crash");
+	}
+	return v;
+}
+
+std::filesystem::path App::newestCrashLog(std::filesystem::file_time_type* a_time)
+{
+	if (const char* t = std::getenv("RESAVERPP_TEST_CRASHLOG")) {
+		std::error_code ec;
+		if (a_time) {
+			*a_time = std::filesystem::last_write_time(t, ec);
+		}
+		return t;
+	}
+	std::filesystem::path           newest;
+	std::filesystem::file_time_type newestTime{};
+	for (const auto& d : crashLogFolders()) {
+		std::error_code ec;
+		for (std::filesystem::directory_iterator it(d, ec), end; !ec && it != end; it.increment(ec)) {
+			const auto name = Lower(platform::ToUtf8(it->path().filename()));
+			const auto ext = Lower(platform::ToUtf8(it->path().extension()));
+			if (!it->is_regular_file(ec) || name.rfind("crash", 0) != 0 || (ext != ".log" && ext != ".txt")) {
+				continue;
+			}
+			const auto t = it->last_write_time(ec);
+			if (newest.empty() || t > newestTime) {
+				newest = it->path();
+				newestTime = t;
+			}
+		}
+	}
+	if (a_time) {
+		*a_time = newestTime;
+	}
+	return newest;
+}
+
+const App::CrashCheck& App::crashCheck()
+{
+	if (_crashCheckSave == _save.get() && _crashCheckGen == _editGen) {
+		return _crashCheck;
+	}
+	_crashCheckSave = _save.get();
+	_crashCheckGen = _editGen;
+	_crashCheck = {};
+	if (!_save || _path.empty()) {
+		return _crashCheck;
+	}
+	// only a crash after this save was made (loading it, or playing on from it)
+	std::filesystem::file_time_type logTime{};
+	const auto                      file = newestCrashLog(&logTime);
+	std::error_code                 ec;
+	const auto                      saveTime = std::filesystem::last_write_time(_path, ec);
+	if (file.empty() || ec || (logTime < saveTime && !std::getenv("RESAVERPP_TEST_CRASHLOG"))) {
+		return _crashCheck;
+	}
+	const auto log = crashlog::Read(file);
+	// the leveled actors take a moment to list on a big save: only when the log names a spawned form at the crash
+	bool spawnedAtCrash = false;
+	for (const auto& f : log.forms) {
+		spawnedAtCrash |= f.atCrash && (f.id >> 24) == 0xFF;
+	}
+	if (!log.ok || !spawnedAtCrash) {
+		return _crashCheck;
+	}
+	std::set<std::uint32_t> seen;
+	for (auto& f : crashlog::Match(log, *_save, leveledBases())) {
+		if (f.suspect && seen.insert(f.refRaw).second) {
+			_crashCheck.suspects.push_back(std::move(f));
+		}
+	}
+	_crashCheck.file = file;
+	_crashCheck.time = log.time;
+	return _crashCheck;
+}
+
+void App::drawCrashLog()
+{
+	prepareWindow("Crash log", ImVec2(0.85f, 0.8f));
+	if (!ImGui::Begin("Crash log", &_showCrashLog, ImGuiWindowFlags_NoCollapse)) {
+		ImGui::End();
+		return;
+	}
+	maximizeControl("Crash log");
+	if (!_clogLoaded) {
+		_clogLoaded = true;
+		_clog = {};
+		_clogSave = nullptr;
+		if (const auto newest = newestCrashLog(); !newest.empty()) {
+			_clog = crashlog::Read(newest);
+		}
+	}
+	if (_clog.ok && (_clogSave != _save.get() || _clogGen != _editGen)) {
+		_clogSave = _save.get();
+		_clogGen = _editGen;
+		_clogFindings = crashlog::Match(_clog, *_save, leveledBases());
+	}
+
+	ImGui::NewLine();
+	if (ImGui::Button("Open another log...")) {
+		if (platform::HasNativeDialogs()) {
+			if (auto f = platform::OpenFileDialog(crashLogFolders().front(), "log", "Crash log")) {
+				_clog = crashlog::Read(*f);
+				_clogSave = nullptr;
+			}
+		}
+	}
+	tips::Tip("Pick a crash log yourself, e.g. an older one or one from Trainwreck or .NET Script Framework.");
+	ImGui::SameLine();
+	if (ImGui::Button("Read again")) {
+		_clogLoaded = false;
+	}
+	tips::Tip("Look for the newest crash log again, e.g. after the game crashed once more.");
+	if (!_clog.ok) {
+		TextColored(theme::Warn(), _clog.file.empty()
+									   ? "No crash log found. Crash Logger SSE/AE writes them to Documents\\My Games\\Skyrim Special Edition\\SKSE "
+										 "(crash-<date>.log) when the game crashes. Install it, let the game crash once, then look again, or "
+										 "pick a log with \"Open another log...\"."
+									   : "Could not read " + platform::ToUtf8(_clog.file) + ": " + _clog.error);
+		ImGui::End();
+		return;
+	}
+	ImGui::TextWrapped("%s", platform::ToUtf8(_clog.file).c_str());
+	ImGui::TextDisabled("%s%s%s", _clog.tool.empty() ? "crash log" : _clog.tool.c_str(), _clog.time.empty() ? "" : ", crashed ",
+		_clog.time.c_str());
+	if (!_clog.exception.empty()) {
+		ImGui::TextDisabled("%s", _clog.exception.c_str());
+	}
+	ImGui::Spacing();
+	ImGui::TextWrapped("The forms the log names, the ones the game was working on when it crashed first, and what this save has of each. "
+					   "A crash while a save loads is often one spawned or leveled NPC whose saved data no longer fits your mods. The log "
+					   "may name its base NPC first (an NPC FF......): the game builds that again every time the save loads, so it is not "
+					   "in the save, and the actor that uses it is shown instead.");
+	ImGui::Spacing();
+
+	std::vector<const crashlog::Finding*> suspects;
+	std::set<std::uint32_t>               seen;
+	bool                                  anyInSave = false;
+	for (const auto& f : _clogFindings) {
+		anyInSave |= f.refRaw != 0;
+		if (f.suspect && seen.insert(f.refRaw).second) {
+			suspects.push_back(&f);
+		}
+	}
+	auto removeOne = [&](const crashlog::Finding& a_f) {
+		const auto     raw = a_f.refRaw;
+		const auto     id = a_f.target;
+		const auto     scripts = a_f.scripts;
+		confirm("Remove the actor from the save",
+			Fmt("Delete the saved data of %s actor %08X?\n\nThe game drops it when the save loads; if a mod placed or spawns it, the mod "
+				"can make a new one. Nothing else in the save changes.%s\n\nWrite the save with File > Save As (under a new name) and "
+				"load that. If the game crashes again, open the new crash log here.",
+				a_f.created ? "spawned/leveled" : "", id,
+				scripts ? Fmt(" Its %zu script instance(s) stay; Clean > Missing spawned objects can remove them later.", scripts).c_str() : ""),
+			[this, raw, id] {
+				ops::DeleteChangeForms(*_save, { raw });
+				markEdited(Fmt("Removed actor %08X (named in the crash log)", id));
+			});
+	};
+
+	if (!suspects.empty()) {
+		ImGui::SeparatorText("Likely cause");
+		for (const auto* f : suspects) {
+			ImGui::PushID(static_cast<int>(f->refRaw));
+			std::string name;
+			for (const auto& g : _clogFindings) {
+				if (g.refRaw == f->refRaw && !g.form.name.empty()) {
+					name = g.form.name;
+					break;
+				}
+			}
+			TextColored(theme::Caution(), Fmt("Spawned or leveled actor %08X%s: the game was loading it when it crashed.", f->target,
+											  name.empty() ? "" : (" (\"" + name + "\")").c_str()));
+			if (ImGui::Button(Fmt("Remove %08X from the save", f->target).c_str())) {
+				removeOne(*f);
+			}
+			tips::Tip("Delete this actor's change form, the same as finding it in Change Forms and deleting it. Back up your save first; "
+					  "File > Save As keeps the original.");
+			ImGui::SameLine();
+			if (ImGui::Button("Show it")) {
+				std::snprintf(_filter, sizeof(_filter), "%08X", f->target);
+				select(Cat::kChangeForms, f->refRaw);
+				_rowsDirty = true;
+			}
+			tips::Tip("Open its change form in the main window: everything the save has about it.");
+			ImGui::PopID();
+		}
+		ImGui::Spacing();
+	} else if (anyInSave) {
+		TextColored(theme::Dim(), "No spawned or leveled actor of this save was being loaded when the game crashed. The table shows what "
+								  "the log names; a crash in the middle of play is more often a mod's DLL or a mesh than the save.");
+	} else {
+		TextColored(theme::Warn(), "None of the forms this log names are in this save. The log may be from another save or another game "
+								   "session: check its date.");
+	}
+
+	if (ImGui::BeginTable("clog", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable)) {
+		ImGui::TableSetupScrollFreeze(0, 1);
+		ImGui::TableSetupColumn("Form ID", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6);
+		ImGui::TableSetupColumn("In the log", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+		ImGui::TableSetupColumn("Times", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.5f);
+		ImGui::TableSetupColumn("In this save", ImGuiTableColumnFlags_WidthStretch, 3.0f);
+		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 9);
+		ImGui::TableHeadersRow();
+		const std::size_t shown = std::min<std::size_t>(_clogFindings.size(), 300);
+		for (std::size_t i = 0; i < shown; ++i) {
+			const auto& f = _clogFindings[i];
+			ImGui::PushID(static_cast<int>(i));
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			if (f.suspect) {
+				ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, (theme::Caution() & 0x00FFFFFF) | 0x30000000);
+			}
+			ImGui::Text("%08X", f.form.id);
+			ImGui::TableNextColumn();
+			std::string what = f.form.type;
+			if (!f.form.name.empty()) {
+				what += (what.empty() ? "\"" : "  \"") + f.form.name + "\"";
+			} else if (_db && (f.form.id >> 24) != 0xFF) {
+				what += "  " + _db->describe(f.form.id);
+			}
+			ImGui::TextWrapped("%s", what.c_str());
+			if (f.form.atCrash) {
+				ImGui::TextDisabled("at the crash");
+			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%zu", f.form.hits);
+			ImGui::TableNextColumn();
+			switch (f.kind) {
+			case crashlog::Kind::kChanged:
+				ImGui::TextWrapped("%s", Fmt("%s change form%s%s", f.cfType.c_str(), f.created ? ", spawned or leveled" : "",
+											 f.scripts ? Fmt(", %zu scripts", f.scripts).c_str() : "")
+											 .c_str());
+				break;
+			case crashlog::Kind::kRebuiltBase:
+				ImGui::TextWrapped("%s", f.refRaw ? Fmt("Not stored: the base NPC of leveled actor %08X, rebuilt at every load. The actor "
+														"is in the save (%s).",
+														f.target, f.cfType.c_str())
+														.c_str()
+												  : "Not stored: a leveled actor's base NPC, rebuilt at every load.");
+				break;
+			case crashlog::Kind::kTemporary:
+				ImGui::TextDisabled("Not in the save: made by the game after the save loaded.");
+				break;
+			case crashlog::Kind::kPlugin:
+				ImGui::TextDisabled("Not changed by the save (the plugin's own form).");
+				break;
+			}
+			ImGui::TableNextColumn();
+			if (f.refRaw) {
+				if (ImGui::SmallButton("show")) {
+					std::snprintf(_filter, sizeof(_filter), "%08X", f.target);
+					select(Cat::kChangeForms, f.refRaw);
+					_rowsDirty = true;
+				}
+				tips::Tip("Open the change form in the main window.");
+				if (f.created && f.cfType == "ACHR") {
+					ImGui::SameLine();
+					if (ImGui::SmallButton("remove")) {
+						removeOne(f);
+					}
+					tips::Tip("Delete this spawned or leveled actor's change form from the save.");
+				}
+			}
+			ImGui::PopID();
+		}
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
+// ==========================================================================================
 // saves folder manager
 // ==========================================================================================
 

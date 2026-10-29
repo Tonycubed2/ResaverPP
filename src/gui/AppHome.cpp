@@ -70,7 +70,7 @@ bool App::anyToolOpen() const
 {
 	return _showTransplant || _missingOpen || _orphansOpen || _showAnalysis || _purgeOpen || _showLookup || _showActors || _showPlayer ||
 	       _showCompare || _batchOpen || _reportOpen || _showArrays || _showViewer || _removeOpen || _showLeftovers || _showHistory ||
-	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets || _showArchive;
+	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets || _showArchive || _showCrashLog;
 }
 
 void App::goHome()
@@ -80,6 +80,7 @@ void App::goHome()
 	_showViewer = false;
 	_showCheck = false;
 	_showLeftovers = _showHistory = _showPapyrusLog = _showSavesMgr = _showMerge = _showAssets = _showArchive = false;
+	_showCrashLog = false;
 	if (_cat != Cat::kOverview) {
 		select(Cat::kOverview, 0);
 	}
@@ -156,6 +157,10 @@ void App::shortcut(Sc a_which)
 		_showPapyrusLog = true;
 		_plogLoaded = false;
 		break;
+	case Sc::kCrashLog:
+		_showCrashLog = true;
+		_clogLoaded = false;
+		break;
 	case Sc::kSavesMgr:
 		_showSavesMgr = true;
 		_savesLoaded = false;
@@ -229,6 +234,10 @@ void App::drawHome()
 					HomeRisk::kRisky, -1 },
 				{ Sc::kBatch, "Batch Clean", "several cleanups in one go",
 					"Run several cleanup steps in one go, with a preview of what each will remove.", HomeRisk::kCaution, -1 },
+				{ Sc::kCrashLog, "Crash log", "find the object a crash names",
+					"Read your newest crash log (Crash Logger, Trainwreck, .NET Script Framework) and find the objects it names in this save. "
+					"A spawned or leveled NPC that crashes the game while the save loads can be removed from the save here.",
+					HomeRisk::kCaution, -1 },
 			} },
 		{ "Your game",
 			{
@@ -288,7 +297,7 @@ void App::drawHome()
 	};
 	// the big features get a border in a shade of the button colour
 	const std::set<Sc> major = { Sc::kTransplant, Sc::kPlayer, Sc::kActors, Sc::kMods, Sc::kLeftovers, Sc::kBatch, Sc::kMerge,
-		Sc::kFileConflicts };
+		Sc::kFileConflicts, Sc::kCrashLog };
 
 	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 	ImGui::TextWrapped("Shortcuts: the same as the Clean and Tools menus. Green is safe, yellow: read what it does first, red: risky. "
