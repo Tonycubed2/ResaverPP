@@ -7,6 +7,7 @@
 #include "core/Pex.h"
 #include "core/Save.h"
 #include "core/SaveArchive.h"
+#include "core/PluginEdit.h"
 #include "core/Transplant.h"
 
 #include <filesystem>
@@ -16,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <set>
 #include <string>
 
 using namespace ess;
@@ -299,6 +301,73 @@ namespace
 		Check(copy.filename().string().find("restored") != std::string::npos && read(copy) == "current" && read(ess) == "v2xx",
 			"archive: restore as a copy leaves the save alone");
 		fs::remove_all(base);
+	}
+
+
+	void TestPluginProperty()
+	{
+		namespace fs = std::filesystem;
+		const auto file = fs::temp_directory_path() / "rs_plugedit_test.esp";
+		// a QUST with a script holding one object property, and a second record after it in another group
+		auto w16 = [](std::vector<std::uint8_t>& v, std::uint16_t x) { v.push_back(x & 0xFF); v.push_back(x >> 8); };
+		auto w32 = [&](std::vector<std::uint8_t>& v, std::uint32_t x) { w16(v, x & 0xFFFF); w16(v, x >> 16); };
+		auto wstr = [&](std::vector<std::uint8_t>& v, const std::string& t) { w16(v, static_cast<std::uint16_t>(t.size())); v.insert(v.end(), t.begin(), t.end()); };
+		std::vector<std::uint8_t> vm;
+		w16(vm, 5); w16(vm, 2); w16(vm, 1);
+		wstr(vm, "MyQuestScript"); vm.push_back(0);
+		w16(vm, 1);
+		wstr(vm, "MySpell"); vm.push_back(1); vm.push_back(1);
+		w16(vm, 0); w16(vm, 0xFFFF); w32(vm, 0x00012FCD);
+		ess::merge::Record q;
+		std::memcpy(q.sig, "QUST", 4);
+		q.formID = 0x01000800;
+		ess::merge::Sub e; std::memcpy(e.sig, "EDID", 4); e.data = { 'Q', 0 };
+		ess::merge::Sub v; std::memcpy(v.sig, "VMAD", 4); v.data = vm;
+		q.subs = { e, v };
+		ess::merge::Record g;
+		std::memcpy(g.sig, "GLOB", 4);
+		g.formID = 0x01000801;
+		g.subs = { e };
+		ess::merge::Record q2 = q;  // after the edited record, in the same group, and groups of other types around it
+		q2.formID = 0x01000802;
+		ess::merge::Record sp;
+		std::memcpy(sp.sig, "SPEL", 4);
+		sp.formID = 0x01000803;
+		sp.subs = { e };
+		ess::merge::Record wr;
+		std::memcpy(wr.sig, "WEAP", 4);
+		wr.formID = 0x01000804;
+		wr.subs = { e };
+		const auto bytes = ess::merge::WritePlugin({ "Skyrim.esm" }, 0, { g, q, q2, sp, wr });
+		std::ofstream(file, std::ios::binary).write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+
+		namespace pe = ess::plugedit;
+		const auto h = pe::ReadHeader(file);
+		Check(h.ok && h.masters.size() == 1 && h.masters[0] == "Skyrim.esm", "plugin edit: header and masters read");
+		Check(pe::GetObjectProperty(file, 0x01000800, "myquestscript", "myspell") == 0x00012FCD, "plugin edit: property read");
+		auto r = pe::SetObjectProperty(file, 0x01000800, "MyQuestScript", "MySpell", 0x0003AE9F);
+		Check(r.ok && pe::GetObjectProperty(file, 0x01000800, "MyQuestScript", "MySpell") == 0x0003AE9F, "plugin edit: object property changed in place");
+		Check(!r.backup.empty() && fs::exists(r.backup), "plugin edit: original kept as a backup");
+		const auto firstBackup = r.backup;
+		r = pe::SetObjectProperty(file, 0x01000800, "MyQuestScript", "OtherSpell", 0x01000801);
+		Check(r.backup != firstBackup && fs::exists(firstBackup) && pe::GetObjectProperty(firstBackup, 0x01000800, "MyQuestScript", "MySpell") == 0x00012FCD,
+			"plugin edit: a second change keeps the first backup (the true original)");
+		Check(r.ok && pe::GetObjectProperty(file, 0x01000800, "MyQuestScript", "OtherSpell") == 0x01000801 &&
+				  pe::GetObjectProperty(file, 0x01000800, "MyQuestScript", "MySpell") == 0x0003AE9F,
+			"plugin edit: a property not filled yet is added, the others kept");
+		const auto back = ess::merge::ReadPlugin(file);
+		std::set<std::uint32_t> ids;
+		for (const auto& rec : back.records) {
+			ids.insert(rec.formID);
+		}
+		Check(back.records.size() == 5 && ids.size() == 5 && pe::GetObjectProperty(file, 0x01000802, "MyQuestScript", "MySpell") == 0x00012FCD,
+			"plugin edit: the file's groups still add up, the other records untouched");
+		Check(!pe::SetObjectProperty(file, 0x01000800, "NotThere", "MySpell", 1).ok, "plugin edit: a script not on the record is refused");
+		for (const auto& x : fs::directory_iterator(fs::temp_directory_path())) {
+			if (x.path().filename().string().starts_with("rs_plugedit_test.esp")) {
+				fs::remove(x.path());
+			}
+		}
 	}
 
 	void TestTransplant()
@@ -889,6 +958,7 @@ int main()
 	TestEditedName();
 	TestTransplant();
 	TestSaveArchive();
+	TestPluginProperty();
 	TestMergedPatch();
 	TestMergedPatchLE();
 	TestCrashLog();

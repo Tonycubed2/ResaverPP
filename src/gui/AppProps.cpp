@@ -28,6 +28,12 @@ namespace
 		std::snprintf(buf, sizeof(buf), f, args...);
 		return buf;
 	}
+	void TextColoredWrapped(std::uint32_t a_col, const std::string& a_text)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Text, a_col);
+		ImGui::TextWrapped("%s", a_text.c_str());
+		ImGui::PopStyleColor();
+	}
 	std::string Lower(std::string s)
 	{
 		for (auto& c : s) {
@@ -249,8 +255,11 @@ bool App::formPicker(Variable& a_var)
 		if (_editAllTargets.empty()) {
 			const auto o = apply(a_var);
 			if (o.ok) {
-				_editDone = (_propName.empty() ? std::string("Property") : _propName) + " set to " + nameOf(_editPick);
+				_editDone = (_propName.empty() ? std::string("Property") : _propName) + " set to " + nameOf(_editPick) + " in this save";
 				changed = true;
+				if (_editIsProperty && _editInstance) {
+					preparePluginAsk(_editInstance, _propName, _editPick);  // then: also in the plugin? (asked)
+				}
 			} else {
 				_editMsg = o.message;
 			}
@@ -353,6 +362,10 @@ void App::editScriptProperty(const std::string& a_script, const std::string& a_p
 	beginEdit(&inst->data->vars[varIdx], type);
 	_propScript = a_script;
 	_propName = a_property;
+	_editIsProperty = Lower(names[varIdx]) == "::" + prop + "_var";
+	if (targets.size() == 1) {
+		_editInstance = targets.front().instance;
+	}
 	if (targets.size() > 1) {
 		_editAllTargets = targets;  // opened from the script itself: every object that has it
 	}
@@ -383,4 +396,142 @@ void App::testEditProperty(const std::string& a_spec, bool a_open)
 			return;
 		}
 	}
+}
+
+// ---- also in the plugin ------------------------------------------------------------------------------
+
+void App::preparePluginAsk(EID a_instance, const std::string& a_property, std::uint32_t a_value)
+{
+	_pluginAsk = {};
+	if (!_save || !_save->papyrus()) {
+		return;
+	}
+	auto&       p = *_save->papyrus();
+	const auto* inst = p.findInstance(a_instance);
+	if (!inst) {
+		return;
+	}
+	auto& a = _pluginAsk;
+	a.active = true;
+	a.script = p.str(inst->script);
+	a.property = a_property;
+	const auto object = _save->formIDOf(inst->refID);
+	auto name = [&](std::uint32_t f) {
+		if (_db) {
+			if (const auto* x = _db->find(f)) {
+				const PluginDB::Form* n = x->base ? _db->find(x->base) : x;
+				if (!n) {
+					n = x;
+				}
+				auto s = _db->name(*n);
+				if (s.empty()) {
+					s = _db->edid(*n);
+				}
+				if (!s.empty()) {
+					return s;
+				}
+			}
+		}
+		return Fmt("%08X", f);
+	};
+	a.valueName = name(a_value);
+	a.recordName = name(object);
+	if ((object >> 24) == 0xFF) {
+		a.why = "This object was made during play (it is not in any plugin), so there is no plugin to change.";
+		return;
+	}
+	// the plugin the game takes this record from: the last one in the load order that has it
+	const auto* rec = _db ? _db->find(object) : nullptr;
+	if (!rec) {
+		a.why = "ReSaver Plus could not find which plugin this object comes from (are the plugins read for names?).";
+		return;
+	}
+	a.plugin = _db->plugins()[rec->plugin];
+	{
+		const auto lp = Lower(a.plugin);
+		if (lp == "skyrim.esm" || lp == "update.esm" || lp == "dawnguard.esm" || lp == "hearthfires.esm" || lp == "dragonborn.esm" ||
+			lp == "_resourcepack.esl" || lp.starts_with("cc")) {
+			a.why = a.plugin + " is one of the game's own files, which ReSaver Plus never changes. To change it for new games, make an "
+							   "override in your own plugin (xEdit or the Creation Kit).";
+			return;
+		}
+	}
+	const auto path = _sources.pluginPath(a.plugin);
+	if (!path) {
+		a.why = a.plugin + " was not found in your mods.";
+		return;
+	}
+	a.path = *path;
+	const auto h = plugedit::ReadHeader(a.path);
+	if (!h.ok) {
+		a.why = "Could not read " + a.plugin + ".";
+		return;
+	}
+	// a form id as this plugin writes it: the index of the plugin it comes from among its masters (itself: after them)
+	auto local = [&](std::uint32_t f, std::uint32_t& out) {
+		const auto owner = Lower(_save->pluginOf(f));
+		const auto obj = (f >> 24) == 0xFE ? (f & 0xFFF) : (f & 0xFFFFFF);
+		if (owner == Lower(a.plugin)) {
+			out = static_cast<std::uint32_t>(h.masters.size() << 24) | obj;
+			return true;
+		}
+		for (std::size_t i = 0; i < h.masters.size(); ++i) {
+			if (Lower(h.masters[i]) == owner) {
+				out = static_cast<std::uint32_t>(i << 24) | obj;
+				return true;
+			}
+		}
+		return false;
+	};
+	if (!local(object, a.recordID)) {
+		a.why = "Could not work out the object's form id inside " + a.plugin + ".";
+		return;
+	}
+	if (!local(a_value, a.valueID)) {
+		a.why = a.valueName + " comes from " + _save->pluginOf(a_value) + ", which is not a master of " + a.plugin +
+				". Add it as a master in xEdit first (or set the property in the Creation Kit).";
+		return;
+	}
+}
+
+bool App::pluginAskPopupBody()
+{
+	auto& a = _pluginAsk;
+	ImGui::PushTextWrapPos(ImGui::GetFontSize() * 38);
+	TextColoredWrapped(theme::Good(), a.property + " is set to " + a.valueName + " in this save. It is written when you save (File > Save As).");
+	ImGui::Spacing();
+	if (!a.why.empty()) {
+		ImGui::TextWrapped("It cannot also be set in the plugin: %s", a.why.c_str());
+		ImGui::PopTextWrapPos();
+		ImGui::Spacing();
+		return ImGui::Button("OK", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape);
+	}
+	ImGui::TextWrapped("Also set it in the plugin, like the Creation Kit does?");
+	ImGui::Spacing();
+	ImGui::TextDisabled("%s", ("Plugin:  " + a.plugin).c_str());
+	ImGui::TextDisabled("%s", ("Object:  " + a.recordName + "   script " + a.script + ", property " + a.property).c_str());
+	ImGui::Spacing();
+	ImGui::TextWrapped("This changes the mod's file itself, right away: every save that has not set this object up yet, and every new game, "
+					   "gets %s. A copy of the plugin is kept next to it first. Close the game, the Creation Kit and xEdit before you say yes.",
+		a.valueName.c_str());
+	ImGui::PopTextWrapPos();
+	ImGui::Spacing();
+	bool done = false;
+	if (ImGui::Button("Yes, also in the plugin", ImVec2(ImGui::GetFontSize() * 13, 0))) {
+		const auto r = plugedit::SetObjectProperty(a.path, a.recordID, a.script, a.property, a.valueID);
+		if (r.ok) {
+			_status = a.property + " set to " + a.valueName + " in this save and in " + a.plugin + " (original kept as " +
+					  platform::ToUtf8(r.backup.filename()) + ")";
+		} else {
+			_error = "The save has the new value, but the plugin was not changed:\n\n" + r.message;
+		}
+		done = true;
+	}
+	tips::Tip("Write the new value into the plugin too. The original plugin is kept as <name>.<date>.resaverpp.bak.");
+	ImGui::SameLine();
+	if (ImGui::Button("No, only this save", ImVec2(ImGui::GetFontSize() * 10, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+		done = true;
+	}
+	tips::Tip("Leave the plugin as it is: only this save gets the new value.");
+	return done;
 }

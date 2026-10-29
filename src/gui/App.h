@@ -12,6 +12,7 @@
 #include "core/MergedPatch.h"
 #include "core/SaveArchive.h"
 #include "core/PropertyEdit.h"
+#include "core/PluginEdit.h"
 #include "core/LoadOrder.h"
 #include "core/ModRemove.h"
 #include "core/Orphans.h"
@@ -354,6 +355,20 @@ private:
 	void editPopup();
 	void beginEdit(ess::Variable* a_var, const std::string& a_type = {});
 	bool formPicker(ess::Variable& a_var);
+	// the object (script instance) whose variables a table shows, and the one being edited: lets an edit also go to the plugin
+	ess::EID _varsOwner = 0, _editInstance = 0;
+	bool     _editIsProperty = false;  // an Auto property (kept in the plugin too), not a script variable
+	// after a property is set in the save: also set it in the plugin? (asked, never done on its own)
+	struct PluginAsk
+	{
+		bool                  active = false;
+		std::string           script, property, valueName, recordName, plugin, why;  // why: empty when it can be done
+		std::filesystem::path path;
+		std::uint32_t         recordID = 0, valueID = 0;  // as the plugin writes them
+	};
+	PluginAsk _pluginAsk;
+	void      preparePluginAsk(ess::EID a_instance, const std::string& a_property, std::uint32_t a_value);
+	bool      pluginAskPopupBody();  // true when it is done (close the window)
 	// from the script window's outline: set a property of that script in the open save
 	void editScriptProperty(const std::string& a_script, const std::string& a_property);
 	void propertyChooserPopup();

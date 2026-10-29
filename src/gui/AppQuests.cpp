@@ -652,7 +652,9 @@ void App::drawQuestDetail()
 				}
 				ImGui::PushID(static_cast<int>(idx));
 				if (ImGui::TreeNodeEx(Fmt("%s  (%zu values)", p.str(i.script).c_str(), i.data->vars.size()).c_str(), count == 1 ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+					_varsOwner = i.id;
 					varsTable("qvars", i.data->vars, memberNames(i.script), memberTypes(i.script));
+					_varsOwner = 0;
 					ImGui::TreePop();
 				}
 				ImGui::PopID();

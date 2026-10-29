@@ -19,6 +19,7 @@
 #include "core/ScriptSources.h"
 #include "core/Orphans.h"
 #include "core/PropertyEdit.h"
+#include "core/PluginEdit.h"
 #include "core/Quests.h"
 #include "core/Transplant.h"
 #include <functional>
@@ -86,6 +87,8 @@ static void Usage()
 		"                            face goes back to the plugins'). Actors: 1 = REFR_MOVE (back to its editor\n"
 		"                            position), 4 = REFR_SCALE, 5 = REFR_INVENTORY, 28 = REFR_ANIMATION (unstick a\n"
 		"                            frozen NPC). Not the player. Needs -o.\n"
+		"  --plugin-property <plugin> <record id> <script> <property> [<value id>]  read or set an object property\n"
+		"                            in a plugin's script data (ids as the plugin writes them); the original is kept\n"
 		"  --set-property <object> <property> <formid>  point a script's object property (a Spell, Weapon, Quest...)\n"
 		"                            at a form, like filling it in the Creation Kit. <object>: the script instance's id\n"
 		"                            (as the GUI shows it) or Script@formid (the script on that form, e.g.\n"
@@ -310,6 +313,19 @@ int main(int argc, char** argv)
 				return 2;
 			}
 		}
+	}
+	if (std::string(argv[1]) == "--plugin-property" && (argc == 6 || argc == 7)) {
+		// resaverpp-cli --plugin-property <plugin> <record id> <script> <property> [<value id>]: read (or set) an object
+		// property in a plugin's script data; ids as the plugin writes them (master index in the top byte)
+		const std::filesystem::path plugin = argv[2];
+		const auto rec = static_cast<std::uint32_t>(std::stoul(argv[3], nullptr, 16));
+		if (argc == 6) {
+			std::printf("%08X\n", ess::plugedit::GetObjectProperty(plugin, rec, argv[4], argv[5]));
+			return 0;
+		}
+		const auto r = ess::plugedit::SetObjectProperty(plugin, rec, argv[4], argv[5], static_cast<std::uint32_t>(std::stoul(argv[6], nullptr, 16)));
+		std::printf("%s\n", r.message.c_str());
+		return r.ok ? 0 : 1;
 	}
 	if (std::string(argv[1]) == "--merged-patch") {
 		return MergedPatchMain(argc, argv);

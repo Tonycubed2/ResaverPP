@@ -516,11 +516,14 @@ void App::varsTable(const char* a_id, std::vector<Variable>& a_vars, const std::
 				ImGui::PushID(i);
 				if (ImGui::SmallButton("edit")) {
 					_propName = i < static_cast<int>(a_names.size()) ? a_names[i] : std::string();
-					if (_propName.starts_with("::") && _propName.ends_with("_var") && _propName.size() > 6) {
+					const bool isProp = _propName.starts_with("::") && _propName.ends_with("_var") && _propName.size() > 6;
+					if (isProp) {
 						_propName = _propName.substr(2, _propName.size() - 6);  // an Auto property's hidden variable: show the property's name
 					}
 					_propScript.clear();
 					beginEdit(&a_vars[i], i < static_cast<int>(a_types.size()) ? a_types[i] : std::string());
+					_editInstance = _varsOwner;
+					_editIsProperty = isProp;
 				}
 				tips::Tip("Change this variable's value; an object property (a spell, a weapon, a quest...) can be pointed at any form, like "
 						  "filling a property in the Creation Kit. Scripts read the new value when the save loads. Back up your save first.");
@@ -1868,7 +1871,9 @@ void App::detailScript(std::uint64_t k)
 				viewScript(p.str(i.script));
 			}
 			tips::Tip("Open the script; the properties you click on its left side are set on this object only.");
+			_varsOwner = i.id;
 			varsTable("svars", i.data->vars, names, types);
+			_varsOwner = 0;
 		}
 		ImGui::PopID();
 	}
@@ -1935,7 +1940,9 @@ void App::detailInstance(std::uint64_t k)
 	}
 	if (i->data) {
 		ImGui::SeparatorText(Fmt("Variables (%zu)", i->data->vars.size()).c_str());
+		_varsOwner = i->id;
 		varsTable("vars", i->data->vars, memberNames(i->script), memberTypes(i->script));
+		_varsOwner = 0;
 	}
 	const auto refs = ops::FindReferrers(p, i->id);
 	ImGui::SeparatorText(Fmt("Referenced by (%zu)", refs.size()).c_str());
@@ -2479,6 +2486,9 @@ void App::beginEdit(Variable* a_var, const std::string& a_type)
 {
 	_editAllTargets.clear();  // "all of them" is set again by the chooser right after
 	_editDone.clear();
+	_editInstance = 0;
+	_editIsProperty = false;
+	_pluginAsk = {};
 	_editVar = a_var;
 	_editType = a_type;
 	_editFind[0] = 0;
@@ -2513,6 +2523,14 @@ void App::editPopup()
 	}
 	ImGui::SetNextWindowSize(ImVec2(_editType.empty() ? 520.0f : ImGui::GetFontSize() * 44, 0));  // object properties: room for the form picker
 	if (!ImGui::BeginPopupModal("Edit value", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		return;
+	}
+	if (_pluginAsk.active) {  // set in the save; now the question about the plugin
+		if (pluginAskPopupBody()) {
+			_pluginAsk = {};
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
 		return;
 	}
 	if (!_editVar || !_save) {
@@ -2617,7 +2635,9 @@ void App::editPopup()
 		markChanged(_editDone.empty() ? std::string("Edited a variable") : _editDone);
 		_editDone.clear();
 		_editVar = nullptr;
-		ImGui::CloseCurrentPopup();
+		if (!_pluginAsk.active) {
+			ImGui::CloseCurrentPopup();
+		}
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Cancel", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
