@@ -1777,6 +1777,98 @@ namespace ess::merge
 				return taken;
 			}
 
+			// ---- NPC parts that belong together ------------------------------------------------------------
+			// ACBS layout: flags u32 @0, magicka @4, stamina @6, level (or level multiplier x1000 when flag 0x80
+			// "PC level mult" is set) @8, calc min level @10, calc max level @12, speed @14, disposition @16,
+			// template flags @18, health @20, bleedout @22.
+			//  - level: flag 0x80 and the level / min / max fields. With the flag the level field is a multiplier;
+			//    taken from two plugins it becomes a nonsense level (or multiplier) that breaks leveled actors.
+			//  - template: the template flags (which parts come from the template) and TPLT (the template NPC).
+			// For each, the last plugin (in load order) that changed it from the version it was made against wins,
+			// and the patch gets that plugin's values as one piece.
+			struct NpcLink
+			{
+				bool                      hasAcbs = false;
+				std::uint8_t              pcLevelMult = 0;
+				std::vector<std::uint8_t> level;     // bytes 8..13
+				std::vector<std::uint8_t> tflags;    // bytes 18..19
+				std::optional<CSub>       tplt;
+			};
+			static NpcLink ReadNpcLink(const CRec& c)
+			{
+				NpcLink l;
+				for (const auto& s : c.subs) {
+					if (Is(s.sig, "ACBS") && s.data.size() >= 24 && !l.hasAcbs) {
+						l.hasAcbs = true;
+						l.pcLevelMult = s.data[0] & 0x80;
+						l.level.assign(s.data.begin() + 8, s.data.begin() + 14);
+						l.tflags.assign(s.data.begin() + 18, s.data.begin() + 20);
+					} else if (Is(s.sig, "TPLT") && !l.tplt) {
+						l.tplt = s;
+					}
+				}
+				return l;
+			}
+			static bool SameLevel(const NpcLink& a, const NpcLink& b) { return a.pcLevelMult == b.pcLevelMult && a.level == b.level; }
+			static bool SameTemplate(const NpcLink& a, const NpcLink& b)
+			{
+				if (a.tflags != b.tflags || a.tplt.has_value() != b.tplt.has_value()) return false;
+				return !a.tplt || *a.tplt == *b.tplt;
+			}
+
+			// returns (what, plugin) for each part it had to put back together
+			std::vector<std::pair<std::string, std::string>> linkNpcParts(CRec& a_patch, const std::vector<CRec>& a_cv,
+				const std::vector<Ver>& a_vs)
+			{
+				std::vector<std::pair<std::string, std::string>> out;
+				std::vector<NpcLink> links;
+				for (const auto& c : a_cv) links.push_back(ReadNpcLink(c));
+				// the last override that changed a part from its own base version
+				int lastLevel = -1, lastTemplate = -1;
+				for (std::size_t i = 1; i < a_cv.size(); ++i) {
+					std::size_t b = 0;
+					for (std::size_t j = i; j-- > 1;) {
+						if (_plugins[a_vs[i].plugin].masterSet.contains(a_vs[j].plugin)) {
+							b = j;
+							break;
+						}
+					}
+					if (!links[i].hasAcbs || !links[b].hasAcbs) continue;
+					if (!SameLevel(links[i], links[b])) lastLevel = static_cast<int>(i);
+					if (!SameTemplate(links[i], links[b])) lastTemplate = static_cast<int>(i);
+				}
+				const auto now = ReadNpcLink(a_patch);
+				if (!now.hasAcbs) return out;
+				CSub* acbs = nullptr;
+				for (auto& s : a_patch.subs) {
+					if (Is(s.sig, "ACBS") && s.data.size() >= 24) {
+						acbs = &s;
+						break;
+					}
+				}
+				if (!acbs) return out;
+				if (lastLevel >= 0 && !SameLevel(now, links[lastLevel])) {
+					const auto& src = links[lastLevel];
+					acbs->data[0] = static_cast<std::uint8_t>((acbs->data[0] & ~0x80) | src.pcLevelMult);
+					std::copy(src.level.begin(), src.level.end(), acbs->data.begin() + 8);
+					out.push_back({ "PC level multiplier with level and min/max level", _plugins[a_vs[lastLevel].plugin].name });
+				}
+				if (lastTemplate >= 0 && !SameTemplate(ReadNpcLink(a_patch), links[lastTemplate])) {
+					const auto& src = links[lastTemplate];
+					for (auto& s : a_patch.subs) {
+						if (Is(s.sig, "ACBS") && s.data.size() >= 24) {
+							std::copy(src.tflags.begin(), src.tflags.end(), s.data.begin() + 18);
+							break;
+						}
+					}
+					std::vector<CSub> block;
+					if (src.tplt) block.push_back(*src.tplt);
+					SetBlock(a_patch, { "TPLT" }, block);
+					out.push_back({ "template with template flags", _plugins[a_vs[lastTemplate].plugin].name });
+				}
+				return out;
+			}
+
 			static void note(MergedRecord& a_mr, const std::string& a_text, Category a_cat)
 			{
 				a_mr.changes.push_back(a_text);
@@ -1899,6 +1991,13 @@ namespace ess::merge
 							if (i + 1 != vs.size()) {
 								note(mr, _plugins[vs[i].plugin].name + ": " + what, cat);
 							}
+						}
+					}
+					// NPC parts that only mean something together must come from ONE plugin, the way a manual xEdit
+					// patch takes them (merged value by value they can mix into an NPC no plugin made):
+					if (Is(win.rec.sig, "NPC_") && _opt.enabled[static_cast<int>(Category::kNpcValues)]) {
+						for (const auto& [what, n] : linkNpcParts(patch, cv, vs)) {
+							note(mr, n + ": " + what + " taken together", Category::kNpcValues);
 						}
 					}
 					bool failed = false;

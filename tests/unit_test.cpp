@@ -623,6 +623,73 @@ namespace
 		fs::remove_all(dir);
 	}
 
+	// NPC parts that belong together are taken from one plugin (PC level mult + level; template flags + TPLT)
+	void TestMergedPatchNpcLinks()
+	{
+		namespace fs = std::filesystem;
+		const auto dir = fs::temp_directory_path() / "rs_merge_test_npclink";
+		fs::remove_all(dir);
+		fs::create_directories(dir);
+		auto save = [&](const char* a_name, const std::vector<std::uint8_t>& a_data) {
+			std::ofstream(dir / a_name, std::ios::binary).write(reinterpret_cast<const char*>(a_data.data()), static_cast<std::streamsize>(a_data.size()));
+		};
+		// ACBS: flags @0, level @8, min @10, max @12, speed @14, template flags @18
+		auto acbs = [](std::uint32_t flags, std::uint16_t level, std::uint16_t mn, std::uint16_t mx, std::uint16_t speed, std::uint16_t tfl) {
+			std::vector<std::uint8_t> a(24, 0);
+			std::memcpy(a.data(), &flags, 4);
+			std::memcpy(a.data() + 8, &level, 2);
+			std::memcpy(a.data() + 10, &mn, 2);
+			std::memcpy(a.data() + 12, &mx, 2);
+			std::memcpy(a.data() + 14, &speed, 2);
+			std::memcpy(a.data() + 18, &tfl, 2);
+			return a;
+		};
+		auto npc = [&](std::vector<std::uint8_t> a_acbs, std::optional<std::uint32_t> a_tplt) {
+			std::vector<merge::Sub> subs{ MS("EDID", { 'N', 0 }), MS("ACBS", std::move(a_acbs)) };
+			if (a_tplt) subs.push_back(MS("TPLT", U32v({ *a_tplt })));
+			subs.push_back(MS("RNAM", U32v({ 0x980 })));
+			return MR("NPC_", 0x820, std::move(subs));
+		};
+		// base: level 10, no PC level mult, no template
+		save("Skyrim.esm", merge::WritePlugin({}, 1, { npc(acbs(0, 10, 0, 0, 100, 0), std::nullopt) }, "t"));
+		// A: makes it PC level mult x1.0 (1000) with min 5 max 50 (level block), and uses template 0x830 for traits (template block)
+		save("ModA.esp", merge::WritePlugin({ "Skyrim.esm" }, 0, { npc(acbs(0x80, 1000, 5, 50, 100, 0x0001), 0x830u) }, "t"));
+		// B (made against the base only): a plain level 30, and a faster speed
+		save("ModB.esp", merge::WritePlugin({ "Skyrim.esm" }, 0, { npc(acbs(0, 30, 0, 0, 120, 0), std::nullopt) }, "t"));
+		merge::Options o;
+		o.loadOrder = { "Skyrim.esm", "ModA.esp", "ModB.esp" };
+		o.findPlugin = [&](const std::string& n) -> std::optional<fs::path> { return dir / n; };
+		const auto r = merge::Build(o);
+		Check(r.ok && r.merged.size() == 1, "merge npc links: the NPC is merged");
+		save("Patch.esp", r.file);
+		const auto pf = merge::ReadPlugin(dir / "Patch.esp");
+		std::uint32_t flags = 0;
+		std::uint16_t level = 0, mn = 0, mx = 0, speed = 0, tfl = 0;
+		bool tplt = false;
+		for (const auto& rec : pf.records) {
+			if (std::memcmp(rec.sig, "NPC_", 4) != 0) continue;
+			for (const auto& sb : rec.subs) {
+				if (std::memcmp(sb.sig, "ACBS", 4) == 0 && sb.data.size() == 24) {
+					std::memcpy(&flags, sb.data.data(), 4);
+					std::memcpy(&level, sb.data.data() + 8, 2);
+					std::memcpy(&mn, sb.data.data() + 10, 2);
+					std::memcpy(&mx, sb.data.data() + 12, 2);
+					std::memcpy(&speed, sb.data.data() + 14, 2);
+					std::memcpy(&tfl, sb.data.data() + 18, 2);
+				}
+				if (std::memcmp(sb.sig, "TPLT", 4) == 0) tplt = true;
+			}
+		}
+		// the level block comes whole from B (the last to change it): plain level 30, no PC level mult, no min/max.
+		// Merged value by value it was "PC level mult with level 30" = a 0.03x multiplier.
+		Check(!(flags & 0x80) && level == 30 && mn == 0 && mx == 0, "merge npc links: PC level mult and level taken from one plugin");
+		// B did not touch the template: A's template flags and TPLT stay, together
+		Check(tfl == 0x0001 && tplt, "merge npc links: template flags and template kept together");
+		// fields that are independent still merge value by value
+		Check(speed == 120, "merge npc links: an unrelated value (speed) still merges");
+		fs::remove_all(dir);
+	}
+
 	void TestMergedPatch()
 	{
 		namespace fs = std::filesystem;
@@ -981,6 +1048,7 @@ int main()
 	TestPluginProperty();
 	TestMergedPatch();
 	TestMergedPatchLE();
+	TestMergedPatchNpcLinks();
 	TestCrashLog();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
