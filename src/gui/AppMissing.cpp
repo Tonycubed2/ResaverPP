@@ -70,7 +70,7 @@ void App::checkMissingPlugins()
 		txt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
 		_missingSource = "Mod Organizer profile \"" + _profile + "\"";
 	} else {
-		txt = loadorder::GamePluginsTxt(_vr);
+		txt = loadorder::GamePluginsTxt(_vr, _save && _save->isLE());
 		_missingSource = _vortex ? "your load order (Vortex)" : "your load order";
 	}
 	const auto active = loadorder::Read(txt, gameFolder(), _vr);

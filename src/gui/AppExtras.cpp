@@ -70,7 +70,7 @@ loadorder::Active App::currentLoadOrder() const
 	if (_mo2 && !_profile.empty()) {
 		txt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
 	} else {
-		txt = loadorder::GamePluginsTxt(_vr);
+		txt = loadorder::GamePluginsTxt(_vr, _save && _save->isLE());
 	}
 	return loadorder::Read(txt, gameFolder(), _vr);
 }

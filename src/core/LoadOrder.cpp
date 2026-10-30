@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <fstream>
+#include <vector>
 
 namespace ess::loadorder
 {
@@ -36,11 +37,18 @@ namespace ess::loadorder
 		}
 	}
 
-	std::filesystem::path GamePluginsTxt(bool a_vr)
+	std::filesystem::path GamePluginsTxt(bool a_vr, bool a_le)
 	{
 		const auto base = text::EnvPath("LOCALAPPDATA");
 		if (base.empty()) {
 			return {};
+		}
+		if (a_le) {
+			// a Legendary Edition save: its own plugins.txt, even when Special Edition is installed too
+			std::error_code ec;
+			if (const auto le = base / "Skyrim" / "plugins.txt"; std::filesystem::exists(le, ec)) {
+				return le;
+			}
 		}
 		if (a_vr) {
 			return base / "Skyrim VR" / "plugins.txt";
@@ -79,13 +87,23 @@ namespace ess::loadorder
 		}
 		a.known = true;
 		a.file = a_pluginsTxt;
+		// SE/AE (and Mod Organizer for them): enabled lines start with '*', the others are disabled.
+		// Legendary Edition (and Mod Organizer for LE) writes no marks: every plugin listed is enabled.
+		std::vector<std::string> lines;
+		bool                     marked = false;
 		for (std::string line; std::getline(f, line);) {
 			line = Trim(line);
 			if (line.empty() || line[0] == '#') {
 				continue;
 			}
+			marked = marked || line[0] == '*';
+			lines.push_back(line);
+		}
+		for (const auto& line : lines) {
 			if (line[0] == '*') {
 				a.plugins.insert(Lower(Trim(line.substr(1))));
+			} else if (!marked) {
+				a.plugins.insert(Lower(line));
 			}
 		}
 		// always loaded, never listed in plugins.txt

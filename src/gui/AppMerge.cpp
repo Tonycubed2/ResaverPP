@@ -55,7 +55,7 @@ void App::drawMergedPatch()
 	}
 
 	const std::filesystem::path pluginsTxt =
-		_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_vr);
+		_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_vr, _save && _save->isLE());
 	const std::filesystem::path outFile =
 		_mo2 ? _mo2->modsDir / kModFolder / kPatchName : (gameFolder().empty() ? std::filesystem::path() : gameFolder() / "Data" / kPatchName);
 
@@ -395,7 +395,7 @@ void App::drawFileConflicts()
 			in.gameData = gameFolder() / "Data";
 		}
 		const auto pluginsTxt =
-			_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_vr);
+			_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_vr, _save && _save->isLE());
 		in.loadOrder = merge::ReadLoadOrder(pluginsTxt, gameFolder());
 		_assetsProgress = std::make_unique<assets::Progress>();
 		_assetsBusy = true;

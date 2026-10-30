@@ -24,5 +24,6 @@ namespace ess::loadorder
 	Active Read(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder, bool a_vr = false);
 
 	// The game's own plugins.txt (%LOCALAPPDATA%\Skyrim Special Edition\plugins.txt, or Skyrim VR\plugins.txt).
-	std::filesystem::path GamePluginsTxt(bool a_vr = false);
+	// a_le: the save is Legendary Edition, so its plugins.txt (%LOCALAPPDATA%\\Skyrim) comes first
+	std::filesystem::path GamePluginsTxt(bool a_vr = false, bool a_le = false);
 }

@@ -7,6 +7,7 @@
 #include "core/Pex.h"
 #include "core/Save.h"
 #include "core/SaveArchive.h"
+#include "core/LoadOrder.h"
 #include "core/PluginEdit.h"
 #include "core/Transplant.h"
 
@@ -368,6 +369,24 @@ namespace
 				fs::remove(x.path());
 			}
 		}
+	}
+
+
+	void TestPluginsTxtFormats()
+	{
+		namespace fs = std::filesystem;
+		const auto dir = fs::temp_directory_path();
+		const auto se = dir / "rs_plugins_se.txt", le = dir / "rs_plugins_le.txt";
+		std::ofstream(se) << "# This file is used by Skyrim to keep track of your downloaded content.\n*ModA.esp\nModB.esp\n*ModC.esm\n";
+		std::ofstream(le) << "# This file is used by Skyrim to keep track of your downloaded content.\nDawnguard.esm\nModA.esp\nModB.esp\n";
+		const auto a = ess::loadorder::Read(se, dir, false);
+		Check(a.plugins.contains("moda.esp") && !a.plugins.contains("modb.esp") && a.plugins.contains("modc.esm"),
+			"plugins.txt SE: only the lines marked with * are enabled");
+		const auto b = ess::loadorder::Read(le, dir, false);
+		Check(b.plugins.contains("moda.esp") && b.plugins.contains("modb.esp") && b.plugins.contains("dawnguard.esm"),
+			"plugins.txt LE: no marks, every listed plugin is enabled");
+		fs::remove(se);
+		fs::remove(le);
 	}
 
 	void TestTransplant()
@@ -958,6 +977,7 @@ int main()
 	TestEditedName();
 	TestTransplant();
 	TestSaveArchive();
+	TestPluginsTxtFormats();
 	TestPluginProperty();
 	TestMergedPatch();
 	TestMergedPatchLE();
