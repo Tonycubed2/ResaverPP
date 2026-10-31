@@ -1,3 +1,5 @@
+#include "core/SkyrimLogs.h"
+#include "core/Json.h"
 // ReSaver++ unit and regression tests that need no save files: each builds the data it needs in memory.
 // Run by CTest (rs_unit). Exit code 0 = all passed.
 #include "core/CrashLog.h"
@@ -1033,6 +1035,30 @@ void TestCrashLog()
 	Check(faction, "crash log: an unchanged plugin form is reported as the plugin's");
 }
 
+void TestSkyrimLogs()
+{
+	const std::string skse =
+		"SKSE64 runtime: initialize (version = 2.2.6 01061700 01DB12345, os = 6.2 (9200))\n"
+		"plugin C:\\Data\\SKSE\\Plugins\\\\po3_Tweaks.dll (00000001 Tweaks 00010500) loaded correctly (handle 2)\n"
+		"plugin C:\\Data\\SKSE\\Plugins\\\\Old.dll (00000001 Old 00000001) disabled, address library needs to be updated (handle 0)\n"
+		"couldn't load plugin C:\\Data\\SKSE\\Plugins\\\\Broken.dll (Error 126)\n";
+	const auto f = ess::logs::ReadSkseLog("skse64.log", skse);
+	Check(f.size() == 3 && f[0].title.find("Old.dll") != std::string::npos && f[0].detail.find("Address Library") != std::string::npos &&
+			  f[0].title.find("handle") == std::string::npos,
+		"logs: a plugin SKSE disabled for Address Library is found, named and explained");
+	Check(f.size() == 3 && f[1].title.find("Broken.dll") != std::string::npos && f[1].detail.find("126") != std::string::npos,
+		"logs: a plugin that could not load (error 126) is found");
+	const std::string crash =
+		"Skyrim SSE v1.6.1170\nCrashLoggerSSE v1-15-0-0\n\n"
+		"Unhandled exception \"EXCEPTION_ACCESS_VIOLATION\" at 0x7FF6E3F4C680 SkyrimSE.exe+0cec680\tmov rax, [rcx]\n\n"
+		"PROBABLE CALL STACK:\n\t[ 0] 0x7FF6E3F4C680 SkyrimSE.exe+0CEC680\n\t[ 1] 0x7FFA00001000 hdtSMP64.dll+0001000\n"
+		"\t[ 2] 0x7FFA00002000 ntdll.dll+0002000\n\t[ 3] 0x7FFA00003000 hdtSMP64.dll+0001100\n\nREGISTERS:\n";
+	const auto c = ess::logs::ReadCrash(crash);
+	Check(c.where == "SkyrimSE.exe+0CEC680", "logs: the crash place is read from the exception line");
+	Check(c.modules.size() == 1 && c.modules[0] == "hdtSMP64.dll", "logs: the call stack's DLLs, without the game and Windows ones, once each");
+	Check(ess::json::Quote(std::string("a\"b\n\xE9")) == "\"a\\\"b\\n\xC3\xA9\"", "json: quotes, newlines and a Windows-1252 byte are written as valid UTF-8 JSON");
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -1050,6 +1076,7 @@ int main()
 	TestMergedPatchLE();
 	TestMergedPatchNpcLinks();
 	TestCrashLog();
+	TestSkyrimLogs();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

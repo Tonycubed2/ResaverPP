@@ -24,11 +24,14 @@
 #include "core/Ops.h"
 #include "core/ScriptSources.h"
 #include "Live.h"
+#include "Ai.h"
+#include "core/SkyrimLogs.h"
 #include "imgui.h"
 
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <iosfwd>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -110,6 +113,15 @@ public:
 		} else if (w == "crashlog") {
 			_showCrashLog = true;
 			_clogLoaded = false;
+		} else if (w == "skyrimlogs") {
+			openSkyrimLogs();
+		} else if (w.rfind("ai:", 0) == 0) {
+			_showAi = true;
+			if (w.size() > 3) {
+				aiSend(w.substr(3));
+			} else {
+				_aiShowSettings = true;
+			}
 		} else if (w == "plog") {
 			_showPapyrusLog = true;
 		} else if (w == "saves") {
@@ -531,7 +543,7 @@ private:
 		kMcm, kHavok, kPurify, kBatch, kPurge,
 		kPlayer, kActors, kTransplant, kLookup,
 		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex,
-		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog
+		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog, kSkyrimLogs, kAskAi
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	void        drawHome();            // the shortcut buttons
@@ -718,6 +730,33 @@ private:
 	std::filesystem::path savesFolder() const;  // where File > Open starts: the chosen saves folder, the last one used, or the one with the newest save
 	void fixMcmJam();
 	void killThreads(const std::set<ess::ThreadID>& a_threads, const std::set<ess::EID>& a_instances, const std::string& a_what, bool a_terminateOnly);
+
+	// ---- AI chat and Skyrim logs (AppAi.cpp) ---------------------------------------------------
+	void drawAiChat();
+	void drawAiSettings();
+	void drawSkyrimLogs();
+	void openSkyrimLogs();
+	void startLogAnalysis();
+	void pollAi();
+	void loadAiSetting(const std::string& a_line);
+	void saveAiSettings(std::ostream& a_out);
+	void aiSetup();
+	void aiSend(const std::string& a_text);
+	std::string aiSystemPrompt();
+	std::string aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& a_error);  // on the chat's thread
+	std::vector<std::filesystem::path> myGamesFolders() const;
+	std::vector<ess::logs::LogFile>    findSkyrimLogs() const;
+	ai::Chat                           _ai;
+	bool                               _aiReady = false, _showAi = false, _aiShowSettings = false, _aiFocusInput = false;
+	char                               _aiInput[16384] = "";
+	std::size_t                        _aiSeenRevision = 0;
+	struct AiModels;
+	std::shared_ptr<AiModels>          _aiModels;
+	bool                               _showSkyrimLogs = false;
+	struct LogsJob;
+	std::shared_ptr<LogsJob>           _logsJob;
+	int                                _logsDays = 7;
+	bool                               _logsPlugins = true;
 
 	std::unique_ptr<ess::SaveFile> _save;
 	std::unique_ptr<ess::ops::Report> _report;

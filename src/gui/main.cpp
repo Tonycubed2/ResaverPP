@@ -398,6 +398,12 @@ int RunApp(int argc, char** argv)
 	if (std::getenv("RESAVERPP_TEST_ARCHIVE")) {
 		app.testShowArchive();
 	}
+	if (std::getenv("RESAVERPP_TEST_LOGS")) {
+		app.testOpen("skyrimlogs");
+	}
+	if (const char* e = std::getenv("RESAVERPP_TEST_AI")) {  // opens the AI chat and sends this text
+		app.testOpen(std::string("ai:") + e);
+	}
 	if (const char* t = std::getenv("RESAVERPP_TEST_CAT")) {
 		app.testSelect(std::atoi(t), std::getenv("RESAVERPP_TEST_FILTER"), std::getenv("RESAVERPP_TEST_ANALYSIS") != nullptr);
 		if (const char* rm = std::getenv("RESAVERPP_TEST_REMOVE")) {

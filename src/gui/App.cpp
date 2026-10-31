@@ -838,6 +838,7 @@ void App::draw()
 	_live.setEnabled(_liveEnabled);
 	_live.start();
 	_live.poll();
+	pollAi();
 	pollScan();
 	pollNames();
 	pollWatch();
@@ -867,6 +868,19 @@ void App::draw()
 		tips::Tip("Pick a Skyrim save (.ess) to inspect and clean.");
 		ImGui::Spacing();
 		centered("or drag a .ess file onto this window (a .pex script shows its code)", true);
+		ImGui::Spacing();
+		ImGui::Spacing();
+		ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 368) * 0.5f);
+		if (ImGui::Button("Analyze Skyrim logs", ImVec2(180, 0))) {
+			openSkyrimLogs();
+		}
+		tips::Tip("Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found. "
+		          "No save needed.");
+		ImGui::SameLine(0, 8);
+		if (ImGui::Button("Ask the AI", ImVec2(180, 0))) {
+			_showAi = true;
+		}
+		tips::Tip("Chat with an AI engine that can use ReSaver Plus for you: describe the problem in plain English.");
 	} else {
 		drawCategories();
 		ImGui::SameLine();
@@ -949,6 +963,12 @@ void App::draw()
 	}
 	if (_showPapyrusLog) {
 		drawPapyrusLog();
+	}
+	if (_showSkyrimLogs) {
+		drawSkyrimLogs();
+	}
+	if (_showAi) {
+		drawAiChat();
 	}
 	if (_showSavesMgr) {
 		drawSavesManager();
@@ -1187,6 +1207,20 @@ void App::drawMenu()
 			saveSettings();
 		}
 		tips::Tip("Read plugin names every time a save is opened.");
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("AI and logs")) {
+		ImGui::MenuItem("Ask the AI...", nullptr, &_showAi);
+		tips::Tip("Chat with an AI engine that can use everything ReSaver Plus does: describe the problem in plain English.");
+		if (ImGui::MenuItem("Analyze Skyrim logs...")) {
+			openSkyrimLogs();
+		}
+		tips::Tip("Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found.");
+		if (ImGui::MenuItem("AI engine settings...")) {
+			_showAi = true;
+			_aiShowSettings = true;
+		}
+		tips::Tip("Which AI engine the chat uses (Claude, ChatGPT, Gemini, OpenRouter, or a free one on your PC), its key and model.");
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Options")) {
@@ -2691,6 +2725,8 @@ void App::loadSettings()
 			_watch = true;
 		} else if (line.rfind("open_newest=", 0) == 0) {
 			_openNewest = line.substr(12) == "1";
+		} else if (line.rfind("ai_", 0) == 0) {
+			loadAiSetting(line);
 		} else if (line.rfind("live=", 0) == 0) {
 			_liveEnabled = line.substr(5) != "0";
 		} else if (line.rfind("live_notify=", 0) == 0) {
@@ -2784,6 +2820,7 @@ void App::saveSettings()
 	f << "theme=" << static_cast<int>(theme::Current()) << "\n";
 	f << "live=" << (_liveEnabled ? 1 : 0) << "\n";
 	f << "live_notify=" << _liveNotify << "\n";
+	saveAiSettings(f);
 	f << "decompile_always=" << (_decompileAlways ? 1 : 0) << "\n";
 	f << "compiler=" << _compilerSetting << "\n";
 	f << "compile_out_mode=" << _compileOutMode << "\n";

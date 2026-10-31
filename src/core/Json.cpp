@@ -1,6 +1,7 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Json.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <stdexcept>
 
@@ -242,4 +243,128 @@ namespace ess::json
 	}
 
 	Value Parse(const std::string& a_text) { return Parser(a_text).parse(); }
+
+	std::string ValidUtf8(const std::string& a_text)
+	{
+		std::string out;
+		out.reserve(a_text.size());
+		const auto* p = reinterpret_cast<const unsigned char*>(a_text.data());
+		const std::size_t n = a_text.size();
+		for (std::size_t i = 0; i < n;) {
+			const unsigned char c = p[i];
+			std::size_t len = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 0;
+			bool ok = len > 0 && i + len <= n && !(len == 2 && c < 0xC2);
+			for (std::size_t k = 1; ok && k < len; ++k) {
+				ok = (p[i + k] & 0xC0) == 0x80;
+			}
+			if (ok) {
+				out.append(a_text, i, len);
+				i += len;
+				continue;
+			}
+			// a lone byte: Latin-1 / Windows-1252 as its code point (U+0080..U+00FF)
+			out.push_back(static_cast<char>(0xC0 | (c >> 6)));
+			out.push_back(static_cast<char>(0x80 | (c & 0x3F)));
+			++i;
+		}
+		return out;
+	}
+
+	std::string Quote(const std::string& a_text)
+	{
+		const auto  t = ValidUtf8(a_text);
+		std::string o = "\"";
+		o.reserve(t.size() + 2);
+		for (char ch : t) {
+			const auto c = static_cast<unsigned char>(ch);
+			switch (ch) {
+			case '"': o += "\\\""; break;
+			case '\\': o += "\\\\"; break;
+			case '\n': o += "\\n"; break;
+			case '\r': o += "\\r"; break;
+			case '\t': o += "\\t"; break;
+			default:
+				if (c < 0x20) {
+					char buf[8];
+					std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+					o += buf;
+				} else {
+					o.push_back(ch);
+				}
+			}
+		}
+		return o + "\"";
+	}
+
+	std::string Write(const Value& a_value)
+	{
+		switch (a_value.type) {
+		case Value::Type::kNull: return "null";
+		case Value::Type::kBool: return a_value.b ? "true" : "false";
+		case Value::Type::kNumber:
+			{
+				char buf[64];
+				if (a_value.n == static_cast<double>(static_cast<long long>(a_value.n)) && a_value.n < 1e15 && a_value.n > -1e15) {
+					std::snprintf(buf, sizeof(buf), "%lld", static_cast<long long>(a_value.n));
+				} else {
+					std::snprintf(buf, sizeof(buf), "%.17g", a_value.n);
+				}
+				return buf;
+			}
+		case Value::Type::kString: return Quote(a_value.s);
+		case Value::Type::kArray:
+			{
+				std::string o = "[";
+				for (std::size_t i = 0; i < a_value.a.size(); ++i) {
+					o += (i ? "," : "") + Write(a_value.a[i]);
+				}
+				return o + "]";
+			}
+		case Value::Type::kObject:
+			{
+				std::string o = "{";
+				bool        first = true;
+				for (const auto& [k, v] : a_value.o) {
+					o += (first ? "" : ",") + Quote(k) + ":" + Write(v);
+					first = false;
+				}
+				return o + "}";
+			}
+		}
+		return "null";
+	}
+
+	Value Str(std::string a_s)
+	{
+		Value v;
+		v.type = Value::Type::kString;
+		v.s = std::move(a_s);
+		return v;
+	}
+	Value Num(double a_n)
+	{
+		Value v;
+		v.type = Value::Type::kNumber;
+		v.n = a_n;
+		return v;
+	}
+	Value Bool(bool a_b)
+	{
+		Value v;
+		v.type = Value::Type::kBool;
+		v.b = a_b;
+		return v;
+	}
+	Value Obj()
+	{
+		Value v;
+		v.type = Value::Type::kObject;
+		return v;
+	}
+	Value Arr()
+	{
+		Value v;
+		v.type = Value::Type::kArray;
+		return v;
+	}
 }

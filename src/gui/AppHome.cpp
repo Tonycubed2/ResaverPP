@@ -89,6 +89,14 @@ void App::goHome()
 
 void App::shortcut(Sc a_which)
 {
+	if (a_which == Sc::kSkyrimLogs) {
+		openSkyrimLogs();
+		return;
+	}
+	if (a_which == Sc::kAskAi) {
+		_showAi = true;
+		return;
+	}
 	if (!_save && a_which != Sc::kOpenPex) {
 		return;
 	}
@@ -287,6 +295,17 @@ void App::drawHome()
 				{ Sc::kPapyrusLog, "Papyrus log", "which mod is spamming errors",
 					"Read Papyrus.0.log: errors grouped by script and mod, with how often each happens.", HomeRisk::kNone, -1 },
 			} },
+		{ "Logs and AI",
+			{
+				{ Sc::kSkyrimLogs, "Analyze Skyrim logs", "SKSE, crash, Papyrus and mod logs",
+					"Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found: plugins that "
+					"did not load, what crashed, scripts that are missing.",
+					HomeRisk::kNone, -1 },
+				{ Sc::kAskAi, "Ask the AI", "plain English: it uses ReSaver Plus for you",
+					"Chat with an AI engine (Claude, ChatGPT, Gemini, or a free one on your PC) that can use everything ReSaver Plus "
+					"does: check the save, read the logs, fix quests, clean scripts, act in the running game.",
+					HomeRisk::kCaution, -1 },
+			} },
 		{ "Look up",
 			{
 				{ Sc::kLookup, "Find a form", "by name or editor ID",
@@ -297,7 +316,7 @@ void App::drawHome()
 	};
 	// the big features get a border in a shade of the button colour
 	const std::set<Sc> major = { Sc::kTransplant, Sc::kPlayer, Sc::kActors, Sc::kMods, Sc::kLeftovers, Sc::kBatch, Sc::kMerge,
-		Sc::kFileConflicts, Sc::kCrashLog };
+		Sc::kFileConflicts, Sc::kCrashLog, Sc::kSkyrimLogs, Sc::kAskAi };
 
 	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 	ImGui::TextWrapped("Shortcuts: the same as the Clean and Tools menus. Green is safe, yellow: read what it does first, red: risky. "

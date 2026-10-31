@@ -107,6 +107,19 @@ Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
 - Analysis: plain-language findings (runaway looping scripts such as the Firefly bug, a stuck
   SkyUI MCM registration, undefined scripts, ...) with one-click purge buttons.
 - Saving keeps the previous file as `name.ess.bak` and re-reads the written save to verify it.
+- Analyze Skyrim logs (AI and logs menu, or the Logs and AI buttons): reads every log under
+  Documents\My Games\<game>\SKSE (SKSE's own log, crash logs from Crash Logger / Trainwreck /
+  .NET Script Framework, the SKSE plugins' own logs) and Logs\Script (Papyrus), and lists the
+  problems: plugins SKSE did not load and why (Address Library, wrong game version, error 126/193),
+  crashes with the DLLs in their call stacks and known crash places, script lag stack dumps, missing
+  scripts, and the error lines in each mod's log. Also `resaverpp-cli --analyze-logs`.
+- Ask the AI: a chat with an AI engine that uses ReSaver Plus for you, in plain English. Anthropic
+  (Claude), OpenAI, Google Gemini, OpenRouter, or a free engine on your own PC (Ollama, LM Studio);
+  your own API key, kept encrypted for your Windows user. The AI gets a "lesson book" (the program's
+  guide plus the command line's help text, and `ReSaverPP AI notes.txt` next to the program if you
+  write one) and tools: the whole command line, the running game through ReSaverHelper, the logs,
+  listing and reading files, writing text files (backed up first). Edits always go to a new save;
+  "Ask me before changes" (on by default) asks for your OK before each change.
 
 ## Programs
 

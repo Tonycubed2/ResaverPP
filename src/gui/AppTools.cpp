@@ -52,6 +52,7 @@ namespace
 
 App::~App()
 {
+	_ai.clear();  // stops the chat's thread before the rest of the app goes
 	if (_dbProgress) {
 		_dbProgress->cancel = true;
 	}
