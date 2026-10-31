@@ -128,6 +128,10 @@ namespace ai
 			} else if (!key.empty()) {
 				h.push_back({ "Authorization", "Bearer " + key });
 			}
+			if (a_s.baseUrl.find("openrouter.ai") != std::string::npos) {
+				h.push_back({ "HTTP-Referer", "https://www.nexusmods.com/skyrimspecialedition/mods/196293" });
+				h.push_back({ "X-Title", "ReSaver Plus" });
+			}
 			return h;
 		}
 
@@ -174,8 +178,10 @@ namespace ai
 					}
 					o += "}";
 				} else {
+					// no "parameters" for a tool without any: Gemini refuses an object type with no properties
+					const bool none = t.schema.find("\"properties\":{}") != std::string::npos;
 					o += "{\"type\":\"function\",\"function\":{\"name\":" + Quote(t.name) + ",\"description\":" + Quote(t.description) +
-					     ",\"parameters\":" + t.schema + "}}";
+					     (none ? std::string() : ",\"parameters\":" + t.schema) + "}}";
 				}
 			}
 			return o + "]";
@@ -205,12 +211,28 @@ namespace ai
 					break;
 				case Message::Role::kAssistant:
 					m += ",{\"role\":\"assistant\",\"content\":" + (msg.text.empty() && !msg.calls.empty() ? std::string("null") : Quote(msg.text));
+					if (!msg.extra.empty()) {
+						m += ",\"extra_content\":" + msg.extra;
+					}
 					if (!msg.calls.empty()) {
 						m += ",\"tool_calls\":[";
 						for (std::size_t i = 0; i < msg.calls.size(); ++i) {
 							const auto& c = msg.calls[i];
-							m += std::string(i ? "," : "") + "{\"id\":" + Quote(c.id) + ",\"type\":\"function\",\"function\":{\"name\":" +
-							     Quote(c.name) + ",\"arguments\":" + Quote(c.args.empty() ? "{}" : c.args) + "}}";
+							// the engine's own fields first (extra_content...), then the standard ones
+							Value call = ess::json::Obj();
+							if (!c.extra.empty()) {
+								try {
+									call = ess::json::Parse(c.extra);
+								} catch (...) {
+								}
+							}
+							call.o["id"] = ess::json::Str(c.id);
+							call.o["type"] = ess::json::Str("function");
+							Value fn = ess::json::Obj();
+							fn.o["name"] = ess::json::Str(c.name);
+							fn.o["arguments"] = ess::json::Str(c.args.empty() ? "{}" : c.args);
+							call.o["function"] = fn;
+							m += std::string(i ? "," : "") + ess::json::Write(call);
 						}
 						m += "]";
 					}
@@ -345,9 +367,22 @@ namespace ai
 				return false;
 			}
 			a_out.text = msg->str("content");
+			if (const auto* ec = msg->get("extra_content"); ec && ec->type == Value::Type::kObject) {
+				a_out.extra = ess::json::Write(*ec);
+			}
 			if (const auto* calls = msg->get("tool_calls"); calls && calls->type == Value::Type::kArray) {
 				for (const auto& c : calls->a) {
 					ToolCall t;
+					{
+						Value rest = c;  // everything but the standard fields, kept to send back
+						rest.o.erase("id");
+						rest.o.erase("type");
+						rest.o.erase("function");
+						rest.o.erase("index");
+						if (rest.type == Value::Type::kObject && !rest.o.empty()) {
+							t.extra = ess::json::Write(rest);
+						}
+					}
 					t.id = c.str("id");
 					if (t.id.empty()) {
 						t.id = "call_" + std::to_string(++counter);

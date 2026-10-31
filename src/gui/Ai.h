@@ -54,6 +54,8 @@ namespace ai
 	struct ToolCall
 	{
 		std::string id, name, args;  // args: JSON text
+		std::string extra;           // OpenAI kind: the call's other fields as the engine sent them (JSON object text), sent back
+		                             // as they were (Gemini's thought signature is in extra_content and must come back)
 	};
 	struct Message
 	{
@@ -66,6 +68,7 @@ namespace ai
 		} role = Role::kUser;
 		std::string           text;
 		std::vector<ToolCall> calls;     // assistant: tools it asked for
+		std::string           extra;     // assistant, OpenAI kind: the message's extra_content, sent back as it was
 		std::string           callId;    // tool: which call this answers
 		std::string           toolName;  // tool: for the chat
 		std::string           shown;     // tool: what the chat shows as the action ("resaverpp-cli Save89.ess --quests")
