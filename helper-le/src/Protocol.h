@@ -14,6 +14,8 @@
 //                                         (CompleteAllObjectives + CompleteQuest: no stage script runs; version 3)
 //   STOP <formid hex> <notify> <message>  -> OK <1 stopped, 0 not, ? still stopping>  <running 0|1>  <completed 0|1>  <current stage>
 //                                         (Quest.Stop: the game cleans up after the quest; version 11)
+//   RESET <formid hex> <notify> <message> -> OK <1 reset, 0 not, ? still busy>  <running 0|1>  <completed 0|1>  <current stage>
+//                                         (Quest.Reset: back to how it starts, as if never done; version 11)
 //   REFRESH <notify>                      -> OK  <objectives to refresh>        (runs in the background, one quest at a time;
 //                                            ERR while a menu is open; pauses while one is opened - version 4)
 //   PROGRESS                              -> OK  <done>  <total>  <running 0|1>

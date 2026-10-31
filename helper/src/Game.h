@@ -43,6 +43,11 @@ namespace Game
 	// a_done gets whether the quest is stopped afterwards. (version 11)
 	void Stop(std::uint32_t a_formID, std::function<void(bool)> a_done);
 
+	// Quest.Reset (main thread): the quest goes back to how it starts, as if never done: stages, objectives and
+	// aliases cleared, out of the journal; a quest that starts with the game starts again. The console's
+	// ResetQuest when the quest has no script object. a_done gets whether it is now not completed. (version 11)
+	void Reset(std::uint32_t a_formID, std::function<void(bool)> a_done);
+
 	// Journal refresh: for every running quest, every objective the journal shows is hidden and shown
 	// again (its completed / failed state put back), so the game rebuilds its list of shown objectives.
 	// Returns how many objectives will be refreshed; 0 if nothing to do or one is already running.

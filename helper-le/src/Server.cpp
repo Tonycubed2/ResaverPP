@@ -84,9 +84,10 @@ namespace Server
 				return { "OK", q.editorID, std::format("{:04X}", q.flags), std::to_string(q.currentStage), q.running ? "1" : "0",
 					q.completed ? "1" : "0", objs };
 			}
-			if (cmd == "SETSTAGE" || cmd == "STOP") {
+			if (cmd == "SETSTAGE" || cmd == "STOP" || cmd == "RESET") {
 				const auto formID = ParseHex(arg(0));
-				const bool stop = cmd == "STOP";
+				const bool reset = cmd == "RESET";
+				const bool stop = cmd == "STOP" || reset;  // STOP and RESET take the same arguments
 				int        stage = -1;
 				if (!stop) {
 					try {
@@ -106,9 +107,9 @@ namespace Server
 				auto       fut = result->get_future();
 				const auto notify = stop ? arg(1) : arg(2), message = stop ? arg(2) : arg(3);
 				const auto st16 = static_cast<std::uint16_t>(stage < 0 ? 0 : stage);
-				auto       reply = [formID, result, notify, message, stop](bool ok) {
-                    Game::Notify(notify, ok ? (message.empty() ? (stop ? "ReSaverHelper: quest stopped" : "ReSaverHelper: quest stage set") : message)
-										  : (stop ? "ReSaverHelper: the quest could not be stopped" : "ReSaverHelper: the game refused that stage"));
+				auto       reply = [formID, result, notify, message, stop, reset](bool ok) {
+                    Game::Notify(notify, ok ? (message.empty() ? (reset ? "ReSaverHelper: quest reset" : stop ? "ReSaverHelper: quest stopped" : "ReSaverHelper: quest stage set") : message)
+										  : (reset ? "ReSaverHelper: the quest could not be reset" : stop ? "ReSaverHelper: the quest could not be stopped" : "ReSaverHelper: the game refused that stage"));
                     Outcome o;
                     o.ok = ok;
                     o.state = Game::StateOf(formID);
@@ -118,8 +119,10 @@ namespace Server
                     }
 				};
 				const bool ran = Game::RunOnMain(
-					[formID, st16, stop, reply] {
-						if (stop) {
+					[formID, st16, stop, reset, reply] {
+						if (reset) {
+							Game::Reset(formID, reply);
+						} else if (stop) {
 							Game::Stop(formID, reply);
 						} else {
 							Game::SetStage(formID, st16, reply);

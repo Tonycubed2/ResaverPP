@@ -5,7 +5,8 @@ SKSE plugin that lets ReSaver++ (ReSaver Plus) act in the running game on **Skyr
 (`\\.\pipe\ReSaverHelper`), the same commands (`src\Protocol.h`), so ReSaver++ uses it the same way.
 
 - Quests: look at a quest, set a stage (its stage script runs), complete it, mark it completed, stop it
-  (version 11, Quest.Stop: the game cleans up after the quest), refresh the journal.
+  (version 11, Quest.Stop: the game cleans up after the quest), reset it as if never done (version 11,
+  Quest.Reset), refresh the journal.
 - Transplant: snapshot of the loaded character and applying another save's progress, like on SE.
   Differences on LE (logged when they matter):
   - no map markers in a snapshot (LE's game headers have no list of all references; a save file still gives them)

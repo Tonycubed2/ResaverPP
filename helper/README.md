@@ -15,7 +15,7 @@ refresh the quest journal (brings back quests and objectives the journal stopped
 - Followers (version 10): the snapshot lists the characters following you, the quest aliases that hold them
   (their follower mod's own system) and what they carry; Transplant brings them to you, back in those aliases,
   as your teammate, with their items (revived and enabled if needed).
-- Stop a quest (version 11): Quest.Stop, so the game cleans up after it the normal way (no rewards). Followers
+- Stop a quest, or reset it as if never done (version 11): Quest.Stop / Quest.Reset, the game's own way (no rewards). Followers
   in Transplant are put back in their aliases and given their items again (fixed in version 11).
 - Legendary Edition has its own helper (`helper-le`), with the same commands.
 - Confirms every action in game: top-left notification or a message box (`sNotify` in ReSaverHelper.ini).

@@ -267,6 +267,26 @@ namespace Game
 		}
 	}
 
+	void Reset(std::uint32_t a_formID, std::function<void(bool)> a_done)
+	{
+		auto* quest = Quest(a_formID);
+		if (!quest) {
+			a_done(false);
+			return;
+		}
+		spdlog::info("Reset {:08X} ({}): running {}, completed {}, current stage {}", a_formID, le::EditorID(quest), le::Running(quest), le::Completed(quest),
+			quest->GetCurrentStageID());
+		const bool ok = papyrus::CallMethod(quest, "Quest", "Reset", {}, [a_formID, a_done](const papyrus::Result&) {
+			const auto s = StateOf(a_formID);
+			spdlog::info("Reset {:08X}: {} (running {}, current stage {})", a_formID, s.completed ? "still completed" : "reset", s.running, s.stage);
+			a_done(!s.completed);
+		});
+		if (!ok) {
+			spdlog::warn("Reset {:08X}: the quest has no script object; type  resetquest {}  in the game's console", a_formID, le::EditorID(quest));
+			a_done(false);
+		}
+	}
+
 	std::size_t StartRefresh(const std::string& a_notify)
 	{
 		if (g_refreshing) {

@@ -134,7 +134,7 @@ namespace Server
 				const auto o = fut.get();
 				return { "OK", o.ok ? "1" : "0", o.running ? "1" : "0", o.completed ? "1" : "0", std::to_string(o.stage) };
 			}
-			if (cmd == "STOP") {
+			if (cmd == "STOP" || cmd == "RESET") {
 				const auto formID = ParseHex(arg(0));
 				if (!formID) {
 					return err("bad quest");
@@ -147,10 +147,12 @@ namespace Server
 				auto       result = std::make_shared<std::promise<Outcome>>();
 				auto       fut = result->get_future();
 				const auto notify = arg(1), message = arg(2);
+				const bool reset = cmd == "RESET";
 				const bool ran = Game::RunOnMain(
-					[formID, result, notify, message] {
-						Game::Stop(formID, [formID, result, notify, message](bool ok) {
-							Game::Notify(notify, ok ? (message.empty() ? "ReSaverHelper: quest stopped" : message) : "ReSaverHelper: the quest could not be stopped");
+					[formID, result, notify, message, reset] {
+						auto then = [formID, result, notify, message, reset](bool ok) {
+							Game::Notify(notify, ok ? (message.empty() ? (reset ? "ReSaverHelper: quest reset" : "ReSaverHelper: quest stopped") : message)
+												  : (reset ? "ReSaverHelper: the quest could not be reset" : "ReSaverHelper: the quest could not be stopped"));
 							Outcome o;
 							o.ok = ok;
 							if (auto* q = RE::TESForm::LookupByID<RE::TESQuest>(formID)) {
@@ -162,7 +164,12 @@ namespace Server
 								result->set_value(o);
 							} catch (...) {
 							}
-						});
+						};
+						if (reset) {
+							Game::Reset(formID, then);
+						} else {
+							Game::Stop(formID, then);
+						}
 					},
 					kWait);
 				if (!ran || fut.wait_for(15s) != std::future_status::ready) {

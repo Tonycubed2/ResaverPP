@@ -355,6 +355,35 @@ namespace Game
 		a_done(!Running(quest));
 	}
 
+	void Reset(std::uint32_t a_formID, std::function<void(bool)> a_done)
+	{
+		auto* quest = RE::TESForm::LookupByID<RE::TESQuest>(a_formID);
+		if (!quest) {
+			a_done(false);
+			return;
+		}
+		spdlog::info("Reset {:08X} ({}): running {}, completed {}, current stage {}", a_formID, quest->GetFormEditorID(), Running(quest), quest->IsCompleted(),
+			quest->GetCurrentStageID());
+		auto*      vm = VM::GetSingleton();
+		const auto handle = HandleOf(quest);
+		auto       cb = MakeCallback([a_formID, a_done](const RE::BSScript::Variable&) {
+            auto*      q = RE::TESForm::LookupByID<RE::TESQuest>(a_formID);
+            const bool reset = q && !q->IsCompleted();
+            spdlog::info("Reset {:08X}: {} (running {}, current stage {})", a_formID, reset ? "reset" : "still completed", q && Running(q), q ? q->GetCurrentStageID() : 0);
+            a_done(reset);
+        });
+		if (vm && handle && vm->DispatchMethodCall(handle, "Quest", "Reset", RE::MakeFunctionArguments(), cb)) {
+			return;
+		}
+		const std::string edid = quest->GetFormEditorID() ? quest->GetFormEditorID() : "";
+		if (edid.empty()) {
+			a_done(false);
+			return;
+		}
+		Console("resetquest " + edid);
+		a_done(!quest->IsCompleted());
+	}
+
 	std::size_t StartRefresh(const std::string& a_notify)
 	{
 		if (g_refreshing) {

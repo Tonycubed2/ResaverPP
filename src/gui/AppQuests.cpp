@@ -219,6 +219,23 @@ void App::liveStop(std::uint32_t a_formID, const std::string& a_name)
 	});
 }
 
+void App::liveReset(std::uint32_t a_formID, const std::string& a_name)
+{
+	const std::string what = "reset \"" + a_name + "\"";
+	_status = "Asking the game: " + what + "...";
+	_live.request({ "RESET", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver++: " + what }, [this, a_formID, what](const LiveLink::Reply& r) {
+		if (!LiveLink::Ok(r)) {
+			_status = "The game could not do it: " + LiveLink::Error(r);
+			return;
+		}
+		const auto f = LiveLink::Field(r, 0);
+		_status = f == "1" ? "Done in game: " + what + ". Save in the game to keep it." :
+		          f == "?" ? "The game is busy; it resets the quest as soon as it can: " + what + "." :
+		                     "The game did not reset it: " + what + " (a quest with no script at all: use \"Copy reset command\" and the console).";
+		liveQuest(a_formID);
+	});
+}
+
 std::vector<App::ChainItem>& App::questChain(std::uint32_t a_formID)
 {
 	if (auto it = _chains.find(a_formID); it != _chains.end()) {
@@ -323,7 +340,7 @@ void App::drawLiveStatus()
 	const auto info = _live.info();
 	if (!info.connected) {
 		ImGui::TextDisabled("Live game: not connected");
-		tips::Tip("Start Skyrim with ReSaverHelper.dll installed to complete or stop quests, set stages and refresh the journal from here "
+		tips::Tip("Start Skyrim with ReSaverHelper.dll installed to complete, stop or reset quests, set stages and refresh the journal from here "
 				  "(Legendary Edition has its own ReSaverHelper).");
 		return;
 	}
@@ -778,7 +795,27 @@ void App::drawQuestDetail()
 	} else if (live) {
 		tips::Tip("Stop the quest in the running game, the way the game itself stops a quest: no rewards, its objectives leave the journal.");
 	}
-	// second row: any stage, and the console commands
+	// second row: reset, any stage; third row: the console commands
+	ImGui::BeginDisabled(!live || !helperAtLeast(11));
+	if (ImGui::Button("Reset quest in game")) {
+		confirm("Reset quest",
+			Fmt("Reset \"%s\" in the running game, as if it was never done?\n\nThe game's own reset (Quest.Reset): its stages, objectives "
+				"and the people and items it held are cleared, and it leaves the journal. A quest that normally starts with the game starts "
+				"again from its beginning; others can be started again the normal way (talking to the quest giver, reading the note...).\n\n"
+				"Not undone: rewards and items you already got, and anything other quests or mods did because of it. Values the quest's own "
+				"scripts keep are not cleared either, so a few mods' quests may still remember parts. Make a save in the game first.",
+				name.c_str()),
+			[this, fid = q->formID, name] { liveReset(fid, name); });
+	}
+	ImGui::EndDisabled();
+	if (!live) {
+		LiveHint(info);
+	} else if (!helperAtLeast(11) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+		ImGui::SetTooltip("Needs ReSaverHelper version 11 (you have version %s).", info.helperVersion.c_str());
+	} else if (live) {
+		tips::Tip("Reset the quest in the running game so it acts as if it was never done: stages and objectives cleared, out of the journal.");
+	}
+	ImGui::SameLine();
 	// set any stage
 	std::vector<std::uint16_t> stageList;
 	if (def) {
@@ -814,7 +851,7 @@ void App::drawQuestDetail()
 		tips::Tip("Set the quest to the stage picked on the left in the running game. That stage's script runs. Skipping stages can "
 				  "leave things unfinished; make a save in the game first.");
 	}
-	ImGui::SameLine();
+	// third row
 	ImGui::BeginDisabled(!def || def->edid.empty() || (completion.empty() && stageList.empty()));
 	if (ImGui::Button("Copy console command") && def) {
 		const auto st = completion.empty() ? stageList[_setStageIdx] : completion.front();
@@ -831,6 +868,14 @@ void App::drawQuestDetail()
 	}
 	ImGui::EndDisabled();
 	tips::Tip("Copies the console command that stops the quest (no helper needed): open the console in the game and paste it with Ctrl+V.");
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!def || def->edid.empty());
+	if (ImGui::Button("Copy reset command") && def) {
+		ImGui::SetClipboardText(Fmt("resetquest %s", def->edid.c_str()).c_str());
+		_status = Fmt("Copied: resetquest %s  (paste it into the game's console with Ctrl+V)", def->edid.c_str());
+	}
+	ImGui::EndDisabled();
+	tips::Tip("Copies the console command that resets the quest as if never done (no helper needed): paste it into the game's console.");
 	ImGui::TextDisabled("The game confirms with:");
 	ImGui::SameLine();
 	drawQuestNotifyChoice();
