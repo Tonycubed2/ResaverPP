@@ -391,7 +391,12 @@ void App::drawGallery()
 				ImGui::TextUnformatted(platform::ToUtf8(e.path.filename()).c_str());
 				ImGui::TextDisabled(" ");
 			}
-			ImGui::TextDisabled("%s  (%s)", WhenG(e.time).c_str(), AgoG(e.time).c_str());
+			if (e.ok) {
+				ImGui::Text("Save %u, %s", e.number, AgoG(e.time).c_str());
+				ImGui::TextDisabled("%s", WhenG(e.time).c_str());
+			} else {
+				ImGui::TextDisabled("%s  (%s)", WhenG(e.time).c_str(), AgoG(e.time).c_str());
+			}
 			ImGui::PopTextWrapPos();
 			ImGui::EndGroup();
 			ImGui::PopID();
