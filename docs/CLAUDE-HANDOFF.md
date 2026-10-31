@@ -23,8 +23,8 @@ project; you do the coding, building, delivering and publishing.
   Released as the optional file "ReSaverHelper LE" (File ID 8276523) on the LE page with the workflow
   `nexus-helper-le.yml` (uploads the zip in `helper-le/release/`, Tony's own build; file_id defaults to 8276523).
   SE helper: optional file 8222850 on the SE page, updated with `nexus-update-file.yml`. Helper 11 published with v41.
-- Versions are whole numbers, +1 per release. **Current published version: v45** (both pages).
-  `project(ReSaverPP VERSION 45` in CMakeLists.txt.
+- Versions are whole numbers, +1 per release. **Current published version: v46** (both pages).
+  `project(ReSaverPP VERSION 46` in CMakeLists.txt.
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are
@@ -173,6 +173,13 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
   compile log (requested by tyg3rtyg3r); v39 LE plugins.txt without `*` marks (tiodrakul's report).
 
 ## 10. Open items
+
+- Released in v46 (2026-10-31): File > Open is a save gallery (`gui/AppGallery.cpp`: pictures newest first or a sortable
+  list, `gallery_list=` in the ini; headers read with `ess::ReadSaveHeader` on a thread); status bar in three parts that never
+  overlap; freeze detector (`gui/Watchdog.h`, sections marked in `App::draw`, written to ReSaverPP-startup.log); the path
+  idle job waits for the mods scan and names (`_pathJobPending`), below-normal priority. SkyrimIstari (Richard) runs it
+  under Proton/Wine; his save opens fine here under Wine without mods, his freeze happens with his 46-mod scan: waiting on
+  his ReSaverPP-startup.log. Test hooks: RESAVERPP_TEST_GALLERY=pics|list, RESAVERPP_TEST_HANG=<s>.
 
 - Released in v45 (2026-10-31): the path idle check runs on its own detached thread (`App::PathJob` in AppCharges.cpp) over
   a copy of the ACHR change forms + form id table (Decode only needs `formIDOf`); v44's per-frame slices still froze
