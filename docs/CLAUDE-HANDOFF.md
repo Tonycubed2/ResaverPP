@@ -170,6 +170,11 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
+- Unreleased (after v41): Save check finding + `--path-idles` / `--fix-path-idles` for actors saved with a path follower
+  in state 14 (MovementAgentPathFollowerStandard waiting for a start/stop/turn idle; the save keeps the state, not the
+  idle, so the load crashes at SkyrimSE+0CEC680 on 1.6.1170). Fix: state 14 -> 1 in place, as the PathIdleCrashFix
+  plugin does in game (`cf::FindStuckPathIdles`, `cf::FixStuckPathIdles`).
+
 - Released in v41 (2026-10-30). Helper version 11 (both helpers): STOP and RESET commands (Quest.Stop). App: "Stop quest in game" (needs helper 11) and
   "Copy stop command" (no helper) on the quest page. Added October 30 2026 (after v40), for an LE user's question.
 - Ideas not started: an options page for choosing what the merged patch merges (partly exists as categories).

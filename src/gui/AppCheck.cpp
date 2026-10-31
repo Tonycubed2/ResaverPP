@@ -337,6 +337,46 @@ std::vector<App::CheckItem> App::checkItems()
 		}
 	}
 
+	// actors saved while waiting to play a start / stop / turn idle the save does not keep: the load crashes
+	{
+		const auto& stuck = stuckPathIdles();
+		if (!stuck.empty()) {
+			CheckItem it;
+			it.level = Risk::kRisky;
+			it.title = Fmt("%zu character(s) will crash the game when this save loads", stuck.size());
+			it.what = "They were saved just as they were about to play a short start, stop or turn animation while walking or "
+					  "fighting. The game keeps that waiting state in the save but not the animation, so right after the load it "
+					  "tries to play the missing animation and crashes (Crash Logger: SkyrimSE.exe+0CEC680 on 1.6.1170, "
+					  "MovementMessagePlayIdle, PathFollowerStatePlayIdle).\nCharacters:";
+			for (std::size_t i = 0; i < stuck.size() && i < 8; ++i) {
+				it.what += Fmt(" %08X", stuck[i].formID);
+				if (_db) {
+					if (const auto n = _db->describe(stuck[i].formID); !n.empty()) {
+						it.what += " (" + n + ")";
+					}
+				}
+			}
+			if (stuck.size() > 8) {
+				it.what += Fmt(" and %zu more", stuck.size() - 8);
+			}
+			CheckOption o;
+			o.label = "Let them follow their path again";
+			o.risk = Risk::kSafe;
+			o.why = "Sets their path back to \"follow the path\", the way the game itself does when a character gets a new path "
+					"(the PathIdleCrashFix plugin does the same in game). They skip that one short animation; nothing else changes.";
+			o.act = [this] {
+				std::vector<std::uint32_t> only;
+				for (const auto& s : stuckPathIdles()) {
+					only.push_back(s.refID);
+				}
+				const auto n = cf::FixStuckPathIdles(*_save, only);
+				markEdited(Fmt("Fixed the path of %zu character(s) that would crash the load", n));
+			};
+			it.options.push_back(std::move(o));
+			v.push_back(std::move(it));
+		}
+	}
+
 	// enchanted items that can never be recharged
 	{
 		std::size_t broken = 0;

@@ -42,6 +42,15 @@ const std::vector<cf::ChargedItem>& App::chargedItems()
 	return _charged;
 }
 
+const std::vector<cf::StuckPathIdle>& App::stuckPathIdles()
+{
+	if (_stuckPathGen != _editGen) {
+		_stuckPath = _save ? cf::FindStuckPathIdles(*_save) : std::vector<cf::StuckPathIdle>{};
+		_stuckPathGen = _editGen;
+	}
+	return _stuckPath;
+}
+
 void App::drawModCharged(const std::string& a_plugin)
 {
 	if (!_save) {

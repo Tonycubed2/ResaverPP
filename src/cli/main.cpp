@@ -124,6 +124,9 @@ static void Usage()
 		"  --journal                 list the quests the player's journal shows (in progress and completed), as\n"
 		"                            the save lists them. Uses --sources to name them.\n"
 		"  --allow-damaged           edit and write a save even though it has structural problems (risky)\n"
+		"  --path-idles              list characters saved waiting for a start/stop/turn idle the save does not keep\n"
+		"                            (the load crashes: SkyrimSE.exe+0CEC680 on 1.6.1170, MovementMessagePlayIdle)\n"
+		"  --fix-path-idles          set their path back to \"follow the path\", as the game does. Needs -o.\n"
 		"  --charged                 list enchanted / charged items in inventories (max charge, charge)\n"
 		"  --fix-charges <max>       give enchanted items with max charge 0 this max charge (so they can be\n"
 		"                            recharged), and lower charges above the max\n"
@@ -341,6 +344,7 @@ int main(int argc, char** argv)
 	bool                     names = false, havok = false, purify = false, batchAll = false, repMods = false, repAnom = false;
 	std::string              batchFile, compareWith, reportFile, transplantFrom;
 	bool                     dryRun = false, spawned = false, spawnedGone = false, charged = false, allowDamaged = false;
+	bool                     pathIdles = false, fixPathIdles = false;
 	int                      fixCharges = 0;
 	bool                     questsView = false;
 	bool journalOnly = false;
@@ -444,6 +448,10 @@ int main(int argc, char** argv)
 			}
 		} else if (a == "--allow-damaged") {
 			allowDamaged = true;
+		} else if (a == "--path-idles") {
+			pathIdles = true;
+		} else if (a == "--fix-path-idles") {
+			fixPathIdles = true;
 		} else if (a == "--charged") {
 			charged = true;
 		} else if (a == "--fix-charges") {
@@ -536,7 +544,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -658,6 +666,13 @@ int main(int argc, char** argv)
 			}
 			std::printf("scanned %zu enabled + %zu disabled mod folders%s, %zu scripts, %zu BSAs, %zu errors\n", src.modsScanned, src.disabledScanned,
 				src.gameDataScanned ? " + game Data" : "", src.pexFound, src.bsasRead, src.errors.size());
+		}
+		if (pathIdles) {
+			const auto stuck = cf::FindStuckPathIdles(*save);
+			std::printf("%zu character(s) saved waiting for an idle the save does not keep (this save crashes on load)\n", stuck.size());
+			for (const auto& s : stuck) {
+				std::printf("  %08X  %zu path follower(s) in state 14\n", s.formID, s.count);
+			}
 		}
 		if (charged) {
 			const auto items = cf::FindChargedItems(*save);
@@ -1371,6 +1386,9 @@ int main(int argc, char** argv)
 		}
 		if (nonexist) {
 			std::printf("removed instances on non-existent created forms: %zu\n", ops::RemoveNonexistentCreated(*save));
+		}
+		if (fixPathIdles) {
+			std::printf("fixed the path of %zu character(s) (state 14 -> 1)\n", cf::FixStuckPathIdles(*save));
 		}
 		if (fixCharges > 0) {
 			std::printf("fixed charges of %zu item(s)\n", cf::FixCharges(*save, static_cast<std::uint16_t>(std::min(fixCharges, 65535)), {}));

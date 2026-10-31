@@ -2350,7 +2350,13 @@ namespace ess::cf
 				p.f32("UNKB4");
 				p.i32("UNKB8");
 			} else if (a_name == "MovementAgentPathFollowerStandard") {
-				p.i32("STATE");
+				{
+					const auto at = p.r.pos();
+					const auto state = p.i32("STATE");
+					if (p.nested == 0) {
+						p.out().pathFollowerStates.push_back({ at, state });
+					}
+				}
 				PathingObject(p, "REQUEST");
 				PathObject(p, "PATH");
 				p.floats("VALUES", 7);
@@ -3985,6 +3991,66 @@ namespace ess::cf
 			if (any) {
 				SetBody(c, body);
 			}
+		}
+		return fixed;
+	}
+
+	std::vector<StuckPathIdle> FindStuckPathIdles(const SaveFile& a_save)
+	{
+		std::vector<StuckPathIdle> out;
+		for (const auto& c : a_save.changeForms) {
+			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::ACHR) {
+				continue;
+			}
+			const auto  d = Decode(a_save, c);
+			std::size_t n = 0;
+			for (const auto& ps : d.pathFollowerStates) {
+				n += ps.state == kPathStateWaitIdle ? 1 : 0;
+			}
+			if (n) {
+				out.push_back({ c.refID.data, c.refID.isZero() ? 0 : a_save.formIDOf(c.refID), n });
+			}
+		}
+		return out;
+	}
+
+	std::size_t FixStuckPathIdles(SaveFile& a_save, const std::vector<std::uint32_t>& a_only)
+	{
+		std::size_t fixed = 0;
+		for (auto& c : a_save.changeForms) {
+			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::ACHR) {
+				continue;
+			}
+			if (!a_only.empty() && std::find(a_only.begin(), a_only.end(), c.refID.data) == a_only.end()) {
+				continue;
+			}
+			const auto d = Decode(a_save, c);
+			auto       body = Body(c);
+			bool       any = false;
+			for (const auto& ps : d.pathFollowerStates) {
+				if (ps.state != kPathStateWaitIdle || ps.at + 4 > body.size()) {
+					continue;
+				}
+				for (int i = 0; i < 4; ++i) {
+					body[ps.at + i] = static_cast<std::uint8_t>(static_cast<std::uint32_t>(kPathStateFollowPath) >> (8 * i));
+				}
+				any = true;
+			}
+			if (!any) {
+				continue;
+			}
+			const auto before = c;
+			SetBody(c, body);
+			const auto after = Decode(a_save, c);
+			bool       ok = after.complete == d.complete;
+			for (const auto& ps : after.pathFollowerStates) {
+				ok = ok && ps.state != kPathStateWaitIdle;
+			}
+			if (!ok) {
+				c = before;
+				continue;
+			}
+			++fixed;
 		}
 		return fixed;
 	}

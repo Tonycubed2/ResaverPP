@@ -107,6 +107,14 @@ namespace ess::cf
 		std::size_t              playerXPAt = 0;          // XP, XP for next level (f32 each)
 		std::size_t              playerPerkPointsAt = 0;  // u8
 
+		// an actor's path followers (MovementAgentPathFollowerStandard): offset of each one's state (i32) and the state
+		struct PathStateAt
+		{
+			std::size_t  at = 0;
+			std::int32_t state = 0;
+		};
+		std::vector<PathStateAt> pathFollowerStates;
+
 		bool                                hasActorData = false;
 		std::int32_t                        processLevel = -1;
 		std::size_t                         levelAt = 0;
@@ -128,6 +136,23 @@ namespace ess::cf
 	// all) and item form IDs (empty: all). Returns how many items were fixed.
 	std::size_t FixCharges(SaveFile& a_save, std::uint16_t a_maxCharge, const std::vector<std::pair<std::uint32_t, std::uint32_t>>& a_only);
 	bool        NeedsChargeFix(const InvCharge& a_item);  // has an enchantment with max charge 0, or charge > max
+
+	// Actors saved while their path follower waited to play a start / stop / turn idle (state 14). The game saves that
+	// state but not the idle, so loading such a save crashes (SkyrimSE.exe+0CEC680 on 1.6.1170, MovementMessagePlayIdle
+	// reading null + 0xE8). The fix is the game's own reset when an actor gets a new path, as PathIdleCrashFix does it
+	// in game: the state goes back to 1 (follow the path); the idle and the state object are not in the save anyway.
+	inline constexpr std::int32_t kPathStateWaitIdle = 14;
+	inline constexpr std::int32_t kPathStateFollowPath = 1;
+	struct StuckPathIdle
+	{
+		std::uint32_t refID = 0;   // the actor's change form RefID (raw)
+		std::uint32_t formID = 0;  // its runtime form ID
+		std::size_t   count = 0;   // path followers stuck in this actor
+	};
+	std::vector<StuckPathIdle> FindStuckPathIdles(const SaveFile& a_save);
+	// sets each stuck path follower's state to 1 (in place, 4 bytes); a_only: actor RefIDs (raw) to touch (empty: all).
+	// Every changed actor is read back; one that does not read back is put back as it was. Returns the actors fixed.
+	std::size_t FixStuckPathIdles(SaveFile& a_save, const std::vector<std::uint32_t>& a_only = {});
 
 	// Optional: record type of a form ("EXPL", ...), from the plugin database. Needed only to
 	// decode the explosion data of spawned explosion references.

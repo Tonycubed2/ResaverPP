@@ -501,6 +501,10 @@ private:
 	const std::vector<ess::cf::ChargedItem>& chargedItems();
 	std::vector<ess::cf::ChargedItem>  _charged;
 	std::uint64_t                      _chargedGen = UINT64_MAX, _editGen = 0;
+	// actors saved with a path follower waiting for an idle it no longer has (they crash the load)
+	const std::vector<ess::cf::StuckPathIdle>& stuckPathIdles();
+	std::vector<ess::cf::StuckPathIdle>        _stuckPath;
+	std::uint64_t                              _stuckPathGen = UINT64_MAX;
 	int                                _chargeFixValue = 3000;
 	bool                               _readOnly = false;  // the open save has structural problems: it is never written
 
