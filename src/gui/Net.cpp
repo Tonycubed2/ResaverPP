@@ -178,11 +178,12 @@ namespace net
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
 		});
-		std::wstring hdr;
+		// each header added on its own (one bad value cannot swallow the next one)
 		for (const auto& [k, v] : a_headers) {
-			hdr += Wide(k) + L": " + Wide(v) + L"\r\n";
+			const std::wstring line = Wide(k) + L": " + Wide(v);
+			WinHttpAddRequestHeaders(req, line.c_str(), static_cast<DWORD>(line.size()), WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE);
 		}
-		bool ok = WinHttpSendRequest(req, hdr.empty() ? WINHTTP_NO_ADDITIONAL_HEADERS : hdr.c_str(), static_cast<DWORD>(-1L),
+		bool ok = WinHttpSendRequest(req, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
 					  a_body.empty() ? WINHTTP_NO_REQUEST_DATA : const_cast<char*>(a_body.data()), static_cast<DWORD>(a_body.size()),
 					  static_cast<DWORD>(a_body.size()), 0) &&
 		          WinHttpReceiveResponse(req, nullptr);

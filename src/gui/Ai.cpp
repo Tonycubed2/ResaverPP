@@ -58,12 +58,19 @@ namespace ai
 
 		net::Headers HeadersFor(const Settings& a_s)
 		{
+			// the key as pasted can carry spaces, line breaks or invisible characters from a web page: printable ASCII only
+			std::string key;
+			for (char c : a_s.apiKey) {
+				if (c > ' ' && c < 127) {
+					key += c;
+				}
+			}
 			net::Headers h = { { "Content-Type", "application/json" } };
 			if (a_s.api == Api::kAnthropic) {
-				h.push_back({ "x-api-key", a_s.apiKey });
 				h.push_back({ "anthropic-version", "2023-06-01" });
-			} else if (!a_s.apiKey.empty()) {
-				h.push_back({ "Authorization", "Bearer " + a_s.apiKey });
+				h.push_back({ "x-api-key", key });
+			} else if (!key.empty()) {
+				h.push_back({ "Authorization", "Bearer " + key });
 			}
 			return h;
 		}
