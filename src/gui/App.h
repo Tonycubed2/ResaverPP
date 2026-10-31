@@ -520,6 +520,7 @@ private:
 	std::size_t                                _stuckPathNext = 0;      // next change form to look at
 	bool                                       _stuckPathDone = false;
 	double                                     _stuckPathMs = 0;
+	std::size_t                                _stuckPathActors = 0, _stuckPathSpawned = 0;  // actors read / of them made during play (FF)
 	void pollPathIdles();  // scans a few actors each frame (decoding every actor at once froze big saves for a minute)
 	int                                _chargeFixValue = 3000;
 	bool                               _readOnly = false;  // the open save has structural problems: it is never written

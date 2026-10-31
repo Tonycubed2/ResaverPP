@@ -377,6 +377,37 @@ std::vector<App::CheckItem> App::checkItems()
 		}
 	}
 
+	// a save whose characters take long to read: tell the user instead of only being slow
+	if (_stuckPathDone && _stuckPathMs > (std::getenv("RESAVERPP_TEST_HEAVY") ? 0.0 : 10000.0)) {  // test hook: any time counts
+		CheckItem it;
+		it.level = Risk::kCaution;
+		it.title = Fmt("This save is very heavy: reading its %zu characters took %.0f seconds", _stuckPathActors, _stuckPathMs / 1000);
+		it.what = Fmt("%zu of them were made while playing (spawned or leveled actors, form IDs starting with FF). ", _stuckPathSpawned);
+		it.what += "A save this heavy loads slowly in the game too, and can crash or stutter. The usual causes are a mod that keeps "
+		           "spawning NPCs or creatures that are never cleaned up, or a very long playthrough in many places.\n"
+		           "Find NPCs lists every character with where it is: look for many copies of the same one. Save history shows "
+		           "whether the count keeps growing from save to save. Ask the AI can look into it for you.";
+		CheckOption o;
+		o.label = "Find NPCs";
+		o.risk = Risk::kSafe;
+		o.why = "Only shows information.";
+		o.act = [this] {
+			_showActors = true;
+			_showCheck = false;
+		};
+		it.options.push_back(std::move(o));
+		CheckOption h;
+		h.label = "Save history";
+		h.risk = Risk::kSafe;
+		h.why = "Only shows information.";
+		h.act = [this] {
+			shortcut(Sc::kHistory);
+			_showCheck = false;
+		};
+		it.options.push_back(std::move(h));
+		v.push_back(std::move(it));
+	}
+
 	// enchanted items that can never be recharged
 	{
 		std::size_t broken = 0;

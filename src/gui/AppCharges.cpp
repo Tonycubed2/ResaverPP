@@ -59,6 +59,7 @@ void App::pollPathIdles()
 		_stuckPathNext = 0;
 		_stuckPathDone = false;
 		_stuckPathMs = 0;
+		_stuckPathActors = _stuckPathSpawned = 0;
 	}
 	if (!_save || _stuckPathDone) {
 		return;
@@ -67,6 +68,12 @@ void App::pollPathIdles()
 	const auto& forms = _save->changeForms;
 	while (_stuckPathNext < forms.size()) {
 		const auto& c = forms[_stuckPathNext++];
+		if (static_cast<ess::ChangeFormType>(c.typeCode()) == ess::ChangeFormType::ACHR) {
+			++_stuckPathActors;
+			if (!c.refID.isZero() && (_save->formIDOf(c.refID) >> 24) == 0xFF) {
+				++_stuckPathSpawned;
+			}
+		}
 		const auto  f0 = std::chrono::steady_clock::now();
 		try {
 			if (const auto n = cf::CountStuckPathIdles(*_save, c)) {
