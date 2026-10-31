@@ -515,13 +515,16 @@ private:
 	std::uint64_t                      _chargedGen = UINT64_MAX, _editGen = 0;
 	// actors saved with a path follower waiting for an idle it no longer has (they crash the load)
 	const std::vector<ess::cf::StuckPathIdle>& stuckPathIdles();
-	std::vector<ess::cf::StuckPathIdle>        _stuckPath, _stuckPathScan;  // the finished result / the scan under way
+	std::vector<ess::cf::StuckPathIdle>        _stuckPath;  // the finished result
 	std::uint64_t                              _stuckPathGen = UINT64_MAX;
-	std::size_t                                _stuckPathNext = 0;      // next change form to look at
+	std::size_t                                _stuckPathNext = 0, _stuckPathTotal = 0;  // progress: actors read / to read
+	struct PathJob;
+	std::shared_ptr<PathJob>                   _pathJob;  // the check's own thread (AppCharges.cpp)
 	bool                                       _stuckPathDone = false;
 	double                                     _stuckPathMs = 0;
 	std::size_t                                _stuckPathActors = 0, _stuckPathSpawned = 0;  // actors read / of them made during play (FF)
-	void pollPathIdles();  // scans a few actors each frame (decoding every actor at once froze big saves for a minute)
+	void stopPathJob();
+	void pollPathIdles();  // runs the path idle check on its own thread (decoding every actor froze big saves for a minute)
 	int                                _chargeFixValue = 3000;
 	bool                               _readOnly = false;  // the open save has structural problems: it is never written
 

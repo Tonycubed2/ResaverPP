@@ -521,9 +521,8 @@ void App::drawSaveCheck()
 		drawBackgroundProgress(0);
 	}
 	ImGui::Separator();
-	if (_save && !_stuckPathDone && !_save->changeForms.empty()) {
-		ImGui::TextDisabled("Still checking the characters for the crash-on-load problem: %zu%%",
-			_stuckPathNext * 100 / _save->changeForms.size());
+	if (_save && !_stuckPathDone && _stuckPathTotal) {
+		ImGui::TextDisabled("Still checking the characters for the crash-on-load problem: %zu of %zu", _stuckPathNext, _stuckPathTotal);
 	}
 
 	const auto items = checkItems();

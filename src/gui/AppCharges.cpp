@@ -5,7 +5,9 @@
 // can never be recharged with soul gems; it can be fixed here.
 #include "App.h"
 
+#include <atomic>
 #include <chrono>
+#include <thread>
 
 #include "Theme.h"
 #include "Tips.h"
@@ -44,7 +46,28 @@ const std::vector<cf::ChargedItem>& App::chargedItems()
 	return _charged;
 }
 
-// The finished result only (empty while the scan runs): pollPathIdles fills it a few actors per frame.
+// The path idle check reads every actor in the save (a full decode each), which takes a minute on some saves.
+// It runs on its own thread over a copy of what it needs (the actors' change forms and the form id table), so
+// the window never waits for it and edits made meanwhile cannot clash with it. stuckPathIdles() is the finished
+// result only (empty while the check runs).
+struct App::PathJob
+{
+	ess::SaveFile                       copy;  // header, form ids and the ACHR change forms only
+	std::atomic<std::size_t>            done{ 0 }, total{ 0 };
+	std::atomic<bool>                   cancel{ false }, finished{ false };
+	std::vector<cf::StuckPathIdle>      found;
+	std::size_t                         actors = 0, spawned = 0;
+	double                              ms = 0;
+	std::vector<std::string>            log;
+};
+
+void App::stopPathJob()
+{
+	if (_pathJob) {
+		_pathJob->cancel = true;
+	}
+}
+
 const std::vector<cf::StuckPathIdle>& App::stuckPathIdles()
 {
 	return _stuckPath;
@@ -55,47 +78,78 @@ void App::pollPathIdles()
 	if (_stuckPathGen != _editGen) {  // another save, or an edit: start again
 		_stuckPathGen = _editGen;
 		_stuckPath.clear();
-		_stuckPathScan.clear();
 		_stuckPathNext = 0;
+		_stuckPathTotal = 0;
 		_stuckPathDone = false;
 		_stuckPathMs = 0;
 		_stuckPathActors = _stuckPathSpawned = 0;
-	}
-	if (!_save || _stuckPathDone) {
+		if (_pathJob) {
+			_pathJob->cancel = true;  // the old thread finishes on its own; it owns its data
+			_pathJob.reset();
+		}
+		if (!_save) {
+			return;
+		}
+		auto job = std::make_shared<PathJob>();
+		job->copy.header = _save->header;
+		job->copy.formVersion = _save->formVersion;
+		job->copy.formIDs = _save->formIDs;
+		for (const auto& c : _save->changeForms) {
+			if (static_cast<ess::ChangeFormType>(c.typeCode()) == ess::ChangeFormType::ACHR) {
+				job->copy.changeForms.push_back(c);
+			}
+		}
+		job->total = job->copy.changeForms.size();
+		std::thread([job] {
+			const auto t0 = std::chrono::steady_clock::now();
+			for (const auto& c : job->copy.changeForms) {
+				if (job->cancel) {
+					return;
+				}
+				++job->actors;
+				const auto id = c.refID.isZero() ? 0u : job->copy.formIDOf(c.refID);
+				if ((id >> 24) == 0xFF) {
+					++job->spawned;
+				}
+				const auto f0 = std::chrono::steady_clock::now();
+				try {
+					if (const auto n = cf::CountStuckPathIdles(job->copy, c)) {
+						job->found.push_back({ c.refID.data, id, n });
+					}
+				} catch (...) {
+				}
+				if (const auto ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - f0).count(); ms > 200) {
+					char b[128];
+					std::snprintf(b, sizeof(b), "Path idle check: actor %08X took %.0f ms to read", id, ms);
+					job->log.push_back(b);
+				}
+				++job->done;
+			}
+			job->ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+			job->finished = true;
+		}).detach();
+		_pathJob = std::move(job);
 		return;
 	}
-	const auto  t0 = std::chrono::steady_clock::now();
-	const auto& forms = _save->changeForms;
-	while (_stuckPathNext < forms.size()) {
-		const auto& c = forms[_stuckPathNext++];
-		if (static_cast<ess::ChangeFormType>(c.typeCode()) == ess::ChangeFormType::ACHR) {
-			++_stuckPathActors;
-			if (!c.refID.isZero() && (_save->formIDOf(c.refID) >> 24) == 0xFF) {
-				++_stuckPathSpawned;
-			}
-		}
-		const auto  f0 = std::chrono::steady_clock::now();
-		try {
-			if (const auto n = cf::CountStuckPathIdles(*_save, c)) {
-				_stuckPathScan.push_back({ c.refID.data, c.refID.isZero() ? 0 : _save->formIDOf(c.refID), n });
-			}
-		} catch (...) {
-		}
-		if (const auto ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - f0).count(); ms > 200) {
-			_log.push_back(Fmt("Path idle check: change form %08X took %.0f ms to read", c.refID.isZero() ? 0 : _save->formIDOf(c.refID), ms));
-		}
-		if ((_stuckPathNext & 15) == 0 && std::chrono::steady_clock::now() - t0 > std::chrono::milliseconds(25)) {
-			break;  // the rest next frame: the window stays responsive
-		}
+	if (!_pathJob || _stuckPathDone) {
+		return;
 	}
-	_stuckPathMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-	if (_stuckPathNext >= forms.size()) {
-		_stuckPathDone = true;
-		_stuckPath = std::move(_stuckPathScan);
-		_stuckPathScan.clear();
-		_log.push_back(Fmt("Path idle check: %zu change forms read in %.0f ms, %zu character(s) waiting for an idle", forms.size(),
-			_stuckPathMs, _stuckPath.size()));
+	_stuckPathNext = _pathJob->done;
+	_stuckPathTotal = _pathJob->total;
+	if (!_pathJob->finished) {
+		return;
 	}
+	_stuckPathDone = true;
+	_stuckPath = std::move(_pathJob->found);
+	_stuckPathMs = _pathJob->ms;
+	_stuckPathActors = _pathJob->actors;
+	_stuckPathSpawned = _pathJob->spawned;
+	for (auto& l : _pathJob->log) {
+		_log.push_back(std::move(l));
+	}
+	_log.push_back(Fmt("Path idle check: %zu actors read in %.0f ms, %zu waiting for an idle", _stuckPathActors, _stuckPathMs,
+		_stuckPath.size()));
+	_pathJob.reset();
 }
 
 void App::drawModCharged(const std::string& a_plugin)
