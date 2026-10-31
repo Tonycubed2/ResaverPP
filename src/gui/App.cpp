@@ -2521,49 +2521,83 @@ void App::drawModals()
 
 void App::drawStatus()
 {
+	// one line in three parts that never overlap: the status on the left, the open save in the middle, the
+	// background work (or the live game) on the right. Long texts are shortened with "..." (whole text in a
+	// tooltip) instead of running into each other.
 	ImGui::Separator();
+	const float pad = ImGui::GetStyle().WindowPadding.x;
+	const float gap = 24.0f;
+	const float winW = ImGui::GetWindowWidth();
+	const bool  progress = (scanning() && _scanProgress) || (namesLoading() && _dbProgress);
+	const float rightW = progress ? std::min(560.0f, winW * 0.40f) : (_watch ? 160.0f : 0.0f) + 330.0f;
+	const float rightX = winW - rightW - pad;
+	auto fitEnd = [](std::string t, float a_w) {  // cut at the end
+		if (ImGui::CalcTextSize(t.c_str()).x <= a_w) {
+			return t;
+		}
+		while (t.size() > 1 && ImGui::CalcTextSize((t + "...").c_str()).x > a_w) {
+			t.pop_back();
+		}
+		return t + "...";
+	};
+
+	// left: unsaved edits and the status, at most 45% of the room before the right part
+	float x = ImGui::GetCursorPosX();
+	const float leftMax = std::max(80.0f, (rightX - x) * 0.45f);
 	if (_dirty) {
 		TextColored(theme::Warn(), "UNSAVED EDITS");
 		ImGui::SameLine();
 	}
-	ImGui::TextUnformatted(_status.c_str());
-	// the open save, centred: name and folder (the folder shortened from the left if it does not fit)
+	const float statusW = std::max(40.0f, leftMax - (ImGui::GetCursorPosX() - x));
+	const auto  status = fitEnd(_status, statusW);
+	ImGui::TextUnformatted(status.c_str());
+	if (status != _status && ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("%s", _status.c_str());
+	}
+	const float afterStatus = ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + gap;
+
+	// middle: the open save (name, then its folder shortened from the left), centred in the room left
 	if (_save && !_path.empty()) {
-		const float  afterStatus = ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + 30;
-		const float  rightReserve = 360;
-		const float  avail = ImGui::GetWindowWidth() - afterStatus - rightReserve;
-		const auto   name = platform::ToUtf8(_path.filename());
-		std::string  folder = platform::ToUtf8(_path.parent_path());
-		auto         text = [&] { return name + "   " + folder; };
-		while (folder.size() > 8 && ImGui::CalcTextSize(text().c_str()).x > avail) {
+		const float avail = rightX - gap - afterStatus;
+		auto        name = platform::ToUtf8(_path.filename());
+		std::string folder = platform::ToUtf8(_path.parent_path());
+		auto        width = [&] { return ImGui::CalcTextSize((folder.empty() ? name : name + "   " + folder).c_str()).x; };
+		while (folder.size() > 8 && width() > avail) {
 			folder = "..." + folder.substr(std::min<std::size_t>(folder.size(), 12));
 		}
-		const float w = ImGui::CalcTextSize(text().c_str()).x;
-		if (w <= avail) {
-			float x = (ImGui::GetWindowWidth() - w) * 0.5f;
-			x = std::max(x, afterStatus);
-			ImGui::SameLine(x);
+		if (width() > avail) {
+			folder.clear();
+			name = fitEnd(name, avail);
+		}
+		const float w = width();
+		if (avail > 60 && w <= avail) {
+			const float cx = std::max(afterStatus, std::min((winW - w) * 0.5f, rightX - gap - w));
+			ImGui::SameLine(cx);
 			ImGui::TextUnformatted(name.c_str());
-			ImGui::SameLine();
-			ImGui::TextDisabled("%s", folder.c_str());
 			if (ImGui::IsItemHovered()) {
 				ImGui::SetTooltip("%s", platform::ToUtf8(_path).c_str());
 			}
+			if (!folder.empty()) {
+				ImGui::SameLine();
+				ImGui::TextDisabled("%s", folder.c_str());
+				if (ImGui::IsItemHovered()) {
+					ImGui::SetTooltip("%s", platform::ToUtf8(_path).c_str());
+				}
+			}
 		}
 	}
-	if ((scanning() && _scanProgress) || (namesLoading() && _dbProgress)) {
-		const float w = std::min(560.0f, ImGui::GetWindowWidth() * 0.45f);
-		ImGui::SameLine(ImGui::GetWindowWidth() - w - ImGui::GetStyle().WindowPadding.x);
-		drawBackgroundProgress(w);
+
+	// right: the background work, or whether the game is connected
+	if (progress) {
+		ImGui::SameLine(rightX);
+		drawBackgroundProgress(rightW);
 	} else {
-		float right = 0;
+		ImGui::SameLine(rightX);
+		drawLiveStatus();
 		if (_watch) {
-			right = 160;
-			ImGui::SameLine(ImGui::GetWindowWidth() - right);
+			ImGui::SameLine(winW - pad - 150.0f);
 			TextColored(theme::Good(), "watching saves");
 		}
-		ImGui::SameLine(ImGui::GetWindowWidth() - right - 330);
-		drawLiveStatus();
 	}
 }
 
