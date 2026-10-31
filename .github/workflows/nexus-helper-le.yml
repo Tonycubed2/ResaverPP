@@ -4,8 +4,8 @@ name: Release ReSaverHelper LE
 # Uploads helper-le/release/ReSaverHelper.zip (built on Tony's PC and committed; nothing is built
 # here) to the Skyrim Legendary Edition page of ReSaver Plus (mod 122557) as the optional
 # "ReSaverHelper LE" file.
-#   file_id empty: creates the file (first release). Note the File ID it prints, then use it.
-#   file_id set:   uploads a new version of that file.
+#   file_id (default 8276523, the file created on 2026-10-30): uploads a new version of that file.
+#   file_id empty: creates a new file instead.
 # The changelog (if given) is posted to the LE page first.
 #
 # Needs the NEXUSMODS_API_KEY secret in the "nexus" environment.
@@ -17,9 +17,9 @@ on:
         description: "Helper version (whole number, e.g. 11)"
         required: true
       file_id:
-        description: "Nexus File ID of ReSaverHelper LE on the LE page (empty = create it)"
+        description: "Nexus File ID of ReSaverHelper LE on the LE page (8276523; empty = create a new file)"
         required: false
-        default: ""
+        default: "8276523"
       description:
         description: "File description shown on Nexus (plain text; ' | ' separates lines)"
         required: false

@@ -20,10 +20,11 @@ project; you do the coding, building, delivering and publishing.
   (github.com/kassent/SkyrimSouls) documented in `src/LE.h` and `src/Papyrus.h`. Papyrus calls go through the VM
   vtable (0x25 static, 0x27 method by handle; SE's slots minus one). No console on LE. Transplant differences
   (no map markers / jobj in snapshots, no made-in-game potions/enchantments) are listed in its README.
-  Released as an optional file on the LE page with the workflow `nexus-helper-le.yml` (uploads the zip in
-  `helper-le/release/`, Tony's own build; empty file_id creates the file, then pass its File ID).
-- Versions are whole numbers, +1 per release. **Current published version: v39** (both pages).
-  `project(ReSaverPP VERSION 39` in CMakeLists.txt.
+  Released as the optional file "ReSaverHelper LE" (File ID 8276523) on the LE page with the workflow
+  `nexus-helper-le.yml` (uploads the zip in `helper-le/release/`, Tony's own build; file_id defaults to 8276523).
+  SE helper: optional file 8222850 on the SE page, updated with `nexus-update-file.yml`. Helper 11 published with v41.
+- Versions are whole numbers, +1 per release. **Current published version: v41** (both pages).
+  `project(ReSaverPP VERSION 41` in CMakeLists.txt.
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are
@@ -169,7 +170,7 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
-- Helper version 11 (both helpers): STOP command (Quest.Stop). App: "Stop quest in game" (needs helper 11) and
+- Released in v41 (2026-10-30). Helper version 11 (both helpers): STOP and RESET commands (Quest.Stop). App: "Stop quest in game" (needs helper 11) and
   "Copy stop command" (no helper) on the quest page. Added October 30 2026 (after v40), for an LE user's question.
 - Ideas not started: an options page for choosing what the merged patch merges (partly exists as categories).
 - "Clean Reload" (separate SKSE mod idea: restart the game and auto-load after death to avoid stale reload
