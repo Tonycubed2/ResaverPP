@@ -8,6 +8,9 @@
 #include <atomic>
 #include <chrono>
 #include <thread>
+#ifdef _WIN32
+#	include <windows.h>
+#endif
 
 #include "Theme.h"
 #include "Tips.h"
@@ -87,9 +90,12 @@ void App::pollPathIdles()
 			_pathJob->cancel = true;  // the old thread finishes on its own; it owns its data
 			_pathJob.reset();
 		}
-		if (!_save) {
-			return;
-		}
+		_pathJobPending = _save != nullptr;
+	}
+	// it waits for the mods scan and the plugin names: those come first, and on a slow PC (or under Wine) the
+	// three at once crawled
+	if (_pathJobPending && _save && !scanning() && !namesLoading()) {
+		_pathJobPending = false;
 		auto job = std::make_shared<PathJob>();
 		job->copy.header = _save->header;
 		job->copy.formVersion = _save->formVersion;
@@ -101,6 +107,9 @@ void App::pollPathIdles()
 		}
 		job->total = job->copy.changeForms.size();
 		std::thread([job] {
+#ifdef _WIN32
+			SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+#endif
 			const auto t0 = std::chrono::steady_clock::now();
 			for (const auto& c : job->copy.changeForms) {
 				if (job->cancel) {

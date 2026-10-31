@@ -519,7 +519,8 @@ private:
 	std::uint64_t                              _stuckPathGen = UINT64_MAX;
 	std::size_t                                _stuckPathNext = 0, _stuckPathTotal = 0;  // progress: actors read / to read
 	struct PathJob;
-	std::shared_ptr<PathJob>                   _pathJob;  // the check's own thread (AppCharges.cpp)
+	std::shared_ptr<PathJob>                   _pathJob;
+	bool                                       _pathJobPending = false;  // to start once the mods scan and names are done  // the check's own thread (AppCharges.cpp)
 	bool                                       _stuckPathDone = false;
 	double                                     _stuckPathMs = 0;
 	std::size_t                                _stuckPathActors = 0, _stuckPathSpawned = 0;  // actors read / of them made during play (FF)

@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "App.h"
+#include "Watchdog.h"
 
 #include "Platform.h"
 #include "Theme.h"
@@ -836,12 +837,24 @@ void App::draw()
 		loadSettings();
 	}
 	_live.setEnabled(_liveEnabled);
+	watchdog::Section("_live.start");
 	_live.start();
+	watchdog::Section("_live.poll");
 	_live.poll();
+	watchdog::Section("pollAi");
 	pollAi();
+	watchdog::Section("pollPathIdles");
 	pollPathIdles();
+	watchdog::g_scanDone = scanning() && _scanProgress ? _scanProgress->done.load() : 0;
+	watchdog::g_scanTotal = scanning() && _scanProgress ? _scanProgress->total.load() : 0;
+	watchdog::g_pathDone = _stuckPathDone ? 0 : _stuckPathNext;
+	watchdog::g_pathTotal = _stuckPathDone ? 0 : _stuckPathTotal;
+	watchdog::g_namesLoading = namesLoading();
+	watchdog::Section("pollScan");
 	pollScan();
+	watchdog::Section("pollNames");
 	pollNames();
+	watchdog::Section("pollWatch");
 	pollWatch();
 	const ImGuiViewport* vp = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(vp->WorkPos);
@@ -849,11 +862,13 @@ void App::draw()
 	ImGui::Begin("##main", nullptr,
 		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar |
 			ImGuiWindowFlags_NoBringToFrontOnFocus);
+	watchdog::Section("drawMenu");
 	drawMenu();
 
 	const float statusH = ImGui::GetFrameHeightWithSpacing();
 	ImGui::BeginChild("##body", ImVec2(0, -statusH));
 	if (!_save) {
+		watchdog::Section("drawLogo");
 		drawLogo();
 		auto centered = [](const char* a_text, bool a_dim) {
 			ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ImGui::CalcTextSize(a_text).x) * 0.5f);
@@ -883,6 +898,7 @@ void App::draw()
 		}
 		tips::Tip("Chat with an AI engine that can use ReSaver Plus for you: describe the problem in plain English.");
 	} else {
+		watchdog::Section("drawCategories");
 		drawCategories();
 		ImGui::SameLine();
 		if (_cat == Cat::kOverview) {
@@ -893,14 +909,17 @@ void App::draw()
 				ImGui::BeginGroup();  // both halves in the right-hand column
 				const float topH = std::max(ImGui::GetContentRegionAvail().y * 0.5f, 200.0f);
 				ImGui::BeginChild("##overview", ImVec2(0, topH), ImGuiChildFlags_Borders);
+				watchdog::Section("drawOverview");
 				drawOverview();
 				ImGui::EndChild();
 				ImGui::BeginChild("##home", ImVec2(0, 0), ImGuiChildFlags_Borders);
+				watchdog::Section("drawHome");
 				drawHome();
 				ImGui::EndChild();
 				ImGui::EndGroup();
 			} else {
 				ImGui::BeginChild("##overview", ImVec2(0, 0), ImGuiChildFlags_Borders);
+				watchdog::Section("drawOverview");
 				drawOverview();
 				ImGui::EndChild();
 			}
@@ -908,10 +927,13 @@ void App::draw()
 			const float listW = ImGui::GetContentRegionAvail().x * 0.48f;
 			ImGui::BeginChild("##list", ImVec2(listW, 0), ImGuiChildFlags_Borders);
 			if (_cat == Cat::kMods) {
+				watchdog::Section("drawModsList");
 				drawModsList();
 			} else if (_cat == Cat::kQuests) {
+				watchdog::Section("drawQuestsList");
 				drawQuestsList();
 			} else {
+				watchdog::Section("drawList");
 				drawList();
 			}
 			ImGui::EndChild();
@@ -919,100 +941,131 @@ void App::draw()
 			ImGui::BeginChild("##detail", ImVec2(0, 0), ImGuiChildFlags_Borders);
 			if (_cat == Cat::kMods) {
 				if (_focus) {
+					watchdog::Section("detailMod");
 					detailMod(*_focus);
 				} else {
 					ImGui::TextDisabled("Click a mod to see its scripts.");
 				}
 			} else if (_cat == Cat::kQuests) {
+				watchdog::Section("drawQuestDetail");
 				drawQuestDetail();
 			} else {
+				watchdog::Section("drawDetail");
 				drawDetail();
 			}
 			ImGui::EndChild();
 		}
 	}
 	ImGui::EndChild();
+	watchdog::Section("drawStatus");
 	drawStatus();
 	ImGui::End();
 
 	if (_showCheck) {
+		watchdog::Section("drawSaveCheck");
 		drawSaveCheck();
 	}
 	if (_showTransplant) {
+		watchdog::Section("drawTransplant");
 		drawTransplant();
 	}
 	if (_showAnalysis) {
+		watchdog::Section("drawAnalysis");
 		drawAnalysis();
 	}
 	if (_showLookup && _save) {
+		watchdog::Section("drawLookup");
 		drawLookup();
 	}
 	if (_showPlayer && _save) {
+		watchdog::Section("drawPlayer");
 		drawPlayer();
 	}
 	if (_showActors && _save) {
+		watchdog::Section("drawActors");
 		drawActors();
 	}
 	if (_showLeftovers && _save) {
+		watchdog::Section("drawLeftovers");
 		drawLeftovers();
 	}
 	if (_showHistory) {
+		watchdog::Section("drawHistory");
 		drawHistory();
 	}
 	if (_showCrashLog && _save) {
+		watchdog::Section("drawCrashLog");
 		drawCrashLog();
 	}
 	if (_showPapyrusLog) {
+		watchdog::Section("drawPapyrusLog");
 		drawPapyrusLog();
 	}
 	if (_showSkyrimLogs) {
+		watchdog::Section("drawSkyrimLogs");
 		drawSkyrimLogs();
 	}
 	if (_showAi) {
+		watchdog::Section("drawAiChat");
 		drawAiChat();
 	}
 	if (_showSavesMgr) {
+		watchdog::Section("drawSavesManager");
 		drawSavesManager();
 	}
 	if (_showArchive) {
+		watchdog::Section("drawArchive");
 		drawArchive();
 	}
 	if (_showMerge) {
+		watchdog::Section("drawMergedPatch");
 		drawMergedPatch();
 	}
 	if (_showAssets) {
+		watchdog::Section("drawFileConflicts");
 		drawFileConflicts();
 	}
 	if (_showCompare && _save) {
+		watchdog::Section("drawCompare");
 		drawCompare();
 	}
 	if (_showArrays && _save) {
+		watchdog::Section("drawArraysAnalysis");
 		drawArraysAnalysis();
 	}
 	if (_showLog) {
+		watchdog::Section("drawLog");
 		drawLog();
 	}
 	if (_showSettings) {
+		watchdog::Section("drawSettings");
 		drawSettings();
 	}
 	if (_showSupport) {
+		watchdog::Section("drawSupport");
 		drawSupport();
 	}
 	if (_showViewer) {
+		watchdog::Section("drawScriptViewer");
 		drawScriptViewer();
 	} else {
 		_viewerFocused = false;
 	}
 	if (_showCompileResults) {
+		watchdog::Section("drawCompileResults");
 		drawCompileResults();
 	}
 	if (_showCompileSettings) {
+		watchdog::Section("drawCompileSettings");
 		drawCompileSettings();
 	}
+	watchdog::Section("drawDecompilePrompt");
 	drawDecompilePrompt();
 	if (_save) {
+		watchdog::Section("drawMissingModal");
 		drawMissingModal();
 	}
+	watchdog::Section("pollCompile");
 	pollCompile();
 	if (_testCompile && !_docs.empty()) {
 		_testCompile = false;
@@ -1022,6 +1075,7 @@ void App::draw()
 		_testRowView = false;
 		viewRowScript(*_focus);
 	}
+	watchdog::Section("drawModals");
 	drawModals();
 	logStatus();
 }

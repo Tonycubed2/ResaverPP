@@ -521,7 +521,9 @@ void App::drawSaveCheck()
 		drawBackgroundProgress(0);
 	}
 	ImGui::Separator();
-	if (_save && !_stuckPathDone && _stuckPathTotal) {
+	if (_save && _pathJobPending) {
+		ImGui::TextDisabled("The check for characters that crash a save on load starts when your mods have been read.");
+	} else if (_save && !_stuckPathDone && _stuckPathTotal) {
 		ImGui::TextDisabled("Still checking the characters for the crash-on-load problem: %zu of %zu", _stuckPathNext, _stuckPathTotal);
 	}
 

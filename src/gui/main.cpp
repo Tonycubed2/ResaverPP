@@ -7,6 +7,13 @@
 #endif
 
 #include "App.h"
+#include "Watchdog.h"
+
+#include <thread>
+
+#include <chrono>
+
+#include <atomic>
 #include "Platform.h"
 #include "Theme.h"
 
@@ -90,6 +97,72 @@ namespace
 		g_step = a_step;
 		Log("step: " + a_step);
 	}
+
+	// ---- freeze detector (Watchdog.h) ------------------------------------------------------------
+	std::atomic<const char*>   g_section{ "starting" };
+	std::atomic<std::uint64_t> g_frames{ 0 };
+	std::chrono::steady_clock::time_point g_sectionStart = std::chrono::steady_clock::now();  // UI thread only
+
+	void StartWatchdog()
+	{
+		std::thread([] {
+			std::uint64_t last = g_frames.load();
+			auto          since = std::chrono::steady_clock::now();
+			int           reported = 0;  // seconds of this stall already written
+			for (;;) {
+				std::this_thread::sleep_for(std::chrono::seconds(1));
+				const auto now = std::chrono::steady_clock::now();
+				const auto f = g_frames.load();
+				if (f != last) {
+					if (reported) {
+						const auto secs = std::chrono::duration_cast<std::chrono::seconds>(now - since).count();
+						Log("responding again after " + std::to_string(secs) + " s");
+					}
+					last = f;
+					since = now;
+					reported = 0;
+					continue;
+				}
+				const int secs = static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(now - since).count());
+				const int next = reported == 0 ? 5 : reported < 15 ? 15 : reported < 30 ? 30 : reported + 60;
+				if (secs < next) {
+					continue;
+				}
+				reported = secs;
+				char b[512];
+				std::snprintf(b, sizeof(b),
+					"NOT RESPONDING for %d s, in: %s; mods scan %zu of %zu; plugin names %s; crash-on-load check %zu of %zu (0 of 0: not running)", secs,
+					g_section.load(), watchdog::g_scanDone.load(), watchdog::g_scanTotal.load(),
+					watchdog::g_namesLoading.load() ? "being read" : "not being read", watchdog::g_pathDone.load(),
+					watchdog::g_pathTotal.load());
+				Log(b);
+			}
+		}).detach();
+	}
+}
+
+namespace watchdog
+{
+	void Section(const char* a_name)
+	{
+		const auto now = std::chrono::steady_clock::now();
+		const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_sectionStart).count();
+		if (ms > 1000) {
+			Log(std::string("slow: ") + g_section.load() + " took " + std::to_string(ms) + " ms");
+		}
+		g_sectionStart = now;
+		g_section = a_name;
+	}
+
+	void FrameDone()
+	{
+		Section("between frames");
+		++g_frames;
+	}
+}
+
+namespace
+{
 
 	void OpenLog()
 	{
@@ -384,6 +457,7 @@ int RunApp(int argc, char** argv)
 		app.openNewestAtStart();
 	}
 	Step("drawing the first frames");
+	StartWatchdog();
 	int drawn = 0;
 	if (const char* e = std::getenv("RESAVERPP_TEST_EDITPROP")) {
 		app.testEditProperty(e);
@@ -459,7 +533,13 @@ int RunApp(int argc, char** argv)
 			ImGui::ErrorRecoveryStoreState(&state);
 			std::string failed;
 			try {
+				watchdog::Section("frame start");
+				if (drawn == 90 && std::getenv("RESAVERPP_TEST_HANG")) {  // test: the freeze detector
+					watchdog::Section("test hang");
+					std::this_thread::sleep_for(std::chrono::seconds(std::atoi(std::getenv("RESAVERPP_TEST_HANG"))));
+				}
 				app.draw();
+				watchdog::Section("drawing the frame (ImGui / OpenGL)");
 			} catch (const std::exception& e) {
 				failed = e.what();
 			} catch (...) {
@@ -508,6 +588,7 @@ int RunApp(int argc, char** argv)
 			break;
 		}
 		glfwSwapBuffers(window);
+		watchdog::FrameDone();
 		if (++drawn == 60) {
 			Step("running (60 frames drawn)");
 		}
