@@ -219,11 +219,11 @@ namespace Transplant
 			out.push_back({ "player", std::to_string(le::GetLevel(player)), F(sd ? sd->levelPoints : 0.0f), F(sd ? sd->levelPointsMax : 0.0f),
 				std::to_string(player->numPerkPoints) });
 			for (int i = 0; i < kSkills; ++i) {
-				out.push_back({ "skill", std::to_string(i), F(player->actorValueOwner.GetBase(kFirstSkill + i)), F(sd ? sd->levelData[i].points : 0.0f),
+				out.push_back({ "skill", std::to_string(i), F(le::GetBaseAV(player, kFirstSkill + i)), F(sd ? sd->levelData[i].points : 0.0f),
 					F(sd ? sd->levelData[i].pointsMax : 0.0f), std::to_string(sd ? sd->legendaryLevel[i] : 0) });
 			}
 			for (const auto& [name, av] : kAVs) {
-				out.push_back({ "av", name, F(player->actorValueOwner.GetBase(av)) });
+				out.push_back({ "av", name, F(le::GetBaseAV(player, av)) });
 			}
 		});
 
@@ -541,8 +541,8 @@ namespace Transplant
 					return "bad skill";
 				}
 				const float level = Num(arg(2));
-				if (level > player->actorValueOwner.GetBase(kFirstSkill + i)) {
-					player->actorValueOwner.SetBase(kFirstSkill + i, level);
+				if (level > le::GetBaseAV(player, kFirstSkill + i)) {
+					le::SetBaseAV(player, kFirstSkill + i, level);
 				}
 				if (auto* sd = player->skills ? player->skills->data : nullptr) {
 					sd->levelData[i].points = Num(arg(3));
@@ -557,8 +557,8 @@ namespace Transplant
 				for (const auto& [name, av] : kAVs) {
 					if (arg(1) == name) {
 						const float v = Num(arg(2));
-						if (v > player->actorValueOwner.GetBase(av)) {
-							player->actorValueOwner.SetBase(av, v);
+						if (v > le::GetBaseAV(player, av)) {
+							le::SetBaseAV(player, av, v);
 						}
 						return {};
 					}

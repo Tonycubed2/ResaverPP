@@ -16,17 +16,16 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # Build output stays in the build folder only (build\Release). Nothing is copied anywhere else.
 
-# ---- SKSE 1.7.3 (himika's libSKSE copy, extern\skse): a static library, as SKSE's plugin projects use it
+# ---- SKSE 1.7.3 (himika's libSKSE copy, extern\skse): a static library of only the files the helper uses.
+# (Some of libSKSE's other files do not build any more, e.g. Utilities.cpp and the Scaleform ones; the
+# helper needs none of them. The list is what the helper's code links to, followed through SKSE.)
 set(SKSE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/skse")
-file(GLOB SKSE_COMMON_SOURCES CONFIGURE_DEPENDS "${SKSE_DIR}/common/*.cpp")
+set(SKSE_COMMON_SOURCES IDataStream IDebugLog IErrors IFileStream)
+list(TRANSFORM SKSE_COMMON_SOURCES PREPEND "${SKSE_DIR}/common/")
+list(TRANSFORM SKSE_COMMON_SOURCES APPEND ".cpp")
 set(SKSE_SOURCES
-	BSTArray Colors CommandTable GameBSExtraData GameHandlers GamePapyrusEvents GamePlayerEvents GameResources
-	GameTESEvents GameThreads GlobalLocks HashUtil NiAdditionalGeometryData NiControllers NiExtraData NiGeometry
-	NiInterpolators NiLight NiMaterial NiNodes NiProperties NiRenderer NiSerialization NiTextures PapyrusArgs
-	PapyrusClass PapyrusNativeFunctions PapyrusVM GameAPI GameCamera GameData GameEvents GameExtraData
-	GameFormComponents GameForms GameInput GameMenus GameObjects GamePathing GameReferences GameRTTI GameSettings
-	GameStreams GameTypes InputMap PluginAPI SafeWrite ScaleformAPI ScaleformCallbacks ScaleformExtendedData
-	ScaleformLoader ScaleformState ScaleformTypes Translation Utilities NiObjects NiRTTI NiTypes)
+	GameAPI GameBSExtraData GameData GameExtraData GameFormComponents GameForms GameMenus GameObjects GameRTTI
+	GameReferences GameTypes HashUtil NiObjects PapyrusArgs PapyrusVM ScaleformAPI)
 list(TRANSFORM SKSE_SOURCES PREPEND "${SKSE_DIR}/skse/")
 list(TRANSFORM SKSE_SOURCES APPEND ".cpp")
 

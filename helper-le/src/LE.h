@@ -32,6 +32,21 @@ namespace le
 		return mm ? *reinterpret_cast<UInt32*>(reinterpret_cast<UInt8*>(mm) + 0xC8) : 0;
 	}
 
+	// ActorValueOwner (vtable 03 GetBase, 04 SetBase), called through the game's vtable: a call on the
+	// actorValueOwner member itself would be bound at compile time to SKSE's declaration, which has no body
+	inline float GetBaseAV(Actor* a_actor, UInt32 a_av)
+	{
+		auto* owner = &a_actor->actorValueOwner;
+		using F = float(__thiscall*)(ActorValueOwner*, UInt32);
+		return reinterpret_cast<F>((*reinterpret_cast<void***>(owner))[3])(owner, a_av);
+	}
+	inline void SetBaseAV(Actor* a_actor, UInt32 a_av, float a_value)
+	{
+		auto* owner = &a_actor->actorValueOwner;
+		using F = void(__thiscall*)(ActorValueOwner*, UInt32, float);
+		reinterpret_cast<F>((*reinterpret_cast<void***>(owner))[4])(owner, a_av, a_value);
+	}
+
 	// ---- forms ------------------------------------------------------------------------------------
 	// the game's dynamic_cast (SKSE's DYNAMIC_CAST macro, written as a function)
 	template <class To>

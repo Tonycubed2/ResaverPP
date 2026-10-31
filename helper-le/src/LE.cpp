@@ -1,6 +1,11 @@
 #include "PCH.h"
 #include "LE.h"
 
+// SKSE's TESForm::CopyFromEx (GameForms.cpp, never called by the helper) calls CopyFromBase on member
+// components directly, which the compiler can bind to this declaration; the game's own version is only
+// reached through its vtables. An empty body lets the DLL link; nothing in the game calls this one.
+void BaseFormComponent::CopyFromBase(BaseFormComponent*) {}
+
 namespace le
 {
 	namespace
