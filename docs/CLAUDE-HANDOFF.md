@@ -23,8 +23,8 @@ project; you do the coding, building, delivering and publishing.
   Released as the optional file "ReSaverHelper LE" (File ID 8276523) on the LE page with the workflow
   `nexus-helper-le.yml` (uploads the zip in `helper-le/release/`, Tony's own build; file_id defaults to 8276523).
   SE helper: optional file 8222850 on the SE page, updated with `nexus-update-file.yml`. Helper 11 published with v41.
-- Versions are whole numbers, +1 per release. **Current published version: v41** (both pages).
-  `project(ReSaverPP VERSION 41` in CMakeLists.txt.
+- Versions are whole numbers, +1 per release. **Current published version: v42** (both pages).
+  `project(ReSaverPP VERSION 42` in CMakeLists.txt.
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are
@@ -170,7 +170,7 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
-- Unreleased (after v41): Save check finding + `--path-idles` / `--fix-path-idles` for actors saved with a path follower
+- Released in v42: Save check finding + `--path-idles` / `--fix-path-idles` for actors saved with a path follower
   in state 14 (MovementAgentPathFollowerStandard waiting for a start/stop/turn idle; the save keeps the state, not the
   idle, so the load crashes at SkyrimSE+0CEC680 on 1.6.1170). Fix: state 14 -> 1 in place, as the PathIdleCrashFix
   plugin does in game (`cf::FindStuckPathIdles`, `cf::FixStuckPathIdles`).
