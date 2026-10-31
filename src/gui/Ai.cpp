@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <mutex>
 
@@ -40,13 +41,13 @@ namespace ai
 	namespace
 	{
 		std::mutex  g_logM;
-		std::string g_logFile;
+		std::filesystem::path g_logFile;
 	}
 
-	void SetLogFile(const std::string& a_utf8Path)
+	void SetLogFile(const std::filesystem::path& a_path)
 	{
 		std::lock_guard l(g_logM);
-		g_logFile = a_utf8Path;
+		g_logFile = a_path;
 	}
 
 	void Log(const std::string& a_line)
@@ -55,42 +56,7 @@ namespace ai
 		if (g_logFile.empty()) {
 			return;
 		}
-#ifdef _WIN32
-		std::wstring w;
-		{
-			const auto& u = g_logFile;
-			std::size_t i = 0;
-			while (i < u.size()) {  // UTF-8 -> UTF-16 (basic plane is enough for a folder name)
-				unsigned char c = static_cast<unsigned char>(u[i]);
-				unsigned      cp = c;
-				int           n = 0;
-				if (c >= 0xF0) {
-					cp = c & 7;
-					n = 3;
-				} else if (c >= 0xE0) {
-					cp = c & 15;
-					n = 2;
-				} else if (c >= 0xC0) {
-					cp = c & 31;
-					n = 1;
-				}
-				for (int k = 1; k <= n && i + k < u.size(); ++k) {
-					cp = (cp << 6) | (static_cast<unsigned char>(u[i + k]) & 63);
-				}
-				i += static_cast<std::size_t>(n) + 1;
-				if (cp >= 0x10000) {
-					cp -= 0x10000;
-					w += static_cast<wchar_t>(0xD800 + (cp >> 10));
-					w += static_cast<wchar_t>(0xDC00 + (cp & 0x3FF));
-				} else {
-					w += static_cast<wchar_t>(cp);
-				}
-			}
-		}
-		std::ofstream f(w, std::ios::app | std::ios::binary);
-#else
 		std::ofstream f(g_logFile, std::ios::app | std::ios::binary);
-#endif
 		const auto t = std::time(nullptr);
 		char       stamp[32];
 		std::strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", std::localtime(&t));

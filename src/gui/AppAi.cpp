@@ -533,7 +533,7 @@ struct App::AiModels
 void App::aiSetup()
 {
 	_aiReady = true;
-	ai::SetLogFile(platform::ToUtf8(platform::ExeFolder() / "ReSaverPP AI.log"));
+	ai::SetLogFile(platform::ExeFolder() / "ReSaverPP AI.log");
 	ai::FixApi(_ai.settings());
 	_ai.setTools(ToolList());
 	_ai.setExecutor([this](const ai::ToolCall& c, std::string& shown, bool& err) { return aiTool(c, shown, err); });

@@ -8,6 +8,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <deque>
+#include <filesystem>
 #include <functional>
 #include <future>
 #include <mutex>
@@ -36,7 +37,7 @@ namespace ai
 	// the API kind a preset uses; "Other" keeps the user's choice
 	void FixApi(struct Settings& a_settings);
 	// every request and answer of the chat is written here ("ReSaverPP AI.log" next to the program); the key is never written
-	void SetLogFile(const std::string& a_utf8Path);
+	void SetLogFile(const std::filesystem::path& a_path);
 	void Log(const std::string& a_line);
 
 	struct Settings
