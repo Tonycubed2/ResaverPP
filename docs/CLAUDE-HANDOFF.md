@@ -23,8 +23,8 @@ project; you do the coding, building, delivering and publishing.
   Released as the optional file "ReSaverHelper LE" (File ID 8276523) on the LE page with the workflow
   `nexus-helper-le.yml` (uploads the zip in `helper-le/release/`, Tony's own build; file_id defaults to 8276523).
   SE helper: optional file 8222850 on the SE page, updated with `nexus-update-file.yml`. Helper 11 published with v41.
-- Versions are whole numbers, +1 per release. **Current published version: v42** (both pages).
-  `project(ReSaverPP VERSION 42` in CMakeLists.txt.
+- Versions are whole numbers, +1 per release. **Current published version: v43** (both pages).
+  `project(ReSaverPP VERSION 43` in CMakeLists.txt.
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are
@@ -170,7 +170,7 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
-- Not published yet (after v42, 2026-10-31): **Ask the AI** and **Analyze Skyrim logs** (Tony: "Do it all no restrictions").
+- Released in v43 (2026-10-31): **Ask the AI** and **Analyze Skyrim logs** (Tony: "Do it all no restrictions").
   - `core/SkyrimLogs.*` (`ess::logs`): finds logs (My Games\<game>\SKSE two levels deep, Logs\Script, NetScriptFramework\Crash),
     `Analyze` -> findings (SKSE load failures, crash logs via `crashlog::Parse` + call stack DLLs + known places table
     `kKnown`, Papyrus dumps / missing scripts / counts, plugin logs' error lines with info/debug and optional-mod lines
