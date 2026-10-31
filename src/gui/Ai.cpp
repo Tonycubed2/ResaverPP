@@ -6,6 +6,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <ctime>
+#include <fstream>
+#include <mutex>
 
 namespace ai
 {
@@ -36,6 +39,76 @@ namespace ai
 
 	namespace
 	{
+		std::mutex  g_logM;
+		std::string g_logFile;
+	}
+
+	void SetLogFile(const std::string& a_utf8Path)
+	{
+		std::lock_guard l(g_logM);
+		g_logFile = a_utf8Path;
+	}
+
+	void Log(const std::string& a_line)
+	{
+		std::lock_guard l(g_logM);
+		if (g_logFile.empty()) {
+			return;
+		}
+#ifdef _WIN32
+		std::wstring w;
+		{
+			const auto& u = g_logFile;
+			std::size_t i = 0;
+			while (i < u.size()) {  // UTF-8 -> UTF-16 (basic plane is enough for a folder name)
+				unsigned char c = static_cast<unsigned char>(u[i]);
+				unsigned      cp = c;
+				int           n = 0;
+				if (c >= 0xF0) {
+					cp = c & 7;
+					n = 3;
+				} else if (c >= 0xE0) {
+					cp = c & 15;
+					n = 2;
+				} else if (c >= 0xC0) {
+					cp = c & 31;
+					n = 1;
+				}
+				for (int k = 1; k <= n && i + k < u.size(); ++k) {
+					cp = (cp << 6) | (static_cast<unsigned char>(u[i + k]) & 63);
+				}
+				i += static_cast<std::size_t>(n) + 1;
+				if (cp >= 0x10000) {
+					cp -= 0x10000;
+					w += static_cast<wchar_t>(0xD800 + (cp >> 10));
+					w += static_cast<wchar_t>(0xDC00 + (cp & 0x3FF));
+				} else {
+					w += static_cast<wchar_t>(cp);
+				}
+			}
+		}
+		std::ofstream f(w, std::ios::app | std::ios::binary);
+#else
+		std::ofstream f(g_logFile, std::ios::app | std::ios::binary);
+#endif
+		const auto t = std::time(nullptr);
+		char       stamp[32];
+		std::strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
+		f << stamp << "  " << a_line << "\n";
+	}
+
+	void FixApi(Settings& a_s)
+	{
+		const auto& v = Presets();
+		a_s.preset = std::clamp(a_s.preset, 0, static_cast<int>(v.size()) - 1);
+		const auto& p = v[static_cast<std::size_t>(a_s.preset)];
+		if (std::string(p.name).rfind("Other", 0) != 0) {
+			a_s.api = p.api;
+		}
+	}
+
+	namespace
+	{
 		std::string Trimmed(std::string s)
 		{
 			while (!s.empty() && (s.back() == '/' || s.back() == ' ')) {
@@ -54,6 +127,23 @@ namespace ai
 				return base + (std::string(a_what) == "chat" ? "/messages" : "/models");
 			}
 			return base + (std::string(a_what) == "chat" ? "/chat/completions" : "/models");
+		}
+
+		// a request with its answer in the log (header names only, never the key)
+		net::Response Send(const std::string& a_method, const std::string& a_url, const net::Headers& a_h, const std::string& a_body,
+			const std::atomic<bool>& a_cancel, int a_timeout)
+		{
+			std::string names;
+			for (const auto& [k, v] : a_h) {
+				names += (names.empty() ? "" : ", ") + k + (k == "x-api-key" || k == "Authorization" ? "(" + std::to_string(v.size()) + " chars)" : ": " + v);
+			}
+			Log(a_method + " " + a_url + "  headers: " + names + "  body: " + std::to_string(a_body.size()) + " bytes");
+			const auto t0 = std::chrono::steady_clock::now();
+			auto r = net::Request(a_method, a_url, a_h, a_body, a_cancel, a_timeout);
+			const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+			Log("  -> HTTP " + std::to_string(r.status) + " in " + std::to_string(ms) + " ms" + (r.error.empty() ? "" : "  error: " + r.error) +
+			    "  answer (" + std::to_string(r.body.size()) + " bytes): " + r.body.substr(0, r.status == 200 ? 600 : 3000));
+			return r;
 		}
 
 		net::Headers HeadersFor(const Settings& a_s)
@@ -530,7 +620,7 @@ namespace ai
 		++_revision;
 		net::Response r;
 		for (int attempt = 0;; ++attempt) {
-			r = net::Request("POST", Endpoint(_settings, "chat"), HeadersFor(_settings), body, _stop, _settings.timeoutSeconds);
+			r = Send("POST", Endpoint(_settings, "chat"), HeadersFor(_settings), body, _stop, _settings.timeoutSeconds);
 			const bool busyServer = r.status == 429 || r.status == 529 || r.status == 503 || r.status == 502;
 			if (!busyServer || attempt >= 3 || _stop) {
 				break;
@@ -547,7 +637,7 @@ namespace ai
 			return false;
 		}
 		if (r.status != 200) {
-			a_error = ErrorText(r);
+			a_error = ErrorText(r) + "\n(asked " + Endpoint(_settings, "chat") + ")";
 			return false;
 		}
 		Message     answer;
@@ -581,7 +671,9 @@ namespace ai
 			t.callId = c.id;
 			t.toolName = c.name;
 			try {
+				Log("tool " + c.name + " " + c.args.substr(0, 1000));
 				t.text = _exec ? _exec(c, t.shown, t.error) : "no tools";
+				Log("  -> " + std::string(t.error ? "FAILED " : "") + std::to_string(t.text.size()) + " chars: " + t.text.substr(0, 400));
 			} catch (const std::exception& e) {
 				t.text = std::string("error: ") + e.what();
 				t.error = true;
@@ -599,9 +691,9 @@ namespace ai
 		std::atomic<bool>        never{ false };
 		auto h = HeadersFor(a_settings);
 		h.erase(h.begin());  // no body
-		const auto r = net::Request("GET", Endpoint(a_settings, "models"), h, "", never, 30);
+		const auto r = Send("GET", Endpoint(a_settings, "models"), h, "", never, 30);
 		if (r.status != 200) {
-			a_error = ErrorText(r);
+			a_error = ErrorText(r) + "\n(asked " + Endpoint(a_settings, "models") + ")";
 			return out;
 		}
 		try {

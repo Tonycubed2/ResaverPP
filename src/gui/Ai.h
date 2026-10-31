@@ -33,11 +33,16 @@ namespace ai
 		const char* note;
 	};
 	const std::vector<Preset>& Presets();
+	// the API kind a preset uses; "Other" keeps the user's choice
+	void FixApi(struct Settings& a_settings);
+	// every request and answer of the chat is written here ("ReSaverPP AI.log" next to the program); the key is never written
+	void SetLogFile(const std::string& a_utf8Path);
+	void Log(const std::string& a_line);
 
 	struct Settings
 	{
 		int         preset = 0;  // index in Presets()
-		Api         api = Api::kOpenAI;
+		Api         api = Api::kAnthropic;  // follows the preset (only "Other" lets the user choose)
 		std::string baseUrl, apiKey, model;
 		int         maxTokens = 8192;
 		int         timeoutSeconds = 300;

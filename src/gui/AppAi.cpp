@@ -533,6 +533,8 @@ struct App::AiModels
 void App::aiSetup()
 {
 	_aiReady = true;
+	ai::SetLogFile(platform::ToUtf8(platform::ExeFolder() / "ReSaverPP AI.log"));
+	ai::FixApi(_ai.settings());
 	_ai.setTools(ToolList());
 	_ai.setExecutor([this](const ai::ToolCall& c, std::string& shown, bool& err) { return aiTool(c, shown, err); });
 }
@@ -561,6 +563,7 @@ void App::aiSend(const std::string& a_text)
 	if (_ai.busy()) {
 		return;
 	}
+	ai::FixApi(_ai.settings());
 	_ai.send(a_text, [this] { return aiSystemPrompt(); });
 }
 
@@ -1072,6 +1075,7 @@ void App::drawAiSettings()
 		}
 		ImGui::EndCombo();
 	}
+	ai::FixApi(s);
 	const auto& preset = presets[static_cast<std::size_t>(s.preset)];
 	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 	ImGui::PushTextWrapPos(0);
