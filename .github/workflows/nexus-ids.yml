@@ -31,7 +31,8 @@ jobs:
           curl -sS "${h[@]}" "https://api.nexusmods.com/v1/games/$DOMAIN/mods/$MOD.json" -o mod.json
           echo "::notice::MOD uid $(jq -r '.uid' mod.json) game_id $(jq -r '.game_id' mod.json) version $(jq -r '.version' mod.json)"
           curl -sS "${h[@]}" "https://api.nexusmods.com/v1/games/$DOMAIN/mods/$MOD/files.json" -o files.json
-          for f in $(jq -r '.files[].file_id' files.json); do
+          # current files only, newest first (GitHub shows at most 10 notices per step)
+          for f in $(jq -r '[.files[] | select(.category_name != "OLD_VERSION" and .category_name != "ARCHIVED")] | sort_by(-.file_id) | .[].file_id' files.json); do
             curl -sS "${h[@]}" "https://api.nexusmods.com/v3/games/$DOMAIN/mod-file-versions/$f" -o fv.json
             echo "::notice::FILEVERSION $f -> $(jq -c '{group: .data.file.id, name: .data.name, version: .data.version, category: .data.category}' fv.json)"
           done
