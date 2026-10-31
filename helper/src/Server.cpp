@@ -134,6 +134,43 @@ namespace Server
 				const auto o = fut.get();
 				return { "OK", o.ok ? "1" : "0", o.running ? "1" : "0", o.completed ? "1" : "0", std::to_string(o.stage) };
 			}
+			if (cmd == "STOP") {
+				const auto formID = ParseHex(arg(0));
+				if (!formID) {
+					return err("bad quest");
+				}
+				struct Outcome
+				{
+					bool          ok = false, running = false, completed = false;
+					std::uint16_t stage = 0;
+				};
+				auto       result = std::make_shared<std::promise<Outcome>>();
+				auto       fut = result->get_future();
+				const auto notify = arg(1), message = arg(2);
+				const bool ran = Game::RunOnMain(
+					[formID, result, notify, message] {
+						Game::Stop(formID, [formID, result, notify, message](bool ok) {
+							Game::Notify(notify, ok ? (message.empty() ? "ReSaverHelper: quest stopped" : message) : "ReSaverHelper: the quest could not be stopped");
+							Outcome o;
+							o.ok = ok;
+							if (auto* q = RE::TESForm::LookupByID<RE::TESQuest>(formID)) {
+								o.running = Game::Running(q);
+								o.completed = q->IsCompleted();
+								o.stage = q->GetCurrentStageID();
+							}
+							try {
+								result->set_value(o);
+							} catch (...) {
+							}
+						});
+					},
+					kWait);
+				if (!ran || fut.wait_for(15s) != std::future_status::ready) {
+					return { "OK", "?" };
+				}
+				const auto o = fut.get();
+				return { "OK", o.ok ? "1" : "0", o.running ? "1" : "0", o.completed ? "1" : "0", std::to_string(o.stage) };
+			}
 			if (cmd == "COMPLETE") {
 				const auto formID = ParseHex(arg(0));
 				if (!formID) {

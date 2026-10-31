@@ -117,7 +117,13 @@ namespace Game
 			auto       cb = MakeCallback([a_quest, a_phase, a_nextObj](const RE::BSScript::Variable&) { Step(a_quest, a_phase, a_nextObj); });
 			if (!vm || !handle || !vm->DispatchMethodCall(handle, "Quest", a_fn, RE::MakeFunctionArguments(std::move(a_args)...), cb)) {
 				++g_failedCalls;
-				Step(a_quest, a_phase, a_nextObj);
+				// on through the task queue (next frame), not by recursion: many failed calls in a row would
+				// otherwise pile up on the main thread's stack
+				if (auto* task = SKSE::GetTaskInterface()) {
+					task->AddTask([a_quest, a_phase, a_nextObj] { Step(a_quest, a_phase, a_nextObj); });
+				} else {
+					Step(a_quest, a_phase, a_nextObj);
+				}
 			}
 		}
 
@@ -317,6 +323,36 @@ namespace Game
 		if (!vm || !handle || !vm->DispatchMethodCall(handle, "Quest", "CompleteAllObjectives", RE::MakeFunctionArguments(), cb)) {
 			second(RE::BSScript::Variable{});
 		}
+	}
+
+	void Stop(std::uint32_t a_formID, std::function<void(bool)> a_done)
+	{
+		auto* quest = RE::TESForm::LookupByID<RE::TESQuest>(a_formID);
+		if (!quest) {
+			a_done(false);
+			return;
+		}
+		spdlog::info("Stop {:08X} ({}): running {}, completed {}, current stage {}", a_formID, quest->GetFormEditorID(), Running(quest), quest->IsCompleted(),
+			quest->GetCurrentStageID());
+		auto*      vm = VM::GetSingleton();
+		const auto handle = HandleOf(quest);
+		auto       cb = MakeCallback([a_formID, a_done](const RE::BSScript::Variable&) {
+            auto*      q = RE::TESForm::LookupByID<RE::TESQuest>(a_formID);
+            const bool stopped = q && !Running(q);
+            spdlog::info("Stop {:08X}: {}", a_formID, stopped ? "stopped" : "still running");
+            a_done(stopped);
+        });
+		if (vm && handle && vm->DispatchMethodCall(handle, "Quest", "Stop", RE::MakeFunctionArguments(), cb)) {
+			return;
+		}
+		// no script object for this quest: the console command does the same
+		const std::string edid = quest->GetFormEditorID() ? quest->GetFormEditorID() : "";
+		if (edid.empty()) {
+			a_done(false);
+			return;
+		}
+		Console("stopquest " + edid);
+		a_done(!Running(quest));
 	}
 
 	std::size_t StartRefresh(const std::string& a_notify)

@@ -47,7 +47,8 @@ namespace
 	// "needs the running game" hint on a disabled button
 	void LiveHint(const LiveLink::Info& a_info)
 	{
-		tips::Tipf("%s", !a_info.connected ? "Start Skyrim with ReSaverHelper.dll installed to use this (optional download on the ReSaver Plus page)."
+		tips::Tipf("%s", !a_info.connected ? "Start Skyrim with ReSaverHelper.dll installed to use this (an optional download on the ReSaver Plus page; "
+															 "Legendary Edition has its own ReSaverHelper on the LE page)."
 														: "Load a save in the game first.");
 	}
 }
@@ -201,6 +202,23 @@ void App::liveComplete(std::uint32_t a_formID, const std::string& a_name)
 	});
 }
 
+void App::liveStop(std::uint32_t a_formID, const std::string& a_name)
+{
+	const std::string what = "stopped \"" + a_name + "\"";
+	_status = "Asking the game: " + what + "...";
+	_live.request({ "STOP", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver++: " + what }, [this, a_formID, what](const LiveLink::Reply& r) {
+		if (!LiveLink::Ok(r)) {
+			_status = "The game could not do it: " + LiveLink::Error(r);
+			return;
+		}
+		const auto f = LiveLink::Field(r, 0);
+		_status = f == "1" ? "Done in game: " + what + ". Save in the game to keep it." :
+		          f == "?" ? "The game is busy; it stops the quest as soon as it can: " + what + "." :
+		                     "The game did not stop it: " + what + " (a quest with no script at all: use \"Copy stop command\" and the console).";
+		liveQuest(a_formID);
+	});
+}
+
 std::vector<App::ChainItem>& App::questChain(std::uint32_t a_formID)
 {
 	if (auto it = _chains.find(a_formID); it != _chains.end()) {
@@ -305,7 +323,8 @@ void App::drawLiveStatus()
 	const auto info = _live.info();
 	if (!info.connected) {
 		ImGui::TextDisabled("Live game: not connected");
-		tips::Tip("Start Skyrim with ReSaverHelper.dll installed to complete quests, set stages and refresh the journal from here.");
+		tips::Tip("Start Skyrim with ReSaverHelper.dll installed to complete or stop quests, set stages and refresh the journal from here "
+				  "(Legendary Edition has its own ReSaverHelper).");
 		return;
 	}
 	TextColored(theme::Good(), Fmt("Live game: %s %s%s", info.runtime.c_str(), info.gameVersion.c_str(), info.inGame ? "" : " (main menu)"));
@@ -742,6 +761,24 @@ void App::drawQuestDetail()
 				  "not start. Use it when the game refuses the completion stage.");
 	}
 	ImGui::SameLine();
+	ImGui::BeginDisabled(!live || !helperAtLeast(11));
+	if (ImGui::Button("Stop quest in game")) {
+		confirm("Stop quest",
+			Fmt("Stop \"%s\" in the running game?\n\nThe game stops it the normal way (Quest.Stop): its scripts are told, the people and "
+				"items it held are let go, and its objectives leave the journal. It is not completed and gives no rewards. A quest that "
+				"starts by itself can start again later. Make a save in the game first.",
+				name.c_str()),
+			[this, fid = q->formID, name] { liveStop(fid, name); });
+	}
+	ImGui::EndDisabled();
+	if (!live) {
+		LiveHint(info);
+	} else if (!helperAtLeast(11) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+		ImGui::SetTooltip("Needs ReSaverHelper version 11 (you have version %s).", info.helperVersion.c_str());
+	} else if (live) {
+		tips::Tip("Stop the quest in the running game, the way the game itself stops a quest: no rewards, its objectives leave the journal.");
+	}
+	// second row: any stage, and the console commands
 	// set any stage
 	std::vector<std::uint16_t> stageList;
 	if (def) {
@@ -786,6 +823,14 @@ void App::drawQuestDetail()
 	}
 	ImGui::EndDisabled();
 	tips::Tip("Copies the console command that completes the quest (its completion stage), or sets the stage picked on the left.");
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!def || def->edid.empty());
+	if (ImGui::Button("Copy stop command") && def) {
+		ImGui::SetClipboardText(Fmt("stopquest %s", def->edid.c_str()).c_str());
+		_status = Fmt("Copied: stopquest %s  (paste it into the game's console with Ctrl+V)", def->edid.c_str());
+	}
+	ImGui::EndDisabled();
+	tips::Tip("Copies the console command that stops the quest (no helper needed): open the console in the game and paste it with Ctrl+V.");
 	ImGui::TextDisabled("The game confirms with:");
 	ImGui::SameLine();
 	drawQuestNotifyChoice();

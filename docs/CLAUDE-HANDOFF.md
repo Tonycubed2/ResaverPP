@@ -12,7 +12,16 @@ project; you do the coding, building, delivering and publishing.
   - Skyrim SE mod **196293**. Main file id 8208150, unique mod id 7318624468677 (defaults in the workflow).
   - Skyrim LE mod **122557** ("ReSaverPP LE"). File id 8246049, unique mod id 472446525117.
 - Main file is manual download only. **ReSaverHelper** (SKSE DLL, `helper/`, project `C:\dllmaker\ReSaverHelper`)
-  is an optional file on the SE page so the app can act in the running game. No LE helper.
+  is an optional file on the SE page so the app can act in the running game.
+- **ReSaverHelper LE** (`helper-le/`, project `C:\dllmaker\ReSaverHelperLE`): the Legendary Edition helper, 32-bit,
+  SKSE 1.7.3, TESV.exe 1.9.32.0, built with VS2022 for Win32 (`cmake --preset vs2022-win32`,
+  `cmake --build build --config Release`). Same pipe and protocol as `helper/` (HELLO reports "LE"). SKSE source
+  vendored in `helper-le/extern/skse` (himika's libSKSE); missing addresses from himika's libSkyrim
+  (github.com/kassent/SkyrimSouls) documented in `src/LE.h` and `src/Papyrus.h`. Papyrus calls go through the VM
+  vtable (0x25 static, 0x27 method by handle; SE's slots minus one). No console on LE. Transplant differences
+  (no map markers / jobj in snapshots, no made-in-game potions/enchantments) are listed in its README.
+  Released as an optional file on the LE page with the workflow `nexus-helper-le.yml` (uploads the zip in
+  `helper-le/release/`, Tony's own build; empty file_id creates the file, then pass its File ID).
 - Versions are whole numbers, +1 per release. **Current published version: v39** (both pages).
   `project(ReSaverPP VERSION 39` in CMakeLists.txt.
 - Linux/Wine is not officially supported.
@@ -160,7 +169,8 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
-- Nothing unreleased in ReSaverPP at the time of writing (main = v39).
+- Helper version 11 (both helpers): STOP command (Quest.Stop). App: "Stop quest in game" (needs helper 11) and
+  "Copy stop command" (no helper) on the quest page. Added October 30 2026 (after v40), for an LE user's question.
 - Ideas not started: an options page for choosing what the merged patch merges (partly exists as categories).
 - "Clean Reload" (separate SKSE mod idea: restart the game and auto-load after death to avoid stale reload
   state) is only a proposal (Docs artifact "Clean Reload: mod proposal"); Tony has not said to build it.

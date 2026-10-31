@@ -1,0 +1,134 @@
+name: Release ReSaverHelper LE
+
+# Manual: Actions tab -> "Release ReSaverHelper LE" -> Run workflow.
+# Uploads helper-le/release/ReSaverHelper.zip (built on Tony's PC and committed; nothing is built
+# here) to the Skyrim Legendary Edition page of ReSaver Plus (mod 122557) as the optional
+# "ReSaverHelper LE" file.
+#   file_id empty: creates the file (first release). Note the File ID it prints, then use it.
+#   file_id set:   uploads a new version of that file.
+# The changelog (if given) is posted to the LE page first.
+#
+# Needs the NEXUSMODS_API_KEY secret in the "nexus" environment.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Helper version (whole number, e.g. 11)"
+        required: true
+      file_id:
+        description: "Nexus File ID of ReSaverHelper LE on the LE page (empty = create it)"
+        required: false
+        default: ""
+      description:
+        description: "File description shown on Nexus (plain text; ' | ' separates lines)"
+        required: false
+        default: "Optional: lets ReSaver Plus act in the running game on Skyrim Legendary Edition (quests, journal, Transplant). Needs SKSE 1.7.3."
+      changelog:
+        description: "Changelog text (' | ' separates lines); empty = none"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  ZIP: helper-le/release/ReSaverHelper.zip
+  NAME: ReSaverHelper LE
+  MOD_ID: "472446525117"  # unique mod id of the LE page (122557)
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    environment: nexus
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Check the zip
+        run: |
+          [ -f "$ZIP" ] || { echo "::error::$ZIP is not in the repository (build the DLL, pack it and commit the zip first)"; exit 1; }
+          unzip -l "$ZIP"
+          unzip -l "$ZIP" | grep -q "SKSE/Plugins/ReSaverHelper.dll" || { echo "::error::the zip has no SKSE/Plugins/ReSaverHelper.dll"; exit 1; }
+
+      - name: Post changelog
+        if: ${{ inputs.changelog != '' }}
+        env:
+          KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          VERSION: ${{ inputs.version }}
+          TEXT: ${{ inputs.changelog }}
+        run: |
+          text=$(printf '%s' "$TEXT" | sed 's/ | /\n/g')
+          body=$(jq -n --arg v "ReSaverHelper-LE-$VERSION" --arg c "$text" '{version: $v, changelog: $c}')
+          code=$(curl -sS -o resp.json -w '%{http_code}' -X POST -H "apikey: $KEY" -H "Content-Type: application/json" \
+            -H "User-Agent: ReSaverPP-release" --data "$body" "https://api.nexusmods.com/v3/mods/$MOD_ID/changelogs")
+          [ "$code" = "201" ] || { echo "::error::Nexus refused the changelog (HTTP $code): $(head -c 300 resp.json)"; exit 1; }
+
+      - name: Update the file
+        if: ${{ inputs.file_id != '' }}
+        uses: Nexus-Mods/upload-action@main
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_id: ${{ inputs.file_id }}
+          filename: ${{ env.ZIP }}
+          display_name: ${{ env.NAME }}
+          description: ${{ inputs.description }}
+          version: ${{ inputs.version }}
+          category: optional
+          allow_mod_manager_download: true
+          primary_mod_manager_download: false
+          update_mod_version: false
+          archive_existing_version: true
+
+      - name: Create the file (first release)
+        if: ${{ inputs.file_id == '' }}
+        env:
+          KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          VERSION: ${{ inputs.version }}
+          DESC: ${{ inputs.description }}
+        run: |
+          set -uo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          api=https://api.nexusmods.com/v3
+          hdr=(-H "apikey: $KEY" -H "User-Agent: ReSaverPP-release")
+          size=$(stat -c %s "$ZIP")
+          fname=$(basename "$ZIP")
+          body=$(jq -n --argjson s "$size" --arg f "$fname" '{size_bytes: $s, filename: $f}') || fail "jq (upload body)"
+          code=$(curl -sS -o up.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/uploads/multipart") || fail "curl /uploads/multipart failed"
+          [ "${code:0:1}" = "2" ] || fail "upload session refused (HTTP $code): $(head -c 400 up.json)"
+          id=$(jq -r '.data.id // .id // empty' up.json)
+          psize=$(jq -r '.data.part_size_bytes // .part_size_bytes' up.json)
+          done_url=$(jq -r '.data.complete_presigned_url // .complete_presigned_url' up.json)
+          mapfile -t parts < <(jq -r '(.data.part_presigned_urls // .part_presigned_urls)[]' up.json)
+          [ -n "$id" ] && [ "${#parts[@]}" -gt 0 ] || fail "no upload id / part urls"
+          xml="<CompleteMultipartUpload>"
+          for n in "${!parts[@]}"; do
+            pn=$((n + 1))
+            dd if="$ZIP" of=part.bin bs="$psize" skip="$n" count=1 status=none
+            code=$(curl -sS -D hdr.txt -o put.txt -w '%{http_code}' -X PUT -H "Content-Type: application/octet-stream" --data-binary @part.bin "${parts[$n]}") || fail "curl PUT part $pn failed"
+            [ "${code:0:1}" = "2" ] || fail "part $pn upload failed (HTTP $code): $(head -c 300 put.txt)"
+            etag=$(grep -i '^etag:' hdr.txt | head -1 | cut -d: -f2- | tr -d ' "\r')
+            [ -n "$etag" ] || fail "no ETag for part $pn"
+            xml="$xml<Part><PartNumber>$pn</PartNumber><ETag>$etag</ETag></Part>"
+          done
+          xml="$xml</CompleteMultipartUpload>"
+          code=$(curl -sS -o cmp.txt -w '%{http_code}' -X POST -H "Content-Type: application/xml" --data "$xml" "$done_url") || fail "curl complete failed"
+          [ "${code:0:1}" = "2" ] || fail "completing the upload failed (HTTP $code): $(head -c 300 cmp.txt)"
+          code=$(curl -sS -o fin.json -w '%{http_code}' -X POST "${hdr[@]}" "$api/uploads/$id/finalise") || fail "curl finalise failed"
+          [ "${code:0:1}" = "2" ] || fail "finalise refused (HTTP $code): $(head -c 400 fin.json)"
+          state=""
+          for i in $(seq 1 60); do
+            state=$(curl -sS "${hdr[@]}" "$api/uploads/$id" | jq -r '.data.state // .state // empty')
+            [ "$state" = "available" ] && break
+            sleep 5
+          done
+          [ "$state" = "available" ] || fail "upload never became available (state: $state)"
+          text=$(printf '%s' "$DESC" | sed 's/ | /\n/g')
+          body=$(jq -n --arg u "$id" --arg m "$MOD_ID" --arg n "$NAME" --arg v "$VERSION" --arg d "$text" \
+            '{upload_id: $u, mod_id: $m, name: $n, version: $v, description: $d, file_category: "optional",
+              primary_mod_manager_download: false, allow_mod_manager_download: true, show_requirements_pop_up: false, update_mod_version: false}') || fail "jq (file body)"
+          code=$(curl -sS -o file.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/mod-files") || fail "curl /mod-files failed"
+          [ "${code:0:1}" = "2" ] || fail "Nexus refused the new file (HTTP $code): $(head -c 400 file.json)"
+          echo "::notice::ReSaverHelper LE created: $(jq -c '.data // .' file.json | head -c 400)"

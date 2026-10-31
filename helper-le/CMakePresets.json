@@ -1,0 +1,29 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "vs2022-win32",
+            "displayName": "Visual Studio 2022, 32-bit (Win32)",
+            "description": "ReSaverHelper for Skyrim Legendary Edition (SKSE 1.7.3).",
+            "generator": "Visual Studio 17 2022",
+            "toolset": "v143",
+            "architecture": {
+                "value": "Win32",
+                "strategy": "set"
+            },
+            "binaryDir": "${sourceDir}/build"
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "release",
+            "configurePreset": "vs2022-win32",
+            "configuration": "Release"
+        }
+    ]
+}

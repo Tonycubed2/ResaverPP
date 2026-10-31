@@ -704,6 +704,7 @@ namespace Transplant
 		}
 
 		if (kind == "follower") {
+			// fields: 1 plugin, 2 local id, 3 runtime id, 4 name, 5 teammate, 6 follower faction rank, 7 aliases, 8 items
 			// brings a follower back: alive and enabled, next to the player, in the same quest aliases as before
 			// (the follower mod's own system), a teammate in the follower faction, carrying at least what they
 			// carried. Nothing is taken from them.
@@ -732,7 +733,7 @@ namespace Transplant
 			int added = 0;
 			{
 				auto have = actor->GetInventoryCounts();
-				for (const auto& one : Split(arg(7), '|')) {
+				for (const auto& one : Split(arg(8), '|')) {
 					const auto p = Split(one, '*');
 					if (p.size() != 3) {
 						continue;
@@ -762,7 +763,7 @@ namespace Transplant
 				}
 			}
 			int forced = 0;
-			for (const auto& one : Split(arg(5), '|')) {
+			for (const auto& one : Split(arg(7), '|')) {
 				const auto p = Split(one, '*');
 				if (p.size() != 3) {
 					continue;
@@ -786,7 +787,7 @@ namespace Transplant
 					}
 				}
 			}
-			if (arg(4) == "1") {
+			if (arg(5) == "1") {
 				vm->DispatchMethodCall(h, "Actor", "SetPlayerTeammate", RE::MakeFunctionArguments(true, true), none);
 			}
 			vm->DispatchMethodCall(h, "Actor", "MoveTo",

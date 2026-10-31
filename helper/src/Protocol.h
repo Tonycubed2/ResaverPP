@@ -5,11 +5,14 @@
 //
 //   request: <id>\t<COMMAND>\t<arg>...          reply: <id>\tOK\t<field>...   or   <id>\tERR\t<message>
 //
-//   HELLO                                 -> OK  ReSaverHelper  <helper version>  <game version>  <SE|AE|VR>  <in game 0|1>
+//   HELLO                                 -> OK  ReSaverHelper  <helper version>  <game version>  <SE|AE|VR|LE>  <in game 0|1>
+//                                            (LE: the Legendary Edition helper, helper-le, from version 11)
 //   QUEST <formid hex>                    -> OK  <editor id>  <flags hex>  <current stage>  <running 0|1>  <completed 0|1>  <index:state,...>
 //   SETSTAGE <formid hex> <stage> <notify> <message>   -> OK <1 set, 0 refused, ? still running>  <running 0|1>  <completed 0|1>  <current stage>
 //   COMPLETE <formid hex> <notify> <message>           -> OK <1 if the quest is now completed, 0 if not, ? still running>
 //                                         (CompleteAllObjectives + CompleteQuest: no stage script runs; version 3)
+//   STOP <formid hex> <notify> <message>  -> OK <1 stopped, 0 not, ? still stopping>  <running 0|1>  <completed 0|1>  <current stage>
+//                                         (Quest.Stop: the game cleans up after the quest; version 11)
 //   REFRESH <notify>                      -> OK  <objectives to refresh>        (runs in the background, one quest at a time;
 //                                            ERR while a menu is open; pauses while one is opened - version 4)
 //   PROGRESS                              -> OK  <done>  <total>  <running 0|1>
@@ -26,7 +29,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 10;
+	inline constexpr int            kHelperVersion = 11;
 
 	inline std::string Escape(const std::string& a_in)
 	{

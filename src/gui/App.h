@@ -463,6 +463,7 @@ private:
 	QuestPreview                          _previewTmp;
 	void                                  drawQuestNotifyChoice();
 	void                                  liveComplete(std::uint32_t a_formID, const std::string& a_name);
+	void                                  liveStop(std::uint32_t a_formID, const std::string& a_name);  // helper 11: Quest.Stop
 	bool                                  helperAtLeast(int a_version) const;
 	std::vector<ChainItem>                _chainRun;
 	std::size_t                           _chainPos = 0;
