@@ -82,11 +82,6 @@ void App::pollPathIdles()
 		}
 	}
 	_stuckPathMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-	if (_stuckPathMs > 30000 && _stuckPathNext < forms.size()) {
-		_log.push_back(Fmt("Path idle check stopped after 30 seconds (%zu of %zu change forms read); what it found so far is shown",
-			_stuckPathNext, forms.size()));
-		_stuckPathNext = forms.size();
-	}
 	if (_stuckPathNext >= forms.size()) {
 		_stuckPathDone = true;
 		_stuckPath = std::move(_stuckPathScan);
