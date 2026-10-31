@@ -515,8 +515,12 @@ private:
 	std::uint64_t                      _chargedGen = UINT64_MAX, _editGen = 0;
 	// actors saved with a path follower waiting for an idle it no longer has (they crash the load)
 	const std::vector<ess::cf::StuckPathIdle>& stuckPathIdles();
-	std::vector<ess::cf::StuckPathIdle>        _stuckPath;
+	std::vector<ess::cf::StuckPathIdle>        _stuckPath, _stuckPathScan;  // the finished result / the scan under way
 	std::uint64_t                              _stuckPathGen = UINT64_MAX;
+	std::size_t                                _stuckPathNext = 0;      // next change form to look at
+	bool                                       _stuckPathDone = false;
+	double                                     _stuckPathMs = 0;
+	void pollPathIdles();  // scans a few actors each frame (decoding every actor at once froze big saves for a minute)
 	int                                _chargeFixValue = 3000;
 	bool                               _readOnly = false;  // the open save has structural problems: it is never written
 

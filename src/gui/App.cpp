@@ -839,6 +839,7 @@ void App::draw()
 	_live.start();
 	_live.poll();
 	pollAi();
+	pollPathIdles();
 	pollScan();
 	pollNames();
 	pollWatch();

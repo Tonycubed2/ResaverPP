@@ -150,6 +150,8 @@ namespace ess::cf
 		std::size_t   count = 0;   // path followers stuck in this actor
 	};
 	std::vector<StuckPathIdle> FindStuckPathIdles(const SaveFile& a_save);
+	// the same for one change form (0 if none or not an actor): the app scans a few actors per frame with it
+	std::size_t CountStuckPathIdles(const SaveFile& a_save, const ChangeForm& a_cf);
 	// sets each stuck path follower's state to 1 (in place, 4 bytes); a_only: actor RefIDs (raw) to touch (empty: all).
 	// Every changed actor is read back; one that does not read back is put back as it was. Returns the actors fixed.
 	std::size_t FixStuckPathIdles(SaveFile& a_save, const std::vector<std::uint32_t>& a_only = {});

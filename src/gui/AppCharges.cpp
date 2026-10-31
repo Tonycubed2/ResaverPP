@@ -5,6 +5,8 @@
 // can never be recharged with soul gems; it can be fixed here.
 #include "App.h"
 
+#include <chrono>
+
 #include "Theme.h"
 #include "Tips.h"
 
@@ -42,13 +44,56 @@ const std::vector<cf::ChargedItem>& App::chargedItems()
 	return _charged;
 }
 
+// The finished result only (empty while the scan runs): pollPathIdles fills it a few actors per frame.
 const std::vector<cf::StuckPathIdle>& App::stuckPathIdles()
 {
-	if (_stuckPathGen != _editGen) {
-		_stuckPath = _save ? cf::FindStuckPathIdles(*_save) : std::vector<cf::StuckPathIdle>{};
-		_stuckPathGen = _editGen;
-	}
 	return _stuckPath;
+}
+
+void App::pollPathIdles()
+{
+	if (_stuckPathGen != _editGen) {  // another save, or an edit: start again
+		_stuckPathGen = _editGen;
+		_stuckPath.clear();
+		_stuckPathScan.clear();
+		_stuckPathNext = 0;
+		_stuckPathDone = false;
+		_stuckPathMs = 0;
+	}
+	if (!_save || _stuckPathDone) {
+		return;
+	}
+	const auto  t0 = std::chrono::steady_clock::now();
+	const auto& forms = _save->changeForms;
+	while (_stuckPathNext < forms.size()) {
+		const auto& c = forms[_stuckPathNext++];
+		const auto  f0 = std::chrono::steady_clock::now();
+		try {
+			if (const auto n = cf::CountStuckPathIdles(*_save, c)) {
+				_stuckPathScan.push_back({ c.refID.data, c.refID.isZero() ? 0 : _save->formIDOf(c.refID), n });
+			}
+		} catch (...) {
+		}
+		if (const auto ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - f0).count(); ms > 200) {
+			_log.push_back(Fmt("Path idle check: change form %08X took %.0f ms to read", c.refID.isZero() ? 0 : _save->formIDOf(c.refID), ms));
+		}
+		if ((_stuckPathNext & 15) == 0 && std::chrono::steady_clock::now() - t0 > std::chrono::milliseconds(25)) {
+			break;  // the rest next frame: the window stays responsive
+		}
+	}
+	_stuckPathMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+	if (_stuckPathMs > 30000 && _stuckPathNext < forms.size()) {
+		_log.push_back(Fmt("Path idle check stopped after 30 seconds (%zu of %zu change forms read); what it found so far is shown",
+			_stuckPathNext, forms.size()));
+		_stuckPathNext = forms.size();
+	}
+	if (_stuckPathNext >= forms.size()) {
+		_stuckPathDone = true;
+		_stuckPath = std::move(_stuckPathScan);
+		_stuckPathScan.clear();
+		_log.push_back(Fmt("Path idle check: %zu change forms read in %.0f ms, %zu character(s) waiting for an idle", forms.size(),
+			_stuckPathMs, _stuckPath.size()));
+	}
 }
 
 void App::drawModCharged(const std::string& a_plugin)

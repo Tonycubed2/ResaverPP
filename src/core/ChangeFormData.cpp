@@ -3995,18 +3995,24 @@ namespace ess::cf
 		return fixed;
 	}
 
+	std::size_t CountStuckPathIdles(const SaveFile& a_save, const ChangeForm& a_cf)
+	{
+		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::ACHR) {
+			return 0;
+		}
+		const auto  d = Decode(a_save, a_cf);
+		std::size_t n = 0;
+		for (const auto& ps : d.pathFollowerStates) {
+			n += ps.state == kPathStateWaitIdle ? 1 : 0;
+		}
+		return n;
+	}
+
 	std::vector<StuckPathIdle> FindStuckPathIdles(const SaveFile& a_save)
 	{
 		std::vector<StuckPathIdle> out;
 		for (const auto& c : a_save.changeForms) {
-			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::ACHR) {
-				continue;
-			}
-			const auto  d = Decode(a_save, c);
-			std::size_t n = 0;
-			for (const auto& ps : d.pathFollowerStates) {
-				n += ps.state == kPathStateWaitIdle ? 1 : 0;
-			}
+			const auto n = CountStuckPathIdles(a_save, c);
 			if (n) {
 				out.push_back({ c.refID.data, c.refID.isZero() ? 0 : a_save.formIDOf(c.refID), n });
 			}
