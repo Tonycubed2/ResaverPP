@@ -117,7 +117,11 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 ```
 5. Check LE: dispatch `nexus-ids.yml` with `{"ref":"main","inputs":{"domain":"skyrim","mod":"122557"}}` and read
    its annotations; the "MOD uid ... version N" line is enough (the file list gets cut off).
-6. Changelogs sent through the API only show on Nexus after an edit on the website (agreed: a throwaway edit
+6. Changelogs (v43, 2026-10-31): the API entry IS stored (the upload log shows HTTP 201), but the SE page's Logs tab can
+   take a while to show it; LE showed 42/43 at once, SE only after two more page saves. Check before adding anything:
+   the file's own changelog is in Edit mod > Files > the file's "..." menu > "Edit changelog" (it says "Add changelog"
+   when none is attached yet); adding one there while the API entry is pending shows the text twice. Older note:
+   changelogs sent through the API only show on Nexus after an edit on the website (agreed: a throwaway edit
    afterwards; `nexus-touch.yml` / `nexus-changelog.yml` exist for this). Website steps go through Tony's
    desktop Chrome, not the app's built-in browser. Never handle Tony's Nexus API key; it is a GitHub secret
    in the `nexus` environment.
