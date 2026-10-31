@@ -30,11 +30,11 @@ list(TRANSFORM SKSE_SOURCES PREPEND "${SKSE_DIR}/skse/")
 list(TRANSFORM SKSE_SOURCES APPEND ".cpp")
 
 add_library(skse_le STATIC ${SKSE_COMMON_SOURCES} ${SKSE_SOURCES})
-target_include_directories(skse_le PUBLIC "${SKSE_DIR}" "${SKSE_DIR}/skse")
+target_include_directories(skse_le PUBLIC "${SKSE_DIR}" "${SKSE_DIR}/skse" "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 target_compile_definitions(skse_le PUBLIC WIN32 _WINDOWS RUNTIME RUNTIME_VERSION=0x09200000 _CRT_SECURE_NO_WARNINGS
 	_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS)
 # SKSE's code is written for the older, more lenient MSVC rules
-target_compile_options(skse_le PRIVATE /std:c++17 /permissive /Zc:twoPhase- /EHsc /MP /W0 /FIcommon/IPrefix.h)
+target_compile_options(skse_le PRIVATE /std:c++17 /permissive /Zc:twoPhase- /EHsc /MP /W0 /FIskse_prefix.h)
 
 # ---- the helper
 set(HELPER_SOURCES

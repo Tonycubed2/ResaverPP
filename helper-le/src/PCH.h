@@ -3,7 +3,7 @@
 // SKSE's own headers first (they bring in Windows.h through common/IPrefix.h). NOMINMAX is not set
 // because SKSE's code uses the min / max macros: write (std::min)(a, b) in this project.
 
-#include "common/IPrefix.h"
+#include "skse_prefix.h"  // the standard headers SKSE needs, then common/IPrefix.h
 
 #include "skse/PluginAPI.h"
 #include "skse/skse_version.h"
