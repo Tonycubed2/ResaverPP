@@ -472,6 +472,9 @@ int RunApp(int argc, char** argv)
 	if (std::getenv("RESAVERPP_TEST_ARCHIVE")) {
 		app.testShowArchive();
 	}
+	if (const char* gview = std::getenv("RESAVERPP_TEST_GALLERY")) {
+		app.testOpen(std::string(gview) == "list" ? "gallerylist" : "gallery");
+	}
 	if (std::getenv("RESAVERPP_TEST_LOGS")) {
 		app.testOpen("skyrimlogs");
 	}

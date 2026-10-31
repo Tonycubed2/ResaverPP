@@ -225,18 +225,6 @@ void App::doSave(const std::filesystem::path& a_path)
 	}
 }
 
-void App::startOpenDialog()
-{
-	auto start = _path.empty() ? savesFolder() : _path.parent_path();
-	if (platform::HasNativeDialogs()) {
-		if (auto p = platform::OpenSaveDialog(start)) {
-			open(*p);
-		}
-	} else {
-		std::snprintf(_pathBuf, sizeof(_pathBuf), "%s", platform::ToUtf8(start).c_str());
-		_openPathPopup = true;
-	}
-}
 
 void App::startSaveAsDialog()
 {
@@ -1001,6 +989,10 @@ void App::draw()
 		watchdog::Section("drawPapyrusLog");
 		drawPapyrusLog();
 	}
+	if (_showGallery) {
+		watchdog::Section("drawGallery");
+		drawGallery();
+	}
 	if (_showSkyrimLogs) {
 		watchdog::Section("drawSkyrimLogs");
 		drawSkyrimLogs();
@@ -1089,7 +1081,12 @@ void App::drawMenu()
 		if (ImGui::MenuItem("Open...", "Ctrl+O")) {
 			startOpenDialog();
 		}
-		tips::Tip("Open a save (.ess) to inspect and clean. You can also drag a save onto the window.");
+		tips::Tip("Open a save (.ess) to inspect and clean: your saves with their pictures, newest first (or as a list). You can also "
+		          "drag a save onto the window.");
+		if (ImGui::MenuItem("Open with the file dialog...")) {
+			openWithFileDialog();
+		}
+		tips::Tip("Pick a save anywhere with the Windows file dialog.");
 		if (ImGui::MenuItem("Save", "Ctrl+S", false, _save != nullptr)) {
 			confirm("Overwrite save", "Write the edits over " + platform::ToUtf8(_path.filename()) +
 										  "?\n\nThe current file is kept next to it as a .bak copy.",
@@ -2814,6 +2811,8 @@ void App::loadSettings()
 			_watch = true;
 		} else if (line.rfind("open_newest=", 0) == 0) {
 			_openNewest = line.substr(12) == "1";
+		} else if (line.rfind("gallery_list=", 0) == 0) {
+			_galleryList = line.substr(13) == "1";
 		} else if (line.rfind("ai_", 0) == 0) {
 			loadAiSetting(line);
 		} else if (line.rfind("live=", 0) == 0) {
@@ -2910,6 +2909,7 @@ void App::saveSettings()
 	f << "live=" << (_liveEnabled ? 1 : 0) << "\n";
 	f << "live_notify=" << _liveNotify << "\n";
 	saveAiSettings(f);
+	f << "gallery_list=" << (_galleryList ? 1 : 0) << "\n";
 	f << "decompile_always=" << (_decompileAlways ? 1 : 0) << "\n";
 	f << "compiler=" << _compilerSetting << "\n";
 	f << "compile_out_mode=" << _compileOutMode << "\n";

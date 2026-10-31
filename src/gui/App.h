@@ -113,6 +113,9 @@ public:
 		} else if (w == "crashlog") {
 			_showCrashLog = true;
 			_clogLoaded = false;
+		} else if (w == "gallery" || w == "gallerylist") {
+			_galleryList = w == "gallerylist";
+			startOpenDialog();
 		} else if (w == "skyrimlogs") {
 			openSkyrimLogs();
 		} else if (w.rfind("ai:", 0) == 0) {
@@ -739,6 +742,18 @@ private:
 	std::filesystem::path savesFolder() const;  // where File > Open starts: the chosen saves folder, the last one used, or the one with the newest save
 	void fixMcmJam();
 	void killThreads(const std::set<ess::ThreadID>& a_threads, const std::set<ess::EID>& a_instances, const std::string& a_what, bool a_terminateOnly);
+
+	// ---- File > Open: the saves as pictures or a list (AppGallery.cpp) ---------------------------
+	struct Gallery;
+	std::shared_ptr<Gallery> _gallery;
+	bool                     _showGallery = false, _galleryList = false;
+	std::string              _galleryCharacter;
+	char                     _galleryFind[128] = "";
+	void                     loadGallery(const std::filesystem::path& a_folder);
+	void                     freeGallery();
+	void                     drawGallery();
+	void                     openWithFileDialog();
+	void                     openFromGallery(const std::filesystem::path& a_path);
 
 	// ---- AI chat and Skyrim logs (AppAi.cpp) ---------------------------------------------------
 	void drawAiChat();

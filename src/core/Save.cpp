@@ -1,6 +1,8 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Save.h"
 
+#include <cstring>
+
 #include <algorithm>
 #include <cctype>
 
@@ -651,6 +653,46 @@ namespace ess
 	{
 		auto it = _cfIdx.find(a_id.data);
 		return it == _cfIdx.end() ? nullptr : &changeForms[it->second];
+	}
+
+	bool ReadSaveHeader(const std::filesystem::path& a_save, Header& a_header)
+	{
+		std::ifstream f(a_save, std::ios::binary);
+		std::uint8_t  head[17];
+		if (!f.read(reinterpret_cast<char*>(head), 17) || std::memcmp(head, "TESV_SAVEGAME", 13) != 0) {
+			return false;
+		}
+		std::uint32_t hs = 0;
+		std::memcpy(&hs, head + 13, 4);
+		if (hs < 30 || hs > 65536) {
+			return false;
+		}
+		// header, then at most a 4096x4096 RGBA screenshot (real ones are 320x192 or so)
+		std::vector<std::uint8_t> buf(17 + hs);
+		std::memcpy(buf.data(), head, 17);
+		if (!f.read(reinterpret_cast<char*>(buf.data() + 17), hs)) {
+			return false;
+		}
+		std::uint32_t version = 0, w = 0, h = 0;
+		std::memcpy(&version, buf.data() + 17, 4);
+		const std::size_t end = 17 + hs - (version < 12 ? 0 : 2);
+		std::memcpy(&w, buf.data() + end - 8, 4);
+		std::memcpy(&h, buf.data() + end - 4, 4);
+		if (w > 4096 || h > 4096) {
+			return false;
+		}
+		const std::size_t shot = std::size_t(w) * h * (version < 12 ? 3 : 4);
+		buf.resize(17 + hs + shot);
+		if (shot && !f.read(reinterpret_cast<char*>(buf.data() + 17 + hs), static_cast<std::streamsize>(shot))) {
+			return false;
+		}
+		try {
+			Reader r(buf.data(), buf.size());
+			a_header.read(r);
+			return true;
+		} catch (...) {
+			return false;
+		}
 	}
 
 	std::filesystem::path EditedSaveName(const std::filesystem::path& a_save, const std::string& a_tag, bool a_unique)

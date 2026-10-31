@@ -146,6 +146,10 @@ namespace ess
 	// game's format get "_<tag>" at the end. a_unique: the first name not taken (tag, tag2, tag3...).
 	std::filesystem::path EditedSaveName(const std::filesystem::path& a_save, const std::string& a_tag, bool a_unique = true);
 
+	// Only the header and screenshot of a save (the first few hundred KB of the file): for the save gallery.
+	// False if the file is not a Skyrim save.
+	bool ReadSaveHeader(const std::filesystem::path& a_save, Header& a_header);
+
 	std::vector<std::uint8_t> DecompressLZ4(const std::uint8_t* a_src, std::size_t a_srcLen, std::size_t a_dstLen);
 	std::vector<std::uint8_t> CompressLZ4(const std::vector<std::uint8_t>& a_src);
 	std::vector<std::uint8_t> DecompressZlib(const std::uint8_t* a_src, std::size_t a_srcLen, std::size_t a_dstLen);
