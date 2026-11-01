@@ -21,7 +21,7 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   too), switch your controls back on, save the game as a new save - from ReSaver Plus's "Work on the running game"
   window with no save open, or by holding Ctrl in the game for 8 seconds (`bRescueHotkey`, `iRescueHoldSeconds`), which
   does all three even without ReSaver Plus.
-- Legendary Edition has its own helper (`helper-le`), with the commands up to version 11.
+- Legendary Edition has its own helper (`helper-le`), with the same commands.
 - Confirms every action in game: top-left notification or a message box (`sNotify` in ReSaverHelper.ini).
 - Optional: refresh the journal automatically after every save load (`bRefreshJournalOnLoad=1`).
 - SE 1.5.97, AE 1.6.x / 1.7.x and VR 1.4.15 from one DLL (CommonLibSSE-NG).

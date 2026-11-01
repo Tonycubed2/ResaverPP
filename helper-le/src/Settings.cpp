@@ -39,7 +39,12 @@ namespace Settings
 			"; seconds to wait after a load before that refresh starts\n"
 			"iRefreshDelaySeconds=5\n"
 			"; 0 = do not accept commands from ReSaver++ at all\n"
-			"bListen=1\n";
+			"bListen=1\n"
+			"; Hold Ctrl in the game for iRescueHoldSeconds: the game is saved (a new save, ReSaverPP_Rescue_<date>),\n"
+			"; your controls are switched back on and every follower is brought next to you. 0 = off.\n"
+			"bRescueHotkey=1\n"
+			"; seconds Ctrl must be held (3 to 60)\n"
+			"iRescueHoldSeconds=8\n";
 	}
 
 	Values& Get() { return g_values; }
@@ -74,6 +79,14 @@ namespace Settings
 			}
 		} else if (n == "blisten") {
 			g_values.listen = ParseBool(v);
+		} else if (n == "brescuehotkey") {
+			g_values.rescueHotkey = ParseBool(v);
+		} else if (n == "irescueholdseconds") {
+			try {
+				g_values.rescueHoldSeconds = std::clamp(std::stoi(v), 3, 60);
+			} catch (...) {
+				return false;
+			}
 		} else {
 			return false;
 		}
@@ -94,6 +107,12 @@ namespace Settings
 		}
 		if (n == "blisten") {
 			return g_values.listen ? "1" : "0";
+		}
+		if (n == "brescuehotkey") {
+			return g_values.rescueHotkey ? "1" : "0";
+		}
+		if (n == "irescueholdseconds") {
+			return std::to_string(g_values.rescueHoldSeconds);
 		}
 		return {};
 	}
@@ -124,8 +143,8 @@ namespace Settings
 				spdlog::warn("Settings: ignored '{}'", line);
 			}
 		}
-		spdlog::info("Settings: sNotify={} bRefreshJournalOnLoad={} iRefreshDelaySeconds={} bListen={}", g_values.notify, g_values.refreshOnLoad,
-			g_values.refreshDelay, g_values.listen);
+		spdlog::info("Settings: sNotify={} bRefreshJournalOnLoad={} iRefreshDelaySeconds={} bListen={} bRescueHotkey={} iRescueHoldSeconds={}",
+			g_values.notify, g_values.refreshOnLoad, g_values.refreshDelay, g_values.listen, g_values.rescueHotkey, g_values.rescueHoldSeconds);
 	}
 
 	bool Save()
@@ -149,7 +168,7 @@ namespace Settings
 				lines.push_back(d.substr(a, b - a));
 			}
 		}
-		for (const char* key : { "sNotify", "bRefreshJournalOnLoad", "iRefreshDelaySeconds", "bListen" }) {
+		for (const char* key : { "sNotify", "bRefreshJournalOnLoad", "iRefreshDelaySeconds", "bListen", "bRescueHotkey", "iRescueHoldSeconds" }) {
 			bool found = false;
 			for (auto& l : lines) {
 				const auto t = Trim(l);

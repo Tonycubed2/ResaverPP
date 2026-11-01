@@ -25,6 +25,12 @@
 //   SNAPSHOT                              -> OK  <file written>  <records>      (version 5: see Transplant.h)
 //   APPLY <record fields...>              -> OK  1 | OK 0 <why not> | OK ?     (one snapshot record, applied to the loaded game)
 //   RESOLVE <plugin> <local id hex>       -> OK  <runtime form id hex>
+//   GATHER <notify>                       -> OK  <followers moved>  <their names, comma separated>    (version 12)
+//                                         (every current follower, loaded or not, moved next to the player)
+//   CONTROLS <notify>                     -> OK                          (EnablePlayerControls; version 12)
+//   SAVEGAME <notify>                     -> OK  <save name>             (a new save ReSaverPP_Rescue_<date>; version 12)
+//   RESCUE <notify>                       -> OK  <one line: what was done>   (SAVEGAME, CONTROLS, GATHER; version 12;
+//                                            the same as holding Ctrl in the game for iRescueHoldSeconds)
 // <notify>: hud (top-left notification), box (message box), none, or ini (the helper's own setting).
 #include <string>
 #include <vector>
@@ -32,7 +38,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 11;
+	inline constexpr int            kHelperVersion = 12;
 
 	inline std::string Escape(const std::string& a_in)
 	{

@@ -83,8 +83,8 @@ void App::drawLiveGame()
 								  "(or as a mod in Mod Organizer / Vortex); this window connects by itself once the game runs.");
 	} else if (!helperAtLeast(kRescueHelper)) {
 		Colored(theme::Caution(), "Connected, but the game has ReSaverHelper version " + info.helperVersion +
-									  ". These need version 12 or newer: update ReSaverHelper from the ReSaver Plus page." +
-									  (info.runtime == "LE" ? " (The Legendary Edition helper does not have them yet.)" : ""));
+									  ". These need version 12 or newer: update ReSaverHelper from the ReSaver Plus page" +
+									  (info.runtime == "LE" ? " (the Legendary Edition one: ReSaverHelper LE)." : "."));
 	} else if (!info.inGame) {
 		Colored(theme::Caution(), "Connected to the game (" + info.runtime + " " + info.gameVersion + "), but no save is loaded in it yet: load "
 								  "your save in the game first.");

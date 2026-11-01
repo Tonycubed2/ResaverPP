@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 # ReSaverHelper.dll for Skyrim Legendary Edition (TESV.exe 1.9.32.0, SKSE 1.7.3): 32-bit.
 # Build with Visual Studio 2022 for Win32 (see CMakePresets.json); nothing from vcpkg is needed.
-project(ReSaverHelperLE VERSION 11.0.0 LANGUAGES CXX)
+project(ReSaverHelperLE VERSION 12.0.0 LANGUAGES CXX)
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
 	message(FATAL_ERROR "The Legendary Edition helper is 32-bit: configure with -A Win32 (cmake --preset vs2022-win32)")
@@ -39,7 +39,7 @@ target_compile_options(skse_le PRIVATE /std:c++17 /permissive /Zc:twoPhase- /EHs
 # ---- the helper
 set(HELPER_SOURCES
 	src/PCH.h src/Log.h src/Log.cpp src/LE.h src/LE.cpp src/Papyrus.h src/Papyrus.cpp src/Game.h src/Game.cpp
-	src/Settings.h src/Settings.cpp src/Server.h src/Server.cpp src/Transplant.h src/Transplant.cpp
+	src/Settings.h src/Settings.cpp src/Server.h src/Server.cpp src/Transplant.h src/Transplant.cpp src/Rescue.h src/Rescue.cpp
 	src/Protocol.h src/main.cpp)
 add_library(ReSaverHelper SHARED ${HELPER_SOURCES})
 target_include_directories(ReSaverHelper PRIVATE src)
