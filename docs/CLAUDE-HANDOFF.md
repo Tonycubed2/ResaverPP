@@ -22,7 +22,7 @@ project; you do the coding, building, delivering and publishing.
   (no map markers / jobj in snapshots, no made-in-game potions/enchantments) are listed in its README.
   Released as the optional file "ReSaverHelper LE" (File ID 8276523) on the LE page with the workflow
   `nexus-helper-le.yml` (uploads the zip in `helper-le/release/`, Tony's own build; file_id defaults to 8276523).
-  SE helper: optional file 8222850 on the SE page, updated with `nexus-update-file.yml`. Helper 11 published with v41; helper 12 (both, rescue: GATHER/CONTROLS/SAVEGAME/RESCUE, hold Ctrl 8 s) with v49 (LE untested in game: Tony has no SKSE on LE).
+  SE helper: optional file 8222850 on the SE page, updated with `nexus-update-file.yml`. Helper 11 published with v41; helper 12 (both, rescue: GATHER/CONTROLS/SAVEGAME/RESCUE, hold Ctrl 8 s) with v49 (LE untested in game: Tony has no SKSE on LE); fixed as 12.1 (Gather: half circle behind the player, holding-cell helpers skipped, sGatherSkip, save before moving).
 - Versions are whole numbers, +1 per release. **Current published version: v49** (both pages).
   `project(ReSaverPP VERSION 49` in CMakeLists.txt.
 - Linux/Wine is not officially supported.
