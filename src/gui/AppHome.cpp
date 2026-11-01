@@ -119,7 +119,7 @@ void App::shortcut(Sc a_which)
 		// in the running game; the window shows the result (or why it cannot be done)
 		_showLiveGame = true;
 		if (_live.info().connected && _live.info().inGame && helperAtLeast(12)) {
-			liveGameAction("GATHER", "Bringing your followers");
+			liveListFollowers();
 		}
 		return;
 	}

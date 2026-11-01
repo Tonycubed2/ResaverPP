@@ -766,7 +766,16 @@ private:
 	int         _rescueSeconds = 8;     // iRescueHoldSeconds
 	bool        _rescueOptsAsked = false;
 	void        drawLiveGame();
-	void        liveGameAction(const std::string& a_command, const std::string& a_what);  // GATHER, CONTROLS, SAVEGAME, RESCUE
+	void        liveGameAction(const std::string& a_command, const std::string& a_what, const std::string& a_ids = {});  // GATHER, CONTROLS, SAVEGAME, RESCUE
+	struct LiveFollower
+	{
+		std::string id, key, name, why, where;  // runtime id, Plugin.esp:localid
+		bool        bring = true, wasSkipped = false;
+	};
+	std::vector<LiveFollower> _liveFollowers;
+	bool                      _liveFollowersShown = false, _liveFollowersRemember = true;
+	std::string               _gatherSkipRaw;  // the helper's sGatherSkip
+	void                      liveListFollowers();  // Gather followers: the list to pick from (helper 12.2), else gathers at once
 
 	// ---- File > Unpack a BSA archive (AppBsa.cpp) ------------------------------------------------
 	struct BsaView;

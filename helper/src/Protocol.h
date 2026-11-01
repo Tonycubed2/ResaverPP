@@ -24,8 +24,11 @@
 //   SNAPSHOT                              -> OK  <file written>  <records>      (version 5: see Transplant.h)
 //   APPLY <record fields...>              -> OK  1 | OK 0 <why not> | OK ?     (one snapshot record, applied to the loaded game)
 //   RESOLVE <plugin> <local id hex>       -> OK  <runtime form id hex>
-//   GATHER <notify>                       -> OK  <followers moved>  <their names, comma separated>    (version 12)
-//                                         (every current follower, loaded or not, moved next to the player)
+//   FOLLOWERS                             -> OK  <count>  <one field per follower: runtime id*Plugin.esp:localid*name*why*where*skip 0|1>
+//                                         (version 12.2; skip: listed in sGatherSkip, so the hold-Ctrl rescue leaves it alone)
+//   GATHER <notify> [<ids, comma separated>] -> OK  <followers moved>  <their names, comma separated>    (version 12)
+//                                         (every follower not in sGatherSkip - or only the ids given (12.2) - moved to its own
+//                                          spot in a half circle behind the player, loaded or not)
 //   CONTROLS <notify>                     -> OK                          (EnablePlayerControls; version 12)
 //   SAVEGAME <notify>                     -> OK  <save name>             (a new save ReSaverPP_Rescue_<date>; version 12)
 //   RESCUE <notify>                       -> OK  <one line: what was done>   (SAVEGAME, CONTROLS, GATHER; version 12;

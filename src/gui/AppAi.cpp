@@ -216,7 +216,9 @@ THE RUNNING GAME (game_command)
   PROGRESS -> done, total, running
   GETOPTION <name> / SETOPTION <name> <value> -> the helper's options
   NOTIFY <notify> <message> -> shows a message in the game
-  GATHER <notify> -> brings every follower (vanilla, DLC, follower mods; loaded or not) next to the player: count, names (helper 12)
+  FOLLOWERS -> count, then one field per follower: runtime id*Plugin.esp:localid*name*why*where*skipped (helper 12.2)
+  GATHER <notify> [<ids comma separated>] -> brings followers next to the player (all not in sGatherSkip, or only the ids given): count, names (helper 12)
+  Before GATHER, run FOLLOWERS and ask the user which to bring when one looks like it was left at home ("teammate" only, far away); then GATHER with the ids.
   CONTROLS <notify> -> switches the player's controls back on (EnablePlayerControls) (helper 12)
   SAVEGAME <notify> -> saves the game as a new save ReSaverPP_Rescue_<date>_<time>: its name (helper 12)
   RESCUE <notify> -> all three: save, controls, followers (helper 12). Holding Ctrl in the game for 8 seconds does the same.

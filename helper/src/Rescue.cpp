@@ -52,19 +52,56 @@ namespace Rescue
 			return false;
 		}
 
-		// bSkip: listed in sGatherSkip (ReSaverHelper.ini, form ids separated by commas)
+		std::string PluginOf(const RE::TESForm* a_form)
+		{
+			const auto* file = a_form ? a_form->GetFile(0) : nullptr;
+			return file ? std::string(file->GetFilename()) : std::string();
+		}
+
+	}
+
+	// "Plugin.esp:0012C4": the same character whatever the load order (sGatherSkip keeps these)
+	std::string KeyOf(const RE::TESForm* a_form)
+	{
+		const auto plugin = PluginOf(a_form);
+		return plugin.empty() ? std::format("{:08X}", a_form ? a_form->GetFormID() : 0) : std::format("{}:{:06X}", plugin, a_form->GetLocalFormID());
+	}
+
+	namespace
+	{
+		std::string Lower(std::string s)
+		{
+			std::ranges::transform(s, s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			return s;
+		}
+
+		// listed in sGatherSkip (ReSaverHelper.ini): "Plugin.esp:0012C4" entries (or runtime form ids), separated by commas
 		bool Skipped(RE::Actor* a)
 		{
+			const auto  key = Lower(KeyOf(a));
 			const auto& list = Settings::Get().gatherSkip;
 			std::size_t start = 0;
 			for (std::size_t i = 0; i <= list.size(); ++i) {
-				if (i == list.size() || list[i] == ',' || list[i] == ' ' || list[i] == ';') {
-					if (i > start) {
-						try {
-							if (static_cast<RE::FormID>(std::stoul(list.substr(start, i - start), nullptr, 16)) == a->GetFormID()) {
-								return true;
+				if (i == list.size() || list[i] == ',' || list[i] == ';') {
+					auto one = list.substr(start, i - start);
+					while (!one.empty() && one.front() == ' ') {
+						one.erase(0, 1);
+					}
+					while (!one.empty() && one.back() == ' ') {
+						one.pop_back();
+					}
+					one = Lower(one);
+					if (!one.empty()) {
+						if (one == key) {
+							return true;
+						}
+						if (one.find(':') == std::string::npos) {
+							try {
+								if (static_cast<RE::FormID>(std::stoul(one, nullptr, 16)) == a->GetFormID()) {
+									return true;
+								}
+							} catch (...) {
 							}
-						} catch (...) {
 						}
 					}
 					start = i + 1;
@@ -108,7 +145,78 @@ namespace Rescue
 		}
 	}
 
-	std::vector<std::string> GatherFollowers()
+	namespace
+	{
+		struct Found
+		{
+			RE::Actor*  actor = nullptr;
+			std::string why;      // vanilla follower quest / follower faction / teammate
+			bool        skipped;  // listed in sGatherSkip
+		};
+
+		// every follower (main thread); a mod's helper parked in a holding cell is never one
+		std::vector<Found> FindFollowers()
+		{
+			std::vector<Found> found;
+			auto*              faction = RE::TESForm::LookupByID<RE::TESFaction>(kCurrentFollowerFaction);
+			const auto& [map, lock] = RE::TESForm::GetAllForms();
+			[[maybe_unused]] const RE::BSReadLockGuard l{ lock };
+			if (!map) {
+				return found;
+			}
+			for (const auto& [id, form] : *map) {
+				if (!form || form->GetFormType() != RE::FormType::ActorCharacter) {
+					continue;
+				}
+				auto*      a = form->As<RE::Actor>();
+				const auto why = FollowerReason(a, faction);
+				if (why.empty()) {
+					continue;
+				}
+				if (InHoldingCell(a)) {
+					spdlog::info("rescue: {:08X} ({}) left alone: a {} parked in the holding cell {} (a mod's helper, not a follower)", a->GetFormID(),
+						NameOf(a), why, a->GetParentCell()->GetFormEditorID());
+					continue;
+				}
+				found.push_back({ a, why, Skipped(a) });
+			}
+			return found;
+		}
+
+		std::string WhereOf(RE::Actor* a, RE::PlayerCharacter* a_player)
+		{
+			auto*       cell = a->GetParentCell();
+			const char* name = cell ? cell->GetName() : nullptr;
+			std::string where = name && *name ? name : (cell && cell->GetFormEditorID() ? cell->GetFormEditorID() : "");
+			if (auto* ws = a->GetWorldspace(); ws && (!name || !*name)) {
+				where = ws->GetName() && *ws->GetName() ? ws->GetName() : where;
+			}
+			const bool together = cell && a_player && (cell == a_player->GetParentCell() ||
+														  (a->GetWorldspace() && a->GetWorldspace() == a_player->GetWorldspace()));
+			if (together) {
+				const auto d = a->GetPosition().GetDistance(a_player->GetPosition()) / 70.0f;  // about 70 units to a metre
+				where += std::format(" ({:.0f} m from you)", d);
+			}
+			return where;
+		}
+	}
+
+	std::vector<std::string> ListFollowers()
+	{
+		std::vector<std::string> out;
+		auto*                    player = RE::PlayerCharacter::GetSingleton();
+		for (const auto& f : FindFollowers()) {
+			auto clean = [](std::string s) {
+				std::ranges::replace(s, '*', ' ');
+				return s;
+			};
+			out.push_back(std::format("{:08X}*{}*{}*{}*{}*{}", f.actor->GetFormID(), clean(KeyOf(f.actor)), clean(NameOf(f.actor)), f.why,
+				clean(WhereOf(f.actor, player)), f.skipped ? 1 : 0));
+		}
+		return out;
+	}
+
+	std::vector<std::string> GatherFollowers(const std::vector<RE::FormID>* a_only)
 	{
 		std::vector<std::string> names;
 		auto*                    player = RE::PlayerCharacter::GetSingleton();
@@ -118,33 +226,24 @@ namespace Rescue
 			spdlog::warn("rescue: no player in a cell; followers not moved");
 			return names;
 		}
-		auto*                   faction = RE::TESForm::LookupByID<RE::TESFaction>(kCurrentFollowerFaction);
 		std::vector<RE::Actor*> found;
-		{
-			const auto& [map, lock] = RE::TESForm::GetAllForms();
-			[[maybe_unused]] const RE::BSReadLockGuard l{ lock };
-			if (map) {
-				for (const auto& [id, form] : *map) {
-					if (!form || form->GetFormType() != RE::FormType::ActorCharacter) {
-						continue;
-					}
-					auto*      a = form->As<RE::Actor>();
-					const auto why = FollowerReason(a, faction);
-					if (why.empty()) {
-						continue;
-					}
-					if (Skipped(a)) {
-						spdlog::info("rescue: {:08X} ({}) left alone: listed in sGatherSkip", a->GetFormID(), NameOf(a));
-						continue;
-					}
-					if (InHoldingCell(a)) {
-						spdlog::info("rescue: {:08X} ({}) left alone: a {} parked in the holding cell {} (a mod's helper, not a follower)", a->GetFormID(),
-							NameOf(a), why, a->GetParentCell()->GetFormEditorID());
-						continue;
-					}
+		if (a_only) {
+			// the ones the player picked in ReSaver Plus
+			for (const auto id : *a_only) {
+				auto* a = RE::TESForm::LookupByID<RE::Actor>(id);
+				if (a && a != player && !a->IsDead() && !a->IsDeleted()) {
 					found.push_back(a);
-					spdlog::info("rescue: {:08X} ({}) is a follower ({})", a->GetFormID(), NameOf(a), why);
+					spdlog::info("rescue: {:08X} ({}) picked in ReSaver Plus", id, NameOf(a));
 				}
+			}
+		} else {
+			for (const auto& f : FindFollowers()) {
+				if (f.skipped) {
+					spdlog::info("rescue: {:08X} ({}) left alone: listed in sGatherSkip", f.actor->GetFormID(), NameOf(f.actor));
+					continue;
+				}
+				found.push_back(f.actor);
+				spdlog::info("rescue: {:08X} ({}) is a follower ({})", f.actor->GetFormID(), NameOf(f.actor), f.why);
 			}
 		}
 		// Papyrus MoveTo (as the console's moveto), each one at its own spot in a half circle behind the player:
@@ -154,20 +253,23 @@ namespace Rescue
 		const float heading = player->GetAngleZ();
 		const float n = static_cast<float>(found.size());
 		for (std::size_t i = 0; i < found.size(); ++i) {
-			auto*       a = found[i];
-			const auto  h = policy->GetHandleForObject(static_cast<RE::VMTypeID>(RE::Character::FORMTYPE), a);
+			auto*      a = found[i];
+			const auto h = policy->GetHandleForObject(static_cast<RE::VMTypeID>(RE::Character::FORMTYPE), a);
 			if (!h) {
 				spdlog::warn("rescue: {:08X} ({}) has no script handle; not moved", a->GetFormID(), NameOf(a));
 				continue;
 			}
+			if (a->IsDisabled()) {
+				vm->DispatchMethodCall(h, "ObjectReference", "Enable", RE::MakeFunctionArguments(false), none);
+			}
 			const float spread = n > 1 ? (static_cast<float>(i) - (n - 1) / 2.0f) * (2.4f / std::max(n - 1.0f, 1.0f)) : 0.0f;  // up to +-69 degrees
 			const float ang = heading + 3.14159265f + spread;
 			const float dist = 160.0f + 20.0f * static_cast<float>(i % 2);
-			const float x = std::sin(ang) * dist, y = std::cos(ang) * dist;
+			float       x = std::sin(ang) * dist, y = std::cos(ang) * dist;
 			const auto  from = a->GetParentCell();
 			const auto  pos = a->GetPosition();
 			vm->DispatchMethodCall(h, "ObjectReference", "MoveTo",
-				RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(player), static_cast<float>(x), static_cast<float>(y), 0.0f, false), none);
+				RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(player), std::move(x), std::move(y), 0.0f, false), none);
 			vm->DispatchMethodCall(h, "Actor", "EvaluatePackage", RE::MakeFunctionArguments(), none);
 			names.push_back(NameOf(a));
 			spdlog::info("rescue: follower {:08X} ({}) moved to the player (was in {} {:08X} at {:.0f}, {:.0f}, {:.0f})", a->GetFormID(), names.back(),
@@ -220,7 +322,7 @@ namespace Rescue
 			return "ReSaver rescue: the game is busy";
 		}
 		std::this_thread::sleep_for(3s);
-		Game::RunOnMain([st] { st->names = GatherFollowers(); }, 60s);
+		Game::RunOnMain([st] { st->names = GatherFollowers(nullptr); }, 60s);
 		return Describe(st->save, st->names);
 	}
 

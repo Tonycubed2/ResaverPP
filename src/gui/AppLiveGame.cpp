@@ -10,11 +10,20 @@
 
 #include "imgui.h"
 
+#include <cctype>
 #include <cstdlib>
 
 namespace
 {
-	constexpr int kRescueHelper = 12;  // the helper version with GATHER / CONTROLS / SAVEGAME / RESCUE
+	constexpr int kRescueHelper = 12;
+
+	std::string Lower(std::string s)
+	{
+		for (auto& c : s) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		return s;
+	}  // the helper version with GATHER / CONTROLS / SAVEGAME / RESCUE
 
 	void Colored(std::uint32_t a_col, const std::string& a_text)
 	{
@@ -26,7 +35,48 @@ namespace
 	}
 }
 
-void App::liveGameAction(const std::string& a_command, const std::string& a_what)
+void App::liveListFollowers()
+{
+	if (_liveGameBusy) {
+		return;
+	}
+	_liveGameBusy = true;
+	_liveGameResult = "Looking for your followers...";
+	_liveGameResultOk = true;
+	_live.request({ "GETOPTION", "sGatherSkip" }, [this](const LiveLink::Reply& r) { _gatherSkipRaw = LiveLink::Ok(r) ? LiveLink::Field(r, 0) : ""; });
+	_live.request({ "FOLLOWERS" }, [this](const LiveLink::Reply& r) {
+		_liveGameBusy = false;
+		if (!LiveLink::Ok(r)) {
+			// a helper before 12.2 has no list: gather the way it does
+			liveGameAction("GATHER", "Bringing your followers");
+			return;
+		}
+		_liveFollowers.clear();
+		const auto count = static_cast<std::size_t>(std::atoi(LiveLink::Field(r, 0).c_str()));
+		for (std::size_t i = 0; i < count; ++i) {
+			const auto rec = LiveLink::Field(r, i + 1);
+			std::vector<std::string> p(1);
+			for (char c : rec) {
+				if (c == '*') {
+					p.emplace_back();
+				} else {
+					p.back() += c;
+				}
+			}
+			if (p.size() < 6) {
+				continue;
+			}
+			LiveFollower f{ p[0], p[1], p[2], p[3], p[4] };
+			f.wasSkipped = p[5] == "1";
+			f.bring = !f.wasSkipped;
+			_liveFollowers.push_back(std::move(f));
+		}
+		_liveFollowersShown = true;
+		_liveGameResult = _liveFollowers.empty() ? "No followers found." : "Tick the ones to bring, then press Bring.";
+	});
+}
+
+void App::liveGameAction(const std::string& a_command, const std::string& a_what, const std::string& a_ids)
 {
 	if (_liveGameBusy) {
 		return;
@@ -34,7 +84,11 @@ void App::liveGameAction(const std::string& a_command, const std::string& a_what
 	_liveGameBusy = true;
 	_liveGameResult = a_what + "...";
 	_liveGameResultOk = true;
-	_live.request({ a_command, liveNotifyMode() }, [this, a_command](const LiveLink::Reply& r) {
+	std::vector<std::string> cmd{ a_command, liveNotifyMode() };
+	if (!a_ids.empty()) {
+		cmd.push_back(a_ids);
+	}
+	_live.request(cmd, [this, a_command](const LiveLink::Reply& r) {
 		_liveGameBusy = false;
 		_liveGameResultOk = LiveLink::Ok(r);
 		if (!_liveGameResultOk) {
@@ -96,12 +150,12 @@ void App::drawLiveGame()
 	ImGui::BeginDisabled(!ready || _liveGameBusy);
 	const ImVec2 big(296, 0);
 	if (ImGui::Button("Gather followers", big)) {
-		liveGameAction("GATHER", "Bringing your followers");
+		liveListFollowers();
 	}
 	tips::Tip("Every follower you have (vanilla, DLC, and follower mods: anyone following you or set as your teammate) is brought next "
 			  "to you, wherever they are: lost, stuck, left in another city or cell. They are placed in a half circle behind you. "
-			  "Summons, dismissed followers and mods' helper characters parked in holding cells are left alone; others can be "
-			  "listed in sGatherSkip in ReSaverHelper.ini.");
+			  "You get the list first: untick anyone who is not with you (a follower you left at home), and they are remembered "
+			  "for the hold-Ctrl rescue too (sGatherSkip in ReSaverHelper.ini).");
 	ImGui::SameLine();
 	if (ImGui::Button("Get my controls back", big)) {
 		liveGameAction("CONTROLS", "Switching your controls back on");
@@ -119,6 +173,109 @@ void App::drawLiveGame()
 	tips::Tip("Saves the game (a new save), switches your controls back on and brings every follower next to you: the same as holding "
 			  "Ctrl in the game. The save is made first, so it is the game as it was before the followers moved.");
 	ImGui::EndDisabled();
+	if (_liveFollowersShown && ready) {
+		ImGui::Spacing();
+		ImGui::SeparatorText("Your followers");
+		if (_liveFollowers.empty()) {
+			ImGui::TextDisabled("Nobody is following you right now.");
+		} else if (ImGui::BeginTable("##followers", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingFixedFit,
+					   ImVec2(600, 0))) {
+			ImGui::TableSetupColumn("Bring");
+			ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("Why", ImGuiTableColumnFlags_WidthFixed, 140);
+			ImGui::TableSetupColumn("Where", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableHeadersRow();
+			for (std::size_t i = 0; i < _liveFollowers.size(); ++i) {
+				auto& f = _liveFollowers[i];
+				ImGui::PushID(static_cast<int>(i));
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Checkbox("##bring", &f.bring);
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(f.name.c_str());
+				if (ImGui::IsItemHovered()) {
+					ImGui::SetTooltip("%s (%s)", f.key.c_str(), f.id.c_str());
+				}
+				ImGui::TableNextColumn();
+				ImGui::TextDisabled("%s", f.why.c_str());
+				if (ImGui::IsItemHovered()) {
+					ImGui::SetTooltip(f.why == "teammate" ? "Marked as your teammate, but not in the follower faction: some follower mods keep "
+															 "this on while the follower waits at home."
+															 : "In the game's follower faction or held by a follower quest.");
+				}
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(f.where.c_str());
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+		ImGui::Checkbox("Remember the unticked ones (the hold-Ctrl rescue leaves them alone too)", &_liveFollowersRemember);
+		std::size_t ticked = 0;
+		for (const auto& f : _liveFollowers) {
+			ticked += f.bring ? 1 : 0;
+		}
+		ImGui::BeginDisabled(_liveGameBusy || _liveFollowers.empty());
+		if (ImGui::Button(("Bring " + std::to_string(ticked) + " follower(s)").c_str())) {
+			if (_liveFollowersRemember) {
+				// sGatherSkip: what it had for characters not in this list, plus the unticked ones
+				std::vector<std::string> keep;
+				std::string              one;
+				auto                     flush = [&] {
+                    while (!one.empty() && one.front() == ' ') {
+                        one.erase(0, 1);
+                    }
+                    while (!one.empty() && one.back() == ' ') {
+                        one.pop_back();
+                    }
+                    bool listed = false;
+                    for (const auto& f : _liveFollowers) {
+                        listed = listed || Lower(one) == Lower(f.key) || Lower(one) == Lower(f.id);
+                    }
+                    if (!one.empty() && !listed) {
+                        keep.push_back(one);
+                    }
+                    one.clear();
+				};
+				for (char c : _gatherSkipRaw) {
+					if (c == ',' || c == ';') {
+						flush();
+					} else {
+						one += c;
+					}
+				}
+				flush();
+				for (const auto& f : _liveFollowers) {
+					if (!f.bring) {
+						keep.push_back(f.key);
+					}
+				}
+				std::string v;
+				for (const auto& k : keep) {
+					v += (v.empty() ? "" : ",") + k;
+				}
+				_gatherSkipRaw = v;
+				_live.request({ "SETOPTION", "sGatherSkip", v }, [](const LiveLink::Reply&) {});
+			}
+			std::string ids;
+			for (const auto& f : _liveFollowers) {
+				if (f.bring) {
+					ids += (ids.empty() ? "" : ",") + f.id;
+				}
+			}
+			_liveFollowersShown = false;
+			if (ids.empty()) {
+				_liveGameResult = "Nobody ticked: nobody moved.";
+			} else {
+				liveGameAction("GATHER", "Bringing your followers", ids);
+			}
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			_liveFollowersShown = false;
+			_liveGameResult.clear();
+		}
+	}
 	if (!_liveGameResult.empty()) {
 		ImGui::Spacing();
 		Colored(_liveGameBusy ? ImGui::GetColorU32(ImGuiCol_TextDisabled) : _liveGameResultOk ? theme::Good() : theme::Bad(), _liveGameResult);

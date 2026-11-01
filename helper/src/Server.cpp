@@ -75,17 +75,36 @@ namespace Server
 				Game::Notify(arg(0), line);
 				return { "OK", line };
 			}
+			if (cmd == "FOLLOWERS") {
+				auto list = std::make_shared<std::vector<std::string>>();
+				if (!Game::RunOnMain([list] { *list = Rescue::ListFollowers(); }, kWait)) {
+					return err("the game is busy (it did not answer within 30 seconds)");
+				}
+				std::vector<std::string> out{ "OK", std::to_string(list->size()) };
+				out.insert(out.end(), list->begin(), list->end());
+				return out;
+			}
 			if (cmd == "GATHER" || cmd == "CONTROLS" || cmd == "SAVEGAME") {
 				struct State
 				{
 					std::vector<std::string> names;
 					std::string              save;
+					std::vector<RE::FormID>  only;  // GATHER <notify> <ids>: just these (picked in ReSaver Plus)
 				};
 				auto st = std::make_shared<State>();
+				for (std::size_t a = 0, b; cmd == "GATHER" && a < arg(1).size(); a = b + 1) {
+					b = arg(1).find(',', a);
+					if (b == std::string::npos) {
+						b = arg(1).size();
+					}
+					if (const auto id = ParseHex(arg(1).substr(a, b - a))) {
+						st->only.push_back(id);
+					}
+				}
 				if (!Game::RunOnMain(
 						[st, cmd] {
 							if (cmd == "GATHER") {
-								st->names = Rescue::GatherFollowers();
+								st->names = Rescue::GatherFollowers(st->only.empty() ? nullptr : &st->only);
 							} else if (cmd == "CONTROLS") {
 								Rescue::RestoreControls();
 							} else {

@@ -39,27 +39,16 @@ namespace Rescue
 			return false;
 		}
 
-		// listed in sGatherSkip (ReSaverHelper.ini, form ids separated by commas)
-		bool Skipped(Actor* a)
+		std::string Lower(std::string s)
 		{
-			const auto& list = Settings::Get().gatherSkip;
-			std::size_t start = 0;
-			for (std::size_t i = 0; i <= list.size(); ++i) {
-				if (i == list.size() || list[i] == ',' || list[i] == ' ' || list[i] == ';') {
-					if (i > start) {
-						try {
-							if (static_cast<std::uint32_t>(std::stoul(list.substr(start, i - start), nullptr, 16)) == a->formID) {
-								return true;
-							}
-						} catch (...) {
-						}
-					}
-					start = i + 1;
-				}
+			for (auto& c : s) {
+				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 			}
-			return false;
+			return s;
 		}
 
+		// listed in sGatherSkip (ReSaverHelper.ini): "Plugin.esp:0012C4" entries (or runtime form ids), separated by commas
+		bool Skipped(Actor* a);
 		std::string JoinNames(const std::vector<std::string>& a_names)
 		{
 			std::string s;
@@ -70,41 +59,144 @@ namespace Rescue
 		}
 	}
 
-	std::vector<std::string> GatherFollowers()
+	// "Plugin.esp:0012C4": the same character whatever the load order (sGatherSkip keeps these)
+	std::string KeyOf(TESForm* a_form)
+	{
+		const auto plugin = le::PluginOf(a_form);
+		return plugin.empty() ? std::format("{:08X}", a_form ? a_form->formID : 0) : std::format("{}:{:06X}", plugin, le::LocalOf(a_form));
+	}
+
+	namespace
+	{
+		bool Skipped(Actor* a)
+		{
+			const auto  key = Lower(KeyOf(a));
+			const auto& list = Settings::Get().gatherSkip;
+			std::size_t start = 0;
+			for (std::size_t i = 0; i <= list.size(); ++i) {
+				if (i == list.size() || list[i] == ',' || list[i] == ';') {
+					auto one = list.substr(start, i - start);
+					while (!one.empty() && one.front() == ' ') {
+						one.erase(0, 1);
+					}
+					while (!one.empty() && one.back() == ' ') {
+						one.pop_back();
+					}
+					one = Lower(one);
+					if (!one.empty()) {
+						if (one == key) {
+							return true;
+						}
+						if (one.find(':') == std::string::npos) {
+							try {
+								if (static_cast<std::uint32_t>(std::stoul(one, nullptr, 16)) == a->formID) {
+									return true;
+								}
+							} catch (...) {
+							}
+						}
+					}
+					start = i + 1;
+				}
+			}
+			return false;
+		}
+
+		struct Found
+		{
+			Actor*      actor = nullptr;
+			std::string why;
+			bool        skipped = false;
+		};
+
+		// LE has no list of every form to walk: the followers are found through the quest aliases that hold
+		// them (the vanilla follower quest and every follower mod's own system keep their followers in aliases)
+		std::vector<Found> FindFollowers()
+		{
+			std::vector<Found> found;
+			auto*              player = le::Player();
+			auto*              dh = le::Data();
+			if (!player || !dh) {
+				return found;
+			}
+			auto*                   faction = le::LookupAs<TESFaction>(kCurrentFollowerFaction);
+			std::set<std::uint32_t> seen;
+			for (UInt32 qi = 0; qi < dh->quests.count; ++qi) {
+				auto* quest = dh->quests.arr.entries[qi];
+				if (!quest || !le::Running(quest)) {
+					continue;
+				}
+				for (UInt32 ai = 0; ai < quest->aliases.count; ++ai) {
+					auto* alias = quest->aliases.arr.entries[ai];
+					auto* refAlias = alias ? le::Cast<BGSRefAlias>(alias, RTTI_BGSBaseAlias, RTTI_BGSRefAlias) : nullptr;
+					auto* actor = refAlias ? refAlias->GetActorReference() : nullptr;
+					if (!actor || actor == player || !seen.insert(actor->formID).second || actor->IsDead(1)) {
+						continue;
+					}
+					std::string why;
+					if (HeldByVanillaQuest(actor)) {
+						why = "vanilla follower quest";
+					} else if (faction && le::FactionRank(actor, faction) >= 0) {
+						why = "follower faction";
+					} else if (le::IsTeammate(actor)) {
+						why = "teammate";
+					} else {
+						continue;
+					}
+					found.push_back({ actor, why, Skipped(actor) });
+				}
+			}
+			return found;
+		}
+	}
+
+	std::vector<std::string> ListFollowers()
+	{
+		std::vector<std::string> out;
+		auto*                    player = le::Player();
+		for (const auto& f : FindFollowers()) {
+			auto clean = [](std::string s) {
+				std::replace(s.begin(), s.end(), '*', ' ');
+				return s;
+			};
+			std::string where;
+			if (player && f.actor->parentCell && f.actor->parentCell == player->parentCell) {
+				const float dx = f.actor->pos.x - player->pos.x, dy = f.actor->pos.y - player->pos.y;
+				where = std::format("near you ({:.0f} m)", std::sqrt(dx * dx + dy * dy) / 70.0f);
+			} else {
+				where = "somewhere else";
+			}
+			out.push_back(std::format("{:08X}*{}*{}*{}*{}*{}", f.actor->formID, clean(KeyOf(f.actor)), clean(ActorName(f.actor)), f.why, where,
+				f.skipped ? 1 : 0));
+		}
+		return out;
+	}
+
+	std::vector<std::string> GatherFollowers(const std::vector<std::uint32_t>* a_only)
 	{
 		std::vector<std::string> names;
 		auto*                    player = le::Player();
-		auto*                    dh = le::Data();
-		if (!player || !dh || !player->parentCell) {
+		if (!player || !player->parentCell) {
 			spdlog::warn("rescue: no player in a cell; followers not moved");
 			return names;
 		}
-		auto* faction = le::LookupAs<TESFaction>(kCurrentFollowerFaction);
-		// LE has no list of every form to walk: the followers are found through the quest aliases that hold
-		// them (the vanilla follower quest and every follower mod's own system keep their followers in aliases)
-		std::set<std::uint32_t> seen;
-		std::vector<Actor*>     found;
-		for (UInt32 qi = 0; qi < dh->quests.count; ++qi) {
-			auto* quest = dh->quests.arr.entries[qi];
-			if (!quest || !le::Running(quest)) {
-				continue;
+		std::vector<Actor*> found;
+		if (a_only) {
+			for (const auto id : *a_only) {
+				auto* a = le::Cast<Actor>(le::Lookup(id), RTTI_TESForm, RTTI_Actor);
+				if (a && a != player && !a->IsDead(1)) {
+					found.push_back(a);
+					spdlog::info("rescue: {:08X} ({}) picked in ReSaver Plus", id, ActorName(a));
+				}
 			}
-			for (UInt32 ai = 0; ai < quest->aliases.count; ++ai) {
-				auto* alias = quest->aliases.arr.entries[ai];
-				auto* refAlias = alias ? le::Cast<BGSRefAlias>(alias, RTTI_BGSBaseAlias, RTTI_BGSRefAlias) : nullptr;
-				auto* actor = refAlias ? refAlias->GetActorReference() : nullptr;
-				if (!actor || actor == player || !seen.insert(actor->formID).second || actor->IsDead(1)) {
+		} else {
+			for (const auto& f : FindFollowers()) {
+				if (f.skipped) {
+					spdlog::info("rescue: {:08X} ({}) left alone: listed in sGatherSkip", f.actor->formID, ActorName(f.actor));
 					continue;
 				}
-				const int rank = faction ? le::FactionRank(actor, faction) : -1;
-				if (!le::IsTeammate(actor) && rank < 0 && !HeldByVanillaQuest(actor)) {
-					continue;
-				}
-				if (Skipped(actor)) {
-					spdlog::info("rescue: {:08X} ({}) left alone: listed in sGatherSkip", actor->formID, ActorName(actor));
-					continue;
-				}
-				found.push_back(actor);
+				found.push_back(f.actor);
+				spdlog::info("rescue: {:08X} ({}) is a follower ({})", f.actor->formID, ActorName(f.actor), f.why);
 			}
 		}
 		// each one at its own spot in a half circle behind the player: never on top of the player or of each other
@@ -186,7 +278,7 @@ namespace Rescue
 			return "ReSaver rescue: the game is busy";
 		}
 		std::this_thread::sleep_for(3s);
-		Game::RunOnMain([st] { st->names = GatherFollowers(); }, 60s);
+		Game::RunOnMain([st] { st->names = GatherFollowers(nullptr); }, 60s);
 		return std::format("ReSaver rescue: saved as {}, controls back on, {} follower(s) brought to you{}{}", st->save, st->names.size(),
 			st->names.empty() ? "" : ": ", JoinNames(st->names));
 	}
