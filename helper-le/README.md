@@ -7,7 +7,7 @@ SKSE plugin that lets ReSaver++ (ReSaver Plus) act in the running game on **Skyr
 - Quests: look at a quest, set a stage (its stage script runs), complete it, mark it completed, stop it
   (version 11, Quest.Stop: the game cleans up after the quest), reset it as if never done (version 11,
   Quest.Reset), refresh the journal.
-- Rescue (version 12): bring your followers next to you, switch your controls back on, save the game as a new save -
+- Rescue (version 12; 12.2: ReSaver Plus lists your followers first so you pick who comes, and remembers the ones you leave out in `sGatherSkip`): bring your followers next to you, switch your controls back on, save the game as a new save -
   from ReSaver Plus's "Work on the running game" window, or by holding Ctrl in the game for 8 seconds (`bRescueHotkey`,
   `iRescueHoldSeconds`), which does all three even without ReSaver Plus. On LE the followers are found through the
   quest aliases that hold them (the vanilla follower quest and the follower mods' own systems): LE's game headers

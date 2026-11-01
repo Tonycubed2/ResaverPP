@@ -17,7 +17,7 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   as your teammate, with their items (revived and enabled if needed).
 - Stop a quest, or reset it as if never done (version 11): Quest.Stop / Quest.Reset, the game's own way (no rewards). Followers
   in Transplant are put back in their aliases and given their items again (fixed in version 11).
-- Rescue (version 12): bring every follower next to you (lost, stuck, left behind; follower mods and DLC followers
+- Rescue (version 12; 12.2: ReSaver Plus lists your followers first so you pick who comes, and remembers the ones you leave out in `sGatherSkip`): bring every follower next to you (lost, stuck, left behind; follower mods and DLC followers
   too), switch your controls back on, save the game as a new save - from ReSaver Plus's "Work on the running game"
   window with no save open, or by holding Ctrl in the game for 8 seconds (`bRescueHotkey`, `iRescueHoldSeconds`), which
   does all three even without ReSaver Plus.
