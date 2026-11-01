@@ -23,8 +23,8 @@ project; you do the coding, building, delivering and publishing.
   Released as the optional file "ReSaverHelper LE" (File ID 8276523) on the LE page with the workflow
   `nexus-helper-le.yml` (uploads the zip in `helper-le/release/`, Tony's own build; file_id defaults to 8276523).
   SE helper: optional file 8222850 on the SE page, updated with `nexus-update-file.yml`. Helper 11 published with v41.
-- Versions are whole numbers, +1 per release. **Current published version: v47** (both pages).
-  `project(ReSaverPP VERSION 47` in CMakeLists.txt.
+- Versions are whole numbers, +1 per release. **Current published version: v48** (both pages).
+  `project(ReSaverPP VERSION 48` in CMakeLists.txt.
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are
@@ -174,7 +174,7 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
-- Not published yet (after v47): `--bsa-list/--bsa-extract/--bsa-find` (core `ExtractBsa`), BSA window (`gui/AppBsa.cpp`,
+- Released in v48 (2026-10-31): `--bsa-list/--bsa-extract/--bsa-find` (core `ExtractBsa`), BSA window (`gui/AppBsa.cpp`,
   File menu, drop a .bsa; test hook RESAVERPP_TEST_BSA=<file>), Collect all logs (`gui/AppCollect.cpp`, `core/Zip.*` zip
   writer on miniz tdefl, `gui/SysInfo.cpp` PC report via registry/DXGI/version.dll; RESAVERPP_TEST_COLLECT), chat text
   selectable (`SelectableText` in AppAi.cpp: read-only boxes with same-text wrapping, copy unwraps).
