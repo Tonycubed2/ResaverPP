@@ -1283,6 +1283,8 @@ void App::pollCompile()
 		}
 	} else if (!r.messages.empty()) {
 		d.summary = Fmt("%zu error(s): click one to go to it.", r.messages.size());
+	} else if (!r.error.empty()) {
+		d.summary = "The script " + r.error;
 	} else {
 		d.summary = "The compiler did not write " + job->script + ".pex (see the compiler output below).";
 	}

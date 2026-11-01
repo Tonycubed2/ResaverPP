@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 
 #ifdef _WIN32
 #	ifndef WIN32_LEAN_AND_MEAN
@@ -34,7 +35,57 @@ namespace ess::papc
 			return std::string(s.begin(), s.end());
 		}
 
-		std::string Quote(const std::string& s) { return "\"" + s + "\""; }
+		// "..." around an argument; backslashes right before the closing quote are doubled, or a folder ending in \
+		// ("C:\ReSaverCompiled\") would escape the quote and swallow the arguments after it
+		std::string Quote(const std::string& s)
+		{
+			std::size_t n = 0;
+			while (n < s.size() && s[s.size() - 1 - n] == '\\') {
+				++n;
+			}
+			return "\"" + s + std::string(n, '\\') + "\"";
+		}
+
+		bool SameBytes(const std::filesystem::path& a, const std::filesystem::path& b)
+		{
+			std::ifstream fa(a, std::ios::binary), fb(b, std::ios::binary);
+			if (!fa || !fb) {
+				return false;
+			}
+			const std::string x((std::istreambuf_iterator<char>(fa)), std::istreambuf_iterator<char>());
+			const std::string y((std::istreambuf_iterator<char>(fb)), std::istreambuf_iterator<char>());
+			return !x.empty() && x == y;
+		}
+
+		// Puts the freshly compiled file over the one in the output folder (read-only or not) and checks it is there.
+		bool Install(const std::filesystem::path& a_from, const std::filesystem::path& a_to, std::string& a_error)
+		{
+			std::error_code ec;
+			std::filesystem::create_directories(a_to.parent_path(), ec);
+			if (std::filesystem::exists(a_to, ec)) {
+				std::filesystem::permissions(a_to, std::filesystem::perms::owner_write, std::filesystem::perm_options::add, ec);
+			}
+			ec.clear();
+			std::filesystem::copy_file(a_from, a_to, std::filesystem::copy_options::overwrite_existing, ec);
+			if (ec) {
+				// replace it outright
+				std::error_code ec2;
+				std::filesystem::remove(a_to, ec2);
+				ec.clear();
+				std::filesystem::copy_file(a_from, a_to, std::filesystem::copy_options::overwrite_existing, ec);
+			}
+			if (ec) {
+				a_error = "compiled, but the new .pex could not replace " + U8(a_to) + ": " + ec.message() +
+						  " (is the file open in another program, read-only, or the folder protected?). The new file is at " + U8(a_from);
+				return false;
+			}
+			if (!SameBytes(a_from, a_to)) {
+				a_error = "compiled, but " + U8(a_to) + " still is not the new file after copying it there (something else is keeping the old one: "
+						  "another program, a sync folder, or Mod Organizer's virtual folders). The new file is at " + U8(a_from);
+				return false;
+			}
+			return true;
+		}
 
 		void SplitInto(std::string& pending, const char* data, std::size_t n, std::vector<std::string>& out)
 		{
@@ -246,6 +297,11 @@ namespace ess::papc
 			return r;
 		}
 		std::filesystem::create_directories(a_req.output, ec);
+		// the compiler writes into a fresh folder of its own; the result is then copied over the old .pex and checked, so
+		// an old file that will not go away (read-only, in use, kept by a virtual or synced folder) is reported, not missed
+		const auto stage = std::filesystem::temp_directory_path(ec) / "ReSaverPP" / "compile-out";
+		std::filesystem::remove_all(stage, ec);
+		std::filesystem::create_directories(stage, ec);
 
 		std::string head;
 #ifndef _WIN32
@@ -254,7 +310,7 @@ namespace ess::papc
 		}
 #endif
 		head += Quote(U8(a_req.compiler)) + " " + Quote(U8(a_req.source));
-		std::string tail = " -o=" + Quote(U8(a_req.output)) + " -f=" + Quote(a_req.flags) + (a_req.optimize ? " -op" : "");
+		std::string tail = " -o=" + Quote(U8(stage)) + " -f=" + Quote(a_req.flags) + (a_req.optimize ? " -op" : "");
 		// Windows command lines are limited to 32767 characters: leave out the lowest priority folders
 		std::string imports;
 		for (std::size_t i = 0; i < a_req.imports.size(); ++i) {
@@ -268,7 +324,7 @@ namespace ess::papc
 		r.commandLine = head + " -i=" + Quote(imports) + tail;
 
 		const auto pex = a_req.output / (U8(a_req.source.stem()) + ".pex");
-		const auto before = std::filesystem::exists(pex, ec) ? std::filesystem::last_write_time(pex, ec) : std::filesystem::file_time_type{};
+		const auto built = stage / pex.filename();
 		r.exitCode = Run(r.commandLine, a_req.compiler.parent_path(), r.output, r.error);
 		if (r.exitCode < 0 && !r.error.empty()) {
 			return r;
@@ -280,17 +336,24 @@ namespace ess::papc
 			const auto low = Lower(l);
 			failedText = failedText || low.find("compilation failed") != std::string::npos || low.find("assembly failed") != std::string::npos;
 		}
-		const bool written = std::filesystem::exists(pex, ec) && std::filesystem::last_write_time(pex, ec) != before;
-		r.ok = written && !failedText && r.messages.empty();
-		if (r.ok) {
-			r.pex = pex;
-			if (a_req.anonymize) {
-				std::string err;
-				if (!Anonymize(pex, err)) {
-					r.error = "compiled, but could not anonymize: " + err;
-				}
+		if (!std::filesystem::exists(built, ec) || failedText || !r.messages.empty()) {
+			return r;
+		}
+		if (a_req.anonymize) {
+			std::string err;
+			if (!Anonymize(built, err)) {
+				r.error = "compiled, but could not anonymize: " + err;
 			}
 		}
+		std::string err;
+		if (!Install(built, pex, err)) {
+			r.error = err;
+			r.pex = built;
+			return r;
+		}
+		r.ok = true;
+		r.pex = pex;
+		std::filesystem::remove_all(stage, ec);
 		return r;
 	}
 }
