@@ -12,6 +12,7 @@ namespace Settings
 		bool        listen = true;            // bListen: accept commands from ReSaver++ at all
 		bool        rescueHotkey = true;      // bRescueHotkey: holding Ctrl saves, restores controls, gathers followers
 		int         rescueHoldSeconds = 8;    // iRescueHoldSeconds: how long Ctrl must be held
+		std::string gatherSkip;               // sGatherSkip: form ids (hex, comma separated) Gather followers leaves alone
 	};
 
 	Values&               Get();

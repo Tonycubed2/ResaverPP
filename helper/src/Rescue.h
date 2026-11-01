@@ -5,9 +5,10 @@
 // SAVEGAME, RESCUE); holding Ctrl in the game for iRescueHoldSeconds (8) does all three without ReSaver++.
 namespace Rescue
 {
-	// Every current follower (CurrentFollowerFaction rank 0 or more, or a player teammate: the follower
-	// frameworks and DLC followers use that), alive, enabled, not a summon, moved next to the player,
-	// loaded or not. Returns their names. Main thread.
+	// Every current follower (held by the vanilla follower quest, CurrentFollowerFaction rank 0 or more, or a
+	// player teammate: the follower frameworks and DLC followers use those), alive, enabled, not a summon, not
+	// a mod's helper parked in a dummy / holding cell, not listed in sGatherSkip: moved (Papyrus MoveTo) to its
+	// own spot in a half circle behind the player, loaded or not. Returns their names. Main thread.
 	std::vector<std::string> GatherFollowers();
 
 	// Game.EnablePlayerControls (the console's EnablePlayerControls): moving, fighting, menus, activating,
@@ -18,7 +19,8 @@ namespace Rescue
 	// Main thread.
 	std::string SaveGame();
 
-	// All three: save, controls, followers. Returns one line saying what was done. Main thread.
+	// All three: the save and the controls first, then (3 seconds later, once the save is written) the
+	// followers. Returns one line saying what was done. NOT on the main thread: it waits for it.
 	std::string RunAll();
 
 	// starts the thread that watches for Ctrl held down (at kDataLoaded)

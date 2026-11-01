@@ -99,7 +99,9 @@ void App::drawLiveGame()
 		liveGameAction("GATHER", "Bringing your followers");
 	}
 	tips::Tip("Every follower you have (vanilla, DLC, and follower mods: anyone following you or set as your teammate) is brought next "
-			  "to you, wherever they are: lost, stuck, left in another city or cell. Summons and dismissed followers are left alone.");
+			  "to you, wherever they are: lost, stuck, left in another city or cell. They are placed in a half circle behind you. "
+			  "Summons, dismissed followers and mods' helper characters parked in holding cells are left alone; others can be "
+			  "listed in sGatherSkip in ReSaverHelper.ini.");
 	ImGui::SameLine();
 	if (ImGui::Button("Get my controls back", big)) {
 		liveGameAction("CONTROLS", "Switching your controls back on");
@@ -115,7 +117,7 @@ void App::drawLiveGame()
 		liveGameAction("RESCUE", "Saving, switching your controls on and bringing your followers");
 	}
 	tips::Tip("Saves the game (a new save), switches your controls back on and brings every follower next to you: the same as holding "
-			  "Ctrl in the game.");
+			  "Ctrl in the game. The save is made first, so it is the game as it was before the followers moved.");
 	ImGui::EndDisabled();
 	if (!_liveGameResult.empty()) {
 		ImGui::Spacing();

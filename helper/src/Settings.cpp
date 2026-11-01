@@ -44,7 +44,9 @@ namespace Settings
 			"; your controls are switched back on and every follower is brought next to you. 0 = off.\n"
 			"bRescueHotkey=1\n"
 			"; seconds Ctrl must be held (3 to 60)\n"
-			"iRescueHoldSeconds=8\n";
+			"iRescueHoldSeconds=8\n"
+			"; characters Gather followers leaves alone: form ids as the console shows them, separated by commas\n"
+			"sGatherSkip=\n";
 	}
 
 	Values& Get() { return g_values; }
@@ -81,6 +83,8 @@ namespace Settings
 			g_values.listen = ParseBool(v);
 		} else if (n == "brescuehotkey") {
 			g_values.rescueHotkey = ParseBool(v);
+		} else if (n == "sgatherskip") {
+			g_values.gatherSkip = v;
 		} else if (n == "irescueholdseconds") {
 			try {
 				g_values.rescueHoldSeconds = std::clamp(std::stoi(v), 3, 60);
@@ -113,6 +117,9 @@ namespace Settings
 		}
 		if (n == "irescueholdseconds") {
 			return std::to_string(g_values.rescueHoldSeconds);
+		}
+		if (n == "sgatherskip") {
+			return g_values.gatherSkip;
 		}
 		return {};
 	}
@@ -168,7 +175,7 @@ namespace Settings
 				lines.push_back(d.substr(a, b - a));
 			}
 		}
-		for (const char* key : { "sNotify", "bRefreshJournalOnLoad", "iRefreshDelaySeconds", "bListen", "bRescueHotkey", "iRescueHoldSeconds" }) {
+		for (const char* key : { "sNotify", "bRefreshJournalOnLoad", "iRefreshDelaySeconds", "bListen", "bRescueHotkey", "iRescueHoldSeconds", "sGatherSkip" }) {
 			bool found = false;
 			for (auto& l : lines) {
 				const auto t = Trim(l);

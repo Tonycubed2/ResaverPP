@@ -69,11 +69,17 @@ namespace Server
 			// never by this function's stack: when the game is busy the task can run long after this
 			// request has given up waiting.
 			// version 12: rescue tools for a running game that is stuck
-			if (cmd == "GATHER" || cmd == "CONTROLS" || cmd == "SAVEGAME" || cmd == "RESCUE") {
+			if (cmd == "RESCUE") {
+				// waits for the main thread twice (save first, the followers a few seconds later)
+				const auto line = Rescue::RunAll();
+				Game::Notify(arg(0), line);
+				return { "OK", line };
+			}
+			if (cmd == "GATHER" || cmd == "CONTROLS" || cmd == "SAVEGAME") {
 				struct State
 				{
 					std::vector<std::string> names;
-					std::string              save, line;
+					std::string              save;
 				};
 				auto st = std::make_shared<State>();
 				if (!Game::RunOnMain(
@@ -82,10 +88,8 @@ namespace Server
 								st->names = Rescue::GatherFollowers();
 							} else if (cmd == "CONTROLS") {
 								Rescue::RestoreControls();
-							} else if (cmd == "SAVEGAME") {
-								st->save = Rescue::SaveGame();
 							} else {
-								st->line = Rescue::RunAll();
+								st->save = Rescue::SaveGame();
 							}
 						},
 						kWait)) {
@@ -97,19 +101,15 @@ namespace Server
 				}
 				if (cmd == "GATHER") {
 					Game::Notify(arg(0), st->names.empty() ? "ReSaver++: no followers to bring" :
-															 std::format("ReSaver++: {} follower(s) brought to you: {}", st->names.size(), names));
+														 std::format("ReSaver++: {} follower(s) brought to you: {}", st->names.size(), names));
 					return { "OK", std::to_string(st->names.size()), names };
 				}
 				if (cmd == "CONTROLS") {
 					Game::Notify(arg(0), "ReSaver++: your controls are switched back on");
 					return { "OK" };
 				}
-				if (cmd == "SAVEGAME") {
-					Game::Notify(arg(0), "ReSaver++: game saved as " + st->save);
-					return { "OK", st->save };
-				}
-				Game::Notify(arg(0), st->line);
-				return { "OK", st->line };
+				Game::Notify(arg(0), "ReSaver++: game saved as " + st->save);
+				return { "OK", st->save };
 			}
 			if (cmd == "QUEST") {
 				auto       st = std::make_shared<Game::QuestInfo>();
