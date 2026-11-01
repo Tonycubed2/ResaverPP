@@ -167,7 +167,7 @@ namespace Rescue
 			const auto  from = a->GetParentCell();
 			const auto  pos = a->GetPosition();
 			vm->DispatchMethodCall(h, "ObjectReference", "MoveTo",
-				RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(player), x, y, 0.0f, false), none);
+				RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(player), static_cast<float>(x), static_cast<float>(y), 0.0f, false), none);
 			vm->DispatchMethodCall(h, "Actor", "EvaluatePackage", RE::MakeFunctionArguments(), none);
 			names.push_back(NameOf(a));
 			spdlog::info("rescue: follower {:08X} ({}) moved to the player (was in {} {:08X} at {:.0f}, {:.0f}, {:.0f})", a->GetFormID(), names.back(),
