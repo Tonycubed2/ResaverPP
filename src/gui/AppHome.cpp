@@ -97,6 +97,20 @@ void App::shortcut(Sc a_which)
 		_showAi = true;
 		return;
 	}
+	if (a_which == Sc::kBsa) {
+		_showBsa = true;
+		if (!_bsaView) {
+			const auto start = _sourcesPath.empty() ? gameFolder() / "Data" : platform::FromUtf8(_sourcesPath);
+			if (auto p = platform::OpenFileDialog(start, "bsa", "BSA archive")) {
+				openBsa(*p);
+			}
+		}
+		return;
+	}
+	if (a_which == Sc::kCollectLogs) {
+		startCollectLogs();
+		return;
+	}
 	if (!_save && a_which != Sc::kOpenPex) {
 		return;
 	}
@@ -294,12 +308,20 @@ void App::drawHome()
 					HomeRisk::kNone, -1 },
 				{ Sc::kPapyrusLog, "Papyrus log", "which mod is spamming errors",
 					"Read Papyrus.0.log: errors grouped by script and mod, with how often each happens.", HomeRisk::kNone, -1 },
+				{ Sc::kBsa, "Unpack a BSA", "see and unpack the files in an archive",
+					"See the files inside a mod's or the game's BSA archive, unpack all or some of them into a folder, and read a "
+					"script packed inside without unpacking it.",
+					HomeRisk::kNone, -1 },
 			} },
 		{ "Logs and AI",
 			{
 				{ Sc::kSkyrimLogs, "Analyze Skyrim logs", "SKSE, crash, Papyrus and mod logs",
 					"Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found: plugins that "
 					"did not load, what crashed, scripts that are missing.",
+					HomeRisk::kNone, -1 },
+				{ Sc::kCollectLogs, "Collect all logs", "one zip on the desktop, to share",
+					"Put every Skyrim log (SKSE and all its folders, crash logs, Papyrus), your load order and INI files, and what PC "
+					"it is (Windows, memory, processor, video card) into one zip file on your desktop, ready to send with a report.",
 					HomeRisk::kNone, -1 },
 				{ Sc::kAskAi, "Ask the AI", "plain English: it uses ReSaver Plus for you",
 					"Chat with an AI engine (Claude, ChatGPT, Gemini, or a free one on your PC) that can use everything ReSaver Plus "

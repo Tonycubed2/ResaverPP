@@ -2,6 +2,7 @@
 #include <tuple>
 // ReSaver++ command line - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "core/Batch.h"
+#include "core/Bsa.h"
 #include "core/CliHelp.h"
 #include "core/SkyrimLogs.h"
 #include "core/ChangeFormData.h"
@@ -193,6 +194,101 @@ static int FileConflictsMain(int argc, char** argv)
 	return 0;
 }
 
+// resaverpp-cli --bsa-list <bsa> [text] / --bsa-extract <bsa> <out> [text] [--overwrite]
+static int BsaMain(int argc, char** argv)
+{
+	const std::string mode = argv[1];
+	if (mode == "--bsa-find") {
+		if (argc < 4) {
+			std::fputs("--bsa-find needs a folder and a text\n", stderr);
+			return 1;
+		}
+		std::string text = argv[3];
+		for (auto& c : text) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		std::replace(text.begin(), text.end(), '/', '\\');
+		std::size_t     archives = 0, hits = 0;
+		std::error_code ec;
+		for (std::filesystem::recursive_directory_iterator it(std::filesystem::u8path(argv[2]), std::filesystem::directory_options::skip_permission_denied, ec), end;
+			 !ec && it != end; it.increment(ec)) {
+			if (it.depth() > 3) {
+				it.disable_recursion_pending();
+			}
+			auto ext = it->path().extension().string();
+			for (auto& c : ext) {
+				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			}
+			if (!it->is_regular_file(ec) || ext != ".bsa") {
+				continue;
+			}
+			++archives;
+			try {
+				BsaArchive bsa(it->path());
+				for (const auto& e : bsa.entries()) {
+					if (e.path.find(text) != std::string::npos) {
+						const auto u = it->path().u8string();
+						std::printf("%s : %s\n", std::string(u.begin(), u.end()).c_str(), e.path.c_str());
+						if (++hits >= 500) {
+							std::puts("... (500 shown; search for something narrower)");
+							return 0;
+						}
+					}
+				}
+			} catch (const std::exception& e) {
+				std::fprintf(stderr, "%s: %s\n", it->path().string().c_str(), e.what());
+			}
+		}
+		std::printf("%zu match(es) in %zu archive(s)\n", hits, archives);
+		return 0;
+	}
+	try {
+		if (argc < 3) {
+			std::fputs("missing the BSA file\n", stderr);
+			return 1;
+		}
+		BsaArchive bsa(std::filesystem::u8path(argv[2]));
+		if (mode == "--bsa-list") {
+			std::string filter = argc > 3 ? argv[3] : "";
+			for (auto& c : filter) {
+				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			}
+			std::replace(filter.begin(), filter.end(), '/', '\\');
+			std::size_t n = 0;
+			for (const auto& e : bsa.entries()) {
+				if (filter.empty() || e.path.find(filter) != std::string::npos) {
+					std::printf("%10u  %s\n", e.size, e.path.c_str());
+					++n;
+				}
+			}
+			std::printf("%zu of %zu files (BSA version %u)\n", n, bsa.entries().size(), bsa.version());
+			return 0;
+		}
+		if (argc < 4) {
+			std::fputs("--bsa-extract needs an output folder\n", stderr);
+			return 1;
+		}
+		bool        overwrite = false;
+		std::string filter;
+		for (int i = 4; i < argc; ++i) {
+			if (std::string(argv[i]) == "--overwrite") {
+				overwrite = true;
+			} else {
+				filter = argv[i];
+			}
+		}
+		const auto r = ExtractBsa(bsa, std::filesystem::u8path(argv[3]), filter, overwrite);
+		std::printf("written %zu file(s) (%.1f MB), kept %zu already there, %zu failed\n", r.written, r.bytes / 1048576.0, r.skipped, r.failed);
+		for (const auto& e : r.errors) {
+			std::printf("  %s\n", e.c_str());
+		}
+		return r.failed ? 2 : 0;
+	} catch (const std::exception& e) {
+		std::fprintf(stderr, "error: %s\n", e.what());
+		return 2;
+	}
+}
+
 // resaverpp-cli --analyze-logs [<My Games folder>] [--days <n>]
 static int AnalyzeLogsMain(int argc, char** argv)
 {
@@ -268,6 +364,9 @@ int main(int argc, char** argv)
 	}
 	if (std::string(argv[1]) == "--file-conflicts") {
 		return FileConflictsMain(argc, argv);
+	}
+	if (std::string(argv[1]) == "--bsa-list" || std::string(argv[1]) == "--bsa-extract" || std::string(argv[1]) == "--bsa-find") {
+		return BsaMain(argc, argv);
 	}
 	if (std::string(argv[1]) == "--analyze-logs") {
 		return AnalyzeLogsMain(argc, argv);

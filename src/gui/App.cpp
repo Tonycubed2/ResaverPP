@@ -989,6 +989,14 @@ void App::draw()
 		watchdog::Section("drawPapyrusLog");
 		drawPapyrusLog();
 	}
+	if (_showCollect) {
+		watchdog::Section("drawCollectLogs");
+		drawCollectLogs();
+	}
+	if (_showBsa) {
+		watchdog::Section("drawBsa");
+		drawBsa();
+	}
 	if (_showGallery) {
 		watchdog::Section("drawGallery");
 		drawGallery();
@@ -1087,6 +1095,10 @@ void App::drawMenu()
 			openWithFileDialog();
 		}
 		tips::Tip("Pick a save anywhere with the Windows file dialog.");
+		if (ImGui::MenuItem("Unpack a BSA archive...")) {
+			shortcut(Sc::kBsa);
+		}
+		tips::Tip("See the files inside a mod's or the game's BSA archive, unpack them into a folder, read a packed script.");
 		if (ImGui::MenuItem("Save", "Ctrl+S", false, _save != nullptr)) {
 			confirm("Overwrite save", "Write the edits over " + platform::ToUtf8(_path.filename()) +
 										  "?\n\nThe current file is kept next to it as a .bak copy.",
@@ -1268,6 +1280,12 @@ void App::drawMenu()
 			openSkyrimLogs();
 		}
 		tips::Tip("Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found.");
+		if (ImGui::MenuItem("Collect all logs (zip on the desktop)")) {
+			startCollectLogs();
+		}
+		tips::Tip("Put every Skyrim log (the SKSE folder with all its folders, crash logs, Papyrus), your load order and INI files, "
+		          "and what PC this is (Windows, memory, processor, video card) into one dated zip on your desktop, ready to send "
+		          "with a report.");
 		if (ImGui::MenuItem("AI engine settings...")) {
 			_showAi = true;
 			_aiShowSettings = true;

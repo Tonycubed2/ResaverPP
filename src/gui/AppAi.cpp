@@ -23,6 +23,8 @@
 #include <future>
 #include <ostream>
 #include <sstream>
+#include <functional>
+#include <map>
 
 namespace
 {
@@ -234,6 +236,10 @@ RECIPES
 - Lost follower: --npcs <name>, then --move-to-player <formid> -o <new save>.
 - Player: --player, --set-gold, --set-skill, --set-level, --set-perks, --set-item, --set-bounty, --clear-crimes.
 - Mod menus (MCM) missing: --fix-mcm. Enchanted items with no charge: --charged, --fix-charges.
+- A script (or any file) packed in a BSA: run_cli --bsa-find <mods folder or Data> <name> finds which archive has it;
+  --bsa-list <bsa> [text] lists an archive; --bsa-extract <bsa> <folder> <name> unpacks it; then run_cli <folder>\scripts\<name>.pex --psc
+  shows its source. Extract into a folder of your own (e.g. the saves folder's parent + "\ReSaverPP BSA"), NEVER into the game's Data
+  folder or a mod's folder: loose files there override the BSA in the game.
 - --sources <mods folder> and --profile <MO2 profile folder> let the command line read the installed mods (names, which mod a script belongs to); use the values in CURRENT STATE when they are set.
 
 THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text follows)
@@ -414,6 +420,11 @@ void App::drawSkyrimLogs()
 		       "it, most important first.");
 	}
 	tips::Tip("Send these findings to the AI chat: it reads the logs further and explains what to do.");
+	ImGui::SameLine();
+	if (ImGui::Button("Collect all logs (zip)")) {
+		startCollectLogs();
+	}
+	tips::Tip("Every log, your load order, INI files and PC details in one dated zip on your desktop, to send with a report.");
 	ImGui::SameLine();
 	if (ImGui::Button("Copy as text")) {
 		ImGui::SetClipboardText(ess::logs::ToText(_logsJob->result).c_str());
@@ -976,26 +987,39 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 
 namespace
 {
-	// the AI's text with a little markdown: ``` code blocks, # headings, - bullets, **bold** markers removed
-	void DrawAiText(const std::string& a_text)
+
+	// ---- chat text that can be selected with the mouse and copied ----------------------------------------
+	// A read-only text box per message. Dear ImGui's text boxes do not wrap, so the text is wrapped here first:
+	// a line break replaces a space, or is put in a word too long for the line; each character remembers which,
+	// so a copy gives back the text as written (spaces back, added breaks out).
+	struct Wrapped
 	{
+		float             width = 0;
+		std::size_t       srcHash = 0;
+		std::string       text;   // wrapped
+		std::vector<char> kind;   // per character of text: 0 as written, 1 break that was a space, 2 added break
+		int               selA = 0, selB = 0;
+	};
+	std::map<std::string, Wrapped> g_wrapped;
+
+	std::string CleanAiText(const std::string& a_text)  // markdown markers out (**bold**, `code`, # headings, ``` fences)
+	{
+		std::string        out;
 		std::istringstream in(a_text);
-		bool               code = false;
+		bool               first = true;
 		for (std::string l; std::getline(in, l);) {
 			if (!l.empty() && l.back() == '\r') {
 				l.pop_back();
 			}
 			if (l.rfind("```", 0) == 0) {
-				code = !code;
 				continue;
 			}
-			if (code) {
-				ImGui::PushStyleColor(ImGuiCol_Text, theme::Dim());
-				ImGui::PushTextWrapPos(0);
-				ImGui::TextUnformatted(("    " + l).c_str());
-				ImGui::PopTextWrapPos();
-				ImGui::PopStyleColor();
-				continue;
+			std::size_t h = 0;
+			while (h < l.size() && l[h] == '#') {
+				++h;
+			}
+			if (h && h < l.size() && l[h] == ' ') {
+				l = l.substr(h + 1);
 			}
 			std::string t;
 			for (std::size_t i = 0; i < l.size(); ++i) {
@@ -1008,32 +1032,118 @@ namespace
 				}
 				t += l[i];
 			}
-			std::size_t ind = 0;
-			while (ind < t.size() && t[ind] == ' ') {
-				++ind;
+			out += (first ? "" : "\n") + t;
+			first = false;
+		}
+		return out;
+	}
+
+	Wrapped& WrapFor(const std::string& a_id, const std::string& a_text, float a_width)
+	{
+		auto&      w = g_wrapped[a_id];
+		const auto hash = std::hash<std::string>{}(a_text);
+		if (w.width == a_width && w.srcHash == hash) {
+			return w;
+		}
+		w.width = a_width;
+		w.srcHash = hash;
+		w.text.clear();
+		w.kind.clear();
+		ImFont*     font = ImGui::GetFont();
+		const float scale = ImGui::GetFontSize() / font->FontSize;
+		const char* s = a_text.c_str();
+		const char* end = s + a_text.size();
+		while (s < end) {
+			const char* nl = static_cast<const char*>(std::memchr(s, '\n', static_cast<std::size_t>(end - s)));
+			const char* lineEnd = nl ? nl : end;
+			const char* p = s;
+			while (p < lineEnd) {
+				const char* brk = font->CalcWordWrapPositionA(scale, p, lineEnd, a_width);
+				if (brk >= lineEnd) {
+					w.text.append(p, lineEnd);
+					w.kind.insert(w.kind.end(), static_cast<std::size_t>(lineEnd - p), 0);
+					p = lineEnd;
+					break;
+				}
+				if (brk <= p) {
+					brk = p + 1;  // always move on
+				}
+				w.text.append(p, brk);
+				w.kind.insert(w.kind.end(), static_cast<std::size_t>(brk - p), 0);
+				if (*brk == ' ') {
+					w.text += '\n';
+					w.kind.push_back(1);
+					p = brk + 1;
+				} else {
+					w.text += '\n';
+					w.kind.push_back(2);
+					p = brk;
+				}
 			}
-			if (t.empty()) {
-				ImGui::Spacing();
-			} else if (t[0] == '#') {
-				const auto h = t.find_first_not_of("# ");
-				ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-				ImGui::PushTextWrapPos(0);
-				ImGui::TextUnformatted(h == std::string::npos ? "" : t.c_str() + h);
-				ImGui::PopTextWrapPos();
-				ImGui::PopStyleColor();
-			} else if (ind + 1 < t.size() && (t[ind] == '-' || t[ind] == '*') && t[ind + 1] == ' ') {
-				ImGui::Indent(static_cast<float>(ind) * 6 + 4);
-				ImGui::Bullet();
-				ImGui::SameLine();
-				ImGui::PushTextWrapPos(0);
-				ImGui::TextUnformatted(t.c_str() + ind + 2);
-				ImGui::PopTextWrapPos();
-				ImGui::Unindent(static_cast<float>(ind) * 6 + 4);
+			if (nl) {
+				w.text += '\n';
+				w.kind.push_back(0);
+				s = nl + 1;
 			} else {
-				ImGui::PushTextWrapPos(0);
-				ImGui::TextUnformatted(t.c_str());
-				ImGui::PopTextWrapPos();
+				s = end;
 			}
+		}
+		return w;
+	}
+
+	int OnSelection(ImGuiInputTextCallbackData* a_data)
+	{
+		auto* w = static_cast<Wrapped*>(a_data->UserData);
+		w->selA = std::min(a_data->SelectionStart, a_data->SelectionEnd);
+		w->selB = std::max(a_data->SelectionStart, a_data->SelectionEnd);
+		return 0;
+	}
+
+	std::string Unwrap(const Wrapped& a_w, int a_from, int a_to)
+	{
+		std::string out;
+		for (int i = std::max(0, a_from); i < a_to && i < static_cast<int>(a_w.text.size()); ++i) {
+			const char k = a_w.kind[static_cast<std::size_t>(i)];
+			if (k == 2) {
+				continue;
+			}
+			out += k == 1 ? ' ' : a_w.text[static_cast<std::size_t>(i)];
+		}
+		return out;
+	}
+
+	// the text as a read-only box the mouse can select in; Ctrl+C (or right-click > Copy) copies the selection
+	void SelectableText(const std::string& a_id, const std::string& a_text, ImU32 a_color = 0)
+	{
+		const float width = std::max(50.0f, ImGui::GetContentRegionAvail().x - 8);
+		auto&       w = WrapFor(a_id, a_text, width - 4);
+		const int   lines = 1 + static_cast<int>(std::count(w.text.begin(), w.text.end(), '\n'));
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
+		if (a_color) {
+			ImGui::PushStyleColor(ImGuiCol_Text, a_color);
+		}
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 1));
+		ImGui::InputTextMultiline(("##" + a_id).c_str(), w.text.data(), w.text.size() + 1,
+			ImVec2(width, lines * ImGui::GetTextLineHeight() + 4),
+			ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_CallbackAlways, OnSelection, &w);
+		ImGui::PopStyleVar();
+		if (a_color) {
+			ImGui::PopStyleColor();
+		}
+		ImGui::PopStyleColor();
+		const auto& io = ImGui::GetIO();
+		if (ImGui::IsItemActive() && io.KeyCtrl && (ImGui::IsKeyPressed(ImGuiKey_C, false) || ImGui::IsKeyPressed(ImGuiKey_Insert, false)) &&
+			w.selB > w.selA) {
+			ImGui::SetClipboardText(Unwrap(w, w.selA, w.selB).c_str());  // after the box's own copy: as written
+		}
+		if (ImGui::BeginPopupContextItem(("##ctx" + a_id).c_str())) {
+			if (ImGui::MenuItem("Copy", "Ctrl+C", false, w.selB > w.selA)) {
+				ImGui::SetClipboardText(Unwrap(w, w.selA, w.selB).c_str());
+			}
+			if (ImGui::MenuItem("Copy all of it")) {
+				ImGui::SetClipboardText(Unwrap(w, 0, static_cast<int>(w.text.size())).c_str());
+			}
+			ImGui::EndPopup();
 		}
 	}
 
@@ -1245,9 +1355,7 @@ void App::drawAiChat()
 				ImGui::PushStyleColor(ImGuiCol_Text, theme::Good());
 				ImGui::TextUnformatted("You");
 				ImGui::PopStyleColor();
-				ImGui::PushTextWrapPos(0);
-				ImGui::TextUnformatted(m.text.c_str());
-				ImGui::PopTextWrapPos();
+				SelectableText(std::to_string(i), m.text);
 				break;
 			case ai::Message::Role::kAssistant:
 				if (m.text.empty()) {
@@ -1263,7 +1371,7 @@ void App::drawAiChat()
 						ImGui::SetClipboardText(m.text.c_str());
 					}
 				}
-				DrawAiText(m.text);
+				SelectableText(std::to_string(i), CleanAiText(m.text));
 				break;
 			case ai::Message::Role::kTool:
 				{
@@ -1281,11 +1389,7 @@ void App::drawAiChat()
 					break;
 				}
 			case ai::Message::Role::kNote:
-				ImGui::PushStyleColor(ImGuiCol_Text, m.error ? ImGui::ColorConvertU32ToFloat4(theme::Bad()) : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-				ImGui::PushTextWrapPos(0);
-				ImGui::TextUnformatted(m.text.c_str());
-				ImGui::PopTextWrapPos();
-				ImGui::PopStyleColor();
+				SelectableText(std::to_string(i), m.text, m.error ? theme::Bad() : ImGui::GetColorU32(ImGuiCol_TextDisabled));
 				break;
 			}
 			ImGui::PopID();
@@ -1356,7 +1460,7 @@ void App::drawAiChat()
 		}
 	} else {
 		ImGui::AlignTextToFramePadding();
-		ImGui::TextDisabled("Enter sends, Ctrl+Enter starts a new line.");
+		ImGui::TextDisabled("Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it.");
 	}
 
 	// input

@@ -116,6 +116,10 @@ public:
 		} else if (w == "gallery" || w == "gallerylist") {
 			_galleryList = w == "gallerylist";
 			startOpenDialog();
+		} else if (w == "collect") {
+			startCollectLogs();
+		} else if (w.rfind("bsa:", 0) == 0) {
+			openBsa(w.substr(4));
 		} else if (w == "skyrimlogs") {
 			openSkyrimLogs();
 		} else if (w.rfind("ai:", 0) == 0) {
@@ -555,7 +559,7 @@ private:
 		kMcm, kHavok, kPurify, kBatch, kPurge,
 		kPlayer, kActors, kTransplant, kLookup,
 		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex,
-		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog, kSkyrimLogs, kAskAi
+		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog, kSkyrimLogs, kAskAi, kBsa, kCollectLogs
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	void        drawHome();            // the shortcut buttons
@@ -742,6 +746,20 @@ private:
 	std::filesystem::path savesFolder() const;  // where File > Open starts: the chosen saves folder, the last one used, or the one with the newest save
 	void fixMcmJam();
 	void killThreads(const std::set<ess::ThreadID>& a_threads, const std::set<ess::EID>& a_instances, const std::string& a_what, bool a_terminateOnly);
+
+	// ---- AI and logs > Collect all logs (AppCollect.cpp) ------------------------------------------
+	struct CollectJob;
+	std::shared_ptr<CollectJob> _collectJob;
+	bool                        _showCollect = false;
+	void                        startCollectLogs();
+	void                        drawCollectLogs();
+
+	// ---- File > Unpack a BSA archive (AppBsa.cpp) ------------------------------------------------
+	struct BsaView;
+	std::shared_ptr<BsaView> _bsaView;
+	bool                     _showBsa = false;
+	void                     openBsa(const std::filesystem::path& a_path);
+	void                     drawBsa();
 
 	// ---- File > Open: the saves as pictures or a list (AppGallery.cpp) ---------------------------
 	struct Gallery;

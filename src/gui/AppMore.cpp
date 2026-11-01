@@ -966,6 +966,8 @@ void App::openAny(const std::filesystem::path& a_path)
 	const auto ext = Lower(platform::ToUtf8(a_path.extension()));
 	if (ext == ".pex" || ext == ".psc") {
 		viewScriptFile(a_path);
+	} else if (ext == ".bsa") {
+		openBsa(a_path);  // dropping a BSA shows what is in it
 	} else if (Lower(platform::ToUtf8(a_path.filename())) == "modorganizer.ini") {
 		// ReSaver: dropping ModOrganizer.ini selects that MO2 instance
 		if (auto m = ReadMo2Ini(a_path)) {

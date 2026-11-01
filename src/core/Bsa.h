@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,18 @@ namespace ess
 		std::uint32_t         _version = 0, _flags = 0;
 		std::vector<Entry>    _entries;
 	};
+
+	// Unpacks the files of a BSA into a folder, keeping their folders ("scripts\\foo.pex" -> <out>\\scripts\\foo.pex).
+	// a_filter: only paths containing it (lowercase match, "" = all). Existing files are kept unless a_overwrite.
+	// a_progress(done, total) is called after each file; returning false stops.
+	struct BsaExtractResult
+	{
+		std::size_t              written = 0, skipped = 0, failed = 0;
+		std::uint64_t            bytes = 0;
+		std::vector<std::string> errors;  // the first few
+	};
+	BsaExtractResult ExtractBsa(const BsaArchive& a_bsa, const std::filesystem::path& a_out, const std::string& a_filter, bool a_overwrite,
+		const std::function<bool(std::size_t, std::size_t)>& a_progress = {});
 
 	// Decodes an LZ4 frame (the format SE BSAs use for compressed files).
 	std::vector<std::uint8_t> DecompressLZ4Frame(const std::uint8_t* a_src, std::size_t a_srcLen, std::size_t a_dstLen);

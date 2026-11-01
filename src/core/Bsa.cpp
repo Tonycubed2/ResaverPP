@@ -147,6 +147,78 @@ namespace ess
 		return DecompressLZ4Frame(raw.data() + pos, raw.size() - pos, original);
 	}
 
+	BsaExtractResult ExtractBsa(const BsaArchive& a_bsa, const std::filesystem::path& a_out, const std::string& a_filter, bool a_overwrite,
+		const std::function<bool(std::size_t, std::size_t)>& a_progress)
+	{
+		BsaExtractResult r;
+		std::string      filter = a_filter;
+		for (auto& c : filter) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		std::replace(filter.begin(), filter.end(), '/', '\\');
+		std::vector<const BsaArchive::Entry*> todo;
+		for (const auto& e : a_bsa.entries()) {
+			if (filter.empty() || e.path.find(filter) != std::string::npos) {
+				todo.push_back(&e);
+			}
+		}
+		for (std::size_t i = 0; i < todo.size(); ++i) {
+			const auto& e = *todo[i];
+			// a path that would leave the folder is not written
+			std::filesystem::path rel;
+			bool                  bad = e.path.empty() || e.path.find(':') != std::string::npos;
+			std::size_t           start = 0;
+			while (!bad && start <= e.path.size()) {
+				const auto end = e.path.find('\\', start);
+				const auto part = e.path.substr(start, end == std::string::npos ? std::string::npos : end - start);
+				if (part == ".." || part == "." || (part.empty() && end != std::string::npos)) {
+					bad = true;
+					break;
+				}
+				if (!part.empty()) {
+					rel /= std::filesystem::u8path(part);
+				}
+				if (end == std::string::npos) {
+					break;
+				}
+				start = end + 1;
+			}
+			if (bad) {
+				++r.failed;
+				if (r.errors.size() < 10) {
+					r.errors.push_back(e.path + ": not a safe path, skipped");
+				}
+			} else {
+				const auto      dst = a_out / rel;
+				std::error_code ec;
+				if (!a_overwrite && std::filesystem::exists(dst, ec)) {
+					++r.skipped;
+				} else {
+					try {
+						const auto data = a_bsa.extract(e);
+						std::filesystem::create_directories(dst.parent_path(), ec);
+						std::ofstream f(dst, std::ios::binary | std::ios::trunc);
+						f.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+						if (!f) {
+							throw std::runtime_error("could not write " + dst.string());
+						}
+						++r.written;
+						r.bytes += data.size();
+					} catch (const std::exception& ex) {
+						++r.failed;
+						if (r.errors.size() < 10) {
+							r.errors.push_back(e.path + ": " + ex.what());
+						}
+					}
+				}
+			}
+			if (a_progress && !a_progress(i + 1, todo.size())) {
+				break;
+			}
+		}
+		return r;
+	}
+
 	std::vector<std::uint8_t> DecompressLZ4Frame(const std::uint8_t* a_src, std::size_t a_srcLen, std::size_t a_dstLen)
 	{
 		Reader r(a_src, a_srcLen);

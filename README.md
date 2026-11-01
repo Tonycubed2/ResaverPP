@@ -113,12 +113,22 @@ Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
   problems: plugins SKSE did not load and why (Address Library, wrong game version, error 126/193),
   crashes with the DLLs in their call stacks and known crash places, script lag stack dumps, missing
   scripts, and the error lines in each mod's log. Also `resaverpp-cli --analyze-logs`.
+- Collect all logs (AI and logs menu): every Skyrim log (the SKSE folder with all its folders, crash logs,
+  Papyrus), the INI files, the load order (plugins.txt / loadorder.txt), Mod Organizer's logs and profile
+  lists, ReSaver Plus's own logs and a system-info.txt (computer, Windows or Wine, processor, memory, video
+  card, screen, game version) in one dated zip on the desktop. No saves, and not the AI key.
+- Unpack a BSA archive (File menu, or drop a .bsa on the window): the files inside a BSA (SE/AE and LE),
+  filtered by name, unpacked into a folder of your choice; double-click a packed script to read its decompiled
+  code. Command line: `--bsa-list`, `--bsa-extract`, `--bsa-find` (which archive in a folder has a file).
+- File > Open: the saves folder as pictures (newest first, save number and how long ago) or a list sorted by
+  any column, filtered by character.
 - Ask the AI: a chat with an AI engine that uses ReSaver Plus for you, in plain English. Anthropic
   (Claude), OpenAI, Google Gemini, OpenRouter, or a free engine on your own PC (Ollama, LM Studio);
   your own API key, kept encrypted for your Windows user. The AI gets a "lesson book" (the program's
   guide plus the command line's help text, and `ReSaverPP AI notes.txt` next to the program if you
   write one) and tools: the whole command line, the running game through ReSaverHelper, the logs,
-  listing and reading files, writing text files (backed up first). Edits always go to a new save;
+  listing and reading files, writing text files (backed up first). The chat's text can be selected with
+  the mouse and copied. Edits always go to a new save;
   "Ask me before changes" (on by default) asks for your OK before each change.
 
 ## Programs

@@ -475,6 +475,12 @@ int RunApp(int argc, char** argv)
 	if (const char* gview = std::getenv("RESAVERPP_TEST_GALLERY")) {
 		app.testOpen(std::string(gview) == "list" ? "gallerylist" : "gallery");
 	}
+	if (std::getenv("RESAVERPP_TEST_COLLECT")) {
+		app.testOpen("collect");
+	}
+	if (const char* b = std::getenv("RESAVERPP_TEST_BSA")) {
+		app.testOpen(std::string("bsa:") + b);
+	}
 	if (std::getenv("RESAVERPP_TEST_LOGS")) {
 		app.testOpen("skyrimlogs");
 	}

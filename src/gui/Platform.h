@@ -26,6 +26,11 @@ namespace platform
 	std::filesystem::path                ExeFolder();  // folder of ReSaverPP.exe
 	bool                                 RunningUnderMO2();  // started from Mod Organizer (its virtual file system is loaded)
 	std::filesystem::path                FromUtf8(const std::string& a_utf8);
+	std::filesystem::path                DesktopFolder();
+	std::filesystem::path                LocalAppDataFolder();  // %LOCALAPPDATA% (plugins.txt lives under it)
+	void                                 ShowInFolder(const std::filesystem::path& a_file);  // Explorer with the file selected
+	// computer, Windows (or Wine), processor, memory, video cards, screen, the game's version (SysInfo.cpp)
+	std::string                          SystemReport(const std::filesystem::path& a_gameExe);
 	// Moves files to the Recycle Bin (Windows); elsewhere deletes them. True if all of them went.
 	bool                                 MoveToRecycleBin(const std::vector<std::filesystem::path>& a_files);
 }
