@@ -216,6 +216,10 @@ THE RUNNING GAME (game_command)
   PROGRESS -> done, total, running
   GETOPTION <name> / SETOPTION <name> <value> -> the helper's options
   NOTIFY <notify> <message> -> shows a message in the game
+  GATHER <notify> -> brings every follower (vanilla, DLC, follower mods; loaded or not) next to the player: count, names (helper 12)
+  CONTROLS <notify> -> switches the player's controls back on (EnablePlayerControls) (helper 12)
+  SAVEGAME <notify> -> saves the game as a new save ReSaverPP_Rescue_<date>_<time>: its name (helper 12)
+  RESCUE <notify> -> all three: save, controls, followers (helper 12). Holding Ctrl in the game for 8 seconds does the same.
   <notify> is hud (top-left notification), box (message box), none, or ini (the helper's setting). <message> may be empty ("") for the default text.
 - Form IDs for game_command are the runtime IDs, the same as the save shows. Quests without any script may answer that only the console can do it; then give the user the console command (setstage / stopquest / resetquest <editor id>).
 - When the game is connected, quest fixes in the running game are better than save edits: the game's own scripts run. Tell the user to save in the game afterwards.
@@ -233,7 +237,9 @@ RECIPES
 - Script lag, a save that grows: --mods (scripts per mod with instances and running threads), --spawned, --report; then --purge-script <name> or --remove-mod for the mod responsible.
 - A mod was removed: --remove-mod <plugin> --dry-run --sources <mods folder>, then the same with -o.
 - Stuck quest: --quests <name or editor id> for its stage and objectives; with the game connected QUEST, then SETSTAGE / COMPLETE / STOP / RESET.
-- Lost follower: --npcs <name>, then --move-to-player <formid> -o <new save>.
+- Lost follower: with the game running (helper 12), game_command GATHER brings every follower to the player at once, no save needed.
+  Otherwise in the save: --npcs <name>, then --move-to-player <formid> -o <new save>.
+- Stuck, cannot move (a scene or mod left the controls off): game_command CONTROLS; RESCUE also saves and gathers the followers.
 - Player: --player, --set-gold, --set-skill, --set-level, --set-perks, --set-item, --set-bounty, --clear-crimes.
 - Mod menus (MCM) missing: --fix-mcm. Enchanted items with no charge: --charged, --fix-charges.
 - A script (or any file) packed in a BSA: run_cli --bsa-find <mods folder or Data> <name> finds which archive has it;

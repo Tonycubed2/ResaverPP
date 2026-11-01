@@ -10,6 +10,8 @@ namespace Settings
 		bool        refreshOnLoad = false;    // bRefreshJournalOnLoad: refresh the quest journal after every save load
 		int         refreshDelay = 5;         // iRefreshDelaySeconds: wait after the load before refreshing
 		bool        listen = true;            // bListen: accept commands from ReSaver++ at all
+		bool        rescueHotkey = true;      // bRescueHotkey: holding Ctrl saves, restores controls, gathers followers
+		int         rescueHoldSeconds = 8;    // iRescueHoldSeconds: how long Ctrl must be held
 	};
 
 	Values&               Get();

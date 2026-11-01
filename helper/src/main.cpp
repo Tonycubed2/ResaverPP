@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Game.h"
 #include "Protocol.h"
+#include "Rescue.h"
 #include "Server.h"
 #include "Settings.h"
 
@@ -28,6 +29,7 @@ namespace
 		switch (a_msg->type) {
 		case SKSE::MessagingInterface::kDataLoaded:
 			Server::Start();
+			Rescue::StartHotkey();
 			break;
 		case SKSE::MessagingInterface::kPreLoadGame:
 			Game::SetInGame(false);

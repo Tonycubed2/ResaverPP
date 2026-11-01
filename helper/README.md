@@ -17,7 +17,11 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   as your teammate, with their items (revived and enabled if needed).
 - Stop a quest, or reset it as if never done (version 11): Quest.Stop / Quest.Reset, the game's own way (no rewards). Followers
   in Transplant are put back in their aliases and given their items again (fixed in version 11).
-- Legendary Edition has its own helper (`helper-le`), with the same commands.
+- Rescue (version 12): bring every follower next to you (lost, stuck, left behind; follower mods and DLC followers
+  too), switch your controls back on, save the game as a new save - from ReSaver Plus's "Work on the running game"
+  window with no save open, or by holding Ctrl in the game for 8 seconds (`bRescueHotkey`, `iRescueHoldSeconds`), which
+  does all three even without ReSaver Plus.
+- Legendary Edition has its own helper (`helper-le`), with the commands up to version 11.
 - Confirms every action in game: top-left notification or a message box (`sNotify` in ReSaverHelper.ini).
 - Optional: refresh the journal automatically after every save load (`bRefreshJournalOnLoad=1`).
 - SE 1.5.97, AE 1.6.x / 1.7.x and VR 1.4.15 from one DLL (CommonLibSSE-NG).

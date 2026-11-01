@@ -475,6 +475,9 @@ int RunApp(int argc, char** argv)
 	if (const char* gview = std::getenv("RESAVERPP_TEST_GALLERY")) {
 		app.testOpen(std::string(gview) == "list" ? "gallerylist" : "gallery");
 	}
+	if (std::getenv("RESAVERPP_TEST_LIVEGAME")) {
+		app.testOpen("livegame");
+	}
 	if (std::getenv("RESAVERPP_TEST_COLLECT")) {
 		app.testOpen("collect");
 	}

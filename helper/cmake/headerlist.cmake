@@ -5,4 +5,5 @@ set(headers ${headers}
     src/Server.h
     src/Protocol.h
     src/Transplant.h
+    src/Rescue.h
 )

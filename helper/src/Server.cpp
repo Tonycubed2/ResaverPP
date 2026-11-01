@@ -2,6 +2,7 @@
 #include "Server.h"
 #include "Game.h"
 #include "Protocol.h"
+#include "Rescue.h"
 #include "Settings.h"
 #include "Transplant.h"
 
@@ -67,6 +68,49 @@ namespace Server
 			// Everything a main-thread task touches is owned by the task (values and shared_ptr copies),
 			// never by this function's stack: when the game is busy the task can run long after this
 			// request has given up waiting (version 1 crashed that way after a long stall).
+			// version 12: rescue tools for a running game that is stuck
+			if (cmd == "GATHER" || cmd == "CONTROLS" || cmd == "SAVEGAME" || cmd == "RESCUE") {
+				struct State
+				{
+					std::vector<std::string> names;
+					std::string              save, line;
+				};
+				auto st = std::make_shared<State>();
+				if (!Game::RunOnMain(
+						[st, cmd] {
+							if (cmd == "GATHER") {
+								st->names = Rescue::GatherFollowers();
+							} else if (cmd == "CONTROLS") {
+								Rescue::RestoreControls();
+							} else if (cmd == "SAVEGAME") {
+								st->save = Rescue::SaveGame();
+							} else {
+								st->line = Rescue::RunAll();
+							}
+						},
+						kWait)) {
+					return err("the game is busy (it did not answer within 30 seconds)");
+				}
+				std::string names;
+				for (const auto& n : st->names) {
+					names += (names.empty() ? "" : ", ") + n;
+				}
+				if (cmd == "GATHER") {
+					Game::Notify(arg(0), st->names.empty() ? "ReSaver++: no followers to bring" :
+															 std::format("ReSaver++: {} follower(s) brought to you: {}", st->names.size(), names));
+					return { "OK", std::to_string(st->names.size()), names };
+				}
+				if (cmd == "CONTROLS") {
+					Game::Notify(arg(0), "ReSaver++: your controls are switched back on");
+					return { "OK" };
+				}
+				if (cmd == "SAVEGAME") {
+					Game::Notify(arg(0), "ReSaver++: game saved as " + st->save);
+					return { "OK", st->save };
+				}
+				Game::Notify(arg(0), st->line);
+				return { "OK", st->line };
+			}
 			if (cmd == "QUEST") {
 				struct State
 				{

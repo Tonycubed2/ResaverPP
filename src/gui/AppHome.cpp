@@ -111,6 +111,18 @@ void App::shortcut(Sc a_which)
 		startCollectLogs();
 		return;
 	}
+	if (a_which == Sc::kLiveGame) {
+		_showLiveGame = true;
+		return;
+	}
+	if (a_which == Sc::kGather) {
+		// in the running game; the window shows the result (or why it cannot be done)
+		_showLiveGame = true;
+		if (_live.info().connected && _live.info().inGame && helperAtLeast(12)) {
+			liveGameAction("GATHER", "Bringing your followers");
+		}
+		return;
+	}
 	if (!_save && a_which != Sc::kOpenPex) {
 		return;
 	}
@@ -267,6 +279,13 @@ void App::drawHome()
 					"Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties.", HomeRisk::kCaution, -1 },
 				{ Sc::kActors, "Find NPCs", "where they are; bring a lost follower to you",
 					"Every NPC and creature with where the save has them. Find a lost follower and bring them next to you.", HomeRisk::kCaution, -1 },
+				{ Sc::kGather, "Gather followers (running game)", "all followers next to you, now",
+					"In the running game (ReSaverHelper): every follower is brought next to you, wherever they are. No save editing.",
+					HomeRisk::kSafe, -1 },
+				{ Sc::kLiveGame, "Work on the running game", "followers, controls, save: no save needed",
+					"Act in the game while it runs: gather your followers, get your controls back, save the game, and set up the "
+					"hold-Ctrl rescue.",
+					HomeRisk::kNone, -1 },
 				{ Sc::kTransplant, "Transplant progress", "from a broken save into a healthy one",
 					"Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one.", HomeRisk::kCaution, -1 },
 				{ Sc::kSavesMgr, "Manage saves folder", "delete old saves in bulk",
@@ -338,7 +357,7 @@ void App::drawHome()
 	};
 	// the big features get a border in a shade of the button colour
 	const std::set<Sc> major = { Sc::kTransplant, Sc::kPlayer, Sc::kActors, Sc::kMods, Sc::kLeftovers, Sc::kBatch, Sc::kMerge,
-		Sc::kFileConflicts, Sc::kCrashLog, Sc::kSkyrimLogs, Sc::kAskAi };
+		Sc::kFileConflicts, Sc::kCrashLog, Sc::kSkyrimLogs, Sc::kAskAi, Sc::kLiveGame };
 
 	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 	ImGui::TextWrapped("Shortcuts: the same as the Clean and Tools menus. Green is safe, yellow: read what it does first, red: risky. "

@@ -885,6 +885,21 @@ void App::draw()
 			_showAi = true;
 		}
 		tips::Tip("Chat with an AI engine that can use ReSaver Plus for you: describe the problem in plain English.");
+		ImGui::Spacing();
+		ImGui::Spacing();
+		centered("No save needed: work on the game while it runs", true);
+		ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 448) * 0.5f);
+		if (ImGui::Button("Work on the running game", ImVec2(220, 0))) {
+			_showLiveGame = true;
+		}
+		tips::Tip("Act in the game while it runs, with no save open (needs ReSaverHelper, the optional SKSE plugin): gather your "
+		          "followers, get your controls back, save the game.");
+		ImGui::SameLine(0, 8);
+		if (ImGui::Button("Gather followers", ImVec2(220, 0))) {
+			shortcut(Sc::kGather);
+		}
+		tips::Tip("Bring every follower next to you in the running game, wherever they are (lost, stuck, left behind). Needs "
+		          "ReSaverHelper in the game.");
 	} else {
 		watchdog::Section("drawCategories");
 		drawCategories();
@@ -988,6 +1003,10 @@ void App::draw()
 	if (_showPapyrusLog) {
 		watchdog::Section("drawPapyrusLog");
 		drawPapyrusLog();
+	}
+	if (_showLiveGame) {
+		watchdog::Section("drawLiveGame");
+		drawLiveGame();
 	}
 	if (_showCollect) {
 		watchdog::Section("drawCollectLogs");
@@ -1274,6 +1293,13 @@ void App::drawMenu()
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("AI and logs")) {
+		ImGui::MenuItem("Work on the running game (no save needed)...", nullptr, &_showLiveGame);
+		tips::Tip("In the game while it runs, through ReSaverHelper: gather your followers, get your controls back, save the game.");
+		if (ImGui::MenuItem("Gather followers in the running game")) {
+			shortcut(Sc::kGather);
+		}
+		tips::Tip("Bring every follower next to you in the running game, wherever they are.");
+		ImGui::Separator();
 		ImGui::MenuItem("Ask the AI...", nullptr, &_showAi);
 		tips::Tip("Chat with an AI engine that can use everything ReSaver Plus does: describe the problem in plain English.");
 		if (ImGui::MenuItem("Analyze Skyrim logs...")) {

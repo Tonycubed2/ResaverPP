@@ -116,6 +116,8 @@ public:
 		} else if (w == "gallery" || w == "gallerylist") {
 			_galleryList = w == "gallerylist";
 			startOpenDialog();
+		} else if (w == "livegame") {
+			_showLiveGame = true;
 		} else if (w == "collect") {
 			startCollectLogs();
 		} else if (w.rfind("bsa:", 0) == 0) {
@@ -559,7 +561,8 @@ private:
 		kMcm, kHavok, kPurify, kBatch, kPurge,
 		kPlayer, kActors, kTransplant, kLookup,
 		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex,
-		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog, kSkyrimLogs, kAskAi, kBsa, kCollectLogs
+		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog, kSkyrimLogs, kAskAi, kBsa, kCollectLogs,
+		kLiveGame, kGather
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	void        drawHome();            // the shortcut buttons
@@ -753,6 +756,17 @@ private:
 	bool                        _showCollect = false;
 	void                        startCollectLogs();
 	void                        drawCollectLogs();
+
+	// ---- Work on the running game, no save needed (AppLiveGame.cpp) ------------------------------
+	bool        _showLiveGame = false;
+	std::string _liveGameResult;        // what the last action did
+	bool        _liveGameResultOk = true;
+	bool        _liveGameBusy = false;
+	int         _rescueHotkey = -1;     // the helper's bRescueHotkey (-1: not read yet)
+	int         _rescueSeconds = 8;     // iRescueHoldSeconds
+	bool        _rescueOptsAsked = false;
+	void        drawLiveGame();
+	void        liveGameAction(const std::string& a_command, const std::string& a_what);  // GATHER, CONTROLS, SAVEGAME, RESCUE
 
 	// ---- File > Unpack a BSA archive (AppBsa.cpp) ------------------------------------------------
 	struct BsaView;
