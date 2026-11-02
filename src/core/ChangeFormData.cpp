@@ -656,14 +656,19 @@ namespace ess::cf
 				break;
 			case 112: one("EncounterZone", [&] { p.ref("REF"); }); break;
 			case 113:
+				// ExtraSayToTopicInfo: what the actor is saying. Checked against an AE save (change form version 78) whose
+				// player was saying a combat line: the topic, u8, u32, a ref, then the dialogue items (vsval count),
+				// a u16 and four refs (the last one the speaker). Each item: the subtitle text, the voice file, two ints,
+				// a u8, three refs and a u8. (UESP's "SayToTopicInfoData"; read without it, the whole rest of the actor
+				// was lost.)
 				one("SayToTopicInfo", [&] {
-					p.ref("REF1");
+					p.ref("TOPIC");
 					p.u8("UNK1");
 					p.i32("UNK2");
 					p.ref("REF2");
-					p.group("DATA2", [&] {
-						p.wstring("TEXT1");
-						p.wstring("TEXT2");
+					p.vsArray("ITEMS", [&] {
+						p.wstring("TEXT");
+						p.wstring("VOICE FILE");
 						p.i32("UNK1");
 						p.i32("UNK2");
 						p.u8("UNK3");
@@ -672,6 +677,10 @@ namespace ess::cf
 						p.ref("REF3");
 						p.u8("UNK4");
 					});
+					p.i16("UNK4");
+					for (int i = 0; i < 4; ++i) {
+						p.ref(Fmt("REF%d", i + 3));
+					}
 				});
 				break;
 			case 120:
