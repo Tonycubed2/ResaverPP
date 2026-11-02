@@ -945,6 +945,11 @@ private:
 	std::map<std::uint32_t, float> _pvAVEdit;
 	std::map<std::uint32_t, int>   _pvItemEdit;
 	char                       _pvAVFilter[64]{}, _pvItemFilter[64]{}, _pvSpellFilter[64]{};
+	std::vector<ess::cf::ActiveEffectView> _pvFx;  // the player's active magic effects
+	std::string                _pvFxError;
+	std::set<std::size_t>      _pvFxPick;      // ticked for removal
+	char                       _pvFxFilter[64]{};
+	bool                       _pvFxAll = false;  // also the switched off ones and those that change no stat
 	char                       _lookupBuf[256] = "";
 	bool                       _lookupAuto = false;
 	std::vector<std::uint32_t> _lookupResults;

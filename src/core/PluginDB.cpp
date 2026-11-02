@@ -348,7 +348,12 @@ namespace ess
 					std::uint32_t big = 0;
 					const bool     isQuest = Is(h, "QUST");
 					const bool     isSpell = Is(h, "SPEL");
+					const bool     isMgef = Is(h, "MGEF");
+					const bool     hasEffects = isSpell || Is(h, "ENCH") || Is(h, "ALCH") || Is(h, "INGR") || Is(h, "SCRL");
 					std::uint8_t   spellType = 0xFF;
+					MagicEffectDef mg;
+					bool           gotMgef = false;
+					std::vector<EffectItem> effs;
 					quests::QuestDef qd;
 					for (std::size_t p = 0; p + 6 <= n;) {
 						const auto* st = d + p;
@@ -375,6 +380,21 @@ namespace ess
 							}
 						} else if (isSpell && Is(st, "SPIT") && len >= 12) {
 							spellType = static_cast<std::uint8_t>(U32(d + p + 8));
+						} else if (isMgef && Is(st, "DATA") && len >= 0x48) {
+							// MGEF DATA: flags at 0, archetype at 0x40, primary actor value at 0x44 (checked against
+							// Skyrim.esm: EnchFortifyCarryConstantSelf 34 / CarryWeight, AlchRestoreHealth 0 / Health)
+							mg.flags = U32(d + p);
+							mg.archetype = U32(d + p + 0x40);
+							mg.actorValue = static_cast<std::int32_t>(U32(d + p + 0x44));
+							gotMgef = true;
+						} else if (hasEffects && Is(st, "EFID") && len == 4) {
+							EffectItem e;
+							toRuntime(U32(d + p), e.effect);
+							effs.push_back(e);
+						} else if (hasEffects && Is(st, "EFIT") && len >= 12 && !effs.empty()) {
+							std::memcpy(&effs.back().magnitude, d + p, 4);
+							effs.back().area = U32(d + p + 4);
+							effs.back().duration = U32(d + p + 8);
 						} else if (placed && Is(st, "NAME") && len == 4) {
 							std::uint32_t b;
 							if (toRuntime(U32(d + p), b)) {
@@ -447,6 +467,12 @@ namespace ess
 					}
 					if (isSpell) {
 						f.spellType = spellType;
+					}
+					if (gotMgef) {
+						_mgef[id] = mg;
+					}
+					if (hasEffects) {
+						_effects[id] = std::move(effs);
 					}
 					if (isQuest) {
 						qd.edid = GameTextToUtf8(edid);

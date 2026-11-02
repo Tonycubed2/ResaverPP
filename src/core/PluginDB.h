@@ -76,6 +76,31 @@ namespace ess
 		}
 		const std::unordered_map<std::uint32_t, quests::QuestDef>& questDefs() const { return _quests; }
 
+		// Magic effects (MGEF DATA) and the effects of spells, enchantments, potions, ingredients and scrolls
+		// (EFID + EFIT), as the last plugin that defines them has them: what an active effect does.
+		struct MagicEffectDef
+		{
+			std::uint32_t flags = 0;
+			std::uint32_t archetype = 0xFFFFFFFF;  // 0 value modifier, 34 peak value modifier, ...
+			std::int32_t  actorValue = -1;         // primary actor value
+		};
+		struct EffectItem
+		{
+			std::uint32_t effect = 0;  // MGEF runtime form ID
+			float         magnitude = 0.0f;
+			std::uint32_t area = 0, duration = 0;
+		};
+		const MagicEffectDef* magicEffect(std::uint32_t a_formID) const
+		{
+			auto it = _mgef.find(a_formID);
+			return it == _mgef.end() ? nullptr : &it->second;
+		}
+		const std::vector<EffectItem>* effects(std::uint32_t a_formID) const
+		{
+			auto it = _effects.find(a_formID);
+			return it == _effects.end() ? nullptr : &it->second;
+		}
+
 		std::vector<std::string> missing;  // plugins of the save whose file was not found
 		std::vector<std::string> errors;
 		std::size_t              pluginsRead = 0, recordsRead = 0;
@@ -86,6 +111,8 @@ namespace ess
 
 		std::unordered_map<std::uint32_t, Form> _forms;
 		std::unordered_map<std::uint32_t, quests::QuestDef> _quests;
+		std::unordered_map<std::uint32_t, MagicEffectDef>   _mgef;
+		std::unordered_map<std::uint32_t, std::vector<EffectItem>> _effects;
 		std::vector<char>                       _pool;
 		std::vector<std::string>                _plugins;
 	};

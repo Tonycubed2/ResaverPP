@@ -395,6 +395,8 @@ int main(int argc, char** argv)
 	std::string   npcFilter;
 	std::vector<std::pair<std::string, std::string>> renamePlugins;
 	bool          playerView = false;
+	bool          effectsView = false;
+	std::vector<std::size_t> removeEffects;
 	int           playerGold = -1;
 	std::vector<std::pair<std::string, float>> playerSkills;
 	std::vector<std::tuple<std::uint32_t, int, int>> playerBounties;
@@ -436,6 +438,20 @@ int main(int argc, char** argv)
 			removeExtraName = next();
 		} else if (a == "--player") {
 			playerView = true;
+		} else if (a == "--effects") {
+			effectsView = true;
+		} else if (a == "--remove-effect") {
+			// one index or several, separated by commas (the numbers --effects shows)
+			const auto list = next();
+			std::size_t start = 0;
+			for (std::size_t i = 0; i <= list.size(); ++i) {
+				if (i == list.size() || list[i] == ',') {
+					if (i > start) {
+						removeEffects.push_back(static_cast<std::size_t>(std::stoul(list.substr(start, i - start))));
+					}
+					start = i + 1;
+				}
+			}
 		} else if (a == "--set-gold") {
 			playerGold = std::atoi(next().c_str());
 		} else if (a == "--set-skill") {
@@ -579,7 +595,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -677,7 +693,7 @@ int main(int argc, char** argv)
 			return 3;
 		}
 		ScriptSources src;
-		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone || questsView)) {
+		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone || questsView || effectsView || !removeEffects.empty())) {
 			std::filesystem::path profDir = profile, overwrite, gameData;
 			if (auto mo2 = FindMo2Instance(sources)) {
 				if (profDir.empty()) {
@@ -701,6 +717,80 @@ int main(int argc, char** argv)
 			}
 			std::printf("scanned %zu enabled + %zu disabled mod folders%s, %zu scripts, %zu BSAs, %zu errors\n", src.modsScanned, src.disabledScanned,
 				src.gameDataScanned ? " + game Data" : "", src.pexFound, src.bsasRead, src.errors.size());
+		}
+		if (effectsView || !removeEffects.empty()) {
+			std::string err;
+			const auto  list = cf::ReadPlayerActiveEffects(*save, err);
+			if (!err.empty()) {
+				std::fprintf(stderr, "%s\n", err.c_str());
+				return 1;
+			}
+			std::unique_ptr<PluginDB> db;
+			if (!src.empty()) {
+				PluginDB::Input in2;
+				PrepareInput(*save, in2);
+				in2.sources = src;
+				PluginDB::Progress prog;
+				db = std::make_unique<PluginDB>();
+				db->load(in2, prog);
+			}
+			// the effect's MGEF and its actor value (-1: not known)
+			auto effectOf = [&](const cf::ActiveEffectView& e, std::uint32_t& a_mgef) -> std::int32_t {
+				a_mgef = 0;
+				if (!db) {
+					return -1;
+				}
+				if (const auto* fx = db->effects(e.magicItem); fx && e.effectIndex < fx->size()) {
+					a_mgef = (*fx)[e.effectIndex].effect;
+					if (const auto* m = db->magicEffect(a_mgef)) {
+						return static_cast<std::int32_t>(m->actorValue);
+					}
+				}
+				return -1;
+			};
+			if (effectsView) {
+				std::printf("%zu active effect(s) on the player%s\n", list.size(), db ? "" : " (give --sources to see names and stats)");
+				for (const auto& e : list) {
+					std::uint32_t mgef = 0;
+					const auto    av = effectOf(e, mgef);
+					const int     slot = cf::ActiveEffectModifier(e);
+					std::string   stat;
+					if (slot >= 0 && e.magnitude != 0) {
+						stat = Fmt("%+g %s %s", e.magnitude, av >= 0 ? cf::ActorValueName(static_cast<std::uint32_t>(av)) : "(stat not known)",
+							slot ? "temporary" : "permanent");
+					} else {
+						stat = "no stat change saved";
+					}
+					std::printf("%4zu  %s | %s | magnitude %g, %s%s | %s\n", e.index,
+						db ? db->describe(e.magicItem).c_str() : Fmt("%08X", e.magicItem).c_str(), mgef ? db->describe(mgef).c_str() : Fmt("effect #%u", e.effectIndex).c_str(),
+						e.magnitude, e.duration > 0 ? Fmt("%.0f of %.0f s", e.elapsed, e.duration).c_str() : "constant",
+						e.inactive() ? ", switched off" : "", stat.c_str());
+				}
+			}
+			if (!removeEffects.empty()) {
+				std::vector<cf::EffectRemoval> rm;
+				for (const auto i : removeEffects) {
+					cf::EffectRemoval r;
+					r.index = i;
+					if (i < list.size()) {
+						std::uint32_t mgef = 0;
+						r.actorValue = effectOf(list[i], mgef);
+					}
+					rm.push_back(r);
+				}
+				std::vector<std::string> changes;
+				const auto               why = cf::RemovePlayerActiveEffects(*save, rm, &changes);
+				if (!why.empty()) {
+					std::fprintf(stderr, "could not remove the effect(s): %s\n", why.c_str());
+					return 1;
+				}
+				std::printf("removed %zu active effect(s) from the player\n", removeEffects.size());
+				for (const auto& c : changes) {
+					std::printf("  %s\n", c.c_str());
+				}
+			} else {
+				return 0;
+			}
 		}
 		if (pathIdles) {
 			const auto stuck = cf::FindStuckPathIdles(*save);

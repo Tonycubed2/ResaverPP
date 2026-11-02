@@ -1008,6 +1008,9 @@ void App::drawPlayer()
 		for (const auto& it : _pv.items) {
 			_pvItemEdit[it.item] = it.count;
 		}
+		_pvFxError.clear();
+		_pvFx = cf::ReadPlayerActiveEffects(*_save, _pvFxError);
+		_pvFxPick.clear();
 	}
 	if (!_pv.error.empty()) {
 		TextColored(theme::Warn(), "Cannot edit the player: " + _pv.error);
@@ -1411,6 +1414,164 @@ void App::drawPlayer()
 		}
 		if (_pv.spells.empty()) {
 			ImGui::TextDisabled("No spells, powers or abilities were added in game.");
+		}
+	}
+
+	// ---- active magic effects ----
+	if (std::getenv("RESAVERPP_TEST_FX")) {  // test: open this section
+		ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+	}
+	const bool hFx = ImGui::CollapsingHeader(Fmt("Active magic effects (%zu)", _pvFx.size()).c_str());
+	tips::Tip("The magic effects on your character right now (enchantments, abilities, potions, diseases, mod effects). Remove ones stuck on you, e.g. from a ring you took off; the stat they changed is put back.");
+	if (hFx) {
+		ImGui::TextWrapped("What the game shows under Active Effects, and more (mods' hidden effects). Tick the ones to remove, then press "
+						   "Remove: each is taken off your character and the stat it changes is put back as if it had ended (Stats shows "
+						   "the result). For an effect that is stuck, e.g. from a ring or armor you no longer wear. An effect from "
+						   "something you still wear, an ability your race or a mod gives you, comes back when you re-equip it or a "
+						   "mod's script gives it again.");
+		if (!_pvFxError.empty()) {
+			TextColored(theme::Warn(), "Cannot read the active effects: " + _pvFxError);
+		}
+		if (!_db) {
+			TextColored(theme::Warn(),
+				"Plugin names are not loaded, so the effects cannot be shown by name and the ones that change a stat cannot be "
+				"removed (which stat is in the plugins). Load them (Tools > Read plugin names).");
+		}
+		// the effect's MGEF and actor value (-1: not known)
+		auto effectOf = [this](const cf::ActiveEffectView& e, std::uint32_t& a_mgef) -> std::int32_t {
+			a_mgef = 0;
+			if (!_db) {
+				return -1;
+			}
+			if (const auto* fx = _db->effects(e.magicItem); fx && e.effectIndex < fx->size()) {
+				a_mgef = (*fx)[e.effectIndex].effect;
+				if (const auto* m = _db->magicEffect(a_mgef)) {
+					return static_cast<std::int32_t>(m->actorValue);
+				}
+			}
+			return -1;
+		};
+		auto nameOf = [this](std::uint32_t a_id) {
+			const auto* f = _db ? _db->find(a_id) : nullptr;
+			if (!f) {
+				return Fmt("%08X", a_id);
+			}
+			const auto n = _db->name(*f);
+			return n.empty() ? _db->edid(*f) : n;
+		};
+		ImGui::SetNextItemWidth(250);
+		ImGui::InputTextWithHint("##fxf", "filter (e.g. ring, fortify, carry)", _pvFxFilter, sizeof(_pvFxFilter));
+		tips::Tip("Show only effects whose source, effect, editor ID, plugin or stat contains this text.");
+		ImGui::SameLine();
+		ImGui::Checkbox("Also show switched off ones and those that change no stat", &_pvFxAll);
+		tips::Tip("Effects switched off (their conditions are not met) and effects that change no saved stat (scripts, cloaks, lights...) are hidden unless this is ticked. They can be removed too.");
+		ImGui::BeginDisabled(_pvFxPick.empty());
+		if (ImGui::Button(Fmt("Remove %zu ticked##fx", _pvFxPick.size()).c_str())) {
+			std::vector<cf::EffectRemoval> rm;
+			std::string                    names;
+			for (const auto i : _pvFxPick) {
+				if (i >= _pvFx.size()) {
+					continue;
+				}
+				cf::EffectRemoval r;
+				r.index = i;
+				std::uint32_t mgef = 0;
+				r.actorValue = effectOf(_pvFx[i], mgef);
+				rm.push_back(r);
+				if (rm.size() <= 8) {
+					names += "\n  " + nameOf(_pvFx[i].magicItem) + (mgef ? " (" + nameOf(mgef) + ")" : std::string());
+				}
+			}
+			if (rm.size() > 8) {
+				names += Fmt("\n  ... and %zu more", rm.size() - 8);
+			}
+			confirm("Remove active effects", Fmt("Remove %zu active effect(s) from the player, putting back the stats they change?", rm.size()) + names,
+				[this, rm, done] {
+					std::vector<std::string> changes;
+					const auto               why = cf::RemovePlayerActiveEffects(*_save, rm, &changes);
+					std::string              what = Fmt("Removed %zu active effect(s) from the player", rm.size());
+					for (std::size_t k = 0; k < changes.size() && k < 6; ++k) {
+						what += (k ? "; " : ": ") + changes[k];
+					}
+					done(why, what);
+				});
+		}
+		ImGui::EndDisabled();
+		tips::Tip("Take the ticked effects off your character (asks first) and put back the stats they change.");
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Untick all##fx")) {
+			_pvFxPick.clear();
+		}
+		if (ImGui::BeginTable("fx", 6, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable,
+				ImVec2(0, 380))) {
+			ImGui::TableSetupScrollFreeze(0, 1);
+			for (const char* h : { "", "From", "Effect", "Strength", "Changes", "Time" }) {
+				ImGui::TableSetupColumn(h);
+			}
+			ImGui::TableHeadersRow();
+			int shown = 0;
+			for (const auto& e : _pvFx) {
+				std::uint32_t mgef = 0;
+				const auto    av = effectOf(e, mgef);
+				const int     slot = cf::ActiveEffectModifier(e);
+				const bool    stat = slot >= 0 && e.magnitude != 0;
+				if (!_pvFxAll && !stat && !_pvFxPick.count(e.index)) {
+					continue;
+				}
+				const auto* fi = _db ? _db->find(e.magicItem) : nullptr;
+				const auto  from = nameOf(e.magicItem);
+				const auto  fromFull = from + (fi ? " " + _db->edid(*fi) + " " + _db->type(*fi) + " " + _db->pluginName(*fi) : std::string());
+				const auto  effect = mgef ? nameOf(mgef) : Fmt("effect %u", e.effectIndex);
+				const auto  changes = stat ? Fmt("%s %s", av >= 0 ? cf::ActorValueName(static_cast<std::uint32_t>(av)) : "(stat not known)",
+												slot ? "(temporary)" : "(permanent)")
+										   : std::string(e.inactive() ? "switched off" : "no saved stat");
+				if (!matches(fromFull + " " + effect + " " + changes, _pvFxFilter)) {
+					continue;
+				}
+				++shown;
+				ImGui::PushID(static_cast<int>(e.index) + 120000);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				bool picked = _pvFxPick.count(e.index) != 0;
+				const bool blocked = stat && av < 0;
+				ImGui::BeginDisabled(blocked);
+				if (ImGui::Checkbox("##p", &picked)) {
+					if (picked) {
+						_pvFxPick.insert(e.index);
+					} else {
+						_pvFxPick.erase(e.index);
+					}
+				}
+				ImGui::EndDisabled();
+				tips::Tip(blocked ? "Which stat this effect changes is in the plugins: load the plugin names (Tools > Read plugin names) to remove it."
+								  : "Tick to remove this effect with the Remove button above.");
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(from.c_str());
+				if (fi) {
+					tips::Tip((_db->edid(*fi) + " [" + _db->type(*fi) + "] " + Fmt("%08X", e.magicItem) + " from " + _db->pluginName(*fi)).c_str());
+				}
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(effect.c_str());
+				ImGui::TableNextColumn();
+				ImGui::Text("%g", e.magnitude);
+				ImGui::TableNextColumn();
+				if (stat) {
+					ImGui::Text("%+g %s", e.magnitude, changes.c_str());
+				} else {
+					ImGui::TextDisabled("%s", changes.c_str());
+				}
+				ImGui::TableNextColumn();
+				if (e.duration > 0) {
+					ImGui::Text("%.0f of %.0f s", e.elapsed, e.duration);
+				} else {
+					ImGui::TextDisabled("constant");
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+			if (!shown) {
+				ImGui::TextDisabled(_pvFx.empty() ? "No active effects." : "No effects to show (tick the box above to see all).");
+			}
 		}
 	}
 

@@ -1030,10 +1030,13 @@ namespace ess::cf
 			p.bytes("DATA", n);
 		}
 
-		void ActorValueModifiers(P& p, const char* a_name)
+		void ActorValueModifiers(P& p, const char* a_name, int a_vital)
 		{
 			p.group(a_name, [&] {
 				const auto n = static_cast<std::uint32_t>(p.r.i32());
+				if (n == 3) {
+					p.out().vitalModsAt[a_vital] = p.r.pos();
+				}
 				std::string s;
 				for (std::uint32_t i = 0; i < n && i < 3; ++i) {
 					s += (i ? ", " : "") + Fmt("%g", p.r.f32());
@@ -1797,13 +1800,21 @@ namespace ess::cf
 		// active magic effects: each carries its own size, so its data is kept as bytes
 		void ActiveEffects(P& p)
 		{
+			p.out().activeEffectsCountAt = p.r.pos();
 			const auto n = p.vs("");
+			p.out().activeEffectsCountEnd = p.r.pos();
 			p.countedArray("ACTIVE EFFECTS", n, [&] {
-				p.ref("MAGIC ITEM");
-				p.u8("EFFECT INDEX");
-				p.vs("TYPE");
+				Decoded::ActiveEffectAt e;
+				e.start = p.r.pos();
+				e.magicItemRaw = p.ref("MAGIC ITEM");
+				e.magicItem = p.lastFormID;
+				e.effectIndex = p.u8("EFFECT INDEX");
+				e.type = p.vs("TYPE");
 				const auto size = p.vs("SIZE");
-				p.bytes("DATA", size);
+				e.dataSize = size;
+				e.dataAt = p.bytes("DATA", size);
+				e.end = p.r.pos();
+				p.out().activeEffects.push_back(e);
 			});
 		}
 
@@ -2582,10 +2593,10 @@ namespace ess::cf
 				p.ref("SELECTED SPELL OTHER");
 				p.ref("SELECTED SPELL INSTANT");
 				p.ref("SELECTED POWER");
-				ActorValueModifiers(p, "HEALTH MODIFIERS");
-				ActorValueModifiers(p, "MAGICKA MODIFIERS");
-				ActorValueModifiers(p, "STAMINA MODIFIERS");
-				ActorValueModifiers(p, "VOICE MODIFIERS");
+				ActorValueModifiers(p, "HEALTH MODIFIERS", 0);
+				ActorValueModifiers(p, "MAGICKA MODIFIERS", 1);
+				ActorValueModifiers(p, "STAMINA MODIFIERS", 2);
+				ActorValueModifiers(p, "VOICE MODIFIERS", 3);
 				p.group("ACTOR VALUES", [&] {
 					// the actor value is written as an i32 holding a signed byte (133 = DragonSouls reads as -123)
 					p.out().baseAVListAt = p.r.pos();
@@ -4218,6 +4229,7 @@ namespace ess::cf
 		}
 
 		constexpr std::uint32_t kGold = 0x0000000F;  // Gold001
+		constexpr std::uint32_t kVoicePointsAV = 37;
 
 		// the player's base form (NPC_ 00000007): its ACBS holds the character level
 		const ChangeForm* PlayerBase(const SaveFile& a_save)
@@ -4255,6 +4267,126 @@ namespace ess::cf
 		{
 			a_body.erase(a_body.begin() + static_cast<std::ptrdiff_t>(a_from), a_body.begin() + static_cast<std::ptrdiff_t>(a_to));
 		}
+	}
+
+	std::vector<ActiveEffectView> ReadPlayerActiveEffects(const SaveFile& a_save, std::string& a_error)
+	{
+		std::vector<ActiveEffectView> out;
+		const auto*                   cf = PlayerForm(a_save);
+		if (!cf) {
+			a_error = "this save has no player change form";
+			return out;
+		}
+		const auto d = Decode(a_save, *cf);
+		if (!d.complete) {
+			a_error = "the player's record could not be read completely (" + d.error + ")";
+			return out;
+		}
+		const auto body = Body(*cf);
+		for (std::size_t i = 0; i < d.activeEffects.size(); ++i) {
+			const auto& e = d.activeEffects[i];
+			ActiveEffectView v;
+			v.index = i;
+			v.magicItem = e.magicItem;
+			v.effectIndex = e.effectIndex;
+			v.type = e.type;
+			v.data.assign(body.begin() + static_cast<std::ptrdiff_t>(e.dataAt), body.begin() + static_cast<std::ptrdiff_t>(e.dataAt + e.dataSize));
+			if (v.data.size() >= 16) {
+				std::memcpy(&v.elapsed, v.data.data(), 4);
+				std::memcpy(&v.magnitude, v.data.data() + 4, 4);
+				std::memcpy(&v.duration, v.data.data() + 8, 4);
+				std::memcpy(&v.flags, v.data.data() + 12, 4);
+			}
+			out.push_back(std::move(v));
+		}
+		return out;
+	}
+
+	int ActiveEffectModifier(const ActiveEffectView& a_effect)
+	{
+		// classes 0 (value modifier) and 34 (peak value modifier) change their actor value by their strength; checked
+		// against saves: the player's modifiers are the sums of these effects' strengths, the ones with conditions in the
+		// temporary modifier and the others in the permanent one, the switched off ones (0x8000) not counted
+		if ((a_effect.type != 0 && a_effect.type != 34) || a_effect.data.size() < 16 || a_effect.inactive()) {
+			return -1;
+		}
+		if ((a_effect.flags & 0x200) == 0) {
+			return -1;  // not undone when it ends (a lasting change): removing it changes nothing either
+		}
+		return a_effect.conditional() ? 1 : 0;
+	}
+
+	std::string RemovePlayerActiveEffects(SaveFile& a_save, const std::vector<EffectRemoval>& a_remove, std::vector<std::string>* a_changes)
+	{
+		std::string err;
+		const auto  list = ReadPlayerActiveEffects(a_save, err);
+		if (!err.empty()) {
+			return err + ": nothing changed";
+		}
+		std::map<std::size_t, std::int32_t> pick;
+		for (const auto& r : a_remove) {
+			if (r.index >= list.size()) {
+				return Fmt("there is no active effect %zu (the player has %zu): nothing changed", r.index, list.size());
+			}
+			pick[r.index] = r.actorValue;
+		}
+		if (pick.empty()) {
+			return "no effect picked";
+		}
+		std::vector<std::string> changes;
+		const auto why = EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			if (d.activeEffects.size() != list.size()) {
+				return "the active effects read differently the second time";
+			}
+			// the stats first (same-size writes, so no offset moves)
+			for (const auto& [i, av] : pick) {
+				const auto& e = list[i];
+				const int   slot = ActiveEffectModifier(e);
+				if (slot < 0 || e.magnitude == 0) {
+					continue;
+				}
+				if (av < 0) {
+					return Fmt("effect %zu changes a stat but which one is not known (load the plugin names first): nothing changed", i);
+				}
+				std::size_t at = 0;
+				constexpr std::uint32_t kVital[4] = { 24, 25, 26, kVoicePointsAV };
+				for (int k = 0; k < 4; ++k) {
+					if (static_cast<std::uint32_t>(av) == kVital[k]) {
+						at = d.vitalModsAt[k];
+					}
+				}
+				if (!at) {
+					for (const auto& m : d.avMods) {
+						if (m.id == static_cast<std::uint32_t>(av)) {
+							at = m.at;
+						}
+					}
+				}
+				const char* what = slot ? "temporary" : "permanent";
+				if (!at) {
+					changes.push_back(Fmt("%s: no saved %s modifier to take %g off (left as it is)", ActorValueName(av), what, e.magnitude));
+					continue;
+				}
+				const float before = GetF32(body, at + 4 * slot);
+				float       after = before - e.magnitude;
+				if (std::fabs(after) < 0.0005f) {
+					after = 0.0f;
+				}
+				PutF32(body, at + 4 * slot, after);
+				changes.push_back(Fmt("%s %s modifier %g -> %g", ActorValueName(av), what, before, after));
+			}
+			// then the entries, last first, and the count in front of them
+			for (auto it = pick.rbegin(); it != pick.rend(); ++it) {
+				const auto& e = d.activeEffects[it->first];
+				Erase(body, e.start, e.end);
+			}
+			RewriteVs(body, d.activeEffectsCountAt, static_cast<std::uint32_t>(d.activeEffects.size() - pick.size()));
+			return {};
+		});
+		if (why.empty() && a_changes) {
+			*a_changes = std::move(changes);
+		}
+		return why;
 	}
 
 	PlayerValues ReadPlayer(const SaveFile& a_save)
@@ -4319,6 +4451,18 @@ namespace ess::cf
 				a.permanent = GetF32(body, m.at);
 				a.temporary = GetF32(body, m.at + 4);
 				a.damage = GetF32(body, m.at + 8);
+			}
+			// Health, Magicka, Stamina and Voice keep their modifiers in lists of their own
+			constexpr std::uint32_t kVital[4] = { 24, 25, 26, kVoicePointsAV };
+			for (int i = 0; i < 4; ++i) {
+				if (const auto at = d.vitalModsAt[i]) {
+					auto& a = avs[kVital[i]];
+					a.id = kVital[i];
+					a.hasMod = true;
+					a.permanent += GetF32(body, at);
+					a.temporary += GetF32(body, at + 4);
+					a.damage += GetF32(body, at + 8);
+				}
 			}
 			for (const auto& [id, a] : avs) {
 				out.avs.push_back(a);
@@ -4627,15 +4771,28 @@ namespace ess::cf
 	std::string ClearPlayerAVModifiers(SaveFile& a_save, std::uint32_t a_av, int a_which)
 	{
 		return EditPlayer(a_save, [&](const Decoded& d, std::vector<std::uint8_t>& body) -> std::string {
+			bool any = false;
+			auto clear = [&](std::size_t a_at) {
+				for (int i = 0; i < 3; ++i) {
+					if (a_which & (1 << i)) {
+						PutF32(body, a_at + 4 * i, 0.0f);
+					}
+				}
+				any = true;
+			};
+			constexpr std::uint32_t kVital[4] = { 24, 25, 26, kVoicePointsAV };  // these keep theirs in lists of their own
+			for (int k = 0; k < 4; ++k) {
+				if (a_av == kVital[k] && d.vitalModsAt[k]) {
+					clear(d.vitalModsAt[k]);
+				}
+			}
 			for (const auto& m : d.avMods) {
 				if (m.id == a_av) {
-					for (int i = 0; i < 3; ++i) {
-						if (a_which & (1 << i)) {
-							PutF32(body, m.at + 4 * i, 0.0f);
-						}
-					}
-					return {};
+					clear(m.at);
 				}
+			}
+			if (any) {
+				return {};
 			}
 			return std::string("the player has no modifiers on ") + ActorValueName(a_av);
 		});

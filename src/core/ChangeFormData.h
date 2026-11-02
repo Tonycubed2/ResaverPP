@@ -101,9 +101,21 @@ namespace ess::cf
 		std::vector<std::size_t> playerSkillsAt;  // the player's 18 skills: level, XP, XP for next level (f32 each)
 		std::vector<ValueAt>     crimeGold;       // the player's bounties: faction, offset of 4 i32
 		std::size_t              baseAVListAt = 0, avModListAt = 0;  // the two actor value lists' counts (vsval)
+		std::size_t              vitalModsAt[4]{};  // Health, Magicka, Stamina, Voice modifiers: offset of permanent, temporary, damage (f32), 0 if none
 		std::vector<ValueAt>     avMods;          // actor value modifiers: id, offset of permanent, temporary, damage (f32)
 		std::size_t              addedSpellsAt = 0;  // the added spells' count (u32)
 		std::vector<ValueAt>     addedSpells;     // spell form ID, offset of its RefID
+		// the actor's active magic effects (in the high process): the count (a vsval) and each entry's bytes
+		struct ActiveEffectAt
+		{
+			std::uint32_t magicItem = 0;     // runtime form ID of the spell / enchantment / potion... (0 if it does not resolve)
+			std::uint32_t magicItemRaw = 0;  // its RefID as stored
+			std::uint8_t  effectIndex = 0;   // which of the item's effects
+			std::uint32_t type = 0;          // the active effect's class (vsval)
+			std::size_t   start = 0, end = 0, dataAt = 0, dataSize = 0;
+		};
+		std::size_t                 activeEffectsCountAt = 0, activeEffectsCountEnd = 0;
+		std::vector<ActiveEffectAt> activeEffects;
 		std::size_t              playerXPAt = 0;          // XP, XP for next level (f32 each)
 		std::size_t              playerPerkPointsAt = 0;  // u8
 
@@ -227,6 +239,37 @@ namespace ess::cf
 	extern const char* const kSkillNames[18];
 	const char*  ActorValueName(std::uint32_t a_av);  // "Health", "DragonSouls"...
 	PlayerValues ReadPlayer(const SaveFile& a_save);
+
+	// The player's active magic effects as the save has them (the high process's list).
+	struct ActiveEffectView
+	{
+		std::size_t               index = 0;      // position in the list
+		std::uint32_t             magicItem = 0;  // runtime form ID of the spell / enchantment / potion... (0: does not resolve)
+		std::uint8_t              effectIndex = 0;
+		std::uint32_t             type = 0;       // the active effect's class
+		std::vector<std::uint8_t> data;           // the class's own data
+		// the start every class shares: time so far, strength (negative for harmful ones), duration, flags
+		float         elapsed = 0, magnitude = 0, duration = 0;
+		std::uint32_t flags = 0;
+		bool          inactive() const { return (flags & 0x8000) != 0 || (flags & 0x40000) != 0; }  // switched off / dispelled
+		bool          conditional() const { return (flags & 0x80) != 0; }
+		bool          enchantment() const { return (flags & 0x100) != 0; }
+	};
+	std::vector<ActiveEffectView> ReadPlayerActiveEffects(const SaveFile& a_save, std::string& a_error);
+	// Which of the player's saved modifiers an effect's strength sits in, as the game keeps them: a value or peak
+	// value modifier that is applied (not switched off) and undone when it ends, in the temporary modifier when it has
+	// conditions, else in the permanent one. -1: removing the effect changes no saved stat (a script, cloak, light...
+	// effect, a switched off one, or one whose change stays after it ends). 0 permanent, 1 temporary.
+	int  ActiveEffectModifier(const ActiveEffectView& a_effect);
+	// removes these entries of the player's active effects (ReadPlayerActiveEffects indexes); for each, a_actorValue
+	// (the effect's actor value from its MGEF, -1 if not known) has the effect's strength taken off the modifier that
+	// holds it, so the stat is as it would be once the effect ended. a_changes (optional) says what was changed.
+	struct EffectRemoval
+	{
+		std::size_t  index = 0;
+		std::int32_t actorValue = -1;
+	};
+	std::string RemovePlayerActiveEffects(SaveFile& a_save, const std::vector<EffectRemoval>& a_remove, std::vector<std::string>* a_changes = nullptr);
 	std::string  SetPlayerGold(SaveFile& a_save, std::int32_t a_gold);  // adds a gold entry when there is none
 	std::string  SetPlayerSkill(SaveFile& a_save, int a_skill, float a_level);
 	std::string  SetPlayerLegendary(SaveFile& a_save, int a_skill, std::int32_t a_count);
