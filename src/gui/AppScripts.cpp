@@ -1611,7 +1611,10 @@ void App::autoDetectPaths(bool a_force)
 	if (!a_force && !_sourcesPath.empty()) {
 		// already set: just read its Mod Organizer settings (cheap; the scan happens when needed)
 		if (!_mo2) {
-			_mo2 = FindMo2Instance(platform::FromUtf8(_sourcesPath));
+			_mo2 = FindMo2Instance(platform::FromUtf8(_sourcesPath), mo2Inis());
+		}
+		if (_mo2 && (_profile.empty() || std::find(_mo2->profiles.begin(), _mo2->profiles.end(), _profile) == _mo2->profiles.end())) {
+			_profile = _mo2->selectedProfile;  // no profile saved yet (or it was deleted): the one Mod Organizer has selected
 		}
 		if (!_mo2 && !_vortex) {
 			_vortex = FindVortexDeployment(platform::FromUtf8(_sourcesPath));
@@ -1746,10 +1749,11 @@ void App::setGame(bool a_vr)
 		_scanProgress->cancel = true;
 		_scanThread.join();
 	}
-	const GameSetup cur{ _sourcesPath, _gamePath, _profile };
+	const GameSetup cur{ _sourcesPath, _gamePath, _profile, _mo2Ini };
 	_sourcesPath = _otherGame.sourcesPath;
 	_gamePath = _otherGame.gamePath;
 	_profile = _otherGame.profile;
+	_mo2Ini = _otherGame.mo2Ini;
 	_otherGame = cur;
 	_vr = a_vr;
 	// nothing of the other game's mods applies

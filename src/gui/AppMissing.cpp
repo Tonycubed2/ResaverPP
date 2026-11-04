@@ -302,10 +302,20 @@ void App::drawMissingModal()
 	TextColored(theme::Dim(), "Load order read from: " + platform::ToUtf8(_missingFile) +
 								  (_installKnown ? "    Mods folder: " + _sourcesPath : std::string()));
 	if (_orderSuspect) {
-		TextColored(theme::Bad(), Fmt("This load order does not match the save: only %zu of the save's %zu plugins are in it. It is probably the "
-									  "wrong file (another profile, or an old plugins.txt). Nothing is ticked. Pick the right MO2 profile in the "
-									  "Mods view, or check Options > Settings.",
-									  _activeInSave, _save ? _save->plugins.full.size() + _save->plugins.lite.size() : 0));
+		const auto inSave = _save ? _save->plugins.full.size() + _save->plugins.lite.size() : 0;
+		if (_mo2) {
+			TextColored(theme::Bad(), Fmt("This load order does not match the save: only %zu of the save's %zu plugins are in it. It is probably "
+										  "the wrong profile. Nothing is ticked. Pick the profile you play with in Options > Settings (MO2 "
+										  "profile, under the mods folder) or in the Mods view.",
+										  _activeInSave, inSave));
+		} else {
+			TextColored(theme::Bad(), Fmt("This load order does not match the save: only %zu of the save's %zu plugins are in it. Nothing is "
+										  "ticked. No Mod Organizer was found for your mods folder, so the game's own plugins.txt was read, "
+										  "which Mod Organizer does not use. In Options > Settings press \"Use a ModOrganizer.ini...\" and "
+										  "pick the ModOrganizer.ini of the Mod Organizer you play with (for a portable one such as Nolvus, "
+										  "the one next to its ModOrganizer.exe), then pick your profile in the MO2 profile list there.",
+										  _activeInSave, inSave));
+		}
 	}
 	if (_installKnown && !_sources.errors.empty()) {
 		std::string list;

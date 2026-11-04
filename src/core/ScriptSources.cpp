@@ -586,6 +586,15 @@ namespace ess
 			return out;
 		}
 
+		// a folder written relative to the instance ("mods", ".\\mods"): not "C:\\...", "C:/...", "\\\\server\\..." or "/..."
+		bool Relative(const std::string& a_v)
+		{
+			if (a_v.size() >= 2 && std::isalpha(static_cast<unsigned char>(a_v[0])) && a_v[1] == ':') {
+				return false;
+			}
+			return a_v.empty() || (a_v[0] != '\\' && a_v[0] != '/');
+		}
+
 		std::optional<Mo2Instance> ReadIni(const std::filesystem::path& a_ini)
 		{
 			std::ifstream f(a_ini);
@@ -619,7 +628,9 @@ namespace ess
 				} else if (general && key == "gamePath") {
 					game = val;
 				} else if (settings && key == "base_directory") {
-					m.base = text::PathFrom(val);
+					if (!val.empty()) {
+						m.base = Relative(val) ? a_ini.parent_path() / text::PathFrom(val) : text::PathFrom(val);
+					}
 				} else if (settings && key == "mod_directory") {
 					mods = val;
 				} else if (settings && key == "profiles_directory") {
@@ -632,10 +643,14 @@ namespace ess
 				if (v.empty()) {
 					return m.base / def;
 				}
-				if (auto p = v.find("%BASE_DIR%"); p != std::string::npos) {
+				if (auto p = Lower(v).find("%base_dir%"); p != std::string::npos) {
 					v.replace(p, 10, U8(m.base));
 				}
-				return text::PathFrom(v);
+				auto path = text::PathFrom(v);
+				if (Relative(v)) {
+					path = m.base / path;  // a relative folder is relative to the instance's base folder
+				}
+				return path;
 			};
 			m.modsDir = resolve(mods, "mods");
 			m.profilesDir = resolve(profiles, "profiles");
@@ -694,9 +709,14 @@ namespace ess
 		return out;
 	}
 
-	std::optional<Mo2Instance> FindMo2Instance(const std::filesystem::path& a_modsFolder)
+	std::optional<Mo2Instance> FindMo2Instance(const std::filesystem::path& a_modsFolder, const std::vector<std::filesystem::path>& a_extraInis)
 	{
 		std::vector<std::filesystem::path> inis;
+		for (const auto& i : a_extraInis) {
+			if (!i.empty()) {
+				inis.push_back(i);
+			}
+		}
 		inis.push_back(a_modsFolder.parent_path() / "ModOrganizer.ini");
 		if (const auto la = text::EnvPath("LOCALAPPDATA"); !la.empty()) {
 			std::error_code ec;

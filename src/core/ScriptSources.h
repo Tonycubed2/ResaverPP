@@ -35,9 +35,10 @@ namespace ess
 		std::string              gameName;  // "Skyrim Special Edition", "Fallout 4", ...
 		std::vector<std::string> profiles;
 	};
-	// Looks for ModOrganizer.ini (global instances under %LOCALAPPDATA%\ModOrganizer, and a
-	// portable instance next to the mods folder) whose mod_directory is a_modsFolder.
-	std::optional<Mo2Instance> FindMo2Instance(const std::filesystem::path& a_modsFolder);
+	// Looks for ModOrganizer.ini (a_extraInis first: e.g. the one the user picked; then a portable instance
+	// next to the mods folder and global instances under %LOCALAPPDATA%\ModOrganizer) whose mod_directory is
+	// a_modsFolder.
+	std::optional<Mo2Instance> FindMo2Instance(const std::filesystem::path& a_modsFolder, const std::vector<std::filesystem::path>& a_extraInis = {});
 	std::optional<Mo2Instance> ReadMo2Ini(const std::filesystem::path& a_ini);  // one ModOrganizer.ini
 	// Every Mod Organizer instance found: global ones (%LOCALAPPDATA%\ModOrganizer\<name>) and portable
 	// ones (ModOrganizer.ini in a_extraDirs or their parent folders).

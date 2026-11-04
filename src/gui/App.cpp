@@ -2830,6 +2830,10 @@ void App::loadSettings()
 			se.sourcesPath = line.substr(8);
 		} else if (line.rfind("profile=", 0) == 0) {
 			se.profile = line.substr(8);
+		} else if (line.rfind("mo2_ini=", 0) == 0) {
+			se.mo2Ini = line.substr(8);
+		} else if (line.rfind("mo2_ini_vr=", 0) == 0) {
+			vr.mo2Ini = line.substr(11);
 		} else if (line.rfind("sources_vr=", 0) == 0) {
 			vr.sourcesPath = line.substr(11);
 		} else if (line.rfind("profile_vr=", 0) == 0) {
@@ -2910,6 +2914,7 @@ void App::loadSettings()
 	_sourcesPath = act.sourcesPath;
 	_profile = act.profile;
 	_gamePath = act.gamePath;
+	_mo2Ini = act.mo2Ini;
 	_otherGame = _vr ? se : vr;
 	autoDetectPaths(false);  // first start: find Mod Organizer / the game by themselves
 	if (_watch) {
@@ -2920,12 +2925,14 @@ void App::loadSettings()
 void App::saveSettings()
 {
 	std::ofstream f(platform::SettingsFile(), std::ios::trunc);
-	const GameSetup cur{ _sourcesPath, _gamePath, _profile };
+	const GameSetup cur{ _sourcesPath, _gamePath, _profile, _mo2Ini };
 	const auto&     se = _vr ? _otherGame : cur;
 	const auto&     vr = _vr ? cur : _otherGame;
 	f << "vr=" << (_vr ? 1 : 0) << "\n";
 	f << "sources=" << se.sourcesPath << "\n";
 	f << "profile=" << se.profile << "\n";
+	f << "mo2_ini=" << se.mo2Ini << "\n";
+	f << "mo2_ini_vr=" << vr.mo2Ini << "\n";
 	f << "sources_vr=" << vr.sourcesPath << "\n";
 	f << "profile_vr=" << vr.profile << "\n";
 	f << "game_vr=" << vr.gamePath << "\n";
@@ -2972,13 +2979,37 @@ void App::saveSettings()
 	f << "compile_backup=" << (_compileBackup ? 1 : 0) << "\n";
 }
 
+std::vector<std::filesystem::path> App::mo2Inis() const
+{
+	std::vector<std::filesystem::path> v;
+	if (!_mo2Ini.empty()) {
+		v.push_back(platform::FromUtf8(_mo2Ini));
+	}
+	return v;
+}
+
+void App::useMo2Ini(const std::filesystem::path& a_ini, const Mo2Instance& a_mo2)
+{
+	// kept, so this instance is found for its mods folder from now on, wherever its ModOrganizer.ini is (portable
+	// setups such as Nolvus keep it away from the mods folder and outside %LOCALAPPDATA%\ModOrganizer)
+	_mo2Ini = platform::ToUtf8(a_ini);
+	if (std::find(a_mo2.profiles.begin(), a_mo2.profiles.end(), _profile) == a_mo2.profiles.end()) {
+		_profile = a_mo2.selectedProfile;
+	}
+	if (!a_mo2.gamePath.empty()) {
+		_gamePath = platform::ToUtf8(a_mo2.gamePath);
+	}
+	_detectNote = "Using Mod Organizer " + _mo2Ini + ", profile \"" + _profile + "\"";
+	scanSources(a_mo2.modsDir);
+}
+
 void App::scanSources(const std::filesystem::path& a_root)
 {
 	// Mod Organizer: use the profile's mod order so a script is credited to the mod whose copy
 	// the game really loads (and disabled mods are ignored).
 	std::vector<std::string> order;
 	std::filesystem::path    overwrite, gameData;
-	_mo2 = FindMo2Instance(a_root);
+	_mo2 = FindMo2Instance(a_root, mo2Inis());
 	_vortex.reset();
 	if (!_mo2) {
 		// Vortex: the staging folder, the game folder or its Data folder all lead to the deployment manifest

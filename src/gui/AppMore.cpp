@@ -719,7 +719,7 @@ void App::drawSettings()
 	if (ImGui::Button("Use a ModOrganizer.ini...") && platform::HasNativeDialogs()) {
 		if (auto p = platform::OpenFileDialog({}, "ini", "Pick ModOrganizer.ini")) {
 			if (auto m = ReadMo2Ini(*p)) {
-				scanSources(m->modsDir);
+				useMo2Ini(*p, *m);
 			} else {
 				_error = "Could not read " + platform::ToUtf8(*p);
 			}
@@ -971,7 +971,7 @@ void App::openAny(const std::filesystem::path& a_path)
 	} else if (Lower(platform::ToUtf8(a_path.filename())) == "modorganizer.ini") {
 		// ReSaver: dropping ModOrganizer.ini selects that MO2 instance
 		if (auto m = ReadMo2Ini(a_path)) {
-			scanSources(m->modsDir);
+			useMo2Ini(a_path, *m);
 		} else {
 			_error = "Could not read " + platform::ToUtf8(a_path);
 		}

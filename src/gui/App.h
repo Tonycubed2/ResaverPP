@@ -416,6 +416,7 @@ private:
 	void detailMod(std::uint64_t k);
 	void ensureMods();
 	void scanSources(const std::filesystem::path& a_root);
+	void useMo2Ini(const std::filesystem::path& a_ini, const ess::Mo2Instance& a_mo2);  // that instance from now on
 	void loadSettings();
 	void saveSettings();
 	void drawRemoveModModal();
@@ -900,6 +901,8 @@ private:
 	std::string                       _sourcesPath;
 	std::string                       _profile;
 	std::optional<ess::Mo2Instance>   _mo2;
+	std::string                       _mo2Ini;  // the ModOrganizer.ini picked in Settings (its instance is used for its mods folder)
+	std::vector<std::filesystem::path> mo2Inis() const;
 	std::optional<ess::VortexDeployment> _vortex;  // when the mods are managed by Vortex
 	bool                              _settingsLoaded = false;
 	std::vector<std::size_t>          _modOrder;  // filtered + sorted row indices
@@ -1006,7 +1009,7 @@ private:
 	bool _vr = false;
 	struct GameSetup
 	{
-		std::string sourcesPath, gamePath, profile;
+		std::string sourcesPath, gamePath, profile, mo2Ini;
 	};
 	GameSetup _otherGame;
 	void      setGame(bool a_vr);
