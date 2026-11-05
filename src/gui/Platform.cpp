@@ -228,9 +228,18 @@ namespace platform
 		std::wstring dir = a_suggested.parent_path().wstring();
 		std::wstring ext = FromUtf8(a_ext).wstring();
 		std::wstring title = FromUtf8(a_title).wstring();
-		std::wstring filter = ext + L" files (*." + ext + L")";
+		// a_ext may name several, separated by ';' ("bsa;ba2")
+		std::wstring pattern;
+		for (std::size_t a = 0; a <= ext.size();) {
+			const auto b = std::min(ext.find(L';', a), ext.size());
+			if (b > a) {
+				pattern += (pattern.empty() ? L"*." : L";*.") + ext.substr(a, b - a);
+			}
+			a = b + 1;
+		}
+		std::wstring filter = title + L" (" + pattern + L")";
 		filter.push_back(L'\0');
-		filter += L"*." + ext;
+		filter += pattern;
 		filter.push_back(L'\0');
 		filter.push_back(L'\0');
 		OPENFILENAMEW ofn{};
@@ -255,9 +264,18 @@ namespace platform
 		std::wstring dir = a_startDir.wstring();
 		std::wstring ext = FromUtf8(a_ext).wstring();
 		std::wstring title = FromUtf8(a_title).wstring();
-		std::wstring filter = ext + L" files (*." + ext + L")";
+		// a_ext may name several, separated by ';' ("bsa;ba2")
+		std::wstring pattern;
+		for (std::size_t a = 0; a <= ext.size();) {
+			const auto b = std::min(ext.find(L';', a), ext.size());
+			if (b > a) {
+				pattern += (pattern.empty() ? L"*." : L";*.") + ext.substr(a, b - a);
+			}
+			a = b + 1;
+		}
+		std::wstring filter = title + L" (" + pattern + L")";
 		filter.push_back(L'\0');
-		filter += L"*." + ext;
+		filter += pattern;
 		filter.push_back(L'\0');
 		filter.push_back(L'\0');
 		OPENFILENAMEW ofn{};

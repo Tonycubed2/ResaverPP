@@ -4,6 +4,8 @@
 #include "ScriptSources.h"  // ListBSA
 
 #include <algorithm>
+#include <fstream>
+#include <map>
 #include <cctype>
 #include <set>
 #include <sstream>
@@ -85,6 +87,37 @@ namespace ess::assets
 				if (name.rfind(a_in.fo4 ? "fallout4 - " : "skyrim - ", 0) == 0) vanilla.push_back(name);
 			}
 			std::sort(vanilla.begin(), vanilla.end());
+			if (a_in.fo4 && !a_in.gameData.empty()) {
+				// Fallout 4 loads its own archives in the order its ini lists them ([Archive] in Fallout4_Default.ini, the
+				// file the game's Fallout4.ini starts from): the start-up archives, then the archive lists, then the
+				// texture index; the base game archives no list names come after them
+				std::vector<std::string> listed;
+				std::ifstream            ini(a_in.gameData.parent_path() / "Fallout4_Default.ini");
+				std::map<std::string, std::string> lists;
+				for (std::string line; std::getline(ini, line);) {
+					const auto eq = line.find('=');
+					if (eq != std::string::npos) {
+						lists[Lower(line.substr(0, eq))] = line.substr(eq + 1);
+					}
+				}
+				for (const char* key : { "sresourcestartuparchivelist", "sresourcearchivelist", "sresourcearchivelist2", "sresourceindexfilelist" }) {
+					std::stringstream ss(lists[key]);
+					for (std::string n; std::getline(ss, n, ',');) {
+						while (!n.empty() && (n.front() == ' ' || n.front() == '\t')) n.erase(n.begin());
+						while (!n.empty() && (n.back() == ' ' || n.back() == '\r' || n.back() == '\t')) n.pop_back();
+						n = Lower(n);
+						if (archiveAt.contains(n) && std::find(listed.begin(), listed.end(), n) == listed.end()) {
+							listed.push_back(n);
+						}
+					}
+				}
+				for (const auto& v : vanilla) {
+					if (std::find(listed.begin(), listed.end(), v) == listed.end()) {
+						listed.push_back(v);
+					}
+				}
+				vanilla = listed;
+			}
 			archives = vanilla;
 			for (const auto& p : a_in.loadOrder) {
 				const auto stem = Lower(U8(std::filesystem::path(reinterpret_cast<const char8_t*>(p.c_str())).stem()));

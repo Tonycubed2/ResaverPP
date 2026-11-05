@@ -266,7 +266,10 @@ namespace ess
 		bool looksLikeData = false;
 		for (const auto& e : std::filesystem::directory_iterator(a_root, ec)) {
 			const auto n = Lower(U8(e.path().filename()));
-			if (n == "skyrim.esm" || n == "fallout4.esm" || (e.is_directory(ec) && n == "scripts")) {
+			// (a plugin or an archive right in it: a Data folder; a mods folder holds only mod folders)
+			const bool file = e.is_regular_file(ec);
+			if (n == "skyrim.esm" || n == "fallout4.esm" || (e.is_directory(ec) && n == "scripts") ||
+				(file && (n.ends_with(".esm") || n.ends_with(".esp") || n.ends_with(".esl") || n.ends_with(".bsa") || n.ends_with(".ba2")))) {
 				looksLikeData = true;
 				break;
 			}

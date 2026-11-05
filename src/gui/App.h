@@ -85,6 +85,7 @@ public:
 	void requestQuit();
 	// test hook: jump to a category, filter, and focus the first matching row
 	void testSelect(int a_cat, const char* a_filter, bool a_analysis);
+	void testShortcut(int a_which) { shortcut(static_cast<Sc>(a_which)); }  // (tests: a menu entry / shortcut button)
 	void testOpen(const std::string& w)
 	{
 		if (w == "report") {
@@ -832,7 +833,7 @@ private:
 	std::unique_ptr<ess::SaveFile> _save;
 	std::unique_ptr<ess::ops::Report> _report;
 	std::filesystem::path          _path;
-	std::string                    _status = "Open a Skyrim SE/AE save (File > Open, or drop a .ess onto this window).";
+	std::string                    _status = "Open a Skyrim or Fallout 4 save (File > Open, or drop a .ess or .fos onto this window).";
 	bool                           _dirty = false;
 	bool                           _quit = false;
 	bool                           _quitPending = false;

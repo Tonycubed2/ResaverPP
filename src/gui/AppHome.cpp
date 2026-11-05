@@ -125,7 +125,7 @@ void App::shortcut(Sc a_which)
 		_showBsa = true;
 		if (!_bsaView) {
 			const auto start = _sourcesPath.empty() ? gameFolder() / "Data" : platform::FromUtf8(_sourcesPath);
-			if (auto p = platform::OpenFileDialog(start, "bsa", "BSA archive")) {
+			if (auto p = platform::OpenFileDialog(start, "bsa;ba2", "BSA and BA2 archives")) {
 				openBsa(*p);
 			}
 		}

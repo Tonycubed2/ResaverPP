@@ -96,14 +96,14 @@ void App::drawBsa()
 	maximizeControl("Unpack a BSA archive");
 	const bool running = _bsaView && _bsaView->running;
 	ImGui::BeginDisabled(running);
-	if (ImGui::Button("Open a BSA...")) {
+	if (ImGui::Button("Open a BSA or BA2...")) {
 		const auto start = _bsaView ? _bsaView->path.parent_path() : (_sourcesPath.empty() ? gameFolder() / "Data" : platform::FromUtf8(_sourcesPath));
-		if (auto p = platform::OpenFileDialog(start, "bsa", "BSA archive")) {
+		if (auto p = platform::OpenFileDialog(start, "bsa;ba2", "BSA and BA2 archives")) {
 			openBsa(*p);
 		}
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Pick a .bsa file: a mod's archive, or one of the game's in Data.");
+	tips::Tip("Pick a .bsa (Skyrim) or .ba2 (Fallout 4) file: a mod's archive, or one of the game's in Data.");
 	if (!_bsaView) {
 		ImGui::SameLine();
 		ImGui::TextDisabled("No archive open.");

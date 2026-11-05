@@ -223,7 +223,8 @@ void App::drawLookup()
 	}
 	ImGui::TextDisabled("Editor ID, name, or hex form ID. Placed references show their base object after \"->\".");
 	ImGui::SetNextItemWidth(-120);
-	bool go = ImGui::InputTextWithHint("##look", "e.g. Nazeem, WhiterunGuard, 00013BBF", _lookupBuf, sizeof(_lookupBuf), ImGuiInputTextFlags_EnterReturnsTrue);
+	bool go = ImGui::InputTextWithHint("##look", fo4() ? "e.g. Piper, CompanionPiper, 0001D162" : "e.g. Nazeem, WhiterunGuard, 00013BBF", _lookupBuf,
+		sizeof(_lookupBuf), ImGuiInputTextFlags_EnterReturnsTrue);
 	tips::Tip("Type part of an editor ID (e.g. WhiterunGuard), a name shown in game (e.g. Nazeem) or a hex form ID, then press Enter. Searches every plugin of this save's load order.");
 	ImGui::SameLine();
 	go |= ImGui::Button("Search", ImVec2(110, 0));

@@ -132,7 +132,11 @@ void App::open(const std::filesystem::path& a_path)
 		}
 		_cfFacts.clear();
 		_missingDismissed = false;
-		_path = a_path;
+		{
+			std::error_code aec;
+			const auto      abs = std::filesystem::absolute(a_path, aec);
+			_path = aec ? a_path : abs;  // (a save given on the command line can be a relative path)
+		}
 		if (const auto dir = platform::ToUtf8(a_path.parent_path()); !dir.empty() && dir != lastOpenDir()) {
 			lastOpenDir() = dir;  // File > Open starts here next time
 			saveSettings();
@@ -1160,7 +1164,7 @@ void App::drawMenu()
 			openWithFileDialog();
 		}
 		tips::Tip("Pick a save anywhere with the Windows file dialog.");
-		if (ImGui::MenuItem("Unpack a BSA archive...")) {
+		if (ImGui::MenuItem("Unpack a BSA or BA2 archive...")) {
 			shortcut(Sc::kBsa);
 		}
 		tips::Tip("See the files inside a mod's or the game's BSA archive, unpack them into a folder, read a packed script.");
@@ -2393,7 +2397,8 @@ void App::drawOverview()
 		KV("Save number", std::to_string(h.saveNumber));
 		if (_save->isFO4()) {
 			KV("Game", "Fallout 4" + (_save->gameVersion.empty() ? std::string() : " " + _save->gameVersion) +
-						   "  (the Clean tools and the script lists work; the Skyrim-only tools are greyed out)");
+						   "  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's "
+						   "change forms decoded are greyed out)");
 		}
 		KV("Format", Fmt("%ssave version %u, form version %u, %s", h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
 						 h.compression == Compression::kLZ4 ? "LZ4" : h.compression == Compression::kZlib ? "zlib" : "uncompressed"));
