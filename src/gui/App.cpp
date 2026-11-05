@@ -1316,7 +1316,7 @@ void App::drawMenu()
 		ImGui::Separator();
 		ImGui::MenuItem("Find form by name / editor ID...", nullptr, &_showLookup);
 		tips::Tip("Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it.");
-		if (ImGui::MenuItem(fo4() ? "Edit player (caps, S.P.E.C.I.A.L.)..." : "Edit player (gold, skills, bounty)...", nullptr, &_showPlayer)) {
+		if (ImGui::MenuItem(fo4() ? "Edit player (level, caps, S.P.E.C.I.A.L., perks)..." : "Edit player (gold, skills, bounty)...", nullptr, &_showPlayer)) {
 			_pvLoaded = false;
 			_homePanel = false;
 		}

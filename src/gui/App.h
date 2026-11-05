@@ -954,6 +954,12 @@ private:
 	long long                  _f4Caps = -1;
 	int                        _f4CapsEdit = 0;
 	int                        _f4Special[7]{}, _f4SpecialEdit[7]{};
+	int                        _f4Level = -1, _f4LevelEdit = 1;
+	double                     _f4XP = -1;
+	float                      _f4XPEdit = 0;
+	std::map<std::uint32_t, int> _f4PerkEdit;
+	char                       _f4PerkFilter[64]{}, _f4AddPerk[16]{};
+	int                        _f4AddRank = 1;
 	int                        _pvGold = 0;
 	float                      _pvSkills[18]{};
 	std::vector<std::array<int, 2>> _pvBounty;
