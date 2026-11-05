@@ -790,15 +790,22 @@ void App::drawCrashLog()
 	}
 	tips::Tip("Look for the newest crash log again, e.g. after the game crashed once more.");
 	if (!_clog.ok) {
-		TextColored(theme::Warn(), _clog.file.empty()
-									   ? "No crash log found. Crash Logger SSE/AE writes them to Documents\\My Games\\Skyrim Special Edition\\SKSE "
+		TextColored(theme::Warn(), !_clog.file.empty() ? "Could not read " + platform::ToUtf8(_clog.file) + ": " + _clog.error
+								   : _game == 2
+									   ? "No crash log found. Buffout 4 (Buffout 4 NG for next-gen and Anniversary) writes them to "
+										 "Documents\\My Games\\Fallout4\\F4SE (crash-<date>.log) when the game crashes. Install it, let the game "
+										 "crash once, then look again, or pick a log with \"Open another log...\"."
+									   : "No crash log found. Crash Logger SSE/AE writes them to Documents\\My Games\\Skyrim Special Edition\\SKSE "
 										 "(crash-<date>.log) when the game crashes. Install it, let the game crash once, then look again, or "
-										 "pick a log with \"Open another log...\"."
-									   : "Could not read " + platform::ToUtf8(_clog.file) + ": " + _clog.error);
+										 "pick a log with \"Open another log...\".");
 		ImGui::End();
 		return;
 	}
 	ImGui::TextWrapped("%s", platform::ToUtf8(_clog.file).c_str());
+	if (_save && _clog.fo4 != _save->isFO4()) {
+		TextColored(theme::Warn(), _clog.fo4 ? "This is a Fallout 4 crash log, and the save open is a Skyrim save: open the Fallout 4 save it is about."
+											 : "This is a Skyrim crash log, and the save open is a Fallout 4 save: open the Skyrim save it is about.");
+	}
 	ImGui::TextDisabled("%s%s%s", _clog.tool.empty() ? "crash log" : _clog.tool.c_str(), _clog.time.empty() ? "" : ", crashed ",
 		_clog.time.c_str());
 	if (!_clog.exception.empty()) {

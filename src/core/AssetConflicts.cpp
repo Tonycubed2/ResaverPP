@@ -72,7 +72,7 @@ namespace ess::assets
 		for (const auto& [mod, dir] : folders) {
 			std::error_code ec;
 			for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
-				if (e.is_regular_file(ec) && Lower(U8(e.path().extension())) == ".bsa") {
+				if (e.is_regular_file(ec) && Lower(U8(e.path().extension())) == (a_in.fo4 ? ".ba2" : ".bsa")) {
 					archiveAt[Lower(U8(e.path().filename()))] = { mod, e.path() };
 				}
 			}
@@ -82,13 +82,25 @@ namespace ess::assets
 		{
 			std::vector<std::string> vanilla;
 			for (const auto& [name, at] : archiveAt) {
-				if (name.rfind("skyrim - ", 0) == 0) vanilla.push_back(name);
+				if (name.rfind(a_in.fo4 ? "fallout4 - " : "skyrim - ", 0) == 0) vanilla.push_back(name);
 			}
 			std::sort(vanilla.begin(), vanilla.end());
 			archives = vanilla;
 			for (const auto& p : a_in.loadOrder) {
 				const auto stem = Lower(U8(std::filesystem::path(reinterpret_cast<const char8_t*>(p.c_str())).stem()));
-				for (const auto& n : { stem + ".bsa", stem + " - textures.bsa" }) {
+				std::vector<std::string> names;
+				if (a_in.fo4) {
+					names = { stem + " - main.ba2", stem + " - textures.ba2" };
+					std::vector<std::string> voices;  // "<plugin> - Voices_en.ba2" (the DLC's way)
+					for (const auto& [name, at] : archiveAt) {
+						if (name.rfind(stem + " - voices_", 0) == 0) voices.push_back(name);
+					}
+					std::sort(voices.begin(), voices.end());
+					names.insert(names.end(), voices.begin(), voices.end());
+				} else {
+					names = { stem + ".bsa", stem + " - textures.bsa" };
+				}
+				for (const auto& n : names) {
 					if (archiveAt.contains(n) && std::find(archives.begin(), archives.end(), n) == archives.end()) {
 						archives.push_back(n);
 					}

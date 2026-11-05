@@ -184,7 +184,11 @@ static int FileConflictsMain(int argc, char** argv)
 		std::reverse(in.modsLowFirst.begin(), in.modsLowFirst.end());
 	}
 	if (!game.empty()) in.gameData = game / "Data";
-	in.loadOrder = merge::ReadLoadOrder(profile.empty() ? loadorder::GamePluginsTxt() : profile / "plugins.txt", game);
+	{
+		std::error_code ec;
+		in.fo4 = !game.empty() && std::filesystem::exists(game / "Fallout4.exe", ec);  // Fallout 4: .ba2 archives, its own order
+	}
+	in.loadOrder = merge::ReadLoadOrder(profile.empty() ? loadorder::GamePluginsTxt(in.fo4 ? 2 : 0) : profile / "plugins.txt", game, in.fo4 ? 2 : -1);
 	const auto t0 = std::chrono::steady_clock::now();
 	const auto r = assets::Find(in);
 	std::ofstream(out) << r.report();

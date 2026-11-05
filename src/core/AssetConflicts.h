@@ -1,5 +1,5 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
-// File conflicts between mods: loose files and the files inside the archives (BSAs) the game loads.
+// File conflicts between mods: loose files and the files inside the archives (BSAs, Fallout 4's BA2s) the game loads.
 // The game's order: archives first (the base game's, then each plugin's "<plugin>.bsa" and
 // "<plugin> - Textures.bsa" in load order), then every loose file above every archive; among loose
 // files Mod Organizer's mod priority decides, Overwrite last. For each file the last one wins.
@@ -22,6 +22,9 @@ namespace ess::assets
 		std::filesystem::path    overwrite;     // Mod Organizer's Overwrite folder
 		std::filesystem::path    gameData;      // the game's Data folder
 		std::vector<std::string> loadOrder;     // enabled plugins in load order (which archives load, and in what order)
+		// Fallout 4: its archives are .ba2; the base game's "Fallout4 - *.ba2" first, then each plugin's
+		// "<plugin> - Main.ba2", "<plugin> - Textures.ba2" and "<plugin> - Voices_<language>.ba2" in load order
+		bool                     fo4 = false;
 	};
 
 	struct Progress

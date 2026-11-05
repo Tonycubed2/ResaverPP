@@ -373,7 +373,7 @@ void App::drawFileConflicts()
 	}
 	ImGui::NewLine();
 	ImGui::TextWrapped("When two mods have the same file (a mesh, texture, script...), the game uses one of them. Loose files beat every "
-					   "archive (BSA); among loose files your mod order decides; among archives the plugin load order. This lists which "
+					   "archive (BSA, or BA2 for Fallout 4); among loose files your mod order decides; among archives the plugin load order. This lists which "
 					   "mod overrides which, loose and inside archives. A script overridden by another mod's copy is worth a look: one "
 					   "of the two mods may not work as its author meant.");
 	if (!_mo2) {
@@ -396,7 +396,8 @@ void App::drawFileConflicts()
 		}
 		const auto pluginsTxt =
 			_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_game, _save && _save->isLE());
-		in.loadOrder = merge::ReadLoadOrder(pluginsTxt, gameFolder());
+		in.fo4 = _game == 2;
+		in.loadOrder = merge::ReadLoadOrder(pluginsTxt, gameFolder(), in.fo4 ? 2 : -1);
 		_assetsProgress = std::make_unique<assets::Progress>();
 		_assetsBusy = true;
 		auto* prog = _assetsProgress.get();
