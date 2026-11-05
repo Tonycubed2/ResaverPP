@@ -3,7 +3,9 @@
 // Fallout 4 helper (helper-f4): the same pipe and the same line format; HELLO's game field is F4 (1.10.163),
 // F4NG (1.10.984) or F4AE (1.11.x), and it answers HELLO, GETOPTION, SETOPTION, NOTIFY, SAVEGAME, CONTROLS,
 // GATHER (the companion and Dogmeat: the game's own FollowersScript.TryToTeleportCompanion / ...Dogmeat; no
-// ids), RESCUE and CONTROLSRESET (ResetForceEnabledPlayerControls). Everything else answers ERR.
+// ids), RESCUE and CONTROLSRESET (ResetForceEnabledPlayerControls), and from version 13 APPLY with the Fallout 4
+// Transplant records (Transplant.h: additem, addperk, setstage, completequest; nothing else). Everything else
+// answers ERR.
 // One request per line, one reply line per request. Fields are separated by tabs; tab, newline and
 // backslash inside a field are written as \t, \n and \\.
 //
@@ -27,6 +29,13 @@
 //   NOTIFY <notify> <message>             -> OK
 //   SNAPSHOT                              -> OK  <file written>  <records>      (version 5: see Transplant.h)
 //   APPLY <record fields...>              -> OK  1 | OK 0 <why not> | OK ?     (one snapshot record, applied to the loaded game)
+//                                            Fallout 4 (version 13): OK 1 <the console command(s) run>; 1 means the game ran
+//                                            the command, not that it did something (the console tells nobody). The records:
+//                                              additem <formid 8 hex> <count 1..1000000>   -> player.additem <formid> <count>
+//                                              addperk <formid> <ranks 1..100>             -> player.addperk <formid>, <ranks> times
+//                                              setstage <quest formid> <stage 0..65535>    -> setstage <quest> <stage>
+//                                              completequest <quest formid>                -> completequest <quest>
+//                                            The form ids are the game's (ReSaver Plus works them out from the load order).
 //   RESOLVE <plugin> <local id hex>       -> OK  <runtime form id hex>
 //   FOLLOWERS                             -> OK  <count>  <one field per follower: runtime id*Plugin.esp:localid*name*why*where*skip 0|1>
 //                                         (version 12.2; skip: listed in sGatherSkip, so the hold-Ctrl rescue leaves it alone)
@@ -44,7 +53,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 12;
+	inline constexpr int            kHelperVersion = 13;
 
 	inline std::string Escape(const std::string& a_in)
 	{

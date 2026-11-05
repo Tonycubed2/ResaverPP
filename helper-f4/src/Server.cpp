@@ -4,6 +4,7 @@
 #include "Protocol.h"
 #include "Rescue.h"
 #include "Settings.h"
+#include "Transplant.h"
 
 namespace Server
 {
@@ -42,6 +43,31 @@ namespace Server
 			}
 			if (!Game::InGame()) {
 				return err("no game loaded yet (load a save first)");
+			}
+			if (cmd == "APPLY") {
+				// one Transplant record (version 13): checked and turned into its fixed console command(s)
+				std::vector<std::string> commands;
+				std::string              why;
+				if (!Transplant::Commands(std::vector<std::string>(f.begin() + std::min<std::size_t>(2, f.size()), f.end()), commands, why)) {
+					return { "OK", "0", why };
+				}
+				auto ok = std::make_shared<std::atomic<bool>>(true);
+				if (!Game::RunOnMain(
+						[ok, commands] {
+							for (const auto& c : commands) {
+								if (!Game::Console(c)) {
+									*ok = false;
+								}
+							}
+						},
+						kWait)) {
+					return { "OK", "?", "the game is busy: the command runs when it gets to it" };
+				}
+				std::string text;
+				for (const auto& c : commands) {
+					text += (text.empty() ? "" : "; ") + c;
+				}
+				return *ok ? std::vector<std::string>{ "OK", "1", text } : std::vector<std::string>{ "OK", "0", "the console could not run: " + text };
 			}
 			if (cmd == "RESCUE") {
 				const auto line = Rescue::RunAll();

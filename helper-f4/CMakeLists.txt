@@ -18,7 +18,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 set(HELPER_SOURCES
 	src/PCH.h src/F4SE.h src/Log.h src/Log.cpp src/Game.h src/Game.cpp src/Settings.h src/Settings.cpp
-	src/Server.h src/Server.cpp src/Rescue.h src/Rescue.cpp src/Protocol.h src/main.cpp)
+	src/Server.h src/Server.cpp src/Rescue.h src/Rescue.cpp src/Transplant.h src/Transplant.cpp src/Protocol.h src/main.cpp)
 add_library(ReSaverHelper SHARED ${HELPER_SOURCES})
 target_include_directories(ReSaverHelper PRIVATE src)
 target_precompile_headers(ReSaverHelper PRIVATE src/PCH.h)
