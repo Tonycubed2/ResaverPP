@@ -1035,6 +1035,146 @@ void TestCrashLog()
 	Check(faction, "crash log: an unchanged plugin form is reported as the plugin's");
 }
 
+// Fallout 4 crash logs (Buffout 4 and Buffout 4 NG), laid out exactly as Buffout 4's CrashHandler.cpp and
+// Introspection.cpp print them: register and stack entries with their object's lines indented two tabs, a
+// reference's base form after "Object Reference:", the TESForm lines a second time before GetFullName
+void TestCrashLogFO4()
+{
+	const std::string og =
+		"Fallout 4 v1.10.163\n"
+		"Buffout 4 v1.28.6 Mar 14 2023 18:26:53\n"
+		"\n"
+		"Unhandled exception \"EXCEPTION_ACCESS_VIOLATION\" at 0x7FF6DAECCB9D Fallout4.exe+24FCB9D\tlock inc dword ptr [rax+0x10]\n"
+		"Exception Flags: 0x00000000\n"
+		"Number of Parameters: 2\n"
+		"Access Violation: Tried to read memory at 0xFFFFFFFFFFFFFFFF\n"
+		"\n"
+		"\t[Compatibility]\n"
+		"\t\tF4EE: true\n"
+		"\n"
+		"SYSTEM SPECS:\n"
+		"\tOS: Microsoft Windows 10 Pro v10.0.19045\n"
+		"\n"
+		"PROBABLE CALL STACK:\n"
+		"\t[0] 0x7FF6DAECCB9D Fallout4.exe+24FCB9D\n"
+		"\t[1] 0x7FFA10001000  SomeMod.dll+0001000\n"
+		"\t[2] 0x7FFA20002000    ntdll.dll+0002000\n"
+		"\n"
+		"REGISTERS:\n"
+		"\tRAX 0xFFFFFFFFFFFFFFFF (size_t) [uint: 18446744073709551615 int: -1]\n"
+		"\tRCX 0x1F2C3A4B5C0     (Actor*)\n"
+		"\t\tFile: \"Fallout4.esm\"\n"
+		"\t\tFlags: 0x00400408\n"
+		"\t\tFormID: 0xFF00A1B2\n"
+		"\t\tFormType: kACHR (65)\n"
+		"\t\tObject Reference: \n"
+		"\t\tFile: \"Fallout4.esm\"\n"
+		"\t\tModified by: Fallout4.esm -> Unofficial Fallout 4 Patch.esp\n"
+		"\t\tFlags: 0x00000408\n"
+		"\t\tEditorID: \"CompanionPiper\"\n"
+		"\t\tFormID: 0x00002F1F\n"
+		"\t\tFormType: kNPC_ (45)\n"
+		"\n"
+		"STACK:\n"
+		"\t[RSP+258 ] 0x1F2D0000000      (NavMesh*)\n"
+		"\t\tFile: \"NRO-NewRedRocketOverhaul.esp\"\n"
+		"\t\tFlags: 0x00000008\n"
+		"\t\tFormID: 0x00019A70\n"
+		"\t\tFormType: kNAVM (76)\n"
+		"\t[RSP+870 ] 0x1F2E0000000      (TESObjectCELL*)\n"
+		"\t\tFile: \"Concord Revised.esp\"\n"
+		"\t\tModified by: Fallout4.esm -> Concord Revised.esp\n"
+		"\t\tFlags: 0x00040009\n"
+		"\t\tEditorID: \"ConcordCivicAccess01\"\n"
+		"\t\tFormID: 0x0003776D\n"
+		"\t\tFormType: kCELL (63)\n"
+		"\t\tFile: \"Concord Revised.esp\"\n"
+		"\t\tModified by: Fallout4.esm -> Concord Revised.esp\n"
+		"\t\tFlags: 0x00040009\n"
+		"\t\tEditorID: \"ConcordCivicAccess01\"\n"
+		"\t\tFormID: 0x0003776D\n"
+		"\t\tFormType: kCELL (63)\n"
+		"\t\tGetFullName: \"Concord Civic Access\"\n"
+		"\n"
+		"MODULES:\n"
+		"\tFallout4.exe 0x7FF6D8A00000\n"
+		"\n"
+		"F4SE PLUGINS:\n"
+		"\tBuffout4.dll v1.28.6\n"
+		"\n"
+		"PLUGINS:\n"
+		"\t[00]     Fallout4.esm\n";
+	const auto log = ess::crashlog::Parse(og);
+	Check(log.ok && log.fo4 && log.tool == "Buffout 4" && log.game == "Fallout 4 v1.10.163", "fo4 crash log: Buffout 4, Fallout 4 1.10.163");
+	Check(log.exception.find("EXCEPTION_ACCESS_VIOLATION") != std::string::npos && log.exception.find("Fallout4.exe+24FCB9D") != std::string::npos,
+		"fo4 crash log: the exception line");
+	const ess::crashlog::Form *actor = nullptr, *npc = nullptr, *navm = nullptr, *cell = nullptr;
+	for (const auto& f : log.forms) {
+		actor = f.id == 0xFF00A1B2 ? &f : actor;
+		npc = f.id == 0x00002F1F ? &f : npc;
+		navm = f.id == 0x00019A70 ? &f : navm;
+		cell = f.id == 0x0003776D ? &f : cell;
+	}
+	Check(log.forms.size() == 4, "fo4 crash log: four forms");
+	Check(actor && actor->atCrash && actor->type == "kACHR (65)" && actor->file == "Fallout4.esm" && actor->editorID.empty() && actor->name.empty(),
+		"fo4 crash log: the actor in a register, at the crash, not given its base's EditorID");
+	Check(npc && npc->atCrash && npc->type == "kNPC_ (45)" && npc->editorID == "CompanionPiper" && npc->file == "Fallout4.esm",
+		"fo4 crash log: the base NPC after Object Reference, with its EditorID and plugin");
+	Check(navm && !navm->atCrash && navm->file == "NRO-NewRedRocketOverhaul.esp" && navm->type == "kNAVM (76)", "fo4 crash log: a navmesh in the stack");
+	Check(cell && cell->hits == 2 && cell->name == "Concord Civic Access" && cell->editorID == "ConcordCivicAccess01" && cell->file == "Concord Revised.esp",
+		"fo4 crash log: a cell named twice, with its full name, EditorID and plugin");
+	Check(!log.forms.empty() && log.forms[0].atCrash && log.forms[1].atCrash, "fo4 crash log: the register forms come first");
+	const auto c = ess::logs::ReadCrash(og);
+	Check(c.where == "Fallout4.exe+24FCB9D" && c.modules.size() == 1 && c.modules[0] == "SomeMod.dll",
+		"fo4 crash log: crash place and call stack DLLs, without Fallout4.exe and Windows ones");
+
+	// Buffout 4 NG (next-gen and Anniversary games)
+	const std::string ng =
+		"Fallout 4 v1.10.984\n"
+		"Buffout 4 v1.38.5 Oct 28 2026 01:59:55\n"
+		"\n"
+		"Unhandled exception \"EXCEPTION_ACCESS_VIOLATION\" at 0x7FF71234ABCD Fallout4.exe+1A2B3C4\tmov rax, [rcx+0x8]\n"
+		"Exception Flags: 0x00000000\n"
+		"\n"
+		"PROBABLE CALL STACK:\n"
+		"\t[ 0] 0x7FF71234ABCD Fallout4.exe+1A2B3C4\n"
+		"\n"
+		"REGISTERS:\n"
+		"\tRBX 0x2A0B0C0D0E0     (TESObjectREFR*)\n"
+		"\t\tFile: \"MyMod.esp\"\n"
+		"\t\tFlags: 0x00000000\n"
+		"\t\tFormID: 0x0A001234\n"
+		"\t\tFormType: kREFR (64)\n"
+		"\t\tObject Reference: None\n";
+	const auto log2 = ess::crashlog::Parse(ng);
+	Check(log2.ok && log2.fo4 && log2.tool == "Buffout 4" && log2.game == "Fallout 4 v1.10.984" && log2.forms.size() == 1 &&
+			  log2.forms[0].id == 0x0A001234 && log2.forms[0].atCrash && log2.forms[0].file == "MyMod.esp" && log2.forms[0].type == "kREFR (64)",
+		"fo4 crash log: Buffout 4 NG, a reference with no base");
+
+	// matched against a Fallout 4 save: its change forms only (the leveled-actor list is not used)
+	ess::SaveFile save;
+	save.header.magic = "FO4_SAVEGAME";
+	ess::ChangeForm achr;
+	achr.refID.data = (2u << 22) | 0xA1B2;
+	achr.typeField = 1;  // ACHR (the same code in Fallout 4)
+	save.changeForms.push_back(achr);
+	save.reindexChangeForms();
+	const std::vector<ess::crashlog::LeveledBase> leveled = { { 0x00002F1F, achr.refID.data, 0xFF00A1B2, 0 } };
+	const auto found = ess::crashlog::Match(log, save, leveled);
+	bool actorSuspect = false, npcPlugin = false;
+	for (const auto& f : found) {
+		if (f.form.id == 0xFF00A1B2) {
+			actorSuspect = f.kind == ess::crashlog::Kind::kChanged && f.suspect && f.cfType == "ACHR" && f.created;
+		}
+		if (f.form.id == 0x00002F1F) {
+			npcPlugin = f.kind == ess::crashlog::Kind::kPlugin && !f.suspect;
+		}
+	}
+	Check(actorSuspect, "fo4 crash log: the spawned actor at the crash is the likely cause");
+	Check(npcPlugin, "fo4 crash log: no leveled-actor lookup on a Fallout 4 save (the base stays a plugin form)");
+	Check(ess::crashlog::LeveledBases(save).empty(), "fo4 crash log: no leveled actors are read from a Fallout 4 save");
+}
+
 void TestSkyrimLogs()
 {
 	const std::string skse =
@@ -1076,6 +1216,7 @@ int main()
 	TestMergedPatchLE();
 	TestMergedPatchNpcLinks();
 	TestCrashLog();
+	TestCrashLogFO4();
 	TestSkyrimLogs();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;

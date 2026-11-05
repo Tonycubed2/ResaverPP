@@ -606,7 +606,11 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "could not read %s: %s\n", crashLogFile.c_str(), log.error.c_str());
 				return 1;
 			}
-			std::printf("%s%s%s\n", log.tool.empty() ? "crash log" : log.tool.c_str(), log.time.empty() ? "" : ", ", log.time.c_str());
+			std::printf("%s%s%s%s%s\n", log.tool.empty() ? "crash log" : log.tool.c_str(), log.time.empty() ? "" : ", ", log.time.c_str(),
+				log.game.empty() ? "" : ", ", log.game.c_str());
+			if (log.fo4 != save->isFO4()) {
+				std::printf("note: this is a %s crash log and a %s save\n", log.fo4 ? "Fallout 4" : "Skyrim", save->isFO4() ? "Fallout 4" : "Skyrim");
+			}
 			if (!log.exception.empty()) {
 				std::printf("%s\n", log.exception.c_str());
 			}
@@ -625,7 +629,8 @@ int main(int argc, char** argv)
 				case crashlog::Kind::kPlugin: what = "a plugin's form the save did not change"; break;
 				}
 				std::printf("%s %08X  %-24s %-34s x%-3zu %s%s\n", f.suspect ? "**" : "  ", f.form.id, f.form.type.substr(0, 24).c_str(),
-					("\"" + f.form.name.substr(0, 32) + "\"").c_str(), f.form.hits, what.c_str(), f.scripts ? Fmt(", %zu scripts", f.scripts).c_str() : "");
+					("\"" + (f.form.name.empty() ? f.form.editorID : f.form.name).substr(0, 32) + "\"").c_str(), f.form.hits, what.c_str(),
+					(std::string(f.scripts ? Fmt(", %zu scripts", f.scripts) : "") + (f.form.file.empty() ? "" : " [" + f.form.file + "]")).c_str());
 			}
 			std::size_t sus = 0;
 			for (const auto& f : crashFindings) {
