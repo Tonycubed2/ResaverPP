@@ -200,7 +200,7 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 7. **Fallout 4 page** (set up 2026-11-05): domain `fallout4`, mod 110975, Unique Mod ID 4943507468671, game_id 1151.
    Files: main "ReSaverPP" File ID 8317824 (Short ID seiQXq0kr), optional "ReSaverHelper" File ID 8317827 (both first
-   uploaded by hand by Tony as version 1). The page was not yet published on 2026-11-05: v1 `files.json` lists nothing
+   uploaded by hand by Tony as version 1). The page went public on 2026-11-05 (v54 the first version through the API); before it was public v1 `files.json` listed nothing
    then, so `nexus-ids.yml` also prints the v3 list (`/v3/mods/<uid>/files`), which does.
    - Main file: the same `nexus-upload.yml`, `dispNf4.json`:
 ```
