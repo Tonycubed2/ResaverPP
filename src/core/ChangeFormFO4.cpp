@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <map>
 #include <stdexcept>
 
@@ -352,9 +353,10 @@ namespace ess::fo4cf
 					out.cell = Ref(r);
 					for (auto& v : out.pos) v = r.f32();
 					for (auto& v : out.rot) v = r.f32();
-					if (initial == 5) {
+					if (initial == 5) {  // a created reference: u8, then its base object
 						Skip(r, 1);
-						out.startCell = Ref(r);
+						out.base = Ref(r);
+						out.createdBase = true;
 					} else if (initial == 6) {
 						out.startCell = Ref(r);
 						Skip(r, 4);
@@ -439,6 +441,50 @@ namespace ess::fo4cf
 			}
 		}
 		return caps;
+	}
+
+	std::string SetPlayerCaps(SaveFile& a_save, std::int32_t a_count)
+	{
+		if (a_count < 0) {
+			return "caps cannot be negative";
+		}
+		auto* p = const_cast<ChangeForm*>(FindPlayer(a_save));
+		if (!p) {
+			return "no player reference (ACHR 0x14) in this save";
+		}
+		auto       body = cf::Body(*p);
+		const auto d = DecodeRefr(a_save, *p, body);
+		if (!d.decoded) {
+			return "the player's inventory cannot be read: " + d.error;
+		}
+		bool first = true;
+		for (const auto& it : d.inventory) {
+			if (it.formID != 0x0000000F) {
+				continue;
+			}
+			for (const auto& st : it.stacks) {
+				const std::int32_t v = first ? a_count : 0;
+				std::memcpy(body.data() + st.countRange.begin, &v, 4);
+				first = false;
+			}
+		}
+		if (first) {
+			return "the player carries no caps (adding the item is not supported)";
+		}
+		ChangeForm copy = *p;
+		cf::SetBody(copy, body);
+		const auto again = DecodeRefr(a_save, copy);
+		std::int64_t caps = 0;
+		for (const auto& it : again.inventory) {
+			if (it.formID == 0x0000000F) {
+				caps += it.count;
+			}
+		}
+		if (!again.decoded || caps != a_count) {
+			return "the re-encoded player reference does not read back";
+		}
+		*p = std::move(copy);
+		return {};
 	}
 
 	const char* RefrFlagMeaning(int a_bit, bool a_actor)

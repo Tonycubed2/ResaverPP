@@ -1419,6 +1419,22 @@ void TestFo4ChangeForms()
 			  dp.refrPart.end == a.size() - 2,
 		"fo4 ACHR: the reference part, then the actor part's range");
 	Check(ess::fo4cf::FindPlayer(save) && ess::fo4cf::PlayerCaps(save) == 437, "fo4 player: caps from the inventory");
+	Check(ess::fo4cf::SetPlayerCaps(save, 1000).empty() && ess::fo4cf::PlayerCaps(save) == 1000, "fo4 player: set caps");
+	Check(!ess::fo4cf::SetPlayerCaps(save, -1).empty() && ess::fo4cf::PlayerCaps(save) == 1000, "fo4 player: negative caps refused");
+
+	// a created reference (a dropped item): its initial data ends with u8 + the base object
+	B crb;
+	initial(crb);
+	crb.push_back(0);
+	ref(crb, 0x24F55);
+	ess::ChangeForm created;
+	created.refID.data = (2u << 22) | 0x1199;
+	created.typeField = 0;
+	created.changeFlags = 1u << 1;
+	created.data = crb;
+	created.length1 = static_cast<std::uint32_t>(crb.size());
+	const auto dc = ess::fo4cf::DecodeRefr(save, created);
+	Check(dc.complete && dc.createdBase && save.formIDOf(dc.base) == 0x24F55, "fo4 REFR: a created reference's base object");
 
 	// NPC_: factions (6) and name (5)
 	B n;
