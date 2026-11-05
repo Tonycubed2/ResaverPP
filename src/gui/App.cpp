@@ -110,8 +110,29 @@ void App::open(const std::filesystem::path& a_path)
 			throw std::runtime_error("the save has no Papyrus section");
 		}
 		_save = std::move(s);
+		if (_save->isFO4()) {
+			// Fallout 4: nothing of the Skyrim setup applies (mods, load order, plugin names); read again for
+			// the next Skyrim save
+			if (_scanThread.joinable()) {
+				_scanProgress->cancel = true;
+				_scanThread.join();
+			}
+			if (_dbProgress) {
+				_dbProgress->cancel = true;
+			}
+			_sources = ScriptSources{};
+			_db.reset();
+			_dbKey.clear();
+			_modsDirty = true;
+			// the Skyrim tools' windows close
+			_showPlayer = _showActors = _showTransplant = _showLookup = _showMerge = _showAssets = false;
+			_showLeftovers = _showPapyrusLog = _showCrashLog = _showSavesMgr = false;
+			if (!_settingsLoaded) {
+				loadSettings();
+			}
+		}
 		// a Skyrim VR save lists SkyrimVR.esm: use the VR setup (mods, load order, saves)
-		{
+		if (!_save->isFO4()) {
 			bool vrSave = false;
 			for (const auto& p : _save->plugins.full) {
 				vrSave = vrSave || Lower(p) == "skyrimvr.esm";
@@ -159,7 +180,9 @@ void App::open(const std::filesystem::path& a_path)
 		if (!_settingsLoaded) {
 			loadSettings();
 		}
-		if (!_sourcesPath.empty() && !_sources.scanned()) {
+		if (_save->isFO4()) {
+			// (Skyrim's mods are not read for a Fallout 4 save)
+		} else if (!_sourcesPath.empty() && !_sources.scanned()) {
 			scanSources(platform::FromUtf8(_sourcesPath));  // checks again for missing mods when done
 		} else if (_autoNames && _sources.scanned()) {
 			startNames();
@@ -167,7 +190,7 @@ void App::open(const std::filesystem::path& a_path)
 		// the load order is known now: the banner shows at once (which mods are still installed is
 		// known when the scan of the mods is done; that can take a while inside Mod Organizer)
 		checkMissingPlugins();
-		_status = "Loaded " + platform::ToUtf8(a_path.filename());
+		_status = "Loaded " + platform::ToUtf8(a_path.filename()) + (_save->isFO4() ? "  (Fallout 4 save)" : "");
 		if (startupLog) {
 			startupLog("opened " + platform::ToUtf8(a_path) + " in " + std::to_string(ms()) + " ms; mods folder: " +
 					   (_sourcesPath.empty() ? std::string("(not set)") : _sourcesPath) + (scanning() ? " (reading it now)" : ""));
@@ -201,7 +224,7 @@ void App::doSave(const std::filesystem::path& a_path)
 		return;
 	}
 	try {
-		if (_saveCompression >= 0 && !_save->isLE()) {  // Legendary Edition saves are never compressed
+		if (_saveCompression >= 0 && _save->header.hasCompressionField()) {  // Legendary Edition and Fallout 4 saves are never compressed
 			_save->header.compression = static_cast<Compression>(_saveCompression);
 		}
 		// the save as it was opened goes to the archive first (File > Restore an archived save)
@@ -606,7 +629,7 @@ void App::rebuildRows()
 				std::string name = _db ? _db->describe(fid) : std::string();
 				const auto  nulls = fact ? fact->nulls : 0;
 				add(c.refID.data,
-					Fmt("%s  %08X  %-28s  flags %08X  %u bytes", ChangeFormTypeName(c.typeCode()), fid, _save->pluginOf(fid).c_str(), c.changeFlags,
+					Fmt("%s  %08X  %-28s  flags %08X  %u bytes", ChangeFormTypeName(c.typeCode(), _save->isFO4()), fid, _save->pluginOf(fid).c_str(), c.changeFlags,
 						static_cast<unsigned>(c.data.size())) +
 						(name.empty() ? "" : "  " + name) + (nulls ? Fmt("  [%zu NULL ENTRIES]", nulls) : std::string()),
 					nulls ? theme::Warn() : 0, true, c.data.size(), c.length2 ? c.length2 : c.data.size());
@@ -1160,7 +1183,7 @@ void App::drawMenu()
 		}
 		tips::Tip("Write the save's load order (every plugin it was made with) to a text file, e.g. to share when asking for help.");
 		ImGui::Separator();
-		if (ImGui::MenuItem("Open script (.pex)...")) {
+		if (ImGui::MenuItem("Open script (.pex)...", nullptr, false, !fo4())) {
 			shortcut(Sc::kOpenPex);
 		}
 		tips::Tip("Open a compiled Papyrus script (.pex) and read its decompiled code, without a save.");
@@ -1186,7 +1209,7 @@ void App::drawMenu()
 		tips::Tip("End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy.");
 		{
 			const bool any = !_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty();
-			if (ImGui::MenuItem("Mods and scripts no longer installed...", nullptr, false, any)) {
+			if (ImGui::MenuItem("Mods and scripts no longer installed...", nullptr, false, any && !fo4())) {
 				shortcut(Sc::kMissingMods);
 			}
 			if (!any && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
@@ -1198,20 +1221,20 @@ void App::drawMenu()
 			shortcut(Sc::kOrphans);
 		}
 		tips::Tip("Find script instances sitting on spawned (FF......) objects that no longer exist, and remove them.");
-		if (ImGui::MenuItem("Leftover items from removed mods...")) {
+		if (ImGui::MenuItem("Leftover items from removed mods...", nullptr, false, !fo4())) {
 			shortcut(Sc::kLeftovers);
 		}
 		tips::Tip("Items in the player's, NPCs' and containers' inventories whose mod is gone: find them and remove them.");
 		ImGui::Separator();
-		if (ImGui::MenuItem("Fix SkyUI MCM registration jam...")) {
+		if (ImGui::MenuItem("Fix SkyUI MCM registration jam...", nullptr, false, !fo4())) {
 			shortcut(Sc::kMcm);
 		}
 		tips::Tip("Clear a stuck SkyUI mod-menu (MCM) registration, the usual cause of mod menus that never appear.");
-		if (ImGui::MenuItem("Reset Havok...")) {
+		if (ImGui::MenuItem("Reset Havok...", nullptr, false, !fo4())) {
 			shortcut(Sc::kHavok);
 		}
 		tips::Tip("Clear the saved physics state of objects, so they settle again when loaded. Fixes objects that fly around or jitter.");
-		if (ImGui::MenuItem("Purify FormLists...")) {
+		if (ImGui::MenuItem("Purify FormLists...", nullptr, false, !fo4())) {
 			shortcut(Sc::kPurify);
 		}
 		tips::Tip("Remove entries in form lists that point at things that no longer exist (left by removed mods).");
@@ -1231,7 +1254,7 @@ void App::drawMenu()
 			_showCheck = true;
 		}
 		tips::Tip("Everything ReSaver++ noticed about this save, and what can safely be done about it.");
-		ImGui::MenuItem("Transplant progress from a bad save...", nullptr, &_showTransplant);
+		ImGui::MenuItem("Transplant progress from a bad save...", nullptr, &_showTransplant, !fo4());
 		tips::Tip("Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one.");
 		ImGui::MenuItem("Analysis", nullptr, &_showAnalysis);
 		tips::Tip("A text report of the save: which mods and scripts take the most space and run the most.");
@@ -1240,39 +1263,39 @@ void App::drawMenu()
 		}
 		tips::Tip("Write a report of the save (mods, scripts, anomalies) as text or PDF, e.g. to share when asking for help.");
 		ImGui::Separator();
-		ImGui::MenuItem("Find form by name / editor ID...", nullptr, &_showLookup);
+		ImGui::MenuItem("Find form by name / editor ID...", nullptr, &_showLookup, !fo4());
 		tips::Tip("Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it.");
-		if (ImGui::MenuItem("Edit player (gold, skills, bounty)...", nullptr, &_showPlayer)) {
+		if (ImGui::MenuItem("Edit player (gold, skills, bounty)...", nullptr, &_showPlayer, !fo4())) {
 			_pvLoaded = false;
 			_homePanel = false;
 		}
 		tips::Tip("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties.");
-		ImGui::MenuItem("Find NPCs (where they are, bring one to you)...", nullptr, &_showActors);
+		ImGui::MenuItem("Find NPCs (where they are, bring one to you)...", nullptr, &_showActors, !fo4());
 		tips::Tip("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you.");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Save history (growth over time)...")) {
 			shortcut(Sc::kHistory);
 		}
 		tips::Tip("Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing.");
-		if (ImGui::MenuItem("Crash log (what crashed)...")) {
+		if (ImGui::MenuItem("Crash log (what crashed)...", nullptr, false, !fo4())) {
 			shortcut(Sc::kCrashLog);
 		}
 		tips::Tip("Read your newest crash log and find the objects it names in this save. A spawned or leveled NPC that crashes the "
 		          "game while the save loads can be removed here.");
-		if (ImGui::MenuItem("Papyrus log...")) {
+		if (ImGui::MenuItem("Papyrus log...", nullptr, false, !fo4())) {
 			shortcut(Sc::kPapyrusLog);
 		}
 		tips::Tip("Read Papyrus.0.log: errors grouped by script and mod, so you see which mod is spamming errors.");
-		if (ImGui::MenuItem("Manage saves folder...")) {
+		if (ImGui::MenuItem("Manage saves folder...", nullptr, false, !fo4())) {
 			shortcut(Sc::kSavesMgr);
 		}
 		tips::Tip("All saves by character with size and date; delete old ones (with their .skse files) in bulk.");
-		if (ImGui::MenuItem("Merged patch (combine mod conflicts)...", nullptr, &_showMerge)) {
+		if (ImGui::MenuItem("Merged patch (combine mod conflicts)...", nullptr, &_showMerge, !fo4())) {
 			_homePanel = false;
 		}
 		tips::Tip("Read every plugin in your load order and build one patch that combines the changes of mods that edit the same "
 				  "leveled lists, containers, NPCs, keywords, form lists and outfits.");
-		if (ImGui::MenuItem("File conflicts (loose files and BSAs)...", nullptr, &_showAssets)) {
+		if (ImGui::MenuItem("File conflicts (loose files and BSAs)...", nullptr, &_showAssets, !fo4())) {
 			_homePanel = false;
 		}
 		tips::Tip("Which mods override which mods' files, loose and inside archives (BSAs), in the order the game uses them. "
@@ -1282,7 +1305,7 @@ void App::drawMenu()
 			_homePanel = false;
 		}
 		tips::Tip("Look at the save's script arrays: which are biggest, and which nothing points at any more.");
-		if (ImGui::MenuItem(_db ? "Read plugin names again" : "Read plugin names", nullptr, false, _sources.scanned() && !namesLoading())) {
+		if (ImGui::MenuItem(_db ? "Read plugin names again" : "Read plugin names", nullptr, false, _sources.scanned() && !namesLoading() && !fo4())) {
 			startNames(true);
 		}
 		tips::Tip("Read your installed plugins so forms show their in-game names and editor IDs instead of bare numbers.");
@@ -1434,7 +1457,7 @@ void App::drawCategories()
 	};
 	item(Cat::kOverview, 0, _report && !_report->warnings.empty());
 	ensureMods();
-	{
+	if (!fo4()) {  // (built from Skyrim's mods folder)
 		std::size_t withScripts = 0;
 		for (const auto& r : _mods->rows) {
 			if (!r.scripts.empty()) {
@@ -1443,7 +1466,7 @@ void App::drawCategories()
 		}
 		item(Cat::kMods, withScripts);
 	}
-	{
+	if (!fo4()) {  // (Skyrim's quest data)
 		std::size_t inJournal = 0, stale = 0;
 		for (const auto& q : questStates()) {
 			if (q.shownObjectives()) {
@@ -1842,7 +1865,7 @@ void App::detailChangeForm(std::uint64_t k)
 		return;
 	}
 	const auto fid = _save->formIDOf(c->refID);
-	ImGui::Text("%s  %08X", ChangeFormTypeName(c->typeCode()), fid);
+	ImGui::Text("%s  %08X", ChangeFormTypeName(c->typeCode(), _save->isFO4()), fid);
 	if (BeginKV("cf")) {
 		KV("Plugin", _save->pluginOf(fid));
 		KV("RefID", Fmt("%06X (%s)", c->refID.data,
@@ -2345,6 +2368,10 @@ void App::drawOverview()
 	if (BeginKV("hdr")) {
 		KV("File", platform::ToUtf8(_path.filename()));
 		KV("Save number", std::to_string(h.saveNumber));
+		if (_save->isFO4()) {
+			KV("Game", "Fallout 4" + (_save->gameVersion.empty() ? std::string() : " " + _save->gameVersion) +
+						   "  (the Clean tools and the script lists work; the Skyrim-only tools are greyed out)");
+		}
 		KV("Format", Fmt("%ssave version %u, form version %u, %s", h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
 						 h.compression == Compression::kLZ4 ? "LZ4" : h.compression == Compression::kZlib ? "zlib" : "uncompressed"));
 		KV("Plugins", _save->plugins.hasLite ? Fmt("%zu full + %zu light", _save->plugins.full.size(), _save->plugins.lite.size())
@@ -3005,6 +3032,13 @@ void App::useMo2Ini(const std::filesystem::path& a_ini, const Mo2Instance& a_mo2
 
 void App::scanSources(const std::filesystem::path& a_root)
 {
+	if (fo4()) {
+		// the mods folder is Skyrim's: kept, and read when a Skyrim save is opened
+		_sourcesPath = platform::ToUtf8(a_root);
+		saveSettings();
+		_status = "Mods folder saved; it is read when you open a Skyrim save (a Fallout 4 save is open)";
+		return;
+	}
 	// Mod Organizer: use the profile's mod order so a script is credited to the mod whose copy
 	// the game really loads (and disabled mods are ignored).
 	std::vector<std::string> order;

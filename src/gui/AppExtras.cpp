@@ -712,7 +712,7 @@ const App::CrashCheck& App::crashCheck()
 	_crashCheckSave = _save.get();
 	_crashCheckGen = _editGen;
 	_crashCheck = {};
-	if (!_save || _path.empty()) {
+	if (!_save || _path.empty() || _save->isFO4()) {
 		return _crashCheck;
 	}
 	// only a crash after this save was made (loading it, or playing on from it)

@@ -20,7 +20,7 @@ namespace ess
 
 	struct Header
 	{
-		std::string               magic;  // "TESV_SAVEGAME"
+		std::string               magic;  // "TESV_SAVEGAME" (Skyrim) or "FO4_SAVEGAME" (Fallout 4)
 		std::uint32_t             version = 0;
 		std::uint32_t             saveNumber = 0;
 		std::string               playerName;
@@ -33,9 +33,11 @@ namespace ess
 		std::uint64_t             fileTime = 0;
 		std::uint32_t             shotWidth = 0, shotHeight = 0;
 		Compression               compression = Compression::kLZ4;
-		std::vector<std::uint8_t> screenshot;  // SE: RGBA (4 bytes a pixel); LE: RGB (3)
+		std::vector<std::uint8_t> screenshot;  // SE and Fallout 4: RGBA (4 bytes a pixel); LE: RGB (3)
 
-		bool          isLE() const { return version < 12; }  // Skyrim Legendary Edition (save version 9)
+		bool          isFO4() const { return magic == "FO4_SAVEGAME"; }      // Fallout 4 (and Fallout 4 VR)
+		bool          isLE() const { return !isFO4() && version < 12; }  // Skyrim Legendary Edition (save version 9)
+		bool          hasCompressionField() const { return !isFO4() && !isLE(); }  // Skyrim SE/AE/VR
 		void          read(Reader& r);
 		void          write(Writer& w) const;
 		std::uint32_t partialSize() const;  // the value stored in the header-size field
@@ -68,7 +70,7 @@ namespace ess
 	{
 		REFR = 0, ACHR, PMIS, PGRE, PBEA, PFLA, CELL, INFO, QUST, NPC_, ACTI, TACT, ARMO, BOOK, CONT, DOOR, INGR, LIGH, MISC, APPA, STAT, MSTT, FURN, WEAP, AMMO, KEYM, ALCH, IDLM, NOTE, ECZN, CLAS, FACT, PACK, NAVM, WOOP, MGEF, SMQN, SCEN, LCTN, RELA, PHZD, PBAR, PCON, FLST, LVLN, LVLI, LVSP, PARW, ENCH
 	};
-	const char* ChangeFormTypeName(std::uint8_t a_code);
+	const char* ChangeFormTypeName(std::uint8_t a_code, bool a_fo4 = false);  // Fallout 4 numbers its types differently from 28 on
 
 	struct ChangeForm
 	{
@@ -110,7 +112,14 @@ namespace ess
 		std::filesystem::path     path;
 		Header                    header;
 		std::uint8_t              formVersion = 0;
+		std::string               gameVersion;  // Fallout 4: the game version the save was made with ("1.5.157.0")
 		bool                      isLE() const { return header.isLE(); }
+		bool                      isFO4() const { return header.isFO4(); }
+		// Papyrus string indices are 16-bit: Skyrim LE, and Fallout 4 saves of form version 61 and older
+		bool                      str16() const { return isLE() || (isFO4() && formVersion <= 61); }
+		const char*               cosaveExt() const { return isFO4() ? ".f4se" : ".skse"; }
+		const char*               saveExt() const { return isFO4() ? ".fos" : ".ess"; }
+		const char*               gameTitle() const { return isFO4() ? "Fallout 4" : isLE() ? "Skyrim Legendary Edition" : "Skyrim Special Edition"; }
 		PluginInfo                plugins;
 		FileLocationTable         flt;
 		std::vector<GlobalData>   table1, table2, table3;
@@ -118,7 +127,7 @@ namespace ess
 		std::vector<std::uint32_t> formIDs;
 		std::vector<std::uint32_t> visitedWorldspaces;
 		std::vector<std::uint8_t> unknown3;
-		std::vector<std::uint8_t> cosave;  // .skse file contents (empty if none)
+		std::vector<std::uint8_t> cosave;  // .skse (.f4se for Fallout 4) file contents (empty if none)
 		std::size_t               originalBodySize = 0;
 		// Structural problems found while reading (layout that does not add up, bad string indices,
 		// duplicate ids...). A save with problems may not be written back faithfully: open it read-only.

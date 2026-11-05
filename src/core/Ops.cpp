@@ -734,7 +734,7 @@ namespace ess::ops
 		r.changeForms = s.changeForms.size();
 		std::unordered_map<std::string, std::size_t> cfTypes;
 		for (const auto& c : s.changeForms) {
-			cfTypes[ChangeFormTypeName(c.typeCode())]++;
+			cfTypes[ChangeFormTypeName(c.typeCode(), s.isFO4())]++;
 		}
 		r.changeFormsByType = Sorted(cfTypes);
 

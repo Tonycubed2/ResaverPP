@@ -134,7 +134,23 @@ namespace ess
 		std::uint16_t               unknown = 0;
 		RefID                       refID;
 		std::uint8_t                unknownByte = 0;
+		std::optional<std::uint8_t> unknownFO4Byte;  // Fallout 4: present when (unknown2bits & 3) == 3
 		std::optional<InstanceData> data;
+	};
+
+	// Fallout 4: struct definitions and the struct objects scripts hold
+	struct StructDef
+	{
+		TStr                    name = 0;
+		std::vector<MemberDesc> members;
+	};
+	struct StructInstance
+	{
+		EID                   id = 0;
+		TStr                  def = 0;  // the struct's name
+		bool                  hasData = false;
+		std::uint8_t          flag = 0;
+		std::vector<Variable> vars;
 	};
 
 	struct Reference
@@ -193,6 +209,7 @@ namespace ess
 		std::string               typeCode;   // QuestStage, SceneResults, ... (kinds 1 and 3)
 		std::vector<std::uint8_t> payload;    // fragment-type specific data, kept verbatim
 		std::optional<Variable>   variable;   // kinds 2 and 3
+		bool                      terminal() const { return typeCode == "TerminalRunResults"; }
 	};
 
 	struct ActiveScriptData
@@ -204,6 +221,7 @@ namespace ess
 		std::uint32_t               unknown2 = 0;  // present when flag & 1
 		std::uint8_t                unknown3 = 0;
 		std::optional<FragmentTask> fragment;
+		std::optional<EID>          attached;  // Fallout 4: the object the thread is attached to
 		std::vector<StackFrame>     frames;
 		std::optional<std::uint8_t> unknown5;
 	};
@@ -257,8 +275,11 @@ namespace ess
 		std::uint16_t                header = 0;
 		std::vector<std::string>     strings;
 		std::vector<Script>          scripts;
+		std::vector<StructDef>       structs;          // Fallout 4
 		std::vector<ScriptInstance>  instances;
 		std::vector<Reference>       references;
+		std::vector<StructInstance>  structInstances;  // Fallout 4
+		bool                         fo4 = false;      // read from a Fallout 4 save
 		std::vector<ArrayInfo>       arrays;
 		ThreadID                     runtime = 0;
 		std::vector<ActiveScript>    activeScripts;
@@ -274,7 +295,7 @@ namespace ess
 
 		// The game writes the per-element data blocks in its own order; keep it so an
 		// unmodified save writes back byte-for-byte identical.
-		std::vector<EID>      instanceDataOrder, referenceDataOrder, arrayDataOrder;
+		std::vector<EID>      instanceDataOrder, referenceDataOrder, structDataOrder, arrayDataOrder;
 		std::vector<ThreadID> activeDataOrder;
 
 		const std::string& str(TStr i) const
@@ -291,6 +312,7 @@ namespace ess
 		ScriptInstance*       findInstance(EID id);
 		Reference*            findReference(EID id);
 		ArrayInfo*            findArray(EID id);
+		StructInstance*       findStruct(EID id);
 		ActiveScript*         findActive(ThreadID id);
 		const ScriptInstance* findInstance(EID id) const { return const_cast<Papyrus*>(this)->findInstance(id); }
 		const ArrayInfo*      findArray(EID id) const { return const_cast<Papyrus*>(this)->findArray(id); }
@@ -298,7 +320,7 @@ namespace ess
 
 	private:
 		std::unordered_map<TStr, std::size_t> _scriptIdx;
-		std::unordered_map<EID, std::size_t>      _instIdx, _refIdx, _arrIdx;
+		std::unordered_map<EID, std::size_t>      _instIdx, _refIdx, _arrIdx, _structIdx;
 		std::unordered_map<ThreadID, std::size_t> _activeIdx;
 	};
 }

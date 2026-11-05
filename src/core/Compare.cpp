@@ -125,10 +125,10 @@ namespace ess::compare
 		r.threadsByScript = Diff(ThreadsByScript(A), ThreadsByScript(B), a_top);
 		std::map<std::string, long long> ca, cb;
 		for (const auto& c : a_a.changeForms) {
-			ca[ChangeFormTypeName(c.typeCode())]++;
+			ca[ChangeFormTypeName(c.typeCode(), a_a.isFO4())]++;
 		}
 		for (const auto& c : a_b.changeForms) {
-			cb[ChangeFormTypeName(c.typeCode())]++;
+			cb[ChangeFormTypeName(c.typeCode(), a_b.isFO4())]++;
 		}
 		r.changeFormsByType = Diff(ca, cb, a_top);
 		return r;

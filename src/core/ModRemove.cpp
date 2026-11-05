@@ -429,7 +429,7 @@ namespace ess::modremove
 				}
 				if (Lower(a_save.pluginOf(a_save.formIDOf(cf.refID))) == lowerName) {
 					plan.changeForms.insert(cf.refID.data);
-					++plan.changeFormsByType[ChangeFormTypeName(cf.typeCode())];
+					++plan.changeFormsByType[ChangeFormTypeName(cf.typeCode(), a_save.isFO4())];
 				}
 			}
 		}

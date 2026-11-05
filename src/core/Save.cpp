@@ -14,8 +14,16 @@
 
 namespace ess
 {
-	const char* ChangeFormTypeName(std::uint8_t a_code)
+	const char* ChangeFormTypeName(std::uint8_t a_code, bool a_fo4)
 	{
+		if (a_fo4) {
+			// as Skyrim's up to IDLM (27); no NOTE, so the rest move down one, then INNR (49)
+			static const char* fo4[] = { "ECZN", "CLAS", "FACT", "PACK", "NAVM", "WOOP", "MGEF", "SMQN", "SCEN", "LCTN", "RELA", "PHZD", "PBAR",
+				"PCON", "FLST", "LVLN", "LVLI", "LVSP", "PARW", "ENCH", "????", "INNR" };
+			if (a_code >= 28 && a_code < 28 + std::size(fo4)) {
+				return fo4[a_code - 28];
+			}
+		}
 		static const char* names[] = {
 			"REFR", "ACHR", "PMIS", "PGRE", "PBEA", "PFLA", "CELL", "INFO", "QUST", "NPC_", "ACTI", "TACT", "ARMO", "BOOK", "CONT", "DOOR",
 			"INGR", "LIGH", "MISC", "APPA", "STAT", "MSTT", "FURN", "WEAP", "AMMO", "KEYM", "ALCH", "IDLM", "NOTE", "ECZN", "CLAS", "FACT",
@@ -77,16 +85,20 @@ namespace ess
 
 	void Header::read(Reader& r)
 	{
-		magic.assign(reinterpret_cast<const char*>(r.here()), std::min<std::size_t>(13, r.remaining()));
-		if (magic != "TESV_SAVEGAME") {
-			throw FormatError("not a Skyrim save (bad magic)", 0);
+		const std::string head(reinterpret_cast<const char*>(r.here()), std::min<std::size_t>(13, r.remaining()));
+		if (head.rfind("TESV_SAVEGAME", 0) == 0) {
+			magic = "TESV_SAVEGAME";
+		} else if (head.rfind("FO4_SAVEGAME", 0) == 0) {
+			magic = "FO4_SAVEGAME";
+		} else {
+			throw FormatError("not a Skyrim or Fallout 4 save (bad magic)", 0);
 		}
-		r.seek(13);
+		r.seek(magic.size());
 		const auto headerSize = r.u32();
 		const auto start = r.pos();
 		version = r.u32();
-		if (version < 8 || (version > 9 && version < 12)) {
-			throw FormatError("unsupported save version " + std::to_string(version), 17);
+		if (isFO4() ? version < 11 : (version < 8 || (version > 9 && version < 12))) {
+			throw FormatError("unsupported save version " + std::to_string(version), magic.size() + 4);
 		}
 		saveNumber = r.u32();
 		playerName = r.wstring();
@@ -100,8 +112,8 @@ namespace ess
 		fileTime = r.u64();
 		shotWidth = r.u32();
 		shotHeight = r.u32();
-		// Legendary Edition: no compression field, never compressed, RGB screenshot
-		compression = isLE() ? Compression::kNone : static_cast<Compression>(r.u16());
+		// Legendary Edition and Fallout 4: no compression field, never compressed (LE: RGB screenshot)
+		compression = hasCompressionField() ? static_cast<Compression>(r.u16()) : Compression::kNone;
 		if (r.pos() - start != headerSize) {
 			throw FormatError("header size mismatch", r.pos());
 		}
@@ -111,17 +123,17 @@ namespace ess
 	std::uint32_t Header::partialSize() const
 	{
 		return static_cast<std::uint32_t>(4 + 4 + (2 + playerName.size()) + 4 + (2 + location.size()) + (2 + gameDate.size()) +
-										  (2 + race.size()) + 2 + 4 + 4 + 8 + 4 + 4 + (isLE() ? 0 : 2));
+										  (2 + race.size()) + 2 + 4 + 4 + 8 + 4 + 4 + (hasCompressionField() ? 2 : 0));
 	}
 
 	std::uint32_t Header::totalSize() const
 	{
-		return static_cast<std::uint32_t>(13 + 4 + partialSize() + screenshot.size());
+		return static_cast<std::uint32_t>(magic.size() + 4 + partialSize() + screenshot.size());
 	}
 
 	void Header::write(Writer& w) const
 	{
-		w.raw(magic.data(), 13);
+		w.raw(magic.data(), magic.size());
 		w.u32(partialSize());
 		w.u32(version);
 		w.u32(saveNumber);
@@ -136,7 +148,7 @@ namespace ess
 		w.u64(fileTime);
 		w.u32(shotWidth);
 		w.u32(shotHeight);
-		if (!isLE()) {
+		if (hasCompressionField()) {
 			w.u16(static_cast<std::uint16_t>(compression));
 		}
 		w.bytes(screenshot);
@@ -172,7 +184,27 @@ namespace ess
 			}
 		}
 
-		GlobalData ReadGlobal(Reader& r, bool a_le)
+		struct Widths
+		{
+			bool le = false, str16 = false, fo4 = false;
+			void apply(Reader& r) const
+			{
+				r.le = le;
+				r.str16 = str16;
+				r.id32 = le;
+				r.fo4 = fo4;
+			}
+			void apply(Writer& w) const
+			{
+				w.le = le;
+				w.str16 = str16;
+				w.id32 = le;
+				w.fo4 = fo4;
+			}
+		};
+		Widths WidthsOf(const SaveFile& a_save) { return { a_save.isLE(), a_save.str16(), a_save.isFO4() }; }
+
+		GlobalData ReadGlobal(Reader& r, const Widths& a_w)
 		{
 			GlobalData g;
 			g.type = r.u32();
@@ -180,7 +212,7 @@ namespace ess
 			r.need(size);
 			if (g.type == 1001) {
 				Reader sub(r.here(), size);
-				sub.le = a_le;
+				a_w.apply(sub);
 				g.papyrus = std::make_unique<Papyrus>();
 				try {
 					g.papyrus->read(sub);
@@ -194,12 +226,12 @@ namespace ess
 			return g;
 		}
 
-		void WriteGlobal(Writer& w, const GlobalData& g, bool a_le)
+		void WriteGlobal(Writer& w, const GlobalData& g, const Widths& a_w)
 		{
 			w.u32(g.type);
 			if (g.papyrus) {
 				Writer pw;
-				pw.le = a_le;
+				a_w.apply(pw);
 				g.papyrus->write(pw);
 				w.u32(static_cast<std::uint32_t>(pw.size()));
 				w.bytes(pw.buf);
@@ -259,10 +291,10 @@ namespace ess
 			w.bytes(c.data);
 		}
 
-		std::filesystem::path CosavePath(const std::filesystem::path& a_save)
+		std::filesystem::path CosavePath(const std::filesystem::path& a_save, bool a_fo4)
 		{
 			auto p = a_save;
-			p.replace_extension(".skse");
+			p.replace_extension(a_fo4 ? ".f4se" : ".skse");
 			return p;
 		}
 	}
@@ -317,6 +349,9 @@ namespace ess
 		};
 
 		save->formVersion = r.u8();
+		if (save->isFO4()) {
+			save->gameVersion = r.wstring();  // Fallout 4: the game version, before the plugin list
+		}
 		{
 			const auto infoSize = r.u32();
 			const auto start = r.pos();
@@ -326,7 +361,8 @@ namespace ess
 			}
 			// light plugins: SE form version 78+; Skyrim LE with LE Light Support writes form version 75 and
 			// the same list (a u16 count and the names) when a light plugin is active
-			if (save->formVersion >= 78 || (save->isLE() && save->formVersion == 75)) {
+			// (Fallout 4: form version 68+)
+			if (save->isFO4() ? save->formVersion >= 68 : (save->formVersion >= 78 || (save->isLE() && save->formVersion == 75))) {
 				save->plugins.hasLite = true;
 				const auto lite = r.u16();
 				for (unsigned i = 0; i < lite; ++i) {
@@ -347,7 +383,7 @@ namespace ess
 		t.table3Offset = r.u32();
 		t.table1Count = r.u32();
 		t.table2Count = r.u32();
-		t.table3Count = r.u32() + 1;  // Skyrim under-reports table 3 by one
+		t.table3Count = r.u32() + (save->isFO4() ? 0 : 1);  // Skyrim under-reports table 3 by one (Fallout 4 does not)
 		t.changeFormCount = r.u32();
 		for (auto& u : t.unused) {
 			u = r.u32();
@@ -369,13 +405,14 @@ namespace ess
 										 " byte(s) unaccounted for)");
 			}
 		};
+		const auto widths = WidthsOf(*save);
 		at(t.table1Offset);
 		for (std::uint32_t i = 0; i < t.table1Count; ++i) {
-			save->table1.push_back(ReadGlobal(r, save->isLE()));
+			save->table1.push_back(ReadGlobal(r, widths));
 		}
 		expect(t.table2Offset, "global data table 2");
 		for (std::uint32_t i = 0; i < t.table2Count; ++i) {
-			save->table2.push_back(ReadGlobal(r, save->isLE()));
+			save->table2.push_back(ReadGlobal(r, widths));
 		}
 		expect(t.changeFormsOffset, "the change forms");
 		save->changeForms.reserve(t.changeFormCount);
@@ -384,7 +421,7 @@ namespace ess
 		}
 		expect(t.table3Offset, "global data table 3");
 		for (std::uint32_t i = 0; i < t.table3Count; ++i) {
-			save->table3.push_back(ReadGlobal(r, save->isLE()));
+			save->table3.push_back(ReadGlobal(r, widths));
 		}
 		expect(t.formIDArrayCountOffset, "the form ID array");
 
@@ -396,7 +433,7 @@ namespace ess
 		save->unknown3 = r.bytes(r.remaining());
 
 		std::error_code ec;
-		const auto      co = CosavePath(a_path);
+		const auto      co = CosavePath(a_path, save->isFO4());
 		if (std::filesystem::exists(co, ec)) {
 			save->cosave = ReadFile(co);
 		}
@@ -415,8 +452,12 @@ namespace ess
 	{
 		const std::size_t base = header.totalSize();
 
-		Writer w;
+		const auto widths = WidthsOf(*this);
+		Writer     w;
 		w.u8(formVersion);
+		if (isFO4()) {
+			w.wstring(gameVersion);
+		}
 		{
 			Writer pw;
 			pw.u8(static_cast<std::uint8_t>(plugins.full.size()));
@@ -440,11 +481,11 @@ namespace ess
 
 		const auto t1 = static_cast<std::uint32_t>(base + w.size());
 		for (const auto& g : table1) {
-			WriteGlobal(w, g, isLE());
+			WriteGlobal(w, g, widths);
 		}
 		const auto t2 = static_cast<std::uint32_t>(base + w.size());
 		for (const auto& g : table2) {
-			WriteGlobal(w, g, isLE());
+			WriteGlobal(w, g, widths);
 		}
 		const auto cf = static_cast<std::uint32_t>(base + w.size());
 		for (const auto& c : changeForms) {
@@ -452,7 +493,7 @@ namespace ess
 		}
 		const auto t3 = static_cast<std::uint32_t>(base + w.size());
 		for (const auto& g : table3) {
-			WriteGlobal(w, g, isLE());
+			WriteGlobal(w, g, widths);
 		}
 		const auto fid = static_cast<std::uint32_t>(base + w.size());
 		w.u32(static_cast<std::uint32_t>(formIDs.size()));
@@ -468,7 +509,7 @@ namespace ess
 
 		std::uint32_t vals[10] = { fid, u3, t1, t2, cf, t3,
 			static_cast<std::uint32_t>(table1.size()), static_cast<std::uint32_t>(table2.size()),
-			static_cast<std::uint32_t>(table3.size() - 1), static_cast<std::uint32_t>(changeForms.size()) };
+			static_cast<std::uint32_t>(table3.size() - (isFO4() ? 0 : 1)), static_cast<std::uint32_t>(changeForms.size()) };
 		for (int i = 0; i < 10; ++i) {
 			w.patch32(fltAt + 4 * i, vals[i]);
 		}
@@ -513,7 +554,7 @@ namespace ess
 	{
 		WriteResult     res;
 		std::error_code ec;
-		const auto      co = CosavePath(a_path);
+		const auto      co = CosavePath(a_path, isFO4());
 		auto            tmp = a_path;
 		tmp += ".tmp";
 		auto tmpCo = co;
@@ -659,31 +700,44 @@ namespace ess
 	{
 		std::ifstream f(a_save, std::ios::binary);
 		std::uint8_t  head[17];
-		if (!f.read(reinterpret_cast<char*>(head), 17) || std::memcmp(head, "TESV_SAVEGAME", 13) != 0) {
+		if (!f.read(reinterpret_cast<char*>(head), 17)) {
+			return false;
+		}
+		// "TESV_SAVEGAME" (13) or "FO4_SAVEGAME" (12), then the header size
+		std::size_t magicLen = 0;
+		bool        fo4 = false;
+		if (std::memcmp(head, "TESV_SAVEGAME", 13) == 0) {
+			magicLen = 13;
+		} else if (std::memcmp(head, "FO4_SAVEGAME", 12) == 0) {
+			magicLen = 12;
+			fo4 = true;
+		} else {
 			return false;
 		}
 		std::uint32_t hs = 0;
-		std::memcpy(&hs, head + 13, 4);
+		std::memcpy(&hs, head + magicLen, 4);
 		if (hs < 30 || hs > 65536) {
 			return false;
 		}
+		const std::size_t pre = magicLen + 4;
 		// header, then at most a 4096x4096 RGBA screenshot (real ones are 320x192 or so)
-		std::vector<std::uint8_t> buf(17 + hs);
+		std::vector<std::uint8_t> buf(pre + hs);
 		std::memcpy(buf.data(), head, 17);
-		if (!f.read(reinterpret_cast<char*>(buf.data() + 17), hs)) {
+		if (pre + hs > 17 && !f.read(reinterpret_cast<char*>(buf.data() + 17), static_cast<std::streamsize>(pre + hs - 17))) {
 			return false;
 		}
 		std::uint32_t version = 0, w = 0, h = 0;
-		std::memcpy(&version, buf.data() + 17, 4);
-		const std::size_t end = 17 + hs - (version < 12 ? 0 : 2);
+		std::memcpy(&version, buf.data() + pre, 4);
+		const bool        le = !fo4 && version < 12;
+		const std::size_t end = pre + hs - (fo4 || le ? 0 : 2);
 		std::memcpy(&w, buf.data() + end - 8, 4);
 		std::memcpy(&h, buf.data() + end - 4, 4);
 		if (w > 4096 || h > 4096) {
 			return false;
 		}
-		const std::size_t shot = std::size_t(w) * h * (version < 12 ? 3 : 4);
-		buf.resize(17 + hs + shot);
-		if (shot && !f.read(reinterpret_cast<char*>(buf.data() + 17 + hs), static_cast<std::streamsize>(shot))) {
+		const std::size_t shot = std::size_t(w) * h * (le ? 3 : 4);
+		buf.resize(pre + hs + shot);
+		if (shot && !f.read(reinterpret_cast<char*>(buf.data() + pre + hs), static_cast<std::streamsize>(shot))) {
 			return false;
 		}
 		try {
@@ -740,7 +794,11 @@ namespace ess
 			const auto t = tag + (a_n > 1 ? std::to_string(a_n) : std::string());
 			const auto name = gameName ? head + t + rest : s + "_" + t;
 			auto       p = a_save;
-			p.replace_filename(std::filesystem::path(std::u8string(name.begin(), name.end()) + u8".ess"));
+			auto ext = a_save.extension().string();
+			for (auto& c : ext) {
+				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			}
+			p.replace_filename(std::filesystem::path(std::u8string(name.begin(), name.end()) + (ext == ".fos" ? u8".fos" : u8".ess")));
 			return p;
 		};
 		auto p = make(1);

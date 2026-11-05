@@ -3598,7 +3598,12 @@ namespace ess::cf
 	Decoded Decode(const SaveFile& a_save, const ChangeForm& a_cf, const TypeLookup& a_types, bool a_inventoryOnly)
 	{
 		Decoded out;
-		out.root.label = ChangeFormTypeName(a_cf.typeCode());
+		out.root.label = ChangeFormTypeName(a_cf.typeCode(), a_save.isFO4());
+		if (a_save.isFO4()) {
+			// the change form layouts here are Skyrim's; Fallout 4's are not decoded (shown as bytes)
+			out.error = "Fallout 4 change forms are not decoded";
+			return out;
+		}
 		std::vector<std::uint8_t> body;
 		try {
 			body = Body(a_cf);

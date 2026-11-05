@@ -60,8 +60,8 @@ void App::checkMissingPlugins()
 	_orderSuspect = _scanSuspect = false;
 	_activeInSave = _activeFound = _activeChecked = 0;
 	_missingFile.clear();
-	if (!_save) {
-		return;
+	if (!_save || fo4()) {
+		return;  // (a Fallout 4 save: Skyrim's load order says nothing about it)
 	}
 	_installKnown = _sources.scanned() && !scanning();
 	// the load order the game uses next: the Mod Organizer profile's, or the game's own plugins.txt

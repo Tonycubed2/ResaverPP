@@ -303,16 +303,19 @@ namespace ess
 			FragmentTask t;
 			t.kind = kind;
 			std::size_t len = 0;
-			if (kind != 2) {
+			const std::size_t fo4 = r.fo4 ? 4 : 0;  // Fallout 4 adds 4 bytes to the quest and scene ones
+			if (kind == 2) {
+				len = fo4;  // Fallout 4: the running thread's id
+			} else {
 				t.typeCode = r.lstring();
 				if (t.typeCode == "QuestStage") {
-					len = 3 + 2 + 1;
+					len = 3 + 2 + 1 + fo4;
 				} else if (t.typeCode == "ScenePhaseResults" || t.typeCode == "SceneActionResults") {
-					len = 3 + 4;
+					len = 3 + 4 + fo4;
 				} else if (t.typeCode == "SceneResults") {
-					len = 3;
+					len = 3 + fo4;
 				} else if (t.typeCode == "TerminalRunResults") {
-					len = 1 + 4 + 3 + 4;
+					len = 1 + 4 + 3 + (r.str16 ? 2 : 4);  // (a 16-bit string index can carry a 32-bit one)
 				} else if (t.typeCode == "TopicInfo") {
 					len = 0;
 				} else {
@@ -352,6 +355,9 @@ namespace ess
 			if (d.unknown3 >= 1 && d.unknown3 <= 3) {
 				d.fragment = ReadFragment(r, d.unknown3);
 			}
+			if (r.fo4 && (!d.fragment || (d.fragment->kind != 2 && !d.fragment->terminal()))) {
+				d.attached = r.u64();  // Fallout 4: the object the thread is attached to
+			}
 			const auto count = r.u32();
 			if (count > 100000) {
 				throw FormatError("invalid stack frame count", r.pos());
@@ -360,7 +366,9 @@ namespace ess
 			for (std::uint32_t i = 0; i < count; ++i) {
 				d.frames.push_back(ReadFrame(r));
 			}
-			if (!d.frames.empty()) {
+			// Fallout 4 writes no byte after the frames of a thread with flag 0 (a native call not made by a
+			// Papyrus function)
+			if (!d.frames.empty() && !(r.fo4 && d.flag == 0)) {
 				d.unknown5 = r.u8();
 			}
 			return d;
@@ -379,6 +387,9 @@ namespace ess
 			w.u8(d.unknown3);
 			if (d.fragment) {
 				WriteFragment(w, *d.fragment);
+			}
+			if (d.attached) {
+				w.u64(*d.attached);
 			}
 			w.u32(static_cast<std::uint32_t>(d.frames.size()));
 			for (const auto& f : d.frames) {
@@ -467,8 +478,9 @@ namespace ess
 	{
 		header = r.u16();
 
+		fo4 = r.fo4;
 		std::uint32_t strCount;
-		if (r.le) {
+		if (r.str16) {
 			strCount = r.u16();
 			if (strCount == 0xFFFF) {
 				strCount = r.u32();
@@ -482,6 +494,7 @@ namespace ess
 		}
 
 		const auto scriptCount = r.u32();
+		const auto structCount = r.fo4 ? r.u32() : 0;  // Fallout 4: the struct definitions' count follows
 		scripts.reserve(scriptCount);
 		for (std::uint32_t i = 0; i < scriptCount; ++i) {
 			Script s;
@@ -497,6 +510,19 @@ namespace ess
 			}
 			scripts.push_back(std::move(s));
 		}
+		structs.clear();
+		for (std::uint32_t i = 0; i < structCount; ++i) {
+			StructDef s;
+			s.name = r.tstr();
+			const auto mc = r.u32();
+			for (std::uint32_t m = 0; m < mc; ++m) {
+				MemberDesc d;
+				d.name = r.tstr();
+				d.type = r.tstr();
+				s.members.push_back(d);
+			}
+			structs.push_back(std::move(s));
+		}
 
 		const auto instCount = r.u32();
 		instances.reserve(instCount);
@@ -508,6 +534,9 @@ namespace ess
 			s.unknown = r.u16();
 			s.refID = RefID::read(r);
 			s.unknownByte = r.u8();
+			if (r.fo4 && (s.unknown2bits & 3) == 3) {
+				s.unknownFO4Byte = r.u8();
+			}
 			instances.push_back(std::move(s));
 		}
 
@@ -518,6 +547,18 @@ namespace ess
 			x.id = r.eid();
 			x.script = r.tstr();
 			references.push_back(std::move(x));
+		}
+
+		structInstances.clear();
+		if (r.fo4) {
+			const auto n = r.u32();
+			structInstances.reserve(n);
+			for (std::uint32_t i = 0; i < n; ++i) {
+				StructInstance x;
+				x.id = r.eid();
+				x.def = r.tstr();
+				structInstances.push_back(std::move(x));
+			}
 		}
 
 		const auto arrCount = r.u32();
@@ -568,6 +609,21 @@ namespace ess
 			}
 			ref->data = ReadInstanceData(r);
 			referenceDataOrder.push_back(id);
+		}
+
+		structDataOrder.clear();
+		for (std::size_t i = 0; i < structInstances.size(); ++i) {
+			const auto pos = r.pos();
+			const EID  id = r.eid();
+			auto*      st = findStruct(id);
+			if (!st) {
+				throw FormatError("struct data for unknown id", pos);
+			}
+			st->flag = r.u8();
+			const auto n = r.u32();
+			st->vars = ReadVars(r, n);
+			st->hasData = true;
+			structDataOrder.push_back(id);
 		}
 
 		arrayDataOrder.clear();
@@ -651,7 +707,9 @@ namespace ess
 			unbinds.push_back(u);
 		}
 
-		saveFileVersion = r.u16();
+		if (!r.fo4) {
+			saveFileVersion = r.u16();  // (Skyrim only)
+		}
 		tail = r.bytes(r.remaining());
 	}
 
@@ -685,6 +743,17 @@ namespace ess
 				str(m.name);
 				str(m.type);
 			}
+		}
+		for (const auto& sd : structs) {
+			str(sd.name);
+			for (const auto& m : sd.members) {
+				str(m.name);
+				str(m.type);
+			}
+		}
+		for (const auto& x : structInstances) {
+			str(x.def);
+			vars(x.vars);
 		}
 		for (const auto& i : instances) {
 			str(i.script);
@@ -766,6 +835,12 @@ namespace ess
 			}
 			dups("array", v);
 			dups("array data", arrayDataOrder);
+			v.clear();
+			for (const auto& x : structInstances) {
+				v.push_back(x.id);
+			}
+			dups("struct", v);
+			dups("struct data", structDataOrder);
 			std::vector<ThreadID> t;
 			for (const auto& a : activeScripts) {
 				t.push_back(a.id);
@@ -783,6 +858,9 @@ namespace ess
 		for (const auto& a : arrays) {
 			noData += a.hasData ? 0 : 1;
 		}
+		for (const auto& x : structInstances) {
+			noData += x.hasData ? 0 : 1;
+		}
 		for (const auto& a : activeScripts) {
 			noData += a.data ? 0 : 1;
 		}
@@ -795,7 +873,7 @@ namespace ess
 	void Papyrus::write(Writer& w) const
 	{
 		w.u16(header);
-		if (w.le) {
+		if (w.str16) {
 			if (strings.size() <= 0xFFF0) {
 				w.u16(static_cast<std::uint16_t>(strings.size()));
 			} else {
@@ -810,6 +888,9 @@ namespace ess
 		}
 
 		w.u32(static_cast<std::uint32_t>(scripts.size()));
+		if (w.fo4) {
+			w.u32(static_cast<std::uint32_t>(structs.size()));
+		}
 		for (const auto& s : scripts) {
 			w.tstr(s.name);
 			w.tstr(s.parent);
@@ -817,6 +898,16 @@ namespace ess
 			for (const auto& m : s.members) {
 				w.tstr(m.name);
 				w.tstr(m.type);
+			}
+		}
+		if (w.fo4) {
+			for (const auto& s : structs) {
+				w.tstr(s.name);
+				w.u32(static_cast<std::uint32_t>(s.members.size()));
+				for (const auto& m : s.members) {
+					w.tstr(m.name);
+					w.tstr(m.type);
+				}
 			}
 		}
 
@@ -828,12 +919,23 @@ namespace ess
 			w.u16(s.unknown);
 			s.refID.write(w);
 			w.u8(s.unknownByte);
+			if (s.unknownFO4Byte) {
+				w.u8(*s.unknownFO4Byte);
+			}
 		}
 
 		w.u32(static_cast<std::uint32_t>(references.size()));
 		for (const auto& x : references) {
 			w.eid(x.id);
 			w.tstr(x.script);
+		}
+
+		if (w.fo4) {
+			w.u32(static_cast<std::uint32_t>(structInstances.size()));
+			for (const auto& x : structInstances) {
+				w.eid(x.id);
+				w.tstr(x.def);
+			}
 		}
 
 		w.u32(static_cast<std::uint32_t>(arrays.size()));
@@ -860,6 +962,14 @@ namespace ess
 		WriteInOrder(referenceDataOrder, references, [&](const Reference& x) {
 			WriteInstanceData(w, x.id, x.data ? *x.data : InstanceData{});
 		});
+		if (w.fo4) {
+			WriteInOrder(structDataOrder, structInstances, [&](const StructInstance& x) {
+				w.eid(x.id);
+				w.u8(x.flag);
+				w.u32(static_cast<std::uint32_t>(x.vars.size()));
+				WriteVars(w, x.vars);
+			});
+		}
 		WriteInOrder(arrayDataOrder, arrays, [&](const ArrayInfo& a) {
 			w.eid(a.id);
 			WriteVars(w, a.vars);
@@ -948,7 +1058,11 @@ namespace ess
 		_instIdx.clear();
 		_refIdx.clear();
 		_arrIdx.clear();
+		_structIdx.clear();
 		_activeIdx.clear();
+		for (std::size_t i = 0; i < structInstances.size(); ++i) {
+			_structIdx[structInstances[i].id] = i;
+		}
 		for (std::size_t i = 0; i < scripts.size(); ++i) {
 			_scriptIdx[scripts[i].name] = i;
 		}
@@ -985,6 +1099,11 @@ namespace ess
 	{
 		auto it = _arrIdx.find(id);
 		return it == _arrIdx.end() ? nullptr : &arrays[it->second];
+	}
+	StructInstance* Papyrus::findStruct(EID id)
+	{
+		auto it = _structIdx.find(id);
+		return it == _structIdx.end() ? nullptr : &structInstances[it->second];
 	}
 	ActiveScript* Papyrus::findActive(ThreadID id)
 	{

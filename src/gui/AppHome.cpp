@@ -87,8 +87,38 @@ void App::goHome()
 	_homePanel = true;
 }
 
+bool App::SkyrimOnly(Sc a_which)
+{
+	switch (a_which) {
+	case Sc::kMissingMods:
+	case Sc::kMcm:
+	case Sc::kHavok:
+	case Sc::kPurify:
+	case Sc::kPlayer:
+	case Sc::kActors:
+	case Sc::kTransplant:
+	case Sc::kLookup:
+	case Sc::kMods:
+	case Sc::kQuests:
+	case Sc::kLeftovers:
+	case Sc::kPapyrusLog:
+	case Sc::kSavesMgr:
+	case Sc::kMerge:
+	case Sc::kFileConflicts:
+	case Sc::kCrashLog:
+	case Sc::kOpenPex:
+		return true;
+	default:
+		return false;
+	}
+}
+
 void App::shortcut(Sc a_which)
 {
+	if (fo4() && SkyrimOnly(a_which)) {
+		_status = std::string("Not for Fallout 4 saves yet: ") + kSkyrimOnlyTip;
+		return;
+	}
 	if (a_which == Sc::kSkyrimLogs) {
 		openSkyrimLogs();
 		return;
@@ -373,7 +403,8 @@ void App::drawHome()
 		ImGui::SeparatorText(title);
 		for (const auto& b : buttons) {
 			ImGui::PushID(static_cast<int>(b.which));
-			const bool nothing = b.count == 0;
+			const bool notHere = fo4() && SkyrimOnly(b.which);  // a Fallout 4 save: Skyrim's tools are off
+			const bool nothing = b.count == 0 || notHere;
 			std::string label = b.label;
 			if (b.count > 0) {
 				label += Fmt("  (%lld)", b.count);
@@ -398,7 +429,9 @@ void App::drawHome()
 				DrawMarquee(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 			}
 			ImGui::EndDisabled();
-			if (nothing) {
+			if (notHere) {
+				tips::Tip(kSkyrimOnlyTip);
+			} else if (nothing) {
 				tips::Tip("Nothing to do: this save has none.");
 			} else {
 				tips::Tip(b.tip);

@@ -100,16 +100,22 @@ namespace ess
 		}
 		// Skyrim Legendary Edition saves: Papyrus string indices are 16-bit (0xFFFF = a 32-bit index
 		// follows) and object/array ids 32-bit. Special Edition: 32-bit strings, 64-bit ids.
-		bool          le = false;
+		// Fallout 4: 64-bit ids, 32-bit strings (16-bit in saves of form version 61 and older), and a few
+		// fields of its own (fo4).
+		bool          le = false;     // Skyrim Legendary Edition (str16 and id32 are set with it)
+		bool          str16 = false;  // 16-bit string indices
+		bool          id32 = false;   // 32-bit object/array ids
+		bool          fo4 = false;    // Fallout 4
+		void          setLE(bool a_le) { le = str16 = id32 = a_le; }
 		std::uint32_t tstr()
 		{
-			if (!le) {
+			if (!str16) {
 				return u32();
 			}
 			const std::uint16_t v = u16();
 			return v == 0xFFFF ? u32() : v;
 		}
-		std::uint64_t eid() { return le ? u32() : u64(); }
+		std::uint64_t eid() { return id32 ? u32() : u64(); }
 
 		// u32 length-prefixed string
 		std::string lstring()
@@ -148,10 +154,11 @@ namespace ess
 		}
 		void bytes(const std::vector<std::uint8_t>& v) { buf.insert(buf.end(), v.begin(), v.end()); }
 
-		bool le = false;  // see Reader::le
+		bool le = false, str16 = false, id32 = false, fo4 = false;  // see Reader::le
+		void setLE(bool a_le) { le = str16 = id32 = a_le; }
 		void tstr(std::uint32_t v)
 		{
-			if (!le) {
+			if (!str16) {
 				u32(v);
 			} else if (v <= 0xFFF0) {  // the cutoff the game uses (with Crash Fixes / LE Light Support)
 				u16(static_cast<std::uint16_t>(v));
@@ -162,7 +169,7 @@ namespace ess
 		}
 		void eid(std::uint64_t v)
 		{
-			if (le) {
+			if (id32) {
 				u32(static_cast<std::uint32_t>(v));
 			} else {
 				u64(v);

@@ -90,7 +90,7 @@ void App::pollPathIdles()
 			_pathJob->cancel = true;  // the old thread finishes on its own; it owns its data
 			_pathJob.reset();
 		}
-		_pathJobPending = _save != nullptr;
+		_pathJobPending = _save != nullptr && !_save->isFO4();  // (Skyrim's change forms)
 	}
 	// it waits for the mods scan and the plugin names: those come first, and on a slow PC (or under Wine) the
 	// three at once crawled

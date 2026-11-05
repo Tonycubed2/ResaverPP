@@ -634,7 +634,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 	struct State
 	{
 		std::filesystem::path              save, savesDir, gameDir;
-		bool                               haveSave = false, dirty = false, le = false;
+		bool                               haveSave = false, dirty = false, le = false, fo4 = false;
 		std::string                        sources, profile, character;
 		std::vector<std::filesystem::path> myGames;
 		LiveLink::Info                     live;
@@ -644,6 +644,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		st.save = _path;
 		st.dirty = _dirty;
 		st.le = _save && _save->isLE();
+		st.fo4 = _save && _save->isFO4();
 		st.savesDir = savesFolder();
 		st.gameDir = gameFolder();
 		st.sources = _sourcesPath;
@@ -675,7 +676,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		a_shown = "looked at what is open";
 		std::string o;
 		o += "open save: " + (st.haveSave ? platform::ToUtf8(st.save) + " (" + st.character + ")" : std::string("none")) + "\n";
-		o += std::string("game: ") + (st.haveSave ? (st.le ? "Skyrim Legendary Edition" : "Skyrim SE/AE/VR") : "unknown") + "\n";
+		o += std::string("game: ") + (st.haveSave ? (st.fo4 ? "Fallout 4 (only the Papyrus cleaning tools work on it)" : st.le ? "Skyrim Legendary Edition" : "Skyrim SE/AE/VR") : "unknown") + "\n";
 		o += std::string("unsaved_changes: ") + (st.dirty ? "true" : "false") + "\n";
 		o += "saves folder: " + platform::ToUtf8(st.savesDir) + "\n";
 		o += "mods folder (--sources): " + (st.sources.empty() ? std::string("not set") : st.sources) + "\n";

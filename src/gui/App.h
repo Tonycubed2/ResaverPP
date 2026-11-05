@@ -566,6 +566,10 @@ private:
 		kLiveGame, kGather
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
+	// a Fallout 4 save is open: the tools built on Skyrim's data (its change forms, plugins, mods, logs) are off
+	bool        fo4() const { return _save && _save->isFO4(); }
+	static bool SkyrimOnly(Sc a_which);
+	static constexpr const char* kSkyrimOnlyTip = "Skyrim saves only for now: this tool reads Skyrim's own data.";
 	void        drawHome();            // the shortcut buttons
 	bool        anyToolOpen() const;
 	void        goHome();              // "Main menu": close the tools, back to the overview with its shortcuts

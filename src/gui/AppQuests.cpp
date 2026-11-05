@@ -58,7 +58,7 @@ namespace
 const std::vector<quests::QuestState>& App::questStates()
 {
 	if (_questGen != _editGen) {
-		_questStates = _save ? quests::ReadStates(*_save) : std::vector<quests::QuestState>{};
+		_questStates = _save && !_save->isFO4() ? quests::ReadStates(*_save) : std::vector<quests::QuestState>{};  // (Skyrim's quest data)
 		_questGen = _editGen;
 		_questPreviews.clear();
 		_chains.clear();

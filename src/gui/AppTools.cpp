@@ -139,7 +139,7 @@ std::string App::gameLanguage() const
 
 void App::startNames(bool a_force)
 {
-	if (!_save || !_sources.scanned()) {
+	if (!_save || !_sources.scanned() || fo4()) {
 		return;
 	}
 	const auto key = platform::ToUtf8(_path) + "|" + _sourcesPath + "|" + _profile;

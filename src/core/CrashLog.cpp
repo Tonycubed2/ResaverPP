@@ -244,7 +244,7 @@ namespace ess::crashlog
 			if (cf) {
 				r.refRaw = cf->refID.data;
 				r.target = a_save.formIDOf(cf->refID);
-				r.cfType = ChangeFormTypeName(cf->typeCode());
+				r.cfType = ChangeFormTypeName(cf->typeCode(), a_save.isFO4());
 				r.created = cf->refID.type() == RefID::Type::kCreated;
 				if (auto s = scripts.find(r.target); s != scripts.end()) {
 					r.scripts = s->second;

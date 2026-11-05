@@ -438,8 +438,8 @@ std::vector<App::CheckItem> App::checkItems()
 		}
 	}
 
-	// the journal shows objectives of quests that are over
-	{
+	// the journal shows objectives of quests that are over (Skyrim's quest data)
+	if (!fo4()) {
 		std::size_t shownDone = 0;
 		for (const auto& q : questStates()) {
 			if (q.completed() || !q.running()) {

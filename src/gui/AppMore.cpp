@@ -220,7 +220,7 @@ void App::pluginContents(const std::set<std::string>& a_plugins)
 			}
 			const auto  fid = _save->formIDOf(c.refID);
 			std::string name = _db ? _db->describe(fid) : std::string();
-			forms[ChangeFormTypeName(c.typeCode())].push_back({ fid, { c.refID.data, Fmt("%08X", fid), Fmt("%u bytes", static_cast<unsigned>(c.data.size())), std::move(name) } });
+			forms[ChangeFormTypeName(c.typeCode(), _save->isFO4())].push_back({ fid, { c.refID.data, Fmt("%08X", fid), Fmt("%u bytes", static_cast<unsigned>(c.data.size())), std::move(name) } });
 		}
 		for (auto& [type, rows] : forms) {
 			std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) { return a.first < b.first; });

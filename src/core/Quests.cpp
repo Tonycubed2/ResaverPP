@@ -542,6 +542,9 @@ namespace ess::quests
 	std::vector<QuestState> ReadStates(const SaveFile& a_save)
 	{
 		std::vector<QuestState> out;
+		if (a_save.isFO4()) {
+			return out;  // Skyrim's quest change form layout
+		}
 		for (const auto& c : a_save.changeForms) {
 			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::QUST) {
 				continue;

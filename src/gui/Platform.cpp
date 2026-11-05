@@ -145,7 +145,7 @@ namespace platform
 		OPENFILENAMEW ofn{};
 		ofn.lStructSize = sizeof(ofn);
 		ofn.hwndOwner = GetActiveWindow();
-		ofn.lpstrFilter = L"Skyrim SE saves (*.ess)\0*.ess\0All files (*.*)\0*.*\0";
+		ofn.lpstrFilter = L"Skyrim and Fallout 4 saves (*.ess, *.fos)\0*.ess;*.fos\0Skyrim saves (*.ess)\0*.ess\0Fallout 4 saves (*.fos)\0*.fos\0All files (*.*)\0*.*\0";
 		ofn.lpstrFile = file;
 		ofn.nMaxFile = static_cast<DWORD>(std::size(file));
 		ofn.lpstrInitialDir = dir.empty() ? nullptr : dir.c_str();
@@ -192,8 +192,10 @@ namespace platform
 		OPENFILENAMEW ofn{};
 		ofn.lStructSize = sizeof(ofn);
 		ofn.hwndOwner = GetActiveWindow();
-		ofn.lpstrFilter = L"Skyrim SE saves (*.ess)\0*.ess\0";
-		ofn.lpstrDefExt = L"ess";
+		// the same kind of save as the one suggested (Skyrim .ess or Fallout 4 .fos)
+		const bool fos = _wcsicmp(a_suggested.extension().wstring().c_str(), L".fos") == 0;
+		ofn.lpstrFilter = fos ? L"Fallout 4 saves (*.fos)\0*.fos\0" : L"Skyrim saves (*.ess)\0*.ess\0";
+		ofn.lpstrDefExt = fos ? L"fos" : L"ess";
 		ofn.lpstrFile = file;
 		ofn.nMaxFile = static_cast<DWORD>(std::size(file));
 		ofn.lpstrInitialDir = dir.empty() ? nullptr : dir.c_str();
