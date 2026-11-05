@@ -891,6 +891,8 @@ private:
 	std::unique_ptr<ess::mods::Table> _mods;
 	bool                              _modsDirty = true;
 	bool                              _modsOnlyScripts = true;
+	// scripts the game itself ships (base game, official DLC, Creation Club) are marked "*" in the lists; this hides them
+	bool                              _hideGameScripts = false;
 	ess::ScriptSources                _sources;
 	// the mods scan runs on its own thread (it can take a while, much longer inside Mod Organizer)
 	std::thread                                _scanThread;

@@ -97,6 +97,7 @@ namespace ess::modremove
 	}
 
 	bool IsCreationClubPlugin(const std::string& a_lower) { return IsCreationClub(a_lower); }
+	bool IsBaseGamePluginName(const std::string& a_lower) { return IsBaseGamePlugin(a_lower); }
 
 	std::vector<std::string> ReadMasters(const std::filesystem::path& a_plugin)
 	{

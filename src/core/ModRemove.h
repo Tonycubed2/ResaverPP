@@ -58,6 +58,8 @@ namespace ess::modremove
 
 	// Official Creation Club plugin names ("cc" + creator code + "sse" + 3 digits); lowercase input.
 	bool IsCreationClubPlugin(const std::string& a_lower);
+	// the base game's and official DLC's own plugins (Skyrim.esm ... Dragonborn.esm, SkyrimVR.esm; Fallout4.esm, DLC*.esm), lowercase
+	bool IsBaseGamePluginName(const std::string& a_lower);
 
 	Plan MakePlan(SaveFile& a_save, const std::string& a_mod, const ScriptSources* a_sources, const Options& a_opt);
 

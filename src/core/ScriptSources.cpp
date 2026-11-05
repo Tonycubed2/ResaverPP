@@ -64,8 +64,11 @@ namespace ess
                 }
             }
             // (Fallout 4: "Fallout4 - *.ba2", the DLC's "DLC* - *.ba2" and Creation Club "cc*.ba2")
-            return n.rfind("skyrim - ", 0) == 0 || n.rfind("cc", 0) == 0 || n.rfind("fallout4 - ", 0) == 0 || n.rfind("dlc", 0) == 0;
+            return n.rfind("skyrim - ", 0) == 0 || n.rfind("skyrim_vr - ", 0) == 0 || n.rfind("cc", 0) == 0 || n.rfind("fallout4 - ", 0) == 0 ||
+                   n.rfind("dlc", 0) == 0;
 		};
+		// the game's own folder (Game Data, or the Data folder scanned on its own): its official archives ship the game's scripts
+		const bool gameFolder = a_modName == "Game Data" || a_modName == "Data";
 		for (const auto& e : std::filesystem::directory_iterator(a_dir, ec)) {
 			if (!e.is_regular_file(ec)) {
 				continue;
@@ -160,11 +163,15 @@ namespace ess
 			}
 		}
 		for (const auto& b : bsas) {
+			const bool official = gameFolder && vanillaArchive(Lower(U8(b.filename())));
 			try {
 				for (const auto& f : ListBSA(b)) {
 					if (f.rfind("scripts\\", 0) == 0 && f.size() > 12 && f.ends_with(".pex") && f.rfind("scripts\\source\\", 0) != 0) {
 						auto name = f.substr(8, f.size() - 12);
 						std::replace(name.begin(), name.end(), '\\', ':');  // (Fallout 4 namespaces)
+						if (official) {
+							gameScripts.insert(name);
+						}
 						add(name, true, b);
 					} else if (f.rfind("strings\\", 0) == 0 && f.ends_with("strings")) {
 						stringsFiles.emplace(f.substr(8), AssetLocation{ b, f });
@@ -308,6 +315,7 @@ namespace ess
 		sourceFiles.clear();
 		sourceMods.clear();
 		sourceDirs.clear();
+		gameScripts.clear();
 		_gameDataSkip.clear();
 		modsScanned = disabledScanned = pexFound = bsasRead = 0;
 		root.clear();
@@ -789,6 +797,11 @@ namespace ess
 			}
 		}
 		return out;
+	}
+
+	bool ScriptSources::isGameScript(const std::string& a_script) const
+	{
+		return !gameScripts.empty() && gameScripts.contains(Lower(a_script));
 	}
 
 	std::optional<ScriptSources::PexFile> ScriptSources::findPex(const std::string& a_script) const

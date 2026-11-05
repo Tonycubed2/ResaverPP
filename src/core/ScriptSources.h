@@ -134,6 +134,12 @@ namespace ess
 		// every script name seen (compiled or source), lowercase
 		std::vector<std::string> scriptNames() const;
 
+		// scripts the game itself ships (lowercase): those in the base game's, the official DLC's and the Creation
+		// Club archives of the game's Data folder (Skyrim - *.bsa, Update/Dawnguard/HearthFires/Dragonborn.bsa, cc*.bsa;
+		// Fallout4 - *.ba2, DLC* - *.ba2, cc*.ba2). A mod's copy of such a script still counts as the game's script.
+		std::unordered_set<std::string> gameScripts;
+		bool isGameScript(const std::string& a_script) const;  // case-insensitive
+
 		// where the compiled script the game loads is: a loose file, or an entry of a BSA
 		struct PexFile
 		{

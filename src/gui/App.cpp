@@ -599,6 +599,18 @@ void App::rebuildRows()
 		}
 		_rows.push_back({ key, std::move(text), col, size, mass });
 	};
+	// the game's own scripts (base game, official DLC, Creation Club): marked "* ", or left out with "hide game scripts"
+	auto gameScript = [&](const std::string& a_script) { return !a_script.empty() && _sources.isGameScript(a_script); };
+	auto mark = [&](const std::string& a_script, std::string& a_text) {
+		if (!gameScript(a_script)) {
+			return true;
+		}
+		if (_hideGameScripts) {
+			return false;
+		}
+		a_text = "* " + a_text;
+		return true;
+	};
 	auto pluginOk = [&](const RefID& id) {
 		if (_pluginFilter.empty()) {
 			return true;
@@ -690,7 +702,8 @@ void App::rebuildRows()
 				} else if (missingParent) {
 					t += "  [MISSING PARENT]";
 				}
-				const bool shown = !anyShow || (_onlyFlagged && undef) || (F.noParent && noParent) || (F.missingParent && missingParent);
+				const bool shown = (!anyShow || (_onlyFlagged && undef) || (F.noParent && noParent) || (F.missingParent && missingParent)) &&
+								   mark(p.str(s.name), t);
 				add(s.name, t, undef ? theme::Bad() : missingParent ? theme::Warn() : 0, shown, counts[s.name], counts[s.name] + vars[s.name]);
 			}
 			break;
@@ -718,8 +731,9 @@ void App::rebuildRows()
 				if (zeroed) {
 					t += "  [ZEROED CANARY]";
 				}
-				const bool shown = !anyShow || (_onlyFlagged && (unatt || undef || missing)) || (F.memberless && memberless) ||
-								   (F.zeroedCanary && zeroed) || (F.withScripts && hasForm);
+				const bool shown = (!anyShow || (_onlyFlagged && (unatt || undef || missing)) || (F.memberless && memberless) ||
+									   (F.zeroedCanary && zeroed) || (F.withScripts && hasForm)) &&
+								   mark(p.str(i.script), t);
 				std::uint64_t arr = 0;
 				if (i.data) {
 					for (const auto& v : i.data->vars) {
@@ -739,7 +753,9 @@ void App::rebuildRows()
 		for (const auto& r : p.references) {
 			const bool          undef = ops::IsInstanceUndefined(p, r.script);
 			const std::uint64_t n = r.data ? r.data->vars.size() : 0;
-			add(r.id, p.str(r.script) + "  id " + Hex64(r.id) + (undef ? "  [UNDEFINED]" : ""), undef ? theme::Bad() : 0, !_onlyFlagged || undef, n, n);
+			std::string         t = p.str(r.script) + "  id " + Hex64(r.id) + (undef ? "  [UNDEFINED]" : "");
+			const bool          shown = (!_onlyFlagged || undef) && mark(p.str(r.script), t);
+			add(r.id, t, undef ? theme::Bad() : 0, shown, n, n);
 		}
 		break;
 	case Cat::kArrays:
@@ -770,7 +786,9 @@ void App::rebuildRows()
 					vars += f.vars.size();
 				}
 			}
-			add(a.id, threadLabel(a), undef ? theme::Bad() : term ? theme::Dim() : susp ? theme::Warn() : 0, !_onlyFlagged || undef || susp, frames, frames + vars);
+			std::string t = threadLabel(a);
+			const bool  shown = (!_onlyFlagged || undef || susp) && mark(a.data && !a.data->frames.empty() ? p.str(a.data->frames.front().scriptName) : std::string(), t);
+			add(a.id, t, undef ? theme::Bad() : term ? theme::Dim() : susp ? theme::Warn() : 0, shown, frames, frames + vars);
 		}
 		break;
 	case Cat::kMessages:
@@ -782,7 +800,8 @@ void App::rebuildRows()
 				t += Fmt("   thread #%08X", *m.id);
 			}
 			const std::uint64_t n = m.data ? m.data->vars.size() : 0;
-			add(i, t, 0, true, n, n);
+			const bool          shown = mark(m.data ? p.str(m.data->scriptName) : std::string(), t);
+			add(i, t, 0, shown, n, n);
 		}
 		break;
 	case Cat::kSuspended:
@@ -792,7 +811,8 @@ void App::rebuildRows()
 				std::string t = Fmt("table %d  #%08X  ", table, s.id);
 				t += s.data ? p.str(s.data->scriptName) + "." + p.str(s.data->event) : std::string("(no data)");
 				const std::uint64_t n = s.data ? s.data->vars.size() : 0;
-				add((std::uint64_t(table) << 32) | s.id, t, 0, true, n, n);
+				const bool          shown = mark(s.data ? p.str(s.data->scriptName) : std::string(), t);
+				add((std::uint64_t(table) << 32) | s.id, t, 0, shown, n, n);
 			}
 		}
 		break;
@@ -1586,6 +1606,23 @@ void App::drawList()
 				}
 			}
 		}
+	}
+	const bool scriptLists = _cat == Cat::kScripts || _cat == Cat::kInstances || _cat == Cat::kReferences || _cat == Cat::kThreads ||
+							 _cat == Cat::kMessages || _cat == Cat::kSuspended;
+	if (scriptLists) {
+		ImGui::BeginDisabled(_sources.gameScripts.empty());
+		if (ImGui::Checkbox("hide game scripts (*)", &_hideGameScripts)) {
+			_rowsDirty = true;
+			_modOrder.clear();
+			saveSettings();
+		}
+		ImGui::EndDisabled();
+		tips::Tip(_sources.gameScripts.empty()
+					  ? "Scripts the game itself ships are marked * once ReSaver Plus has read the game's Data folder (Options > Settings: "
+						"the game folder), so it is not known yet which scripts are the game's."
+					  : "Scripts marked * are the game's own: the base game's, the official DLC's and the Creation Club's (read from the "
+						"game's own archives). Tick to hide them and see only your mods' scripts.");
+		ImGui::SameLine();
 	}
 	ImGui::TextDisabled("%zu shown, %zu selected  (Ctrl/Shift-click to multi-select, Ctrl+A selects all shown)", _rows.size(), _selected.size());
 
@@ -2898,6 +2935,8 @@ void App::loadSettings()
 			vr.gamePath = line.substr(8);
 		} else if (line.rfind("vr=", 0) == 0) {
 			_vr = line.substr(3) == "1";
+		} else if (line.rfind("hide_game_scripts=", 0) == 0) {
+			_hideGameScripts = line.substr(18) == "1";
 		} else if (line.rfind("active_game=", 0) == 0) {
 			active = std::clamp(std::atoi(line.c_str() + 12), 0, 2);
 		} else if (line.rfind("sources_f4=", 0) == 0) {
@@ -3006,6 +3045,7 @@ void App::saveSettings()
 	const auto& f4 = all[2];
 	f << "vr=" << (_vr ? 1 : 0) << "\n";
 	f << "active_game=" << _game << "\n";
+	f << "hide_game_scripts=" << (_hideGameScripts ? 1 : 0) << "\n";
 	f << "sources_f4=" << f4.sourcesPath << "\n";
 	f << "profile_f4=" << f4.profile << "\n";
 	f << "game_f4=" << f4.gamePath << "\n";
@@ -3159,6 +3199,7 @@ void App::pollScan()
 	_sourcesPath = platform::ToUtf8(a_root);
 	saveSettings();
 	_modsDirty = true;
+	_rowsDirty = true;  // (the game's own scripts are marked * now)
 	if (_save && _autoNames) {
 		startNames(true);
 	}
@@ -3227,6 +3268,13 @@ void App::drawModsList()
 	ImGui::SameLine();
 	changed |= ImGui::Checkbox("only mods with scripts or enchanted items", &_modsOnlyScripts);
 	tips::Tip("Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in any inventory. Untick to list every plugin in the save.");
+	if (ImGui::Checkbox("hide the game's own plugins (base game, DLC, Creation Club)", &_hideGameScripts)) {
+		changed = true;
+		_rowsDirty = true;
+		saveSettings();
+	}
+	tips::Tip("Hide the base game's, the official DLC's and the Creation Club's plugins, so only your mods are listed. In the script "
+			  "lists the game's own scripts are marked * and hidden the same way.");
 
 	if (ImGui::Button(_sources.empty() ? "Find script sources (.pex)..." : "Rescan script sources...")) {
 		if (platform::HasNativeDialogs()) {
@@ -3291,6 +3339,10 @@ void App::drawModsList()
 			}
 			if (!needle.empty() && Lower(r.name).find(needle) == std::string::npos) {
 				continue;
+			}
+			if (_hideGameScripts && (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight) &&
+				(modremove::IsBaseGamePluginName(Lower(r.name)) || modremove::IsCreationClubPlugin(Lower(r.name)) || Lower(r.name) == "_resourcepack.esl")) {
+				continue;  // the game's own plugins
 			}
 			_modOrder.push_back(i);
 		}
@@ -3582,7 +3634,7 @@ void App::detailMod(std::uint64_t k)
 				TextColored(theme::Dim(), s->script + "  (engine type)");
 				tips::Tipf("Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill.", s->script.c_str());
 			} else {
-				ImGui::TextUnformatted(s->script.c_str());
+				ImGui::TextUnformatted((_sources.isGameScript(s->script) ? "* " + s->script : s->script).c_str());  // (* the game's own)
 				scriptItem(s->script);
 			}
 			ImGui::TableSetColumnIndex(1);
