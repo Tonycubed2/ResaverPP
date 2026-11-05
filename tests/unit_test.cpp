@@ -1422,6 +1422,32 @@ void TestFo4ChangeForms()
 	Check(ess::fo4cf::SetPlayerCaps(save, 1000).empty() && ess::fo4cf::PlayerCaps(save) == 1000, "fo4 player: set caps");
 	Check(!ess::fo4cf::SetPlayerCaps(save, -1).empty() && ess::fo4cf::PlayerCaps(save) == 1000, "fo4 player: negative caps refused");
 
+	// an actor part with no AI process: actor fields, then one actor value (Luck 0x2C8 = 3)
+	{
+		B ab;
+		u32(ab, 0xFFFFFFFFu); u32(ab, 0);       // prefix: no process
+		ab.push_back(0); for (int i = 0; i < 9; ++i) u32(ab, 0);
+		ab.insert(ab.end(), 12, 0); ref(ab, 0);
+		u16(ab, 0); ab.insert(ab.end(), 20, 0);  // 0xceb7c0 (form version 68: 20 bytes)
+		ab.push_back(0);                          // no magic casters
+		for (int i = 0; i < 5; ++i) ref(ab, 0);
+		for (int i = 0; i < 4; ++i) u32(ab, 0);
+		ab.push_back(1 << 2); ref(ab, 0x2C8); f32(ab, 3.f);
+		ab.push_back(0);
+		ess::ChangeForm npcA;
+		npcA.refID.data = (1u << 22) | 0x1234;
+		npcA.typeField = 1;
+		npcA.data = ab;
+		npcA.length1 = static_cast<std::uint32_t>(ab.size());
+		const auto da = ess::fo4cf::DecodeActor(save, npcA);
+		Check(da.decoded && da.processLevel == -1 && da.values.size() == 1 && da.values[0].formID == 0x2C8 && da.values[0].base == 3.f &&
+				  da.values[0].baseRange.end == ab.size() - 1,
+			"fo4 ACHR: actor part read up to the actor values");
+		Check(ess::fo4cf::SetActorValueBase(save, npcA, 0x2C8, 7.f).empty() && ess::fo4cf::DecodeActor(save, npcA).values[0].base == 7.f,
+			"fo4 ACHR: set an actor value's base");
+		Check(!ess::fo4cf::SetActorValueBase(save, npcA, 0x2C2, 7.f).empty(), "fo4 ACHR: a value the actor has no base for is refused");
+	}
+
 	// a created reference (a dropped item): its initial data ends with u8 + the base object
 	B crb;
 	initial(crb);
