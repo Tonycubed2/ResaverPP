@@ -198,7 +198,7 @@ static int FileConflictsMain(int argc, char** argv)
 	return 0;
 }
 
-// resaverpp-cli --bsa-list <bsa> [text] / --bsa-extract <bsa> <out> [text] [--overwrite]
+// resaverpp-cli --bsa-list <bsa|ba2> [text] / --bsa-extract <bsa|ba2> <out> [text] [--overwrite]
 static int BsaMain(int argc, char** argv)
 {
 	const std::string mode = argv[1];
@@ -223,7 +223,7 @@ static int BsaMain(int argc, char** argv)
 			for (auto& c : ext) {
 				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 			}
-			if (!it->is_regular_file(ec) || ext != ".bsa") {
+			if (!it->is_regular_file(ec) || (ext != ".bsa" && ext != ".ba2")) {
 				continue;
 			}
 			++archives;
@@ -248,7 +248,7 @@ static int BsaMain(int argc, char** argv)
 	}
 	try {
 		if (argc < 3) {
-			std::fputs("missing the BSA file\n", stderr);
+			std::fputs("missing the BSA or BA2 file\n", stderr);
 			return 1;
 		}
 		BsaArchive bsa(std::filesystem::u8path(argv[2]));
@@ -265,7 +265,7 @@ static int BsaMain(int argc, char** argv)
 					++n;
 				}
 			}
-			std::printf("%zu of %zu files (BSA version %u)\n", n, bsa.entries().size(), bsa.version());
+			std::printf("%zu of %zu files (%s)\n", n, bsa.entries().size(), bsa.kind().c_str());
 			return 0;
 		}
 		if (argc < 4) {
