@@ -126,6 +126,89 @@ namespace ess::fo4cf
 			}
 		}
 
+		// 0xbae9f0
+		void Dialogue(In& b)
+		{
+			b.wstr(); b.wstr(); b.u8(); b.ref(); b.ref(); b.ref(); b.u8(); b.u16(); b.ref(); b.u8();
+		}
+
+		// 0xdf04a0
+		void Path(In& b)
+		{
+			b.ref(); b.ref(); b.u32(); One4(b);
+			if (b.u8()) {  // 0xdf3560
+				b.u16(); b.u16();  // 0xdf1380
+				for (int i = 0; i < 4; ++i) b.u8();
+				for (int i = 0; i < 4; ++i) b.raw(12);
+				One4(b); One4(b); One4(b);
+			}
+		}
+
+		// AIProcess high data (+0x10)
+		void High(In& b)
+		{
+			const auto ver = b.ver;
+			b.u8(); b.u8(); b.u8();
+			b.u16();
+			R4n(b, 9);
+			b.u8();
+			b.raw(12); b.raw(12);
+			R4n(b, 5);
+			b.u8(); b.u32(); b.u8(); b.u32(); b.u8(); b.u32(); b.u32(); b.u8();
+			R4n(b, 4); b.u8(); b.u8(); b.u32(); b.u32(); b.u8(); b.u8(); b.u32(); b.u32(); b.u8();
+			R4n(b, 4); b.u8(); b.u8(); b.u8(); b.u32(); b.u8(); b.u8(); b.u32(); b.u8(); b.u8();
+			for (int i = 0; i < 7; ++i) b.ref();
+			for (int i = 0; i < 6; ++i) { b.ref(); b.u8(); }
+			if (b.u8()) {  // 0xbae160
+				for (auto n = b.vs(); n; --n) Dialogue(b);
+			}
+			for (auto n = b.vs(); n; --n) { b.u32(); b.ref(); }
+			if (b.u8()) { b.u32(); b.raw(12); One4(b); b.ref(); }
+			{  // 0xbedaf0 -> 0xc10b00: u8, vsval size, a block of that size
+				b.u8();
+				const auto n = b.vs();
+				if (n) b.blob(n);
+			}
+			b.u8();
+			for (auto n = b.vs(); n; --n) { b.u32(); b.u32(); b.ref(); b.ref(); b.ref(); }
+			for (auto n = b.vs(); n; --n) { b.ref(); Path(b); }
+			b.u32(); b.ref();
+			R4n(b, 8);
+			b.u8(); b.u32(); b.u32(); One4(b); One4(b);
+			b.ref(); b.ref();
+			b.wstr();
+			if (b.u8()) {
+				b.u8();
+				b.wstr();  // 0xe11e20
+				for (auto n = b.u32(); n; --n) b.wstr();
+				for (auto n = b.u32(); n; --n) {  // 0xe125a0
+					b.wstr();
+					for (auto m = b.u32(); m; --m) b.wstr();
+					b.u8();
+				}
+				if (ver >= 0x27) {
+					for (auto n = b.u32(); n; --n) {
+						b.u32(); b.wstr();
+						for (auto m = b.u32(); m; --m) b.wstr();
+						b.u8();
+					}
+				}
+			}
+			for (int i = 0; i < 6; ++i) b.u8();
+			b.u32(); b.u8(); b.u8(); b.u32();
+			b.ref(); b.ref(); Pair4(b);
+			b.u8(); b.u8(); b.ref(); b.u8(); b.u8(); b.u32(); One4(b);
+			b.u8(); b.u8(); Pair4(b); One4(b);
+			b.u8(); b.u32();
+			b.raw(12); b.raw(12); b.raw(12); b.raw(12);
+			b.ref(); b.ref();
+			b.u8(); b.ref(); b.u32(); b.u8(); b.u32(); b.u8(); b.u32(); b.u16(); b.u8(); b.u8();
+			b.ref();
+			b.u8(); b.u8();
+			if (ver >= 3) b.u8();
+			if (ver >= 0x30) b.u8();
+		}
+
 		void Process(In& b, std::uint32_t a_level, Actor& a)
 		{
 			const auto ver = b.ver;
@@ -179,10 +262,10 @@ namespace ess::fo4cf
 			if (ver >= 0x11) b.u32();
 			b.u8();
 			if (ver >= 0x0e) One4(b);
-			if (a_level > 0) {
-				return;  // no high process
+			if (a_level == 0) {
+				High(b);
 			}
-			b.fail("high process data");
+			b.u8(); b.u8(); b.raw(12);
 		}
 
 		// 0xb85b10 + 0xb79840: an actor magic caster
