@@ -136,7 +136,8 @@ namespace ess::merge
 	// game always loads first (base game masters, then the Creation Club files in Skyrim.ccc), then
 	// the enabled lines in file order. SE/AE mark enabled plugins with '*'; Legendary Edition (TESV.exe in
 	// the game folder) has no marks and every line listed is enabled.
-	std::vector<std::string> ReadLoadOrder(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder);
+	// a_game: 0 Skyrim, 2 Fallout 4 (its masters and Fallout4.ccc), -1 found from the game folder (Fallout4.exe)
+	std::vector<std::string> ReadLoadOrder(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder, int a_game = -1);
 
 	// Low level, for tests: one record of a plugin and a minimal plugin writer.
 	struct Sub

@@ -116,10 +116,26 @@ std::string App::formText(std::uint32_t a_formID) const
 
 std::string App::gameLanguage() const
 {
-	// sLanguage from the MO2 profile's Skyrim.ini, else English
+	// sLanguage from the MO2 profile's Skyrim.ini (Fallout4.ini / Fallout4Custom.ini, then Documents\My Games\Fallout4's),
+	// else English ("en" for Fallout 4: its strings files are Fallout4_en.STRINGS)
+	std::vector<std::filesystem::path> inis;
 	if (_mo2 && !_profile.empty()) {
-		for (const char* ini : { "skyrim.ini", "Skyrim.ini" }) {
-			std::ifstream f(_mo2->profilesDir / platform::FromUtf8(_profile) / ini);
+		const auto prof = _mo2->profilesDir / platform::FromUtf8(_profile);
+		if (_game == 2) {
+			inis = { prof / "Fallout4Custom.ini", prof / "Fallout4.ini" };
+		} else {
+			inis = { prof / "skyrim.ini", prof / "Skyrim.ini" };
+		}
+	}
+	if (_game == 2) {
+		if (const auto my = platform::DefaultSavesFolder(2).parent_path(); !my.empty()) {
+			inis.push_back(my / "Fallout4Custom.ini");
+			inis.push_back(my / "Fallout4.ini");
+		}
+	}
+	{
+		for (const auto& ini : inis) {
+			std::ifstream f(ini);
 			for (std::string line; std::getline(f, line);) {
 				const auto low = Lower(line);
 				if (low.rfind("slanguage=", 0) == 0) {
@@ -134,12 +150,12 @@ std::string App::gameLanguage() const
 			}
 		}
 	}
-	return "english";
+	return _game == 2 ? "en" : "english";
 }
 
 void App::startNames(bool a_force)
 {
-	if (!_save || !_sources.scanned() || fo4()) {
+	if (!_save || !_sources.scanned()) {
 		return;
 	}
 	const auto key = platform::ToUtf8(_path) + "|" + _sourcesPath + "|" + _profile;
@@ -160,6 +176,7 @@ void App::startNames(bool a_force)
 	PrepareInput(*_save, *in);
 	in->sources = _sources;
 	in->language = gameLanguage();
+	in->fo4 = _save->isFO4();
 	_dbThread = std::thread([this, in] {
 		_dbBuilding->load(*in, *_dbProgress);
 		_dbDone = true;
@@ -816,7 +833,7 @@ void App::writeReport(const std::filesystem::path& a_path)
 std::vector<std::filesystem::path> App::watchFolders() const
 {
 	std::vector<std::filesystem::path> v;
-	if (auto d = platform::DefaultSavesFolder(_vr); !d.empty()) {
+	if (auto d = platform::DefaultSavesFolder(_game); !d.empty()) {
 		v.push_back(d);
 		// Vortex's profile-specific saves (and similar tools) use sub-folders of Saves
 		std::error_code ec;
@@ -850,16 +867,17 @@ std::vector<std::filesystem::path> App::iniSaveFolders() const
 {
 	// sLocalSavePath in Skyrim.ini / SkyrimCustom.ini moves the saves; it is relative to Documents\My Games\<game>
 	std::vector<std::filesystem::path> v;
-	const auto saves = platform::DefaultSavesFolder(_vr);
+	const auto saves = platform::DefaultSavesFolder(_game);
 	if (saves.empty()) {
 		return v;
 	}
 	const auto              myGames = saves.parent_path();
-	std::vector<std::filesystem::path> inis = { myGames / "Skyrim.ini", myGames / "SkyrimCustom.ini", myGames / "SkyrimVR.ini" };
+	std::vector<std::filesystem::path> inis = _game == 2 ? std::vector<std::filesystem::path>{ myGames / "Fallout4.ini", myGames / "Fallout4Custom.ini" }
+														 : std::vector<std::filesystem::path>{ myGames / "Skyrim.ini", myGames / "SkyrimCustom.ini", myGames / "SkyrimVR.ini" };
 	if (_mo2 && !_profile.empty()) {  // Mod Organizer profile-specific game ini files
 		const auto prof = _mo2->profilesDir / platform::FromUtf8(_profile);
-		inis.push_back(prof / "Skyrim.ini");
-		inis.push_back(prof / "SkyrimCustom.ini");
+		inis.push_back(prof / (_game == 2 ? "Fallout4.ini" : "Skyrim.ini"));
+		inis.push_back(prof / (_game == 2 ? "Fallout4Custom.ini" : "SkyrimCustom.ini"));
 	}
 	std::error_code ec;
 	for (const auto& ini : inis) {
@@ -908,7 +926,7 @@ void App::setWatching(bool a_on)
 		std::error_code ec;
 		for (const auto& dir : watchFolders()) {
 			for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
-				if (e.is_regular_file(ec) && Lower(platform::ToUtf8(e.path().extension())) == ".ess") {
+				if (e.is_regular_file(ec) && IsSaveFile(e.path())) {
 					_watchSeen[e.path()] = e.last_write_time(ec);
 				}
 			}
@@ -931,7 +949,7 @@ void App::pollWatch()
 	std::error_code ec;
 	for (const auto& dir : watchFolders()) {
 		for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
-			if (!e.is_regular_file(ec) || Lower(platform::ToUtf8(e.path().extension())) != ".ess") {
+			if (!e.is_regular_file(ec) || !IsSaveFile(e.path())) {
 				continue;
 			}
 			const auto t = e.last_write_time(ec);

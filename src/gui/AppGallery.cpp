@@ -130,7 +130,7 @@ void App::loadGallery(const std::filesystem::path& a_folder)
 	g->folder = a_folder;
 	std::error_code ec;
 	for (std::filesystem::directory_iterator it(a_folder, ec), end; !ec && it != end; it.increment(ec)) {
-		if (!it->is_regular_file(ec) || LowerG(platform::ToUtf8(it->path().extension())) != ".ess") {
+		if (!it->is_regular_file(ec) || !IsSaveFile(it->path())) {
 			continue;
 		}
 		Gallery::Entry e;
@@ -260,8 +260,22 @@ void App::drawGallery()
 	ImGui::SameLine();
 	ImGui::TextDisabled("%s", platform::ToUtf8(g.folder).c_str());
 	ImGui::SameLine();
+	{
+		// whose saves: the folder of each game is found by itself (Settings: Saves folder)
+		int         gi = _game;
+		const char* names[] = { "Skyrim", "Skyrim VR", "Fallout 4" };
+		ImGui::SetNextItemWidth(130);
+		if (ImGui::Combo("##gallerygame", &gi, names, 3) && gi != _game) {
+			setGame(gi);
+			loadGallery(savesFolder());
+			ImGui::End();
+			return;
+		}
+		tips::Tip("Show this game's saves folder (Skyrim Special Edition / Anniversary Edition, Skyrim VR or Fallout 4).");
+		ImGui::SameLine();
+	}
 	if (ImGui::Button("Other folder...")) {
-		if (auto f = platform::PickFolderDialog("Folder with Skyrim saves")) {
+		if (auto f = platform::PickFolderDialog("Folder with Skyrim or Fallout 4 saves")) {
 			loadGallery(*f);
 			ImGui::End();
 			return;

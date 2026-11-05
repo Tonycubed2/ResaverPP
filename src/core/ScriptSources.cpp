@@ -63,7 +63,8 @@ namespace ess
                     return true;
                 }
             }
-            return n.rfind("skyrim - ", 0) == 0 || n.rfind("cc", 0) == 0;
+            // (Fallout 4: "Fallout4 - *.ba2", the DLC's "DLC* - *.ba2" and Creation Club "cc*.ba2")
+            return n.rfind("skyrim - ", 0) == 0 || n.rfind("cc", 0) == 0 || n.rfind("fallout4 - ", 0) == 0 || n.rfind("dlc", 0) == 0;
 		};
 		for (const auto& e : std::filesystem::directory_iterator(a_dir, ec)) {
 			if (!e.is_regular_file(ec)) {
@@ -72,8 +73,8 @@ namespace ess
 			const auto ext = Lower(U8(e.path().extension()));
 			if (IsPlugin(ext)) {
 				plugins.push_back(Lower(U8(e.path().filename())));
-			} else if (ext == ".bsa") {
-				// Every archive is read, "... - Textures.bsa" too: some mods pack their scripts in it, and
+			} else if (ext == ".bsa" || ext == ".ba2") {
+				// Every archive is read (Fallout 4's are .ba2), "... - Textures.bsa" too: some mods pack their scripts in it, and
 				// the game loads scripts from any archive it loads. Only the file list is read (fast).
 				const auto name = Lower(U8(e.path().filename()));
 				if (a_modName != "Game Data") {
@@ -140,17 +141,31 @@ namespace ess
 			if (!e.is_directory(ec) || Lower(U8(e.path().filename())) != "scripts") {
 				continue;
 			}
-			for (const auto& s : std::filesystem::directory_iterator(e.path(), ec)) {
-				if (s.is_regular_file(ec) && Lower(U8(s.path().extension())) == ".pex") {
-					add(Lower(U8(s.path().stem())), false, {}, U8(s.path().stem()));
+			// Scripts\*.pex, and Fallout 4's namespaced scripts: Scripts\DLC01\Foo.pex is the script "DLC01:Foo"
+			for (auto it = std::filesystem::recursive_directory_iterator(e.path(), ec); it != std::filesystem::recursive_directory_iterator();
+				 it.increment(ec)) {
+				if (it->is_directory(ec) && Lower(U8(it->path().filename())) == "source") {
+					it.disable_recursion_pending();
+					continue;
+				}
+				if (it->is_regular_file(ec) && Lower(U8(it->path().extension())) == ".pex") {
+					auto rel = U8(std::filesystem::relative(it->path(), e.path(), ec).replace_extension());
+					for (auto& c : rel) {
+						if (c == '/' || c == '\\') {
+							c = ':';
+						}
+					}
+					add(Lower(rel), false, {}, rel);
 				}
 			}
 		}
 		for (const auto& b : bsas) {
 			try {
 				for (const auto& f : ListBSA(b)) {
-					if (f.rfind("scripts\\", 0) == 0 && f.size() > 12 && f.ends_with(".pex") && f.find('\\', 8) == std::string::npos) {
-						add(f.substr(8, f.size() - 12), true, b);
+					if (f.rfind("scripts\\", 0) == 0 && f.size() > 12 && f.ends_with(".pex") && f.rfind("scripts\\source\\", 0) != 0) {
+						auto name = f.substr(8, f.size() - 12);
+						std::replace(name.begin(), name.end(), '\\', ':');  // (Fallout 4 namespaces)
+						add(name, true, b);
 					} else if (f.rfind("strings\\", 0) == 0 && f.ends_with("strings")) {
 						stringsFiles.emplace(f.substr(8), AssetLocation{ b, f });
 					}
@@ -251,7 +266,7 @@ namespace ess
 		bool looksLikeData = false;
 		for (const auto& e : std::filesystem::directory_iterator(a_root, ec)) {
 			const auto n = Lower(U8(e.path().filename()));
-			if (n == "skyrim.esm" || (e.is_directory(ec) && n == "scripts")) {
+			if (n == "skyrim.esm" || n == "fallout4.esm" || (e.is_directory(ec) && n == "scripts")) {
 				looksLikeData = true;
 				break;
 			}
@@ -378,7 +393,7 @@ namespace ess
 		}
 		// the Data folder holds the deployed copies of the mods' archives too: read only the others
 		for (const auto& [rel, mod] : v.winner) {
-			if (rel.find('\\') == std::string::npos && rel.ends_with(".bsa")) {
+			if (rel.find('\\') == std::string::npos && (rel.ends_with(".bsa") || rel.ends_with(".ba2"))) {
 				_gameDataSkip.insert(rel);
 			}
 		}
@@ -779,7 +794,8 @@ namespace ess
 		if (!list || list->empty()) {
 			return std::nullopt;
 		}
-		const auto      want = Lower(a_script) + ".pex";
+		auto want = Lower(a_script) + ".pex";
+		std::replace(want.begin(), want.end(), ':', '\\');  // Fallout 4: "DLC01:Foo" is Scripts\DLC01\Foo.pex
 		std::error_code ec;
 		// the copy the game loads first (providers are in priority order), then any other copy
 		for (const auto& pr : *list) {
@@ -789,9 +805,15 @@ namespace ess
 					if (!e.is_directory(ec) || Lower(U8(e.path().filename())) != "scripts") {
 						continue;
 					}
-					for (const auto& f : std::filesystem::directory_iterator(e.path(), ec)) {
-						if (f.is_regular_file(ec) && Lower(U8(f.path().filename())) == want) {
-							return PexFile{ pr.mod, f.path(), {} };
+					for (auto it = std::filesystem::recursive_directory_iterator(e.path(), ec); it != std::filesystem::recursive_directory_iterator();
+						 it.increment(ec)) {
+						if (!it->is_regular_file(ec)) {
+							continue;
+						}
+						auto rel = Lower(U8(std::filesystem::relative(it->path(), e.path(), ec)));
+						std::replace(rel.begin(), rel.end(), '/', '\\');
+						if (rel == want) {
+							return PexFile{ pr.mod, it->path(), {} };
 						}
 					}
 				}

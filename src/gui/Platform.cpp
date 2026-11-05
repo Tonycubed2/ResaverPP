@@ -33,14 +33,19 @@ namespace platform
 	// environment variable from getenv) is read in the Windows code page instead
 	std::filesystem::path FromUtf8(const std::string& a_utf8) { return ess::text::PathFrom(a_utf8); }
 
+	const char* MyGamesName(int a_game) { return a_game == 2 ? "Fallout4" : a_game == 1 ? "Skyrim VR" : "Skyrim Special Edition"; }
+
 	namespace
 	{
-		bool g_vr = false;  // which game AddUnique / AddSteamLibraries look for
+		int g_game = 0;  // which game AddUnique / AddSteamLibraries look for: 0 Skyrim SE, 1 Skyrim VR, 2 Fallout 4
+
+		const char* GameExe() { return g_game == 2 ? "Fallout4.exe" : g_game == 1 ? "SkyrimVR.exe" : "SkyrimSE.exe"; }
+		const char* SteamDir() { return g_game == 2 ? "Fallout 4" : g_game == 1 ? "SkyrimVR" : "Skyrim Special Edition"; }
 
 		bool IsGame(const std::filesystem::path& p)
 		{
 			std::error_code ec;
-			return !p.empty() && std::filesystem::exists(p / (g_vr ? "SkyrimVR.exe" : "SkyrimSE.exe"), ec);
+			return !p.empty() && std::filesystem::exists(p / GameExe(), ec);
 		}
 
 		void AddUnique(std::vector<std::filesystem::path>& v, const std::filesystem::path& p)
@@ -60,7 +65,7 @@ namespace platform
 		// Steam's libraryfolders.vdf: lines like  "path"  "D:\\SteamLibrary"
 		void AddSteamLibraries(std::vector<std::filesystem::path>& v, const std::filesystem::path& steam)
 		{
-			AddUnique(v, steam / "steamapps" / "common" / (g_vr ? "SkyrimVR" : "Skyrim Special Edition"));
+			AddUnique(v, steam / "steamapps" / "common" / SteamDir());
 			std::ifstream f(steam / "steamapps" / "libraryfolders.vdf");
 			for (std::string line; std::getline(f, line);) {
 				const auto k = line.find("\"path\"");
@@ -79,7 +84,7 @@ namespace platform
 					}
 					val.push_back(raw[i]);
 				}
-				AddUnique(v, FromUtf8(val) / "steamapps" / "common" / (g_vr ? "SkyrimVR" : "Skyrim Special Edition"));
+				AddUnique(v, FromUtf8(val) / "steamapps" / "common" / SteamDir());
 			}
 		}
 	}
@@ -98,10 +103,20 @@ namespace platform
 		}
 	}
 
-	std::vector<std::filesystem::path> SkyrimInstallFolders(bool a_vr)
+	std::vector<std::filesystem::path> SkyrimInstallFolders(int a_game)
 	{
-		g_vr = a_vr;
+		g_game = a_game;
+		const bool a_vr = a_game == 1;
 		std::vector<std::filesystem::path> v;
+		if (a_game == 2) {
+			AddUnique(v, RegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Bethesda Softworks\\Fallout4", L"installed path"));
+			AddUnique(v, RegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Bethesda Softworks\\Fallout4", L"installed path"));
+			if (auto steam = RegString(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath"); !steam.empty()) {
+				AddSteamLibraries(v, steam);
+			}
+			AddSteamLibraries(v, "C:\\Program Files (x86)\\Steam");
+			return v;
+		}
 		if (a_vr) {
 			AddUnique(v, RegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Bethesda Softworks\\Skyrim VR", L"installed path"));
 			AddUnique(v, RegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Bethesda Softworks\\Skyrim VR", L"installed path"));
@@ -127,12 +142,12 @@ namespace platform
 
 	bool RunningUnderMO2() { return GetModuleHandleW(L"usvfs_x64.dll") != nullptr || GetModuleHandleW(L"usvfs_x86.dll") != nullptr; }
 
-	std::filesystem::path DefaultSavesFolder(bool a_vr)
+	std::filesystem::path DefaultSavesFolder(int a_game)
 	{
 		PWSTR docs = nullptr;
 		std::filesystem::path p;
 		if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &docs))) {
-			p = std::filesystem::path(docs) / "My Games" / (a_vr ? "Skyrim VR" : "Skyrim Special Edition") / "Saves";
+			p = std::filesystem::path(docs) / "My Games" / MyGamesName(a_game) / "Saves";
 			CoTaskMemFree(docs);
 		}
 		return p;
@@ -270,7 +285,7 @@ namespace platform
 	void                                 OpenWithDefaultApp(const std::filesystem::path&) {}
 	std::optional<std::filesystem::path> OpenFileDialog(const std::filesystem::path&, const std::string&, const std::string&) { return std::nullopt; }
 
-	std::filesystem::path DefaultSavesFolder(bool)
+	std::filesystem::path DefaultSavesFolder(int)
 	{
 		const char* home = std::getenv("HOME");
 		return home ? std::filesystem::path(home) : std::filesystem::path();
@@ -280,9 +295,9 @@ namespace platform
 	std::optional<std::filesystem::path> SaveAsDialog(const std::filesystem::path&) { return std::nullopt; }
 	std::optional<std::filesystem::path> PickFolderDialog(const std::string&) { return std::nullopt; }
 	std::filesystem::path                SettingsFile() { return std::filesystem::current_path() / "resaverpp.ini"; }
-	std::vector<std::filesystem::path>   SkyrimInstallFolders(bool a_vr)
+	std::vector<std::filesystem::path>   SkyrimInstallFolders(int a_game)
 	{
-		g_vr = a_vr;
+		g_game = a_game;
 		std::vector<std::filesystem::path> v;
 		if (const char* home = std::getenv("HOME")) {
 			AddSteamLibraries(v, std::filesystem::path(home) / ".steam" / "steam");

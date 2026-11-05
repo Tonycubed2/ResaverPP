@@ -443,8 +443,11 @@ namespace ess::merge
 		return out;
 	}
 
-	std::vector<std::string> ReadLoadOrder(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder)
+	std::vector<std::string> ReadLoadOrder(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder, int a_game)
 	{
+		std::error_code fec;
+		const bool      fo4 = a_game == 2 || (a_game < 0 && ((!a_gameFolder.empty() && std::filesystem::exists(a_gameFolder / "Fallout4.exe", fec)) ||
+																Lower(a_pluginsTxt.parent_path().filename().string()) == "fallout4"));
 		auto trim = [](std::string s) {
 			while (!s.empty() && (s.back() == '\r' || s.back() == ' ' || s.back() == '\t')) {
 				s.pop_back();
@@ -487,22 +490,33 @@ namespace ess::merge
 				}
 			}
 			std::error_code lec;
-			const bool      le = (!a_gameFolder.empty() && std::filesystem::exists(a_gameFolder / "TESV.exe", lec)) ||
-			                Lower(a_pluginsTxt.parent_path().filename().string()) == "skyrim";
+			const bool      le = !fo4 && ((!a_gameFolder.empty() && std::filesystem::exists(a_gameFolder / "TESV.exe", lec)) ||
+			                Lower(a_pluginsTxt.parent_path().filename().string()) == "skyrim");
 			enabled = marked.empty() && le ? listed : marked;
 			for (const auto& e : enabled) {
 				enabledLow.insert(Lower(e));
 			}
 		}
-		for (const char* p : { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" }) {
-			add(p);
+		if (fo4) {
+			// Fallout 4's masters (named as the files are: Fallout4.esm, DLCRobot.esm, ...)
+			for (const char* p : { "Fallout4.esm", "DLCRobot.esm", "DLCworkshop01.esm", "DLCCoast.esm", "DLCworkshop02.esm", "DLCworkshop03.esm",
+					 "DLCNukaWorld.esm", "DLCUltraHighResolution.esm" }) {
+				if (a_gameFolder.empty() || std::filesystem::exists(a_gameFolder / "Data" / p, fec) || std::string(p) == "Fallout4.esm") {
+					add(p);
+				}
+			}
+		} else {
+			for (const char* p : { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" }) {
+				add(p);
+			}
 		}
 		// the game loads the Creation Club files listed in Skyrim.ccc (and _ResourcePack.esl) by itself: Mod
 		// Organizer does not mark them enabled in plugins.txt
 		std::set<std::string> always = { "_resourcepack.esl" };
 		std::error_code       ec;
+		const char*           cccName = fo4 ? "Fallout4.ccc" : "Skyrim.ccc";
 		{
-			std::ifstream ccc(a_gameFolder / "Skyrim.ccc");
+			std::ifstream ccc(a_gameFolder / cccName);
 			for (std::string line; std::getline(ccc, line);) {
 				line = trim(line);
 				if (!line.empty()) always.insert(Lower(line));
@@ -525,7 +539,7 @@ namespace ess::merge
 				}
 			}
 		} else {
-			std::ifstream ccc(a_gameFolder / "Skyrim.ccc");
+			std::ifstream ccc(a_gameFolder / cccName);
 			for (std::string line; std::getline(ccc, line);) {
 				line = trim(line);
 				if (!line.empty() && std::filesystem::exists(a_gameFolder / "Data" / line, ec)) {

@@ -60,8 +60,8 @@ void App::checkMissingPlugins()
 	_orderSuspect = _scanSuspect = false;
 	_activeInSave = _activeFound = _activeChecked = 0;
 	_missingFile.clear();
-	if (!_save || fo4()) {
-		return;  // (a Fallout 4 save: Skyrim's load order says nothing about it)
+	if (!_save) {
+		return;
 	}
 	_installKnown = _sources.scanned() && !scanning();
 	// the load order the game uses next: the Mod Organizer profile's, or the game's own plugins.txt
@@ -70,10 +70,10 @@ void App::checkMissingPlugins()
 		txt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
 		_missingSource = "Mod Organizer profile \"" + _profile + "\"";
 	} else {
-		txt = loadorder::GamePluginsTxt(_vr, _save && _save->isLE());
+		txt = loadorder::GamePluginsTxt(_game, _save && _save->isLE());
 		_missingSource = _vortex ? "your load order (Vortex)" : "your load order";
 	}
-	const auto active = loadorder::Read(txt, gameFolder(), _vr);
+	const auto active = loadorder::Read(txt, gameFolder(), _game);
 	// scripts whose compiled file is nowhere: not in any mod (enabled or not) and not in the game's own
 	// archives. Only when the game's Data folder was scanned too, or every vanilla script would count.
 	//  - "missing": the save itself says the game could not load it either (it writes an empty parent
@@ -146,7 +146,9 @@ void App::checkMissingPlugins()
 		}
 		++_activeInSave;
 		const bool gameFile = (low.rfind("cc", 0) == 0 && low.find("sse") != std::string::npos) || low == "skyrim.esm" || low == "update.esm" || low == "dawnguard.esm" ||
-							  low == "hearthfires.esm" || low == "dragonborn.esm" || low == "_resourcepack.esl" || low == "skyrimvr.esm";
+							  low == "hearthfires.esm" || low == "dragonborn.esm" || low == "_resourcepack.esl" || low == "skyrimvr.esm" ||
+							  modremove::IsCreationClubPlugin(low) ||
+							  std::find(loadorder::Fallout4Masters().begin(), loadorder::Fallout4Masters().end(), low) != loadorder::Fallout4Masters().end();
 		if (_installKnown && !gameFile) {
 			++_activeChecked;
 			_activeFound += _sources.pluginPath(p).has_value() ? 1 : 0;

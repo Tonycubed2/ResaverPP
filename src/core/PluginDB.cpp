@@ -242,7 +242,7 @@ namespace ess
 				const auto stem = Lower(U8(text::PathFrom(pluginName).stem()));
 				auto loadStrings = [&](const char* a_ext) {
 					std::unordered_map<std::uint32_t, std::string> table;
-					for (const auto& lang : { Lower(a_in.language), std::string("english") }) {
+					for (const auto& lang : { Lower(a_in.language), std::string(a_in.fo4 ? "en" : "english") }) {
 						auto it = a_in.sources.stringsFiles.find(stem + "_" + lang + a_ext);
 						if (it == a_in.sources.stringsFiles.end()) {
 							continue;
@@ -346,10 +346,11 @@ namespace ess
 					std::string   edid, full;
 					std::uint32_t base = 0;
 					std::uint32_t big = 0;
-					const bool     isQuest = Is(h, "QUST");
-					const bool     isSpell = Is(h, "SPEL");
-					const bool     isMgef = Is(h, "MGEF");
-					const bool     hasEffects = isSpell || Is(h, "ENCH") || Is(h, "ALCH") || Is(h, "INGR") || Is(h, "SCRL");
+					const bool     sk = !a_in.fo4;  // (Skyrim's layouts)
+					const bool     isQuest = sk && Is(h, "QUST");
+					const bool     isSpell = sk && Is(h, "SPEL");
+					const bool     isMgef = sk && Is(h, "MGEF");
+					const bool     hasEffects = sk && (isSpell || Is(h, "ENCH") || Is(h, "ALCH") || Is(h, "INGR") || Is(h, "SCRL"));
 					std::uint8_t   spellType = 0xFF;
 					MagicEffectDef mg;
 					bool           gotMgef = false;

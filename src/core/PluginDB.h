@@ -25,7 +25,9 @@ namespace ess
 			std::vector<std::string>          full, lite;  // the save's plugin lists (load order)
 			std::unordered_set<std::uint32_t> wantedRefs;  // runtime form IDs of placed references to keep
 			ScriptSources                     sources;     // where the plugin and strings files are
-			std::string                       language = "english";
+			std::string                       language = "english";  // Fallout 4: "en" (Fallout4_en.strings)
+			bool                              fo4 = false;  // Fallout 4 plugins: names and editor IDs only (the quest,
+			                                                // magic effect and spell data read for Skyrim is laid out differently)
 		};
 
 		struct Progress

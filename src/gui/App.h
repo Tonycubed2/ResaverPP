@@ -1009,23 +1009,27 @@ private:
 	int         _decompileInstr = -1;
 	bool        _showCompileSettings = false;
 	std::string _gamePath, _detectNote;
-	// Skyrim SE/AE or Skyrim VR: each has its own mods folder, game folder and profile. The game of the
-	// opened save decides which set is active; the other is kept here.
-	bool _vr = false;
+	// Skyrim SE/AE, Skyrim VR or Fallout 4: each has its own mods folder, game folder and profile. The game of
+	// the opened save decides which set is active; the others are kept in _setups.
+	int  _game = 0;     // 0 Skyrim SE/AE (and LE), 1 Skyrim VR, 2 Fallout 4 (the numbers platform:: and loadorder:: use)
+	bool _vr = false;   // _game == 1
 	struct GameSetup
 	{
 		std::string sourcesPath, gamePath, profile, mo2Ini;
 	};
-	GameSetup _otherGame;
-	void      setGame(bool a_vr);
+	GameSetup _setups[3];  // the games not in use (the one in use is in _sourcesPath, _gamePath, _profile, _mo2Ini)
+	void      setGame(int a_game);
+	bool      fo4Game() const { return _game == 2; }
+	const char* saveExtension() const { return _game == 2 ? ".fos" : ".ess"; }  // this game's saves
+	static bool IsSaveFile(const std::filesystem::path& a_file);                 // .ess or .fos
 	// saves folder chosen in Settings (empty: found by itself) and the folder a save was last opened from, per game
-	std::string _savesDirSe, _savesDirVr, _lastDirSe, _lastDirVr;
-	std::string&       savesDirSetting() { return _vr ? _savesDirVr : _savesDirSe; }
-	const std::string& savesDirSetting() const { return _vr ? _savesDirVr : _savesDirSe; }
-	std::string&       lastOpenDir() { return _vr ? _lastDirVr : _lastDirSe; }
-	const std::string& lastOpenDir() const { return _vr ? _lastDirVr : _lastDirSe; }
-	std::vector<std::filesystem::path> iniSaveFolders() const;  // sLocalSavePath of the game's Skyrim.ini / SkyrimCustom.ini
-	const char* gameName() const { return _vr ? "Skyrim VR" : "Skyrim Special Edition"; }
+	std::string        _savesDir[3], _lastDir[3];
+	std::string&       savesDirSetting() { return _savesDir[_game]; }
+	const std::string& savesDirSetting() const { return _savesDir[_game]; }
+	std::string&       lastOpenDir() { return _lastDir[_game]; }
+	const std::string& lastOpenDir() const { return _lastDir[_game]; }
+	std::vector<std::filesystem::path> iniSaveFolders() const;  // sLocalSavePath of the game's Skyrim.ini / SkyrimCustom.ini (Fallout4.ini)
+	const char* gameName() const { return _game == 2 ? "Fallout 4" : _vr ? "Skyrim VR" : "Skyrim Special Edition"; }
 	std::string _compilerSetting, _compileOutDir, _compileFlags = "TESV_Papyrus_Flags.flg", _compileImports;
 	int         _compileOutMode = 0;  // 0 the script's mod, 1 MO2 overwrite, 2 custom folder
 	bool        _compileOptimize = false, _compileAnonymize = false, _compileBackup = true;

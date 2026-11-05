@@ -21,9 +21,14 @@ namespace ess::loadorder
 	// %LOCALAPPDATA%\Skyrim Special Edition\plugins.txt. Lines starting with '*' are enabled.
 	// a_gameFolder adds the plugins the game loads without listing them (the base game masters and
 	// the Creation Club content named in Skyrim.ccc).
-	Active Read(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder, bool a_vr = false);
+	// a_game: 0 Skyrim (SE/AE/LE), 1 Skyrim VR, 2 Fallout 4 (its masters and Fallout4.ccc instead)
+	Active Read(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder, int a_game = 0);
+
+	// the plugins Fallout 4 loads without listing them in plugins.txt, in the game's order (lowercase)
+	const std::vector<std::string>& Fallout4Masters();
 
 	// The game's own plugins.txt (%LOCALAPPDATA%\Skyrim Special Edition\plugins.txt, or Skyrim VR\plugins.txt).
 	// a_le: the save is Legendary Edition, so its plugins.txt (%LOCALAPPDATA%\\Skyrim) comes first
-	std::filesystem::path GamePluginsTxt(bool a_vr = false, bool a_le = false);
+	// a_game 2: Fallout 4's (%LOCALAPPDATA%\Fallout4\plugins.txt)
+	std::filesystem::path GamePluginsTxt(int a_game = 0, bool a_le = false);
 }

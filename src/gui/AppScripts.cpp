@@ -1631,7 +1631,7 @@ void App::autoDetectPaths(bool a_force)
 		if (_gamePath.empty()) {
 			if (_mo2 && !_mo2->gamePath.empty()) {
 				_gamePath = platform::ToUtf8(_mo2->gamePath);
-			} else if (const auto games = platform::SkyrimInstallFolders(_vr); !games.empty()) {
+			} else if (const auto games = platform::SkyrimInstallFolders(_game); !games.empty()) {
 				_gamePath = platform::ToUtf8(games.front());
 			}
 		}
@@ -1642,7 +1642,8 @@ void App::autoDetectPaths(bool a_force)
 	for (auto& m : FindMo2Instances({ platform::ExeFolder() })) {
 		const auto g = Lower(m.gameName);
 		const auto gp = Lower(platform::ToUtf8(m.gamePath));
-		const bool match = _vr ? (g.empty() ? gp.find("skyrimvr") != std::string::npos || gp.find("skyrim vr") != std::string::npos
+		const bool match = _game == 2 ? (g.empty() ? gp.find("fallout 4") != std::string::npos : (g == "fallout 4" || g == "fallout4"))
+						   : _vr ? (g.empty() ? gp.find("skyrimvr") != std::string::npos || gp.find("skyrim vr") != std::string::npos
 											 : (g.find("skyrim vr") != std::string::npos || g == "skyrimvr"))
 							   : (g.empty() ? gp.find("skyrim special edition") != std::string::npos
 											: (g.find("skyrim special edition") != std::string::npos || g == "skyrimse" || g == "skyrim se"));
@@ -1650,7 +1651,7 @@ void App::autoDetectPaths(bool a_force)
 			skyrim.push_back(std::move(m));
 		}
 	}
-	const auto games = platform::SkyrimInstallFolders(_vr);
+	const auto games = platform::SkyrimInstallFolders(_game);
 	if (!skyrim.empty()) {
 		// several instances: the one whose mod list was changed last
 		auto newest = [&](const Mo2Instance& m) {
@@ -1677,7 +1678,7 @@ void App::autoDetectPaths(bool a_force)
 					   }
 				   }
 				   if (const auto ad = text::EnvPath("APPDATA"); !ad.empty()) {
-					   return FindVortexDeployment(ad / "Vortex" / (_vr ? "skyrimvr" : "skyrimse") / "mods");
+					   return FindVortexDeployment(ad / "Vortex" / (_game == 2 ? "fallout4" : _vr ? "skyrimvr" : "skyrimse") / "mods");
 				   }
 				   return std::nullopt;
 			   }()) {
@@ -1709,11 +1710,11 @@ std::filesystem::path App::savesFolder() const
 			return platform::FromUtf8(*s);
 		}
 	}
-	std::filesystem::path           best = platform::DefaultSavesFolder(_vr);
+	std::filesystem::path           best = platform::DefaultSavesFolder(_game);
 	std::filesystem::file_time_type bestTime = std::filesystem::file_time_type::min();  // (not {}: with MinGW, file times before 2174 are negative)
 	for (const auto& dir : watchFolders()) {
 		for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
-			if (e.is_regular_file(ec) && Lower(platform::ToUtf8(e.path().extension())) == ".ess") {
+			if (e.is_regular_file(ec) && Lower(platform::ToUtf8(e.path().extension())) == saveExtension()) {
 				const auto t = e.last_write_time(ec);
 				if (t > bestTime) {
 					bestTime = t;
@@ -1740,22 +1741,36 @@ void App::setTheme(int a_kind)
 
 bool App::scriptJobsBusy() const { return _compileJob && !_compileJob->done; }
 
-void App::setGame(bool a_vr)
+bool App::IsSaveFile(const std::filesystem::path& a_file)
 {
-	if (a_vr == _vr) {
+	const auto e = Lower(platform::ToUtf8(a_file.extension()));
+	return e == ".ess" || e == ".fos";
+}
+
+void App::setGame(int a_game)
+{
+	a_game = std::clamp(a_game, 0, 2);
+	if (a_game == _game) {
 		return;
 	}
 	if (_scanThread.joinable()) {
 		_scanProgress->cancel = true;
 		_scanThread.join();
 	}
-	const GameSetup cur{ _sourcesPath, _gamePath, _profile, _mo2Ini };
-	_sourcesPath = _otherGame.sourcesPath;
-	_gamePath = _otherGame.gamePath;
-	_profile = _otherGame.profile;
-	_mo2Ini = _otherGame.mo2Ini;
-	_otherGame = cur;
-	_vr = a_vr;
+	_setups[_game] = GameSetup{ _sourcesPath, _gamePath, _profile, _mo2Ini };
+	const auto& next = _setups[a_game];
+	_sourcesPath = next.sourcesPath;
+	_gamePath = next.gamePath;
+	_profile = next.profile;
+	_mo2Ini = next.mo2Ini;
+	_game = a_game;
+	_vr = a_game == 1;
+	// plugin names belong to the other game too
+	if (_dbProgress) {
+		_dbProgress->cancel = true;
+	}
+	_db.reset();
+	_dbKey.clear();
 	// nothing of the other game's mods applies
 	_sources = ScriptSources{};
 	_mo2.reset();
@@ -1780,7 +1795,7 @@ void App::openNewestAtStart()
 	std::filesystem::file_time_type bestTime = std::filesystem::file_time_type::min();  // (not {}: MinGW file times)
 	for (const auto& dir : dirs) {
 		for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
-			if (e.is_regular_file(ec) && Lower(platform::ToUtf8(e.path().extension())) == ".ess") {
+			if (e.is_regular_file(ec) && Lower(platform::ToUtf8(e.path().extension())) == saveExtension()) {
 				if (const auto t = e.last_write_time(ec); t > bestTime) {
 					bestTime = t;
 					best = e.path();

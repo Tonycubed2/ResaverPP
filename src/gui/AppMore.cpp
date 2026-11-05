@@ -690,11 +690,11 @@ void App::drawSettings()
 	bool ch = false;
 	ImGui::SeparatorText("Game");
 	{
-		int g = _vr ? 1 : 0;
-		const char* games[] = { "Skyrim Special Edition / Anniversary Edition", "Skyrim VR" };
+		int g = _game;
+		const char* games[] = { "Skyrim Special Edition / Anniversary Edition", "Skyrim VR", "Fallout 4" };
 		ImGui::SetNextItemWidth(380);
-		if (ImGui::Combo("##game", &g, games, 2)) {
-			setGame(g == 1);
+		if (ImGui::Combo("##game", &g, games, 3)) {
+			setGame(g);
 		}
 		tips::Tip("Which game the folders below are for. Switches by itself to the game of the save you open.");
 		ImGui::SameLine();
@@ -737,12 +737,14 @@ void App::drawSettings()
 	ImGui::TextWrapped("Game folder: %s", gameFolder().empty() ? "(not found)" : platform::ToUtf8(gameFolder()).c_str());
 	ImGui::SameLine();
 	if (ImGui::SmallButton("Change...##game") && platform::HasNativeDialogs()) {
-		if (auto p = platform::PickFolderDialog(_vr ? "Pick the Skyrim VR folder (the one with SkyrimVR.exe)" : "Pick the Skyrim folder (the one with SkyrimSE.exe, or TESV.exe for Legendary Edition)")) {
+		if (auto p = platform::PickFolderDialog(_game == 2 ? "Pick the Fallout 4 folder (the one with Fallout4.exe)"
+												: _vr      ? "Pick the Skyrim VR folder (the one with SkyrimVR.exe)"
+														   : "Pick the Skyrim folder (the one with SkyrimSE.exe, or TESV.exe for Legendary Edition)")) {
 			_gamePath = platform::ToUtf8(*p);
 			ch = true;
 		}
 	}
-	tips::Tip("Pick the game folder (the one with SkyrimSE.exe, SkyrimVR.exe or, for Legendary Edition, TESV.exe). Needed for the Papyrus compiler and the Data folder.");
+	tips::Tip("Pick the game folder (the one with SkyrimSE.exe, SkyrimVR.exe, Fallout4.exe or, for Legendary Edition, TESV.exe). Needed for the Papyrus compiler and the Data folder.");
 	{
 		const auto comp = compilerPath();
 		std::error_code ec;
@@ -775,7 +777,7 @@ void App::drawSettings()
 			tips::Tip("Forget the folder you chose and find the saves folder by itself again.");
 		}
 		ImGui::TextDisabled(custom.empty() ? "Found by itself: the folder you last opened a save from, else the one with your newest save\n"
-											 "(Documents\\My Games, sLocalSavePath in Skyrim.ini, Mod Organizer profile saves)."
+											 "(Documents\\My Games, sLocalSavePath in Skyrim.ini / Fallout4.ini, Mod Organizer profile saves)."
 										   : "Chosen by you: File > Open starts here and \"Watch saves folder\" watches it.");
 	}
 	// Mod Organizer instances installed for this user (%LOCALAPPDATA%\ModOrganizer\<instance>)

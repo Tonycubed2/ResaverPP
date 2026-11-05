@@ -18,14 +18,16 @@ namespace ess::extras
 		std::filesystem::path path;
 		bool                  ok = false;
 		bool                  le = false;
+		bool                  fo4 = false;  // a Fallout 4 save (.fos)
 		std::string           playerName, location, race;
 		std::uint32_t         playerLevel = 0, saveNumber = 0;
 		std::uintmax_t        size = 0;      // .ess bytes
-		std::uintmax_t        cosaveSize = 0;  // .skse bytes (0 if none)
+		std::uintmax_t        cosaveSize = 0;  // .skse / .f4se bytes (0 if none)
+		std::filesystem::path cosave;          // that file (empty if none)
 		std::int64_t          modified = 0;  // file time, seconds since 1970
 	};
 	SaveInfo ReadSaveInfo(const std::filesystem::path& a_ess);
-	std::vector<SaveInfo> ListSaves(const std::filesystem::path& a_folder);  // every .ess in the folder, newest first
+	std::vector<SaveInfo> ListSaves(const std::filesystem::path& a_folder);  // every .ess / .fos in the folder, newest first
 
 	// ---- save history ---------------------------------------------------------------------------
 	struct SaveStat

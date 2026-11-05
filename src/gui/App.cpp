@@ -111,25 +111,13 @@ void App::open(const std::filesystem::path& a_path)
 		}
 		_save = std::move(s);
 		if (_save->isFO4()) {
-			// Fallout 4: nothing of the Skyrim setup applies (mods, load order, plugin names); read again for
-			// the next Skyrim save
-			if (_scanThread.joinable()) {
-				_scanProgress->cancel = true;
-				_scanThread.join();
-			}
-			if (_dbProgress) {
-				_dbProgress->cancel = true;
-			}
-			_sources = ScriptSources{};
-			_db.reset();
-			_dbKey.clear();
-			_modsDirty = true;
-			// the Skyrim tools' windows close
-			_showPlayer = _showActors = _showTransplant = _showLookup = _showMerge = _showAssets = false;
-			_showLeftovers = _showPapyrusLog = _showCrashLog = _showSavesMgr = false;
+			// Fallout 4: its own setup (mods folder, game folder, profile, load order); the tools that need the
+			// save's change forms decoded (Skyrim only so far) close
+			_showPlayer = _showActors = _showTransplant = _showMerge = _showLeftovers = false;
 			if (!_settingsLoaded) {
 				loadSettings();
 			}
+			setGame(2);
 		}
 		// a Skyrim VR save lists SkyrimVR.esm: use the VR setup (mods, load order, saves)
 		if (!_save->isFO4()) {
@@ -140,7 +128,7 @@ void App::open(const std::filesystem::path& a_path)
 			if (!_settingsLoaded) {
 				loadSettings();
 			}
-			setGame(vrSave);
+			setGame(vrSave ? 1 : 0);
 		}
 		_cfFacts.clear();
 		_missingDismissed = false;
@@ -180,9 +168,7 @@ void App::open(const std::filesystem::path& a_path)
 		if (!_settingsLoaded) {
 			loadSettings();
 		}
-		if (_save->isFO4()) {
-			// (Skyrim's mods are not read for a Fallout 4 save)
-		} else if (!_sourcesPath.empty() && !_sources.scanned()) {
+		if (!_sourcesPath.empty() && !_sources.scanned()) {
 			scanSources(platform::FromUtf8(_sourcesPath));  // checks again for missing mods when done
 		} else if (_autoNames && _sources.scanned()) {
 			startNames();
@@ -1246,7 +1232,7 @@ void App::drawMenu()
 		tips::Tip("End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy.");
 		{
 			const bool any = !_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty();
-			if (ImGui::MenuItem("Mods and scripts no longer installed...", nullptr, false, any && !fo4())) {
+			if (ImGui::MenuItem("Mods and scripts no longer installed...", nullptr, false, any)) {
 				shortcut(Sc::kMissingMods);
 			}
 			if (!any && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
@@ -1300,7 +1286,7 @@ void App::drawMenu()
 		}
 		tips::Tip("Write a report of the save (mods, scripts, anomalies) as text or PDF, e.g. to share when asking for help.");
 		ImGui::Separator();
-		ImGui::MenuItem("Find form by name / editor ID...", nullptr, &_showLookup, !fo4());
+		ImGui::MenuItem("Find form by name / editor ID...", nullptr, &_showLookup);
 		tips::Tip("Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it.");
 		if (ImGui::MenuItem("Edit player (gold, skills, bounty)...", nullptr, &_showPlayer, !fo4())) {
 			_pvLoaded = false;
@@ -1314,16 +1300,16 @@ void App::drawMenu()
 			shortcut(Sc::kHistory);
 		}
 		tips::Tip("Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing.");
-		if (ImGui::MenuItem("Crash log (what crashed)...", nullptr, false, !fo4())) {
+		if (ImGui::MenuItem("Crash log (what crashed)...")) {
 			shortcut(Sc::kCrashLog);
 		}
 		tips::Tip("Read your newest crash log and find the objects it names in this save. A spawned or leveled NPC that crashes the "
 		          "game while the save loads can be removed here.");
-		if (ImGui::MenuItem("Papyrus log...", nullptr, false, !fo4())) {
+		if (ImGui::MenuItem("Papyrus log...")) {
 			shortcut(Sc::kPapyrusLog);
 		}
 		tips::Tip("Read Papyrus.0.log: errors grouped by script and mod, so you see which mod is spamming errors.");
-		if (ImGui::MenuItem("Manage saves folder...", nullptr, false, !fo4())) {
+		if (ImGui::MenuItem("Manage saves folder...")) {
 			shortcut(Sc::kSavesMgr);
 		}
 		tips::Tip("All saves by character with size and date; delete old ones (with their .skse files) in bulk.");
@@ -1332,7 +1318,7 @@ void App::drawMenu()
 		}
 		tips::Tip("Read every plugin in your load order and build one patch that combines the changes of mods that edit the same "
 				  "leveled lists, containers, NPCs, keywords, form lists and outfits.");
-		if (ImGui::MenuItem("File conflicts (loose files and BSAs)...", nullptr, &_showAssets, !fo4())) {
+		if (ImGui::MenuItem(fo4() ? "File conflicts (loose files and BA2s)..." : "File conflicts (loose files and BSAs)...", nullptr, &_showAssets)) {
 			_homePanel = false;
 		}
 		tips::Tip("Which mods override which mods' files, loose and inside archives (BSAs), in the order the game uses them. "
@@ -1342,7 +1328,7 @@ void App::drawMenu()
 			_homePanel = false;
 		}
 		tips::Tip("Look at the save's script arrays: which are biggest, and which nothing points at any more.");
-		if (ImGui::MenuItem(_db ? "Read plugin names again" : "Read plugin names", nullptr, false, _sources.scanned() && !namesLoading() && !fo4())) {
+		if (ImGui::MenuItem(_db ? "Read plugin names again" : "Read plugin names", nullptr, false, _sources.scanned() && !namesLoading())) {
 			startNames(true);
 		}
 		tips::Tip("Read your installed plugins so forms show their in-game names and editor IDs instead of bare numbers.");
@@ -1494,7 +1480,7 @@ void App::drawCategories()
 	};
 	item(Cat::kOverview, 0, _report && !_report->warnings.empty());
 	ensureMods();
-	if (!fo4()) {  // (built from Skyrim's mods folder)
+	{
 		std::size_t withScripts = 0;
 		for (const auto& r : _mods->rows) {
 			if (!r.scripts.empty()) {
@@ -2883,8 +2869,9 @@ void App::editPopup()
 
 void App::loadSettings()
 {
-	GameSetup se, vr;
+	GameSetup se, vr, f4;
 	_settingsLoaded = true;
+	int active = -1;  // (older ini files only have vr=)
 	std::ifstream f(platform::SettingsFile());
 	for (std::string line; std::getline(f, line);) {
 		if (!line.empty() && line.back() == '\r') {
@@ -2906,6 +2893,20 @@ void App::loadSettings()
 			vr.gamePath = line.substr(8);
 		} else if (line.rfind("vr=", 0) == 0) {
 			_vr = line.substr(3) == "1";
+		} else if (line.rfind("active_game=", 0) == 0) {
+			active = std::clamp(std::atoi(line.c_str() + 12), 0, 2);
+		} else if (line.rfind("sources_f4=", 0) == 0) {
+			f4.sourcesPath = line.substr(11);
+		} else if (line.rfind("profile_f4=", 0) == 0) {
+			f4.profile = line.substr(11);
+		} else if (line.rfind("game_f4=", 0) == 0) {
+			f4.gamePath = line.substr(8);
+		} else if (line.rfind("mo2_ini_f4=", 0) == 0) {
+			f4.mo2Ini = line.substr(11);
+		} else if (line.rfind("saves_dir_f4=", 0) == 0) {
+			_savesDir[2] = line.substr(13);
+		} else if (line.rfind("last_dir_f4=", 0) == 0) {
+			_lastDir[2] = line.substr(12);
 		} else if (line.rfind("sort=", 0) == 0) {
 			_sortMode = std::clamp(std::atoi(line.c_str() + 5), 0, 3);
 		} else if (line.rfind("compression=", 0) == 0) {
@@ -2944,13 +2945,13 @@ void App::loadSettings()
 		} else if (line.rfind("check_on_open=", 0) == 0) {
 			_checkOnOpen = line.substr(14) != "0";
 		} else if (line.rfind("saves_dir=", 0) == 0) {
-			_savesDirSe = line.substr(10);
+			_savesDir[0] = line.substr(10);
 		} else if (line.rfind("saves_dir_vr=", 0) == 0) {
-			_savesDirVr = line.substr(13);
+			_savesDir[1] = line.substr(13);
 		} else if (line.rfind("last_dir=", 0) == 0) {
-			_lastDirSe = line.substr(9);
+			_lastDir[0] = line.substr(9);
 		} else if (line.rfind("last_dir_vr=", 0) == 0) {
-			_lastDirVr = line.substr(12);
+			_lastDir[1] = line.substr(12);
 		} else if (line.rfind("decompile_always=", 0) == 0) {
 			_decompileAlways = line.substr(17) == "1";
 		} else if (line.rfind("editor_light=", 0) == 0) {
@@ -2973,13 +2974,17 @@ void App::loadSettings()
 			_compileBackup = line.substr(15) == "1";
 		}
 	}
-	// the active game's setup, the other one kept aside
-	const auto& act = _vr ? vr : se;
+	// the active game's setup, the others kept aside
+	_game = active >= 0 ? active : _vr ? 1 : 0;
+	_vr = _game == 1;
+	_setups[0] = se;
+	_setups[1] = vr;
+	_setups[2] = f4;
+	const auto& act = _setups[_game];
 	_sourcesPath = act.sourcesPath;
 	_profile = act.profile;
 	_gamePath = act.gamePath;
 	_mo2Ini = act.mo2Ini;
-	_otherGame = _vr ? se : vr;
 	autoDetectPaths(false);  // first start: find Mod Organizer / the game by themselves
 	if (_watch) {
 		setWatching(true);
@@ -2989,10 +2994,19 @@ void App::loadSettings()
 void App::saveSettings()
 {
 	std::ofstream f(platform::SettingsFile(), std::ios::trunc);
-	const GameSetup cur{ _sourcesPath, _gamePath, _profile, _mo2Ini };
-	const auto&     se = _vr ? _otherGame : cur;
-	const auto&     vr = _vr ? cur : _otherGame;
+	GameSetup all[3] = { _setups[0], _setups[1], _setups[2] };
+	all[_game] = GameSetup{ _sourcesPath, _gamePath, _profile, _mo2Ini };
+	const auto& se = all[0];
+	const auto& vr = all[1];
+	const auto& f4 = all[2];
 	f << "vr=" << (_vr ? 1 : 0) << "\n";
+	f << "active_game=" << _game << "\n";
+	f << "sources_f4=" << f4.sourcesPath << "\n";
+	f << "profile_f4=" << f4.profile << "\n";
+	f << "game_f4=" << f4.gamePath << "\n";
+	f << "mo2_ini_f4=" << f4.mo2Ini << "\n";
+	f << "saves_dir_f4=" << _savesDir[2] << "\n";
+	f << "last_dir_f4=" << _lastDir[2] << "\n";
 	f << "sources=" << se.sourcesPath << "\n";
 	f << "profile=" << se.profile << "\n";
 	f << "mo2_ini=" << se.mo2Ini << "\n";
@@ -3015,10 +3029,10 @@ void App::saveSettings()
 	f << "game=" << se.gamePath << "\n";
 	f << "check_on_open=" << (_checkOnOpen ? 1 : 0) << "\n";
 	f << "tips=" << (tips::g_enabled ? 1 : 0) << "\n";
-	f << "saves_dir=" << _savesDirSe << "\n";
-	f << "saves_dir_vr=" << _savesDirVr << "\n";
-	f << "last_dir=" << _lastDirSe << "\n";
-	f << "last_dir_vr=" << _lastDirVr << "\n";
+	f << "saves_dir=" << _savesDir[0] << "\n";
+	f << "saves_dir_vr=" << _savesDir[1] << "\n";
+	f << "last_dir=" << _lastDir[0] << "\n";
+	f << "last_dir_vr=" << _lastDir[1] << "\n";
 	f << "codepage=" << text::CodePage() << "\n";
 	f << "theme=" << static_cast<int>(theme::Current()) << "\n";
 	f << "live=" << (_liveEnabled ? 1 : 0) << "\n";
@@ -3069,13 +3083,6 @@ void App::useMo2Ini(const std::filesystem::path& a_ini, const Mo2Instance& a_mo2
 
 void App::scanSources(const std::filesystem::path& a_root)
 {
-	if (fo4()) {
-		// the mods folder is Skyrim's: kept, and read when a Skyrim save is opened
-		_sourcesPath = platform::ToUtf8(a_root);
-		saveSettings();
-		_status = "Mods folder saved; it is read when you open a Skyrim save (a Fallout 4 save is open)";
-		return;
-	}
 	// Mod Organizer: use the profile's mod order so a script is credited to the mod whose copy
 	// the game really loads (and disabled mods are ignored).
 	std::vector<std::string> order;

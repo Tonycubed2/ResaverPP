@@ -90,22 +90,16 @@ void App::goHome()
 bool App::SkyrimOnly(Sc a_which)
 {
 	switch (a_which) {
-	case Sc::kMissingMods:
+	// (these read or change the save's change forms, decoded for Skyrim only so far, or Skyrim's plugin records)
 	case Sc::kMcm:
 	case Sc::kHavok:
 	case Sc::kPurify:
 	case Sc::kPlayer:
 	case Sc::kActors:
 	case Sc::kTransplant:
-	case Sc::kLookup:
-	case Sc::kMods:
 	case Sc::kQuests:
 	case Sc::kLeftovers:
-	case Sc::kPapyrusLog:
-	case Sc::kSavesMgr:
 	case Sc::kMerge:
-	case Sc::kFileConflicts:
-	case Sc::kCrashLog:
 	case Sc::kOpenPex:
 		return true;
 	default:

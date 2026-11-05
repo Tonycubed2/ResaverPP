@@ -33,32 +33,29 @@ namespace ess::extras
 		if (const auto t = std::filesystem::last_write_time(a_ess, ec); !ec) {
 			info.modified = ToUnix(t);
 		}
-		auto co = a_ess;
-		co.replace_extension(".skse");
-		if (std::filesystem::exists(co, ec)) {
-			info.cosaveSize = std::filesystem::file_size(co, ec);
-		}
-		std::ifstream f(a_ess, std::ios::binary);
-		std::vector<std::uint8_t> buf(4096);
-		f.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(buf.size()));
-		buf.resize(static_cast<std::size_t>(f.gcount()));
-		try {
-			Reader r(buf.data(), buf.size());
-			if (buf.size() < 17 || std::memcmp(buf.data(), "TESV_SAVEGAME", 13) != 0) {
-				return info;
+		// the cosave: .skse (Skyrim) or .f4se (Fallout 4)
+		for (const char* x : { ".skse", ".f4se" }) {
+			auto co = a_ess;
+			co.replace_extension(x);
+			if (std::filesystem::exists(co, ec)) {
+				info.cosaveSize = std::filesystem::file_size(co, ec);
+				info.cosave = co;
+				break;
 			}
-			r.seek(17);
-			const auto version = r.u32();
-			info.le = version < 12;
-			info.saveNumber = r.u32();
-			info.playerName = r.wstring();
-			info.playerLevel = r.u32();
-			info.location = r.wstring();
-			r.wstring();  // game date
-			info.race = r.wstring();
-			info.ok = true;
-		} catch (const std::exception&) {
 		}
+		// the header only (Skyrim or Fallout 4; the same reader the save gallery uses)
+		Header h;
+		if (!ReadSaveHeader(a_ess, h)) {
+			return info;
+		}
+		info.le = h.isLE();
+		info.fo4 = h.isFO4();
+		info.saveNumber = h.saveNumber;
+		info.playerName = h.playerName;
+		info.playerLevel = h.playerLevel;
+		info.location = h.location;
+		info.race = h.race;
+		info.ok = true;
 		return info;
 	}
 
@@ -72,7 +69,7 @@ namespace ess::extras
 			}
 			auto ext = it->path().extension().string();
 			std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-			if (ext == ".ess") {
+			if (ext == ".ess" || ext == ".fos") {
 				out.push_back(ReadSaveInfo(it->path()));
 			}
 		}

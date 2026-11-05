@@ -70,9 +70,9 @@ loadorder::Active App::currentLoadOrder() const
 	if (_mo2 && !_profile.empty()) {
 		txt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
 	} else {
-		txt = loadorder::GamePluginsTxt(_vr, _save && _save->isLE());
+		txt = loadorder::GamePluginsTxt(_game, _save && _save->isLE());
 	}
-	return loadorder::Read(txt, gameFolder(), _vr);
+	return loadorder::Read(txt, gameFolder(), _game);
 }
 
 // ==========================================================================================
@@ -470,7 +470,7 @@ void App::drawPapyrusLog()
 			v.push_back(_path.parent_path().parent_path() / "Logs" / "Script" / "Papyrus.0.log");
 		}
 		v.push_back(savesFolder().parent_path() / "Logs" / "Script" / "Papyrus.0.log");
-		v.push_back(platform::DefaultSavesFolder(_vr).parent_path() / "Logs" / "Script" / "Papyrus.0.log");
+		v.push_back(platform::DefaultSavesFolder(_game).parent_path() / "Logs" / "Script" / "Papyrus.0.log");
 		if (_save && _save->isLE()) {
 			v.push_back(platform::DefaultSavesFolder(false).parent_path().parent_path() / "Skyrim" / "Logs" / "Script" / "Papyrus.0.log");
 		}
@@ -508,9 +508,16 @@ void App::drawPapyrusLog()
 	}
 	tips::Tip("Read the log again, e.g. after playing some more.");
 	if (!_plog.ok) {
-		TextColored(theme::Warn(), "No Papyrus log found. The game only writes one when logging is on: in Skyrim.ini (or SkyrimCustom.ini) "
-								   "under [Papyrus] set bEnableLogging=1, bEnableTrace=1 and bLoadDebugInformation=1, play a while, then "
-								   "look again. The log is in Documents\\My Games\\Skyrim Special Edition\\Logs\\Script\\Papyrus.0.log.");
+		if (_game == 2) {
+			TextColored(theme::Warn(), "No Papyrus log found. Fallout 4 only writes one when logging is on: in Fallout4Custom.ini "
+									   "(Documents\\My Games\\Fallout4, or your Mod Organizer profile's) under [Papyrus] set bEnableLogging=1, "
+									   "bEnableTrace=1 and bLoadDebugInformation=1, play a while, then look again. The log is in "
+									   "Documents\\My Games\\Fallout4\\Logs\\Script\\Papyrus.0.log.");
+		} else {
+			TextColored(theme::Warn(), "No Papyrus log found. The game only writes one when logging is on: in Skyrim.ini (or SkyrimCustom.ini) "
+									   "under [Papyrus] set bEnableLogging=1, bEnableTrace=1 and bLoadDebugInformation=1, play a while, then "
+									   "look again. The log is in Documents\\My Games\\Skyrim Special Edition\\Logs\\Script\\Papyrus.0.log.");
+		}
 		ImGui::End();
 		return;
 	}
@@ -616,7 +623,8 @@ const std::vector<crashlog::LeveledBase>& App::leveledBases()
 	if (_leveledSave != _save.get() || _leveledGen != _editGen) {
 		_leveledSave = _save.get();
 		_leveledGen = _editGen;
-		_leveledBases = _save ? crashlog::LeveledBases(*_save) : std::vector<crashlog::LeveledBase>{};
+		// (Fallout 4: its change forms are not decoded, so its leveled actors are not known)
+		_leveledBases = _save && !_save->isFO4() ? crashlog::LeveledBases(*_save) : std::vector<crashlog::LeveledBase>{};
 	}
 	return _leveledBases;
 }
@@ -647,12 +655,13 @@ std::pair<std::string, std::uint32_t> App::missingFormHint(std::uint32_t a_formI
 }
 
 // where the crash loggers write: Crash Logger (the SKSE folder), Trainwreck (SKSE\Crashlogs), .NET Script Framework
-// (Data\NetScriptFramework\Crash, mostly Legendary Edition)
+// (Data\NetScriptFramework\Crash, mostly Legendary Edition); Fallout 4's Buffout 4: Documents\My Games\Fallout4\F4SE
 std::vector<std::filesystem::path> App::crashLogFolders()
 {
 	std::vector<std::filesystem::path> v;
+	const char* se = _game == 2 ? "F4SE" : "SKSE";
 	auto docs = [&](const std::filesystem::path& a_saves) {
-		for (auto d : { a_saves.parent_path() / "SKSE", a_saves.parent_path() / "SKSE" / "Crashlogs" }) {
+		for (auto d : { a_saves.parent_path() / se, a_saves.parent_path() / se / "Crashlogs" }) {
 			if (std::find(v.begin(), v.end(), d) == v.end()) {
 				v.push_back(d);
 			}
@@ -662,7 +671,7 @@ std::vector<std::filesystem::path> App::crashLogFolders()
 		docs(_path.parent_path());
 	}
 	docs(savesFolder());
-	docs(platform::DefaultSavesFolder(_vr));
+	docs(platform::DefaultSavesFolder(_game));
 	if (_save && _save->isLE()) {
 		docs(platform::DefaultSavesFolder(false).parent_path().parent_path() / "Skyrim" / "Saves");
 	}
@@ -958,8 +967,8 @@ void App::drawSavesManager()
 	}
 	ImGui::NewLine();
 	ImGui::TextWrapped("Saves folder: %s", platform::ToUtf8(folder).c_str());
-	ImGui::TextWrapped("Pick old saves to delete. Each save's .skse file goes with it. Deleted saves go to the Recycle Bin, so you can still get "
-					   "them back. The save that is open here is never deleted.");
+	ImGui::TextWrapped("Pick old saves to delete. Each save's script extender file (.skse, or .f4se for Fallout 4) goes with it. Deleted saves go "
+					   "to the Recycle Bin, so you can still get them back. The save that is open here is never deleted.");
 	std::uintmax_t total = 0;
 	std::map<std::string, std::vector<std::size_t>> byChar;  // newest first
 	for (std::size_t i = 0; i < _saves.size(); ++i) {
@@ -1046,18 +1055,15 @@ void App::drawSavesManager()
 	ImGui::EndChild();
 	ImGui::BeginDisabled(ticked == 0);
 	if (ImGui::Button(Fmt("Delete %zu ticked saves (%.1f MB) to the Recycle Bin", ticked, tickedBytes / 1048576.0).c_str())) {
-		confirm("Delete saves", Fmt("Move %zu saves and their .skse files to the Recycle Bin?", ticked), [this] {
+		confirm("Delete saves", Fmt("Move %zu saves and their .skse / .f4se files to the Recycle Bin?", ticked), [this] {
 			std::vector<std::filesystem::path> files;
 			for (std::size_t i = 0; i < _saves.size(); ++i) {
 				if (!_saveSel[i]) {
 					continue;
 				}
 				files.push_back(_saves[i].path);
-				auto co = _saves[i].path;
-				co.replace_extension(".skse");
-				std::error_code ec;
-				if (std::filesystem::exists(co, ec)) {
-					files.push_back(co);
+				if (!_saves[i].cosave.empty()) {
+					files.push_back(_saves[i].cosave);  // .skse / .f4se
 				}
 			}
 			if (platform::MoveToRecycleBin(files)) {
@@ -1069,6 +1075,6 @@ void App::drawSavesManager()
 		});
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Move the ticked saves and their .skse files to the Recycle Bin.");
+	tips::Tip("Move the ticked saves and their .skse / .f4se files to the Recycle Bin.");
 	ImGui::End();
 }

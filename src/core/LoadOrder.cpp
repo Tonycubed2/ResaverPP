@@ -37,12 +37,24 @@ namespace ess::loadorder
 		}
 	}
 
-	std::filesystem::path GamePluginsTxt(bool a_vr, bool a_le)
+	const std::vector<std::string>& Fallout4Masters()
+	{
+		// the base game and its DLC, loaded in this order whether plugins.txt lists them or not
+		static const std::vector<std::string> v = { "fallout4.esm", "dlcrobot.esm", "dlcworkshop01.esm", "dlccoast.esm", "dlcworkshop02.esm",
+			"dlcworkshop03.esm", "dlcnukaworld.esm", "dlcultrahighresolution.esm" };
+		return v;
+	}
+
+	std::filesystem::path GamePluginsTxt(int a_game, bool a_le)
 	{
 		const auto base = text::EnvPath("LOCALAPPDATA");
 		if (base.empty()) {
 			return {};
 		}
+		if (a_game == 2) {
+			return base / "Fallout4" / "plugins.txt";
+		}
+		const bool a_vr = a_game == 1;
 		if (a_le) {
 			// a Legendary Edition save: its own plugins.txt, even when Special Edition is installed too
 			std::error_code ec;
@@ -78,8 +90,9 @@ namespace ess::loadorder
 		return best;
 	}
 
-	Active Read(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder, bool a_vr)
+	Active Read(const std::filesystem::path& a_pluginsTxt, const std::filesystem::path& a_gameFolder, int a_game)
 	{
+		const bool a_vr = a_game == 1, fo4 = a_game == 2;
 		Active a;
 		std::ifstream f(a_pluginsTxt);
 		if (!f) {
@@ -107,14 +120,20 @@ namespace ess::loadorder
 			}
 		}
 		// always loaded, never listed in plugins.txt
-		for (const char* p : { "skyrim.esm", "update.esm", "dawnguard.esm", "hearthfires.esm", "dragonborn.esm", "_resourcepack.esl" }) {
-			a.plugins.insert(p);
+		if (fo4) {
+			for (const auto& p : Fallout4Masters()) {
+				a.plugins.insert(p);
+			}
+		} else {
+			for (const char* p : { "skyrim.esm", "update.esm", "dawnguard.esm", "hearthfires.esm", "dragonborn.esm", "_resourcepack.esl" }) {
+				a.plugins.insert(p);
+			}
 		}
 		if (a_vr) {
 			a.plugins.insert("skyrimvr.esm");
 		}
 		// Creation Club content of the installed edition (Anniversary Edition: Skyrim.ccc lists it)
-		std::ifstream ccc(a_gameFolder / "Skyrim.ccc");
+		std::ifstream ccc(a_gameFolder / (fo4 ? "Fallout4.ccc" : "Skyrim.ccc"));
 		for (std::string line; std::getline(ccc, line);) {
 			line = Trim(line);
 			if (!line.empty()) {

@@ -13,7 +13,9 @@ namespace platform
 	bool                                 HasNativeDialogs();
 	std::optional<std::filesystem::path> OpenSaveDialog(const std::filesystem::path& a_startDir);
 	std::optional<std::filesystem::path> SaveAsDialog(const std::filesystem::path& a_suggested);
-	std::filesystem::path                DefaultSavesFolder(bool a_vr = false);  // Documents\My Games\Skyrim Special Edition (or Skyrim VR)\Saves
+	// a_game: 0 Skyrim SE/AE, 1 Skyrim VR, 2 Fallout 4 (the same numbers everywhere in the app)
+	std::filesystem::path                DefaultSavesFolder(int a_game = 0);  // Documents\My Games\<MyGamesName>\Saves
+	const char*                          MyGamesName(int a_game);  // "Skyrim Special Edition", "Skyrim VR", "Fallout4"
 	std::optional<std::filesystem::path> PickFolderDialog(const std::string& a_title);
 	// Save dialog for other files (reports): a_ext without the dot, e.g. "pdf".
 	std::optional<std::filesystem::path> SaveFileDialog(const std::filesystem::path& a_suggested, const std::string& a_ext, const std::string& a_title);
@@ -22,7 +24,7 @@ namespace platform
 	std::filesystem::path                SettingsFile();  // resaverpp.ini next to the program
 	std::string                          ToUtf8(const std::filesystem::path& a_path);
 	// Skyrim Special Edition installs found in the registry (Bethesda key, Steam libraries, GOG), existing ones only
-	std::vector<std::filesystem::path>   SkyrimInstallFolders(bool a_vr = false);  // Skyrim VR's when a_vr
+	std::vector<std::filesystem::path>   SkyrimInstallFolders(int a_game = 0);  // Skyrim VR's (1), Fallout 4's (2)
 	std::filesystem::path                ExeFolder();  // folder of ReSaverPP.exe
 	bool                                 RunningUnderMO2();  // started from Mod Organizer (its virtual file system is loaded)
 	std::filesystem::path                FromUtf8(const std::string& a_utf8);

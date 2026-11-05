@@ -53,7 +53,10 @@ namespace ess::modremove
 
 		bool IsBaseGamePlugin(const std::string& lower)
 		{
-			static const char* v[] = { "skyrim.esm", "update.esm", "dawnguard.esm", "hearthfires.esm", "dragonborn.esm", "skyrimvr.esm" };
+			static const char* v[] = { "skyrim.esm", "update.esm", "dawnguard.esm", "hearthfires.esm", "dragonborn.esm", "skyrimvr.esm",
+				// Fallout 4 and its DLC
+				"fallout4.esm", "dlcrobot.esm", "dlcworkshop01.esm", "dlccoast.esm", "dlcworkshop02.esm", "dlcworkshop03.esm", "dlcnukaworld.esm",
+				"dlcultrahighresolution.esm" };
 			for (const char* n : v) {
 				if (lower == n) {
 					return true;
@@ -63,7 +66,8 @@ namespace ess::modremove
 		}
 
 		// Official Creation Club content: "cc" + a 3-4 letter creator code + "sse" + 3 digits, e.g.
-		// ccbgssse001-fish.esm, ccqdrsse001-survivalmode.esl. Not just any name starting with "cc".
+		// ccbgssse001-fish.esm, ccqdrsse001-survivalmode.esl; Fallout 4's have "fo4" instead of "sse"
+		// (ccbgsfo4001-pipboy(black).esl). Not just any name starting with "cc".
 		bool IsCreationClub(const std::string& lower)
 		{
 			if (lower.size() < 11 || lower.rfind("cc", 0) != 0) {
@@ -78,7 +82,7 @@ namespace ess::modremove
 				for (std::size_t i = 2; i < s; ++i) {
 					ok = ok && std::isalpha(static_cast<unsigned char>(lower[i]));
 				}
-				ok = ok && lower.compare(s, 3, "sse") == 0;
+				ok = ok && (lower.compare(s, 3, "sse") == 0 || lower.compare(s, 3, "fo4") == 0);
 				for (std::size_t i = s + 3; i < s + 6; ++i) {
 					ok = ok && std::isdigit(static_cast<unsigned char>(lower[i]));
 				}
