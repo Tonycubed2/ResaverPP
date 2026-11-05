@@ -13,7 +13,8 @@ namespace ess
 	{
 	public:
 		FormatError(const std::string& a_msg, std::size_t a_pos) :
-			std::runtime_error(a_msg + " (at byte " + std::to_string(a_pos) + ")"), pos(a_pos) {}
+			std::runtime_error(a_msg + " (at byte " + std::to_string(a_pos) + ")"), message(a_msg), pos(a_pos) {}
+		std::string message;  // without the position
 		std::size_t pos;
 	};
 

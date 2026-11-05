@@ -144,6 +144,7 @@ namespace ess
 		void          reindexChangeForms();
 
 	private:
+		static std::unique_ptr<SaveFile> loadInner(const std::filesystem::path& a_path, const char*& a_stage);
 		std::unordered_map<std::uint32_t, std::size_t> _cfIdx;
 	};
 
@@ -154,6 +155,11 @@ namespace ess
 	// 14-digit date, as letters and digits only ("..._20261025075454edited_66_1.ess"). Names not in the
 	// game's format get "_<tag>" at the end. a_unique: the first name not taken (tag, tag2, tag3...).
 	std::filesystem::path EditedSaveName(const std::filesystem::path& a_save, const std::string& a_tag, bool a_unique = true);
+
+	// What the save is made of, one line each, for the log and for support requests: format, versions, the
+	// plugins, the file location table, the global data blocks, change forms by type, the Papyrus counts and
+	// widths, every thread (a_detail), and the problems found.
+	std::vector<std::string> DescribeSave(const SaveFile& a_save, bool a_detail);
 
 	// Only the header and screenshot of a save (the first few hundred KB of the file): for the save gallery.
 	// False if the file is not a Skyrim save.

@@ -142,7 +142,7 @@ void App::startCollectLogs()
 		}
 	}
 	// ReSaver Plus's own logs (not resaverpp.ini: it holds the AI key)
-	for (const char* f : { "ReSaverPP-startup.log", "ReSaverPP AI.log", "PapyrusCompileLog.txt" }) {
+	for (const char* f : { "ReSaverPP-startup.log", "ReSaverPP-startup.previous.log", "ReSaverPP AI.log", "PapyrusCompileLog.txt" }) {
 		const auto p = platform::ExeFolder() / f;
 		if (std::filesystem::is_regular_file(p, ec)) {
 			add(p, std::string("ReSaver Plus/") + f);

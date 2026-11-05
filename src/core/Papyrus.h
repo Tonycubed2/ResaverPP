@@ -266,8 +266,20 @@ namespace ess
 	class Papyrus
 	{
 	public:
-		void read(Reader& r);
+		void read(Reader& r);  // errors name the part being read ("struct data 12 of 300")
 		void write(Writer& w) const;
+		struct ReadStage
+		{
+			const char* what = nullptr;
+			std::size_t index = 0, total = 0;
+			void        at(const char* a_what, std::size_t a_index, std::size_t a_total)
+			{
+				what = a_what;
+				index = a_index;
+				total = a_total;
+			}
+			std::string text() const;
+		};
 		// Structural problems a read can pass but a write would not reproduce faithfully: string indices
 		// out of range, duplicate ids, saved data missing or given twice. Empty for a sound section.
 		std::vector<std::string> check() const;
@@ -319,6 +331,7 @@ namespace ess
 		const ActiveScript*   findActive(ThreadID id) const { return const_cast<Papyrus*>(this)->findActive(id); }
 
 	private:
+		void readInner(Reader& r, ReadStage& a_stage);
 		std::unordered_map<TStr, std::size_t> _scriptIdx;
 		std::unordered_map<EID, std::size_t>      _instIdx, _refIdx, _arrIdx, _structIdx;
 		std::unordered_map<ThreadID, std::size_t> _activeIdx;

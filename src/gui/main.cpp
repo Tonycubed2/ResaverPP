@@ -175,6 +175,16 @@ namespace
 			where.push_back(std::filesystem::path(tmp) / "ReSaverPP-startup.log");
 		}
 		for (const auto& w : where) {
+			// the last run's log is kept as ReSaverPP-startup.previous.log: a user who restarted before sending it
+			// still has it
+			{
+				std::error_code ec;
+				if (std::filesystem::exists(w, ec)) {
+					auto prev = w;
+					prev.replace_filename("ReSaverPP-startup.previous.log");
+					std::filesystem::copy_file(w, prev, std::filesystem::copy_options::overwrite_existing, ec);
+				}
+			}
 			if (FILE* f = _wfopen(w.c_str(), L"wb")) {
 				std::fclose(f);
 				g_logPath = w;

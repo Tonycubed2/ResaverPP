@@ -1,6 +1,7 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Save.h"
 
+#include <cstdio>
 #include <cstring>
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include "miniz.h"
 
 #include <fstream>
+#include <map>
 #include <stdexcept>
 
 namespace ess
@@ -184,6 +186,13 @@ namespace ess
 			}
 		}
 
+		std::string Fmt2(const char* a_f, std::size_t a_v)
+		{
+			char b[64];
+			std::snprintf(b, sizeof(b), a_f, a_v);
+			return b;
+		}
+
 		struct Widths
 		{
 			bool le = false, str16 = false, fo4 = false;
@@ -217,7 +226,7 @@ namespace ess
 				try {
 					g.papyrus->read(sub);
 				} catch (const FormatError& e) {
-					throw FormatError(std::string("Papyrus section: ") + e.what(), r.pos() + e.pos);
+					throw FormatError("Papyrus section: " + e.message + Fmt2(" (byte %zu of the Papyrus section)", e.pos), r.pos() + e.pos);
 				}
 				r.seek(r.pos() + size);
 			} else {
@@ -301,14 +310,29 @@ namespace ess
 
 	std::unique_ptr<SaveFile> SaveFile::load(const std::filesystem::path& a_path)
 	{
+		// a read that fails says which part of the file it was in (for support requests)
+		const char* stage = "the file";
+		try {
+			return loadInner(a_path, stage);
+		} catch (const FormatError& e) {
+			throw FormatError(e.message + " (while reading " + stage + ")", e.pos);
+		} catch (const std::exception& e) {
+			throw std::runtime_error(std::string(e.what()) + " (while reading " + stage + ")");
+		}
+	}
+
+	std::unique_ptr<SaveFile> SaveFile::loadInner(const std::filesystem::path& a_path, const char*& a_stage)
+	{
 		auto save = std::make_unique<SaveFile>();
 		save->path = a_path;
 
 		const auto file = ReadFile(a_path);
 		Reader     hr(file.data(), file.size());
+		a_stage = "the header";
 		save->header.read(hr);
 		const std::size_t headerEnd = hr.pos();
 
+		a_stage = "the body (unpacking it)";
 		std::vector<std::uint8_t> bodyStore;
 		const std::uint8_t*       body = nullptr;
 		std::size_t               bodyLen = 0;
@@ -348,6 +372,7 @@ namespace ess
             r.seek(a_fileOffset - base);
 		};
 
+		a_stage = "the plugin list";
 		save->formVersion = r.u8();
 		if (save->isFO4()) {
 			save->gameVersion = r.wstring();  // Fallout 4: the game version, before the plugin list
@@ -374,6 +399,7 @@ namespace ess
 			}
 		}
 
+		a_stage = "the file location table";
 		auto& t = save->flt;
 		t.formIDArrayCountOffset = r.u32();
 		t.unknownTable3Offset = r.u32();
@@ -389,6 +415,7 @@ namespace ess
 			u = r.u32();
 		}
 
+		a_stage = "the form ID array";
 		at(t.formIDArrayCountOffset);
 		const auto formIDCount = r.u32();
 		save->formIDs.reserve(formIDCount);
@@ -406,24 +433,29 @@ namespace ess
 			}
 		};
 		const auto widths = WidthsOf(*save);
+		a_stage = "global data table 1";
 		at(t.table1Offset);
 		for (std::uint32_t i = 0; i < t.table1Count; ++i) {
 			save->table1.push_back(ReadGlobal(r, widths));
 		}
 		expect(t.table2Offset, "global data table 2");
+		a_stage = "global data table 2";
 		for (std::uint32_t i = 0; i < t.table2Count; ++i) {
 			save->table2.push_back(ReadGlobal(r, widths));
 		}
 		expect(t.changeFormsOffset, "the change forms");
+		a_stage = "the change forms";
 		save->changeForms.reserve(t.changeFormCount);
 		for (std::uint32_t i = 0; i < t.changeFormCount; ++i) {
 			save->changeForms.push_back(ReadChangeForm(r));
 		}
 		expect(t.table3Offset, "global data table 3");
+		a_stage = "global data table 3 (Papyrus)";
 		for (std::uint32_t i = 0; i < t.table3Count; ++i) {
 			save->table3.push_back(ReadGlobal(r, widths));
 		}
 		expect(t.formIDArrayCountOffset, "the form ID array");
+		a_stage = "the visited worldspaces";
 
 		r.seek(t.formIDArrayCountOffset - base + 4 + 4 * static_cast<std::size_t>(formIDCount));
 		const auto wsCount = r.u32();
@@ -438,6 +470,7 @@ namespace ess
 			save->cosave = ReadFile(co);
 		}
 
+		a_stage = "the checks after reading";
 		save->reindexChangeForms();
 		if (auto* p = save->papyrus()) {
 			p->reindex();
@@ -694,6 +727,87 @@ namespace ess
 	{
 		auto it = _cfIdx.find(a_id.data);
 		return it == _cfIdx.end() ? nullptr : &changeForms[it->second];
+	}
+
+	std::vector<std::string> DescribeSave(const SaveFile& a_save, bool a_detail)
+	{
+		std::vector<std::string> out;
+		char                     b[512];
+		auto add = [&](const char* f, auto... a) {
+			std::snprintf(b, sizeof(b), f, a...);
+			out.emplace_back(b);
+		};
+		const auto& h = a_save.header;
+		add("game: %s%s%s", a_save.gameTitle(), a_save.gameVersion.empty() ? "" : " ", a_save.gameVersion.c_str());
+		add("format: %s, save version %u, form version %u, %s, header %u bytes, screenshot %ux%u", h.magic.c_str(), h.version,
+			static_cast<unsigned>(a_save.formVersion), h.compression == Compression::kLZ4 ? "LZ4" : h.compression == Compression::kZlib ? "zlib" : "uncompressed",
+			h.partialSize(), h.shotWidth, h.shotHeight);
+		add("character: %s, level %u, %s, %s, save number %u", h.playerName.c_str(), h.playerLevel, h.location.c_str(), h.race.c_str(), h.saveNumber);
+		add("body: %zu bytes; co-save (%s): %zu bytes", a_save.originalBodySize, a_save.cosaveExt(), a_save.cosave.size());
+		add("plugins: %zu full, %zu light%s", a_save.plugins.full.size(), a_save.plugins.lite.size(), a_save.plugins.hasLite ? "" : " (no light plugin list)");
+		if (a_detail) {
+			for (std::size_t i = 0; i < a_save.plugins.full.size(); ++i) {
+				add("  %02zX %s", i, a_save.plugins.full[i].c_str());
+			}
+			for (std::size_t i = 0; i < a_save.plugins.lite.size(); ++i) {
+				add("  FE%03zX %s", i, a_save.plugins.lite[i].c_str());
+			}
+		}
+		const auto& t = a_save.flt;
+		add("file location table: form IDs at %u, table 1 at %u (%u), table 2 at %u (%u), change forms at %u (%u), table 3 at %u (%u)",
+			t.formIDArrayCountOffset, t.table1Offset, t.table1Count, t.table2Offset, t.table2Count, t.changeFormsOffset, t.changeFormCount,
+			t.table3Offset, t.table3Count);
+		auto tables = [&](const char* a_name, const std::vector<GlobalData>& a_t) {
+			std::string s;
+			for (const auto& g : a_t) {
+				s += (s.empty() ? "" : ", ") + std::to_string(g.type) + (g.papyrus ? "(Papyrus)" : ":" + std::to_string(g.raw.size()));
+			}
+			add("%s: %s", a_name, s.c_str());
+		};
+		tables("global data 1 (type:bytes)", a_save.table1);
+		tables("global data 2", a_save.table2);
+		tables("global data 3", a_save.table3);
+		add("form IDs: %zu; visited worldspaces: %zu; data after them: %zu bytes", a_save.formIDs.size(), a_save.visitedWorldspaces.size(), a_save.unknown3.size());
+		{
+			std::map<std::string, std::size_t> byType;
+			for (const auto& c : a_save.changeForms) {
+				++byType[ChangeFormTypeName(c.typeCode(), a_save.isFO4())];
+			}
+			std::string s;
+			for (const auto& [k, v] : byType) {
+				s += (s.empty() ? "" : ", ") + k + " " + std::to_string(v);
+			}
+			add("change forms: %zu (%s)", a_save.changeForms.size(), s.c_str());
+		}
+		if (const auto* p = a_save.papyrus()) {
+			add("Papyrus: header %u, strings %zu (%s-bit indices), ids %s-bit, scripts %zu, structs %zu, script instances %zu, references %zu, struct "
+				"instances %zu, arrays %zu, threads %zu, function messages %zu, suspended %zu + %zu, unknown ids %zu, queued unbinds %zu, other data %zu bytes",
+				static_cast<unsigned>(p->header), p->strings.size(), a_save.str16() ? "16" : "32", a_save.isLE() ? "32" : "64", p->scripts.size(),
+				p->structs.size(), p->instances.size(), p->references.size(), p->structInstances.size(), p->arrays.size(), p->activeScripts.size(),
+				p->functionMessages.size(), p->suspended1.size(), p->suspended2.size(), p->unknownIDs.size(), p->unbinds.size(), p->tail.size());
+			if (a_detail) {
+				for (const auto& a : p->activeScripts) {
+					if (!a.data) {
+						add("  thread %08X: no data", a.id);
+						continue;
+					}
+					const auto& d = *a.data;
+					std::string top;
+					if (!d.frames.empty()) {
+						top = p->str(d.frames.back().scriptName) + "." + p->str(d.frames.back().event);
+					}
+					add("  thread %08X: version %d.%d, flag %u, %s%s, %zu frame(s)%s, top %s", a.id, d.major, d.minor, static_cast<unsigned>(d.flag),
+						d.fragment ? (d.fragment->kind == 2 ? "fragment kind 2" : ("fragment " + d.fragment->typeCode).c_str()) : "no fragment",
+						d.attached ? ", attached to an object" : "", d.frames.size(), d.unknown5 ? "" : ", no byte after the frames", top.c_str());
+				}
+			}
+		} else {
+			add("Papyrus: none");
+		}
+		for (const auto& pr : a_save.problems) {
+			add("problem: %s", pr.c_str());
+		}
+		return out;
 	}
 
 	bool ReadSaveHeader(const std::filesystem::path& a_save, Header& a_header)

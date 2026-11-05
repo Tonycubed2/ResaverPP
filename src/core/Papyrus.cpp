@@ -476,6 +476,29 @@ namespace ess
 
 	void Papyrus::read(Reader& r)
 	{
+		// a read that fails says where: "thread data 12 of 300 (thread 0x015BBB7B)"
+		ReadStage st;
+		try {
+			readInner(r, st);
+		} catch (const FormatError& e) {
+			throw FormatError(e.message + " while reading " + st.text(), e.pos);
+		} catch (const std::exception& e) {
+			throw std::runtime_error(std::string(e.what()) + " while reading " + st.text());
+		}
+	}
+
+	std::string Papyrus::ReadStage::text() const
+	{
+		std::string s = what ? what : "?";
+		if (total) {
+			s += " " + std::to_string(index + 1) + " of " + std::to_string(total);
+		}
+		return s;
+	}
+
+	void Papyrus::readInner(Reader& r, ReadStage& st)
+	{
+		st.at("the header", 0, 0);
 		header = r.u16();
 
 		fo4 = r.fo4;
@@ -490,6 +513,7 @@ namespace ess
 		}
 		strings.reserve(strCount);
 		for (std::uint32_t i = 0; i < strCount; ++i) {
+			st.at("strings", i, strCount);
 			strings.push_back(r.wstring());
 		}
 
@@ -497,6 +521,7 @@ namespace ess
 		const auto structCount = r.fo4 ? r.u32() : 0;  // Fallout 4: the struct definitions' count follows
 		scripts.reserve(scriptCount);
 		for (std::uint32_t i = 0; i < scriptCount; ++i) {
+			st.at("script definitions", i, scriptCount);
 			Script s;
 			s.name = r.tstr();
 			s.parent = r.tstr();
@@ -512,6 +537,7 @@ namespace ess
 		}
 		structs.clear();
 		for (std::uint32_t i = 0; i < structCount; ++i) {
+			st.at("struct definitions", i, structCount);
 			StructDef s;
 			s.name = r.tstr();
 			const auto mc = r.u32();
@@ -527,6 +553,7 @@ namespace ess
 		const auto instCount = r.u32();
 		instances.reserve(instCount);
 		for (std::uint32_t i = 0; i < instCount; ++i) {
+			st.at("script instances", i, instCount);
 			ScriptInstance s;
 			s.id = r.eid();
 			s.script = r.tstr();
@@ -543,6 +570,7 @@ namespace ess
 		const auto refCount = r.u32();
 		references.reserve(refCount);
 		for (std::uint32_t i = 0; i < refCount; ++i) {
+			st.at("references", i, refCount);
 			Reference x;
 			x.id = r.eid();
 			x.script = r.tstr();
@@ -554,6 +582,7 @@ namespace ess
 			const auto n = r.u32();
 			structInstances.reserve(n);
 			for (std::uint32_t i = 0; i < n; ++i) {
+			st.at("struct instances", i, n);
 				StructInstance x;
 				x.id = r.eid();
 				x.def = r.tstr();
@@ -564,6 +593,7 @@ namespace ess
 		const auto arrCount = r.u32();
 		arrays.reserve(arrCount);
 		for (std::uint32_t i = 0; i < arrCount; ++i) {
+			st.at("arrays", i, arrCount);
 			ArrayInfo a;
 			a.id = r.eid();
 			a.type = ReadVType(r);
@@ -579,6 +609,7 @@ namespace ess
 		const auto activeCount = r.u32();
 		activeScripts.reserve(activeCount);
 		for (std::uint32_t i = 0; i < activeCount; ++i) {
+			st.at("threads", i, activeCount);
 			ActiveScript a;
 			a.id = r.u32();
 			a.type = r.u8();
@@ -589,6 +620,7 @@ namespace ess
 
 		instanceDataOrder.clear();
 		for (std::size_t i = 0; i < instances.size(); ++i) {
+			st.at("script instance data", i, instances.size());
 			const auto pos = r.pos();
 			const EID  id = r.eid();
 			auto*      inst = findInstance(id);
@@ -601,6 +633,7 @@ namespace ess
 
 		referenceDataOrder.clear();
 		for (std::size_t i = 0; i < references.size(); ++i) {
+			st.at("reference data", i, references.size());
 			const auto pos = r.pos();
 			const EID  id = r.eid();
 			auto*      ref = findReference(id);
@@ -613,6 +646,7 @@ namespace ess
 
 		structDataOrder.clear();
 		for (std::size_t i = 0; i < structInstances.size(); ++i) {
+			st.at("struct data", i, structInstances.size());
 			const auto pos = r.pos();
 			const EID  id = r.eid();
 			auto*      st = findStruct(id);
@@ -628,6 +662,7 @@ namespace ess
 
 		arrayDataOrder.clear();
 		for (std::size_t i = 0; i < arrays.size(); ++i) {
+			st.at("array data", i, arrays.size());
 			const auto pos = r.pos();
 			const EID  id = r.eid();
 			auto*      arr = findArray(id);
@@ -641,6 +676,7 @@ namespace ess
 
 		activeDataOrder.clear();
 		for (std::size_t i = 0; i < activeScripts.size(); ++i) {
+			st.at("thread data", i, activeScripts.size());
 			const auto pos = r.pos();
 			const ThreadID id = r.u32();
 			auto*          as = findActive(id);
@@ -673,6 +709,7 @@ namespace ess
 		const auto fmCount = r.u32();
 		functionMessages.reserve(fmCount);
 		for (std::uint32_t i = 0; i < fmCount; ++i) {
+			st.at("function messages", i, fmCount);
 			FunctionMessage m;
 			m.flag = r.u8();
 			if (m.flag <= 2) {
@@ -685,7 +722,9 @@ namespace ess
 			functionMessages.push_back(std::move(m));
 		}
 
+		st.at("suspended stacks 1", 0, 0);
 		suspended1 = ReadSuspended(r);
+		st.at("suspended stacks 2", 0, 0);
 		suspended2 = ReadSuspended(r);
 
 		unk1 = r.u32();
@@ -695,18 +734,21 @@ namespace ess
 		const auto unkCount = r.u32();
 		unknownIDs.reserve(unkCount);
 		for (std::uint32_t i = 0; i < unkCount; ++i) {
+			st.at("unknown ids", i, unkCount);
 			unknownIDs.push_back(r.eid());
 		}
 
 		const auto unbindCount = r.u32();
 		unbinds.reserve(unbindCount);
 		for (std::uint32_t i = 0; i < unbindCount; ++i) {
+			st.at("queued unbinds", i, unbindCount);
 			QueuedUnbind u;
 			u.id = r.eid();
 			u.unknown = r.u32();
 			unbinds.push_back(u);
 		}
 
+		st.at("the end of the section", 0, 0);
 		if (!r.fo4) {
 			saveFileVersion = r.u16();  // (Skyrim only)
 		}

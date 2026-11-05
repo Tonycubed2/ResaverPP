@@ -62,6 +62,8 @@ namespace ess
 			"  --remove-extra <formid> <name>  remove one extra data entry from an actor (e.g. Package, SceneData,\n"
 			"                            FactionChanges, Ownership, DismemberedLimbs); the game falls back to the\n"
 			"                            plugin's value. Not the player. Needs -o.\n"
+			"  --describe                what the save is made of: versions, plugins, tables, change forms, Papyrus\n"
+			"                            counts, every thread (Skyrim and Fallout 4; for support requests)\n"
 			"  --player                  show the player's gold, skills and bounties\n"
 			"  --set-gold <n>            set the gold the player carries. Needs -o.\n"
 			"  --set-skill <skill> <n>   set a skill (e.g. OneHanded, Archery, Speech) to n. Needs -o.\n"

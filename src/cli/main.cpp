@@ -395,6 +395,7 @@ int main(int argc, char** argv)
 	std::string   npcFilter;
 	std::vector<std::pair<std::string, std::string>> renamePlugins;
 	bool          playerView = false;
+	bool          describeView = false;  // what the save is made of (for support requests)
 	bool          effectsView = false;
 	std::vector<std::size_t> removeEffects;
 	int           playerGold = -1;
@@ -436,6 +437,8 @@ int main(int argc, char** argv)
 		} else if (a == "--remove-extra") {
 			removeExtraForm = static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16));
 			removeExtraName = next();
+		} else if (a == "--describe") {
+			describeView = true;
 		} else if (a == "--player") {
 			playerView = true;
 		} else if (a == "--effects") {
@@ -660,6 +663,12 @@ int main(int argc, char** argv)
 				}
 			}
 			std::printf("%zu actors, %zu with a saved position, %zu listed\n", total, placed, shown);
+			return 0;
+		}
+		if (describeView) {
+			for (const auto& line : DescribeSave(*save, true)) {
+				std::printf("%s\n", line.c_str());
+			}
 			return 0;
 		}
 		if (playerView) {

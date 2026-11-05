@@ -194,6 +194,11 @@ void App::open(const std::filesystem::path& a_path)
 		if (startupLog) {
 			startupLog("opened " + platform::ToUtf8(a_path) + " in " + std::to_string(ms()) + " ms; mods folder: " +
 					   (_sourcesPath.empty() ? std::string("(not set)") : _sourcesPath) + (scanning() ? " (reading it now)" : ""));
+			// what the save is made of: everything for a Fallout 4 save (newer support, more questions), a summary
+			// for Skyrim
+			for (const auto& line : DescribeSave(*_save, _save->isFO4())) {
+				startupLog(std::string(_save->isFO4() ? "  fo4 " : "  ") + line);
+			}
 		}
 		// a save whose structure does not add up may not be written back faithfully: look, don't save
 		_readOnly = !_save->problems.empty();
@@ -210,6 +215,17 @@ void App::open(const std::filesystem::path& a_path)
 		_error = std::string("Could not open ") + platform::ToUtf8(a_path.filename()) + ":\n\n" + e.what();
 		if (startupLog) {
 			startupLog("could not open " + platform::ToUtf8(a_path) + ": " + e.what());
+			// what can still be told about the file, for the report
+			std::error_code ec;
+			startupLog("  file size " + std::to_string(std::filesystem::file_size(a_path, ec)) + " bytes");
+			Header h;
+			if (ReadSaveHeader(a_path, h)) {
+				startupLog("  header: " + h.magic + ", save version " + std::to_string(h.version) + ", " + h.playerName + " level " +
+						   std::to_string(h.playerLevel) + ", " + h.location + ", screenshot " + std::to_string(h.shotWidth) + "x" +
+						   std::to_string(h.shotHeight) + (h.isFO4() ? " (Fallout 4)" : ""));
+			} else {
+				startupLog("  the header could not be read either: not a Skyrim or Fallout 4 save, or damaged at the start");
+			}
 		}
 	}
 }
@@ -237,6 +253,18 @@ void App::doSave(const std::filesystem::path& a_path)
 		if (!check->papyrus()) {
 			throw std::runtime_error("verification failed: written save has no Papyrus section");
 		}
+		if (startupLog) {
+			startupLog("saved " + platform::ToUtf8(a_path) + " and read it back: " + std::to_string(check->papyrus()->instances.size()) +
+					   " instances, " + std::to_string(check->papyrus()->activeScripts.size()) + " threads, " +
+					   std::to_string(check->changeForms.size()) + " change forms" +
+					   (check->problems.empty() ? "" : ", " + std::to_string(check->problems.size()) + " problem(s)") +
+					   (wr.backup.empty() ? "" : "; previous file kept as " + platform::ToUtf8(wr.backup.filename())));
+			if (check->isFO4()) {
+				for (const auto& line : DescribeSave(*check, false)) {
+					startupLog("  fo4 written: " + line);
+				}
+			}
+		}
 		_path = a_path;
 		_save->path = a_path;
 		_dirty = false;
@@ -245,6 +273,9 @@ void App::doSave(const std::filesystem::path& a_path)
 															   (wr.cosaveBackup.empty() ? "" : " + " + platform::ToUtf8(wr.cosaveBackup.filename())) + ")") + _archiveNote;
 	} catch (const std::exception& e) {
 		_error = std::string("Save failed:\n\n") + e.what();
+		if (startupLog) {
+			startupLog("save failed (" + platform::ToUtf8(a_path) + "): " + e.what() + (_save->isFO4() ? " [Fallout 4 save]" : ""));
+		}
 	}
 }
 
@@ -293,10 +324,16 @@ void App::markEdited(const std::string& a_what)
 	_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
 	_modsDirty = true;
 	_status = a_what + "  (not saved yet: File > Save As)";
+	if (startupLog) {
+		startupLog(std::string("edit") + (_save->isFO4() ? " (Fallout 4)" : "") + ": " + a_what);
+	}
 }
 
 void App::markChanged(const std::string& a_what)
 {
+	if (startupLog) {
+		startupLog(std::string("edit") + (_save && _save->isFO4() ? " (Fallout 4)" : "") + ": " + a_what);
+	}
 	++_editGen;
 	_cfFacts.clear();
 	_dirty = true;
