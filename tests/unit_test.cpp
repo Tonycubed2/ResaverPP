@@ -1518,6 +1518,31 @@ void TestFo4ChangeForms()
 	npc.length1 = static_cast<std::uint32_t>(n.size());
 	const auto dn = ess::fo4cf::DecodeNpc(save, npc);
 	Check(dn.complete && dn.name == "Nate" && dn.parts.size() == 2, "fo4 NPC_: factions and name");
+	Check(ess::fo4cf::PlayerLevel(save) == -1, "fo4 player level: none without a changed ACBS");
+
+	// the player's NPC_ with a changed ACBS (flag 1): the level is the i16 at offset 6
+	{
+		B ac;
+		u32(ac, 0x24); u16(ac, 50); u16(ac, 12); ac.insert(ac.end(), 12, 0);
+		ess::ChangeForm pn;
+		pn.refID.data = (1u << 22) | 7;
+		pn.typeField = 9;
+		pn.changeFlags = 1u << 1;
+		pn.data = ac;
+		pn.length1 = static_cast<std::uint32_t>(ac.size());
+		auto& s2 = save;
+		auto  kept = std::move(s2.changeForms);
+		const auto keptLevel = s2.header.playerLevel;
+		s2.changeForms.clear();
+		s2.changeForms.push_back(pn);
+		Check(ess::fo4cf::PlayerLevel(s2) == 12, "fo4 player level from the ACBS block");
+		Check(ess::fo4cf::SetPlayerLevel(s2, 30).empty() && ess::fo4cf::PlayerLevel(s2) == 30 && s2.header.playerLevel == 30,
+			"fo4 player level: set (ACBS and header)");
+		Check(!ess::fo4cf::SetPlayerLevel(s2, 0).empty(), "fo4 player level: 0 refused");
+		Check(!ess::fo4cf::SetPlayerXP(s2, 10.f).empty(), "fo4 player experience: no player reference, refused");
+		s2.changeForms = std::move(kept);
+		s2.header.playerLevel = keptLevel;
+	}
 	Check(std::string(ess::fo4cf::RefrFlagMeaning(10, false)) == "extra data list" && std::string(ess::fo4cf::RefrFlagMeaning(10, true)).empty(),
 		"fo4 change flags: extra data masks differ for REFR and ACHR");
 }

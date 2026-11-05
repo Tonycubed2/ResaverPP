@@ -72,6 +72,8 @@ namespace ess
 			"  --fo4-set-perk <id>:<n>   Fallout 4: set the rank of a player perk (form id, hex), adding the perk if the\n"
 			"                            player does not have it. Needs -o.\n"
 			"  --fo4-remove-perk <id>    Fallout 4: remove a perk from the player's perk list. Needs -o.\n"
+			"  --fo4-set-level <n>       Fallout 4: set the player's level (the NPC_ ACBS block and the header). Needs -o.\n"
+			"  --fo4-set-xp <n>          Fallout 4: set the player's experience (actor value 0x2C9). Needs -o.\n"
 			"  --set-gold <n>            set the gold the player carries. Needs -o.\n"
 			"  --set-skill <skill> <n>   set a skill (e.g. OneHanded, Archery, Speech) to n. Needs -o.\n"
 			"  --set-bounty <faction formid> <violent> <non-violent>  set the bounty with a hold's crime faction.\n"

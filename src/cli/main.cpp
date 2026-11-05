@@ -406,7 +406,9 @@ int main(int argc, char** argv)
 	bool          effectsView = false;
 	std::vector<std::size_t> removeEffects;
 	int           playerGold = -1;
-	std::vector<std::pair<std::uint32_t, int>> fo4PerkEdits;  // --fo4-set-perk (rank) / --fo4-remove-perk (-1)
+	std::vector<std::pair<std::uint32_t, int>> fo4PerkEdits;
+	int           fo4Level = -1;
+	double        fo4Xp = -1;  // --fo4-set-perk (rank) / --fo4-remove-perk (-1)
 	std::vector<std::pair<std::string, float>> playerSkills;
 	std::vector<std::tuple<std::uint32_t, int, int>> playerBounties;
 	std::vector<std::pair<std::string, std::vector<std::string>>> playerEdits;  // the other player edits, in order
@@ -463,6 +465,10 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			fo4PerkEdits.push_back({ static_cast<std::uint32_t>(std::stoul(v.substr(0, c), nullptr, 16)), std::stoi(v.substr(c + 1)) });
+		} else if (a == "--fo4-set-level") {
+			fo4Level = std::atoi(next().c_str());
+		} else if (a == "--fo4-set-xp") {
+			fo4Xp = std::atof(next().c_str());
 		} else if (a == "--fo4-remove-perk") {
 			fo4PerkEdits.push_back({ static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)), -1 });
 		} else if (a == "--effects") {
@@ -622,7 +628,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -720,6 +726,7 @@ int main(int argc, char** argv)
 							std::printf(" %g", v);
 						}
 						std::printf("\n");
+						std::printf("player level %d (header %u), experience %g\n", fo4cf::PlayerLevel(*save), save->header.playerLevel, fo4cf::PlayerXP(*save));
 						if (a.tail && a.hasPerks) {
 							std::printf("player perks: %zu (then %zu and %zu entries in the two lists after them)\n", a.perks.size(), a.perkRefs.size(), a.perkValues.size());
 							for (const auto& p : a.perks) {
@@ -1463,6 +1470,28 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			std::printf("removed %s from %08X\n", removeExtraName.c_str(), removeExtraForm);
+		}
+		if (fo4Level >= 0 || fo4Xp >= 0) {
+			if (!save->isFO4()) {
+				std::fprintf(stderr, "--fo4-set-level / --fo4-set-xp need a Fallout 4 save\n");
+				return 1;
+			}
+			if (fo4Level >= 0) {
+				const auto why = fo4cf::SetPlayerLevel(*save, fo4Level);
+				if (!why.empty()) {
+					std::fprintf(stderr, "could not set the level: %s\n", why.c_str());
+					return 1;
+				}
+				std::printf("set the player's level to %d\n", fo4Level);
+			}
+			if (fo4Xp >= 0) {
+				const auto why = fo4cf::SetPlayerXP(*save, static_cast<float>(fo4Xp));
+				if (!why.empty()) {
+					std::fprintf(stderr, "could not set experience: %s\n", why.c_str());
+					return 1;
+				}
+				std::printf("set the player's experience to %g\n", fo4Xp);
+			}
 		}
 		for (const auto& [perk, rank] : fo4PerkEdits) {
 			auto* pl = save->isFO4() ? const_cast<ChangeForm*>(fo4cf::FindPlayer(*save)) : nullptr;

@@ -562,4 +562,86 @@ namespace ess::fo4cf
 		}
 		return WritePerks(a_save, a_cf, d, perks);
 	}
+
+	namespace
+	{
+		ChangeForm* PlayerNpc(SaveFile& a_save, Range* a_acbs)
+		{
+			for (auto& c : a_save.changeForms) {
+				if (c.typeCode() != 9 || a_save.formIDOf(c.refID) != 7) continue;
+				const auto n = DecodeNpc(a_save, c);
+				for (const auto& p : n.parts) {
+					if (std::string(p.name) == "ACBS" && p.range.size() == 20) {
+						*a_acbs = p.range;
+						return &c;
+					}
+				}
+				return nullptr;
+			}
+			return nullptr;
+		}
+	}
+
+	int PlayerLevel(const SaveFile& a_save)
+	{
+		Range r;
+		auto* c = PlayerNpc(const_cast<SaveFile&>(a_save), &r);
+		if (!c) return -1;
+		const auto body = cf::Body(*c);
+		std::int16_t v;
+		std::memcpy(&v, body.data() + r.begin + 6, 2);
+		return v;
+	}
+
+	std::string SetPlayerLevel(SaveFile& a_save, int a_level)
+	{
+		if (a_level < 1 || a_level > 32767) {
+			return "the level must be 1 to 32767";
+		}
+		Range r;
+		auto* c = PlayerNpc(a_save, &r);
+		if (!c) {
+			return "the save has no changed ACBS block for the player (form 0x7, change flag 1): the level is the plugin's";
+		}
+		auto body = cf::Body(*c);
+		const auto v = static_cast<std::int16_t>(a_level);
+		std::memcpy(body.data() + r.begin + 6, &v, 2);
+		ChangeForm copy = *c;
+		cf::SetBody(copy, body);
+		const auto n = DecodeNpc(a_save, copy);
+		const bool wasComplete = DecodeNpc(a_save, *c).complete;
+		if (n.complete != wasComplete) {
+			return "the re-encoded NPC_ does not read back";
+		}
+		*c = std::move(copy);
+		if (PlayerLevel(a_save) != a_level) {
+			return "the re-encoded NPC_ does not read back";
+		}
+		a_save.header.playerLevel = static_cast<std::uint32_t>(a_level);
+		return {};
+	}
+
+	double PlayerXP(const SaveFile& a_save)
+	{
+		const auto* p = FindPlayer(a_save);
+		if (!p) return -1;
+		const auto a = DecodeActor(a_save, *p);
+		if (!a.decoded) return -1;
+		for (const auto& v : a.values) {
+			if (v.formID == 0x2C9) return v.base;
+		}
+		return -1;  // no saved base
+	}
+
+	std::string SetPlayerXP(SaveFile& a_save, float a_xp)
+	{
+		if (!(a_xp >= 0)) {
+			return "experience must be 0 or more";
+		}
+		auto* p = const_cast<ChangeForm*>(FindPlayer(a_save));
+		if (!p) {
+			return "no player reference (ACHR 0x14) in this save";
+		}
+		return SetActorValueBase(a_save, *p, 0x2C9, a_xp);
+	}
 }

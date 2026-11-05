@@ -190,6 +190,17 @@ namespace ess::fo4cf
 	// a_count. Returns "" or what went wrong (then the save is unchanged).
 	std::string SetPlayerCaps(SaveFile& a_save, std::int32_t a_count);
 
+	// The player's level: the i16 level in the ACBS block (20 bytes, read raw into TESActorBaseData's actor data by
+	// 0x30adf0) of the player's NPC_ change form (form 0x7, change flag 1). -1 when the save has no changed ACBS for
+	// the player (the level is then the plugin's; the header's level is the one shown).
+	int PlayerLevel(const SaveFile& a_save);
+	// Sets the level in the ACBS block (in place) and the header's level. Refused when the save has no ACBS block.
+	std::string SetPlayerLevel(SaveFile& a_save, int a_level);
+	// The player's experience: the base of actor value 0x2C9 (Experience: index 13, form id 0x2BC + index, 0x6fd1e0).
+	// -1 when it cannot be read or the player has no saved base for it.
+	double      PlayerXP(const SaveFile& a_save);
+	std::string SetPlayerXP(SaveFile& a_save, float a_xp);
+
 	// What a change flag of a REFR / ACHR makes the game read (short text), or "" when it reads nothing itself.
 	const char* RefrFlagMeaning(int a_bit, bool a_actor);
 
