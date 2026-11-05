@@ -1305,7 +1305,7 @@ void App::drawMenu()
 			_showCheck = true;
 		}
 		tips::Tip("Everything ReSaver++ noticed about this save, and what can safely be done about it.");
-		ImGui::MenuItem("Transplant progress from a bad save...", nullptr, &_showTransplant, !fo4());
+		ImGui::MenuItem("Transplant progress from a bad save...", nullptr, &_showTransplant);
 		tips::Tip("Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one.");
 		ImGui::MenuItem("Analysis", nullptr, &_showAnalysis);
 		tips::Tip("A text report of the save: which mods and scripts take the most space and run the most.");

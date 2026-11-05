@@ -3,6 +3,7 @@
 
 #include <array>
 #include "core/Transplant.h"
+#include "core/TransplantFO4.h"
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
 #include "core/ChangeFormFO4.h"
@@ -146,6 +147,10 @@ public:
 		} else if (w == "player") {
 			_showPlayer = true;
 			_pvLoaded = false;
+		} else if (w.rfind("transplantf4:", 0) == 0) {
+			// test: Fallout 4 Transplant, the old save read from its file (the good one is the open save)
+			_showTransplant = true;
+			transplantF4Load(w.substr(13));
 		} else if (w.rfind("transplant:", 0) == 0) {
 			// test: bad save | good save, both read from their files
 			const auto bar = w.find('|');
@@ -283,6 +288,29 @@ private:
 	std::vector<TpMissing> _tpMissing;
 	bool                   _tpChecking = false, _tpChecked = false;
 	double                 _tpWaitStart = 0;  // when the snapshot request was sent (no answer after a while: say so)
+	// Transplant for Fallout 4 (AppTransplantF4.cpp): both saves read from their files
+	void                   drawTransplantF4();
+	void                   transplantF4Load(const std::filesystem::path& a_path);
+	std::string            transplantF4Name(const ess::transplant::fo4::Change& a_c) const;
+	std::string            transplantF4Group(const ess::transplant::fo4::Change& a_c) const;
+	void                   transplantF4StartGame(std::vector<std::size_t> a_run);
+	void                   transplantF4PollSave();
+	void                   transplantF4Step();
+	void                   transplantF4Send(std::size_t a_idx, std::vector<ess::transplant::Record> a_rest, std::string a_said);
+	ess::transplant::fo4::Snapshot             _tf4Old, _tf4Good;
+	std::vector<ess::transplant::fo4::Change>  _tf4Changes;
+	std::map<std::size_t, std::pair<bool, std::string>> _tf4Results;  // change -> done, what happened
+	std::filesystem::path  _tf4OldPath;
+	const ess::SaveFile*   _tf4GoodOf = nullptr;  // the open save the good snapshot was read from
+	bool                   _tf4GoodChanged = false, _tf4Dirty = false, _tf4Running = false, _tf4MarkCompleted = true, _tf4NeedOrder = false;
+	std::vector<std::size_t> _tf4Run;
+	std::size_t            _tf4Pos = 0;
+	std::string            _tf4WaitSave;  // the save the game is writing (file name), while waiting for it
+	double                 _tf4WaitStart = 0;
+	std::int64_t           _tf4WaitSize = -1;
+	ess::PluginInfo        _tf4GameOrder;  // the game's load order (from that save)
+	std::string            _tf4GameNote;
+	char                   _tf4Filter[128] = "";
 	// tool windows that can fill the whole ReSaver++ window (AppTransplant.cpp)
 	void prepareWindow(const char* a_id, ImVec2 a_defaultFraction);  // before Begin
 	void maximizeControl(const char* a_id);                          // right after Begin

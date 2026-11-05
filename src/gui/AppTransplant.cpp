@@ -633,6 +633,10 @@ void App::prepareWindow(const char* a_id, ImVec2 a_defaultFraction)
 
 void App::drawTransplant()
 {
+	if (fo4()) {
+		drawTransplantF4();  // (AppTransplantF4.cpp: both saves read from their files)
+		return;
+	}
 	prepareWindow("Transplant", ImVec2(0.9f, 0.9f));
 	if (!ImGui::Begin("Transplant", &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
