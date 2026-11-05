@@ -406,6 +406,7 @@ int main(int argc, char** argv)
 	bool          effectsView = false;
 	std::vector<std::size_t> removeEffects;
 	int           playerGold = -1;
+	std::vector<std::pair<std::uint32_t, int>> fo4PerkEdits;  // --fo4-set-perk (rank) / --fo4-remove-perk (-1)
 	std::vector<std::pair<std::string, float>> playerSkills;
 	std::vector<std::tuple<std::uint32_t, int, int>> playerBounties;
 	std::vector<std::pair<std::string, std::vector<std::string>>> playerEdits;  // the other player edits, in order
@@ -452,6 +453,18 @@ int main(int argc, char** argv)
 			fo4Cfs.push_back(static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)));
 		} else if (a == "--fo4-cf-stats") {
 			fo4CfStats = true;
+		} else if (a == "--fo4-perks") {
+			fo4CfStats = true;
+		} else if (a == "--fo4-set-perk") {
+			const auto v = next();
+			const auto c = v.find(':');
+			if (c == std::string::npos) {
+				std::fprintf(stderr, "--fo4-set-perk needs <perk formid>:<rank>\n");
+				return 1;
+			}
+			fo4PerkEdits.push_back({ static_cast<std::uint32_t>(std::stoul(v.substr(0, c), nullptr, 16)), std::stoi(v.substr(c + 1)) });
+		} else if (a == "--fo4-remove-perk") {
+			fo4PerkEdits.push_back({ static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)), -1 });
 		} else if (a == "--effects") {
 			effectsView = true;
 		} else if (a == "--remove-effect") {
@@ -609,7 +622,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -707,6 +720,14 @@ int main(int argc, char** argv)
 							std::printf(" %g", v);
 						}
 						std::printf("\n");
+						if (a.tail && a.hasPerks) {
+							std::printf("player perks: %zu (then %zu and %zu entries in the two lists after them)\n", a.perks.size(), a.perkRefs.size(), a.perkValues.size());
+							for (const auto& p : a.perks) {
+								std::printf("  perk %08X  rank %u  (%s)\n", p.formID, p.rank, save->pluginOf(p.formID).c_str());
+							}
+						} else if (!a.tail) {
+							std::printf("player perks: %s\n", a.error.c_str());
+						}
 					} else {
 						std::printf("player actor part: %s\n", a.error.c_str());
 					}
@@ -1442,6 +1463,24 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			std::printf("removed %s from %08X\n", removeExtraName.c_str(), removeExtraForm);
+		}
+		for (const auto& [perk, rank] : fo4PerkEdits) {
+			auto* pl = save->isFO4() ? const_cast<ChangeForm*>(fo4cf::FindPlayer(*save)) : nullptr;
+			if (!pl) {
+				std::fprintf(stderr, "--fo4-set-perk / --fo4-remove-perk need a Fallout 4 save with the player's change form\n");
+				return 1;
+			}
+			if (rank > 255) {
+				std::fprintf(stderr, "a perk rank is 0..255\n");
+				return 1;
+			}
+			const auto why = rank < 0 ? fo4cf::RemovePerk(*save, *pl, perk) : fo4cf::AddPerk(*save, *pl, perk, static_cast<std::uint8_t>(rank));
+			if (!why.empty()) {
+				std::fprintf(stderr, "could not change perk %08X: %s\n", perk, why.c_str());
+				return 1;
+			}
+			if (rank < 0) std::printf("removed perk %08X from the player\n", perk);
+			else std::printf("player perk %08X: rank %d\n", perk, rank);
 		}
 		if (playerGold >= 0) {
 			const auto why = cf::SetPlayerGold(*save, playerGold);

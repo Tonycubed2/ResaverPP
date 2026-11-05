@@ -351,6 +351,7 @@ namespace ess::fo4cf
 					p.rankRange.end = p.range.end = r.pos();
 					out.perks.push_back(p);
 				}
+				out.perkList = { out.perksRange.begin, r.pos() };
 				for (auto n = b.vs(); n; --n) {
 					PerkRef p;
 					p.range.begin = r.pos();
@@ -423,5 +424,142 @@ namespace ess::fo4cf
 			return "no player reference (ACHR 0x14) in this save";
 		}
 		return SetActorValueBase(a_save, *p, 0x2C2u + static_cast<std::uint32_t>(a_index), a_value);
+	}
+
+	namespace
+	{
+		void PutVsval(std::vector<std::uint8_t>& a_out, std::uint32_t a_v)
+		{
+			if (a_v < 0x40) {
+				a_out.push_back(static_cast<std::uint8_t>(a_v << 2));
+			} else if (a_v < 0x4000) {
+				const std::uint32_t x = (a_v << 2) | 1;
+				a_out.push_back(static_cast<std::uint8_t>(x));
+				a_out.push_back(static_cast<std::uint8_t>(x >> 8));
+			} else {
+				const std::uint32_t x = (a_v << 2) | 2;
+				a_out.push_back(static_cast<std::uint8_t>(x));
+				a_out.push_back(static_cast<std::uint8_t>(x >> 8));
+				a_out.push_back(static_cast<std::uint8_t>(x >> 16));
+			}
+		}
+
+		// the save's reference for a form id: a Fallout4.esm form below 0x400000 directly, else its index in the
+		// form id array (0 when the save has no reference for it)
+		std::uint32_t RefFor(const SaveFile& a_save, std::uint32_t a_formID)
+		{
+			if ((a_formID >> 24) == 0 && a_formID < 0x400000u) {
+				return 0x400000u | a_formID;
+			}
+			for (std::size_t i = 0; i < a_save.formIDs.size() && i + 1 < 0x400000u; ++i) {
+				if (a_save.formIDs[i] == a_formID) return static_cast<std::uint32_t>(i + 1);
+			}
+			return 0;
+		}
+
+		std::string Perks(const SaveFile& a_save, const ChangeForm& a_cf, Actor& a_out)
+		{
+			a_out = DecodeActor(a_save, a_cf);
+			if (!a_out.tail) {
+				return "the actor's perks cannot be read: " + a_out.error;
+			}
+			if (!a_out.hasPerks) {
+				return "the actor has no saved perk lists";
+			}
+			return {};
+		}
+
+		// rebuilds the first perk list from a_perks and checks that the body reads back with exactly that list
+		std::string WritePerks(const SaveFile& a_save, ChangeForm& a_cf, const Actor& a_d, const std::vector<Perk>& a_perks)
+		{
+			const auto body = cf::Body(a_cf);
+			std::vector<std::uint8_t> out(body.begin(), body.begin() + static_cast<std::ptrdiff_t>(a_d.perkList.begin));
+			PutVsval(out, static_cast<std::uint32_t>(a_perks.size()));
+			for (const auto& p : a_perks) {
+				out.push_back(static_cast<std::uint8_t>(p.perk.data >> 16));
+				out.push_back(static_cast<std::uint8_t>(p.perk.data >> 8));
+				out.push_back(static_cast<std::uint8_t>(p.perk.data));
+				out.push_back(p.rank);
+			}
+			out.insert(out.end(), body.begin() + static_cast<std::ptrdiff_t>(a_d.perkList.end), body.end());
+			ChangeForm copy = a_cf;
+			cf::SetBody(copy, out);
+			const auto again = DecodeActor(a_save, copy);
+			bool ok = again.tail && again.perks.size() == a_perks.size() && again.perkRefs.size() == a_d.perkRefs.size() &&
+			          again.perkValues.size() == a_d.perkValues.size() &&
+			          static_cast<std::ptrdiff_t>(again.tailEnd) - static_cast<std::ptrdiff_t>(a_d.tailEnd) ==
+			              static_cast<std::ptrdiff_t>(out.size()) - static_cast<std::ptrdiff_t>(body.size());
+			for (std::size_t i = 0; ok && i < a_perks.size(); ++i) {
+				ok = again.perks[i].perk == a_perks[i].perk && again.perks[i].rank == a_perks[i].rank;
+			}
+			if (!ok) {
+				return "the re-encoded actor does not read back";
+			}
+			a_cf = std::move(copy);
+			return {};
+		}
+	}
+
+	std::string SetPerkRank(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_perkFormID, std::uint8_t a_rank)
+	{
+		Actor d;
+		if (auto e = Perks(a_save, a_cf, d); !e.empty()) return e;
+		const Perk* p = nullptr;
+		for (const auto& x : d.perks) {
+			if (x.formID == a_perkFormID) p = &x;
+		}
+		if (!p) {
+			return "the actor does not have this perk";
+		}
+		auto body = cf::Body(a_cf);
+		body[p->rankRange.begin] = a_rank;
+		ChangeForm copy = a_cf;
+		cf::SetBody(copy, body);
+		const auto again = DecodeActor(a_save, copy);
+		bool ok = again.tail && again.perks.size() == d.perks.size() && again.tailEnd == d.tailEnd;
+		if (ok) {
+			ok = false;
+			for (const auto& x : again.perks) {
+				if (x.formID == a_perkFormID && x.rank == a_rank) ok = true;
+			}
+		}
+		if (!ok) {
+			return "the re-encoded actor does not read back";
+		}
+		a_cf = std::move(copy);
+		return {};
+	}
+
+	std::string AddPerk(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_perkFormID, std::uint8_t a_rank)
+	{
+		Actor d;
+		if (auto e = Perks(a_save, a_cf, d); !e.empty()) return e;
+		for (const auto& x : d.perks) {
+			if (x.formID == a_perkFormID) return SetPerkRank(a_save, a_cf, a_perkFormID, a_rank);
+		}
+		Perk n;
+		n.perk.data = RefFor(a_save, a_perkFormID);
+		if (!n.perk.data || a_save.formIDOf(n.perk) != a_perkFormID) {
+			return "the save has no reference for this form id (adding one to the form id array is not supported)";
+		}
+		n.formID = a_perkFormID;
+		n.rank = a_rank;
+		auto perks = d.perks;
+		perks.push_back(n);
+		return WritePerks(a_save, a_cf, d, perks);
+	}
+
+	std::string RemovePerk(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_perkFormID)
+	{
+		Actor d;
+		if (auto e = Perks(a_save, a_cf, d); !e.empty()) return e;
+		std::vector<Perk> perks;
+		for (const auto& x : d.perks) {
+			if (x.formID != a_perkFormID) perks.push_back(x);
+		}
+		if (perks.size() == d.perks.size()) {
+			return "the actor does not have this perk";
+		}
+		return WritePerks(a_save, a_cf, d, perks);
 	}
 }

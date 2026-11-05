@@ -152,6 +152,7 @@ namespace ess::fo4cf
 		Range         controllerRange;
 		bool          hasPerks = false;       // the perk lists (0x986b40) were saved
 		Range         perksRange;             // the three lists (begin = the first vsval)
+		Range         perkList;               // the first list with its vsval count
 		std::vector<Perk>      perks;         // vsval n x (perk, u8 rank)
 		std::vector<PerkRef>   perkRefs;      // vsval n x perk
 		std::vector<PerkValue> perkValues;    // vsval n x (perk, u32)
