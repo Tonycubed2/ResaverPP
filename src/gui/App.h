@@ -5,6 +5,7 @@
 #include "core/Transplant.h"
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
+#include "core/ChangeFormFO4.h"
 #include "core/CrashLog.h"
 #include "core/Compare.h"
 #include "core/Extras.h"
@@ -557,6 +558,7 @@ private:
 	bool        namesLoading() const;
 	void        drawLookup();
 	void        drawPlayer();
+	void        drawPlayerFO4();  // AppPlayerFO4.cpp
 	// Main screen shortcuts: the Clean and Tools menu entries as buttons under the overview (AppHome.cpp)
 	enum class Sc
 	{
@@ -947,6 +949,11 @@ private:
 	bool                       _pvLoaded = false;
 	bool                       _pvAllFactions = false;
 	ess::cf::PlayerValues      _pv;
+	ess::fo4cf::Actor          _f4Actor;  // Fallout 4 Edit player
+	std::string                _f4Error;
+	long long                  _f4Caps = -1;
+	int                        _f4CapsEdit = 0;
+	int                        _f4Special[7]{}, _f4SpecialEdit[7]{};
 	int                        _pvGold = 0;
 	float                      _pvSkills[18]{};
 	std::vector<std::array<int, 2>> _pvBounty;

@@ -94,7 +94,6 @@ bool App::SkyrimOnly(Sc a_which)
 	case Sc::kMcm:
 	case Sc::kHavok:
 	case Sc::kPurify:
-	case Sc::kPlayer:
 	case Sc::kActors:
 	case Sc::kTransplant:
 	case Sc::kMerge:
