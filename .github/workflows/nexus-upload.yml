@@ -38,6 +38,10 @@ on:
         description: "Allow mod manager downloads (false = manual download only)"
         required: false
         default: "false"
+      layout:
+        description: "Zip layout: flat (files at the top) or data-tools (Data/Tools/ReSaverPP/..., so Vortex and MO2 can install it)"
+        required: false
+        default: "flat"
       dry_run:
         description: "true = check everything, post and upload nothing"
         required: false
@@ -120,8 +124,18 @@ jobs:
           done
 
       - name: Package
+        env:
+          LAYOUT: ${{ inputs.layout }}
         run: |
-          zip -j -q ReSaverPP.zip build/ReSaverPP.exe build/resaverpp-cli.exe LICENSE NOTICE.md README.md
+          case "$LAYOUT" in
+          flat|"")
+            zip -j -q ReSaverPP.zip build/ReSaverPP.exe build/resaverpp-cli.exe LICENSE NOTICE.md README.md ;;
+          data-tools)
+            mkdir -p pkg/Data/Tools/ReSaverPP
+            cp build/ReSaverPP.exe build/resaverpp-cli.exe LICENSE NOTICE.md README.md pkg/Data/Tools/ReSaverPP/
+            (cd pkg && zip -r -q -X ../ReSaverPP.zip Data) ;;
+          *) echo "::error::unknown layout '$LAYOUT' (flat or data-tools)"; exit 1 ;;
+          esac
           unzip -l ReSaverPP.zip
 
       - name: Keep the zip (Actions run -> Artifacts)
