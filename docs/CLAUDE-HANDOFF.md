@@ -186,6 +186,23 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 - `cli/main.cpp`: `resaverpp-cli` (incl. `--set-property`, `--plugin-property`).
 - `tests/unit_test.cpp` (`rs_unit`): add a test for each fix.
 
+7. **Fallout 4 page** (set up 2026-11-05): domain `fallout4`, mod 110975, Unique Mod ID 4943507468671, game_id 1151.
+   Files: main "ReSaverPP" File ID 8317824 (Short ID seiQXq0kr), optional "ReSaverHelper" File ID 8317827 (both first
+   uploaded by hand by Tony as version 1). The page was not yet published on 2026-11-05: v1 `files.json` lists nothing
+   then, so `nexus-ids.yml` also prints the v3 list (`/v3/mods/<uid>/files`), which does.
+   - Main file: the same `nexus-upload.yml`, `dispNf4.json`:
+```
+{"ref":"main","inputs":{"version":"N","changelog":"line one | line two","description":"vN: one line","file_id":"8317824","mod_id":"4943507468671","display_name":"ReSaverPP"}}
+```
+   - Helper: `nexus-helper-f4.yml` (zip `helper-f4/release/ReSaverHelper.zip`, Tony's build; file_id defaults to
+     8317827; changelog entry `ReSaverHelper-F4-<version>`):
+```
+{"ref":"main","inputs":{"version":"12","changelog":"line one | line two"}}
+```
+   - Both take `"dry_run":"true"`: everything is checked (the file is on that page, the zip, the build) and nothing
+     is posted or uploaded. Check afterwards with `nexus-ids.yml` `{"domain":"fallout4","mod":"110975"}`.
+   - `nexus-update-file.yml` now has a `mod_id` input (default SE 7318624468677) for its changelog.
+
 ## 9. Release history (recent)
 
 - v34 merged patch announcement; v35 native-frame thread fix (etgmotley's save); v36 save archive + title bar;

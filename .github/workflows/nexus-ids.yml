@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       domain:
-        description: "Game domain (skyrim, skyrimspecialedition)"
+        description: "Game domain (skyrim, skyrimspecialedition, fallout4)"
         required: true
         default: "skyrim"
       mod:
@@ -35,8 +35,7 @@ jobs:
           # v3 lists the page's files even before the page is published (v1 lists none then)
           uid=$(jq -r '.uid' mod.json)
           code=$(curl -sS -o v3.json -w '%{http_code}' "${h[@]}" "https://api.nexusmods.com/v3/mods/$uid/files")
-          echo "::notice::v3 files HTTP $code: $(jq -c '[(.data // .)[]? | {id, name, version, category: (.category // .file_category)}]' v3.json 2>/dev/null | head -c 900)"
-          echo "::notice::v3 reply: $(head -c 900 v3.json)"
+          echo "::notice::v3 files HTTP $code: $(jq -r '[.data.mod_files[]? | "\(.id) \(.name) (versions \(.versions_count), last upload \(.last_file_uploaded_at))"] | join("; ")' v3.json 2>/dev/null | head -c 900)"
           # current files only, newest first (GitHub shows at most 10 notices per step)
           for f in $(jq -r '[.files[] | select(.category_name != "OLD_VERSION" and .category_name != "ARCHIVED")] | sort_by(-.file_id) | .[].file_id' files.json); do
             curl -sS "${h[@]}" "https://api.nexusmods.com/v3/games/$DOMAIN/mod-file-versions/$f" -o fv.json

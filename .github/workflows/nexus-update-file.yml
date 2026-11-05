@@ -38,6 +38,10 @@ on:
         description: "Changelog text (' | ' separates lines)"
         required: false
         default: ""
+      mod_id:
+        description: "Unique Mod ID the changelog goes to (SE 7318624468677, Fallout 4 4943507468671)"
+        required: false
+        default: "7318624468677"
       mod_manager:
         description: "Allow mod manager downloads"
         required: false
@@ -62,11 +66,12 @@ jobs:
           KEY: ${{ secrets.NEXUSMODS_API_KEY }}
           VERSION: ${{ inputs.changelog_version }}
           TEXT: ${{ inputs.changelog }}
+          MOD_ID: ${{ inputs.mod_id || '7318624468677' }}
         run: |
           text=$(printf '%s' "$TEXT" | sed 's/ | /\n/g')
           body=$(jq -n --arg v "$VERSION" --arg c "$text" '{version: $v, changelog: $c}')
           code=$(curl -sS -o resp.json -w '%{http_code}' -X POST -H "apikey: $KEY" -H "Content-Type: application/json" \
-            -H "User-Agent: ReSaverPP-release" --data "$body" "https://api.nexusmods.com/v3/mods/7318624468677/changelogs")
+            -H "User-Agent: ReSaverPP-release" --data "$body" "https://api.nexusmods.com/v3/mods/$MOD_ID/changelogs")
           [ "$code" = "201" ] || { echo "::error::Nexus refused the changelog (HTTP $code): $(head -c 300 resp.json)"; exit 1; }
 
       - name: Upload the new version
