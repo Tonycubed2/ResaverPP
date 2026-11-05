@@ -488,6 +488,7 @@ private:
 	void                                  liveStop(std::uint32_t a_formID, const std::string& a_name);   // helper 11: Quest.Stop
 	void                                  liveReset(std::uint32_t a_formID, const std::string& a_name);  // helper 11: Quest.Reset
 	bool                                  helperAtLeast(int a_version) const;
+	bool                                  liveFO4() const;  // the running game is Fallout 4 (its helper: the rescue set only)
 	std::vector<ChainItem>                _chainRun;
 	std::size_t                           _chainPos = 0;
 	std::string                           liveNotifyMode() const;

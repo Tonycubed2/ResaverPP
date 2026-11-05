@@ -182,7 +182,17 @@ void App::liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std:
 bool App::helperAtLeast(int a_version) const
 {
 	const auto info = _live.info();
+	if (info.connected && info.runtime.rfind("F4", 0) == 0) {
+		// the Fallout 4 helper speaks version 12's rescue set only (no quests, journal or Transplant)
+		return a_version == 12;
+	}
 	return info.connected && std::atoi(info.helperVersion.c_str()) >= a_version;
+}
+
+bool App::liveFO4() const
+{
+	const auto info = _live.info();
+	return info.connected && info.runtime.rfind("F4", 0) == 0;
 }
 
 void App::liveComplete(std::uint32_t a_formID, const std::string& a_name)

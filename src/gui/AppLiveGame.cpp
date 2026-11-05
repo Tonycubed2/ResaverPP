@@ -40,6 +40,11 @@ void App::liveListFollowers()
 	if (_liveGameBusy) {
 		return;
 	}
+	if (liveFO4()) {
+		// Fallout 4: the game's own follower system brings the companion and Dogmeat; there is no list to pick from
+		liveGameAction("GATHER", "Calling your companion and Dogmeat");
+		return;
+	}
 	_liveGameBusy = true;
 	_liveGameResult = "Looking for your followers...";
 	_liveGameResultOk = true;
@@ -93,6 +98,12 @@ void App::liveGameAction(const std::string& a_command, const std::string& a_what
 		_liveGameResultOk = LiveLink::Ok(r);
 		if (!_liveGameResultOk) {
 			_liveGameResult = "The game said: " + LiveLink::Error(r);
+		} else if (a_command == "GATHER" && LiveLink::Field(r, 0) == "?") {
+			_liveGameResult = "Your companion and Dogmeat were called to you (if they are with you: Fallout 4 does not say who came).";
+		} else if (a_command == "CONTROLS" && liveFO4()) {
+			_liveGameResult = "Your controls are forced back on (ForceEnablePlayerControls). \"Give the controls back to the game\" undoes it.";
+		} else if (a_command == "CONTROLSRESET") {
+			_liveGameResult = "Your controls are back to what the game and its scripts set.";
 		} else if (a_command == "GATHER") {
 			const auto n = std::atoi(LiveLink::Field(r, 0).c_str());
 			_liveGameResult = n == 0 ? std::string("No followers found to bring (nobody is following you right now).")
@@ -118,9 +129,10 @@ void App::drawLiveGame()
 		ImGui::End();
 		return;
 	}
+	const bool fo4 = liveFO4();
 	ImGui::PushTextWrapPos(600);
 	ImGui::TextDisabled("No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin "
-						"on the ReSaver Plus page).");
+						"on the ReSaver Plus page; for Fallout 4, the F4SE one).");
 	ImGui::PopTextWrapPos();
 	ImGui::Spacing();
 
@@ -133,7 +145,8 @@ void App::drawLiveGame()
 			saveSettings();
 		}
 	} else if (!info.connected) {
-		Colored(theme::Caution(), "Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins "
+		Colored(theme::Caution(), "Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, "
+								  "or Fallout 4 (with F4SE and the Address Library) with the Fallout 4 ReSaverHelper.dll in Data\\F4SE\\Plugins "
 								  "(or as a mod in Mod Organizer / Vortex); this window connects by itself once the game runs.");
 	} else if (!helperAtLeast(kRescueHelper)) {
 		Colored(theme::Caution(), "Connected, but the game has ReSaverHelper version " + info.helperVersion +
@@ -149,10 +162,12 @@ void App::drawLiveGame()
 
 	ImGui::BeginDisabled(!ready || _liveGameBusy);
 	const ImVec2 big(296, 0);
-	if (ImGui::Button("Gather followers", big)) {
+	if (ImGui::Button(fo4 ? "Call my companion and Dogmeat" : "Gather followers", big)) {
 		liveListFollowers();
 	}
-	tips::Tip("Every follower you have (vanilla, DLC, and follower mods: anyone following you or set as your teammate) is brought next "
+	tips::Tip(fo4 ? "Fallout 4: your current companion and Dogmeat are teleported to you by the game's own follower system (the same "
+				   "teleport the game uses). Followers from mods that use their own system are not moved."
+				 : "Every follower you have (vanilla, DLC, and follower mods: anyone following you or set as your teammate) is brought next "
 			  "to you, wherever they are: lost, stuck, left in another city or cell. They are placed in a half circle behind you. "
 			  "You get the list first: untick anyone who is not with you (a follower you left at home), and they are remembered "
 			  "for the hold-Ctrl rescue too (sGatherSkip in ReSaverHelper.ini).");
@@ -160,7 +175,9 @@ void App::drawLiveGame()
 	if (ImGui::Button("Get my controls back", big)) {
 		liveGameAction("CONTROLS", "Switching your controls back on");
 	}
-	tips::Tip("Switches the player's controls back on (EnablePlayerControls): moving, fighting, menus, activating, looking around, "
+	tips::Tip(fo4 ? "Fallout 4: ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. "
+				   "Use \"Give the controls back to the game\" when the scene or mod that stuck them is over."
+				 : "Switches the player's controls back on (EnablePlayerControls): moving, fighting, menus, activating, looking around, "
 			  "sneaking, the journal. For a scene or a mod that left you unable to move.");
 	if (ImGui::Button("Save the game now", big)) {
 		liveGameAction("SAVEGAME", "Saving the game");
@@ -172,6 +189,13 @@ void App::drawLiveGame()
 	}
 	tips::Tip("Saves the game (a new save), switches your controls back on and brings every follower next to you: the same as holding "
 			  "Ctrl in the game. The save is made first, so it is the game as it was before the followers moved.");
+	if (fo4) {
+		if (ImGui::Button("Give the controls back to the game", big)) {
+			liveGameAction("CONTROLSRESET", "Giving the controls back to the game");
+		}
+		tips::Tip("Fallout 4: undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your "
+				  "controls again as the game expects. Use it once the scene or mod that stuck them is over.");
+	}
 	ImGui::EndDisabled();
 	if (_liveFollowersShown && ready) {
 		ImGui::Spacing();
@@ -302,7 +326,7 @@ void App::drawLiveGame()
 	}
 	ImGui::PushTextWrapPos(600);
 	ImGui::TextWrapped("Holding Ctrl for %d seconds in the game saves it (a new save), switches your controls back on and brings your "
-					   "followers to you, even when ReSaver Plus is not running. It works while Skyrim is the window in front; let go of "
+					   "followers to you, even when ReSaver Plus is not running. It works while the game is the window in front; let go of "
 					   "Ctrl to do it again.",
 		_rescueSeconds);
 	ImGui::PopTextWrapPos();
