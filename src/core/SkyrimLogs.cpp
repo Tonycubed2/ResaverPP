@@ -117,7 +117,7 @@ namespace ess::logs
 
 		const std::set<std::string>& SystemModules()
 		{
-			static const std::set<std::string> s = { "skyrimse.exe", "skyrimvr.exe", "tesv.exe", "ntdll.dll", "kernelbase.dll",
+			static const std::set<std::string> s = { "skyrimse.exe", "skyrimvr.exe", "tesv.exe", "fallout4.exe", "fallout4vr.exe", "ntdll.dll", "kernelbase.dll",
 				"kernel32.dll", "ucrtbase.dll", "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "user32.dll", "win32u.dll",
 				"combase.dll", "rpcrt4.dll", "msvcrt.dll" };
 			return s;

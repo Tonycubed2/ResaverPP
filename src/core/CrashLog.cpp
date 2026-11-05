@@ -86,12 +86,19 @@ namespace ess::crashlog
 				log.tool = "Trainwreck";
 			} else if (u.find("NETSCRIPTFRAMEWORK") != std::string::npos || u.find("UNHANDLED NATIVE EXCEPTION") != std::string::npos) {
 				log.tool = ".NET Script Framework";
+			} else if (u.rfind("BUFFOUT 4", 0) == 0) {
+				log.tool = "Buffout 4";  // ("Buffout 4 v1.37.0 Mar 12 2025 22:11:48": Buffout 4 and Buffout 4 NG)
+				log.fo4 = true;
 			}
 			if (u.rfind("CRASH TIME", 0) == 0) {
 				log.time = Trim(l.substr(l.find(':') + 1));
 			}
 			if (log.game.empty() && (u.rfind("SKYRIM ", 0) == 0 || u.rfind("SKYRIMSE ", 0) == 0 || u.rfind("SKYRIMVR ", 0) == 0)) {
 				log.game = Trim(l);
+			}
+			if (log.game.empty() && u.rfind("FALLOUT 4 V", 0) == 0) {
+				log.game = Trim(l);  // Buffout 4's first line: "Fallout 4 v1.10.163"
+				log.fo4 = true;
 			}
 			if (log.exception.empty() && u.find("EXCEPTION") != std::string::npos && u.find("UNHANDLED") != std::string::npos) {
 				log.exception = Trim(l);
@@ -101,6 +108,8 @@ namespace ess::crashlog
 		static const std::regex kId(R"(form\s*id\s*[:=]\s*(?:0x)?([0-9a-f]{8})\b)", std::regex::icase);
 		static const std::regex kName(R"((?:GetFullName|Name)\s*:\s*\"([^\"]*)\")", std::regex::icase);
 		static const std::regex kType(R"(form\s*type\s*:\s*([^,}\r\n]+))", std::regex::icase);
+		static const std::regex kEditorID(R"(editor\s*id\s*:\s*\"([^\"]*)\")", std::regex::icase);
+		static const std::regex kFile(R"(^\s*file\s*:\s*\"([^\"]*)\")", std::regex::icase);
 		// a line that starts another object: a register ("R14 0x... (Character*)"), a stack slot ("[RSP+10 ]"), a call
 		// stack frame ("[ 3] 0x...") or any typed pointer ("(TESNPC*)")
 		static const std::regex kObject(R"(^\s*(R[A-Z0-9]{1,3}\s+0x|\[RSP\+|\[\s*\d+\])|\*\))");
@@ -152,6 +161,33 @@ namespace ess::crashlog
 					f.name = find(lines[i + k], kName);
 				}
 			}
+			// EditorID and File come before the form ID in the same object (Buffout 4: File, Modified by, Flags, Name,
+			// EditorID, FormID, FormType; Crash Logger: File, Flags, Name, EditorID, FormID, FormType), up to the line
+			// that starts the object or the end of the form before it
+			auto before = [&](const std::regex& a_re) -> std::string {
+				for (std::size_t k = 1; k <= 8 && k <= i; ++k) {
+					const auto& b = lines[i - k];
+					if (std::regex_search(b, kId) || std::regex_search(b, kType)) {
+						break;
+					}
+					if (auto v = find(b, a_re); !v.empty()) {
+						return v;
+					}
+					if (std::regex_search(b, kObject)) {
+						break;
+					}
+				}
+				return {};
+			};
+			if (f.editorID.empty()) {
+				f.editorID = find(l, kEditorID);
+				if (f.editorID.empty()) {
+					f.editorID = before(kEditorID);
+				}
+			}
+			if (f.file.empty()) {
+				f.file = before(kFile);
+			}
 			if (f.type.empty()) {
 				f.type = Trim(find(l, kType));
 				for (std::size_t k = 1; f.type.empty() && k <= 3 && i + k < lines.size(); ++k) {
@@ -200,6 +236,9 @@ namespace ess::crashlog
 	std::vector<LeveledBase> LeveledBases(const SaveFile& a_save)
 	{
 		std::vector<LeveledBase> out;
+		if (a_save.isFO4()) {
+			return out;  // (Fallout 4 change forms are not decoded: no leveled actors are known)
+		}
 		for (const auto& a : cf::ListLeveledActors(a_save)) {
 			out.push_back({ a.base, a.refRaw, a.formID, a.templ });
 		}
@@ -221,8 +260,10 @@ namespace ess::crashlog
 			}
 		}
 		std::unordered_map<std::uint32_t, const LeveledBase*> byBase;
-		for (const auto& l : a_leveled) {
-			byBase.emplace(l.base, &l);
+		if (!a_save.isFO4()) {  // (Skyrim's leveled actors; none are known for a Fallout 4 save)
+			for (const auto& l : a_leveled) {
+				byBase.emplace(l.base, &l);
+			}
 		}
 
 		std::vector<Finding> out;

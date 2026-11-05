@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
-// Crash log reader: the forms a crash log names (Crash Logger SSE/AE/VR, Trainwreck, .NET Script Framework),
+// Crash log reader: the forms a crash log names (Crash Logger SSE/AE/VR, Trainwreck, .NET Script Framework, and for
+// Fallout 4 Buffout 4 / Buffout 4 NG),
 // matched against the open save, so a crash on loading a save can be traced to the saved object behind it.
 //
 // The usual case: a spawned or leveled actor whose saved data no longer fits the load order crashes the game
@@ -23,6 +24,8 @@ namespace ess::crashlog
 		std::uint32_t id = 0;
 		std::string   type;   // as the log has it: "NPC (43)", "ActorCharacter (62)", "TESNPC*"...
 		std::string   name;   // the log's Name / GetFullName, when given
+		std::string   editorID;  // the log's EditorID, when given
+		std::string   file;      // the plugin the log says the form is from (File: "x.esp"), when given
 		std::size_t   hits = 0;       // how many times the log names it
 		bool          atCrash = false;  // in the call stack or the registers (what the game was working on), not just the stack memory
 		std::size_t   firstLine = 0;    // 1-based line of the first mention
@@ -33,11 +36,12 @@ namespace ess::crashlog
 		bool                  ok = false;
 		std::string           error;     // why it could not be read
 		std::filesystem::path file;
-		std::string           tool;      // "Crash Logger", "Trainwreck", ".NET Script Framework" or "" (unknown)
+		std::string           tool;      // "Crash Logger", "Trainwreck", ".NET Script Framework", "Buffout 4" or "" (unknown)
 		std::string           time;      // CRASH TIME line, when given
 		std::string           game;      // the game version line, when given
 		std::string           exception; // the "Unhandled exception ..." line
 		std::vector<Form>     forms;     // most relevant first: at the crash, then by hits
+		bool                  fo4 = false;  // a Fallout 4 crash log (Buffout 4: Documents\My Games\Fallout4\F4SE\crash-<UTC time>.log)
 	};
 	Log Read(const std::filesystem::path& a_file);
 	Log Parse(const std::string& a_text);  // the same from text (tests)
@@ -61,7 +65,8 @@ namespace ess::crashlog
 		std::size_t   scripts = 0;  // script instances attached to that change form's form
 	};
 	// a_leveled: the save's leveled actors (cf::ListLeveledActors), for the rebuilt bases; passed in because
-	// reading them takes a moment on a big save
+	// reading them takes a moment on a big save. A Fallout 4 save has none (its change forms are not decoded):
+	// a_leveled is not used for it, and LeveledBases returns nothing for it.
 	struct LeveledBase
 	{
 		std::uint32_t base = 0, actorRefRaw = 0, actor = 0, templ = 0;
