@@ -32,8 +32,9 @@ project; you do the coding, building, delivering and publishing.
   saveFileVersion u16. Change form types renumbered from 28 (no NOTE); change forms are NOT decoded for FO4
   (ChangeFormData::Decode returns an error), quests/journal off. GUI: App::fo4() + SkyrimOnly(Sc) grey out the
   Skyrim tools; opening a .fos drops the Skyrim mods scan and plugin names (scanned again with the next Skyrim save).
-  Tested on Tony's 3 vanilla+DLC saves (2016, v13, form 65): byte-identical round trip; they have no threads, so the
-  thread code is untested on real FO4 data.
+  Tested on Tony's 3 vanilla+DLC saves (2016, v13, form 65) and 2 next-gen saves (1.10.984, v15, form 68, 7 full + 9
+  light plugins, 9 threads with attached ids): all byte-identical round trips; terminating and deleting threads
+  writes and reads back cleanly.
 - Versions are whole numbers, +1 per release. **Current published version: v52** (both pages).
 - v51 (published 2026-11-02): Edit player > Active magic effects (list, tick, Remove; CLI `--effects`, `--remove-effect 3,7`).
   Save layout: high process ACTIVE EFFECTS = vsval count, each {REF item, u8 effect index, vsval type (= MGEF archetype),
