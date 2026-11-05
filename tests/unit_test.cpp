@@ -4,6 +4,7 @@
 // Run by CTest (rs_unit). Exit code 0 = all passed.
 #include "core/Bsa.h"
 #include "core/CrashLog.h"
+#include "core/ChangeFormFO4.h"
 #include "core/ScriptSources.h"
 #include "core/MergedPatch.h"
 #include "core/ModRemove.h"
@@ -1343,6 +1344,98 @@ void TestQuestsFO4()
 		"fo4 quests: VMAD with a struct property and the fragment script's own properties");
 }
 
+// Fallout 4 REFR / ACHR / NPC_ bodies built by hand in the layout the game reads
+void TestFo4ChangeForms()
+{
+	using B = std::vector<std::uint8_t>;
+	auto u32 = [](B& b, std::uint32_t v) { for (int i = 0; i < 4; ++i) b.push_back(static_cast<std::uint8_t>(v >> (8 * i))); };
+	auto u16 = [](B& b, std::uint16_t v) { b.push_back(static_cast<std::uint8_t>(v)); b.push_back(static_cast<std::uint8_t>(v >> 8)); };
+	auto f32 = [&](B& b, float f) { std::uint32_t v; std::memcpy(&v, &f, 4); u32(b, v); };
+	auto ref = [](B& b, std::uint32_t formID) { const std::uint32_t d = (1u << 22) | formID; b.push_back(d >> 16); b.push_back(d >> 8); b.push_back(d); };
+	auto initial = [&](B& b) { ref(b, 0x3C); f32(b, 10.f); f32(b, 20.f); f32(b, 30.f); f32(b, 0.f); f32(b, 0.f); f32(b, 1.5f); };
+
+	ess::SaveFile save;
+	save.header.magic = "FO4_SAVEGAME";
+	save.formVersion = 68;
+
+	// REFR: moved (1), scale (4), base (7), extra data (6), inventory (5)
+	B r;
+	initial(r);
+	ref(r, 0x1234);                 // base object
+	f32(r, 2.f);                    // scale
+	r.push_back(3 << 2);            // 3 extras
+	r.push_back(0x98); r.push_back(1 << 2); r.insert(r.end(), 3, 0); u32(r, 0);  // 0x98: one entry with a null form, then u16 u16
+	r.push_back(0x5f);              // the game's default case: nothing read
+	r.push_back(0x2a); r.push_back(1); r.push_back(2); ref(r, 0x99); u32(r, 7);  // lock (version >= 0x36)
+	u32(r, 1);                      // one item
+	ref(r, 0xF);
+	u32(r, 2);                      // two stacks
+	r.push_back(1 << 2); r.push_back(0x35); u16(r, 0); u32(r, 1); ref(r, 0x55); r.push_back(1); r.push_back(0); r.push_back(0);  // object mods
+	u32(r, 5); u16(r, 0);
+	r.push_back(0); u32(r, 7); u16(r, 0);
+	ess::ChangeForm refr;
+	refr.refID.data = (1u << 22) | 0xABC;
+	refr.typeField = 0;
+	refr.changeFlags = (1u << 1) | (1u << 4) | (1u << 5) | (1u << 6) | (1u << 7);
+	refr.data = r;
+	refr.length1 = static_cast<std::uint32_t>(r.size());
+	const auto d = ess::fo4cf::DecodeRefr(save, refr);
+	Check(d.decoded && d.complete, "fo4 REFR: read completely");
+	Check(d.hasInitial && save.formIDOf(d.cell) == 0x3C && d.pos[1] == 20.f && d.rot[2] == 1.5f, "fo4 REFR: cell, position and rotation");
+	Check(save.formIDOf(d.base) == 0x1234 && d.hasScale && d.scale == 2.f, "fo4 REFR: base object and scale");
+	Check(d.extras.size() == 3 && d.extras[0].type == 0x98 && d.extras[1].type == 0x5f && d.extras[1].range.size() == 1 && d.extras[2].type == 0x2a,
+		"fo4 REFR: extra data, a null 0x98 entry and a default-case type");
+	Check(d.inventory.size() == 1 && d.inventory[0].formID == 0xF && d.inventory[0].count == 12 && d.inventory[0].stacks.size() == 2 &&
+			  d.inventory[0].stacks[0].extras.size() == 1 && d.inventory[0].stacks[0].extras[0].type == 0x35,
+		"fo4 REFR: inventory item, stacks and their object mods");
+	const auto& cr = d.inventory[0].stacks[1].countRange;
+	std::int32_t c = 0;
+	std::memcpy(&c, r.data() + cr.begin, 4);
+	Check(cr.size() == 4 && c == 7, "fo4 REFR: the stack count's byte range");
+
+	// an extra type that is not decoded stops with an error and no "complete"
+	auto bad = refr;
+	bad.data[27 + 3 + 4 + 1] = 0x16;
+	const auto db = ess::fo4cf::DecodeRefr(save, bad);
+	Check(!db.decoded && db.error.find("0x16") != std::string::npos, "fo4 REFR: an undecoded extra type is reported");
+
+	// the player: ACHR 0x14 with caps; the actor part is left over
+	B a;
+	initial(a);
+	u32(a, 0); u32(a, 0);           // the actor prefix
+	u32(a, 2);
+	ref(a, 0xF); u32(a, 1); a.push_back(0); u32(a, 437); u16(a, 0);
+	ref(a, 0x1000); u32(a, 1); a.push_back(0); u32(a, 1); u16(a, 0);
+	a.push_back(0xAA); a.push_back(0xBB);  // actor part
+	ess::ChangeForm achr;
+	achr.refID.data = (1u << 22) | 0x14;
+	achr.typeField = 1;
+	achr.changeFlags = (1u << 1) | (1u << 5);
+	achr.data = a;
+	achr.length1 = static_cast<std::uint32_t>(a.size());
+	save.changeForms.push_back(achr);
+	const auto dp = ess::fo4cf::DecodeRefr(save, achr);
+	Check(dp.decoded && !dp.complete && dp.parts.back().name == std::string("actor") && dp.parts.back().range.size() == 2 &&
+			  dp.refrPart.end == a.size() - 2,
+		"fo4 ACHR: the reference part, then the actor part's range");
+	Check(ess::fo4cf::FindPlayer(save) && ess::fo4cf::PlayerCaps(save) == 437, "fo4 player: caps from the inventory");
+
+	// NPC_: factions (6) and name (5)
+	B n;
+	n.push_back(1 << 2); ref(n, 0x777); n.push_back(1);  // one faction: ref + rank
+	u16(n, 4); for (char ch : std::string("Nate")) n.push_back(static_cast<std::uint8_t>(ch));
+	ess::ChangeForm npc;
+	npc.refID.data = (1u << 22) | 7;
+	npc.typeField = 9;
+	npc.changeFlags = (1u << 5) | (1u << 6);
+	npc.data = n;
+	npc.length1 = static_cast<std::uint32_t>(n.size());
+	const auto dn = ess::fo4cf::DecodeNpc(save, npc);
+	Check(dn.complete && dn.name == "Nate" && dn.parts.size() == 2, "fo4 NPC_: factions and name");
+	Check(std::string(ess::fo4cf::RefrFlagMeaning(10, false)) == "extra data list" && std::string(ess::fo4cf::RefrFlagMeaning(10, true)).empty(),
+		"fo4 change flags: extra data masks differ for REFR and ACHR");
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -1364,6 +1457,7 @@ int main()
 	TestQuestsFO4();
 	TestSkyrimLogs();
 	TestBa2();
+	TestFo4ChangeForms();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

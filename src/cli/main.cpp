@@ -6,6 +6,7 @@
 #include "core/CliHelp.h"
 #include "core/SkyrimLogs.h"
 #include "core/ChangeFormData.h"
+#include "core/ChangeFormFO4.h"
 #include "core/CrashLog.h"
 #include "core/Compare.h"
 #include "core/ModRemove.h"
@@ -399,6 +400,8 @@ int main(int argc, char** argv)
 	std::string   npcFilter;
 	std::vector<std::pair<std::string, std::string>> renamePlugins;
 	bool          playerView = false;
+	bool          fo4CfStats = false;
+	std::vector<std::uint32_t> fo4Cfs;  // --fo4-cf: refids or form ids to show
 	bool          describeView = false;  // what the save is made of (for support requests)
 	bool          effectsView = false;
 	std::vector<std::size_t> removeEffects;
@@ -445,6 +448,10 @@ int main(int argc, char** argv)
 			describeView = true;
 		} else if (a == "--player") {
 			playerView = true;
+		} else if (a == "--fo4-cf") {
+			fo4Cfs.push_back(static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)));
+		} else if (a == "--fo4-cf-stats") {
+			fo4CfStats = true;
 		} else if (a == "--effects") {
 			effectsView = true;
 		} else if (a == "--remove-effect") {
@@ -672,6 +679,77 @@ int main(int argc, char** argv)
 				}
 			}
 			std::printf("%zu actors, %zu with a saved position, %zu listed\n", total, placed, shown);
+			return 0;
+		}
+		if (fo4CfStats || !fo4Cfs.empty()) {
+			if (!save->isFO4()) {
+				std::fprintf(stderr, "--fo4-cf / --fo4-cf-stats need a Fallout 4 save\n");
+				return 1;
+			}
+			if (fo4CfStats) {
+				const auto st = fo4cf::Stats(*save);
+				std::printf("REFR %zu, read completely %zu\nACHR %zu, reference part read %zu (the actor part is not decoded)\nNPC_ %zu, read completely %zu\n",
+					st.refr, st.refrComplete, st.achr, st.achrRefrPart, st.npc, st.npcComplete);
+				for (std::size_t i = 0; i < st.errors.size() && i < 20; ++i) {
+					std::printf("  %6zu  %s\n", st.errors[i].second, st.errors[i].first.c_str());
+				}
+				const auto caps = fo4cf::PlayerCaps(*save);
+				if (caps >= 0) {
+					std::printf("player caps: %lld\n", static_cast<long long>(caps));
+				}
+			}
+			for (const auto want : fo4Cfs) {
+				bool found = false;
+				for (const auto& c : save->changeForms) {
+					const auto fid = save->formIDOf(c.refID);
+					if (c.refID.data != want && fid != want) {
+						continue;
+					}
+					found = true;
+					const auto t = static_cast<ChangeFormType>(c.typeCode());
+					std::printf("%06X  form %08X  %s  flags %08X  version %u\n", c.refID.data, fid, ChangeFormTypeName(c.typeCode()), c.changeFlags, c.version);
+					for (int b = 0; b < 32; ++b) {
+						if ((c.changeFlags >> b) & 1) {
+							const char* m = (t == ChangeFormType::REFR || t == ChangeFormType::ACHR) ? fo4cf::RefrFlagMeaning(b, t == ChangeFormType::ACHR) : "";
+							std::printf("  flag %2d  %s\n", b, *m ? m : "(not read by the reference loader)");
+						}
+					}
+					if (t == ChangeFormType::NPC_) {
+						const auto n = fo4cf::DecodeNpc(*save, c);
+						for (const auto& p : n.parts) {
+							std::printf("  %-14s bytes %zu-%zu\n", p.name, p.range.begin, p.range.end);
+						}
+						if (!n.name.empty()) std::printf("  name: %s\n", n.name.c_str());
+						std::printf("  %s\n", n.complete ? "read completely" : n.error.c_str());
+						continue;
+					}
+					if (t != ChangeFormType::REFR && t != ChangeFormType::ACHR) {
+						std::printf("  (only REFR, ACHR and NPC_ are decoded)\n");
+						continue;
+					}
+					const auto d = fo4cf::DecodeRefr(*save, c);
+					for (const auto& p : d.parts) {
+						std::printf("  %-14s bytes %zu-%zu\n", p.name, p.range.begin, p.range.end);
+					}
+					if (d.hasInitial) {
+						std::printf("  cell %08X  position %.1f, %.1f, %.1f  rotation %.3f, %.3f, %.3f\n", save->formIDOf(d.cell), d.pos[0], d.pos[1], d.pos[2], d.rot[0],
+							d.rot[1], d.rot[2]);
+					}
+					if (!d.base.isZero()) std::printf("  base object %08X\n", save->formIDOf(d.base));
+					if (d.hasScale) std::printf("  scale %g\n", d.scale);
+					for (const auto& e : d.extras) {
+						std::printf("  extra 0x%02X  bytes %zu-%zu\n", e.type, e.range.begin, e.range.end);
+					}
+					for (const auto& it : d.inventory) {
+						std::printf("  item %08X (%s)  count %d  stacks %zu\n", it.formID, save->pluginOf(it.formID).c_str(), it.count, it.stacks.size());
+					}
+					if (!d.error.empty()) std::printf("  stopped: %s\n", d.error.c_str());
+					else if (d.complete) std::printf("  read completely\n");
+				}
+				if (!found) {
+					std::printf("%06X: no such change form\n", want);
+				}
+			}
 			return 0;
 		}
 		if (describeView) {
