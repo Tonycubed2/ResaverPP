@@ -86,6 +86,52 @@ namespace ess::fo4cf
 		std::string name;         // bit 5
 	};
 
+	// ---- the actor part of an ACHR (after its reference part) ----
+	struct ActiveEffect
+	{
+		RefID         item;            // the magic item (spell, potion, enchantment, ...)
+		std::uint8_t  effectIndex = 0; // which of the item's effects
+		std::uint32_t archetype = 0;   // the effect archetype the data was saved for
+		Range         range;           // the whole entry
+		Range         data;            // the effect's own data (ActiveEffect::LoadGame), skipped by size
+	};
+	struct ActorValue
+	{
+		RefID         av;        // the actor value (AVIF); SPECIAL is 0x2C2 (Strength) .. 0x2C8 (Luck)
+		std::uint32_t formID = 0;
+		float         base = 0;
+		Range         range;     // ref + f32
+		Range         baseRange; // the f32 alone
+	};
+	struct ActorValueMod
+	{
+		RefID         av;
+		std::uint32_t formID = 0;
+		float         mod[3] = {};  // the three modifier slots (temporary, permanent, damage)
+		Range         range;
+	};
+	struct Actor
+	{
+		bool          decoded = false;  // read up to and including the actor values
+		std::string   error;
+		std::size_t   stoppedAt = 0;    // where reading stopped (end of the actor values when decoded)
+		std::uint32_t formID = 0;
+		std::int32_t  processLevel = -1;  // 0 high .. 3 low, -1 no AI process
+		Range         processRange;
+		Range         effectsRange;     // end of the active effect list (begin 0 when there is none)
+		std::vector<ActiveEffect>  effects;
+		Range                      valuesRange;  // the actor value storage (0xcedc80)
+		std::vector<ActorValue>    values;       // base values
+		std::vector<ActorValueMod> modifiers;
+	};
+	// Reads the actor part up to and including the actor values (the rest of the body is not decoded yet).
+	// a_trace (tests): receives (position, kind) of every read.
+	Actor DecodeActor(const SaveFile& a_save, const ChangeForm& a_cf, std::vector<std::pair<std::uint32_t, char>>* a_trace = nullptr);
+	// Rewrites an actor value's saved base in place; the body is decoded again before the change is kept.
+	std::string SetActorValueBase(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_avif, float a_value);
+	// The player's SPECIAL: 0 Strength .. 6 Luck.
+	std::string SetPlayerSpecial(SaveFile& a_save, int a_index, float a_value);
+
 	// The body is decompressed here; a_cf must be a REFR / ACHR (Refr) or NPC_ (Npc) of a Fallout 4 save.
 	Refr DecodeRefr(const SaveFile& a_save, const ChangeForm& a_cf);
 	Refr DecodeRefr(const SaveFile& a_save, const ChangeForm& a_cf, const std::vector<std::uint8_t>& a_body);
