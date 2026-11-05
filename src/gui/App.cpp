@@ -1513,7 +1513,7 @@ void App::drawCategories()
 		}
 		item(Cat::kMods, withScripts);
 	}
-	if (!fo4()) {  // (Skyrim's quest data)
+	{
 		std::size_t inJournal = 0, stale = 0;
 		for (const auto& q : questStates()) {
 			if (q.shownObjectives()) {

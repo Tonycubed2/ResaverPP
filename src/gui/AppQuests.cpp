@@ -58,7 +58,7 @@ namespace
 const std::vector<quests::QuestState>& App::questStates()
 {
 	if (_questGen != _editGen) {
-		_questStates = _save && !_save->isFO4() ? quests::ReadStates(*_save) : std::vector<quests::QuestState>{};  // (Skyrim's quest data)
+		_questStates = _save ? quests::ReadStates(*_save) : std::vector<quests::QuestState>{};  // (Skyrim and Fallout 4)
 		_questGen = _editGen;
 		_questPreviews.clear();
 		_chains.clear();
@@ -457,12 +457,14 @@ void App::drawQuestsList()
 			shownDone += n;
 		}
 	}
-	ImGui::TextUnformatted(Fmt("Your journal shows %zu objective(s).", shown).c_str());
+	ImGui::TextUnformatted(Fmt(fo4() ? "Your Pip-Boy shows %zu objective(s)." : "Your journal shows %zu objective(s).", shown).c_str());
 	if (shownDone) {
 		ImGui::SameLine();
 		TextColored(theme::Warn(), Fmt("%zu of them belong to quests that are completed or stopped.", shownDone));
 	}
-	drawRefreshJournal(true);
+	if (!fo4()) {
+		drawRefreshJournal(true);  // (Skyrim's journal; the Fallout 4 helper does not do this)
+	}
 	if (!_db) {
 		Dim(namesLoading() ? "Reading your plugins for quest names, stages and journal text..."
 						   : "Quest names, stages and journal text come from your plugins: set your mods folder in Options > Settings.");
@@ -473,7 +475,7 @@ void App::drawQuestsList()
 	ImGui::TextUnformatted("Show");
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-1);
-	const char* shows[] = { "In the journal", "Running", "Completed", "All in this save", "Every quest in the game" };
+	const char* shows[] = { fo4() ? "In the Pip-Boy" : "In the journal", "Running", "Completed", "All in this save", "Every quest in the game" };
 	ImGui::Combo("##qshow", &_questShow, shows, 5);
 	tips::Tip("Which quests to list: those your journal shows, running ones, completed ones, every quest in this save, or every quest in your plugins.");
 	ImGui::AlignTextToFramePadding();
