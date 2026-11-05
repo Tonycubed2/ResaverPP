@@ -110,9 +110,32 @@ namespace ess::fo4cf
 		float         mod[3] = {};  // the three modifier slots (temporary, permanent, damage)
 		Range         range;
 	};
+	struct Perk
+	{
+		RefID         perk;
+		std::uint32_t formID = 0;
+		std::uint8_t  rank = 0;
+		Range         range;      // ref + u8
+		Range         rankRange;  // the u8 alone
+	};
+	struct PerkRef  // the second perk list (0x986b40): a perk alone
+	{
+		RefID         perk;
+		std::uint32_t formID = 0;
+		Range         range;
+	};
+	struct PerkValue  // the third perk list: a perk and a u32
+	{
+		RefID         perk;
+		std::uint32_t formID = 0;
+		std::uint32_t value = 0;
+		Range         range;
+	};
 	struct Actor
 	{
 		bool          decoded = false;  // read up to and including the actor values
+		bool          tail = false;     // ... and the actor's own part to its end (perks included); for the
+		                                // player the PlayerCharacter part follows at tailEnd
 		std::string   error;
 		std::size_t   stoppedAt = 0;    // where reading stopped (end of the actor values when decoded)
 		std::uint32_t formID = 0;
@@ -123,14 +146,33 @@ namespace ess::fo4cf
 		Range                      valuesRange;  // the actor value storage (0xcedc80)
 		std::vector<ActorValue>    values;       // base values
 		std::vector<ActorValueMod> modifiers;
+
+		// after the actor values (Actor::LoadGame from 0xc8b0d2)
+		bool          hasController = false;  // the movement controller (0xdc8e40) was saved
+		Range         controllerRange;
+		bool          hasPerks = false;       // the perk lists (0x986b40) were saved
+		Range         perksRange;             // the three lists (begin = the first vsval)
+		std::vector<Perk>      perks;         // vsval n x (perk, u8 rank)
+		std::vector<PerkRef>   perkRefs;      // vsval n x perk
+		std::vector<PerkValue> perkValues;    // vsval n x (perk, u32)
+		std::size_t   tailEnd = 0;            // end of Actor::LoadGame (an NPC's body ends here)
 	};
-	// Reads the actor part up to and including the actor values (the rest of the body is not decoded yet).
+	// Reads the actor part: the AI process, the actor values, the movement controller and the actor's remaining
+	// fields with the perk lists (Actor::LoadGame). For the player the PlayerCharacter part after it is not decoded.
 	// a_trace (tests): receives (position, kind) of every read.
 	Actor DecodeActor(const SaveFile& a_save, const ChangeForm& a_cf, std::vector<std::pair<std::uint32_t, char>>* a_trace = nullptr);
 	// Rewrites an actor value's saved base in place; the body is decoded again before the change is kept.
 	std::string SetActorValueBase(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_avif, float a_value);
 	// The player's SPECIAL: 0 Strength .. 6 Luck.
 	std::string SetPlayerSpecial(SaveFile& a_save, int a_index, float a_value);
+
+	// Sets the saved rank of a perk the actor has (u8, rewritten in place). Returns "" or what went wrong (then the
+	// change form is unchanged); the body is decoded again before the change is kept.
+	std::string SetPerkRank(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_perkFormID, std::uint8_t a_rank);
+	// Adds a perk with a rank (or sets the rank when the actor has it) / removes it from the first perk list. The
+	// list count is a vsval, so the body is rebuilt; it is decoded again before the change is kept.
+	std::string AddPerk(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_perkFormID, std::uint8_t a_rank);
+	std::string RemovePerk(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_perkFormID);
 
 	// The body is decompressed here; a_cf must be a REFR / ACHR (Refr) or NPC_ (Npc) of a Fallout 4 save.
 	Refr DecodeRefr(const SaveFile& a_save, const ChangeForm& a_cf);

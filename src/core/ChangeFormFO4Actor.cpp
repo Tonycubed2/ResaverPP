@@ -4,6 +4,7 @@
 // each was checked against the game's own loader run on real saves (an emulator trace of every read).
 #include "ChangeFormData.h"
 #include "ChangeFormFO4.h"
+#include "ChangeFormFO4In.h"
 
 #include <cstring>
 #include <stdexcept>
@@ -12,43 +13,7 @@ namespace ess::fo4cf
 {
 	namespace
 	{
-		struct Stop : std::runtime_error
-		{
-			using std::runtime_error::runtime_error;
-		};
-
-		// the buffer with an optional trace of every read: (position, kind) - R raw, F refid, V vsval, S string
-		struct In
-		{
-			Reader&                                      r;
-			std::uint32_t                                ver;
-			std::vector<std::pair<std::uint32_t, char>>* trace = nullptr;
-			void          mark(char k) { if (trace) trace->push_back({ static_cast<std::uint32_t>(r.pos()), k }); }
-			void          raw(std::size_t n) { mark('R'); r.need(n); r.seek(r.pos() + n); }
-			std::uint8_t  u8() { mark('R'); return r.u8(); }
-			std::uint16_t u16() { mark('R'); return r.u16(); }
-			std::uint32_t u32() { mark('R'); return r.u32(); }
-			float         f32() { mark('R'); return r.f32(); }
-			RefID         ref() { mark('F'); return RefID::read(r); }
-			std::uint32_t vs()
-			{
-				mark('V');
-				const std::uint8_t a = *r.here();
-				switch (a & 3) {
-				case 0: return r.u8() >> 2;
-				case 1: return r.u16() >> 2;
-				default:
-					{
-						const std::uint32_t b0 = r.u8(), b1 = r.u8(), b2 = r.u8();
-						return (b0 | (b1 << 8) | (b2 << 16)) >> 2;
-					}
-				}
-			}
-			void wstr() { mark('S'); const auto n = r.u16(); r.need(n); r.seek(r.pos() + n); }
-			void blob(std::size_t n) { mark('B'); r.need(n); r.seek(r.pos() + n); }  // copied as one block
-			void skip(std::size_t n) { r.need(n); r.seek(r.pos() + n); }             // not read by the game here
-			[[noreturn]] void fail(const char* a_what) { throw Stop(std::string("actor part: ") + a_what + " not decoded"); }
-		};
+		using detail::In;
 
 		void R4n(In& b, int n) { for (int i = 0; i < n; ++i) b.u32(); }
 		void Pair4(In& b) { b.u32(); b.u32(); }       // 0xd4c740
@@ -351,6 +316,63 @@ namespace ess::fo4cf
 			}
 			out.valuesRange.end = r.pos();
 			out.decoded = true;
+			out.stoppedAt = r.pos();
+			// Actor::LoadGame from 0xc8b0d2
+			for (auto n = b.u32(); n; --n) b.ref();
+			out.hasController = b.u8() != 0;  // 0xc8b22c
+			out.controllerRange.begin = r.pos();
+			if (out.hasController) {
+				detail::MovementController(b);
+			}
+			out.controllerRange.end = r.pos();
+			b.u32();
+			if (b.u8()) {  // 0xc8b31c: 0x87c540, set in none of the saves seen
+				b.fail("the 0x87c540 block");
+			}
+			for (auto n = b.u32(); n; --n) {  // 0xcdf2d0
+				b.ref();
+				b.f32();
+			}
+			b.u32();
+			b.u32();
+			b.ref();
+			b.u8();
+			b.u32();
+			out.hasPerks = b.u8() != 0;  // 0xc8b484
+			out.perksRange.begin = r.pos();
+			if (out.hasPerks) {  // 0x986b40
+				for (auto n = b.vs(); n; --n) {
+					Perk p;
+					p.range.begin = r.pos();
+					p.perk = b.ref();
+					p.formID = a_save.formIDOf(p.perk);
+					p.rankRange.begin = r.pos();
+					p.rank = b.u8();
+					p.rankRange.end = p.range.end = r.pos();
+					out.perks.push_back(p);
+				}
+				for (auto n = b.vs(); n; --n) {
+					PerkRef p;
+					p.range.begin = r.pos();
+					p.perk = b.ref();
+					p.formID = a_save.formIDOf(p.perk);
+					p.range.end = r.pos();
+					out.perkRefs.push_back(p);
+				}
+				for (auto n = b.vs(); n; --n) {
+					PerkValue p;
+					p.range.begin = r.pos();
+					p.perk = b.ref();
+					p.formID = a_save.formIDOf(p.perk);
+					p.value = b.u32();
+					p.range.end = r.pos();
+					out.perkValues.push_back(p);
+				}
+			}
+			out.perksRange.end = r.pos();
+			b.ref();  // 0xc8b4fb
+			out.tailEnd = r.pos();
+			out.tail = true;
 			out.stoppedAt = r.pos();
 		} catch (const std::exception& e) {
 			out.error = e.what();
