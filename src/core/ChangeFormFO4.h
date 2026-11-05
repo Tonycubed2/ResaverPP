@@ -206,7 +206,7 @@ namespace ess::fo4cf
 
 	struct Coverage
 	{
-		std::size_t refr = 0, refrComplete = 0, achr = 0, achrRefrPart = 0, achrValues = 0, npc = 0, npcComplete = 0;
+		std::size_t refr = 0, refrComplete = 0, achr = 0, achrRefrPart = 0, achrValues = 0, achrTail = 0, npc = 0, npcComplete = 0;
 		std::vector<std::pair<std::string, std::size_t>> errors;  // most frequent first
 	};
 	Coverage Stats(const SaveFile& a_save);

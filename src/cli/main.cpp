@@ -707,8 +707,8 @@ int main(int argc, char** argv)
 			}
 			if (fo4CfStats) {
 				const auto st = fo4cf::Stats(*save);
-				std::printf("REFR %zu, read completely %zu\nACHR %zu, reference part read %zu, actor part read up to the actor values %zu\nNPC_ %zu, read completely %zu\n",
-					st.refr, st.refrComplete, st.achr, st.achrRefrPart, st.achrValues, st.npc, st.npcComplete);
+				std::printf("REFR %zu, read completely %zu\nACHR %zu, reference part read %zu, actor part read up to the actor values %zu, to the end of Actor::LoadGame (perks included) %zu\nNPC_ %zu, read completely %zu\n",
+					st.refr, st.refrComplete, st.achr, st.achrRefrPart, st.achrValues, st.achrTail, st.npc, st.npcComplete);
 				for (std::size_t i = 0; i < st.errors.size() && i < 20; ++i) {
 					std::printf("  %6zu  %s\n", st.errors[i].second, st.errors[i].first.c_str());
 				}
