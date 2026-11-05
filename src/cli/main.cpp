@@ -26,6 +26,7 @@
 #include "core/PluginEdit.h"
 #include "core/Quests.h"
 #include "core/Transplant.h"
+#include "core/TransplantFO4.h"
 #include <functional>
 #include <map>
 #include <set>
@@ -408,6 +409,8 @@ int main(int argc, char** argv)
 	int           playerGold = -1;
 	std::vector<std::pair<std::uint32_t, int>> fo4PerkEdits;
 	int           fo4Level = -1;
+	std::string   fo4Transplant;  // --fo4-transplant <old save>
+	bool          fo4TransplantWrite = false;
 	double        fo4Xp = -1;  // --fo4-set-perk (rank) / --fo4-remove-perk (-1)
 	std::vector<std::pair<std::string, float>> playerSkills;
 	std::vector<std::tuple<std::uint32_t, int, int>> playerBounties;
@@ -467,6 +470,10 @@ int main(int argc, char** argv)
 			fo4PerkEdits.push_back({ static_cast<std::uint32_t>(std::stoul(v.substr(0, c), nullptr, 16)), std::stoi(v.substr(c + 1)) });
 		} else if (a == "--fo4-set-level") {
 			fo4Level = std::atoi(next().c_str());
+		} else if (a == "--fo4-transplant") {
+			fo4Transplant = next();
+		} else if (a == "--fo4-transplant-write") {
+			fo4TransplantWrite = true;
 		} else if (a == "--fo4-set-xp") {
 			fo4Xp = std::atof(next().c_str());
 		} else if (a == "--fo4-remove-perk") {
@@ -628,7 +635,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -674,6 +681,64 @@ int main(int argc, char** argv)
 		} else if (removeCrashActors) {
 			std::fputs("--remove-crash-actors needs --crash-log\n", stderr);
 			return 1;
+		}
+		if (!fo4Transplant.empty()) {
+			// Fallout 4 Transplant: what the old save has that this one does not, and where each part goes
+			namespace tf4 = ess::transplant::fo4;
+			if (!save->isFO4()) {
+				std::fprintf(stderr, "--fo4-transplant needs a Fallout 4 save\n");
+				return 1;
+			}
+			std::unique_ptr<SaveFile> old;
+			try {
+				old = SaveFile::load(fo4Transplant);
+			} catch (const std::exception& e) {
+				std::fprintf(stderr, "could not read %s: %s\n", fo4Transplant.c_str(), e.what());
+				return 1;
+			}
+			const auto bad = tf4::FromSave(*old, std::filesystem::path(fo4Transplant).filename().string());
+			const auto good = tf4::FromSave(*save, std::filesystem::path(in).filename().string());
+			if (!bad.valid || !good.valid) {
+				std::fprintf(stderr, "%s\n", (!bad.valid ? bad.error : good.error).c_str());
+				return 1;
+			}
+			for (const auto* s2 : { &bad, &good }) {
+				for (const auto& m : s2->missingParts) {
+					std::printf("note: %s: could not read %s\n", s2->source.c_str(), m.c_str());
+				}
+			}
+			const auto changes = tf4::Diff(good, bad, *save);
+			for (const auto& c : changes) {
+				std::string rec;
+				for (const auto& r : tf4::GameRecords(c, c.goodFormID, true)) {
+					for (const auto& f : r) {
+						rec += (rec.empty() ? "" : " ") + f;
+					}
+					rec += ";";
+				}
+				std::printf("%s %-5s %-44s %-28s %s\n", c.available ? (c.tick ? "[x]" : "[ ]") : " - ", c.via == tf4::Via::kFile ? "file" : "game", c.label.c_str(),
+					c.detail.c_str(), c.available ? rec.c_str() : c.why.c_str());
+			}
+			std::printf("%zu change(s); file: written into this save with --fo4-transplant-write -o <out>; game: put into the running game by "
+						"ReSaverHelper (the Transplant page)\n",
+				changes.size());
+			if (fo4TransplantWrite) {
+				std::size_t done = 0;
+				for (const auto& c : changes) {
+					if (c.via != tf4::Via::kFile || !c.available || !c.tick) {
+						continue;
+					}
+					const auto why = tf4::ApplyToFile(*save, c);
+					if (!why.empty()) {
+						std::fprintf(stderr, "could not write %s: %s\n", c.label.c_str(), why.c_str());
+					} else {
+						++done;
+					}
+				}
+				std::printf("written into the save: %zu change(s)\n", done);
+			} else if (!edits) {
+				return 0;
+			}
 		}
 		if (npcsView) {
 			std::size_t shown = 0, total = 0, placed = 0;

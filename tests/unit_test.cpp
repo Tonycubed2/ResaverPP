@@ -17,10 +17,12 @@
 #include "core/Quests.h"
 #include "core/ChangeFormData.h"
 #include "core/Transplant.h"
+#include "core/TransplantFO4.h"
 
 #include <filesystem>
 #include <fstream>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -1547,6 +1549,153 @@ void TestFo4ChangeForms()
 		"fo4 change flags: extra data masks differ for REFR and ACHR");
 }
 
+// Fallout 4 Transplant: form ids, helper records, and real saves read offline and compared. The real saves are
+// found in RESAVERPP_FO4_SAVES (folders separated by ';'; every .fos under them); without it those checks are skipped.
+void TestTransplantFO4()
+{
+	namespace tf4 = ess::transplant::fo4;
+	namespace fs = std::filesystem;
+	PluginInfo lo;
+	lo.full = { "Fallout4.esm", "DLCRobot.esm", "MyMod.esp" };
+	lo.lite = { "ccBGSFO4001-PipBoy(Black).esl", "Small.esp" };
+	lo.hasLite = true;
+	Check(tf4::RuntimeID(lo, "fallout4.esm", 0x24F55) == 0x00024F55 && tf4::RuntimeID(lo, "MYMOD.ESP", 0x000801) == 0x02000801,
+		"fo4 transplant: form id of a full plugin's form (case does not matter)");
+	Check(tf4::RuntimeID(lo, "Small.esp", 0x801) == 0xFE001801 && tf4::RuntimeID(lo, "Gone.esp", 0x801) == 0, "fo4 transplant: light plugin, missing plugin");
+	Check(tf4::LocalOf(0xFE001801) == 0x801 && tf4::LocalOf(0x02000801) == 0x000801, "fo4 transplant: local ids");
+	auto lo2 = lo;
+	Check(tf4::SameLoadOrder(lo, lo2), "fo4 transplant: same load order");
+	std::swap(lo2.lite[0], lo2.lite[1]);
+	Check(!tf4::SameLoadOrder(lo, lo2), "fo4 transplant: light plugins moved: not the same load order");
+	{
+		tf4::Change c;
+		c.kind = tf4::Kind::kItem;
+		c.via = tf4::Via::kGame;
+		c.count = 9;
+		const auto r = tf4::GameRecords(c, 0x00024F55, true);
+		Check(r.size() == 1 && r[0] == ess::transplant::Record{ "additem", "00024F55", "9" }, "fo4 transplant: additem record");
+		c.kind = tf4::Kind::kQuest;
+		c.value = 100;
+		c.now = 20;
+		c.complete = true;
+		const auto q = tf4::GameRecords(c, 0xFE001801, true);
+		Check(q.size() == 2 && q[0] == ess::transplant::Record{ "setstage", "FE001801", "100" } && q[1] == ess::transplant::Record{ "completequest", "FE001801" },
+			"fo4 transplant: setstage then completequest");
+		c.now = 100;
+		Check(tf4::GameRecords(c, 0xFE001801, false).empty(), "fo4 transplant: no setstage for a stage done already, no completequest when not asked");
+		c.via = tf4::Via::kFile;
+		Check(tf4::GameRecords(c, 0x14, true).empty(), "fo4 transplant: a file change has no helper record");
+	}
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 transplant: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) {
+			e = all.size();
+		}
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") {
+					files.push_back(f.path());
+				}
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	std::size_t read = 0;
+	fs::path    save7, save8;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;  // (some test folders keep cut saves on purpose)
+		}
+		const auto snap = tf4::FromSave(*s, f.filename().string());
+		if (!snap.valid) {
+			std::printf("FAIL: fo4 transplant: %s: %s\n", f.filename().string().c_str(), snap.error.c_str());
+			++g_fail;
+			continue;
+		}
+		++read;
+		const auto self = tf4::Diff(snap, snap, *s);
+		if (!self.empty()) {
+			std::printf("FAIL: fo4 transplant: %s compared with itself lists %zu change(s)\n", f.filename().string().c_str(), self.size());
+			++g_fail;
+		}
+		const auto name = f.filename().string();
+		if (name.rfind("Save7_F110F019", 0) == 0) save7 = f;
+		if (name.rfind("Save8_F110F019", 0) == 0) save8 = f;
+	}
+	Check(read > 0, "fo4 transplant: real saves read offline");
+	std::printf("(fo4 transplant: %zu real saves read offline, each compared with itself)\n", read);
+
+	if (!save7.empty() && !save8.empty()) {
+		// Tony's Save7 (before) and Save8 (after dropping 9 Pipe Pistols, Fallout4.esm 00024F55)
+		auto       s7 = SaveFile::load(save7);
+		auto       s8 = SaveFile::load(save8);
+		const auto a = tf4::FromSave(*s7, "Save7");
+		const auto b = tf4::FromSave(*s8, "Save8");
+		Check(a.perksKnown && a.itemsKnown && b.perksKnown && b.itemsKnown && a.xp >= 0 && a.special[0] > 0, "fo4 transplant: Save7 / Save8 read fully");
+		const auto d = tf4::Diff(b, a, *s8);  // good Save8, old Save7
+		Check(d.size() == 1 && d[0].kind == tf4::Kind::kItem && d[0].via == tf4::Via::kGame && d[0].goodFormID == 0x00024F55 && d[0].count == 9 &&
+				  d[0].available && d[0].tick,
+			"fo4 transplant: Save7 -> Save8 lists the 9 Pipe Pistols (00024F55), to be added in the game");
+		const auto rec = d.empty() ? std::vector<ess::transplant::Record>{} : tf4::GameRecords(d[0], d[0].goodFormID, true);
+		Check(rec.size() == 1 && rec[0] == ess::transplant::Record{ "additem", "00024F55", "9" }, "fo4 transplant: Save7 -> Save8 helper record");
+		Check(tf4::Diff(a, b, *s7).empty(), "fo4 transplant: Save8 -> Save7: nothing (Save8 has less)");
+	} else {
+		std::printf("(fo4 transplant: Tony's Save7 / Save8 not found, that check skipped)\n");
+	}
+
+	// the file part written into the good save: compared again, only the game part is left
+	fs::path good, old;
+	for (const auto& f : files) {
+		const auto n = f.filename().string();
+		if (n.rfind("Save8_F6EE2084", 0) == 0) good = f;
+		if (n.rfind("Save14_F6EE2084", 0) == 0) old = f;
+	}
+	if (!good.empty() && !old.empty()) {
+		auto       g = SaveFile::load(good);
+		auto       o = SaveFile::load(old);
+		const auto bad = tf4::FromSave(*o, "old");
+		auto       d = tf4::Diff(tf4::FromSave(*g, "good"), bad, *g);
+		std::size_t file = 0, written = 0, game = 0;
+		for (const auto& c : d) {
+			if (c.via == tf4::Via::kFile && c.available) {
+				++file;
+				written += tf4::ApplyToFile(*g, c).empty() ? 1 : 0;
+			}
+		}
+		const auto bytes = g->serialize();
+		const auto tmp = fs::temp_directory_path() / "rs_unit_tf4.fos";
+		{
+			std::ofstream out(tmp, std::ios::binary);
+			out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		auto       back = SaveFile::load(tmp);
+		const auto after = tf4::Diff(tf4::FromSave(*back, "written"), bad, *back);
+		std::size_t fileLeft = 0;
+		for (const auto& c : after) {
+			fileLeft += c.via == tf4::Via::kFile ? 1 : 0;
+			game += c.via == tf4::Via::kGame ? 1 : 0;
+		}
+		Check(file > 0 && written == file, "fo4 transplant: the file part is written into the good save");
+		Check(fileLeft == 0 && game > 0, "fo4 transplant: after writing and reading the save back, only the game part is left");
+		Check(back->header.playerLevel == static_cast<std::uint32_t>(bad.level), "fo4 transplant: the level in the written save's header");
+		fs::remove(tmp);
+	}
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -1569,6 +1718,7 @@ int main()
 	TestSkyrimLogs();
 	TestBa2();
 	TestFo4ChangeForms();
+	TestTransplantFO4();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }
