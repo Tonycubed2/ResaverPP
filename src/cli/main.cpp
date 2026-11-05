@@ -688,14 +688,28 @@ int main(int argc, char** argv)
 			}
 			if (fo4CfStats) {
 				const auto st = fo4cf::Stats(*save);
-				std::printf("REFR %zu, read completely %zu\nACHR %zu, reference part read %zu (the actor part is not decoded)\nNPC_ %zu, read completely %zu\n",
-					st.refr, st.refrComplete, st.achr, st.achrRefrPart, st.npc, st.npcComplete);
+				std::printf("REFR %zu, read completely %zu\nACHR %zu, reference part read %zu, actor part read up to the actor values %zu\nNPC_ %zu, read completely %zu\n",
+					st.refr, st.refrComplete, st.achr, st.achrRefrPart, st.achrValues, st.npc, st.npcComplete);
 				for (std::size_t i = 0; i < st.errors.size() && i < 20; ++i) {
 					std::printf("  %6zu  %s\n", st.errors[i].second, st.errors[i].first.c_str());
 				}
 				const auto caps = fo4cf::PlayerCaps(*save);
 				if (caps >= 0) {
 					std::printf("player caps: %lld\n", static_cast<long long>(caps));
+				}
+				if (const auto* pl = fo4cf::FindPlayer(*save)) {
+					const auto a = fo4cf::DecodeActor(*save, *pl);
+					if (a.decoded) {
+						std::printf("player: %zu active effects, %zu actor values, %zu modifiers; SPECIAL", a.effects.size(), a.values.size(), a.modifiers.size());
+						for (std::uint32_t id = 0x2C2; id <= 0x2C8; ++id) {
+							float v = -1;
+							for (const auto& x : a.values) if (x.formID == id) v = x.base;
+							std::printf(" %g", v);
+						}
+						std::printf("\n");
+					} else {
+						std::printf("player actor part: %s\n", a.error.c_str());
+					}
 				}
 			}
 			for (const auto want : fo4Cfs) {

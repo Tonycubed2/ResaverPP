@@ -529,6 +529,13 @@ namespace ess::fo4cf
 				} else {
 					++c.achr;
 					c.achrRefrPart += d.decoded;
+					if (d.decoded) {
+						const auto a = DecodeActor(a_save, cf);
+						c.achrValues += a.decoded;
+						if (!a.decoded) {
+							++err["ACHR actor part: " + trim(a.error)];
+						}
+					}
 				}
 				if (!d.error.empty()) {
 					++err[std::string(t == ChangeFormType::REFR ? "REFR: " : "ACHR: ") + trim(d.error)];
