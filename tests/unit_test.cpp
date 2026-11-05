@@ -1446,6 +1446,50 @@ void TestFo4ChangeForms()
 		Check(ess::fo4cf::SetActorValueBase(save, npcA, 0x2C8, 7.f).empty() && ess::fo4cf::DecodeActor(save, npcA).values[0].base == 7.f,
 			"fo4 ACHR: set an actor value's base");
 		Check(!ess::fo4cf::SetActorValueBase(save, npcA, 0x2C2, 7.f).empty(), "fo4 ACHR: a value the actor has no base for is refused");
+
+		// the rest of Actor::LoadGame: a movement controller, the actor's fields and the perk lists
+		B t = ab;
+		// (ab ends with the empty modifier list)
+		u32(t, 0);               // refs
+		t.push_back(1);          // has a movement controller
+		u32(t, 0); u32(t, 0);    // dcc700, dcc5a0
+		u32(t, 1); t.insert(t.end(), 7, 0);
+		u32(t, 1); t.push_back(2); t.push_back(1); f32(t, 0.5f);  // one arbiter: Planner (bool, f32)
+		u32(t, 2);
+		t.push_back(0x0E); u32(t, 0); u32(t, 5); u32(t, 0); u32(t, 0);  // Virtual Path Follower: u32, pointer id 5 (new:
+		                                                                // request class 0), pointer id 0
+		t.push_back(0x04);                                              // Angle Pass Through: nothing
+		t.push_back(0);                                                 // no trailing object
+		u32(t, 0); t.push_back(0); u32(t, 0);  // u32, no 0x87c540 block, no 0xcdf2d0 entries
+		u32(t, 0); u32(t, 0); t.insert(t.end(), 3, 0); t.push_back(0); u32(t, 0);  // u32, u32, form id, u8, u32
+		t.push_back(1);  // perk lists
+		t.push_back(2 << 2); ref(t, 0x1A54A4); t.push_back(1); ref(t, 0x84B); t.push_back(2);
+		t.push_back(1 << 2); ref(t, 0x1A54A4);
+		t.push_back(1 << 2); ref(t, 0x84B); u32(t, 1);
+		t.insert(t.end(), 3, 0);  // a null form id
+		ess::ChangeForm npcT;
+		npcT.refID.data = (1u << 22) | 0x1235;
+		npcT.typeField = 1;
+		npcT.data = t;
+		npcT.length1 = static_cast<std::uint32_t>(t.size());
+		const auto dt = ess::fo4cf::DecodeActor(save, npcT);
+		Check(dt.tail && dt.hasController && dt.tailEnd == t.size() && dt.perks.size() == 2 && dt.perks[0].formID == 0x1A54A4 &&
+				  dt.perks[1].rank == 2 && dt.perkRefs.size() == 1 && dt.perkValues.size() == 1 && dt.perkValues[0].value == 1,
+			"fo4 ACHR: movement controller, actor tail and perk lists");
+		Check(ess::fo4cf::SetPerkRank(save, npcT, 0x84B, 4).empty() && ess::fo4cf::DecodeActor(save, npcT).perks[1].rank == 4,
+			"fo4 ACHR: set a perk rank");
+		Check(!ess::fo4cf::SetPerkRank(save, npcT, 0x12345, 4).empty(), "fo4 ACHR: a perk the actor does not have is refused");
+		Check(ess::fo4cf::AddPerk(save, npcT, 0xD9784, 1).empty(), "fo4 ACHR: add a perk");
+		{
+			const auto d2 = ess::fo4cf::DecodeActor(save, npcT);
+			Check(d2.tail && d2.perks.size() == 3 && d2.perks[2].formID == 0xD9784 && d2.tailEnd == t.size() + 4, "fo4 ACHR: the added perk reads back");
+		}
+		Check(ess::fo4cf::RemovePerk(save, npcT, 0x1A54A4).empty(), "fo4 ACHR: remove a perk");
+		{
+			const auto d3 = ess::fo4cf::DecodeActor(save, npcT);
+			Check(d3.tail && d3.perks.size() == 2 && d3.perks[0].formID == 0x84B && d3.perkRefs.size() == 1 && d3.tailEnd == t.size(),
+				"fo4 ACHR: the list after a removal");
+		}
 	}
 
 	// a created reference (a dropped item): its initial data ends with u8 + the base object
