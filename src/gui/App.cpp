@@ -113,7 +113,7 @@ void App::open(const std::filesystem::path& a_path)
 		if (_save->isFO4()) {
 			// Fallout 4: its own setup (mods folder, game folder, profile, load order); the tools that need the
 			// save's change forms decoded (Skyrim only so far) close
-			_showPlayer = _showActors = _showTransplant = _showMerge = _showLeftovers = false;
+			_showPlayer = _showActors = _showTransplant = _showMerge = false;
 			if (!_settingsLoaded) {
 				loadSettings();
 			}
@@ -1268,7 +1268,7 @@ void App::drawMenu()
 			shortcut(Sc::kOrphans);
 		}
 		tips::Tip("Find script instances sitting on spawned (FF......) objects that no longer exist, and remove them.");
-		if (ImGui::MenuItem("Leftover items from removed mods...", nullptr, false, !fo4())) {
+		if (ImGui::MenuItem("Leftover items from removed mods...")) {
 			shortcut(Sc::kLeftovers);
 		}
 		tips::Tip("Items in the player's, NPCs' and containers' inventories whose mod is gone: find them and remove them.");

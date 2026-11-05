@@ -97,7 +97,6 @@ bool App::SkyrimOnly(Sc a_which)
 	case Sc::kPlayer:
 	case Sc::kActors:
 	case Sc::kTransplant:
-	case Sc::kLeftovers:
 	case Sc::kMerge:
 	case Sc::kOpenPex:
 		return true;

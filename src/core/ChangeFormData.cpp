@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "ChangeFormData.h"
+#include "ChangeFormFO4.h"
 #include <cmath>
 #include <map>
 #include <iterator>
@@ -4970,8 +4971,89 @@ namespace ess::cf
 		}
 	}
 
+	namespace
+	{
+		// Fallout 4: the inventories fo4cf reads (a REFR read completely, an ACHR's reference part read). An actor whose
+		// actor part is not decoded yet is listed (its inventory comes before that part) but not changed.
+		std::vector<InventoryEntry> ListInventoriesFO4(const SaveFile& a_save)
+		{
+			std::vector<InventoryEntry> out;
+			for (const auto& c : a_save.changeForms) {
+				const auto t = c.typeCode();
+				if ((t != 0 && t != 1) || !(Bit(c.changeFlags, 5) || Bit(c.changeFlags, 27))) {
+					continue;
+				}
+				fo4cf::Refr d;
+				try {
+					d = fo4cf::DecodeRefr(a_save, c);
+				} catch (const std::exception&) {
+					continue;
+				}
+				if (!d.decoded || !d.hasInventory) {
+					continue;
+				}
+				for (const auto& it : d.inventory) {
+					InventoryEntry x;
+					x.holderRefRaw = c.refID.data;
+					x.holder = a_save.formIDOf(c.refID);
+					x.holderType = t;
+					x.item = it.formID;
+					x.count = it.count;
+					out.push_back(x);
+				}
+			}
+			return out;
+		}
+
+		std::string RemoveInventoryItemsFO4(const SaveFile& a_save, ChangeForm& a_cf, const std::set<std::uint32_t>& a_items, std::size_t* a_removed)
+		{
+			const auto d = fo4cf::DecodeRefr(a_save, a_cf);
+			if (!d.complete) {
+				return d.actor && d.decoded ? std::string("this actor's saved data is not fully read yet (Fallout 4 actors): nothing changed")
+											: "this change form could not be read completely (" + d.error + "): nothing changed";
+			}
+			const fo4cf::Part* inv = nullptr;
+			for (const auto& p : d.parts) {
+				if (std::string(p.name) == "inventory") {
+					inv = &p;
+				}
+			}
+			if (!inv || inv->range.size() < 4) {
+				return "no inventory found: nothing changed";
+			}
+			const auto    saved = a_cf;
+			auto          body = Body(a_cf);
+			std::uint32_t n = 0, removed = 0;
+			std::memcpy(&n, &body[inv->range.begin], 4);  // the item count (u32)
+			for (auto it = d.inventory.rbegin(); it != d.inventory.rend(); ++it) {
+				if (a_items.contains(it->formID)) {
+					body.erase(body.begin() + static_cast<std::ptrdiff_t>(it->range.begin), body.begin() + static_cast<std::ptrdiff_t>(it->range.end));
+					++removed;
+				}
+			}
+			if (!removed) {
+				return {};
+			}
+			n -= removed;
+			std::memcpy(&body[inv->range.begin], &n, 4);
+			SetBody(a_cf, body);
+			const auto after = fo4cf::DecodeRefr(a_save, a_cf);
+			if (!after.complete || after.inventory.size() != d.inventory.size() - removed) {
+				a_cf = saved;
+				return "the inventory did not read back completely (" + after.error + "): nothing changed";
+			}
+			if (a_removed) {
+				*a_removed = removed;
+			}
+			return {};
+		}
+	}
+
 	std::vector<InventoryEntry> ListInventories(const SaveFile& a_save)
 	{
+		if (a_save.isFO4()) {
+			return ListInventoriesFO4(a_save);
+		}
 		std::vector<InventoryEntry> out;
 		for (const auto& c : a_save.changeForms) {
 			const auto t = static_cast<ChangeFormType>(c.typeCode());
@@ -5007,6 +5089,9 @@ namespace ess::cf
 	{
 		if (a_removed) {
 			*a_removed = 0;
+		}
+		if (a_save.isFO4()) {
+			return RemoveInventoryItemsFO4(a_save, a_cf, a_items, a_removed);
 		}
 		const auto d = Decode(a_save, a_cf);
 		if (!d.complete) {
