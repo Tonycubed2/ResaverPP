@@ -2,7 +2,9 @@
 #include "core/Json.h"
 // ReSaver++ unit and regression tests that need no save files: each builds the data it needs in memory.
 // Run by CTest (rs_unit). Exit code 0 = all passed.
+#include "core/Bsa.h"
 #include "core/CrashLog.h"
+#include "core/ScriptSources.h"
 #include "core/MergedPatch.h"
 #include "core/ModRemove.h"
 #include "core/Ops.h"
@@ -1059,6 +1061,76 @@ void TestSkyrimLogs()
 	Check(ess::json::Quote(std::string("a\"b\n\xE9")) == "\"a\\\"b\\n\xC3\xA9\"", "json: quotes, newlines and a Windows-1252 byte are written as valid UTF-8 JSON");
 }
 
+// A Fallout 4 BA2 (GNRL, version 8) made in memory: one stored file and one zlib file; listed and unpacked.
+void TestBa2()
+{
+	const std::string           a = "stored text file";
+	std::vector<std::uint8_t>   b(5000);
+	for (std::size_t i = 0; i < b.size(); ++i) {
+		b[i] = static_cast<std::uint8_t>("pex data "[i % 9]);
+	}
+	const auto                  bz = CompressZlib(b);
+	std::vector<std::uint8_t>   f;
+	auto put = [&](std::uint64_t v, int n) {
+		for (int i = 0; i < n; ++i) f.push_back(static_cast<std::uint8_t>(v >> (8 * i)));
+	};
+	const std::uint64_t data = 24 + 2 * 36;
+	const std::uint64_t names = data + a.size() + bz.size();
+	f.insert(f.end(), { 'B', 'T', 'D', 'X' });
+	put(8, 4);
+	f.insert(f.end(), { 'G', 'N', 'R', 'L' });
+	put(2, 4);
+	put(names, 8);
+	// records: hash, ext, dir hash, flags (0, 1 chunk, 16), offset, packed, size, 0xBAADF00D
+	put(1, 4); f.insert(f.end(), { 't', 'x', 't', 0 }); put(2, 4); put(0x00100100, 4); put(data, 8); put(0, 4); put(a.size(), 4); put(0xBAADF00D, 4);
+	put(3, 4); f.insert(f.end(), { 'p', 'e', 'x', 0 }); put(4, 4); put(0x00100100, 4); put(data + a.size(), 8); put(bz.size(), 4); put(b.size(), 4); put(0xBAADF00D, 4);
+	f.insert(f.end(), a.begin(), a.end());
+	f.insert(f.end(), bz.begin(), bz.end());
+	for (const std::string n : { "Misc/Read Me.TXT", "Scripts\\Foo.pex" }) {
+		put(n.size(), 2);
+		f.insert(f.end(), n.begin(), n.end());
+	}
+	const auto file = std::filesystem::temp_directory_path() / "rs_unit_test.ba2";
+	{
+		std::ofstream o(file, std::ios::binary | std::ios::trunc);
+		o.write(reinterpret_cast<const char*>(f.data()), static_cast<std::streamsize>(f.size()));
+	}
+	try {
+		BsaArchive ba(file);
+		Check(ba.isBa2() && !ba.isTextureArchive() && ba.version() == 8 && ba.kind() == "BA2 GNRL v8", "ba2: a GNRL BA2 is opened");
+		Check(ba.entries().size() == 2 && ba.entries()[0].path == "misc\\read me.txt" && ba.entries()[1].path == "scripts\\foo.pex",
+			"ba2: the paths come from the name table, lowercase with backslashes");
+		const auto* e0 = ba.find("misc\\read me.txt");
+		const auto* e1 = ba.find("scripts\\foo.pex");
+		Check(e0 && !e0->compressed && e1 && e1->compressed, "ba2: stored and compressed files are told apart");
+		const auto d0 = ba.extract(*e0);
+		const auto d1 = ba.extract(*e1);
+		Check(std::string(d0.begin(), d0.end()) == a, "ba2: a stored file is extracted as it is");
+		Check(d1 == b, "ba2: a zlib file is unpacked");
+		const auto l = ListBSA(file);
+		Check(l.size() == 2 && l[1] == "scripts\\foo.pex", "ba2: ListBSA lists a BA2");
+		const auto out = std::filesystem::temp_directory_path() / "rs_unit_ba2_out";
+		std::filesystem::remove_all(out);
+		const auto r = ExtractBsa(ba, out, "foo", true);
+		Check(r.written == 1 && r.failed == 0 && std::filesystem::file_size(out / "scripts" / "foo.pex") == b.size(), "ba2: ExtractBsa unpacks the matching files");
+		std::filesystem::remove_all(out);
+		BsaArchive::Texture t;
+		t.width = 256;
+		t.height = 128;
+		t.mips = 9;
+		t.format = 71;  // BC1
+		const auto dh = MakeDdsHeader(t);
+		Check(dh.size() == 128 && std::memcmp(dh.data(), "DDS ", 4) == 0 && std::memcmp(dh.data() + 84, "DXT1", 4) == 0, "ba2: a BC1 texture gets a DXT1 DDS header");
+		t.format = 98;  // BC7
+		const auto d7 = MakeDdsHeader(t);
+		Check(d7.size() == 148 && std::memcmp(d7.data() + 84, "DX10", 4) == 0 && d7[128] == 98, "ba2: a BC7 texture gets the DX10 header");
+	} catch (const std::exception& e) {
+		std::printf("ba2: %s\n", e.what());
+		Check(false, "ba2: the test archive opens");
+	}
+	std::filesystem::remove(file);
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -1077,6 +1149,7 @@ int main()
 	TestMergedPatchNpcLinks();
 	TestCrashLog();
 	TestSkyrimLogs();
+	TestBa2();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }
