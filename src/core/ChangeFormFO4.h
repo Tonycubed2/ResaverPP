@@ -64,7 +64,8 @@ namespace ess::fo4cf
 		RefID         cell;
 		float         pos[3] = {}, rot[3] = {};
 		RefID         startCell;  // bit 3 / 25: the cell it started in (initial type 6)
-		RefID         base;       // bit 7
+		RefID         base;       // a created reference's base object (from its initial data), or bit 7
+		bool          createdBase = false;  // base came from the created reference's initial data
 		bool          hasScale = false;
 		float         scale = 1.0f;
 		std::uint32_t formFlags = 0;  // bit 0
@@ -94,6 +95,11 @@ namespace ess::fo4cf
 	const ChangeForm* FindPlayer(const SaveFile& a_save);
 	// Caps the player carries (item 0x0000000F in the player's inventory); -1 when the inventory cannot be read.
 	std::int64_t PlayerCaps(const SaveFile& a_save);
+
+	// Sets the caps the player carries: the first stack of item 0x0000000F gets a_count, the other caps stacks 0
+	// (counts are rewritten in place, so nothing else moves). The body is decoded again afterwards and must give
+	// a_count. Returns "" or what went wrong (then the save is unchanged).
+	std::string SetPlayerCaps(SaveFile& a_save, std::int32_t a_count);
 
 	// What a change flag of a REFR / ACHR makes the game read (short text), or "" when it reads nothing itself.
 	const char* RefrFlagMeaning(int a_bit, bool a_actor);
