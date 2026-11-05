@@ -1359,7 +1359,7 @@ void App::drawMenu()
 		if (ImGui::MenuItem("Collect all logs (zip on the desktop)")) {
 			startCollectLogs();
 		}
-		tips::Tip("Put every Skyrim log (the SKSE folder with all its folders, crash logs, Papyrus), your load order and INI files, "
+		tips::Tip("Put every Skyrim and Fallout 4 log (the SKSE / F4SE folder with all its folders, crash logs, Papyrus), your load order and INI files, "
 		          "and what PC this is (Windows, memory, processor, video card) into one dated zip on your desktop, ready to send "
 		          "with a report.");
 		if (ImGui::MenuItem("AI engine settings...")) {

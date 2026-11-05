@@ -48,7 +48,7 @@ project; you do the coding, building, delivering and publishing.
   light plugins, 9 threads with attached ids): all byte-identical round trips; terminating and deleting threads
   writes and reads back cleanly. Also 5 saves of a 100%-completed game (1.10.138, 25-27 MB, ~100k instances, threads
   with TerminalRunResults fragments and function messages): all byte-identical.
-- Versions are whole numbers, +1 per release. **Current published version: v54** (SE, LE and Fallout 4 pages; v53 was never published on its own).
+- Versions are whole numbers, +1 per release. **Current published version: v55** (SE, LE and Fallout 4 pages; v53 was never published on its own). v55: Collect all logs gathers Fallout 4 (F4SE folder, Logs, Fallout4*.ini, AppData Fallout4 plugins.txt, Fallout4.exe version; zip "Fallout 4 logs <date>.zip").
 - v51 (published 2026-11-02): Edit player > Active magic effects (list, tick, Remove; CLI `--effects`, `--remove-effect 3,7`).
   Save layout: high process ACTIVE EFFECTS = vsval count, each {REF item, u8 effect index, vsval type (= MGEF archetype),
   vsval size, DATA: f32 elapsed, f32 magnitude, f32 duration, u32 flags, ...}. Checked on Tony's Save112: the player's

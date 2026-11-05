@@ -1,8 +1,9 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
-// AI and logs > Collect all logs: every Skyrim log and what is needed to read them, in one dated zip on the
-// desktop, ready to send with a report.
-//   - Documents\My Games\<game>\SKSE with all its folders (SKSE, every plugin's log, crash logs), Logs (Papyrus),
-//     and the game's INI files (Skyrim.ini, SkyrimPrefs.ini, SkyrimCustom.ini) - not the saves
+// AI and logs > Collect all logs: every Skyrim and Fallout 4 log and what is needed to read them, in one dated zip
+// on the desktop, ready to send with a report.
+//   - Documents\My Games\<game>\SKSE (Fallout 4: F4SE) with all its folders (the script extender, every plugin's
+//     log, crash logs: Crash Logger, Buffout 4), Logs (Papyrus), and the game's INI files (Skyrim.ini,
+//     SkyrimPrefs.ini, SkyrimCustom.ini; Fallout4.ini, Fallout4Prefs.ini, Fallout4Custom.ini) - not the saves
 //   - the load order the game reads: %LOCALAPPDATA%\<game>\plugins.txt and loadorder.txt
 //   - .NET Script Framework crash logs (<game>\Data\NetScriptFramework\Crash)
 //   - Mod Organizer: its own logs and the profile's mod list, plugins and load order
@@ -98,14 +99,15 @@ void App::startCollectLogs()
 	};
 
 	// Documents\My Games\<game>
-	const char* games[] = { "Skyrim Special Edition", "Skyrim Special Edition GOG", "Skyrim Special Edition EPIC", "Skyrim VR", "Skyrim" };
+	const char* games[] = { "Skyrim Special Edition", "Skyrim Special Edition GOG", "Skyrim Special Edition EPIC", "Skyrim VR", "Skyrim", "Fallout4" };
 	for (const auto& mg : myGamesFolders()) {
 		for (const char* g : games) {
 			const auto dir = mg / g;
 			if (!std::filesystem::is_directory(dir, ec)) {
 				continue;
 			}
-			addTree(dir / "SKSE", std::string(g) + "/SKSE");
+			const char* se = std::string(g) == "Fallout4" ? "F4SE" : "SKSE";
+			addTree(dir / se, std::string(g) + "/" + se);
 			addTree(dir / "Logs", std::string(g) + "/Logs");
 			for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
 				if (it->is_regular_file(ec) && LowerC(platform::ToUtf8(it->path().extension())) == ".ini") {
@@ -153,7 +155,7 @@ void App::startCollectLogs()
 	const auto gf = gameFolder();
 	auto       exe = gf / "SkyrimSE.exe";
 	if (!std::filesystem::exists(exe, ec)) {
-		for (const char* e : { "SkyrimVR.exe", "TESV.exe" }) {
+		for (const char* e : { "SkyrimVR.exe", "TESV.exe", "Fallout4.exe" }) {
 			if (std::filesystem::exists(gf / e, ec)) {
 				exe = gf / e;
 			}
@@ -184,8 +186,9 @@ void App::startCollectLogs()
 	if (desk.empty() || !std::filesystem::is_directory(desk, ec)) {
 		desk = platform::ExeFolder();
 	}
-	job->zip = desk / (std::string("Skyrim logs ") + stamp + ".zip");
-	job->header = std::string("Skyrim logs collected by ReSaver Plus on ") + when + "\r\n\r\n";
+	const std::string what = _game == 2 ? "Fallout 4 logs" : "Skyrim logs";
+	job->zip = desk / (what + " " + stamp + ".zip");
+	job->header = what + " collected by ReSaver Plus on " + when + "\r\n\r\n";
 	auto* jp = job.get();
 	job->thread = std::thread([jp] {
 		try {
@@ -230,7 +233,7 @@ void App::drawCollectLogs()
 	}
 	auto& j = *_collectJob;
 	if (!j.finished) {
-		ImGui::TextUnformatted("Putting your Skyrim logs, load order, INI files and PC details into one zip...");
+		ImGui::TextUnformatted("Putting your game logs, load order, INI files and PC details into one zip...");
 		ImGui::ProgressBar(j.items.empty() ? 0.0f : static_cast<float>(j.done) / static_cast<float>(j.items.size()), ImVec2(580, 0),
 			(std::to_string(j.done.load()) + " of " + std::to_string(j.items.size()) + " files").c_str());
 	} else if (!j.error.empty()) {
@@ -248,7 +251,7 @@ void App::drawCollectLogs()
 		std::snprintf(b, sizeof(b), "%zu files, %.1f MB", j.files, j.bytes / 1048576.0);
 		ImGui::TextDisabled("%s", b);
 		ImGui::PushTextWrapPos(580);
-		ImGui::TextDisabled("Inside: the SKSE folder with all its logs and crash logs, the Papyrus logs, your INI files and load order, "
+		ImGui::TextDisabled("Inside: the SKSE / F4SE folder with all its logs and crash logs, the Papyrus logs, your INI files and load order, "
 		                    "Mod Organizer's logs and profile lists, ReSaver Plus's logs, and system-info.txt (Windows, memory, "
 		                    "processor, video card). No saves, and not your AI key.");
 		ImGui::PopTextWrapPos();
