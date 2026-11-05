@@ -13,6 +13,8 @@
 #include "core/SaveArchive.h"
 #include "core/LoadOrder.h"
 #include "core/PluginEdit.h"
+#include "core/Quests.h"
+#include "core/ChangeFormData.h"
 #include "core/Transplant.h"
 
 #include <filesystem>
@@ -1271,6 +1273,76 @@ void TestBa2()
 	std::filesystem::remove(file);
 }
 
+
+// Fallout 4 quests: QUST change forms (Skyrim's layout, checked against TESQuest::LoadGame in Fallout4.exe 1.11.240),
+// the Pip-Boy's quest log + objectives in the player's record, and the Fallout 4 QUST VMAD
+void TestQuestsFO4()
+{
+	ess::SaveFile save;
+	save.header.magic = "FO4_SAVEGAME";
+	save.plugins.full = { "Fallout4.esm" };
+	auto refOf = [](std::uint32_t a_local) { return (1u << 22) | a_local; };  // a form of the first plugin
+	// a real body (MainQuestRailroad.fos, quest 0000089C): flags, 2 stages (0 done, 255 done), already run
+	ess::ChangeForm q1;
+	q1.refID.data = refOf(0x89C);
+	q1.typeField = 8;  // QUST (the same code in Fallout 4)
+	q1.changeFlags = 0x84000002;
+	q1.data = { 0x00, 0x00, 0x08, 0x00, 0x00, 0x01, 0xFF, 0x00, 0x01, 0x01 };
+	q1.length1 = static_cast<std::uint32_t>(q1.data.size());
+	// run data whose last item has a type Skyrim does not know (Fallout 4 reads nothing more for it)
+	ess::ChangeForm q2;
+	q2.refID.data = refOf(0x1234);
+	q2.typeField = 8;
+	q2.changeFlags = 0x30000003;  // form flags, quest flags, objectives, run data
+	q2.data = { 1, 0, 0, 0, 0, 0,  0x01, 0x00,  0x04, 10, 0, 0, 0, 3, 0, 0, 0,  0x00, 0, 0, 0, 0, 0, 0, 0, 0,  0x01, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 5, 0, 0, 0 };
+	q2.length1 = static_cast<std::uint32_t>(q2.data.size());
+	// the player: something, then the quest log (1 entry: quest 1234, stage 10, log 0) and the objectives (1: 1234 #10 shown + completed)
+	ess::ChangeForm pl;
+	pl.refID.data = refOf(0x14);
+	pl.typeField = 1;
+	pl.data = { 0xAA, 0xBB, 0xCC,  0x04, 0x40, 0x12, 0x34, 10, 0, 0,  0x04, 0x40, 0x12, 0x34, 10, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0,  0xDD };
+	pl.length1 = static_cast<std::uint32_t>(pl.data.size());
+	save.changeForms = { q1, q2, pl };
+	save.reindexChangeForms();
+	const auto d1 = ess::cf::Decode(save, save.changeForms[0]);
+	const auto d2 = ess::cf::Decode(save, save.changeForms[1]);
+	Check(d1.complete && d2.complete, "fo4 quests: QUST change forms decode completely (incl. a run data type Skyrim has not)");
+	const auto st = ess::quests::ReadStates(save);
+	const ess::quests::QuestState* a = nullptr;
+	const ess::quests::QuestState* b = nullptr;
+	for (const auto& q : st) {
+		a = q.formID == 0x89C ? &q : a;
+		b = q.formID == 0x1234 ? &q : b;
+	}
+	Check(a && a->stages.size() == 2 && a->stages[0].second && a->stages[1].first == 255 && a->highestDoneStage() == 255, "fo4 quests: stages and done flags");
+	Check(b && b->running() && b->objectives.size() == 1 && b->objectives[0].index == 10 && b->objectives[0].state == 3, "fo4 quests: flags and objective states");
+	Check(b && b->journalKnown && b->journal.size() == 1 && b->journal[0].state == 3 && b->logShown.size() == 1 && b->logShown[0].first == 10,
+		"fo4 quests: the Pip-Boy's objectives and quest log from the player's record");
+	bool found = false;
+	const auto log = ess::quests::ReadQuestLog(save, &found);
+	Check(found && log.size() == 1 && log[0].quest == 0x1234 && log[0].stage == 10, "fo4 quests: ReadQuestLog");
+
+	// VMAD (version 6, object format 2): one script with an int and a struct property, then the fragments: fragment
+	// script with its own property, one fragment for stage 20
+	std::vector<std::uint8_t> v;
+	auto u8 = [&](std::uint8_t x) { v.push_back(x); };
+	auto u16 = [&](std::uint16_t x) { u8(x & 0xFF); u8(x >> 8); };
+	auto u32 = [&](std::uint32_t x) { u16(x & 0xFFFF); u16(x >> 16); };
+	auto str = [&](const std::string& t) { u16(static_cast<std::uint16_t>(t.size())); for (char c : t) u8(static_cast<std::uint8_t>(c)); };
+	u16(6); u16(2);
+	u16(1); str("MyQuestScript"); u8(0); u16(2);
+	str("Count"); u8(3); u8(1); u32(7);
+	str("Data"); u8(7); u8(1); u32(1); str("Member"); u8(5); u8(1); u8(1);
+	u8(3); u16(1); str("Fragments:Quests:QF_MyQuest"); u8(0); u16(1); str("Alias"); u8(3); u8(1); u32(9);
+	u32(20); u32(0); u8(0); str("Fragments:Quests:QF_MyQuest"); str("Fragment_Stage_0020_Item_00");
+	ess::quests::QuestDef def;
+	const bool ok = ess::quests::ParseQuestVMADFO4(v.data(), v.size(), {}, def);
+	Check(ok && def.scripts.size() == 1 && def.fragmentScript == "Fragments:Quests:QF_MyQuest" && def.fragments.size() == 1 &&
+			  def.fragments[0].stage == 20 && def.fragments[0].function == "Fragment_Stage_0020_Item_00" && def.properties.size() == 1 &&
+			  def.properties[0].name == "Alias",
+		"fo4 quests: VMAD with a struct property and the fragment script's own properties");
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -1289,6 +1361,7 @@ int main()
 	TestMergedPatchNpcLinks();
 	TestCrashLog();
 	TestCrashLogFO4();
+	TestQuestsFO4();
 	TestSkyrimLogs();
 	TestBa2();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);

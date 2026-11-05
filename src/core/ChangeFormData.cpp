@@ -47,6 +47,7 @@ namespace ess::cf
 
 			Reader r;
 			std::uint8_t                 version = 0;  // the change form's version (some fields depend on it)
+			bool                         fo4 = false;  // a Fallout 4 save (only the layouts checked against Fallout4.exe are read)
 			bool                         inventoryOnly = false;  // stop once the inventory is read (see Decode)
 			std::set<std::uint64_t>      pathIDs;      // pathing stream objects already read in this change form
 
@@ -3452,7 +3453,11 @@ namespace ess::cf
 					if (p.flags8("FLAG") != 0) {
 						p.group("ITEM3", [&] {
 							p.i32("UNK1");
-							p.f32("UNK2");
+							if (p.fo4) {
+								p.i32("UNK2");  // (Fallout4.exe 1.11.240 0x7F7360: read as an id)
+							} else {
+								p.f32("UNK2");
+							}
 							const auto n = static_cast<std::uint32_t>(p.i32("COUNT"));
 							p.countedArray("ITEMS", n, [&] {
 								const auto t = p.i32("TYPE");
@@ -3460,9 +3465,9 @@ namespace ess::cf
 									p.ref("UNK_REF");
 								} else if (t == 3) {
 									p.i32("UNK_INT");
-								} else {
+								} else if (!p.fo4) {
 									throw Stop(Fmt("unexpected quest run data type %d", t));
-								}
+								}  // (Fallout 4 reads nothing more for other types)
 							});
 						});
 					}
@@ -3599,8 +3604,9 @@ namespace ess::cf
 	{
 		Decoded out;
 		out.root.label = ChangeFormTypeName(a_cf.typeCode(), a_save.isFO4());
-		if (a_save.isFO4()) {
-			// the change form layouts here are Skyrim's; Fallout 4's are not decoded (shown as bytes)
+		// Fallout 4: only the layouts checked against Fallout4.exe's own load code are read (QUST: TESQuest::LoadGame,
+		// 1.11.240 RVA 0x66CA40); the others are shown as bytes
+		if (a_save.isFO4() && static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::QUST) {
 			out.error = "Fallout 4 change forms are not decoded";
 			return out;
 		}
@@ -3614,6 +3620,7 @@ namespace ess::cf
 		out.bodySize = body.size();
 		P          p(a_save, body, a_types, out);
 		p.version = a_cf.version;
+		p.fo4 = a_save.isFO4();
 		p.inventoryOnly = a_inventoryOnly;
 		bool stoppedEarly = false;
 		const auto flags = a_cf.changeFlags;

@@ -79,6 +79,9 @@ namespace ess::quests
 	// Reads the VMAD of a QUST record (scripts, their properties, the stage fragments). False if it
 	// cannot be read; whatever was read before the problem is kept.
 	bool ParseQuestVMAD(const std::uint8_t* a_data, std::size_t a_size, const ToRuntime& a_toRuntime, QuestDef& a_out);
+	// The same for Fallout 4's QUST VMAD (xEdit wbVMADFragmentedQUST: structs, the fragment script's own properties,
+	// fragments keyed by stage and stage index)
+	bool ParseQuestVMADFO4(const std::uint8_t* a_data, std::size_t a_size, const ToRuntime& a_toRuntime, QuestDef& a_out);
 
 	// ---- what a stage script does -----------------------------------------------------------------
 	// The lines of one function ("Fragment_12") in a decompiled script, without its Function/EndFunction.
@@ -123,6 +126,9 @@ namespace ess::quests
 		// journalKnown false when the save's journal list could not be found)
 		std::vector<ObjectiveState>                    journal;
 		bool                                           journalKnown = false;
+		// Fallout 4: the quest's log entries the Pip-Boy shows (stage, log entry index within the stage), from the
+		// player's quest log (PlayerCharacter::questLog)
+		std::vector<std::pair<std::uint16_t, std::uint8_t>> logShown;
 
 		bool          inJournal() const;  // the journal shows one of its objectives
 
@@ -143,7 +149,20 @@ namespace ess::quests
 	{
 		std::uint32_t quest = 0, index = 0, instance = 0, state = 0;
 	};
+	// Fallout 4: the same list (PlayerCharacter::objectives, the Pip-Boy's objectives) is read where the game reads it:
+	// right after the player's quest log, both written by PlayerCharacter::LoadGame (Fallout4.exe 1.11.240: the quest
+	// log at RVA 0xD6682A, a vsval count of { quest RefID, stage u16, log entry u8 }; the objectives at 0xD66961, a
+	// vsval count of { quest RefID, objective index u32, instance u32, state u32 }, element reader 0x61E170).
 	std::vector<JournalEntry> ReadJournal(const SaveFile& a_save, bool* a_found = nullptr);
+
+	// Fallout 4: the player's quest log, the log entries the Pip-Boy shows (empty for Skyrim)
+	struct LogShown
+	{
+		std::uint32_t quest = 0;
+		std::uint16_t stage = 0;
+		std::uint8_t  log = 0;
+	};
+	std::vector<LogShown> ReadQuestLog(const SaveFile& a_save, bool* a_found = nullptr);
 
 	// Every quest with saved state in the save (its QUST change form), in change form order, with what
 	// the journal lists for it (quests only in the journal are added at the end).

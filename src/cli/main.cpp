@@ -928,6 +928,10 @@ int main(int argc, char** argv)
 				PluginDB::Input in2;
 				PrepareInput(*save, in2);
 				in2.sources = src;
+				if (save->isFO4()) {
+					in2.fo4 = true;
+					in2.language = "en";  // (Fallout4_en.strings)
+				}
 				PluginDB::Progress prog;
 				db = std::make_unique<PluginDB>();
 				db->load(in2, prog);
@@ -963,6 +967,9 @@ int main(int argc, char** argv)
 				}
 				if (found) {
 					std::printf("journal: %zu entries, %zu quests listed (read from the player's record)\n", j.size(), inJournal);
+					if (save->isFO4()) {
+						std::printf("Pip-Boy quest log: %zu log entries shown\n", quests::ReadQuestLog(*save).size());
+					}
 				} else {
 					std::printf("journal: not found in the player's record (objective counts come from the quests' own records)\n");
 				}
@@ -998,8 +1005,9 @@ int main(int argc, char** argv)
 				}
 				std::printf("\n");
 				if (!needle.empty() && def) {
-					std::printf("    plugin %s, fragment script %s (%zu fragments, %zu properties)\n", db->plugins()[def->plugin].c_str(),
-						def->fragmentScript.c_str(), def->fragments.size(), def->properties.size());
+					std::printf("    plugin %s, type %u, priority %u, flags %04X, fragment script %s (%zu fragments, %zu properties)\n",
+						db->plugins()[def->plugin].c_str(), def->type, def->priority, def->flags, def->fragmentScript.c_str(), def->fragments.size(),
+						def->properties.size());
 					for (const auto& sg : def->stages) {
 						bool done = false;
 						for (const auto& [st, d] : q.stages) {
@@ -1029,6 +1037,13 @@ int main(int argc, char** argv)
 							js += (js.empty() ? "" : ", ") + std::to_string(o.index) + " " + quests::ObjectiveStateText(o.state);
 						}
 						std::printf("    in the journal: %s\n", js.empty() ? "no" : js.c_str());
+					}
+					if (!q.logShown.empty()) {
+						std::string ls;
+						for (const auto& [st, lg] : q.logShown) {
+							ls += (ls.empty() ? "" : ", ") + std::string("stage ") + std::to_string(st) + (lg ? " entry " + std::to_string(lg) : std::string());
+						}
+						std::printf("    Pip-Boy log shows: %s\n", ls.c_str());
 					}
 					for (const auto& pr : def->properties) {
 						std::printf("    property %s = %s\n", pr.name.c_str(), pr.type == 1 ? db->describe(pr.form).c_str() : pr.text.c_str());

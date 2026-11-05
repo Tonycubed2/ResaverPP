@@ -347,7 +347,8 @@ namespace ess
 					std::uint32_t base = 0;
 					std::uint32_t big = 0;
 					const bool     sk = !a_in.fo4;  // (Skyrim's layouts)
-					const bool     isQuest = sk && Is(h, "QUST");
+					const bool     isQuest = Is(h, "QUST");  // (Fallout 4's layout too: xEdit wbDefinitionsFO4, checked on Fallout4.esm)
+					bool           pastObjectives = false;  // Fallout 4: after ANAM (the aliases, then NNAM is the description)
 					const bool     isSpell = sk && Is(h, "SPEL");
 					const bool     isMgef = sk && Is(h, "MGEF");
 					const bool     hasEffects = sk && (isSpell || Is(h, "ENCH") || Is(h, "ALCH") || Is(h, "INGR") || Is(h, "SCRL"));
@@ -410,7 +411,16 @@ namespace ess
 								a_id = 0;
 								return GameTextToUtf8(std::string(reinterpret_cast<const char*>(d + p), strnlen(reinterpret_cast<const char*>(d + p), len)));
 							};
-							if (Is(st, "DNAM") && len >= 8) {
+							if (Is(st, "DNAM") && a_in.fo4) {
+								// Fallout 4 DNAM: flags u16, priority u8, unused u8, delay f32, type u8, 3 unused
+								if (len >= 9) {
+									std::memcpy(&qd.flags, d + p, 2);
+									qd.priority = d[p + 2];
+									qd.type = d[p + 8];
+								}
+							} else if (Is(st, "ANAM") && a_in.fo4) {
+								pastObjectives = true;
+							} else if (Is(st, "DNAM") && len >= 8) {
 								std::memcpy(&qd.flags, d + p, 2);
 								qd.priority = d[p + 2];
 								qd.type = d[p + 7];
@@ -438,7 +448,7 @@ namespace ess
 								quests::Objective o;
 								std::memcpy(&o.index, d + p, 2);
 								qd.objectives.push_back(std::move(o));
-							} else if (Is(st, "NNAM") && !qd.objectives.empty()) {
+							} else if (Is(st, "NNAM") && !qd.objectives.empty() && !pastObjectives) {
 								std::uint32_t tid = 0;
 								qd.objectives.back().text = text(tid);
 								if (tid) {
@@ -449,7 +459,11 @@ namespace ess
 									}
 								}
 							} else if (Is(st, "VMAD")) {
-								quests::ParseQuestVMAD(d + p, len, toRuntime, qd);
+								if (a_in.fo4) {
+									quests::ParseQuestVMADFO4(d + p, len, toRuntime, qd);
+								} else {
+									quests::ParseQuestVMAD(d + p, len, toRuntime, qd);
+								}
 							}
 						}
 						p += len;

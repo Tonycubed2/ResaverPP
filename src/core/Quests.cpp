@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 #include <cctype>
 #include <stdexcept>
 #include <cstdio>
@@ -99,7 +100,9 @@ namespace ess::quests
 			}
 		}
 
-		Property ReadProperty(Reader& r, std::int16_t a_version, std::int16_t a_objFormat, const ToRuntime& a_rt)
+		void SkipStructFO4(Reader& r, std::int16_t a_objFormat);
+
+		Property ReadProperty(Reader& r, std::int16_t a_version, std::int16_t a_objFormat, const ToRuntime& a_rt, bool a_fo4 = false)
 		{
 			Property p;
 			p.name = WString(r);
@@ -167,10 +170,50 @@ namespace ess::quests
 					}
 					break;
 				}
+			case 6:
+				if (!a_fo4) {
+					throw std::runtime_error("unknown VMAD property type 6");
+				}
+				p.text = "(variable)";  // Fallout 4: a Var with no value stored
+				break;
+			case 7:
+				if (!a_fo4) {
+					throw std::runtime_error("unknown VMAD property type 7");
+				}
+				SkipStructFO4(r, a_objFormat);  // Fallout 4: a struct (xEdit wbScriptPropertyStruct)
+				p.text = "(struct)";
+				break;
+			case 16:
+				if (!a_fo4) {
+					throw std::runtime_error("unknown VMAD property type 16");
+				}
+				p.text = std::to_string(r.u32()) + " variable(s)";  // Fallout 4: Var[] (only its count is stored)
+				break;
+			case 17:
+				{
+					if (!a_fo4) {
+						throw std::runtime_error("unknown VMAD property type 17");
+					}
+					const auto n = r.u32();  // Fallout 4: Struct[]
+					for (std::uint32_t i = 0; i < n; ++i) {
+						SkipStructFO4(r, a_objFormat);
+					}
+					p.text = std::to_string(n) + " struct(s)";
+					break;
+				}
 			default:
 				throw std::runtime_error("unknown VMAD property type " + std::to_string(p.type));
 			}
 			return p;
+		}
+
+		// a Fallout 4 struct value: a u32 member count, each member a property (name, type, flags, value)
+		void SkipStructFO4(Reader& r, std::int16_t a_objFormat)
+		{
+			const auto n = r.u32();
+			for (std::uint32_t i = 0; i < n; ++i) {
+				ReadProperty(r, 6, a_objFormat, {}, true);
+			}
 		}
 
 		struct Script
@@ -179,7 +222,7 @@ namespace ess::quests
 			std::vector<Property> props;
 		};
 
-		std::vector<Script> ReadScripts(Reader& r, std::int16_t a_version, std::int16_t a_objFormat, const ToRuntime& a_rt)
+		std::vector<Script> ReadScripts(Reader& r, std::int16_t a_version, std::int16_t a_objFormat, const ToRuntime& a_rt, bool a_fo4 = false)
 		{
 			std::vector<Script> out;
 			const auto          n = r.u16();
@@ -191,7 +234,7 @@ namespace ess::quests
 				}
 				const auto pc = r.u16();
 				for (std::uint16_t k = 0; k < pc; ++k) {
-					s.props.push_back(ReadProperty(r, a_version, a_objFormat, a_rt));
+					s.props.push_back(ReadProperty(r, a_version, a_objFormat, a_rt, a_fo4));
 				}
 				out.push_back(std::move(s));
 			}
@@ -229,6 +272,54 @@ namespace ess::quests
 			for (const auto& s : scripts) {
 				if (EqualsNoCase(s.name, a_out.fragmentScript)) {
 					a_out.properties = s.props;
+				}
+			}
+			return true;
+		} catch (const std::exception&) {
+			return false;
+		}
+	}
+
+	bool ParseQuestVMADFO4(const std::uint8_t* a_data, std::size_t a_size, const ToRuntime& a_rt, QuestDef& a_out)
+	{
+		// xEdit wbVMADFragmentedQUST (Fallout 4): version, object format, scripts; then the fragments: extra bind
+		// data version (s8), fragment count (u16), the fragment script's name, and when it has one its flags and
+		// properties; each fragment: stage (u32), stage index (u32), a byte, script name, fragment name
+		try {
+			Reader     r(a_data, a_size);
+			const auto version = r.i16();
+			const auto objFormat = r.i16();
+			const auto scripts = ReadScripts(r, version, objFormat, a_rt, true);
+			for (const auto& s : scripts) {
+				a_out.scripts.push_back(s.name);
+			}
+			if (r.remaining() == 0) {
+				return true;
+			}
+			r.u8();
+			const auto fragCount = r.u16();
+			a_out.fragmentScript = WString(r);
+			if (!a_out.fragmentScript.empty()) {
+				r.u8();  // flags
+				const auto pc = r.u16();
+				for (std::uint16_t k = 0; k < pc; ++k) {
+					a_out.properties.push_back(ReadProperty(r, version, objFormat, a_rt, true));
+				}
+			}
+			for (std::uint16_t i = 0; i < fragCount; ++i) {
+				Fragment f;
+				f.stage = static_cast<std::uint16_t>(r.u32());
+				f.logEntry = static_cast<std::int32_t>(r.u32());  // (the stage index)
+				r.u8();
+				f.script = WString(r);
+				f.function = WString(r);
+				a_out.fragments.push_back(std::move(f));
+			}
+			if (a_out.properties.empty()) {
+				for (const auto& s : scripts) {
+					if (EqualsNoCase(s.name, a_out.fragmentScript)) {
+						a_out.properties = s.props;
+					}
 				}
 			}
 			return true;
@@ -469,10 +560,151 @@ namespace ess::quests
 		}
 	}
 
+	namespace
+	{
+		// Fallout 4: where the player's quest log and objective list are in its ACHR body. The two lists are written
+		// one after the other (PlayerCharacter::LoadGame); the player's record is not decoded field by field, so they
+		// are found as the pair of lists, each a vsval count, whose entries all name quests with saved state (QUST
+		// change forms) and valid objective states. The longest pair is the one (checked on 15 saves: it is unique).
+		struct PipBoyLists
+		{
+			std::vector<std::uint8_t> body;
+			std::size_t               logAt = 0, logN = 0, objAt = 0, objN = 0;
+			bool                      found = false;
+		};
+		PipBoyLists FindPipBoyLists(const SaveFile& a_save)
+		{
+			PipBoyLists out;
+			const ChangeForm*                   player = nullptr;
+			std::unordered_set<std::uint32_t> quests;
+			for (const auto& c : a_save.changeForms) {
+				const auto t = static_cast<ChangeFormType>(c.typeCode());
+				if (t == ChangeFormType::ACHR && a_save.formIDOf(c.refID) == 0x14) {
+					player = &c;
+				} else if (t == ChangeFormType::QUST) {
+					quests.insert(c.refID.data);
+				}
+			}
+			if (!player) {
+				return out;
+			}
+			try {
+				out.body = cf::Body(*player);
+			} catch (const std::exception&) {
+				return out;
+			}
+			const auto& d = out.body;
+			auto        u32 = [&](std::size_t p) {
+                return static_cast<std::uint32_t>(d[p]) | (d[p + 1] << 8) | (d[p + 2] << 16) | (static_cast<std::uint32_t>(d[p + 3]) << 24);
+			};
+			auto vsval = [&](std::size_t p, std::size_t& a_len) -> std::uint32_t {
+				const auto sz = d[p] & 3;
+				if (sz == 0) {
+					a_len = 1;
+					return d[p] >> 2;
+				}
+				if (sz == 1 && p + 1 < d.size()) {
+					a_len = 2;
+					return (d[p] | (d[p + 1] << 8)) >> 2;
+				}
+				if (sz == 2 && p + 3 < d.size()) {
+					a_len = 4;
+					return u32(p) >> 2;
+				}
+				a_len = 0;
+				return 0;
+			};
+			auto ref = [&](std::size_t r) { return (static_cast<std::uint32_t>(d[r]) << 16) | (d[r + 1] << 8) | d[r + 2]; };
+			std::size_t best = 0;
+			for (std::size_t p = 0; p + 2 < d.size(); ++p) {
+				std::size_t l1 = 0;
+				const auto  n = vsval(p, l1);
+				if (l1 == 0 || n > 100000) {
+					continue;
+				}
+				const std::size_t q = p + l1 + 6 * static_cast<std::size_t>(n);
+				if (q + 1 > d.size()) {
+					continue;
+				}
+				bool ok = true;
+				for (std::size_t k = 0; k < n && ok; ++k) {
+					ok = quests.contains(ref(p + l1 + 6 * k));
+				}
+				if (!ok) {
+					continue;
+				}
+				std::size_t l2 = 0;
+				const auto  m = vsval(q, l2);
+				if (l2 == 0 || m > 100000 || q + l2 + 15 * static_cast<std::size_t>(m) > d.size() || n + m <= best) {
+					continue;
+				}
+				for (std::size_t k = 0; k < m && ok; ++k) {
+					const auto r = q + l2 + 15 * k;
+					ok = quests.contains(ref(r)) && u32(r + 11) <= 5;
+				}
+				if (ok) {
+					best = n + m;
+					out.logAt = p + l1;
+					out.logN = n;
+					out.objAt = q + l2;
+					out.objN = m;
+					out.found = true;
+				}
+			}
+			return out;
+		}
+	}
+
+	std::vector<LogShown> ReadQuestLog(const SaveFile& a_save, bool* a_found)
+	{
+		if (a_found) {
+			*a_found = false;
+		}
+		std::vector<LogShown> out;
+		if (!a_save.isFO4()) {
+			return out;
+		}
+		const auto l = FindPipBoyLists(a_save);
+		if (!l.found) {
+			return out;
+		}
+		for (std::size_t k = 0; k < l.logN; ++k) {
+			const auto r = l.logAt + 6 * k;
+			RefID      id;
+			id.data = (static_cast<std::uint32_t>(l.body[r]) << 16) | (l.body[r + 1] << 8) | l.body[r + 2];
+			out.push_back({ a_save.formIDOf(id), static_cast<std::uint16_t>(l.body[r + 3] | (l.body[r + 4] << 8)), l.body[r + 5] });
+		}
+		if (a_found) {
+			*a_found = true;
+		}
+		return out;
+	}
+
 	std::vector<JournalEntry> ReadJournal(const SaveFile& a_save, bool* a_found)
 	{
 		if (a_found) {
 			*a_found = false;
+		}
+		if (a_save.isFO4()) {
+			const auto l = FindPipBoyLists(a_save);
+			std::vector<JournalEntry> out;
+			if (!l.found) {
+				return out;
+			}
+			const auto& d = l.body;
+			auto        u32 = [&](std::size_t p) {
+                return static_cast<std::uint32_t>(d[p]) | (d[p + 1] << 8) | (d[p + 2] << 16) | (static_cast<std::uint32_t>(d[p + 3]) << 24);
+			};
+			for (std::size_t k = 0; k < l.objN; ++k) {
+				const auto r = l.objAt + 15 * k;
+				RefID      id;
+				id.data = (static_cast<std::uint32_t>(d[r]) << 16) | (d[r + 1] << 8) | d[r + 2];
+				out.push_back({ a_save.formIDOf(id), u32(r + 3), u32(r + 7), u32(r + 11) });
+			}
+			if (a_found) {
+				*a_found = true;
+			}
+			return out;
 		}
 		const ChangeForm* player = nullptr;
 		for (const auto& c : a_save.changeForms) {
@@ -542,9 +774,7 @@ namespace ess::quests
 	std::vector<QuestState> ReadStates(const SaveFile& a_save)
 	{
 		std::vector<QuestState> out;
-		if (a_save.isFO4()) {
-			return out;  // Skyrim's quest change form layout
-		}
+		// (Fallout 4's QUST change forms have Skyrim's layout: checked against TESQuest::LoadGame in Fallout4.exe)
 		for (const auto& c : a_save.changeForms) {
 			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::QUST) {
 				continue;
@@ -574,6 +804,17 @@ namespace ess::quests
 					out.push_back(std::move(q));
 				}
 				out[it->second].journal.push_back({ static_cast<std::int32_t>(e.index), static_cast<std::int32_t>(e.state) });
+			}
+		}
+		if (a_save.isFO4()) {
+			std::unordered_map<std::uint32_t, std::size_t> at;
+			for (std::size_t i = 0; i < out.size(); ++i) {
+				at[out[i].formID] = i;
+			}
+			for (const auto& e : ReadQuestLog(a_save)) {
+				if (auto it = at.find(e.quest); it != at.end()) {
+					out[it->second].logShown.push_back({ e.stage, e.log });
+				}
 			}
 		}
 		return out;
