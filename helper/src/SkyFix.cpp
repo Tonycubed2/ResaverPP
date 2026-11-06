@@ -50,7 +50,7 @@ namespace SkyFix
 			}
 		}
 		auto*      vm = VM::GetSingleton();
-		const auto h = HandleOf(quest, RE::TESQuest::FORMTYPE);
+		const auto h = HandleOf(quest, static_cast<RE::VMTypeID>(RE::TESQuest::FORMTYPE));
 		RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> none;
 		if (!vm || !h ||
 			!vm->DispatchMethodCall(h, "DialogueFollowerScript", "SetFollower", RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(actor)), none)) {
@@ -90,7 +90,7 @@ namespace SkyFix
 		}
 		const char* script = wolf ? "PlayerWerewolfChangeScript" : "DLC1PlayerVampireChangeScript";
 		auto*       vm = VM::GetSingleton();
-		const auto  h = HandleOf(quest, RE::TESQuest::FORMTYPE);
+		const auto  h = HandleOf(quest, static_cast<RE::VMTypeID>(RE::TESQuest::FORMTYPE));
 		RE::BSTSmartPointer<RE::BSScript::Object> obj;
 		if (!vm || !h || !vm->FindBoundObject(h, script, obj) || !obj) {
 			return std::string("the quest has no ") + script;
