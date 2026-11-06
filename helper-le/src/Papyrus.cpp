@@ -150,6 +150,46 @@ namespace papyrus
 		return ok;
 	}
 
+	int SetBoolVariable(TESForm* a_object, const char* a_class, const char* a_name, bool a_value, bool* a_was)
+	{
+		auto*        reg = Registry();
+		const UInt64 handle = HandleOf(a_object);
+		if (!reg || !handle) {
+			return -1;
+		}
+		using Find = bool(__thiscall*)(VMClassRegistry*, UInt64, const char*, VMIdentifier**);
+		VMIdentifier* obj = nullptr;
+		if (!reinterpret_cast<Find>(Slot(reg, 0x1B))(reg, handle, a_class, &obj) || !obj) {
+			return -1;
+		}
+		int result = 0;
+		auto* type = obj->m_type;
+		if ((*reinterpret_cast<const UInt32*>(obj) & 4) != 0 && type) {
+			// the chain's variable count, as 0xC335F0 counts it (only linked classes: low two bits of +0x10 = 3)
+			UInt32 total = 0;
+			for (auto* c = type; c && (c->unk10 & 3) == 3; c = c->parent) {
+				total += (c->unk10 >> 8) & 0x3FF;
+			}
+			BSFixedString name(a_name);
+			const SInt32  index = CALL_MEMBER_FN(type, GetVariable)(&name);
+			if (index >= 0 && static_cast<UInt32>(index) < total) {
+				auto* v = reinterpret_cast<VMValue*>(reinterpret_cast<UInt8*>(obj) + 0x20) + index;
+				if (v->type == VMValue::kType_Bool) {
+					if (a_was) {
+						*a_was = v->data.b;
+					}
+					v->data.u = 0;  // a Bool holds no reference: the value is the whole data word
+					v->data.b = a_value;
+					result = 1;
+				}
+			}
+		}
+		if (!obj->DecrementLock()) {
+			obj->Destroy();
+		}
+		return result;
+	}
+
 	bool CallStatic(const char* a_class, const char* a_fn, Args a_args, Done a_done)
 	{
 		auto* reg = Registry();
