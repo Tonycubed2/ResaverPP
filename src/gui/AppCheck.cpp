@@ -47,10 +47,10 @@ namespace
 	const char* RiskWord(App::Risk r)
 	{
 		switch (r) {
-		case App::Risk::kSafe: return "SAFE";
-		case App::Risk::kCaution: return "CAUTION";
-		case App::Risk::kRisky: return "RISKY";
-		default: return "INFO";
+		case App::Risk::kSafe: return tr("SAFE");
+		case App::Risk::kCaution: return tr("CAUTION");
+		case App::Risk::kRisky: return tr("RISKY");
+		default: return tr("INFO");
 		}
 	}
 
@@ -96,14 +96,14 @@ std::vector<App::CheckItem> App::checkItems()
 	if (_readOnly) {
 		CheckItem it;
 		it.level = Risk::kRisky;
-		it.title = "This save is damaged: opened read-only";
+		it.title = tr("This save is damaged: opened read-only");
 		std::string list;
 		for (const auto& pr : _save->problems) {
 			list += "\n  - " + pr;
 		}
-		it.what = "Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:" + list +
-				  "\nYou can look at everything, but ReSaver++ will not write it back (that could lose or invent data). "
-				  "Load an earlier save in the game, or report this with the file.";
+		it.what = tr("Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:") + list +
+				  tr("\nYou can look at everything, but ReSaver++ will not write it back (that could lose or invent data). "
+				  "Load an earlier save in the game, or report this with the file.");
 		v.push_back(std::move(it));
 	}
 
@@ -115,36 +115,36 @@ std::vector<App::CheckItem> App::checkItems()
 		for (const auto& f : cc.suspects) {
 			ids += (ids.empty() ? "" : ", ") + Fmt("%08X", f.target);
 		}
-		it.title = Fmt("Your newest crash log names %s from this save", cc.suspects.size() == 1 ? ("spawned NPC " + ids).c_str()
-		                                                                                        : Fmt("%zu spawned NPCs", cc.suspects.size()).c_str());
-		it.what = Fmt("The game crashed%s%s while working on %s, a spawned or leveled NPC this save has (%s). A crash while loading a "
+		it.title = Fmt(tr("Your newest crash log names %s from this save"), cc.suspects.size() == 1 ? (tr("spawned NPC ") + ids).c_str()
+		                                                                                        : Fmt(tr("%zu spawned NPCs"), cc.suspects.size()).c_str());
+		it.what = Fmt(tr("The game crashed%s%s while working on %s, a spawned or leveled NPC this save has (%s). A crash while loading a "
 					  "save is often one such NPC whose saved data no longer fits your mods. The log may name its base NPC first (an NPC "
-					  "FF......); the game rebuilds that at every load, so it is not in the save: the NPC itself is.",
-			cc.time.empty() ? "" : " on ", cc.time.c_str(), ids.c_str(), platform::ToUtf8(cc.file.filename()).c_str());
+					  "FF......); the game rebuilds that at every load, so it is not in the save: the NPC itself is."),
+			cc.time.empty() ? "" : tr(" on "), cc.time.c_str(), ids.c_str(), platform::ToUtf8(cc.file.filename()).c_str());
 		for (const auto& f : cc.suspects) {
 			CheckOption o;
-			o.label = Fmt("Remove NPC %08X from the save", f.target);
+			o.label = Fmt(tr("Remove NPC %08X from the save"), f.target);
 			o.risk = Risk::kCaution;
-			o.why = "Deletes only this NPC's saved data; the game drops it when the save loads, and a mod that spawns it can make a new one. "
-					"Write the save with File > Save As and load that.";
+			o.why = tr("Deletes only this NPC's saved data; the game drops it when the save loads, and a mod that spawns it can make a new one. "
+					"Write the save with File > Save As and load that.");
 			const auto raw = f.refRaw;
 			const auto id = f.target;
 			o.act = [this, raw, id] {
-				confirm(Fmt("Remove NPC %08X", id),
-					Fmt("Delete the saved data of spawned/leveled NPC %08X, which your newest crash log names?\n\nOnly the save in memory "
-						"changes: write it with File > Save As (under a new name) and load that.",
+				confirm(Fmt(tr("Remove NPC %08X"), id),
+					Fmt(tr("Delete the saved data of spawned/leveled NPC %08X, which your newest crash log names?\n\nOnly the save in memory "
+						"changes: write it with File > Save As (under a new name) and load that."),
 						id),
 					[this, raw, id] {
 						ops::DeleteChangeForms(*_save, { raw });
-						markEdited(Fmt("Removed NPC %08X (named in the crash log)", id));
+						markEdited(Fmt(tr("Removed NPC %08X (named in the crash log)"), id));
 					});
 			};
 			it.options.push_back(std::move(o));
 		}
 		CheckOption o;
-		o.label = "Open the crash log...";
+		o.label = tr("Open the crash log...");
 		o.risk = Risk::kSafe;
-		o.why = "Only shows information: every form the log names and what this save has of each.";
+		o.why = tr("Only shows information: every form the log names and what this save has of each.");
 		o.act = [this] {
 			_showCrashLog = true;
 			_clogLoaded = false;
@@ -163,34 +163,34 @@ std::vector<App::CheckItem> App::checkItems()
 		CheckItem it;
 		const bool suspect = _orderSuspect || _scanSuspect;
 		it.level = suspect ? Risk::kRisky : Risk::kCaution;
-		it.title = !_missing.empty() ? Fmt("%zu mod(s) in this save are not in your load order", _missing.size())
-									 : Fmt("%zu script(s) in this save are no longer installed", _missingScripts.size() + _unfoundScripts.size());
+		it.title = !_missing.empty() ? Fmt(tr("%zu mod(s) in this save are not in your load order"), _missing.size())
+									 : Fmt(tr("%zu script(s) in this save are no longer installed"), _missingScripts.size() + _unfoundScripts.size());
 		std::string w;
 		if (!_missing.empty()) {
-			w = _installKnown ? Fmt("Not in %s: %zu no longer installed, %zu installed but not enabled. ", _missingSource.c_str(), gone, disabled)
-							  : Fmt("Not in %s. ", _missingSource.c_str());
+			w = _installKnown ? Fmt(tr("Not in %s: %zu no longer installed, %zu installed but not enabled. "), _missingSource.c_str(), gone, disabled)
+							  : Fmt(tr("Not in %s. "), _missingSource.c_str());
 		}
 		if (!_missingScripts.empty()) {
-			w += Fmt("%zu script(s) the game could not load because their files are gone. ", _missingScripts.size());
+			w += Fmt(tr("%zu script(s) the game could not load because their files are gone. "), _missingScripts.size());
 		}
 		if (!_unfoundScripts.empty()) {
-			w += Fmt("%zu script(s) were not found in your mods, but the game still had them when it saved (probably fine). ", _unfoundScripts.size());
+			w += Fmt(tr("%zu script(s) were not found in your mods, but the game still had them when it saved (probably fine). "), _unfoundScripts.size());
 		}
-		w += "Their scripts and saved data are leftovers the game no longer uses.";
+		w += tr("Their scripts and saved data are leftovers the game no longer uses.");
 		if (!_installKnown && scanning()) {
-			w += "\nStill scanning your mods: until it is done, uninstalled mods cannot be told from disabled ones.";
+			w += tr("\nStill scanning your mods: until it is done, uninstalled mods cannot be told from disabled ones.");
 		}
 		if (suspect) {
-			w += "\nBUT the load order or the mods folder ReSaver++ read does not match this save (wrong MO2 profile, old plugins.txt, "
-				 "or archives that could not be read). Cleaning now could remove mods you still use. Check Options > Settings first.";
+			w += tr("\nBUT the load order or the mods folder ReSaver++ read does not match this save (wrong MO2 profile, old plugins.txt, "
+				 "or archives that could not be read). Cleaning now could remove mods you still use. Check Options > Settings first.");
 		}
 		it.what = w;
 		CheckOption o;
-		o.label = "Review and remove their leftovers...";
+		o.label = tr("Review and remove their leftovers...");
 		o.risk = suspect ? Risk::kRisky : Risk::kCaution;
-		o.why = suspect ? "The mod list looks wrong, so nothing is ticked. Removing a mod you still use deletes its progress and settings."
-						: "Writes a NEW save without them; the original is not touched. Safe for mods you removed for good. A mod you only "
-						  "disabled (for a test, or in another profile) would lose its progress and settings: those are not ticked.";
+		o.why = suspect ? tr("The mod list looks wrong, so nothing is ticked. Removing a mod you still use deletes its progress and settings.")
+						: tr("Writes a NEW save without them; the original is not touched. Safe for mods you removed for good. A mod you only "
+						  "disabled (for a test, or in another profile) would lose its progress and settings: those are not ticked.");
 		o.act = [this] {
 			_missingDismissed = false;
 			for (auto& m : _missing) {
@@ -209,22 +209,22 @@ std::vector<App::CheckItem> App::checkItems()
 		for (const auto& s : r.loopingScripts) {
 			CheckItem it;
 			it.level = Risk::kCaution;
-			it.title = "Script '" + s + "' is running in many copies at once";
-			it.what = "Dozens of its threads sit in wait loops. A script that never stops (like the Firefly bug) slows the whole script "
-					  "engine, and it gets worse with every save.";
+			it.title = tr("Script '") + s + tr("' is running in many copies at once");
+			it.what = tr("Dozens of its threads sit in wait loops. A script that never stops (like the Firefly bug) slows the whole script "
+					  "engine, and it gets worse with every save.");
 			CheckOption o;
-			o.label = "Purge " + s;
+			o.label = tr("Purge ") + s;
 			o.risk = Risk::kCaution;
-			o.why = "Removes all of its threads and its data, plus the spawned objects they sit on. Right for a runaway script. If it belongs "
-					"to a mod you use, that mod's feature restarts or stops until the mod starts it again.";
+			o.why = tr("Removes all of its threads and its data, plus the spawned objects they sit on. Right for a runaway script. If it belongs "
+					"to a mod you use, that mod's feature restarts or stops until the mod starts it again.");
 			const std::string name = s;
 			o.act = [this, name] {
-				confirm("Purge " + name,
-					"Remove every thread, suspended stack, function message and instance of '" + name +
-						"', plus the spawned objects they sit on?\n\nOnly the save in memory changes: write it with File > Save As.",
+				confirm(tr("Purge ") + name,
+					tr("Remove every thread, suspended stack, function message and instance of '") + name +
+						tr("', plus the spawned objects they sit on?\n\nOnly the save in memory changes: write it with File > Save As."),
 					[this, name] {
 						auto x = ops::PurgeScript(*_save, name, true);
-						markEdited(Fmt("Purged %s: %zu threads, %zu instances, %zu spawned objects", name.c_str(), x.threads, x.instances, x.forms));
+						markEdited(Fmt(tr("Purged %s: %zu threads, %zu instances, %zu spawned objects"), name.c_str(), x.threads, x.instances, x.forms));
 					});
 			};
 			it.options.push_back(std::move(o));
@@ -235,13 +235,13 @@ std::vector<App::CheckItem> App::checkItems()
 		if (r.mcmJam) {
 			CheckItem it;
 			it.level = Risk::kCaution;
-			it.title = "SkyUI was still registering MCM menus when this save was made";
-			it.what = "Loading replays all of that work, which can make menus missing or the game sluggish after loading.";
+			it.title = tr("SkyUI was still registering MCM menus when this save was made");
+			it.what = tr("Loading replays all of that work, which can make menus missing or the game sluggish after loading.");
 			CheckOption o;
-			o.label = "Fix SkyUI MCM registration jam...";
+			o.label = tr("Fix SkyUI MCM registration jam...");
 			o.risk = Risk::kSafe;
-			o.why = "Removes only the stuck registration work. Menus already registered keep their settings; SkyUI registers the rest "
-					"again on the next load.";
+			o.why = tr("Removes only the stuck registration work. Menus already registered keep their settings; SkyUI registers the rest "
+					"again on the next load.");
 			o.act = [this] { fixMcmJam(); };
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));
@@ -251,19 +251,19 @@ std::vector<App::CheckItem> App::checkItems()
 		if (r.undefinedInstances || r.undefinedThreads) {
 			CheckItem it;
 			it.level = Risk::kCaution;
-			it.title = Fmt("%zu script instance(s) and %zu thread(s) belong to scripts the game could not load", r.undefinedInstances, r.undefinedThreads);
-			it.what = "Their script files were not found when this save was made, so the game cannot run them: dead data.";
+			it.title = Fmt(tr("%zu script instance(s) and %zu thread(s) belong to scripts the game could not load"), r.undefinedInstances, r.undefinedThreads);
+			it.what = tr("Their script files were not found when this save was made, so the game cannot run them: dead data.");
 			CheckOption o;
-			o.label = "Remove undefined elements";
+			o.label = tr("Remove undefined elements");
 			o.risk = Risk::kCaution;
-			o.why = "The game cannot use these scripts any more, but stopping their threads also ends the scripts that called them, which "
+			o.why = tr("The game cannot use these scripts any more, but stopping their threads also ends the scripts that called them, which "
 					"can leave a quest or mod waiting forever. If that mod is installed again, or a script it extends is only missing for "
-					"now, its data still matters. Back up the save and check it in game.";
+					"now, its data still matters. Back up the save and check it in game.");
 			o.act = [this, p] {
-				confirm("Remove undefined elements",
-					"Delete scripts whose .pex is no longer installed, their instances and references, and terminate threads running them?"
-					"\n\nOnly the save in memory changes: write it with File > Save As.",
-					[this, p] { markEdited(Fmt("Removed/terminated %zu undefined elements", ops::RemoveUndefinedElements(*p))); });
+				confirm(tr("Remove undefined elements"),
+					tr("Delete scripts whose .pex is no longer installed, their instances and references, and terminate threads running them?"
+					"\n\nOnly the save in memory changes: write it with File > Save As."),
+					[this, p] { markEdited(Fmt(tr("Removed/terminated %zu undefined elements"), ops::RemoveUndefinedElements(*p))); });
 			};
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));
@@ -273,13 +273,13 @@ std::vector<App::CheckItem> App::checkItems()
 		if (r.createdWithoutForm) {
 			CheckItem it;
 			it.level = Risk::kCaution;
-			it.title = Fmt("%zu script instance(s) sit on spawned objects that no longer exist", r.createdWithoutForm);
-			it.what = "Objects a mod created during play were deleted, but their scripts stayed in the save.";
+			it.title = Fmt(tr("%zu script instance(s) sit on spawned objects that no longer exist"), r.createdWithoutForm);
+			it.what = tr("Objects a mod created during play were deleted, but their scripts stayed in the save.");
 			CheckOption o;
-			o.label = "Review missing spawned objects...";
+			o.label = tr("Review missing spawned objects...");
 			o.risk = Risk::kCaution;
-			o.why = "Shows them grouped by mod first. Ticked are those of mods that are not installed; the ones another script still points "
-					"to are kept unless you choose otherwise.";
+			o.why = tr("Shows them grouped by mod first. Ticked are those of mods that are not installed; the ones another script still points "
+					"to are kept unless you choose otherwise.");
 			o.act = [this] { openOrphans(); };
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));
@@ -289,17 +289,17 @@ std::vector<App::CheckItem> App::checkItems()
 		if (r.unattached >= 100) {
 			CheckItem it;
 			it.level = Risk::kCaution;
-			it.title = Fmt("%zu script instance(s) are attached to nothing", r.unattached);
-			it.what = "Script data whose object is gone. A few are normal; many slow down loading.";
+			it.title = Fmt(tr("%zu script instance(s) are attached to nothing"), r.unattached);
+			it.what = tr("Script data whose object is gone. A few are normal; many slow down loading.");
 			CheckOption o;
-			o.label = "Remove unattached instances";
+			o.label = tr("Remove unattached instances");
 			o.risk = Risk::kSafe;
-			o.why = "Nothing in the game can reach these any more.";
+			o.why = tr("Nothing in the game can reach these any more.");
 			o.act = [this, p] {
-				confirm("Remove unattached instances",
-					Fmt("Delete %zu script instances that are attached to nothing?\n\nOnly the save in memory changes: write it with File > Save As.",
+				confirm(tr("Remove unattached instances"),
+					Fmt(tr("Delete %zu script instances that are attached to nothing?\n\nOnly the save in memory changes: write it with File > Save As."),
 						_report ? _report->unattached : 0),
-					[this, p] { markEdited(Fmt("Removed %zu unattached instances", ops::RemoveUnattachedInstances(*p))); });
+					[this, p] { markEdited(Fmt(tr("Removed %zu unattached instances"), ops::RemoveUnattachedInstances(*p))); });
 			};
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));
@@ -308,26 +308,26 @@ std::vector<App::CheckItem> App::checkItems()
 		// a busy script engine with no single cause
 		std::vector<std::string> heavy;
 		if (r.threads >= 300) {
-			heavy.push_back(Fmt("%zu running script threads (a healthy save usually has under ~150)", r.threads));
+			heavy.push_back(Fmt(tr("%zu running script threads (a healthy save usually has under ~150)"), r.threads));
 		}
 		if (r.suspended >= 50) {
-			heavy.push_back(Fmt("%zu suspended stacks (normal is a handful)", r.suspended));
+			heavy.push_back(Fmt(tr("%zu suspended stacks (normal is a handful)"), r.suspended));
 		}
 		if (r.instances >= 150000) {
-			heavy.push_back(Fmt("%zu script instances (very high: every load rebuilds them)", r.instances));
+			heavy.push_back(Fmt(tr("%zu script instances (very high: every load rebuilds them)"), r.instances));
 		}
 		if (!heavy.empty()) {
 			CheckItem it;
 			it.level = Risk::kCaution;
-			it.title = "The script engine is very busy in this save";
+			it.title = tr("The script engine is very busy in this save");
 			for (const auto& h : heavy) {
 				it.what += "- " + h + "\n";
 			}
-			it.what += "No single cause was found. The Mods page shows which mod runs the most scripts.";
+			it.what += tr("No single cause was found. The Mods page shows which mod runs the most scripts.");
 			CheckOption o;
-			o.label = "Show the Mods page";
+			o.label = tr("Show the Mods page");
 			o.risk = Risk::kSafe;
-			o.why = "Only shows information.";
+			o.why = tr("Only shows information.");
 			o.act = [this] {
 				_cat = Cat::kMods;
 				_showCheck = false;
@@ -343,11 +343,11 @@ std::vector<App::CheckItem> App::checkItems()
 		if (!stuck.empty()) {
 			CheckItem it;
 			it.level = Risk::kRisky;
-			it.title = Fmt("%zu character(s) will crash the game when this save loads", stuck.size());
-			it.what = "They were saved just as they were about to play a short start, stop or turn animation while walking or "
+			it.title = Fmt(tr("%zu character(s) will crash the game when this save loads"), stuck.size());
+			it.what = tr("They were saved just as they were about to play a short start, stop or turn animation while walking or "
 					  "fighting. The game keeps that waiting state in the save but not the animation, so right after the load it "
 					  "tries to play the missing animation and crashes (Crash Logger: SkyrimSE.exe+0CEC680 on 1.6.1170, "
-					  "MovementMessagePlayIdle, PathFollowerStatePlayIdle).\nCharacters:";
+					  "MovementMessagePlayIdle, PathFollowerStatePlayIdle).\nCharacters:");
 			for (std::size_t i = 0; i < stuck.size() && i < 8; ++i) {
 				it.what += Fmt(" %08X", stuck[i].formID);
 				if (_db) {
@@ -357,20 +357,20 @@ std::vector<App::CheckItem> App::checkItems()
 				}
 			}
 			if (stuck.size() > 8) {
-				it.what += Fmt(" and %zu more", stuck.size() - 8);
+				it.what += Fmt(tr(" and %zu more"), stuck.size() - 8);
 			}
 			CheckOption o;
-			o.label = "Let them follow their path again";
+			o.label = tr("Let them follow their path again");
 			o.risk = Risk::kSafe;
-			o.why = "Sets their path back to \"follow the path\", the way the game itself does when a character gets a new path "
-					"(the PathIdleCrashFix plugin does the same in game). They skip that one short animation; nothing else changes.";
+			o.why = tr("Sets their path back to \"follow the path\", the way the game itself does when a character gets a new path "
+					"(the PathIdleCrashFix plugin does the same in game). They skip that one short animation; nothing else changes.");
 			o.act = [this] {
 				std::vector<std::uint32_t> only;
 				for (const auto& s : stuckPathIdles()) {
 					only.push_back(s.refID);
 				}
 				const auto n = cf::FixStuckPathIdles(*_save, only);
-				markEdited(Fmt("Fixed the path of %zu character(s) that would crash the load", n));
+				markEdited(Fmt(tr("Fixed the path of %zu character(s) that would crash the load"), n));
 			};
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));
@@ -381,25 +381,25 @@ std::vector<App::CheckItem> App::checkItems()
 	if (_stuckPathDone && _stuckPathMs > (std::getenv("RESAVERPP_TEST_HEAVY") ? 0.0 : 10000.0)) {  // test hook: any time counts
 		CheckItem it;
 		it.level = Risk::kCaution;
-		it.title = Fmt("This save is very heavy: reading its %zu characters took %.0f seconds", _stuckPathActors, _stuckPathMs / 1000);
-		it.what = Fmt("%zu of them were made while playing (spawned or leveled actors, form IDs starting with FF). ", _stuckPathSpawned);
-		it.what += "A save this heavy loads slowly in the game too, and can crash or stutter. The usual causes are a mod that keeps "
+		it.title = Fmt(tr("This save is very heavy: reading its %zu characters took %.0f seconds"), _stuckPathActors, _stuckPathMs / 1000);
+		it.what = Fmt(tr("%zu of them were made while playing (spawned or leveled actors, form IDs starting with FF). "), _stuckPathSpawned);
+		it.what += tr("A save this heavy loads slowly in the game too, and can crash or stutter. The usual causes are a mod that keeps "
 		           "spawning NPCs or creatures that are never cleaned up, or a very long playthrough in many places.\n"
 		           "Find NPCs lists every character with where it is: look for many copies of the same one. Save history shows "
-		           "whether the count keeps growing from save to save. Ask the AI can look into it for you.";
+		           "whether the count keeps growing from save to save. Ask the AI can look into it for you.");
 		CheckOption o;
-		o.label = "Find NPCs";
+		o.label = tr("Find NPCs");
 		o.risk = Risk::kSafe;
-		o.why = "Only shows information.";
+		o.why = tr("Only shows information.");
 		o.act = [this] {
 			_showActors = true;
 			_showCheck = false;
 		};
 		it.options.push_back(std::move(o));
 		CheckOption h;
-		h.label = "Save history";
+		h.label = tr("Save history");
 		h.risk = Risk::kSafe;
-		h.why = "Only shows information.";
+		h.why = tr("Only shows information.");
 		h.act = [this] {
 			shortcut(Sc::kHistory);
 			_showCheck = false;
@@ -417,12 +417,12 @@ std::vector<App::CheckItem> App::checkItems()
 		if (broken) {
 			CheckItem it;
 			it.level = Risk::kCaution;
-			it.title = Fmt("%zu enchanted item(s) cannot be recharged", broken);
-			it.what = "They have an enchantment but a max charge of 0 (or more charge than their max), so soul gems do nothing.";
+			it.title = Fmt(tr("%zu enchanted item(s) cannot be recharged"), broken);
+			it.what = tr("They have an enchantment but a max charge of 0 (or more charge than their max), so soul gems do nothing.");
 			CheckOption o;
-			o.label = "Give them a max charge of 3000";
+			o.label = tr("Give them a max charge of 3000");
 			o.risk = Risk::kSafe;
-			o.why = "Only adds the missing max charge to those items; nothing else changes. (Per mod, with your own value: Mods page.)";
+			o.why = tr("Only adds the missing max charge to those items; nothing else changes. (Per mod, with your own value: Mods page.)");
 			o.act = [this] {
 				std::vector<std::pair<std::uint32_t, std::uint32_t>> only;
 				for (const auto& c : chargedItems()) {
@@ -431,7 +431,7 @@ std::vector<App::CheckItem> App::checkItems()
 					}
 				}
 				const auto n = cf::FixCharges(*_save, 3000, only);
-				markEdited(Fmt("Gave %zu item(s) a max charge of 3000", n));
+				markEdited(Fmt(tr("Gave %zu item(s) a max charge of 3000"), n));
 			};
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));
@@ -449,23 +449,23 @@ std::vector<App::CheckItem> App::checkItems()
 		if (shownDone) {
 			CheckItem it;
 			it.level = Risk::kInfo;
-			it.title = Fmt("Your journal shows %zu objective(s) of quests that are completed or stopped", shownDone);
-			it.what = "Leftovers of quests that ended. Harmless, but they fill the journal, and a very full journal stops showing new quests.";
+			it.title = Fmt(tr("Your journal shows %zu objective(s) of quests that are completed or stopped"), shownDone);
+			it.what = tr("Leftovers of quests that ended. Harmless, but they fill the journal, and a very full journal stops showing new quests.");
 			CheckOption o;
-			o.label = "Refresh journal in game";
+			o.label = tr("Refresh journal in game");
 			o.risk = Risk::kCaution;
-			o.why = std::string(info.connected && info.inGame ? "Done in the running game; this file is not changed. "
-															  : "Needs the game running with ReSaverHelper.dll and a save loaded. ") +
-					"Make a save in the game first and keep menus closed while it runs. With journal UI mods (such as QUI) a crash when "
+			o.why = std::string(info.connected && info.inGame ? tr("Done in the running game; this file is not changed. ")
+															  : tr("Needs the game running with ReSaverHelper.dll and a save loaded. ")) +
+					tr("Make a save in the game first and keep menus closed while it runs. With journal UI mods (such as QUI) a crash when "
 					"opening the menu afterwards was reported with helper 3; helper 4 works more carefully. If the game crashes, load "
-					"the save from before.";
+					"the save from before.");
 			o.enabled = info.connected && info.inGame && !_liveRefresh.running;
 			o.act = [this] { startLiveRefresh(); };
 			it.options.push_back(std::move(o));
 			CheckOption q;
-			q.label = "Show the Quests page";
+			q.label = tr("Show the Quests page");
 			q.risk = Risk::kSafe;
-			q.why = "Only shows information.";
+			q.why = tr("Only shows information.");
 			q.act = [this] {
 				_cat = Cat::kQuests;
 				_showCheck = false;
@@ -499,32 +499,32 @@ void App::drawSaveCheck()
 		return;
 	}
 	prepareWindow("Save check", ImVec2(0.62f, 0.72f));
-	if (!ImGui::Begin("Save check", &_showCheck, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("Save check"), &_showCheck, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
 	maximizeControl("Save check");
-	ImGui::TextUnformatted(("Save check:  " + platform::ToUtf8(_path.filename())).c_str());
+	ImGui::TextUnformatted((tr("Save check:  ") + platform::ToUtf8(_path.filename())).c_str());
 	// legend
 	Dot(Risk::kSafe);
-	ImGui::TextUnformatted("Safe");
+	ImGui::TextUnformatted(tr("Safe"));
 	ImGui::SameLine(0, 24);
 	Dot(Risk::kCaution);
-	ImGui::TextUnformatted("Caution: read why first");
+	ImGui::TextUnformatted(tr("Caution: read why first"));
 	ImGui::SameLine(0, 24);
 	Dot(Risk::kRisky);
-	ImGui::TextUnformatted("Risky: can break a mod or quest");
-	ImGui::TextDisabled("Nothing here changes your save file until you use File > Save or Save As (the previous file is kept as .bak).\n"
-						"Removing mods writes a NEW save next to the old one. Make a backup of saves you care about anyway.");
+	ImGui::TextUnformatted(tr("Risky: can break a mod or quest"));
+	ImGui::TextDisabled("%s", tr("Nothing here changes your save file until you use File > Save or Save As (the previous file is kept as .bak).\n"
+						"Removing mods writes a NEW save next to the old one. Make a backup of saves you care about anyway."));
 	if (scanning()) {
-		ImGui::TextDisabled("Reading your mods in the background: this list updates when it is done.");
+		ImGui::TextDisabled("%s", tr("Reading your mods in the background: this list updates when it is done."));
 		drawBackgroundProgress(0);
 	}
 	ImGui::Separator();
 	if (_save && _pathJobPending) {
-		ImGui::TextDisabled("The check for characters that crash a save on load starts when your mods have been read.");
+		ImGui::TextDisabled("%s", tr("The check for characters that crash a save on load starts when your mods have been read."));
 	} else if (_save && !_stuckPathDone && _stuckPathTotal) {
-		ImGui::TextDisabled("Still checking the characters for the crash-on-load problem: %zu of %zu", _stuckPathNext, _stuckPathTotal);
+		ImGui::TextDisabled(tr("Still checking the characters for the crash-on-load problem: %zu of %zu"), _stuckPathNext, _stuckPathTotal);
 	}
 
 	const auto items = checkItems();
@@ -532,8 +532,8 @@ void App::drawSaveCheck()
 	if (items.empty()) {
 		ImGui::Spacing();
 		Dot(Risk::kSafe);
-		Wrapped(theme::Good(), "No problems found in this save.");
-		ImGui::TextDisabled("Everything else (scripts, threads, quests, plugins) is on the pages on the left.");
+		Wrapped(theme::Good(), tr("No problems found in this save."));
+		ImGui::TextDisabled("%s", tr("Everything else (scripts, threads, quests, plugins) is on the pages on the left."));
 	}
 	int id = 0;
 	for (const auto& it : items) {
@@ -549,7 +549,7 @@ void App::drawSaveCheck()
 			if (RiskButton(o.label, o.risk, o.enabled)) {
 				o.act();
 			}
-			tips::Tip(o.risk == Risk::kRisky ? "Risky: this can break a mod or a quest. Read the note beside it, and keep a backup of the save." : o.risk == Risk::kCaution ? "Look first: usually fine, but read the note beside it before using it." : "Safe: does not harm the game. Nothing is written until you save (File > Save or Save As).");
+			tips::Tip(o.risk == Risk::kRisky ? tr("Risky: this can break a mod or a quest. Read the note beside it, and keep a backup of the save.") : o.risk == Risk::kCaution ? tr("Look first: usually fine, but read the note beside it before using it.") : tr("Safe: does not harm the game. Nothing is written until you save (File > Save or Save As)."));
 			ImGui::SameLine();
 			const float x = ImGui::GetCursorPosX();
 			TextWrappedAt(RiskColor(o.risk), std::string(RiskWord(o.risk)) + ": " + o.why, x);
@@ -560,16 +560,16 @@ void App::drawSaveCheck()
 		ImGui::PopID();
 	}
 	ImGui::EndChild();
-	if (ImGui::Checkbox("Show this when a save opens", &_checkOnOpen)) {
+	if (ImGui::Checkbox(tr("Show this when a save opens"), &_checkOnOpen)) {
 		saveSettings();
 	}
-	tips::Tip("Open this save check window by itself every time you open a save.");
+	tips::Tip(tr("Open this save check window by itself every time you open a save."));
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 140);
-	if (ImGui::Button("Close", ImVec2(120, 0))) {
+	if (ImGui::Button(tr("Close"), ImVec2(120, 0))) {
 		_showCheck = false;
 	}
-	tips::Tip("Close the save check. Open it again with Tools > Save check (F2) or the button on the Overview page.");
+	tips::Tip(tr("Close the save check. Open it again with Tools > Save check (F2) or the button on the Overview page."));
 	ImGui::End();
 }
 
@@ -598,18 +598,18 @@ void App::drawCheckSummary()
 	const Risk worst = red ? Risk::kRisky : yellow ? Risk::kCaution : Risk::kSafe;
 	Dot(worst);
 	if (items.empty()) {
-		Wrapped(theme::Good(), "Save check: no problems found.");
+		Wrapped(theme::Good(), tr("Save check: no problems found."));
 	} else {
 		ImGui::PushStyleColor(ImGuiCol_Text, RiskColor(worst));
-		ImGui::TextUnformatted(Fmt("Save check: %zu thing(s) to look at%s", items.size(),
-								   red ? Fmt(" (%zu risky)", red).c_str() : yellow ? Fmt(" (%zu to read first)", yellow).c_str() : "")
+		ImGui::TextUnformatted(Fmt(tr("Save check: %zu thing(s) to look at%s"), items.size(),
+								   red ? Fmt(tr(" (%zu risky)"), red).c_str() : yellow ? Fmt(tr(" (%zu to read first)"), yellow).c_str() : "")
 								   .c_str());
 		ImGui::PopStyleColor();
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Open save check")) {
+	if (ImGui::Button(tr("Open save check"))) {
 		_showCheck = true;
 		ImGui::SetWindowFocus("Save check");
 	}
-	tips::Tip("Open the list of everything ReSaver++ noticed about this save, with what can safely be done about each (F2).");
+	tips::Tip(tr("Open the list of everything ReSaver++ noticed about this save, with what can safely be done about each (F2)."));
 }

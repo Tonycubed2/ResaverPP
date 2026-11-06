@@ -86,11 +86,11 @@ std::string App::scriptTargetLabel(const std::string& a_script)
 						n = _db->edid(*named);
 					}
 					if (!n.empty()) {
-						return "on " + n + "  (" + _save->pluginOf(fid) + ")";
+						return tr("on ") + n + "  (" + _save->pluginOf(fid) + ")";
 					}
 				}
 			}
-			return "on " + formLabel(i->refID);
+			return tr("on ") + formLabel(i->refID);
 		}
 	}
 	std::size_t n = 0;
@@ -99,7 +99,7 @@ std::string App::scriptTargetLabel(const std::string& a_script)
 			++n;
 		}
 	}
-	return n == 1 ? std::string("on the one object that has it") : Fmt("on all %zu objects that have it in this save", n);
+	return n == 1 ? std::string(tr("on the one object that has it")) : Fmt(tr("on all %zu objects that have it in this save"), n);
 }
 
 // ---- the picker ---------------------------------------------------------------------------------------
@@ -122,7 +122,7 @@ bool App::formPicker(Variable& a_var)
 				}
 			}
 		}
-		return "(name unknown, from " + _save->pluginOf(a_fid) + ")";
+		return tr("(name unknown, from ") + _save->pluginOf(a_fid) + ")";
 	};
 	auto edidOf = [&](std::uint32_t a_fid) -> std::string {
 		if (_db) {
@@ -133,11 +133,11 @@ bool App::formPicker(Variable& a_var)
 		return {};
 	};
 
-	ImGui::TextUnformatted(((_propName.empty() ? std::string("Property") : _propName) + "   (" + _editType + ")").c_str());
+	ImGui::TextUnformatted(((_propName.empty() ? std::string(tr("Property")) : _propName) + "   (" + _editType + ")").c_str());
 	if (!_propScript.empty()) {
-		ImGui::TextDisabled("Set %s", scriptTargetLabel(_propScript).c_str());
+		ImGui::TextDisabled(tr("Set %s"), scriptTargetLabel(_propScript).c_str());
 	} else if (!_editAllTargets.empty()) {
-		ImGui::TextDisabled("Set on all %zu objects", _editAllTargets.size());
+		ImGui::TextDisabled(tr("Set on all %zu objects"), _editAllTargets.size());
 	}
 	{
 		const Variable* c = &a_var;
@@ -146,7 +146,7 @@ bool App::formPicker(Variable& a_var)
 		}
 		const ScriptInstance* cur = c->type == VType::kRef && c->value ? p.findInstance(c->value) : nullptr;
 		const auto            fid = cur ? _save->formIDOf(cur->refID) : 0;
-		ImGui::Text("Now:  %s", fid ? nameOf(fid).c_str() : "None");
+		ImGui::Text(tr("Now:  %s"), fid ? nameOf(fid).c_str() : tr("None"));
 	}
 	ImGui::Spacing();
 
@@ -154,13 +154,13 @@ bool App::formPicker(Variable& a_var)
 	if (!_db) {
 		if (!_sources.scanned()) {
 			ImGui::PushTextWrapPos(ImGui::GetFontSize() * 40);
-			ImGui::TextWrapped("To list the forms by name, ReSaver Plus reads your plugins. Tell it where your mods are first: Options > "
-							   "Settings > Choose mods folder.");
+			ImGui::TextWrapped("%s", tr("To list the forms by name, ReSaver Plus reads your plugins. Tell it where your mods are first: Options > "
+							   "Settings > Choose mods folder."));
 			ImGui::PopTextWrapPos();
 		} else {
 			startNames(false);
 			const auto done = _dbProgress ? _dbProgress->done.load() : 0, total = _dbProgress ? _dbProgress->total.load() : 0;
-			ImGui::Text("Reading your plugins for the names... %zu of %zu", done, total);
+			ImGui::Text(tr("Reading your plugins for the names... %zu of %zu"), done, total);
 		}
 		return false;
 	}
@@ -196,7 +196,7 @@ bool App::formPicker(Variable& a_var)
 	if (ImGui::IsWindowAppearing()) {
 		ImGui::SetKeyboardFocusHere();
 	}
-	ImGui::InputTextWithHint("##find", "Type to filter", _editFind, sizeof(_editFind));
+	ImGui::InputTextWithHint("##find", tr("Type to filter"), _editFind, sizeof(_editFind));
 	const auto find = Lower(_editFind);
 	bool       changed = false, choose = false;
 	if (ImGui::BeginChild("##picks", ImVec2(ImGui::GetFontSize() * 40, ImGui::GetFontSize() * 20), ImGuiChildFlags_Borders)) {
@@ -208,7 +208,7 @@ bool App::formPicker(Variable& a_var)
 			}
 		}
 		if (shown.empty()) {
-			ImGui::TextDisabled(_pickerList.empty() ? "Your plugins have no %s." : "Nothing matches.", _editType.c_str());
+			ImGui::TextDisabled(_pickerList.empty() ? tr("Your plugins have no %s.") : tr("Nothing matches."), _editType.c_str());
 		}
 		ImGuiListClipper clip;
 		clip.Begin(static_cast<int>(shown.size()));
@@ -250,12 +250,12 @@ bool App::formPicker(Variable& a_var)
 	const bool hasValue = cur->type == VType::kRef && cur->value != 0;
 
 	ImGui::BeginDisabled(_editPick == 0);
-	if (ImGui::Button("OK", ImVec2(120, 0)) || (choose && _editPick)) {
+	if (ImGui::Button(tr("OK"), ImVec2(120, 0)) || (choose && _editPick)) {
 		auto apply = [&](Variable& v) { return props::PointAt(*_save, v, _editType, _editPick); };
 		if (_editAllTargets.empty()) {
 			const auto o = apply(a_var);
 			if (o.ok) {
-				_editDone = (_propName.empty() ? std::string("Property") : _propName) + " set to " + nameOf(_editPick) + " in this save";
+				_editDone = (_propName.empty() ? std::string(tr("Property")) : _propName) + tr(" set to ") + nameOf(_editPick) + tr(" in this save");
 				changed = true;
 				if (_editIsProperty && _editInstance) {
 					preparePluginAsk(_editInstance, _propName, _editPick);  // then: also in the plugin? (asked)
@@ -275,19 +275,19 @@ bool App::formPicker(Variable& a_var)
 				o.ok ? (void)++done : (void)(why = o.message);
 			}
 			if (done) {
-				_editDone = Fmt("%s set to %s on %zu object(s)", _propName.c_str(), nameOf(_editPick).c_str(), done);
+				_editDone = Fmt(tr("%s set to %s on %zu object(s)"), _propName.c_str(), nameOf(_editPick).c_str(), done);
 				changed = true;
 				_editAllTargets.clear();
 			} else {
-				_editMsg = why.empty() ? std::string("Nothing was changed.") : why;
+				_editMsg = why.empty() ? std::string(tr("Nothing was changed.")) : why;
 			}
 		}
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Set the property to the picked form (or double-click it in the list). Nothing is written to disk until you save.");
+	tips::Tip(tr("Set the property to the picked form (or double-click it in the list). Nothing is written to disk until you save."));
 	if (!changed && hasValue) {
 		ImGui::SameLine();
-		if (ImGui::Button("Clear (None)", ImVec2(120, 0))) {
+		if (ImGui::Button(tr("Clear (None)"), ImVec2(120, 0))) {
 			auto clear = [](Variable& v) {
 				Variable* x = &v;
 				if (x->type == VType::kVariant && x->inner) {
@@ -305,10 +305,10 @@ bool App::formPicker(Variable& a_var)
 				}
 				_editAllTargets.clear();
 			}
-			_editDone = (_propName.empty() ? std::string("Property") : _propName) + " cleared";
+			_editDone = (_propName.empty() ? std::string(tr("Property")) : _propName) + tr(" cleared");
 			changed = true;
 		}
-		tips::Tip("Clear the property: the script will see None here.");
+		tips::Tip(tr("Clear the property: the script will see None here."));
 	}
 	return changed;
 }
@@ -318,7 +318,7 @@ bool App::formPicker(Variable& a_var)
 void App::editScriptProperty(const std::string& a_script, const std::string& a_property)
 {
 	if (!_save || !_save->papyrus()) {
-		_error = "Open a save first: a property's value is kept in the save, with the object the script is on.";
+		_error = tr("Open a save first: a property's value is kept in the save, with the object the script is on.");
 		return;
 	}
 	auto&      p = *_save->papyrus();
@@ -333,7 +333,7 @@ void App::editScriptProperty(const std::string& a_script, const std::string& a_p
 		}
 	}
 	if (scriptName == UINT32_MAX) {
-		_error = "Nothing in this save has " + a_script + " attached, so it has no " + a_property + " to set.";
+		_error = tr("Nothing in this save has ") + a_script + tr(" attached, so it has no ") + a_property + tr(" to set.");
 		return;
 	}
 	// an Auto property's value is the hidden variable ::<name>_var; a variable is its own name
@@ -350,12 +350,12 @@ void App::editScriptProperty(const std::string& a_script, const std::string& a_p
 		}
 	}
 	if (varIdx == SIZE_MAX) {
-		_error = a_property + " keeps no value in the save (only Auto properties and variables do).";
+		_error = a_property + tr(" keeps no value in the save (only Auto properties and variables do).");
 		return;
 	}
 	const auto targets = scriptTargets(a_script, varIdx, scriptName);
 	if (targets.empty()) {
-		_error = "Nothing in this save has " + a_script + " attached, so it has no " + a_property + " to set.";
+		_error = tr("Nothing in this save has ") + a_script + tr(" attached, so it has no ") + a_property + tr(" to set.");
 		return;
 	}
 	auto* inst = p.findInstance(targets.front().instance);
@@ -437,13 +437,13 @@ void App::preparePluginAsk(EID a_instance, const std::string& a_property, std::u
 	a.valueName = name(a_value);
 	a.recordName = name(object);
 	if ((object >> 24) == 0xFF) {
-		a.why = "This object was made during play (it is not in any plugin), so there is no plugin to change.";
+		a.why = tr("This object was made during play (it is not in any plugin), so there is no plugin to change.");
 		return;
 	}
 	// the plugin the game takes this record from: the last one in the load order that has it
 	const auto* rec = _db ? _db->find(object) : nullptr;
 	if (!rec) {
-		a.why = "ReSaver Plus could not find which plugin this object comes from (are the plugins read for names?).";
+		a.why = tr("ReSaver Plus could not find which plugin this object comes from (are the plugins read for names?).");
 		return;
 	}
 	a.plugin = _db->plugins()[rec->plugin];
@@ -451,20 +451,20 @@ void App::preparePluginAsk(EID a_instance, const std::string& a_property, std::u
 		const auto lp = Lower(a.plugin);
 		if (lp == "skyrim.esm" || lp == "update.esm" || lp == "dawnguard.esm" || lp == "hearthfires.esm" || lp == "dragonborn.esm" ||
 			lp == "_resourcepack.esl" || lp.starts_with("cc")) {
-			a.why = a.plugin + " is one of the game's own files, which ReSaver Plus never changes. To change it for new games, make an "
-							   "override in your own plugin (xEdit or the Creation Kit).";
+			a.why = a.plugin + tr(" is one of the game's own files, which ReSaver Plus never changes. To change it for new games, make an "
+							   "override in your own plugin (xEdit or the Creation Kit).");
 			return;
 		}
 	}
 	const auto path = _sources.pluginPath(a.plugin);
 	if (!path) {
-		a.why = a.plugin + " was not found in your mods.";
+		a.why = a.plugin + tr(" was not found in your mods.");
 		return;
 	}
 	a.path = *path;
 	const auto h = plugedit::ReadHeader(a.path);
 	if (!h.ok) {
-		a.why = "Could not read " + a.plugin + ".";
+		a.why = tr("Could not read ") + a.plugin + ".";
 		return;
 	}
 	// a form id as this plugin writes it: the index of the plugin it comes from among its masters (itself: after them)
@@ -484,12 +484,12 @@ void App::preparePluginAsk(EID a_instance, const std::string& a_property, std::u
 		return false;
 	};
 	if (!local(object, a.recordID)) {
-		a.why = "Could not work out the object's form id inside " + a.plugin + ".";
+		a.why = tr("Could not work out the object's form id inside ") + a.plugin + ".";
 		return;
 	}
 	if (!local(a_value, a.valueID)) {
-		a.why = a.valueName + " comes from " + _save->pluginOf(a_value) + ", which is not a master of " + a.plugin +
-				". Add it as a master in xEdit first (or set the property in the Creation Kit).";
+		a.why = a.valueName + tr(" comes from ") + _save->pluginOf(a_value) + tr(", which is not a master of ") + a.plugin +
+				tr(". Add it as a master in xEdit first (or set the property in the Creation Kit).");
 		return;
 	}
 }
@@ -498,40 +498,40 @@ bool App::pluginAskPopupBody()
 {
 	auto& a = _pluginAsk;
 	ImGui::PushTextWrapPos(ImGui::GetFontSize() * 38);
-	TextColoredWrapped(theme::Good(), a.property + " is set to " + a.valueName + " in this save. It is written when you save (File > Save As).");
+	TextColoredWrapped(theme::Good(), a.property + tr(" is set to ") + a.valueName + tr(" in this save. It is written when you save (File > Save As)."));
 	ImGui::Spacing();
 	if (!a.why.empty()) {
-		ImGui::TextWrapped("It cannot also be set in the plugin: %s", a.why.c_str());
+		ImGui::TextWrapped(tr("It cannot also be set in the plugin: %s"), a.why.c_str());
 		ImGui::PopTextWrapPos();
 		ImGui::Spacing();
-		return ImGui::Button("OK", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape);
+		return ImGui::Button(tr("OK"), ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape);
 	}
-	ImGui::TextWrapped("Also set it in the plugin, like the Creation Kit does?");
+	ImGui::TextWrapped("%s", tr("Also set it in the plugin, like the Creation Kit does?"));
 	ImGui::Spacing();
-	ImGui::TextDisabled("%s", ("Plugin:  " + a.plugin).c_str());
-	ImGui::TextDisabled("%s", ("Object:  " + a.recordName + "   script " + a.script + ", property " + a.property).c_str());
+	ImGui::TextDisabled("%s", (tr("Plugin:  ") + a.plugin).c_str());
+	ImGui::TextDisabled("%s", (tr("Object:  ") + a.recordName + tr("   script ") + a.script + tr(", property ") + a.property).c_str());
 	ImGui::Spacing();
-	ImGui::TextWrapped("This changes the mod's file itself, right away: every save that has not set this object up yet, and every new game, "
-					   "gets %s. A copy of the plugin is kept next to it first. Close the game, the Creation Kit and xEdit before you say yes.",
+	ImGui::TextWrapped(tr("This changes the mod's file itself, right away: every save that has not set this object up yet, and every new game, "
+					   "gets %s. A copy of the plugin is kept next to it first. Close the game, the Creation Kit and xEdit before you say yes."),
 		a.valueName.c_str());
 	ImGui::PopTextWrapPos();
 	ImGui::Spacing();
 	bool done = false;
-	if (ImGui::Button("Yes, also in the plugin", ImVec2(ImGui::GetFontSize() * 13, 0))) {
+	if (ImGui::Button(tr("Yes, also in the plugin"), ImVec2(ImGui::GetFontSize() * 13, 0))) {
 		const auto r = plugedit::SetObjectProperty(a.path, a.recordID, a.script, a.property, a.valueID);
 		if (r.ok) {
-			_status = a.property + " set to " + a.valueName + " in this save and in " + a.plugin + " (original kept as " +
+			_status = a.property + tr(" set to ") + a.valueName + tr(" in this save and in ") + a.plugin + tr(" (original kept as ") +
 					  platform::ToUtf8(r.backup.filename()) + ")";
 		} else {
-			_error = "The save has the new value, but the plugin was not changed:\n\n" + r.message;
+			_error = tr("The save has the new value, but the plugin was not changed:\n\n") + r.message;
 		}
 		done = true;
 	}
-	tips::Tip("Write the new value into the plugin too. The original plugin is kept as <name>.<date>.resaverpp.bak.");
+	tips::Tip(tr("Write the new value into the plugin too. The original plugin is kept as <name>.<date>.resaverpp.bak."));
 	ImGui::SameLine();
-	if (ImGui::Button("No, only this save", ImVec2(ImGui::GetFontSize() * 10, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+	if (ImGui::Button(tr("No, only this save"), ImVec2(ImGui::GetFontSize() * 10, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
 		done = true;
 	}
-	tips::Tip("Leave the plugin as it is: only this save gets the new value.");
+	tips::Tip(tr("Leave the plugin as it is: only this save gets the new value."));
 	return done;
 }

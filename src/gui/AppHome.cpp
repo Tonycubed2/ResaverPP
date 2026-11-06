@@ -103,7 +103,7 @@ bool App::SkyrimOnly(Sc a_which)
 void App::shortcut(Sc a_which)
 {
 	if (fo4() && SkyrimOnly(a_which)) {
-		_status = std::string("Not for Fallout 4 saves yet: ") + kSkyrimOnlyTip;
+		_status = std::string(tr("Not for Fallout 4 saves yet: ")) + tr(kSkyrimOnlyTip);
 		return;
 	}
 	if (a_which == Sc::kSkyrimLogs) {
@@ -118,7 +118,7 @@ void App::shortcut(Sc a_which)
 		_showBsa = true;
 		if (!_bsaView) {
 			const auto start = _sourcesPath.empty() ? gameFolder() / "Data" : platform::FromUtf8(_sourcesPath);
-			if (auto p = platform::OpenFileDialog(start, "bsa;ba2", "BSA and BA2 archives")) {
+			if (auto p = platform::OpenFileDialog(start, "bsa;ba2", tr("BSA and BA2 archives"))) {
 				openBsa(*p);
 			}
 		}
@@ -147,17 +147,17 @@ void App::shortcut(Sc a_which)
 	auto* p = _save ? _save->papyrus() : nullptr;
 	switch (a_which) {
 	case Sc::kRemoveUnattached:
-		confirm("Remove unattached instances", Fmt("Delete %zu script instances that are attached to nothing?", _report ? _report->unattached : 0),
-			[this, p] { markEdited(Fmt("Removed %zu unattached instances", ops::RemoveUnattachedInstances(*p))); });
+		confirm(tr("Remove unattached instances"), Fmt(tr("Delete %zu script instances that are attached to nothing?"), _report ? _report->unattached : 0),
+			[this, p] { markEdited(Fmt(tr("Removed %zu unattached instances"), ops::RemoveUnattachedInstances(*p))); });
 		break;
 	case Sc::kRemoveUndefined:
-		confirm("Remove undefined elements",
-			"Delete scripts whose .pex is no longer installed, their instances and references, and terminate threads running them?",
-			[this, p] { markEdited(Fmt("Removed/terminated %zu undefined elements", ops::RemoveUndefinedElements(*p))); });
+		confirm(tr("Remove undefined elements"),
+			tr("Delete scripts whose .pex is no longer installed, their instances and references, and terminate threads running them?"),
+			[this, p] { markEdited(Fmt(tr("Removed/terminated %zu undefined elements"), ops::RemoveUndefinedElements(*p))); });
 		break;
 	case Sc::kTerminateUndefined:
-		confirm("Terminate undefined threads", "Terminate every thread that runs a script that is no longer installed?",
-			[this, p] { markEdited(Fmt("Terminated %zu undefined threads", ops::TerminateUndefinedThreads(*p))); });
+		confirm(tr("Terminate undefined threads"), tr("Terminate every thread that runs a script that is no longer installed?"),
+			[this, p] { markEdited(Fmt(tr("Terminated %zu undefined threads"), ops::TerminateUndefinedThreads(*p))); });
 		break;
 	case Sc::kMissingMods:
 		_missingDismissed = false;  // the banner comes back too
@@ -221,7 +221,7 @@ void App::shortcut(Sc a_which)
 	case Sc::kOpenPex:
 		if (platform::HasNativeDialogs()) {
 			if (auto f = platform::OpenFileDialog(_sourcesPath.empty() ? std::filesystem::path() : platform::FromUtf8(_sourcesPath), "pex",
-					"Open compiled Papyrus script")) {
+					tr("Open compiled Papyrus script"))) {
 				openScript(*f);
 			}
 		} else if (const char* s = std::getenv("RESAVERPP_TEST_PEX")) {
@@ -247,132 +247,132 @@ void App::drawHome()
 	const bool  anyMissing = !_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty();
 
 	const std::vector<std::pair<const char*, std::vector<Button>>> saveGroups = {
-		{ "Clean",
+		{ tr("Clean"),
 			{
-				{ Sc::kRemoveUndefined, "Remove missing scripts", "scripts of mods you removed",
-					"Delete scripts whose .pex file is no longer installed (a removed mod), with their instances and references, and end threads "
-					"running them. Back up your save first.",
+				{ Sc::kRemoveUndefined, tr("Remove missing scripts"), tr("scripts of mods you removed"),
+					tr("Delete scripts whose .pex file is no longer installed (a removed mod), with their instances and references, and end threads "
+					"running them. Back up your save first."),
 					HomeRisk::kCaution, r ? n(r->undefinedScripts + r->undefinedInstances) : -1 },
-				{ Sc::kRemoveUnattached, "Remove unattached instances", "scripts attached to nothing",
-					"Delete script instances that are attached to no object (their object is gone). They do nothing but take space. Usually safe.",
+				{ Sc::kRemoveUnattached, trc("home", "Remove unattached instances"), tr("scripts attached to nothing"),
+					tr("Delete script instances that are attached to no object (their object is gone). They do nothing but take space. Usually safe."),
 					HomeRisk::kSafe, r ? n(r->unattached) : -1 },
-				{ Sc::kTerminateUndefined, "Stop threads of missing scripts", "running scripts that can never finish",
-					"End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy.", HomeRisk::kSafe,
+				{ Sc::kTerminateUndefined, trc("home", "Stop threads of missing scripts"), tr("running scripts that can never finish"),
+					tr("End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy."), HomeRisk::kSafe,
 					r ? n(r->undefinedThreads) : -1 },
-				{ Sc::kOrphans, "Missing spawned objects", "scripts on objects that are gone",
-					"Find script instances sitting on spawned (FF......) objects that no longer exist, grouped by mod, and remove them.",
+				{ Sc::kOrphans, tr("Missing spawned objects"), tr("scripts on objects that are gone"),
+					tr("Find script instances sitting on spawned (FF......) objects that no longer exist, grouped by mod, and remove them."),
 					HomeRisk::kCaution, r ? n(r->createdWithoutForm) : -1 },
-				{ Sc::kLeftovers, "Leftover items", "items whose mod is gone",
-					"Items in the player's, NPCs' and containers' inventories whose mod is no longer installed: find them and remove them. "
-					"They can break inventory menus and cause crashes.",
+				{ Sc::kLeftovers, tr("Leftover items"), tr("items whose mod is gone"),
+					tr("Items in the player's, NPCs' and containers' inventories whose mod is no longer installed: find them and remove them. "
+					"They can break inventory menus and cause crashes."),
 					HomeRisk::kCaution, -1 },
-				{ Sc::kMissingMods, "Mods no longer installed", "what removed mods left behind",
-					"Mods that are in this save but not in your load order: see what they left and clean it after you confirm. A renamed plugin "
-					"can be pointed at its new name instead.",
+				{ Sc::kMissingMods, tr("Mods no longer installed"), tr("what removed mods left behind"),
+					tr("Mods that are in this save but not in your load order: see what they left and clean it after you confirm. A renamed plugin "
+					"can be pointed at its new name instead."),
 					HomeRisk::kCaution, anyMissing ? static_cast<long long>(_missing.size() + _missingScripts.size() + _unfoundScripts.size()) : 0 },
 			} },
-		{ "Fix",
+		{ tr("Fix"),
 			{
-				{ Sc::kMcm, r && r->mcmJam ? "SkyUI MCM fix (stuck)" : "SkyUI MCM fix", "mod menus that never appear",
-					"Clear a stuck SkyUI mod-menu (MCM) registration, the usual cause of mod menus that never appear.", HomeRisk::kCaution, -1 },
-				{ Sc::kHavok, "Reset Havok", "objects that fly around or jitter",
-					"Clear the saved physics state of objects, so they settle again when loaded.", HomeRisk::kSafe, -1 },
-				{ Sc::kPurify, "Purify FormLists", "empty entries left by removed mods",
-					"Remove entries in form lists that point at things that no longer exist (left by removed mods).", HomeRisk::kSafe, -1 },
-				{ Sc::kPurge, "Purge a script", "remove one script completely",
-					"Remove everything of one script by name: its running threads, queued calls and instances. Use for a script that floods the "
-					"save. Back up your save first.",
+				{ Sc::kMcm, r && r->mcmJam ? tr("SkyUI MCM fix (stuck)") : tr("SkyUI MCM fix"), tr("mod menus that never appear"),
+					tr("Clear a stuck SkyUI mod-menu (MCM) registration, the usual cause of mod menus that never appear."), HomeRisk::kCaution, -1 },
+				{ Sc::kHavok, tr("Reset Havok"), tr("objects that fly around or jitter"),
+					tr("Clear the saved physics state of objects, so they settle again when loaded."), HomeRisk::kSafe, -1 },
+				{ Sc::kPurify, tr("Purify FormLists"), tr("empty entries left by removed mods"),
+					tr("Remove entries in form lists that point at things that no longer exist (left by removed mods)."), HomeRisk::kSafe, -1 },
+				{ Sc::kPurge, tr("Purge a script"), tr("remove one script completely"),
+					tr("Remove everything of one script by name: its running threads, queued calls and instances. Use for a script that floods the "
+					"save. Back up your save first."),
 					HomeRisk::kRisky, -1 },
-				{ Sc::kBatch, "Batch Clean", "several cleanups in one go",
-					"Run several cleanup steps in one go, with a preview of what each will remove.", HomeRisk::kCaution, -1 },
-				{ Sc::kCrashLog, "Crash log", "find the object a crash names",
-					"Read your newest crash log (Crash Logger, Trainwreck, .NET Script Framework) and find the objects it names in this save. "
-					"A spawned or leveled NPC that crashes the game while the save loads can be removed from the save here.",
+				{ Sc::kBatch, tr("Batch Clean"), tr("several cleanups in one go"),
+					tr("Run several cleanup steps in one go, with a preview of what each will remove."), HomeRisk::kCaution, -1 },
+				{ Sc::kCrashLog, tr("Crash log"), tr("find the object a crash names"),
+					tr("Read your newest crash log (Crash Logger, Trainwreck, .NET Script Framework) and find the objects it names in this save. "
+					"A spawned or leveled NPC that crashes the game while the save loads can be removed from the save here."),
 					HomeRisk::kCaution, -1 },
 			} },
-		{ "Your game",
+		{ tr("Your game"),
 			{
-				{ Sc::kPlayer, "Edit player", "gold, level, skills, stats, items, bounty",
-					"Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties.", HomeRisk::kCaution, -1 },
-				{ Sc::kActors, "Find NPCs", "where they are; bring a lost follower to you",
-					"Every NPC and creature with where the save has them. Find a lost follower and bring them next to you.", HomeRisk::kCaution, -1 },
-				{ Sc::kGather, "Gather followers (running game)", "all followers next to you, now",
-					"In the running game (ReSaverHelper): every follower is brought next to you, wherever they are. No save editing.",
+				{ Sc::kPlayer, tr("Edit player"), tr("gold, level, skills, stats, items, bounty"),
+					tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."), HomeRisk::kCaution, -1 },
+				{ Sc::kActors, tr("Find NPCs"), tr("where they are; bring a lost follower to you"),
+					tr("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you."), HomeRisk::kCaution, -1 },
+				{ Sc::kGather, tr("Gather followers (running game)"), tr("all followers next to you, now"),
+					tr("In the running game (ReSaverHelper): every follower is brought next to you, wherever they are. No save editing."),
 					HomeRisk::kSafe, -1 },
-				{ Sc::kLiveGame, "Work on the running game", "followers, controls, save: no save needed",
-					"Act in the game while it runs: gather your followers, get your controls back, save the game, and set up the "
-					"hold-Ctrl rescue.",
+				{ Sc::kLiveGame, tr("Work on the running game"), tr("followers, controls, save: no save needed"),
+					tr("Act in the game while it runs: gather your followers, get your controls back, save the game, and set up the "
+					"hold-Ctrl rescue."),
 					HomeRisk::kNone, -1 },
-				{ Sc::kTransplant, "Transplant progress", "from a broken save into a healthy one",
-					"Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one.", HomeRisk::kCaution, -1 },
-				{ Sc::kSavesMgr, "Manage saves folder", "delete old saves in bulk",
-					"All saves by character with size and date; delete old ones (with their .skse files) in bulk, keeping the newest.",
+				{ Sc::kTransplant, tr("Transplant progress"), tr("from a broken save into a healthy one"),
+					tr("Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one."), HomeRisk::kCaution, -1 },
+				{ Sc::kSavesMgr, tr("Manage saves folder"), tr("delete old saves in bulk"),
+					tr("All saves by character with size and date; delete old ones (with their .skse files) in bulk, keeping the newest."),
 					HomeRisk::kCaution, -1 },
-				{ Sc::kHistory, "Save history", "which mods keep growing",
-					"Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing.",
+				{ Sc::kHistory, tr("Save history"), tr("which mods keep growing"),
+					tr("Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing."),
 					HomeRisk::kNone, -1 },
 			} },
-		{ "Look into it",
+		{ tr("Look into it"),
 			{
-				{ Sc::kMods, "Mods view", "every mod with its scripts and threads",
-					"Every mod in the save with its scripts, instances and running threads, and what can be done about each.", HomeRisk::kNone, -1 },
-				{ Sc::kQuests, "Quests", "running, completed, the journal",
-					"Every quest in the save with its stages, journal entries and objectives.", HomeRisk::kNone, -1 },
-				{ Sc::kCompare, "Compare to another save", "what changed between two saves",
-					"Compare this save with another one (e.g. an older, healthy save) to see which scripts, threads and change forms grew.",
+				{ Sc::kMods, tr("Mods view"), tr("every mod with its scripts and threads"),
+					tr("Every mod in the save with its scripts, instances and running threads, and what can be done about each."), HomeRisk::kNone, -1 },
+				{ Sc::kQuests, tr("Quests"), tr("running, completed, the journal"),
+					tr("Every quest in the save with its stages, journal entries and objectives."), HomeRisk::kNone, -1 },
+				{ Sc::kCompare, tr("Compare to another save"), tr("what changed between two saves"),
+					tr("Compare this save with another one (e.g. an older, healthy save) to see which scripts, threads and change forms grew."),
 					HomeRisk::kNone, -1 },
-				{ Sc::kReport, "Report", "text or PDF, to share when asking for help",
-					"Write a report of the save (mods, scripts, anomalies) as text or PDF.", HomeRisk::kNone, -1 },
-				{ Sc::kAnalysis, "Analysis", "what takes the most space and runs the most",
-					"A text report of the save: which mods and scripts take the most space and run the most.", HomeRisk::kNone, -1 },
+				{ Sc::kReport, tr("Report"), tr("text or PDF, to share when asking for help"),
+					tr("Write a report of the save (mods, scripts, anomalies) as text or PDF."), HomeRisk::kNone, -1 },
+				{ Sc::kAnalysis, tr("Analysis"), tr("what takes the most space and runs the most"),
+					tr("A text report of the save: which mods and scripts take the most space and run the most."), HomeRisk::kNone, -1 },
 			} },
 	};
 	// the second tab: tools for the mods and the load order rather than the save
 	const std::vector<std::pair<const char*, std::vector<Button>>> modGroups = {
-		{ "Patch your load order",
+		{ tr("Patch your load order"),
 			{
-				{ Sc::kMerge, "Merged patch", "one plugin with every mod's changes",
-					"Read every plugin of your load order and build one light plugin that keeps the changes of every mod that edits the "
-					"same leveled lists, containers, NPCs, keywords, items, spells and cells. You choose what is merged.",
+				{ Sc::kMerge, tr("Merged patch"), tr("one plugin with every mod's changes"),
+					tr("Read every plugin of your load order and build one light plugin that keeps the changes of every mod that edits the "
+					"same leveled lists, containers, NPCs, keywords, items, spells and cells. You choose what is merged."),
 					HomeRisk::kCaution, -1 },
 			} },
-		{ "Check your mods",
+		{ tr("Check your mods"),
 			{
-				{ Sc::kFileConflicts, "File conflicts", "which mod overrides which mod's files",
-					"Which mods override which mods' files, loose and inside archives (BSAs), in the order the game uses them. Scripts "
-					"overridden by another mod's copy are listed first.",
+				{ Sc::kFileConflicts, tr("File conflicts"), tr("which mod overrides which mod's files"),
+					tr("Which mods override which mods' files, loose and inside archives (BSAs), in the order the game uses them. Scripts "
+					"overridden by another mod's copy are listed first."),
 					HomeRisk::kNone, -1 },
-				{ Sc::kPapyrusLog, "Papyrus log", "which mod is spamming errors",
-					"Read Papyrus.0.log: errors grouped by script and mod, with how often each happens.", HomeRisk::kNone, -1 },
-				{ Sc::kBsa, "Unpack a BSA", "see and unpack the files in an archive",
-					"See the files inside a mod's or the game's BSA archive, unpack all or some of them into a folder, and read a "
-					"script packed inside without unpacking it.",
+				{ Sc::kPapyrusLog, tr("Papyrus log"), tr("which mod is spamming errors"),
+					tr("Read Papyrus.0.log: errors grouped by script and mod, with how often each happens."), HomeRisk::kNone, -1 },
+				{ Sc::kBsa, tr("Unpack a BSA"), tr("see and unpack the files in an archive"),
+					tr("See the files inside a mod's or the game's BSA archive, unpack all or some of them into a folder, and read a "
+					"script packed inside without unpacking it."),
 					HomeRisk::kNone, -1 },
 			} },
-		{ "Logs and AI",
+		{ tr("Logs and AI"),
 			{
-				{ Sc::kSkyrimLogs, fo4Game() || fo4() ? "Analyze Fallout 4 logs" : "Analyze Skyrim logs",
-					fo4Game() || fo4() ? "F4SE, Buffout 4, Papyrus and mod logs" : "SKSE, crash, Papyrus and mod logs",
-					fo4Game() || fo4() ? "Read your F4SE logs, Buffout 4 crash logs, the Papyrus log and the mods' own logs, and list the problems "
-					                     "found: plugins that did not load, what crashed, scripts that are missing."
-					                   : "Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found: plugins that "
-					                     "did not load, what crashed, scripts that are missing.",
+				{ Sc::kSkyrimLogs, fo4Game() || fo4() ? tr("Analyze Fallout 4 logs") : tr("Analyze Skyrim logs"),
+					fo4Game() || fo4() ? tr("F4SE, Buffout 4, Papyrus and mod logs") : tr("SKSE, crash, Papyrus and mod logs"),
+					fo4Game() || fo4() ? tr("Read your F4SE logs, Buffout 4 crash logs, the Papyrus log and the mods' own logs, and list the problems "
+					                     "found: plugins that did not load, what crashed, scripts that are missing.")
+					                   : tr("Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found: plugins that "
+					                     "did not load, what crashed, scripts that are missing."),
 					HomeRisk::kNone, -1 },
-				{ Sc::kCollectLogs, "Collect all logs", "one zip on the desktop, to share",
-					"Put every Skyrim log (SKSE and all its folders, crash logs, Papyrus), your load order and INI files, and what PC "
-					"it is (Windows, memory, processor, video card) into one zip file on your desktop, ready to send with a report.",
+				{ Sc::kCollectLogs, tr("Collect all logs"), tr("one zip on the desktop, to share"),
+					tr("Put every Skyrim log (SKSE and all its folders, crash logs, Papyrus), your load order and INI files, and what PC "
+					"it is (Windows, memory, processor, video card) into one zip file on your desktop, ready to send with a report."),
 					HomeRisk::kNone, -1 },
-				{ Sc::kAskAi, "Ask the AI", "plain English: it uses ReSaver Plus for you",
-					"Chat with an AI engine (Claude, ChatGPT, Gemini, or a free one on your PC) that can use everything ReSaver Plus "
-					"does: check the save, read the logs, fix quests, clean scripts, act in the running game.",
+				{ Sc::kAskAi, tr("Ask the AI"), tr("plain English: it uses ReSaver Plus for you"),
+					tr("Chat with an AI engine (Claude, ChatGPT, Gemini, or a free one on your PC) that can use everything ReSaver Plus "
+					"does: check the save, read the logs, fix quests, clean scripts, act in the running game."),
 					HomeRisk::kCaution, -1 },
 			} },
-		{ "Look up",
+		{ tr("Look up"),
 			{
-				{ Sc::kLookup, "Find a form", "by name or editor ID",
-					"Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it.", HomeRisk::kNone, -1 },
-				{ Sc::kOpenPex, "Open script (.pex)", "read a compiled script's code",
-					"Open a compiled Papyrus script (.pex) and read its decompiled code.", HomeRisk::kNone, -1 },
+				{ Sc::kLookup, tr("Find a form"), tr("by name or editor ID"),
+					tr("Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it."), HomeRisk::kNone, -1 },
+				{ Sc::kOpenPex, tr("Open script (.pex)"), tr("read a compiled script's code"),
+					tr("Open a compiled Papyrus script (.pex) and read its decompiled code."), HomeRisk::kNone, -1 },
 			} },
 	};
 	// the big features get a border in a shade of the button colour
@@ -380,8 +380,8 @@ void App::drawHome()
 		Sc::kFileConflicts, Sc::kCrashLog, Sc::kSkyrimLogs, Sc::kAskAi, Sc::kLiveGame };
 
 	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-	ImGui::TextWrapped("Shortcuts: the same as the Clean and Tools menus. Green is safe, yellow: read what it does first, red: risky. "
-	                   "Every change is made in the loaded save and only written with File > Save or Save As.");
+	ImGui::TextWrapped("%s", tr("Shortcuts: the same as the Clean and Tools menus. Green is safe, yellow: read what it does first, red: risky. "
+	                   "Every change is made in the loaded save and only written with File > Save or Save As."));
 	ImGui::PopStyleColor();
 	ImGui::Spacing();
 	auto drawGroups = [&](const char* a_id, const std::vector<std::pair<const char*, std::vector<Button>>>& groups) {
@@ -397,7 +397,7 @@ void App::drawHome()
 			const bool nothing = b.count == 0 || notHere;
 			std::string label = b.label;
 			if (b.count > 0) {
-				label += Fmt("  (%lld)", b.count);
+				label += Fmt(tr("  (%lld)"), b.count);
 			}
 			ImU32 col = 0;
 			switch (b.risk) {
@@ -420,9 +420,9 @@ void App::drawHome()
 			}
 			ImGui::EndDisabled();
 			if (notHere) {
-				tips::Tip(kSkyrimOnlyTip);
+				tips::Tip(tr(kSkyrimOnlyTip));
 			} else if (nothing) {
-				tips::Tip("Nothing to do: this save has none.");
+				tips::Tip(tr("Nothing to do: this save has none."));
 			} else {
 				tips::Tip(b.tip);
 			}
@@ -438,12 +438,12 @@ void App::drawHome()
 	ImGui::EndTable();
 	};
 	if (ImGui::BeginTabBar("hometabs")) {
-		if (ImGui::BeginTabItem("Your save")) {
+		if (ImGui::BeginTabItem(trId("Your save"))) {
 			drawGroups("homesave", saveGroups);
 			ImGui::EndTabItem();
 		}
 		static bool modsFirst = std::getenv("RESAVERPP_TEST_HOMETAB") != nullptr;  // for screenshots
-		if (ImGui::BeginTabItem("Your mods: Merged patch, File conflicts", nullptr, modsFirst ? ImGuiTabItemFlags_SetSelected : 0)) {
+		if (ImGui::BeginTabItem(trId("Your mods: Merged patch, File conflicts"), nullptr, modsFirst ? ImGuiTabItemFlags_SetSelected : 0)) {
 			modsFirst = false;
 			drawGroups("homemods", modGroups);
 			ImGui::EndTabItem();

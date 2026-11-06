@@ -396,56 +396,60 @@ void App::drawSkyrimLogs()
 	}
 	const bool running = _logsJob && !_logsJob->done;
 	static const int   kDays[] = { 1, 3, 7, 30, 0 };
-	static const char* kDayNames[] = { "the last day", "the last 3 days", "the last 7 days", "the last 30 days", "any time" };
+	static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
 	int sel = 2;
 	for (int i = 0; i < 5; ++i) {
 		sel = kDays[i] == _logsDays ? i : sel;
 	}
 	ImGui::AlignTextToFramePadding();
-	ImGui::TextUnformatted("Logs written in");
+	ImGui::TextUnformatted(tr("Logs written in"));
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(160);
-	if (ImGui::Combo("##days", &sel, kDayNames, 5)) {
+	const char* dayNames[5];
+	for (int i = 0; i < 5; ++i) {
+		dayNames[i] = tr(kDayNames[i]);
+	}
+	if (ImGui::Combo("##days", &sel, dayNames, 5)) {
 		_logsDays = kDays[sel];
 		saveSettings();
 		startLogAnalysis();
 	}
 	ImGui::SameLine();
-	if (ImGui::Checkbox("The mods' own logs", &_logsPlugins)) {
+	if (ImGui::Checkbox(tr("The mods' own logs"), &_logsPlugins)) {
 		saveSettings();
 		startLogAnalysis();
 	}
-	tips::Tip((std::string("Also read the logs every ") + se + " plugin writes for itself (in the " + se +
-	           " folder) for lines that say error or failed.").c_str());
+	tips::Tip((std::string(tr("Also read the logs every ")) + se + tr(" plugin writes for itself (in the ") + se +
+	           tr(" folder) for lines that say error or failed.")).c_str());
 	ImGui::SameLine();
 	ImGui::BeginDisabled(running);
-	if (ImGui::Button("Analyze again")) {
+	if (ImGui::Button(tr("Analyze again"))) {
 		startLogAnalysis();
 	}
 	ImGui::EndDisabled();
 	const bool haveResult = _logsJob && _logsJob->done;
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!haveResult);
-	if (ImGui::Button("Ask the AI about these")) {
+	if (ImGui::Button(tr("Ask the AI about these"))) {
 		_showAi = true;
-		aiSend("Analyze my " + gameName + " logs. ReSaver Plus found this:\n\n" + ess::logs::ToText(_logsJob->result) +
-		       "\nLook deeper with the log tools where it helps, then tell me in plain words what is wrong and what to do about "
-		       "it, most important first.");
+		aiSend(tr("Analyze my ") + gameName + tr(" logs. ReSaver Plus found this:\n\n") + ess::logs::ToText(_logsJob->result) +
+		       tr("\nLook deeper with the log tools where it helps, then tell me in plain words what is wrong and what to do about "
+		       "it, most important first."));
 	}
-	tips::Tip("Send these findings to the AI chat: it reads the logs further and explains what to do.");
+	tips::Tip(tr("Send these findings to the AI chat: it reads the logs further and explains what to do."));
 	ImGui::SameLine();
-	if (ImGui::Button("Collect all logs (zip)")) {
+	if (ImGui::Button(tr("Collect all logs (zip)"))) {
 		startCollectLogs();
 	}
-	tips::Tip("Every log, your load order, INI files and PC details in one dated zip on your desktop, to send with a report.");
+	tips::Tip(tr("Every log, your load order, INI files and PC details in one dated zip on your desktop, to send with a report."));
 	ImGui::SameLine();
-	if (ImGui::Button("Copy as text")) {
+	if (ImGui::Button(tr("Copy as text"))) {
 		ImGui::SetClipboardText(ess::logs::ToText(_logsJob->result).c_str());
 	}
 	ImGui::EndDisabled();
 	ImGui::Separator();
 	if (!_logsJob || running) {
-		ImGui::TextDisabled("Reading the logs...");
+		ImGui::TextDisabled("%s", tr("Reading the logs..."));
 		ImGui::End();
 		return;
 	}
@@ -455,24 +459,24 @@ void App::drawSkyrimLogs()
 		bad += f.severity == ess::logs::Severity::kBad;
 		warn += f.severity == ess::logs::Severity::kWarn;
 	}
-	ImGui::Text("%zu log(s) read%s. ", a.files.size(),
-		a.skipped ? (", " + std::to_string(a.skipped) + " older one(s) left out").c_str() : "");
+	ImGui::Text(tr("%zu log(s) read%s. "), a.files.size(),
+		a.skipped ? (", " + std::to_string(a.skipped) + tr(" older one(s) left out")).c_str() : "");
 	ImGui::SameLine(0, 0);
 	if (bad) {
 		ImGui::PushStyleColor(ImGuiCol_Text, theme::Bad());
-		ImGui::Text("%zu problem(s)", bad);
+		ImGui::Text(tr("%zu problem(s)"), bad);
 		ImGui::PopStyleColor();
 	} else {
 		ImGui::PushStyleColor(ImGuiCol_Text, theme::Good());
-		ImGui::TextUnformatted("No problems");
+		ImGui::TextUnformatted(tr("No problems"));
 		ImGui::PopStyleColor();
 	}
 	ImGui::SameLine(0, 0);
-	ImGui::Text(", %zu to look at.", warn);
-	if (ImGui::TreeNode("Where it looked")) {
+	ImGui::Text(tr(", %zu to look at."), warn);
+	if (ImGui::TreeNode(trId("Where it looked"))) {
 		for (const auto& d : _logsJob->folders) {
 			ImGui::PushID(platform::ToUtf8(d).c_str());
-			if (ImGui::SmallButton("Open")) {
+			if (ImGui::SmallButton(tr("Open"))) {
 				platform::OpenWithDefaultApp(d);
 			}
 			ImGui::SameLine();
@@ -480,7 +484,7 @@ void App::drawSkyrimLogs()
 			ImGui::PopID();
 		}
 		if (_logsJob->folders.empty()) {
-			ImGui::TextDisabled("No %s folders found under Documents\\My Games.", gameName.c_str());
+			ImGui::TextDisabled(tr("No %s folders found under Documents\\My Games."), gameName.c_str());
 		}
 		ImGui::TreePop();
 	}
@@ -513,18 +517,18 @@ void App::drawSkyrimLogs()
 				ImGui::PopStyleColor();
 			}
 			if (!f.file.empty()) {
-				if (ImGui::SmallButton("Open the log")) {
+				if (ImGui::SmallButton(tr("Open the log"))) {
 					platform::OpenWithDefaultApp(f.file);
 				}
 				ImGui::SameLine();
-				if (ImGui::SmallButton("Ask the AI about this one")) {
+				if (ImGui::SmallButton(tr("Ask the AI about this one"))) {
 					_showAi = true;
-					std::string t = "Look at this from my " + gameName + " logs and tell me what it means and what to do:\n\n" + f.title + "\n" +
+					std::string t = tr("Look at this from my ") + gameName + tr(" logs and tell me what it means and what to do:\n\n") + f.title + "\n" +
 					                f.detail + "\n";
 					for (const auto& e : f.examples) {
 						t += "> " + e + "\n";
 					}
-					t += "Log file: " + platform::ToUtf8(f.file) + (f.line ? ":" + std::to_string(f.line) : std::string());
+					t += tr("Log file: ") + platform::ToUtf8(f.file) + (f.line ? ":" + std::to_string(f.line) : std::string());
 					aiSend(t);
 				}
 				ImGui::SameLine();
@@ -773,7 +777,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		if (a.front() == "--merged-patch" || (a.front() == "--plugin-property" && a.size() >= 6)) {
 			change = true;
 		}
-		if (change && !_ai.approve(args.str("why").empty() ? "Run a command that writes a file" : args.str("why"), shown)) {
+		if (change && !_ai.approve(args.str("why").empty() ? tr("Run a command that writes a file") : args.str("why"), shown)) {
 			return fail("the user did not allow this change");
 		}
 		const auto exe = platform::ExeFolder() /
@@ -879,7 +883,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 			return fail(why);
 		}
 		if (!ess::aigame::HelperReadOnly(cmd.front()) &&
-			!_ai.approve(args.str("why").empty() ? "Change something in the running game" : args.str("why"), shown)) {
+			!_ai.approve(args.str("why").empty() ? tr("Change something in the running game") : args.str("why"), shown)) {
 			return fail("the user did not allow this change");
 		}
 		auto p = std::make_shared<std::promise<LiveLink::Reply>>();
@@ -1000,7 +1004,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 			return fail("refused: " + ext + " files are not text; use the command line's own options for saves and plugins");
 		}
 		a_shown = "wrote " + platform::ToUtf8(p);
-		if (!_ai.approve(args.str("why").empty() ? "Write a text file" : args.str("why"), "write " + platform::ToUtf8(p))) {
+		if (!_ai.approve(args.str("why").empty() ? tr("Write a text file") : args.str("why"), "write " + platform::ToUtf8(p))) {
 			return fail("the user did not allow this change");
 		}
 		std::error_code ec;
@@ -1240,7 +1244,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		if (perHolder.empty()) {
 			return fail("none of those plugins has leftover items in this save (leftover_items lists the groups)");
 		}
-		if (!_ai.approve(args.str("why").empty() ? "Remove leftover items into a new save" : args.str("why"),
+		if (!_ai.approve(args.str("why").empty() ? tr("Remove leftover items into a new save") : args.str("why"),
 				"remove " + std::to_string(asked) + " leftover inventory entries -> " + platform::ToUtf8(out.filename()))) {
 			return fail("the user did not allow this change");
 		}
@@ -1429,7 +1433,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		for (const auto& p : plan) {
 			planText += (planText.empty() ? "" : ", ") + p;
 		}
-		if (!_ai.approve(args.str("why").empty() ? "Change the Fallout 4 player into a new save" : args.str("why"),
+		if (!_ai.approve(args.str("why").empty() ? tr("Change the Fallout 4 player into a new save") : args.str("why"),
 				planText + " -> " + platform::ToUtf8(out.filename()))) {
 			return fail("the user did not allow this change");
 		}
@@ -1677,9 +1681,9 @@ void App::drawAiSettings()
 	bool  changed = false;
 	const auto& presets = ai::Presets();
 	ImGui::SetNextItemWidth(260);
-	if (ImGui::BeginCombo("Engine", presets[static_cast<std::size_t>(s.preset)].name)) {
+	if (ImGui::BeginCombo(tr("Engine"), tr(presets[static_cast<std::size_t>(s.preset)].name))) {
 		for (int i = 0; i < static_cast<int>(presets.size()); ++i) {
-			if (ImGui::Selectable(presets[static_cast<std::size_t>(i)].name, i == s.preset) && i != s.preset) {
+			if (ImGui::Selectable(tr(presets[static_cast<std::size_t>(i)].name), i == s.preset) && i != s.preset) {
 				const auto& p = presets[static_cast<std::size_t>(i)];
 				s.preset = i;
 				s.api = p.api;
@@ -1694,50 +1698,50 @@ void App::drawAiSettings()
 	const auto& preset = presets[static_cast<std::size_t>(s.preset)];
 	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 	ImGui::PushTextWrapPos(0);
-	ImGui::TextUnformatted(preset.note);
+	ImGui::TextUnformatted(tr(preset.note));
 	ImGui::PopTextWrapPos();
 	ImGui::PopStyleColor();
 	if (std::string(preset.name).rfind("Other", 0) == 0) {
 		int api = s.api == ai::Api::kAnthropic ? 1 : 0;
 		ImGui::AlignTextToFramePadding();
-		ImGui::TextUnformatted("Kind:");
+		ImGui::TextUnformatted(tr("Kind:"));
 		ImGui::SameLine();
-		changed |= ImGui::RadioButton("OpenAI-compatible", &api, 0);
+		changed |= ImGui::RadioButton(tr("OpenAI-compatible"), &api, 0);
 		ImGui::SameLine();
-		changed |= ImGui::RadioButton("Anthropic", &api, 1);
+		changed |= ImGui::RadioButton(tr("Anthropic"), &api, 1);
 		s.api = api ? ai::Api::kAnthropic : ai::Api::kOpenAI;
 	}
 	char buf[1024];
 	std::snprintf(buf, sizeof(buf), "%s", s.baseUrl.c_str());
 	ImGui::SetNextItemWidth(420);
-	if (ImGui::InputText("Address", buf, sizeof(buf))) {
+	if (ImGui::InputText(tr("Address"), buf, sizeof(buf))) {
 		s.baseUrl = buf;
 	}
 	changed |= ImGui::IsItemDeactivatedAfterEdit();
 	static bool showKey = false;
 	std::snprintf(buf, sizeof(buf), "%s", s.apiKey.c_str());
 	ImGui::SetNextItemWidth(420);
-	if (ImGui::InputText("API key", buf, sizeof(buf), showKey ? 0 : ImGuiInputTextFlags_Password)) {
+	if (ImGui::InputText(tr("API key"), buf, sizeof(buf), showKey ? 0 : ImGuiInputTextFlags_Password)) {
 		s.apiKey = buf;
 	}
 	changed |= ImGui::IsItemDeactivatedAfterEdit();
 	ImGui::SameLine();
-	ImGui::Checkbox("Show", &showKey);
-	tips::Tip("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back).");
+	ImGui::Checkbox(tr("Show"), &showKey);
+	tips::Tip(tr("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."));
 	if (!preset.needsKey && s.apiKey.empty()) {
 		ImGui::SameLine();
-		ImGui::TextDisabled("(not needed for an engine on this PC)");
+		ImGui::TextDisabled("%s", tr("(not needed for an engine on this PC)"));
 	}
 	std::snprintf(buf, sizeof(buf), "%s", s.model.c_str());
 	ImGui::SetNextItemWidth(420);
-	if (ImGui::InputText("Model", buf, sizeof(buf))) {
+	if (ImGui::InputText(tr("Model"), buf, sizeof(buf))) {
 		s.model = buf;
 	}
 	changed |= ImGui::IsItemDeactivatedAfterEdit();
 	ImGui::SameLine();
 	const bool listing = _aiModels && !_aiModels->done;
 	ImGui::BeginDisabled(listing || s.baseUrl.empty());
-	if (ImGui::Button(listing ? "Listing..." : "List models")) {
+	if (ImGui::Button(listing ? tr("Listing...") : tr("List models"))) {
 		auto job = std::make_shared<AiModels>();
 		auto* j = job.get();
 		job->thread = std::thread([j, settings = s] {
@@ -1748,7 +1752,7 @@ void App::drawAiSettings()
 		ImGui::OpenPopup("##models");
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Ask the engine which models it has (also a quick test of the address and key).");
+	tips::Tip(tr("Ask the engine which models it has (also a quick test of the address and key)."));
 	if (_aiModels && _aiModels->done) {
 		if (!_aiModels->error.empty()) {
 			ImGui::PushStyleColor(ImGuiCol_Text, theme::Bad());
@@ -1765,29 +1769,29 @@ void App::drawAiSettings()
 			}
 			ImGui::EndPopup();
 		} else {
-			ImGui::TextDisabled("%zu models found: click List models again to pick one.", _aiModels->list.size());
+			ImGui::TextDisabled(tr("%zu models found: click List models again to pick one."), _aiModels->list.size());
 		}
 	} else if (listing) {
 		ImGui::OpenPopup("##models");
 		if (ImGui::BeginPopup("##models")) {
-			ImGui::TextDisabled("Asking the engine...");
+			ImGui::TextDisabled("%s", tr("Asking the engine..."));
 			ImGui::EndPopup();
 		}
 	}
 	if (s.api == ai::Api::kAnthropic) {
 		ImGui::SetNextItemWidth(120);
-		changed |= ImGui::InputInt("Longest answer (tokens)", &s.maxTokens, 1024);
+		changed |= ImGui::InputInt(tr("Longest answer (tokens)"), &s.maxTokens, 1024);
 		s.maxTokens = std::clamp(s.maxTokens, 256, 128000);
 	}
 	ImGui::SetNextItemWidth(120);
-	changed |= ImGui::InputInt("Wait for an answer (seconds)", &s.timeoutSeconds, 30);
+	changed |= ImGui::InputInt(tr("Wait for an answer (seconds)"), &s.timeoutSeconds, 30);
 	s.timeoutSeconds = std::clamp(s.timeoutSeconds, 30, 3600);
-	tips::Tip("Engines on your own PC can be slow: give them more time.");
+	tips::Tip(tr("Engines on your own PC can be slow: give them more time."));
 	ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 	ImGui::PushTextWrapPos(0);
-	ImGui::TextUnformatted("What you type, and what the AI reads with its tools (parts of your save, your logs, file and mod names), is "
+	ImGui::TextUnformatted(tr("What you type, and what the AI reads with its tools (parts of your save, your logs, file and mod names), is "
 	                       "sent to the engine you pick. An engine on this PC (Ollama, LM Studio) keeps everything here. Paid engines "
-	                       "charge your account for each question; a question usually costs a few cents.");
+	                       "charge your account for each question; a question usually costs a few cents."));
 	ImGui::PopTextWrapPos();
 	ImGui::PopStyleColor();
 	if (changed) {
@@ -1798,7 +1802,7 @@ void App::drawAiSettings()
 void App::drawAiChat()
 {
 	prepareWindow("Ask the AI", ImVec2(0.6f, 0.85f));
-	if (!ImGui::Begin("Ask the AI", &_showAi, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("Ask the AI"), &_showAi, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
@@ -1809,24 +1813,24 @@ void App::drawAiChat()
 	// top row
 	if (s.configured()) {
 		ImGui::AlignTextToFramePadding();
-		ImGui::TextDisabled("%s, %s", ai::Presets()[static_cast<std::size_t>(s.preset)].name, s.model.c_str());
+		ImGui::TextDisabled("%s, %s", tr(ai::Presets()[static_cast<std::size_t>(s.preset)].name), s.model.c_str());
 		ImGui::SameLine();
 	}
-	if (ImGui::Button(_aiShowSettings ? "Hide engine settings" : "Engine settings")) {
+	if (ImGui::Button(_aiShowSettings ? tr("Hide engine settings") : tr("Engine settings"))) {
 		_aiShowSettings = !_aiShowSettings;
 	}
 	ImGui::SameLine();
-	if (ImGui::Checkbox("Ask me before changes", &s.askBeforeChanges)) {
+	if (ImGui::Checkbox(tr("Ask me before changes"), &s.askBeforeChanges)) {
 		saveSettings();
 	}
-	tips::Tip("On: the AI asks for your OK before it writes a new save, changes the running game or writes a file. It can look "
-	          "at anything without asking. Off: it does what it decides.");
+	tips::Tip(tr("On: the AI asks for your OK before it writes a new save, changes the running game or writes a file. It can look "
+	          "at anything without asking. Off: it does what it decides."));
 	ImGui::SameLine();
-	if (ImGui::Button("New chat")) {
+	if (ImGui::Button(tr("New chat"))) {
 		_ai.clear();
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("Copy chat")) {
+	if (ImGui::Button(tr("Copy chat"))) {
 		std::string t;
 		_ai.read([&](const std::vector<ai::Message>& m) { t = Transcript(m); });
 		ImGui::SetClipboardText(t.c_str());
@@ -1835,7 +1839,7 @@ void App::drawAiChat()
 		ImGui::Separator();
 		if (!s.configured()) {
 			ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
-			ImGui::TextUnformatted("Pick an AI engine first: its address, API key and model.");
+			ImGui::TextUnformatted(tr("Pick an AI engine first: its address, API key and model."));
 			ImGui::PopStyleColor();
 		}
 		drawAiSettings();
@@ -1858,7 +1862,7 @@ void App::drawAiChat()
 			case ai::Message::Role::kUser:
 				ImGui::Spacing();
 				ImGui::PushStyleColor(ImGuiCol_Text, theme::Good());
-				ImGui::TextUnformatted("You");
+				ImGui::TextUnformatted(tr("You"));
 				ImGui::PopStyleColor();
 				SelectableText(std::to_string(i), m.text);
 				break;
@@ -1869,10 +1873,10 @@ void App::drawAiChat()
 				if (m.calls.empty()) {  // an answer; text before tool calls is the AI saying what it does next
 					ImGui::Spacing();
 					ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-					ImGui::TextUnformatted("AI");
+					ImGui::TextUnformatted(tr("AI"));
 					ImGui::PopStyleColor();
 					ImGui::SameLine();
-					if (ImGui::SmallButton("Copy")) {
+					if (ImGui::SmallButton(tr("Copy"))) {
 						ImGui::SetClipboardText(m.text.c_str());
 					}
 				}
@@ -1882,7 +1886,7 @@ void App::drawAiChat()
 				{
 					ImGui::PushStyleColor(ImGuiCol_Text, m.error ? ImGui::ColorConvertU32ToFloat4(theme::Bad()) : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 					const bool open = ImGui::TreeNodeEx("##tool", ImGuiTreeNodeFlags_SpanAvailWidth, "%s%s",
-						m.shown.empty() ? m.toolName.c_str() : m.shown.c_str(), m.error ? "  (failed)" : "");
+						m.shown.empty() ? m.toolName.c_str() : m.shown.c_str(), m.error ? tr("  (failed)") : "");
 					ImGui::PopStyleColor();
 					if (open) {
 						const float lines = static_cast<float>(std::count(m.text.begin(), m.text.end(), '\n') + 1);
@@ -1929,21 +1933,21 @@ void App::drawAiChat()
 		ImGui::PushStyleColor(ImGuiCol_ChildBg, theme::BannerBg());
 		ImGui::BeginChild("##approve", ImVec2(0, apprH), ImGuiChildFlags_Borders);
 		ImGui::PushStyleColor(ImGuiCol_Text, theme::Caution());
-		ImGui::TextUnformatted("The AI wants to make a change:");
+		ImGui::TextUnformatted(tr("The AI wants to make a change:"));
 		ImGui::PopStyleColor();
 		ImGui::PushTextWrapPos(0);
 		ImGui::TextUnformatted(appr.what.c_str());
 		ImGui::PopTextWrapPos();
 		ImGui::TextDisabled("%s", appr.command.c_str());
-		if (ImGui::Button("Allow")) {
+		if (ImGui::Button(tr("Allow"))) {
 			_ai.answer(1);
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Allow every change in this chat")) {
+		if (ImGui::Button(tr("Allow every change in this chat"))) {
 			_ai.answer(2);
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Don't")) {
+		if (ImGui::Button(tr("Don't"))) {
 			_ai.answer(0);
 		}
 		ImGui::EndChild();
@@ -1956,12 +1960,12 @@ void App::drawAiChat()
 		ImGui::AlignTextToFramePadding();
 		ImGui::Text("%c %s", kSpin[static_cast<int>(ImGui::GetTime() * 8) & 3], _ai.status().c_str());
 		ImGui::SameLine();
-		if (ImGui::Button("Stop")) {
+		if (ImGui::Button(tr("Stop"))) {
 			_ai.stop();
 		}
 	} else {
 		ImGui::AlignTextToFramePadding();
-		ImGui::TextDisabled("Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it.");
+		ImGui::TextDisabled("%s", tr("Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it."));
 	}
 
 	// input
@@ -1975,7 +1979,7 @@ void App::drawAiChat()
 		ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CtrlEnterForNewLine);
 	ImGui::SameLine();
 	ImGui::BeginDisabled(busy || !s.configured());
-	send |= ImGui::Button("Send", ImVec2(sendW, inputH));
+	send |= ImGui::Button(tr("Send"), ImVec2(sendW, inputH));
 	ImGui::EndDisabled();
 	if (send && !busy && s.configured()) {
 		std::string t = _aiInput;

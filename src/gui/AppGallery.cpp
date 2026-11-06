@@ -64,15 +64,15 @@ namespace
 	{
 		const auto d = static_cast<std::int64_t>(std::time(nullptr)) - a_unix;
 		if (d < 90) {
-			return "just now";
+			return tr("just now");
 		}
 		if (d < 5400) {
-			return Fmtg("%lld minutes ago", static_cast<long long>(d / 60));
+			return Fmtg(tr("%lld minutes ago"), static_cast<long long>(d / 60));
 		}
 		if (d < 129600) {
-			return Fmtg("%lld hours ago", static_cast<long long>(d / 3600));
+			return Fmtg(tr("%lld hours ago"), static_cast<long long>(d / 3600));
 		}
-		return Fmtg("%lld days ago", static_cast<long long>(d / 86400));
+		return Fmtg(tr("%lld days ago"), static_cast<long long>(d / 86400));
 	}
 }
 
@@ -221,8 +221,8 @@ void App::openFromGallery(const std::filesystem::path& a_path)
 		open(a_path);
 	};
 	if (_dirty) {
-		confirm("Unsaved changes", "The edits to " + platform::ToUtf8(_path.filename()) + " have not been saved. Open " +
-		                               platform::ToUtf8(a_path.filename()) + " anyway (the edits are lost)?",
+		confirm(tr("Unsaved changes"), tr("The edits to ") + platform::ToUtf8(_path.filename()) + tr(" have not been saved. Open ") +
+		                               platform::ToUtf8(a_path.filename()) + tr(" anyway (the edits are lost)?"),
 			go);
 	} else {
 		go();
@@ -235,7 +235,7 @@ void App::drawGallery()
 		startOpenDialog();
 	}
 	prepareWindow("Open a save", ImVec2(0.85f, 0.85f));
-	if (!ImGui::Begin("Open a save", &_showGallery, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("Open a save"), &_showGallery, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
@@ -256,7 +256,7 @@ void App::drawGallery()
 
 	// top: folder, view, character filter, search
 	ImGui::AlignTextToFramePadding();
-	ImGui::TextUnformatted("Folder:");
+	ImGui::TextUnformatted(tr("Folder:"));
 	ImGui::SameLine();
 	ImGui::TextDisabled("%s", platform::ToUtf8(g.folder).c_str());
 	ImGui::SameLine();
@@ -271,42 +271,42 @@ void App::drawGallery()
 			ImGui::End();
 			return;
 		}
-		tips::Tip("Show this game's saves folder (Skyrim Special Edition / Anniversary Edition, Skyrim VR or Fallout 4).");
+		tips::Tip(tr("Show this game's saves folder (Skyrim Special Edition / Anniversary Edition, Skyrim VR or Fallout 4)."));
 		ImGui::SameLine();
 	}
-	if (ImGui::Button("Other folder...")) {
-		if (auto f = platform::PickFolderDialog("Folder with Skyrim or Fallout 4 saves")) {
+	if (ImGui::Button(tr("Other folder..."))) {
+		if (auto f = platform::PickFolderDialog(tr("Folder with Skyrim or Fallout 4 saves"))) {
 			loadGallery(*f);
 			ImGui::End();
 			return;
 		}
 	}
-	tips::Tip("Show the saves of another folder (e.g. a Mod Organizer profile's own saves).");
+	tips::Tip(tr("Show the saves of another folder (e.g. a Mod Organizer profile's own saves)."));
 	ImGui::SameLine();
-	if (ImGui::Button("Browse for a file...")) {
+	if (ImGui::Button(tr("Browse for a file..."))) {
 		openWithFileDialog();
 	}
-	tips::Tip("Pick a save anywhere with the Windows file dialog.");
+	tips::Tip(tr("Pick a save anywhere with the Windows file dialog."));
 	ImGui::SameLine();
-	if (ImGui::Button("Refresh")) {
+	if (ImGui::Button(tr("Refresh"))) {
 		loadGallery(g.folder);
 		ImGui::End();
 		return;
 	}
 
 	ImGui::AlignTextToFramePadding();
-	ImGui::TextUnformatted("View:");
+	ImGui::TextUnformatted(tr("View:"));
 	ImGui::SameLine();
-	if (ImGui::RadioButton("Pictures", !_galleryList)) {
+	if (ImGui::RadioButton(tr("Pictures"), !_galleryList)) {
 		_galleryList = false;
 		saveSettings();
 	}
 	ImGui::SameLine();
-	if (ImGui::RadioButton("List", _galleryList)) {
+	if (ImGui::RadioButton(tr("List"), _galleryList)) {
 		_galleryList = true;
 		saveSettings();
 	}
-	tips::Tip("Pictures: each save's screenshot, newest first. List: one line per save, sorted by any column (click its header).");
+	tips::Tip(tr("Pictures: each save's screenshot, newest first. List: one line per save, sorted by any column (click its header)."));
 	// characters seen so far
 	std::vector<std::string> chars;
 	std::size_t              total = 0, read = 0;
@@ -323,8 +323,8 @@ void App::drawGallery()
 	std::sort(chars.begin(), chars.end());
 	ImGui::SameLine(0, 24);
 	ImGui::SetNextItemWidth(220);
-	if (ImGui::BeginCombo("Character", _galleryCharacter.empty() ? "All characters" : _galleryCharacter.c_str())) {
-		if (ImGui::Selectable("All characters", _galleryCharacter.empty())) {
+	if (ImGui::BeginCombo(tr("Character"), _galleryCharacter.empty() ? tr("All characters") : _galleryCharacter.c_str())) {
+		if (ImGui::Selectable(tr("All characters"), _galleryCharacter.empty())) {
 			_galleryCharacter.clear();
 		}
 		for (const auto& c : chars) {
@@ -336,13 +336,13 @@ void App::drawGallery()
 	}
 	ImGui::SameLine(0, 24);
 	ImGui::SetNextItemWidth(220);
-	ImGui::InputTextWithHint("##gfind", "find (name, place, file)", _galleryFind, sizeof(_galleryFind));
+	ImGui::InputTextWithHint("##gfind", tr("find (name, place, file)"), _galleryFind, sizeof(_galleryFind));
 	if (read < total) {
 		ImGui::SameLine(0, 24);
-		ImGui::TextDisabled("reading %zu of %zu saves...", read, total);
+		ImGui::TextDisabled(tr("reading %zu of %zu saves..."), read, total);
 	} else {
 		ImGui::SameLine(0, 24);
-		ImGui::TextDisabled("%zu saves", total);
+		ImGui::TextDisabled(tr("%zu saves"), total);
 	}
 	ImGui::Separator();
 
@@ -362,7 +362,7 @@ void App::drawGallery()
 	std::filesystem::path clicked;
 
 	if (total == 0) {
-		ImGui::TextDisabled("No saves (.ess) in this folder. Use Other folder... or Browse for a file...");
+		ImGui::TextDisabled("%s", tr("No saves (.ess) in this folder. Use Other folder... or Browse for a file..."));
 	} else if (!_galleryList) {
 		// pictures, newest first
 		ImGui::BeginChild("##gallery", ImVec2(0, 0));
@@ -388,25 +388,25 @@ void App::drawGallery()
 				click = ImGui::ImageButton("##pic", static_cast<ImTextureID>(e.tex), ImVec2(cardW, picH));
 				ImGui::PopStyleVar();
 			} else {
-				click = ImGui::Button(e.read ? (e.ok ? "(no picture)" : "(not a save)") : "...", ImVec2(cardW, picH));
+				click = ImGui::Button(e.read ? (e.ok ? tr("(no picture)") : tr("(not a save)")) : "...", ImVec2(cardW, picH));
 			}
 			if (current) {
 				ImGui::GetWindowDrawList()->AddRect(at, ImVec2(at.x + cardW, at.y + picH), theme::Good(), 0, 0, 3.0f);
 			}
 			if (ImGui::IsItemHovered()) {
 				ImGui::SetTooltip("%s\n%s, %s", platform::ToUtf8(e.path.filename()).c_str(), WhenG(e.time).c_str(),
-					Fmtg("%.1f MB", e.size / 1048576.0).c_str());
+					Fmtg(tr("%.1f MB"), e.size / 1048576.0).c_str());
 			}
 			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + cardW);
 			if (e.ok) {
-				ImGui::Text("%s, level %u", e.name.c_str(), e.level);
+				ImGui::Text(tr("%s, level %u"), e.name.c_str(), e.level);
 				ImGui::TextDisabled("%s", e.location.c_str());
 			} else {
 				ImGui::TextUnformatted(platform::ToUtf8(e.path.filename()).c_str());
 				ImGui::TextDisabled(" ");
 			}
 			if (e.ok) {
-				ImGui::Text("Save %u, %s", e.number, AgoG(e.time).c_str());
+				ImGui::Text(tr("Save %u, %s"), e.number, AgoG(e.time).c_str());
 				ImGui::TextDisabled("%s", WhenG(e.time).c_str());
 			} else {
 				ImGui::TextDisabled("%s  (%s)", WhenG(e.time).c_str(), AgoG(e.time).c_str());
@@ -429,13 +429,13 @@ void App::drawGallery()
 		                              ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp;
 		if (ImGui::BeginTable("##glist", 7, flags)) {
 			ImGui::TableSetupScrollFreeze(0, 1);
-			ImGui::TableSetupColumn("Date", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 1.3f);
-			ImGui::TableSetupColumn("Character", 0, 1.2f);
-			ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_PreferSortDescending, 0.5f);
-			ImGui::TableSetupColumn("Place", 0, 1.6f);
-			ImGui::TableSetupColumn("Save #", ImGuiTableColumnFlags_PreferSortDescending, 0.5f);
-			ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_PreferSortDescending, 0.6f);
-			ImGui::TableSetupColumn("File", 0, 3.0f);
+			ImGui::TableSetupColumn(tr("Date"), ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 1.3f);
+			ImGui::TableSetupColumn(tr("Character"), 0, 1.2f);
+			ImGui::TableSetupColumn(tr("Level"), ImGuiTableColumnFlags_PreferSortDescending, 0.5f);
+			ImGui::TableSetupColumn(tr("Place"), 0, 1.6f);
+			ImGui::TableSetupColumn(tr("Save #"), ImGuiTableColumnFlags_PreferSortDescending, 0.5f);
+			ImGui::TableSetupColumn(tr("Size"), ImGuiTableColumnFlags_PreferSortDescending, 0.6f);
+			ImGui::TableSetupColumn(tr("File"), 0, 3.0f);
 			ImGui::TableHeadersRow();
 			std::lock_guard l(g.m);
 			std::vector<std::size_t> rows;
@@ -482,7 +482,7 @@ void App::drawGallery()
 						ImGui::EndTooltip();
 					}
 					ImGui::TableNextColumn();
-					ImGui::TextUnformatted(e.ok ? e.name.c_str() : (e.read ? "(not a save)" : "..."));
+					ImGui::TextUnformatted(e.ok ? e.name.c_str() : (e.read ? tr("(not a save)") : "..."));
 					ImGui::TableNextColumn();
 					if (e.ok) {
 						ImGui::Text("%u", e.level);
@@ -494,7 +494,7 @@ void App::drawGallery()
 						ImGui::Text("%u", e.number);
 					}
 					ImGui::TableNextColumn();
-					ImGui::Text("%.1f MB", e.size / 1048576.0);
+					ImGui::Text(tr("%.1f MB"), e.size / 1048576.0);
 					ImGui::TableNextColumn();
 					ImGui::TextDisabled("%s", platform::ToUtf8(e.path.filename()).c_str());
 					ImGui::PopID();

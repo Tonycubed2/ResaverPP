@@ -26,7 +26,15 @@ target_compile_definitions(rs_thirdparty PUBLIC MINIZ_NO_ARCHIVE_APIS MINIZ_NO_S
 
 # ---- core -------------------------------------------------------------------------------
 file(GLOB RS_CORE_SOURCES CONFIGURE_DEPENDS src/core/*.cpp)
-add_library(rs_core STATIC ${RS_CORE_SOURCES})
+# interface translations: lang/<code>.txt built into the exe (src/core/Lang.h, TRANSLATING.md)
+file(GLOB RS_LANG_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/lang/*.txt)
+set(RS_LANG_CPP ${CMAKE_BINARY_DIR}/generated/LangEmbedded.cpp)
+add_custom_command(OUTPUT ${RS_LANG_CPP}
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
+	COMMAND ${CMAKE_COMMAND} -DLANG_DIR=${CMAKE_SOURCE_DIR}/lang -DOUT=${RS_LANG_CPP} -P ${CMAKE_SOURCE_DIR}/cmake/EmbedLang.cmake
+	DEPENDS ${RS_LANG_FILES} ${CMAKE_SOURCE_DIR}/cmake/EmbedLang.cmake
+	COMMENT "Embedding the interface translations (lang/*.txt)")
+add_library(rs_core STATIC ${RS_CORE_SOURCES} ${RS_LANG_CPP})
 target_include_directories(rs_core PUBLIC src)
 target_link_libraries(rs_core PUBLIC rs_thirdparty)
 
@@ -74,11 +82,20 @@ if (RESAVERPP_TESTS)
 	target_link_libraries(rs_unit PRIVATE rs_core)
 	add_executable(rs_save_test tests/save_test.cpp)
 	target_link_libraries(rs_save_test PRIVATE rs_core)
+	add_executable(rs_lang_test tests/lang_test.cpp)
+	target_link_libraries(rs_lang_test PRIVATE rs_core)
 
 	# ---- CTest ------------------------------------------------------------------------------
 	enable_testing()
 	# needs nothing: regression tests built from data made in memory
 	add_test(NAME unit COMMAND rs_unit)
+	# interface translations: lang/*.txt parse and keep the printf conversions of the English
+	add_test(NAME lang COMMAND rs_lang_test)
+	# every text the GUI translates is in lang/ru.txt
+	find_package(Python3 COMPONENTS Interpreter QUIET)
+	if (Python3_FOUND)
+		add_test(NAME i18n_keys COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/i18n/tr_keys.py --check ${CMAKE_SOURCE_DIR}/lang/ru.txt)
+	endif()
 	# real saves: -DRESAVERPP_TEST_SAVES=<folder with .ess files>. Each is loaded, written back and
 	# compared, backups checked. A folder given without saves in it fails the run (fixtures missing).
 	set(RESAVERPP_TEST_SAVES "" CACHE PATH "Folder of .ess saves for the fixture tests")

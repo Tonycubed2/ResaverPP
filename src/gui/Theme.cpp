@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Theme.h"
+#include "core/Lang.h"
 
 namespace theme
 {
@@ -13,9 +14,9 @@ namespace theme
 	const char* Name(Kind k)
 	{
 		switch (k) {
-		case Kind::kLight: return "Light";
-		case Kind::kGrey: return "Grey";
-		default: return "Dark";
+		case Kind::kLight: return tr("Light");
+		case Kind::kGrey: return tr("Grey");
+		default: return tr("Dark");
 		}
 	}
 

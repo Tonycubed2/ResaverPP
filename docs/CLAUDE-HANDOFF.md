@@ -107,6 +107,13 @@ project; you do the coding, building, delivering and publishing.
   their own lists (Decoded::vitalModsAt), not in the general AV modifier list. Removal takes the magnitude off that
   modifier; the AV comes from the MGEF (PluginDB::magicEffect, DATA 0x44), so stat-changing effects need plugin names.
   `project(ReSaverPP VERSION 50` in CMakeLists.txt.
+- Interface translation (2026-11-05, not published): `src/core/Lang.*` (`tr()`, `trId()` for window/popup/tab/header
+  ids, `trc("ctx", ...)` variants, `N_()` for static tables), catalogues `lang/<code>.txt` built into the exe by
+  `cmake/EmbedLang.cmake`; a `lang/<code>.txt` next to the exe overrides (Options > Settings > Reload language files).
+  `language=` in resaverpp.ini, applied at once. Russian `lang/ru.txt` (stalkerVlad1 proofreads). New GUI texts: wrap
+  them in `tr()`, then `python3 tools/i18n/tr_keys.py --update lang/ru.txt` (CTest i18n_keys fails otherwise; rs_lang_test
+  checks % conversions). Not translated: core texts (save check findings from ops, change form labels, error texts
+  from core), AI prompt/tool texts, logs, CLI, reports/system info, in-game notifications. See TRANSLATING.md.
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are

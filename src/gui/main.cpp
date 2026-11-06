@@ -579,16 +579,16 @@ int RunApp(int argc, char** argv)
 				if (failed != last) {  // once per different error, not every frame
 					last = failed;
 					Log("ERROR while " + g_step + ": " + failed);
-					app.reportError("Something went wrong (ReSaver++ keeps running): " + failed + "\n\nPlease report it with ReSaverPP-startup.log.");
+					app.reportError(tr("Something went wrong (ReSaver++ keeps running): ") + failed + tr("\n\nPlease report it with ReSaverPP-startup.log."));
 				}
 				// the app's own error box may be past the point that failed: say it here too
 				const ImGuiViewport* vp = ImGui::GetMainViewport();
 				ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + 60), ImGuiCond_Always, ImVec2(0.5f, 0));
 				ImGui::SetNextWindowSize(ImVec2(std::min(760.0f, vp->WorkSize.x - 40), 0));
-				ImGui::Begin("ReSaver++ hit an error", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
-				ImGui::TextWrapped("While %s: %s", g_step.c_str(), failed.c_str());
+				ImGui::Begin(trId("ReSaver++ hit an error"), nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+				ImGui::TextWrapped(tr("While %s: %s"), g_step.c_str(), failed.c_str());
 				ImGui::Spacing();
-				ImGui::TextWrapped("Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %%TEMP%%).");
+				ImGui::TextWrapped("%s", tr("Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."));
 				ImGui::End();
 			}
 		}

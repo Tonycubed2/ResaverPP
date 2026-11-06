@@ -46,17 +46,17 @@ namespace
 	{
 		const auto d = static_cast<std::int64_t>(std::time(nullptr)) - a_unix;
 		if (d < 90) {
-			return "just now";
+			return tr("just now");
 		}
 		if (d < 5400) {
-			return Fmt("%lld minutes ago", static_cast<long long>(d / 60));
+			return Fmt(tr("%lld minutes ago"), static_cast<long long>(d / 60));
 		}
 		if (d < 129600) {
-			return Fmt("%lld hours ago", static_cast<long long>(d / 3600));
+			return Fmt(tr("%lld hours ago"), static_cast<long long>(d / 3600));
 		}
-		return Fmt("%lld days ago", static_cast<long long>(d / 86400));
+		return Fmt(tr("%lld days ago"), static_cast<long long>(d / 86400));
 	}
-	std::string MB(std::uintmax_t a_bytes) { return Fmt("%.1f MB", a_bytes / 1048576.0); }
+	std::string MB(std::uintmax_t a_bytes) { return Fmt(tr("%.1f MB"), a_bytes / 1048576.0); }
 
 	// the save's screenshot, read from the start of the file only: RGBA pixels, width, height
 	bool ReadShot(const std::filesystem::path& a_ess, std::vector<std::uint8_t>& a_rgba, int& a_w, int& a_h)
@@ -140,13 +140,13 @@ void App::archiveBeforeWrite(const std::filesystem::path& a_target)
 		std::error_code ec;
 		const bool      over = std::filesystem::exists(a_target, ec) && std::filesystem::equivalent(_path, a_target, ec);
 		if (archive::Add(archiveFolder(), _path, a_target, over ? "Saved over it" : "Saved as another file")) {
-			_archiveNote = "  (the original is in File > Restore an archived save)";
+			_archiveNote = tr("  (the original is in File > Restore an archived save)");
 		} else {
 			_archiveNote.clear();
 		}
 		_archiveLoaded = false;
 	} catch (const std::exception& e) {
-		_archiveNote = std::string("  (could not archive the original: ") + e.what() + ")";
+		_archiveNote = std::string(tr("  (could not archive the original: ")) + e.what() + ")";
 	}
 }
 
@@ -160,7 +160,7 @@ void App::drawArchive()
 	}();
 	(void)testSel;
 	prepareWindow("Restore an archived save", ImVec2(0.8f, 0.85f));
-	if (!ImGui::Begin("Restore an archived save", &_showArchive, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("Restore an archived save"), &_showArchive, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
@@ -169,17 +169,17 @@ void App::drawArchive()
 	if (!_archiveLoaded) {
 		loadArchive();
 	}
-	ImGui::TextWrapped("Every time ReSaver Plus writes a save, it first copies the save you opened (with its .skse file) here. The last %zu "
-					   "are kept; when another is added, the oldest is deleted. Pick one to see its screenshot and details, then put it back.",
+	ImGui::TextWrapped(tr("Every time ReSaver Plus writes a save, it first copies the save you opened (with its .skse file) here. The last %zu "
+					   "are kept; when another is added, the oldest is deleted. Pick one to see its screenshot and details, then put it back."),
 		archive::kKeep);
-	ImGui::TextDisabled("Archive folder: %s", platform::ToUtf8(archiveFolder()).c_str());
-	if (ImGui::SmallButton("Open the archive folder")) {
+	ImGui::TextDisabled(tr("Archive folder: %s"), platform::ToUtf8(archiveFolder()).c_str());
+	if (ImGui::SmallButton(tr("Open the archive folder"))) {
 		std::error_code ec;
 		std::filesystem::create_directories(archiveFolder(), ec);
 		platform::OpenWithDefaultApp(archiveFolder());
 	}
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Read it again")) {
+	if (ImGui::SmallButton(tr("Read it again"))) {
 		_archiveLoaded = false;
 	}
 	if (!_archiveMsg.empty()) {
@@ -190,8 +190,8 @@ void App::drawArchive()
 	ImGui::Separator();
 	if (_archive.empty()) {
 		ImGui::Spacing();
-		ImGui::TextWrapped("Nothing archived yet. The first time you save from ReSaver Plus (Save, Save As or a cleanup), the save you opened is "
-						   "copied here first.");
+		ImGui::TextWrapped("%s", tr("Nothing archived yet. The first time you save from ReSaver Plus (Save, Save As or a cleanup), the save you opened is "
+						   "copied here first."));
 		ImGui::End();
 		return;
 	}
@@ -230,9 +230,9 @@ void App::drawArchive()
 		}
 		ImGui::SetCursorPos(ImVec2(at.x + thumbW + 12, at.y + 3));
 		ImGui::BeginGroup();
-		ImGui::Text("%d.  %s, level %u", i + 1, e.character.empty() ? "(unreadable)" : e.character.c_str(), e.level);
+		ImGui::Text(tr("%d.  %s, level %u"), i + 1, e.character.empty() ? tr("(unreadable)") : e.character.c_str(), e.level);
 		ImGui::TextDisabled("%s", e.location.c_str());
-		ImGui::TextDisabled("archived %s (%s)", When(e.archived).c_str(), Ago(e.archived).c_str());
+		ImGui::TextDisabled(tr("archived %s (%s)"), When(e.archived).c_str(), Ago(e.archived).c_str());
 		ImGui::TextDisabled("%s", e.reason.c_str());
 		ImGui::EndGroup();
 		ImGui::SetCursorPos(ImVec2(at.x, at.y + rowH + ImGui::GetStyle().ItemSpacing.y));
@@ -247,16 +247,16 @@ void App::drawArchive()
 	if (ImGui::ArrowButton("##prev", ImGuiDir_Left)) {
 		_archiveSel = std::max(_archiveSel - 1, 0);
 	}
-	tips::Tip("The newer archived save (or press the up / left arrow key).");
+	tips::Tip(tr("The newer archived save (or press the up / left arrow key)."));
 	ImGui::SameLine();
-	ImGui::Text("%d of %zu", _archiveSel + 1, _archive.size());
+	ImGui::Text(tr("%d of %zu"), _archiveSel + 1, _archive.size());
 	ImGui::SameLine();
 	if (ImGui::ArrowButton("##next", ImGuiDir_Right)) {
 		_archiveSel = std::min(_archiveSel + 1, static_cast<int>(_archive.size()) - 1);
 	}
-	tips::Tip("The older archived save (or press the down / right arrow key).");
+	tips::Tip(tr("The older archived save (or press the down / right arrow key)."));
 	ImGui::SameLine();
-	ImGui::TextDisabled("  newest first");
+	ImGui::TextDisabled("%s", tr("  newest first"));
 	if (s.tex) {
 		// as wide as there is room, but no taller than half the window, so the buttons and details stay in view
 		float w = std::min(ImGui::GetContentRegionAvail().x, static_cast<float>(s.w) * 2.0f);
@@ -266,13 +266,13 @@ void App::drawArchive()
 		}
 		ImGui::Image(static_cast<ImTextureID>(s.tex), ImVec2(w, w * s.h / std::max(1, s.w)));
 	} else {
-		ImGui::TextDisabled("(no screenshot)");
+		ImGui::TextDisabled("%s", tr("(no screenshot)"));
 	}
 	ImGui::Spacing();
 	drawArchiveButtons(e);
 	ImGui::Spacing();
 	if (ImGui::BeginTable("##archinfo", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg)) {
-		ImGui::TableSetupColumn("k", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("File's own date").x + 12);
+		ImGui::TableSetupColumn("k", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize(tr("File's own date")).x + 12);
 		ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
 		auto row = [](const char* a_k, const std::string& a_v) {
 			ImGui::TableNextRow();
@@ -281,15 +281,15 @@ void App::drawArchive()
 			ImGui::TableNextColumn();
 			ImGui::TextWrapped("%s", a_v.c_str());
 		};
-		row("Character", e.character + ", level " + std::to_string(e.level) + (e.race.empty() ? "" : " (" + e.race + ")"));
-		row("Location", e.location);
-		row("Save number", std::to_string(e.saveNumber));
-		row("Archived", When(e.archived) + " (" + Ago(e.archived) + ")");
-		row("Why", e.reason);
-		row("Save file", platform::ToUtf8(e.source.filename()) + "\n" + platform::ToUtf8(e.source.parent_path()));
-		row("Saved from it", e.savedAs.empty() ? std::string("-") : platform::ToUtf8(e.savedAs.filename()));
-		row("File's own date", When(e.modified));
-		row("Size", MB(e.size) + (e.skse.empty() ? std::string("  (no .skse co-save)") : "  + .skse " + MB(e.cosaveSize)));
+		row(tr("Character"), e.character + tr(", level ") + std::to_string(e.level) + (e.race.empty() ? "" : " (" + e.race + ")"));
+		row(tr("Location"), e.location);
+		row(tr("Save number"), std::to_string(e.saveNumber));
+		row(tr("Archived"), When(e.archived) + " (" + Ago(e.archived) + ")");
+		row(tr("Why"), e.reason);
+		row(tr("Save file"), platform::ToUtf8(e.source.filename()) + "\n" + platform::ToUtf8(e.source.parent_path()));
+		row(tr("Saved from it"), e.savedAs.empty() ? std::string("-") : platform::ToUtf8(e.savedAs.filename()));
+		row(tr("File's own date"), When(e.modified));
+		row(tr("Size"), MB(e.size) + (e.skse.empty() ? std::string(tr("  (no .skse co-save)")) : tr("  + .skse ") + MB(e.cosaveSize)));
 		ImGui::EndTable();
 	}
 	ImGui::EndChild();
@@ -300,45 +300,45 @@ void App::drawArchiveButtons(const ess::archive::Entry& e)
 {
 	std::error_code ec;
 	const bool      there = std::filesystem::exists(e.source, ec);
-	if (ImGui::Button("Put it back in its place")) {
-		confirm("Put the archived save back",
-			"Copy this save back to\n" + platform::ToUtf8(e.source) +
-				(there ? "\n\nThe save there now is archived first, so you can undo this from this same window." : ""),
+	if (ImGui::Button(tr("Put it back in its place"))) {
+		confirm(tr("Put the archived save back"),
+			tr("Copy this save back to\n") + platform::ToUtf8(e.source) +
+				(there ? tr("\n\nThe save there now is archived first, so you can undo this from this same window.") : ""),
 			[this, entry = e] {
 				try {
 					const auto p = archive::RestoreInPlace(archiveFolder(), entry);
-					_archiveMsg = "Put back: " + platform::ToUtf8(p.filename()) + ". Load it in the game, or open it here.";
+					_archiveMsg = tr("Put back: ") + platform::ToUtf8(p.filename()) + tr(". Load it in the game, or open it here.");
 					_archiveSel = 0;
 				} catch (const std::exception& ex) {
-					_error = std::string("Could not put the save back:\n\n") + ex.what();
+					_error = std::string(tr("Could not put the save back:\n\n")) + ex.what();
 				}
 				_archiveLoaded = false;
 			});
 	}
-	tips::Tip("Copies the archived save (and its .skse) back to the file it came from. If that file is there, it is archived first, so nothing is lost.");
+	tips::Tip(tr("Copies the archived save (and its .skse) back to the file it came from. If that file is there, it is archived first, so nothing is lost."));
 	ImGui::SameLine();
-	if (ImGui::Button("Restore it as a new save")) {
+	if (ImGui::Button(tr("Restore it as a new save"))) {
 		try {
 			const auto p = archive::RestoreAsCopy(e);
-			_archiveMsg = "Restored as " + platform::ToUtf8(p.filename()) + ", next to the original. It shows in the game's load menu.";
+			_archiveMsg = tr("Restored as ") + platform::ToUtf8(p.filename()) + tr(", next to the original. It shows in the game's load menu.");
 		} catch (const std::exception& ex) {
-			_error = std::string("Could not restore the save:\n\n") + ex.what();
+			_error = std::string(tr("Could not restore the save:\n\n")) + ex.what();
 		}
 	}
-	tips::Tip("Copies the archived save next to the original under a new name (with \"restored\" in it), leaving every other save alone.");
+	tips::Tip(tr("Copies the archived save next to the original under a new name (with \"restored\" in it), leaving every other save alone."));
 	ImGui::SameLine();
-	if (ImGui::Button("Restore as a new save and open it")) {
+	if (ImGui::Button(tr("Restore as a new save and open it"))) {
 		try {
 			const auto p = archive::RestoreAsCopy(e);
-			_archiveMsg = "Restored as " + platform::ToUtf8(p.filename()) + " and opened.";
+			_archiveMsg = tr("Restored as ") + platform::ToUtf8(p.filename()) + tr(" and opened.");
 			if (!_dirty) {
 				open(p);
 			} else {
-				confirm("Unsaved changes", "The open save has edits that are not written. Open the restored save anyway?", [this, p] { open(p); });
+				confirm(tr("Unsaved changes"), tr("The open save has edits that are not written. Open the restored save anyway?"), [this, p] { open(p); });
 			}
 		} catch (const std::exception& ex) {
-			_error = std::string("Could not restore the save:\n\n") + ex.what();
+			_error = std::string(tr("Could not restore the save:\n\n")) + ex.what();
 		}
 	}
-	tips::Tip("Restores it as a new save (as the button before) and opens it here to look at or clean.");
+	tips::Tip(tr("Restores it as a new save (as the button before) and opens it here to look at or clean."));
 }
