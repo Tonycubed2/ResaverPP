@@ -38,6 +38,7 @@ def extra_entry(r, ty, ver, npc_fn=None, top=True):
         r.ref()
         for i in range(r.vs()): r.ref(); r.raw(1); r.vs(); r.raw(r.vs())
     elif ty==0x34: n=r.vs(); r.raw(8*n)   # 0x295a4b
+    elif ty==0x9d: r.ref()   # 0x2977ee (0x21e390)
     elif ty==0x44: n=r.vs(); r.raw(4*n)   # 0x295bdb
     elif ty==0x87:   # 0x29757e
         r.raw(12); r.ref(); r.raw(4)

@@ -178,6 +178,9 @@ namespace ess::fo4cf
 					Skip(r, Vs(r));
 				}
 				return;
+			case 0x9d:  // 0x2977ee: a form id (0x21e390)
+				Ref(r);
+				return;
 			case 0x34:  // 0x295a4b: vsval n x (u32, u32)
 				Skip(r, 8ull * Vs(r));
 				return;

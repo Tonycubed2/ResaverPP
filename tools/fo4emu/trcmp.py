@@ -36,7 +36,14 @@ if __name__=='__main__':
         k+=1
         if k>mx: break
         try: p=a.parse(ref,fl,b)
-        except Exception as ex: st['emulator fault']+=1; print(f'{ref:06x} emulator fault {ex}'); continue
+        except Exception as ex:
+            # a CPU exception after hundreds of actors comes from state the snapshot does not restore (the same actor
+            # reads to its end on a fresh emulator): build a fresh one and read the actor again
+            if 'EXCEPTION' in str(ex):
+                a=A(fv)
+                try: p=a.parse(ref,fl,b); st['fresh emulator']+=1
+                except Exception as ex2: st['emulator fault']+=1; print(f'{ref:06x} emulator fault {ex2}'); continue
+            else: st['emulator fault']+=1; print(f'{ref:06x} emulator fault {ex}'); continue
         if p!=len(b): st['emulator not exact']+=1; print(f'{ref:06x} emulator end {p} of {len(b)}'); continue
         r=compare(*want[ref], a.reads)
         if r: st['different']+=1; print(f'{ref:06x} {r}', flush=True)
