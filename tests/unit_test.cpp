@@ -1,4 +1,5 @@
 #include "core/SkyrimLogs.h"
+#include "core/AiGame.h"
 #include "core/Json.h"
 // ReSaver++ unit and regression tests that need no save files: each builds the data it needs in memory.
 // Run by CTest (rs_unit). Exit code 0 = all passed.
@@ -1630,6 +1631,174 @@ void TestSkyrimLogs()
 	Check(ess::json::Quote(std::string("a\"b\n\xE9")) == "\"a\\\"b\\n\xC3\xA9\"", "json: quotes, newlines and a Windows-1252 byte are written as valid UTF-8 JSON");
 }
 
+// Fallout 4's logs: a fake Documents\My Games tree (F4SE folder with f4se.log, a Buffout 4 crash log and plugin logs,
+// Logs\Script, the INI files, a GOG folder, a Skyrim folder that must not be read), found and analyzed; F4SE's log lines
+// as f4se 0.7.x (PluginManager::LogPluginLoadError: "<status> <code> (handle n)") and 0.6.x write them.
+void TestFo4Logs()
+{
+	namespace fs = std::filesystem;
+	const auto mg = fs::temp_directory_path() / "rs_unit_fo4logs" / "My Games";
+	std::error_code ec;
+	fs::remove_all(mg.parent_path(), ec);
+	auto write = [](const fs::path& a_p, const std::string& a_text) {
+		fs::create_directories(a_p.parent_path());
+		std::ofstream(a_p, std::ios::binary) << a_text;
+	};
+	const auto f4 = mg / "Fallout4";
+	write(f4 / "F4SE" / "f4se.log",
+		"F4SE runtime: initialize (version = 0.7.2 010A3D80 01DA1234ABCD0000, os = 6.2 (9200))\n"
+		"plugin directory = C:\\Games\\Fallout 4\\Data\\F4SE\\Plugins\\\n"
+		"checking plugin Broken.dll\n"
+		"plugin Broken.dll (00000000  00000000) couldn't load plugin 126 (handle 0)\n"
+		"plugin Old.dll (00000001 Old 00000001) disabled, address library needs to be updated 0 (handle 0)\n"
+		"plugin Ancient.dll (00000000  00000000) no version data 0 (handle 0)\n"
+		"plugin tbb.dll (00000000  00000000) does not appear to be an F4SE plugin 0 (handle 3)\n"
+		"plugin Good.dll (00000001 Good 00000001) loaded correctly (handle 2)\n");
+	write(f4 / "F4SE" / "f4se_loader.log", "version = 0001000A03D80000\n");
+	write(f4 / "F4SE" / "crash-2026-11-05-10-00-00.log",
+		"Fallout 4 v1.10.984\nBuffout 4 v1.38.5 Oct 28 2026 01:59:55\n\n"
+		"Unhandled exception \"EXCEPTION_ACCESS_VIOLATION\" at 0x7FF71234ABCD Fallout4.exe+1A2B3C4\tmov rax, [rcx+0x8]\n\n"
+		"PROBABLE CALL STACK:\n\t[ 0] 0x7FF71234ABCD Fallout4.exe+1A2B3C4\n\t[ 1] 0x7FFA00001000 SomeMod.dll+0001000\n\nREGISTERS:\n");
+	write(f4 / "F4SE" / "ReSaverHelper.log", "[info] ReSaverHelper 13 loaded\n[error] could not open the pipe\n");
+	write(f4 / "F4SE" / "Plugins" / "Deep.log", "[error] something failed\n");
+	write(f4 / "Logs" / "Script" / "Papyrus.0.log", "[11/05/2026 - 10:00:00AM] Papyrus log opened (PC-64)\n");
+	write(f4 / "Fallout4.ini", "[General]\n");
+	write(f4 / "Fallout4Prefs.ini", "[Display]\n");
+	write(f4 / "Fallout4Custom.ini", "[Papyrus]\nbEnableLogging=1\n");
+	write(f4 / "Saves" / "Save1.fos", "FO4_SAVEGAME");
+	write(mg / "Fallout4 GOG" / "F4SE" / "f4se.log", "F4SE runtime: initialize (version = 0.6.23)\n");
+	write(mg / "Skyrim Special Edition" / "SKSE" / "skse64.log", "SKSE64 runtime: initialize\n");
+
+	const auto files = ess::logs::FindGameLogs({ mg }, {}, true);
+	auto has = [&](const std::string& a_name, ess::logs::Kind a_kind) {
+		return std::any_of(files.begin(), files.end(), [&](const ess::logs::LogFile& f) {
+			return f.path.filename().string() == a_name && f.kind == a_kind && f.game.rfind("Fallout4", 0) == 0;
+		});
+	};
+	using K = ess::logs::Kind;
+	Check(has("f4se.log", K::kSkse) && has("f4se_loader.log", K::kSkse), "fo4 logs: F4SE's own logs are found as the script extender's");
+	Check(has("crash-2026-11-05-10-00-00.log", K::kCrash), "fo4 logs: a Buffout 4 crash log in the F4SE folder");
+	Check(has("ReSaverHelper.log", K::kPlugin) && has("Deep.log", K::kPlugin), "fo4 logs: the F4SE plugins' own logs, one folder down too");
+	Check(has("Papyrus.0.log", K::kPapyrus), "fo4 logs: the Papyrus log in Logs\\Script");
+	Check(has("Fallout4.ini", K::kIni) && has("Fallout4Prefs.ini", K::kIni) && has("Fallout4Custom.ini", K::kIni), "fo4 logs: the game's INI files");
+	Check(std::count_if(files.begin(), files.end(), [](const ess::logs::LogFile& f) { return f.game == "Fallout4 GOG"; }) == 1,
+		"fo4 logs: the GOG game's My Games folder too");
+	Check(std::none_of(files.begin(), files.end(), [](const ess::logs::LogFile& f) {
+		return f.path.filename() == "skse64.log" || f.path.extension() == ".fos";
+	}), "fo4 logs: no Skyrim logs and no saves");
+	Check(files.size() == 10, ("fo4 logs: ten files in all (" + std::to_string(files.size()) + ")").c_str());
+	const auto sky = ess::logs::FindGameLogs({ mg }, {}, false);
+	Check(sky.size() == 1 && sky[0].path.filename() == "skse64.log", "fo4 logs: the Skyrim search finds only Skyrim's log, no INI files");
+	Check(std::string(ess::logs::KindName(K::kSkse, true)) == "F4SE" && std::string(ess::logs::KindName(K::kSkse)) == "SKSE" &&
+			  std::string(ess::logs::KindName(K::kIni, true)) == "INI file",
+		"fo4 logs: kind names");
+
+	// f4se.log: what did not load and why
+	std::string text;
+	{
+		std::ifstream in(f4 / "F4SE" / "f4se.log", std::ios::binary);
+		text.assign(std::istreambuf_iterator<char>(in), {});
+	}
+	const auto fx = ess::logs::ReadSkseLog(f4 / "F4SE" / "f4se.log", text, true);
+	auto find = [&](const std::string& a_part) -> const ess::logs::Finding* {
+		for (const auto& x : fx) {
+			if (x.title.find(a_part) != std::string::npos) {
+				return &x;
+			}
+		}
+		return nullptr;
+	};
+	const auto* broken = find("Broken.dll");
+	Check(broken && broken->severity == ess::logs::Severity::kBad && broken->title.rfind("F4SE could not load", 0) == 0 &&
+			  broken->detail.find("126") != std::string::npos,
+		"fo4 logs: couldn't load plugin 126 (F4SE 0.7: the code after the status)");
+	const auto* old = find("Old.dll");
+	Check(old && old->detail.find("Address Library for F4SE Plugins") != std::string::npos && old->title.find("handle") == std::string::npos &&
+			  old->title.size() >= 2 && old->title.substr(old->title.size() - 2) != " 0",
+		"fo4 logs: disabled for the address library, without the error code and handle");
+	const auto* ancient = find("Ancient.dll");
+	Check(ancient && ancient->severity == ess::logs::Severity::kBad && ancient->title.find("no version data") != std::string::npos,
+		"fo4 logs: a plugin without version data is not loaded");
+	const auto* tbb = find("tbb.dll");
+	Check(tbb && tbb->severity == ess::logs::Severity::kWarn, "fo4 logs: a DLL that is not an F4SE plugin is worth a look only");
+	Check(!find("Good.dll"), "fo4 logs: a plugin that loaded is not a finding");
+	Check(find("F4SE: F4SE runtime: initialize") != nullptr, "fo4 logs: F4SE's version line");
+	const auto o06 = ess::logs::ReadSkseLog("f4se.log", "couldn't load plugin C:\\Games\\Fallout 4\\Data\\F4SE\\Plugins\\X.dll (Error 126: Y.dll)\n", true);
+	Check(o06.size() == 1 && o06[0].title == "F4SE could not load X.dll" && o06[0].detail.find("126") != std::string::npos,
+		"fo4 logs: F4SE 0.6's couldn't load line");
+
+	// all of it
+	ess::logs::Options opt;
+	opt.days = 0;
+	opt.fo4 = true;
+	const auto a = ess::logs::Analyze(files, opt);
+	const auto all = ess::logs::ToText(a);
+	Check(all.find("F4SE could not load Broken.dll") != std::string::npos && all.find("Fallout4.exe+1A2B3C4") != std::string::npos &&
+			  all.find("SomeMod.dll") != std::string::npos && all.find("ReSaverHelper.log") != std::string::npos,
+		"fo4 logs: the analysis has the F4SE load failure, the Buffout 4 crash and a plugin log's error");
+	Check(all.find("skse64") == std::string::npos, "fo4 logs: nothing from Skyrim's folder");
+	const auto none = ess::logs::Analyze({}, opt);
+	Check(!none.findings.empty() && none.findings[0].title == "No Fallout 4 logs found" && none.findings[0].detail.find("F4SE") != std::string::npos,
+		"fo4 logs: none found says where F4SE writes them");
+	fs::remove_all(mg.parent_path(), ec);
+}
+
+// The AI chat's game-dependent parts (core/AiGame): the lesson book, the game line, what the command line and the
+// helper refuse for Fallout 4.
+void TestAiGame()
+{
+	namespace ag = ess::aigame;
+	Check(ag::FromFlags(true, false, false) == ag::Game::kFallout4 && ag::FromFlags(false, true, false) == ag::Game::kSkyrimLE &&
+			  ag::FromFlags(false, false, true) == ag::Game::kSkyrimVR && ag::FromFlags(false, false, false) == ag::Game::kSkyrimSE,
+		"ai: the game from the save's flags");
+	const auto f4 = ag::Lesson(ag::Game::kFallout4);
+	const auto se = ag::Lesson(ag::Game::kSkyrimSE);
+	Check(f4.find("FALLOUT 4") != std::string::npos && f4.find(".fos") != std::string::npos && f4.find(".f4se") != std::string::npos &&
+			  f4.find("F4SE") != std::string::npos && f4.find("Buffout 4") != std::string::npos,
+		"ai: the Fallout 4 lesson names the game, its saves, F4SE and Buffout 4");
+	Check(f4.find("fo4_player") != std::string::npos && f4.find("fo4_edit_player") != std::string::npos && f4.find("leftover_items") != std::string::npos &&
+			  f4.find("--fo4-transplant") != std::string::npos && f4.find("--quests") != std::string::npos,
+		"ai: the Fallout 4 lesson lists the Fallout 4 tools");
+	Check(f4.find("NOT AVAILABLE FOR FALLOUT 4 SAVES") != std::string::npos && f4.find("--reset-havok") != std::string::npos &&
+			  f4.find("CONTROLSRESET") != std::string::npos && f4.find("F4NG") != std::string::npos,
+		"ai: the Fallout 4 lesson says what does not work and the Fallout 4 helper's commands");
+	Check(f4.find("SkyrimSE.exe+0CEC680") == std::string::npos && f4.find("SKSE plugin load errors") == std::string::npos &&
+			  f4.find("FOLLOWERS ->") == std::string::npos,
+		"ai: no Skyrim crash notes or Skyrim helper commands in the Fallout 4 lesson");
+	Check(se.find("SkyrimSE.exe+0CEC680") != std::string::npos && se.find(".ess") != std::string::npos &&
+			  se.find("WHAT WORKS ON A FALLOUT 4 SAVE") == std::string::npos && se.find("FOLLOWERS ->") != std::string::npos,
+		"ai: the Skyrim lesson keeps Skyrim's notes");
+	const auto line = ag::GameLine(ag::Game::kFallout4, "1.10.984.0", true);
+	Check(line.rfind("- game: Fallout 4", 0) == 0 && line.find("1.10.984.0") != std::string::npos && line.find(".fos") != std::string::npos &&
+			  line.find("F4SE") != std::string::npos && line.find("Buffout 4") != std::string::npos,
+		"ai: the Fallout 4 game line (version, saves, F4SE, Buffout 4)");
+	Check(ag::GameLine(ag::Game::kSkyrimSE, {}, true).find("Skyrim Special Edition / AE") != std::string::npos &&
+			  ag::GameLine(ag::Game::kSkyrimLE, {}, true).find("Legendary") != std::string::npos &&
+			  ag::GameLine(ag::Game::kSkyrimVR, {}, false).find("no save open") != std::string::npos,
+		"ai: the Skyrim game lines");
+	const auto no = ag::CliRefusal(ag::Game::kFallout4, { "C:\\Saves\\Save1.fos", "--player" });
+	Check(no.rfind("not available for Fallout 4 saves", 0) == 0 && no.find("fo4_player") != std::string::npos, "ai: --player is refused for Fallout 4");
+	Check(ag::CliRefusal(ag::Game::kFallout4, { "x.fos", "--Reset-Havok", "-o", "y.fos" }).find("--Reset-Havok") != std::string::npos,
+		"ai: an option is refused in any letter case");
+	for (const char* ok : { "--quests", "--journal", "--describe", "--remove-unattached", "--purge-script", "--fo4-set-level", "--fo4-perks",
+			 "--fo4-transplant", "--crash-log", "--mods", "--spawned", "--remove-mod", "--compare", "--delete-form" }) {
+		Check(ag::CliRefusal(ag::Game::kFallout4, { "x.fos", ok }).empty(), (std::string("ai: works on Fallout 4: ") + ok).c_str());
+	}
+	Check(ag::CliRefusal(ag::Game::kSkyrimSE, { "x.ess", "--player", "--reset-havok" }).empty(), "ai: nothing is refused for Skyrim");
+	Check(ag::HelperIsFo4("F4") && ag::HelperIsFo4("F4NG") && ag::HelperIsFo4("F4AE") && !ag::HelperIsFo4("SE") && !ag::HelperIsFo4("AE") &&
+			  !ag::HelperIsFo4("LE"),
+		"ai: the Fallout 4 helper from HELLO's game field");
+	Check(!ag::HelperRefusal("F4NG", "QUEST").empty() && !ag::HelperRefusal("F4AE", "followers").empty() && ag::HelperRefusal("F4NG", "GATHER").empty() &&
+			  ag::HelperRefusal("F4", "apply").empty() && ag::HelperRefusal("F4AE", "CONTROLSRESET").empty() && ag::HelperRefusal("AE", "QUEST").empty(),
+		"ai: the Fallout 4 helper's commands");
+	Check(ag::HelperReadOnly("HELLO") && ag::HelperReadOnly("getoption") && !ag::HelperReadOnly("SAVEGAME") && !ag::HelperReadOnly("APPLY"),
+		"ai: read-only helper commands need no approval");
+	Check(ag::LogsTitle(ag::Game::kFallout4) == "Fallout 4 logs" && ag::LogsTitle(ag::Game::kSkyrimLE) == "Skyrim logs", "ai: the logs window's title");
+	Check(ag::ChatIntro(ag::Game::kFallout4).find("Fallout 4") != std::string::npos && ag::ChatExamples(ag::Game::kFallout4).size() == 5 &&
+			  ag::ChatExamples(ag::Game::kFallout4)[3].find("F4SE") != std::string::npos,
+		"ai: the chat's Fallout 4 intro and examples");
+}
+
 // A Fallout 4 BA2 (GNRL, version 8) made in memory: one stored file and one zlib file; listed and unpacked.
 void TestBa2()
 {
@@ -2303,6 +2472,8 @@ int main()
 	TestCrashLogFO4();
 	TestQuestsFO4();
 	TestSkyrimLogs();
+	TestFo4Logs();
+	TestAiGame();
 	TestBa2();
 	TestFo4ChangeForms();
 	TestTransplantFO4();
