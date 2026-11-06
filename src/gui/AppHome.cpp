@@ -70,7 +70,7 @@ bool App::anyToolOpen() const
 {
 	return _showTransplant || _missingOpen || _orphansOpen || _showAnalysis || _purgeOpen || _showLookup || _showActors || _showPlayer ||
 	       _showCompare || _batchOpen || _reportOpen || _showArrays || _showViewer || _removeOpen || _showLeftovers || _showHistory ||
-	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets || _showArchive || _showCrashLog;
+	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets || _showArchive || _showCrashLog || _showBloat || _showLoCheck;
 }
 
 void App::goHome()
@@ -81,6 +81,7 @@ void App::goHome()
 	_showCheck = false;
 	_showLeftovers = _showHistory = _showPapyrusLog = _showSavesMgr = _showMerge = _showAssets = _showArchive = false;
 	_showCrashLog = false;
+	_showBloat = _showLoCheck = false;
 	if (_cat != Cat::kOverview) {
 		select(Cat::kOverview, 0);
 	}
@@ -130,6 +131,11 @@ void App::shortcut(Sc a_which)
 	}
 	if (a_which == Sc::kLiveGame) {
 		_showLiveGame = true;
+		return;
+	}
+	if (a_which == Sc::kLoadOrderCheck) {
+		_showLoCheck = true;  // needs no save
+		_homePanel = false;
 		return;
 	}
 	if (a_which == Sc::kGather) {
@@ -204,6 +210,8 @@ void App::shortcut(Sc a_which)
 		_leftoversDirty = true;
 		break;
 	case Sc::kHistory: _showHistory = true; break;
+	case Sc::kBloat: _showBloat = true; break;
+	case Sc::kLoadOrderCheck: _showLoCheck = true; break;
 	case Sc::kPapyrusLog:
 		_showPapyrusLog = true;
 		_plogLoaded = false;
@@ -323,6 +331,11 @@ void App::drawHome()
 					HomeRisk::kNone, -1 },
 				{ Sc::kReport, tr("Report"), tr("text or PDF, to share when asking for help"),
 					tr("Write a report of the save (mods, scripts, anomalies) as text or PDF."), HomeRisk::kNone, -1 },
+				{ Sc::kBloat, tr("Save bloat by mod"), tr("what each mod takes in this save"),
+					tr("Bytes and counts each mod accounts for in this save: script instances, threads, arrays, changed forms, objects created "
+					"from its items or NPCs, inventory entries. The biggest causes in plain words, with the tool that cleans each, and the "
+					"growth since an older save."),
+					HomeRisk::kNone, -1 },
 				{ Sc::kAnalysis, tr("Analysis"), tr("what takes the most space and runs the most"),
 					tr("A text report of the save: which mods and scripts take the most space and run the most."), HomeRisk::kNone, -1 },
 			} },
@@ -341,6 +354,10 @@ void App::drawHome()
 				{ Sc::kFileConflicts, tr("File conflicts"), tr("which mod overrides which mod's files"),
 					tr("Which mods override which mods' files, loose and inside archives (BSAs), in the order the game uses them. Scripts "
 					"overridden by another mod's copy are listed first."),
+					HomeRisk::kNone, -1 },
+				{ Sc::kLoadOrderCheck, tr("Load order check"), tr("plugin limits, light plugins, masters"),
+					tr("Count your full and light plugins against the game's limits, find light plugins whose forms are numbered out of range, "
+					"masters that are missing or load too late, and plugins made for a newer game version."),
 					HomeRisk::kNone, -1 },
 				{ Sc::kPapyrusLog, tr("Papyrus log"), tr("which mod is spamming errors"),
 					tr("Read Papyrus.0.log: errors grouped by script and mod, with how often each happens."), HomeRisk::kNone, -1 },

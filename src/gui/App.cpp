@@ -1072,6 +1072,14 @@ void App::draw()
 		watchdog::Section("drawHistory");
 		drawHistory();
 	}
+	if (_showBloat && _save) {
+		watchdog::Section("drawBloat");
+		drawBloat();
+	}
+	if (_showLoCheck) {
+		watchdog::Section("drawLoadOrderCheck");
+		drawLoadOrderCheck();
+	}
 	if (_showCrashLog && _save) {
 		watchdog::Section("drawCrashLog");
 		drawCrashLog();
@@ -1358,6 +1366,16 @@ void App::drawMenu()
 			_homePanel = false;
 		}
 		tips::Tip(tr("Look at the save's script arrays: which are biggest, and which nothing points at any more."));
+		if (ImGui::MenuItem(tr("Save bloat by mod..."))) {
+			shortcut(Sc::kBloat);
+		}
+		tips::Tip(tr("What each mod takes in this save (scripts, changed and created forms, inventory entries), the biggest causes and how "
+		          "they grew since an older save."));
+		if (ImGui::MenuItem(tr("Load order check..."))) {
+			shortcut(Sc::kLoadOrderCheck);
+		}
+		tips::Tip(tr("Full and light plugins against the game's limits, light plugins with form IDs out of range, missing or late masters, "
+		          "plugins the game will not load."));
 		if (ImGui::MenuItem(_db ? tr("Read plugin names again") : tr("Read plugin names"), nullptr, false, _sources.scanned() && !namesLoading())) {
 			startNames(true);
 		}

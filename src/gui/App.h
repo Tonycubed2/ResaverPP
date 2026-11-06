@@ -597,7 +597,8 @@ private:
 		kPlayer, kActors, kTransplant, kLookup,
 		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex,
 		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog, kSkyrimLogs, kAskAi, kBsa, kCollectLogs,
-		kLiveGame, kGather
+		kLiveGame, kGather,
+		kBloat, kLoadOrderCheck  // AppF4Bloat.cpp
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	// a Fallout 4 save is open: the tools built on Skyrim's data (its change forms, plugins, mods, logs) are off
@@ -897,6 +898,16 @@ private:
 	int           _shotW = 0, _shotH = 0;
 
 	bool _showAnalysis = false;
+	// Save bloat by mod and the load order check (AppF4Bloat.cpp); their state lives in that file
+	struct BloatState;
+	std::shared_ptr<BloatState> _bloatState;
+	BloatState&                 bloatState();
+	void                        bloatReport(bool a_allowHere);  // the open save's report: started, collected, or (edited save) made here
+	std::shared_ptr<ess::ScriptSources> bloatSources();
+	bool                        _showBloat = false, _showLoCheck = false;
+	void                        drawBloat();
+	void                        drawLoadOrderCheck();
+	void                        bloatCheckItems(std::vector<CheckItem>& a_items);  // the Save check's findings of both
 	bool _showAbout = false;
 
 	// modal state

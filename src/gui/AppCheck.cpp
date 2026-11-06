@@ -408,6 +408,9 @@ std::vector<App::CheckItem> App::checkItems()
 		v.push_back(std::move(it));
 	}
 
+	// load order limits and mods gone from it that still take space (AppF4Bloat.cpp)
+	bloatCheckItems(v);
+
 	// enchanted items that can never be recharged
 	{
 		std::size_t broken = 0;

@@ -92,6 +92,8 @@ namespace ess::bloat
 		std::string   text;    // plain words: "12,000 script instances of Foo (3.1 MB)"
 		std::string   advice;  // what can be done
 		Tool          tool = Tool::kNone;
+		bool          game = false;   // the game's own plugin (base game, DLC, Creation Club): big numbers there are normal
+		bool          engine = false; // a script instance of an engine type (ObjectReference, Actor...): the game's own link
 	};
 
 	struct Report

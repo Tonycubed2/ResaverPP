@@ -522,6 +522,7 @@ namespace ess::bloat
 			const bool nothing = m.kind == RowKind::kNothing;
 			for (const auto& [script, c] : m.scripts) {
 				Cause x{ m.name, "instances", script, c.count, c.bytes };
+				x.engine = ops::IsEngineType(script);
 				if (nothing) {
 					x.text = Num(c.count) + " script instances of " + script + " attached to nothing (" + Bytes(c.bytes) + ")";
 					x.advice = "Their object is gone; they do nothing but take space. Remove unattached instances clears them.";
@@ -569,7 +570,7 @@ namespace ess::bloat
 				                  "and is normal."
 				                : "Forms of this mod that the game had to remember. Normal for a mod that adds places or NPCs; if the mod was removed "
 				                  "they stay behind (Mods no longer installed).";
-				x.tool = (type == "REFR") ? Tool::kHavok : Tool::kNone;
+				x.tool = Tool::kNone;
 				all.push_back(std::move(x));
 			}
 			for (const auto& [type, c] : m.created) {
@@ -592,11 +593,19 @@ namespace ess::bloat
 				all.push_back(std::move(x));
 			}
 		}
-		std::stable_sort(all.begin(), all.end(), [](const Cause& a, const Cause& b) { return a.bytes > b.bytes; });
-		if (all.size() > a_opt.maxCauses) {
-			all.resize(a_opt.maxCauses);
+		for (auto& c : all) {
+			c.game = IsGamePlugin(c.mod);
 		}
-		rep.causes = std::move(all);
+		std::stable_sort(all.begin(), all.end(), [](const Cause& a, const Cause& b) { return a.bytes > b.bytes; });
+		// the biggest of the mods' and of the game's own, a_opt.maxCauses each (the game's would crowd out the mods' otherwise)
+		std::size_t mods = 0, game = 0;
+		for (auto& c : all) {
+			auto& n = c.game ? game : mods;
+			if (n < a_opt.maxCauses) {
+				++n;
+				rep.causes.push_back(std::move(c));
+			}
+		}
 		return rep;
 	}
 
@@ -657,9 +666,17 @@ namespace ess::bloat
 			out.push_back(line);
 		}
 		out.push_back("");
-		out.push_back("Biggest causes:");
+		out.push_back("Biggest causes (mods):");
 		for (const auto& c : a_report.causes) {
-			out.push_back("  - " + c.text);
+			if (!c.game) {
+				out.push_back("  - " + c.text);
+			}
+		}
+		out.push_back("Biggest causes (the game's own plugins: normal in a long game):");
+		for (const auto& c : a_report.causes) {
+			if (c.game) {
+				out.push_back("  - " + c.text);
+			}
 		}
 		return out;
 	}

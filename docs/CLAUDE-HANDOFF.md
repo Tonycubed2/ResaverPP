@@ -198,6 +198,21 @@ project; you do the coding, building, delivering and publishing.
   them in `tr()`, then `python3 tools/i18n/tr_keys.py --update lang/ru.txt` (CTest i18n_keys fails otherwise; rs_lang_test
   checks % conversions). Not translated: core texts (save check findings from ops, change form labels, error texts
   from core), AI prompt/tool texts, logs, CLI, reports/system info, in-game notifications. See TRANSLATING.md.
+- Save bloat by mod + load order check (2026-11-06, branch bloat, not published): `core/SaveBloat.*` (`ess::bloat::Build`: per plugin
+  the Papyrus instances/threads/arrays/structs with their bytes as written, change forms by type, created forms by their base's plugin
+  (FO4 DecodeRefr initial data, Skyrim baseObject / leveled template), inventory entries by item plugin, taken out of the holder's
+  change form; rows + shared Papyrus data = Papyrus block + change forms exactly; `Compare` = growth per row), `core/LoadOrderCheck.*`
+  (`ess::locheck::Check`). GUI `gui/AppF4Bloat.cpp` (Sc::kBloat 34 / kLoadOrderCheck 35, home buttons, Tools menu, Save check:
+  load order errors, a mod gone from the load order that still takes >256 KB). The open save's report is read again from its file on
+  a thread while unedited; the older save comes from the save history (same character, same folder), test hook
+  `RESAVERPP_TEST_BLOAT_OLD`. CLI `--bloat [--bloat-compare <old>]`, `--load-order-check`. Test `rs_bloat_test` (ctest bloat;
+  RESAVERPP_FO4_SAVES / RESAVERPP_SKYRIM_SAVES / RESAVERPP_FO4_DATA). Fallout 4 limits checked in Fallout4.exe 1.11.240 (same code in
+  1.10.163/984): light = header flag 0x200 or .esl (file open 0x2f6217..0x2f62ba; .esm/.esl also set master), IsLight 0x2f91a0 = flag
+  only; data handler 0x2e6dc0: light list -> load index 0xFE + light index, full list -> load index = position; form id 0x2f91c0 =
+  FE000000 | light << 12 | (id & 0xFFF): 254 full (00..FD) + 4096 light; HEDR > 1.0 not loaded (0x2f67e0, 0x2f7360 clear active bits).
+  Light object id floor (0x800, or 0x001 with HEDR >= 1.0 and a master) from xEdit dev-4.1.6 wbDefinitionsFO4 (HardcodedRangeMinVersion);
+  Skyrim limits from xEdit wbDefinitionsTES5 (not checked in SkyrimSE.exe). F4SE whatsnew: light plugin support came with 0.5.0
+  (after 1.9.4, i.e. 1.10.20), not 1.10.162.
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are
