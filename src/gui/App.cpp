@@ -1341,7 +1341,7 @@ void App::drawMenu()
 			shortcut(Sc::kSavesMgr);
 		}
 		tips::Tip("All saves by character with size and date; delete old ones (with their .skse files) in bulk.");
-		if (ImGui::MenuItem("Merged patch (combine mod conflicts)...", nullptr, &_showMerge, !fo4())) {
+		if (ImGui::MenuItem("Merged patch (combine mod conflicts)...", nullptr, &_showMerge)) {
 			_homePanel = false;
 		}
 		tips::Tip("Read every plugin in your load order and build one patch that combines the changes of mods that edit the same "

@@ -2565,6 +2565,47 @@ namespace ess::merge
 		}
 	}
 
+	const char* CategoryDetail(Category a_cat, bool a_fo4)
+	{
+		if (!a_fo4) {
+			return CategoryDetail(a_cat);
+		}
+		switch (a_cat) {
+		case Category::kLeveledLists:
+			return "Leveled item, leveled NPC and leveled spell lists: each entry (level, the item, NPC, spell or list it gives, count, "
+				   "chance none, and the entry's owner and item condition) and the entry count. What every mod added or removed is "
+				   "combined, entries sorted by level as the Creation Kit writes them. A list that would grow past 255 entries is left "
+				   "to the winning mod. The list's own settings are under Values and settings.";
+		case Category::kContainers:
+			return "Containers: each item with its count, owner and item condition, and the item count. What every mod added or "
+				   "removed, and count changes, are combined.";
+		case Category::kOutfits:
+			return "Outfits: the armour pieces and leveled items in each outfit. What every mod added or removed is combined.";
+		case Category::kFormLists:
+			return "Form lists (lists of forms that scripts, conditions, workshop menus and crafting read): their entries. What every mod "
+				   "added or removed is combined; added entries go at the end.";
+		case Category::kKeywords:
+			return "Keywords on containers, misc items and keys, with the keyword count. What every mod added or removed is combined.";
+		case Category::kItemValues:
+			return "Each value from the last mod that changed it. Leveled lists: chance none, max count, flags (calculate from all levels, "
+				   "for each item in count, use all), chance-none global, keyword chances, epic loot chance. Containers: flags (respawns, "
+				   "show owner...), weight, properties, forced location ref type, native terminal, open, close and take-all sounds, "
+				   "filter list. Misc items and keys: value, weight, pick-up and put-down sounds, featured item message, components (with "
+				   "their display indices).";
+		case Category::kNames:
+			return "Editor IDs, names and a leveled item's override name, from the last mod that changed each.";
+		case Category::kModels:
+			return "From the last mod that changed each: models with their texture data, colour remapping, material swap and flags, "
+				   "inventory icons, object bounds, preview transform and destruction data (health, resistances, stages, explosion, "
+				   "debris, damaged models).";
+		case Category::kScripts:
+			return "The scripts attached to containers, misc items and keys, with every property value (structs included), taken as one "
+				   "set from the last mod that changed it.";
+		default:
+			return CategoryDetail(a_cat);
+		}
+	}
+
 	const char* CategoryDetail(Category a_cat)
 	{
 		switch (a_cat) {

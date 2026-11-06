@@ -192,7 +192,7 @@ void App::drawMergedPatch()
 				ImGui::TextWrapped("%s", merge::CategoryName(cat));
 				tips::Tip(merge::CategoryWhy(cat));
 				ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-				ImGui::TextWrapped("%s", merge::CategoryDetail(cat));
+				ImGui::TextWrapped("%s", merge::CategoryDetail(cat, f4));
 				ImGui::PopStyleColor();
 				tips::Tip(merge::CategoryWhy(cat));
 				ImGui::TableNextColumn();

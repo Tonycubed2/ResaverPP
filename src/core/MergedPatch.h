@@ -87,6 +87,7 @@ namespace ess::merge
 	int          CategoryRisk(Category a_cat);
 	const char*  CategoryWhy(Category a_cat);     // what can go wrong, for the menu's hover text
 	const char*  CategoryDetail(Category a_cat);  // everything it covers, record by record
+	const char*  CategoryDetail(Category a_cat, bool a_fo4);  // the same for Fallout 4's merged types
 	// whether a kind of change can happen in a game's merged patch (Fallout 4 merges fewer record types)
 	bool         CategoryApplies(Category a_cat, bool a_fo4);
 	// the record types merged for a game, and (Fallout 4) the ones left out because their layout is not confirmed yet
