@@ -4312,6 +4312,192 @@ void TestFo4WorldItems()
 	std::printf("(fo4 world items / cells: %zu real saves, %zu items removed)\n", tested, removedAll);
 }
 
+// Fallout 4 reset an area with the plugins' CELL records (PluginDB::CellDef through fo4world::LookupFrom). Needs
+// RESAVERPP_FO4_SAVES (Tony's Save8 carries the synthetic cases: the player's place must be readable) and, for the real
+// plugins part, RESAVERPP_FO4_DATA (Fallout4.esm and the DLC esm files).
+void TestFo4CellReset()
+{
+	namespace fs = std::filesystem;
+	using B = std::vector<std::uint8_t>;
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 cell reset: RESAVERPP_FO4_SAVES not set, skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	for (std::string all = env, dir; !all.empty();) {
+		const auto e = all.find(';');
+		dir = all.substr(0, e);
+		all = e == std::string::npos ? std::string() : all.substr(e + 1);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+	}
+	std::sort(files.begin(), files.end());
+	const auto tmp = fs::temp_directory_path() / "rs_unit_cells.fos";
+	auto writeBack = [&](ess::SaveFile& s) {
+		const auto bytes = s.serialize();
+		{
+			std::ofstream out(tmp, std::ios::binary);
+			out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		return SaveFile::load(tmp);
+	};
+	auto cellCf = [](const ess::SaveFile& s, std::uint32_t id) -> const ess::ChangeForm* {
+		for (const auto& c : s.changeForms)
+			if (c.typeCode() == 6 && s.formIDOf(c.refID) == id) return &c;
+		return nullptr;
+	};
+
+	// synthetic cells on Tony's Save8 (made-up plugin records for 0000A001..; the save has no change forms for them)
+	const fs::path* s8 = nullptr;
+	for (const auto& f : files)
+		if (f.filename().string().rfind("Save8_F110F019", 0) == 0) s8 = &f;
+	if (s8) {
+		auto save = SaveFile::load(*s8);
+		auto mk = [&](std::uint32_t ref, std::uint32_t flags, const B& body) {
+			ess::ChangeForm c;
+			c.refID.data = ref;
+			c.typeField = 6;
+			c.version = save->changeForms.front().version;
+			c.changeFlags = flags;
+			c.data = body;
+			c.length1 = static_cast<std::uint32_t>(body.size());
+			save->changeForms.push_back(c);
+		};
+		B flagsOnly = { 0x84, 0x00 };  // bit 1 only: an indoor cell whose only change is its flags
+		mk(0x40A005, 0x2, flagsOnly);
+		B seenFlags = { 0x02, 0x00 };  // bit 1 + bit 31 (exterior seen data, 32 bytes), no detach time
+		seenFlags.insert(seenFlags.end(), 32, 0x11);
+		mk(0x40A001, 0x80000002u, seenFlags);
+		save->reindexChangeForms();
+		const auto visited = save->visitedWorldspaces;
+		fo4world::Lookup look;
+		look.type = [](std::uint32_t id) {
+			return id == 0x3C || id == 0x1234 || id == 0xA00A ? std::string("WRLD") : id >= 0xA001 && id <= 0xA009 ? std::string("CELL") : std::string();
+		};
+		look.cell = [](std::uint32_t id) {
+			fo4world::CellRecord r;
+			r.known = id >= 0xA001 && id <= 0xA009;
+			r.interior = id == 0xA003 || id == 0xA005;
+			r.hasGrid = !r.interior;
+			r.persistent = id == 0xA006;
+			r.worldspace = id == 0xA004 ? 0x1234 : 0x3C;
+			r.x = id == 0xA001 ? -5 : id == 0xA002 ? 200 : 3;
+			r.y = id == 0xA001 ? 7 : id == 0xA002 ? -300 : 4;
+			return r;
+		};
+		// without the plugins the flags-only cell is refused (the save does not say indoors)
+		Check(!fo4cell::ResetCell(*save, 0xA005).empty(), "fo4 cell reset: without plugin data a flags-only cell is refused");
+		const auto r = fo4cell::ResetCells(*save, { 0xA001, 0xA002, 0xA003, 0xA004, 0xA005, 0xA006, 0xA00A, 0xFF000BDD }, look);
+		Check(r.size() == 8 && r[0].empty() && r[1].empty() && r[2].empty() && r[3].empty() && r[4].empty() &&
+				  r[5].find("persistent") != std::string::npos && r[6].find("not a cell") != std::string::npos &&
+				  r[7].find("made during play") != std::string::npos,
+			"fo4 cell reset: outdoor / indoor cells from the plugins reset; persistent cell, worldspace, FF cell refused");
+		auto back = writeBack(*save);
+		auto body = [&](std::uint32_t id) { const auto* c = cellCf(*back, id); return c ? ess::cf::Body(*c) : B{}; };
+		auto flags = [&](std::uint32_t id) { const auto* c = cellCf(*back, id); return c ? c->changeFlags : 0u; };
+		const std::size_t n = back->visitedWorldspaces.size();
+		const auto ix = static_cast<std::uint8_t>(std::find(visited.begin(), visited.end(), 0x3Cu) - visited.begin() + 1);
+		B e1 = { ix, 0, 0xFB, 0x07, 0xFF, 0xFF, 0xFF, 0xFF };
+		e1.insert(e1.end(), seenFlags.begin(), seenFlags.end());
+		B e2 = { ix, 0, 200, 0, 0xD4, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF };
+		B e4 = { static_cast<std::uint8_t>(n), 0, 3, 4, 0xFF, 0xFF, 0xFF, 0xFF };
+		B e5 = { 0xFF, 0xFF, 0xFF, 0xFF, 0x84, 0x00 };
+		Check(flags(0xA001) == 0xE0000002u && body(0xA001) == e1, "fo4 cell reset: outdoor change form without a detach time: bits 30+29, {index, i8 x, i8 y, FFFFFFFF} put in front");
+		Check(flags(0xA002) == 0x50000000u && body(0xA002) == e2, "fo4 cell reset: outdoor cell beyond a byte's range: bits 30+28, i16 coordinates");
+		Check(flags(0xA003) == 0x40000000u && body(0xA003) == B(4, 0xFF), "fo4 cell reset: indoor cell with no change form: bit 30, 4 bytes");
+		Check(flags(0xA004) == 0x60000000u && body(0xA004) == e4 && n == visited.size() + 1 && back->visitedWorldspaces.back() == 0x1234,
+			"fo4 cell reset: a worldspace the save has not visited is appended to the array and its index written");
+		Check(flags(0xA005) == 0x40000002u && body(0xA005) == e5, "fo4 cell reset: indoor flags-only change form: bit 30, detach time in front of the flags");
+		Check(!cellCf(*back, 0xA006) && fo4cell::ResetCell(*back, 0xA001, look).find("already") != std::string::npos,
+			"fo4 cell reset: refused cells left alone; a second reset is refused (already set)");
+	}
+
+	const char* data = std::getenv("RESAVERPP_FO4_DATA");
+	if (!data || !*data) {
+		std::printf("(fo4 cell reset: RESAVERPP_FO4_DATA not set, real plugins skipped)\n");
+		return;
+	}
+	ScriptSources src;
+	src.scan(data);
+	std::size_t tested = 0, resetAll = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		const auto name = f.filename().string();
+		PluginDB::Input in;
+		PrepareInput(*s, in);
+		in.sources = src;
+		in.fo4 = true;
+		in.language = "en";
+		PluginDB::Progress pr;
+		PluginDB           db;
+		db.load(in, pr);
+		const auto look = fo4world::LookupFrom(&db);
+		if (s8 && f == *s8) {
+			// Fallout4.esm as an independent scan of the file reads it (CELL DATA bit 0, XCLC, the World Children group label): Diamond City houses indoors, an outdoor cell's place, a persistent cell, the grid
+			const auto* house = db.cell(0x1E4A);
+			const auto* out = db.cell(0xA800E);
+			const auto* pers = db.cell(0x18AA2);
+			Check(house && house->interior() && !house->worldspace && out && !out->interior() && out->worldspace == 0xA7FF4 &&
+					  out->x == -18 && out->y == 24 && pers && pers->persistent && pers->worldspace == 0x3C &&
+					  db.cellAt(0xA7FF4, -18, 24) == 0xA800E && db.cellAt(0x3C, 0, 0) != 0x18AA2,
+				"fo4 plugins: CELL DATA / XCLC / worldspace / persistent cell / grid kept");
+		}
+		const auto cells = fo4cell::ListCells(*s, look);
+		std::vector<std::uint32_t> ids;
+		std::size_t flagsOnly = 0, noCf = 0, outdoorNew = 0;
+		for (const auto& c : cells) {
+			if (!c.why.empty()) continue;
+			ids.push_back(c.formID);
+			flagsOnly += c.hasChangeForm && !c.hasDetach && !c.exterior;
+			noCf += !c.hasChangeForm;
+			outdoorNew += !c.hasChangeForm && c.exterior;
+		}
+		std::map<std::uint32_t, B> before;
+		for (const auto& c : s->changeForms) before[s->formIDOf(c.refID)] = ess::cf::Body(c);
+		const auto formIDs = s->formIDs;
+		const auto visited = s->visitedWorldspaces;
+		const auto res = fo4cell::ResetCells(*s, ids, look);
+		bool allDone = true;
+		for (const auto& w : res) allDone = allDone && w.empty();
+		auto back = writeBack(*s);
+		const std::set<std::uint32_t> idSet(ids.begin(), ids.end());
+		bool ok = allDone;
+		std::size_t created = 0;
+		for (const auto& c : back->changeForms) {
+			const auto id = back->formIDOf(c.refID);
+			const auto b = ess::cf::Body(c);
+			if (!idSet.contains(id)) {
+				ok = ok && before.count(id) && before.at(id) == b;
+				continue;
+			}
+			const auto d = fo4cell::DecodeCell(*back, c);
+			ok = ok && d.complete && d.detach == fo4cell::kDetachReset && (c.changeFlags & 0x40000000u);
+			created += !before.count(id);
+		}
+		const bool prefixKept = std::equal(formIDs.begin(), formIDs.end(), back->formIDs.begin()) &&
+		                        std::equal(visited.begin(), visited.end(), back->visitedWorldspaces.begin());
+		Check(ok && prefixKept && back->changeForms.size() == before.size() + created && created == noCf,
+			("fo4 cell reset: " + name + ": every resettable cell reset with the plugins, written, read back (detach 0xFFFFFFFF), nothing else changed").c_str());
+		std::printf("(fo4 cell reset: %s: %zu cells, %zu reset (%zu indoor flags-only, %zu new change forms, %zu of them outdoors))\n", name.c_str(),
+			cells.size(), ids.size(), flagsOnly, noCf, outdoorNew);
+		resetAll += ids.size();
+		++tested;
+	}
+	std::error_code ec;
+	fs::remove(tmp, ec);
+	std::printf("(fo4 cell reset: %zu real saves, %zu cells reset)\n", tested, resetAll);
+}
+
 
 int main()
 {
@@ -4348,6 +4534,7 @@ int main()
 	TestFo4Combat();
 	TestSkyFollowers();
 	TestFo4WorldItems();
+	TestFo4CellReset();
 	TestFo4ActiveEffects();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
