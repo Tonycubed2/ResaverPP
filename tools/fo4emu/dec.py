@@ -79,6 +79,10 @@ def extra_entry(r, ty, ver, npc_fn=None, top=True):
         if fl:
             if npc_fn is None: raise Unsupported('npc in 0x2d')
             npc_fn(r, fl)
+    elif ty==0x1b:
+        for i in range(r.vs()): r.ref(); r.raw(1)
+    elif ty==0xd3: r.raw(4)
+    elif ty==0xd5: r.ref()
     elif ty<0x0c or ty>0xd5 or ty in DEFAULT:
         return   # the game's default case: logged, nothing read
     else:

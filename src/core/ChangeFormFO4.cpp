@@ -216,6 +216,18 @@ namespace ess::fo4cf
 				}
 				Skip(r, 4);
 				return;
+			case 0x1b:  // 0x29556f: vsval n x (form id 0x29bfa0, u8)
+				for (auto n = Vs(r); n; --n) {
+					Ref(r);
+					Skip(r, 1);
+				}
+				return;
+			case 0xd3:  // 0x298341 -> 0x2b5550: a u32
+				Skip(r, 4);
+				return;
+			case 0xd5:  // 0x2983a8 -> 0x2b5860: a form id
+				Ref(r);
+				return;
 			case 0x6c:  // package data (0x295f2b): the type byte, then that type's object (0xceaed0) and its LoadGame
 				{
 					const auto type = r.u8();
