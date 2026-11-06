@@ -354,9 +354,12 @@ void App::drawHome()
 			} },
 		{ "Logs and AI",
 			{
-				{ Sc::kSkyrimLogs, "Analyze Skyrim logs", "SKSE, crash, Papyrus and mod logs",
-					"Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found: plugins that "
-					"did not load, what crashed, scripts that are missing.",
+				{ Sc::kSkyrimLogs, fo4Game() || fo4() ? "Analyze Fallout 4 logs" : "Analyze Skyrim logs",
+					fo4Game() || fo4() ? "F4SE, Buffout 4, Papyrus and mod logs" : "SKSE, crash, Papyrus and mod logs",
+					fo4Game() || fo4() ? "Read your F4SE logs, Buffout 4 crash logs, the Papyrus log and the mods' own logs, and list the problems "
+					                     "found: plugins that did not load, what crashed, scripts that are missing."
+					                   : "Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found: plugins that "
+					                     "did not load, what crashed, scripts that are missing.",
 					HomeRisk::kNone, -1 },
 				{ Sc::kCollectLogs, "Collect all logs", "one zip on the desktop, to share",
 					"Put every Skyrim log (SKSE and all its folders, crash logs, Papyrus), your load order and INI files, and what PC "

@@ -945,11 +945,13 @@ void App::draw()
 		ImGui::Spacing();
 		ImGui::Spacing();
 		ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 368) * 0.5f);
-		if (ImGui::Button("Analyze Skyrim logs", ImVec2(180, 0))) {
+		if (ImGui::Button(fo4Game() ? "Analyze Fallout 4 logs" : "Analyze Skyrim logs", ImVec2(180, 0))) {
 			openSkyrimLogs();
 		}
-		tips::Tip("Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found. "
-		          "No save needed.");
+		tips::Tip(fo4Game() ? "Read your F4SE logs, Buffout 4 crash logs, the Papyrus log and the mods' own logs, and list the problems "
+		                      "found. No save needed."
+		                    : "Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found. "
+		                      "No save needed.");
 		ImGui::SameLine(0, 8);
 		if (ImGui::Button("Ask the AI", ImVec2(180, 0))) {
 			_showAi = true;
@@ -1376,10 +1378,11 @@ void App::drawMenu()
 		ImGui::Separator();
 		ImGui::MenuItem("Ask the AI...", nullptr, &_showAi);
 		tips::Tip("Chat with an AI engine that can use everything ReSaver Plus does: describe the problem in plain English.");
-		if (ImGui::MenuItem("Analyze Skyrim logs...")) {
+		if (ImGui::MenuItem(fo4Game() || fo4() ? "Analyze Fallout 4 logs..." : "Analyze Skyrim logs...")) {
 			openSkyrimLogs();
 		}
-		tips::Tip("Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found.");
+		tips::Tip(fo4Game() || fo4() ? "Read your F4SE logs, Buffout 4 crash logs, the Papyrus log and the mods' own logs, and list the problems found."
+		                             : "Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found.");
 		if (ImGui::MenuItem("Collect all logs (zip on the desktop)")) {
 			startCollectLogs();
 		}
