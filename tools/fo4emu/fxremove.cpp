@@ -84,10 +84,10 @@ int main(int argc, char** argv)
 		std::map<std::uint32_t, std::array<float, 3>> mods;
 		for (auto& m : d.modifiers) mods[m.formID] = { m.mod[0], m.mod[1], m.mod[2] };
 		for (int k = 0; k < 4; ++k) for (int j = 0; j < 3; ++j) w.vit[k][j] = j < (int)std::min<std::uint32_t>(d.vitals[k].count, 3) ? d.vitals[k].mod[j] : 0.0f;
-		std::map<std::pair<std::uint32_t, int>, float> take;
+		std::vector<std::pair<std::pair<std::uint32_t, int>, float>> take;  // one effect at a time, as the game's Finish
 		for (auto i : pick) {
 			const auto u = fo4cf::PlanEffectRemoval(d, d.effects[i], &s[i]);
-			if (u.modifier && u.amount != 0) take[{ u.actorValue, u.slot }] += u.amount;
+			if (u.modifier && u.amount != 0) take.push_back({ { u.actorValue, u.slot }, u.amount });
 		}
 		for (auto& [k, a] : take) {
 			bool vital = false;

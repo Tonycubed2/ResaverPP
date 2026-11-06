@@ -808,7 +808,7 @@ namespace ess::fo4cf
 			return Fx("there is no active effect %zu (the actor has %zu): nothing changed", pick.back(), d.effects.size());
 		}
 		// what each removal undoes; one refusal refuses all
-		std::map<std::pair<std::uint32_t, int>, float> take;  // (actor value, slot) -> amount
+		std::vector<std::pair<std::pair<std::uint32_t, int>, float>> take;  // (actor value, slot), amount: one per effect, in order
 		std::vector<std::string> changes;
 		for (const auto i : pick) {
 			const auto u = PlanEffectRemoval(d, d.effects[i], a_sources.size() == d.effects.size() ? &a_sources[i] : nullptr);
@@ -816,7 +816,7 @@ namespace ess::fo4cf
 				return Fx("effect %zu: ", i) + u.why + ": nothing changed";
 			}
 			if (u.modifier && u.amount != 0) {
-				take[{ u.actorValue, u.slot }] += u.amount;
+				take.push_back({ { u.actorValue, u.slot }, u.amount });
 			}
 		}
 		auto body = cf::Body(a_cf);
@@ -824,9 +824,10 @@ namespace ess::fo4cf
 		auto putF = [&](std::size_t at, float v) { std::memcpy(body.data() + at, &v, 4); };
 		auto settle = [](float v) { return std::fabs(v) <= 0.0001f ? 0.0f : v; };  // 0xcc9b70
 		static const char* const kSlot[3] = { "slot 0", "slot 1", "slot 2" };
-		// 1. modifiers in the actor value storage (after the vitals): same-size writes
-		std::vector<std::pair<int, int>> growVital;  // (vital, new count)
+		// 1. modifiers in the actor value storage (after the vitals): same-size writes. One effect at a time, as each
+		//    Finish takes its own strength off (0xcc9b70 settles the result each time)
 		std::map<int, float> vitalNew[4];
+		std::map<std::pair<std::uint32_t, int>, std::pair<float, float>> seen;  // (av, slot) -> before, after
 		for (const auto& [key, amount] : take) {
 			const auto [av, slot] = key;
 			int vital = -1;
@@ -835,10 +836,12 @@ namespace ess::fo4cf
 			}
 			if (vital >= 0) {
 				const auto& v = d.vitals[vital];
-				const float before = slot < static_cast<int>(std::min<std::uint32_t>(v.count, 3)) ? v.mod[slot] : 0.0f;
-				const float after = settle(before - amount);
-				vitalNew[vital][slot] = after;
-				changes.push_back(Fx("actor value %08X modifier %s: %g -> %g", av, kSlot[slot], before, after));
+				if (!vitalNew[vital].contains(slot)) {
+					vitalNew[vital][slot] = slot < static_cast<int>(std::min<std::uint32_t>(v.count, 3)) ? v.mod[slot] : 0.0f;
+					seen[key].first = vitalNew[vital][slot];
+				}
+				vitalNew[vital][slot] = settle(vitalNew[vital][slot] - amount);
+				seen[key].second = vitalNew[vital][slot];
 				continue;
 			}
 			const ActorValueMod* m = nullptr;
@@ -851,9 +854,12 @@ namespace ess::fo4cf
 			}
 			const auto  at = m->range.end - 12 + 4 * static_cast<std::size_t>(slot);
 			const float before = getF(at);
-			const float after = settle(before - amount);
-			putF(at, after);
-			changes.push_back(Fx("actor value %08X modifier %s: %g -> %g", av, kSlot[slot], before, after));
+			if (!seen.contains(key)) seen[key].first = before;
+			putF(at, settle(before - amount));
+			seen[key].second = getF(at);
+		}
+		for (const auto& [key, v] : seen) {
+			changes.push_back(Fx("actor value %08X modifier %s: %g -> %g", key.first, kSlot[key.second], v.first, v.second));
 		}
 		// 2. the vitals (before the actor values; a list may grow), last first
 		for (int k = 3; k >= 0; --k) {
