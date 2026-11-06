@@ -316,6 +316,29 @@ namespace ess::fo4cf
 			return items;
 		}
 
+	}
+
+	std::vector<Item> detail::Inventory(In& b, const SaveFile& a_save)
+	{
+		b.mark('R');  // the u32 count (the items' own reads are not traced)
+		Refr ids;     // the actor's pointer id tables, for package data in a stack's extra data
+		ids.ids68 = b.ids68;
+		ids.ids70 = b.ids70;
+		ids.ids78 = b.ids78;
+		Ctx c{ b.ver, &ids };
+		try {
+			auto items = fo4cf::Inventory(b.r, c, a_save);
+			b.ids68 = ids.ids68;
+			b.ids70 = ids.ids70;
+			b.ids78 = ids.ids78;
+			return items;
+		} catch (const Unsupported& e) {
+			throw detail::Stop(std::string("inventory: ") + e.what());
+		}
+	}
+
+	namespace
+	{
 		void NpcBody(Reader& r, std::uint32_t f, std::uint32_t ver, std::vector<Part>* parts, std::string* name)
 		{
 			auto part = [&](const char* a_name, auto&& a_read) {

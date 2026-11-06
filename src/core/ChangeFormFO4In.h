@@ -2,6 +2,7 @@
 // cursor with an optional trace of every read, in the sizes and order the game's loaders use.
 #pragma once
 #include "ChangeFormData.h"
+#include "ChangeFormFO4.h"
 
 #include <cstdint>
 #include <set>
@@ -78,4 +79,10 @@ namespace ess::fo4cf::detail
 	void PackageData(In& b, std::uint8_t a_type);
 	// A created package's own form (a_type: its package type), read before the type byte by 0xcea430.
 	void CreatedPackage(In& b, std::uint8_t a_type);
+	// A knowledge entry (0xd2faa0): read by the AI process and by PlayerCharacter::LoadGame.
+	void Knowledge(In& b);
+	// An inventory (0x34ee00) at the cursor, with the actor's pointer id tables (ChangeFormFO4.cpp).
+	std::vector<Item> Inventory(In& b, const SaveFile& a_save);
+	// PlayerCharacter::LoadGame after Actor::LoadGame (ChangeFormFO4Player.cpp): fills the player fields of a_out.
+	void PlayerPart(In& b, const SaveFile& a_save, Actor& a_out);
 }

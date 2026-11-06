@@ -143,6 +143,26 @@ namespace ess::fo4cf
 		std::uint32_t value = 0;
 		Range         range;
 	};
+	// The player's Pip-Boy quest log (PlayerCharacter::LoadGame 0xd6682a): the log entries shown, by quest stage
+	struct QuestLogEntry
+	{
+		RefID         quest;
+		std::uint32_t formID = 0;
+		std::uint16_t stage = 0;  // the quest stage (looked up on the quest, 0x66c3e0)
+		std::uint8_t  log = 0;    // the log entry within that stage (0x682fc0)
+		Range         range;      // ref + u16 + u8
+	};
+	// The player's objectives (0xd66961, element reader 0x61e170)
+	struct ObjectiveEntry
+	{
+		RefID         quest;
+		std::uint32_t formID = 0;
+		std::uint32_t index = 0;     // the objective index (looked up on the quest, 0x66a290)
+		std::uint32_t instance = 0;  // u32 stored at +8
+		std::uint32_t state = 0;     // u32 stored at +0xc
+		Range         range;         // ref + 3 x u32
+	};
+
 	struct Actor
 	{
 		bool          decoded = false;  // read up to and including the actor values
@@ -169,12 +189,28 @@ namespace ess::fo4cf
 		std::vector<PerkRef>   perkRefs;      // vsval n x perk
 		std::vector<PerkValue> perkValues;    // vsval n x (perk, u32)
 		std::size_t   tailEnd = 0;            // end of Actor::LoadGame (an NPC's body ends here)
-		bool          complete = false;       // the whole body was read exactly: an NPC whose Actor::LoadGame ends
-		                                      // at the body's end (the player's PlayerCharacter part is not decoded)
+
+		// the player (form 0x14) only: the PlayerCharacter part after Actor::LoadGame (PlayerCharacter::LoadGame
+		// 0xd65bd0, read to its end; see ChangeFormFO4Player.cpp)
+		bool          player = false;         // the change form is the player's
+		bool          playerPart = false;     // ... and its PlayerCharacter part was read to its end
+		Range         playerRange;            // [tailEnd, end of PlayerCharacter::LoadGame)
+		std::vector<Part> playerParts;        // the named pieces of that part, in body order (see PlayerPartNames)
+		Range         questLogRange;          // the quest log with its vsval count
+		std::vector<QuestLogEntry>  questLog;
+		Range         objectivesRange;        // the objectives with their vsval count
+		std::vector<ObjectiveEntry> objectives;
+		Range         cameraRange;            // PlayerCamera::LoadGame (0x102aac0) with its 13 camera states
+		Range         extraInventoryRange;    // the inventory of the reference at PlayerCharacter +0xd80 (0x4f6bb0
+		                                      // -> 0x34ee00); empty (begin = end) for form versions 0x2e..0x30
+		std::vector<Item> extraInventory;
+
+		bool          complete = false;       // the whole body was read exactly (NPCs: Actor::LoadGame ends at the
+		                                      // body's end; the player: PlayerCharacter::LoadGame does)
 	};
 	// Reads the actor part: the AI process (with its running packages' data), the actor values, the movement
-	// controller and the actor's remaining fields with the perk lists (Actor::LoadGame). For the player the
-	// PlayerCharacter part after it is not decoded.
+	// controller and the actor's remaining fields with the perk lists (Actor::LoadGame); for the player also the
+	// PlayerCharacter part after it (PlayerCharacter::LoadGame) to the body's end.
 	// a_trace (tests): receives (position, kind) of every read.
 	Actor DecodeActor(const SaveFile& a_save, const ChangeForm& a_cf, std::vector<std::pair<std::uint32_t, char>>* a_trace = nullptr);
 	// Rewrites an actor value's saved base in place; the body is decoded again before the change is kept.

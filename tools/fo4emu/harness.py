@@ -14,7 +14,13 @@ class Ctx:
         e=s.e
         buf=make(e, body, flags, s.version)
         # the form being loaded (some extra data is only read when the buffer has it)
-        obj=e.alloc(0x400)
+        # PlayerCharacter is 0xe08 bytes; PlayerCharacter::LoadGame (0xd65bd0) writes up to +0xe02 and passes the
+        # objects at +0xd00 (0x3ff0f0) and +0xd80 (a reference whose inventory 0x4f6bb0 loads) on, so the player gets
+        # its full size and those two objects (zeroed: same reads as the game's)
+        obj=e.alloc(0x1000 if player else 0x400)
+        if player:
+            e.u.mem_write(obj+0xd00, struct.pack('<Q', e.alloc(0x400)))
+            e.u.mem_write(obj+0xd80, struct.pack('<Q', e.alloc(0x400)))
         vt=0x256c938 if player else 0x25683b0 if achr else 0x24a4c28
         e.u.mem_write(obj, struct.pack('<Q', BASE+vt)); e.u.mem_write(obj+0x1a, bytes([0x41 if achr else 0x40]))
         e.u.mem_write(obj+0x14, struct.pack('<I', 0x14 if player else 0xff000800))
