@@ -63,6 +63,8 @@ namespace
 
 bool IsFo4CompanionsCommand(int argc, char** argv);  // CompanionsCli.cpp
 int  Fo4CompanionsMain(int argc, char** argv);
+bool IsFo4EffectsCommand(int argc, char** argv);  // EffectsF4Cli.cpp
+int  Fo4EffectsMain(int argc, char** argv);
 
 static void Usage()
 {
@@ -482,6 +484,9 @@ int main(int argc, char** argv)
 	}
 	if (IsFo4CompanionsCommand(argc, argv)) {
 		return Fo4CompanionsMain(argc, argv);
+	}
+	if (IsFo4EffectsCommand(argc, argv)) {
+		return Fo4EffectsMain(argc, argv);
 	}
 	if (const int r = Fo4WorldMain(argc, argv); r >= 0) {
 		return r;

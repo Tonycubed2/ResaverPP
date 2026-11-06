@@ -349,6 +349,142 @@ namespace ess::ops
 		}
 	}
 
+	static bool VarRefersTo(const Variable& v, EID target);
+
+	namespace
+	{
+		// PurgeScript's work for a set of instances (and, with a_matches, every frame / call of a script): their threads
+		// (any frame running the script or running on one of the instances), those threads' suspended stacks and queued
+		// calls, calls made on one of the instances or (when the instances go) passing one of them, then the instances
+		struct PurgeWork
+		{
+			std::set<ThreadID>    threads;
+			std::set<std::size_t> msgs;
+		};
+		template <class Matches>
+		PurgeWork PurgeSelect(const Papyrus& p_, const std::set<EID>& insts, Matches matches, bool a_keepInstances)
+		{
+			const auto* p = &p_;
+			PurgeWork   w;
+			auto&       threads = w.threads;
+			auto&       msgs = w.msgs;
+			// threads running the script, or running any function on one of its instances
+			for (const auto& a : p->activeScripts) {
+				if (!a.data) {
+					continue;
+				}
+				for (const auto& f : a.data->frames) {
+					if (matches(f.scriptName) || VarHitsAny(f.owner, insts)) {
+						threads.insert(a.id);
+						break;
+					}
+				}
+			}
+			// suspended calls: belonging to those threads, of the script itself, called on one of its
+			// instances, or (when the instances go) passing one of them as an argument. Queued calls the
+			// same way. A thread whose pending or queued call goes is removed with it (it would wait
+			// forever), and its own pending and queued calls with it: repeated until nothing changes.
+			for (bool changed = true; changed;) {
+				changed = false;
+				for (const auto* list : { &p->suspended1, &p->suspended2 }) {
+					for (const auto& st : *list) {
+						if (threads.contains(st.id)) {
+							continue;
+						}
+						if (st.data && (matches(st.data->scriptName) || VarHitsAny(st.data->unknownVar, insts) ||
+										   (!a_keepInstances && VarsHitAny(st.data->vars, insts)))) {
+							threads.insert(st.id);
+							changed = true;
+						}
+					}
+				}
+				for (std::size_t i = 0; i < p->functionMessages.size(); ++i) {
+					if (msgs.contains(i)) {
+						continue;
+					}
+					const auto& m = p->functionMessages[i];
+					if ((m.id && threads.contains(*m.id)) ||
+						(m.data && (matches(m.data->scriptName) || VarHitsAny(m.data->unknownVar, insts) ||
+									   (!a_keepInstances && VarsHitAny(m.data->vars, insts))))) {
+						msgs.insert(i);
+						if (m.id && !threads.contains(*m.id)) {
+							threads.insert(*m.id);
+							changed = true;
+						}
+					}
+				}
+			}
+			return w;
+		}
+	}
+
+	PurgeResult PurgeInstances(SaveFile& s, const std::set<EID>& a_ids)
+	{
+		PurgeResult r;
+		auto*       p = s.papyrus();
+		if (!p || a_ids.empty()) {
+			return r;
+		}
+		const auto w = PurgeSelect(*p, a_ids, [](TStr) { return false; }, false);
+		r.messages = DeleteFunctionMessages(*p, w.msgs);
+		r.stacks = DeleteSuspendedStacks(*p, w.threads);
+		r.threads = DeleteThreads(*p, w.threads);
+		r.instances = DeleteInstances(*p, a_ids);
+		DeleteUnbinds(*p, a_ids);
+		return r;
+	}
+
+	std::vector<std::string> ReferrersOutside(const Papyrus& p, const std::set<EID>& a_ids)
+	{
+		std::vector<std::string> out;
+		if (a_ids.empty()) {
+			return out;
+		}
+		const auto w = PurgeSelect(p, a_ids, [](TStr) { return false; }, false);
+		auto       scan = [&](const std::vector<Variable>& vars, const std::string& what) {
+            for (std::size_t i = 0; i < vars.size(); ++i) {
+                for (const auto id : a_ids) {
+                    if (VarRefersTo(vars[i], id)) {
+                        char b[40];
+                        std::snprintf(b, sizeof(b), " variable %zu", i);
+                        out.push_back(what + b);
+                    }
+                }
+            }
+		};
+		char b[64];
+		for (const auto& i : p.instances) {
+			if (!a_ids.contains(i.id) && i.data) {
+				std::snprintf(b, sizeof(b), " (instance %016llX)", static_cast<unsigned long long>(i.id));
+				scan(i.data->vars, p.str(i.script) + b);
+			}
+		}
+		for (const auto& r : p.references) {
+			if (r.data) {
+				std::snprintf(b, sizeof(b), " (reference %016llX)", static_cast<unsigned long long>(r.id));
+				scan(r.data->vars, p.str(r.script) + b);
+			}
+		}
+		for (const auto& a : p.arrays) {
+			std::snprintf(b, sizeof(b), "array %016llX", static_cast<unsigned long long>(a.id));
+			scan(a.vars, b);
+		}
+		for (const auto& st : p.structInstances) {
+			std::snprintf(b, sizeof(b), " (struct %016llX)", static_cast<unsigned long long>(st.id));
+			scan(st.vars, p.str(st.def) + b);
+		}
+		for (const auto& t : p.activeScripts) {
+			if (!t.data || w.threads.contains(t.id)) {
+				continue;
+			}
+			for (const auto& f : t.data->frames) {
+				std::snprintf(b, sizeof(b), " (thread %u)", static_cast<unsigned>(t.id));
+				scan(f.vars, p.str(f.baseName) + "." + p.str(f.event) + b);
+			}
+		}
+		return out;
+	}
+
 	PurgeResult PurgeScript(SaveFile& s, const std::string& a_scriptName, bool a_deleteCreatedForms, bool a_keepInstances)
 	{
 		PurgeResult r;
@@ -368,55 +504,9 @@ namespace ess::ops
 				}
 			}
 		}
-
-		// threads running the script, or running any function on one of its instances
-		std::set<ThreadID> threads;
-		for (const auto& a : p->activeScripts) {
-			if (!a.data) {
-				continue;
-			}
-			for (const auto& f : a.data->frames) {
-				if (matches(f.scriptName) || VarHitsAny(f.owner, insts)) {
-					threads.insert(a.id);
-					break;
-				}
-			}
-		}
-		// suspended calls: belonging to those threads, of the script itself, called on one of its
-		// instances, or (when the instances go) passing one of them as an argument. Queued calls the
-		// same way. A thread whose pending or queued call goes is removed with it (it would wait
-		// forever), and its own pending and queued calls with it: repeated until nothing changes.
-		std::set<std::size_t> msgs;
-		for (bool changed = true; changed;) {
-			changed = false;
-			for (const auto* list : { &p->suspended1, &p->suspended2 }) {
-				for (const auto& st : *list) {
-					if (threads.contains(st.id)) {
-						continue;
-					}
-					if (st.data && (matches(st.data->scriptName) || VarHitsAny(st.data->unknownVar, insts) ||
-									   (!a_keepInstances && VarsHitAny(st.data->vars, insts)))) {
-						threads.insert(st.id);
-						changed = true;
-					}
-				}
-			}
-			for (std::size_t i = 0; i < p->functionMessages.size(); ++i) {
-				if (msgs.contains(i)) {
-					continue;
-				}
-				const auto& m = p->functionMessages[i];
-				if ((m.id && threads.contains(*m.id)) ||
-					(m.data && (matches(m.data->scriptName) || VarHitsAny(m.data->unknownVar, insts) ||
-								   (!a_keepInstances && VarsHitAny(m.data->vars, insts))))) {
-					msgs.insert(i);
-					if (m.id && !threads.contains(*m.id)) {
-						threads.insert(*m.id);
-						changed = true;
-					}
-				}
-			}
-		}
+		const auto w = PurgeSelect(*p, insts, matches, a_keepInstances);
+		const auto& threads = w.threads;
+		const auto& msgs = w.msgs;
 
 		r.messages = DeleteFunctionMessages(*p, msgs);
 		r.stacks = DeleteSuspendedStacks(*p, threads);

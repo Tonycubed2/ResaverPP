@@ -240,6 +240,15 @@ namespace ess::fo4comp
 		}
 		return { "companion", Hex(a_c.ref), a_c.hasLeftPermanently ? "1" : "0", a_c.script };
 	}
+	std::vector<std::string> ClearSlotCommands(std::uint32_t a_ref, bool a_dogmeat, const std::string& a_quest)
+	{
+		if (a_dogmeat) {
+			return { Fmt("cqf %s \"FollowersScript.ClearDogmeatCompanion\"", a_quest.c_str()) };
+		}
+		return { Fmt("cqf %s \"FollowersScript.ClearCompanion\"", a_quest.c_str()), Fmt("%08X.setplayerteammate 0", a_ref) };
+	}
+
+	std::vector<std::string> ClearSlotRecord(std::uint32_t a_ref, bool a_dogmeat) { return { "clearcompanion", Hex(a_ref), a_dogmeat ? "1" : "0" }; }
 	std::vector<std::string> FollowRecord(const Companion& a_c) { return { "companionfollow", Hex(a_c.ref) }; }
 	std::vector<std::string> AffinityRecord(const Companion& a_c, int a_value) { return { "affinity", Hex(a_c.ref), std::to_string(a_value), a_c.script }; }
 
@@ -470,15 +479,36 @@ namespace ess::fo4comp
 			for (int dog = 0; dog < 2; ++dog) {
 				const auto fill = dog ? sys.dogmeatFill : sys.companionFill;
 				if (fill && !out.find(fill)) {
+					// what the fill is in the save (ClearCompanion / ClearDogmeatCompanion start with GetActorReference: for a
+					// reference that is not an actor they do nothing)
+					int kind = 0;  // 0 not in the change forms, 1 an actor (ACHR), 2 another reference
+					for (const auto& x : a_save.changeForms) {
+						if (a_save.formIDOf(x.refID) == fill) {
+							kind = static_cast<ChangeFormType>(x.typeCode()) == ChangeFormType::ACHR ? 1 : 2;
+							break;
+						}
+					}
+					std::string what = Fmt("The follower quest's %s alias is filled with %08X, but no actor in the save has %s for it. The "
+										   "follower scripts call that script on whoever is in the slot, so commands, affinity and dismissing "
+										   "do not work. A mod that forced its NPC into the alias, or a removed companion mod, leaves this.",
+						dog ? "DogmeatCompanion" : "Companion", fill, dog ? "DogmeatActorScript" : "CompanionActorScript");
+					if (kind == 2) {
+						what += Fmt(" %08X is saved as a reference that is not an actor: FollowersScript's Clear functions only clear an "
+									"actor (they start with GetActorReference), so these commands will not empty this slot.",
+							fill);
+					}
+					const char* why =
+						dog ? "FollowersScript.ClearDogmeatCompanion empties the Dogmeat slot the game's way (no longer ignores friendly "
+							  "hits, teammate off, the alias cleared, the companion change event, PlayerHasActiveDogmeatCompanion 0), in "
+							  "the running game."
+							: "FollowersScript.ClearCompanion empties the companion slot the game's way (the alias cleared, combat alarm "
+							  "stopped, the companion change event, PlayerHasActiveCompanion 0), in the running game. Its first step "
+							  "(CompanionDataToggle) works on the slot holder as a CompanionActorScript, which this one is not: that step "
+							  "fails with a Papyrus error and the function goes on, so the teammate flag it would turn off stays on. "
+							  "SetPlayerTeammate 0 (the console's own command) turns it off the same way.";
 					add(L::kProblem, fill,
 						Fmt("The %s slot holds %08X, which has no companion script", dog ? "Dogmeat companion" : "companion", fill),
-						Fmt("The follower quest's %s alias is filled with %08X, but no actor in the save has %s for it. The follower "
-							"scripts call that script on whoever is in the slot, so commands, affinity and dismissing do not work. A mod "
-							"that forced its NPC into the alias, or a removed companion mod, leaves this.",
-							dog ? "DogmeatCompanion" : "Companion", fill, dog ? "DogmeatActorScript" : "CompanionActorScript"),
-						{ Fmt("cqf %s \"FollowersScript.%s\"", quest.c_str(), dog ? "ClearDogmeatCompanion" : "ClearCompanion") },
-						"FollowersScript.ClearCompanion / ClearDogmeatCompanion empty the slot the game's way (teammate off, events, "
-						"the PlayerHasActiveCompanion global), in the running game.");
+						std::move(what), ClearSlotCommands(fill, dog == 1, quest), why, ClearSlotRecord(fill, dog == 1));
 				}
 			}
 		}

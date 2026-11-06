@@ -312,6 +312,41 @@ void App::drawCompanionsF4()
 		shortcut(Sc::kGather);
 	}
 	tips::Tip(tr("ReSaverHelper brings your followers next to you in the running game (the game's own teleport)."));
+	// findings about the follower quest's slots themselves (a slot held by an actor that is not a companion, two claimants):
+	// they belong to no row of the table below
+	{
+		const auto cannot = f4compCannot();
+		int        k = 0;
+		for (const auto& f : r.findings) {
+			if (f.ref && r.find(f.ref)) {
+				continue;
+			}
+			ImGui::PushID(k++);
+			Wrapped(f.level == fo4comp::Finding::Level::kInfo ? theme::Dim() : theme::Caution(), f.title);
+			ImGui::TextWrapped("%s", f.what.c_str());
+			for (const auto& cmd : f.console) {
+				ImGui::BulletText("%s", cmd.c_str());
+			}
+			if (!f.record.empty()) {
+				ImGui::BeginDisabled(!cannot.empty());
+				if (ImGui::Button(tr("Run in the game: empty the slot"))) {
+					f4compSend(f.record, f.title);
+				}
+				ImGui::EndDisabled();
+				tips::Tip(cannot.empty() ? (tr("ReSaverHelper runs these commands in the loaded game. ") + f.consoleWhy).c_str() : cannot.c_str());
+				ImGui::SameLine();
+			}
+			if (!f.console.empty()) {
+				if (ImGui::Button(tr("Copy the console commands"))) {
+					ImGui::SetClipboardText(Lines(f.console).c_str());
+				}
+				if (!f.consoleWhy.empty()) {
+					tips::Tip(f.consoleWhy.c_str());
+				}
+			}
+			ImGui::PopID();
+		}
+	}
 	ImGui::Separator();
 
 	const float detailH = ImGui::GetContentRegionAvail().y * 0.45f;

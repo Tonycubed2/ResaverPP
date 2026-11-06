@@ -13,6 +13,12 @@
 // What is left is a stage whose script started (the stage is done) and stopped before a line that always runs: the
 // quest cannot go on by itself (usually a form the script needs is gone, or a mod's script error).
 //
+// The scripts come from every archive and loose Scripts folder ScriptSources scanned: for the game's Data folder that is
+// "Fallout4 - Misc.ba2" (the base game) and each DLC's "<DLC> - Main.ba2" (DLCRobot, DLCworkshop01..03, DLCCoast,
+// DLCNukaWorld: Scripts\DLC01..DLC06\...; a namespaced script "DLC03:Fragments:Quests:QF_..." is that path).
+// Checked on Tony's real Data folder (F:\SteamLibrary\steamapps\common\Fallout 4\Data): every stage script of the running
+// quests of the base game and all six DLCs was found in the test saves but one the game itself does not ship
+// (Fragments:Quests:QF_DiamondCitySuperMutantInt_001A8A0E, named by Fallout4.esm's VMAD, not in Fallout4 - Misc.ba2).
 // Tried on 10 saves (about 2,400 running quests; with the base game's scripts only, 8 to 38 lines checked per save): no
 // finding. The same rules in a Python prototype over the same saves gave the same counts.
 #pragma once
@@ -70,6 +76,9 @@ namespace ess::fo4quest
 	struct Stats
 	{
 		std::size_t quests = 0, scriptsRead = 0, scriptsMissing = 0, skippedRunning = 0, checks = 0;
+		// per plugin of the quest (Fallout4.esm, DLCRobot.esm, DLCCoast.esm, ...): stage scripts read / not found, lines checked
+		std::map<std::string, std::size_t> readBy, missingBy, checksBy;
+		std::vector<std::string>           missing;  // the stage scripts not found (none of the scanned folders or archives has them)
 	};
 	// one quest against its fragment script (a_checks: += the stage / objective lines checked)
 	std::vector<Finding> CheckQuest(const quests::QuestState& a_state, const quests::QuestDef& a_def, const pexfo4::Script& a_script,

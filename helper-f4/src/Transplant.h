@@ -26,6 +26,14 @@
 //                                                                   then SetCompanion / SetDogmeatCompanion by race)
 //   companionfollow <ref>        cqf 000289E4 "FollowersScript.FollowerFollow" <ref>      (FollowerState = follow)
 //   affinity <ref> <n> [script]  <ref>.cf "<script>.SetAffinity" <n>  (n -100000..100000; the script's own ModAffinity)
+//   clearcompanion <ref> <slot 0|1>   empty a companion slot whose holder <ref> has no companion script:
+//                                0: cqf 000289E4 "FollowersScript.ClearCompanion"  then  <ref>.setplayerteammate 0
+//                                1: cqf 000289E4 "FollowersScript.ClearDogmeatCompanion"
+//                                (both functions take no arguments; ClearCompanion's CompanionDataToggle casts the holder to
+//                                CompanionActorScript, which fails for this holder (Papyrus error, the function goes on), so
+//                                the teammate flag is turned off with the console's SetPlayerTeammate 0x11c4: 1.11.240
+//                                0x5d5a40 -> 0xc93070(actor, arg != 0, 1, 0), actors only; 1.10.984 0x581790 the same
+//                                instruction for instruction, 1.10.163 0x507340 the same code)
 // 000289E4 is the Followers quest (Fallout4.esm, always load index 00). How the console reads these (1.10.163 0x4e7620,
 // 1.10.984 0x561ae0, 1.11.240 0x5b5d90, the same code in 984 and 1.11.240): a form argument is "player", else a form
 // whose editor id the game kept, else _strtoui64(text, 16) -> a form id; so a hex form id always works, an editor id

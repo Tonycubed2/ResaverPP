@@ -242,9 +242,8 @@ project; you do the coding, building, delivering and publishing.
   at the same place in the original). PluginDB reads MGEF/SPEL/ENCH/ALCH for Fallout 4 too (`Form::castType`, `poison`).
   GUI: Edit player > Active effects: state, "When removed", Remove, "All N from this source" (test hook RESAVERPP_TEST_FX). AI:
   fo4_player numbers the effects (#n) and says what removing each does; fo4_edit_player `remove_effects` / `remove_effects_from`.
-  rs_unit TestFo4ActiveEffects. Left alone: Papyrus ActiveMagicEffect script instances of a removed effect (what the game does with
-  them on load was not checked), the OnEffectFinish event (not sent), what a script or perk re-applies later, and Finish's clamp that
-  keeps a stat from going below 0 (needs the current value). No CLI option yet.
+  rs_unit TestFo4ActiveEffects. Left alone: the OnEffectFinish event (not sent), what a script or perk re-applies later, and Finish's
+  clamp that keeps a stat from going below 0 (needs the current value). Script instances and CLI: see "Fallout 4 open items" below.
 - v51 (published 2026-11-02): Edit player > Active magic effects (list, tick, Remove; CLI `--effects`, `--remove-effect 3,7`).
   Save layout: high process ACTIVE EFFECTS = vsval count, each {REF item, u8 effect index, vsval type (= MGEF archetype),
   vsval size, DATA: f32 elapsed, f32 magnitude, f32 duration, u32 flags, ...}. Checked on Tony's Save112: the player's
@@ -358,6 +357,52 @@ project; you do the coding, building, delivering and publishing.
   (`App::f4compSend`, `f4compCannot`; `fo4comp::CompanionRecord / FollowRecord / AffinityRecord`), copy buttons kept.
   `App::helperAtLeast` for the Fallout 4 helper now compares versions from 12 up (it answered true only for 12, so Transplant's
   13/14 checks were never met).
+- Fallout 4 open items finished (2026-11-06, branch f4a, not published):
+  - Clear a companion slot through the helper: APPLY record `clearcompanion <ref> <0 companion slot|1 Dogmeat slot>` in helper-f4
+    version 15 (no bump: 15 is not built yet; `Transplant.h/.cpp`, `Protocol.h` comment, README changed) -> 0: `cqf 000289E4
+    "FollowersScript.ClearCompanion"` then `<ref>.setplayerteammate 0`; 1: `cqf 000289E4 "FollowersScript.ClearDogmeatCompanion"`.
+    Checked in FollowersScript.pex (Fallout4 - Misc.ba2, Tony's Data): both take no arguments. ClearCompanion: GetActorReference on
+    the Companion alias (nothing at all when it is not an actor), CompanionDataToggle(False, False, True, True), StopCombatAlarm,
+    Clear, SendCompanionChangeEvent, PlayerHasActiveCompanion 0. CompanionDataToggle casts the holder to CompanionActorScript and
+    calls IgnoreFriendlyHits / SetPlayerTeammate on that, so for the holder this finding is about (no companion script) those calls
+    fail and the function goes on (Papyrus aborts only the call on None: seen in Tony's Skyrim Papyrus.0.log, the same frame
+    erroring at line 437 then 439; Fallout 4's VM has the same message 0x28fc748 - not traced further) and the teammate flag stays:
+    hence `setplayerteammate 0` (console 0x11c4, 1.11.240 0x5d5a40 -> Actor::SetPlayerTeammate 0xc93070(actor, arg != 0, 1, 0),
+    actors only (type 0x41), the favor/XP arguments read only when turning it on; 1.10.984 0x581790 the same instruction for
+    instruction, 1.10.163 0x507340 the same code). ClearDogmeatCompanion uses the holder as an Actor and turns the flag off itself.
+    `fo4comp::ClearSlotCommands / ClearSlotRecord`; the finding says when the holder is saved as a non-actor reference (then the
+    commands do nothing). App: the Companions window now lists the slot findings (they belong to no companion row) with "Run in the
+    game: empty the slot" and copy; the Save check gets "Run it in the game" from the record. Helper parsing tested with a stub PCH
+    (scratchpad f4a/htest). Not tested in the game.
+  - Quest check and the DLCs: nothing was missing in the code (ScriptSources reads every archive of the Data folder, Scripts\DLC01..06
+    inside "<DLC> - Main.ba2"; findPex turns "DLC03:Fragments:Quests:QF_x" into that path); earlier runs had only Fallout4 - Misc.ba2.
+    `fo4quest::Stats` now has per plugin readBy / missingBy / checksBy and the missing names; the CLI prints them; rs_fo4comp_test
+    requires every running DLC quest's script to be read when that DLC's Main.ba2 is in RESAVERPP_FO4_DATA. Run on Tony's real Data
+    folder with the static CLI in the device shell (saves copied to C:\dllmaker\ReSaverPP\ba2test\f4a\saves; files over ~25 MB
+    only went through device_commit_files split in parts): all 12 readable test saves 0 findings; every DLC stage script found; the
+    only script not found anywhere is the base game's Fragments:Quests:QF_DiamondCitySuperMutantInt_001A8A0E (named by Fallout4.esm,
+    not in Fallout4 - Misc.ba2: the game lacks it too). Lines checked (base / DLC): Save14 33 / 16, Save10 38 / 14, Save12 36 / 14,
+    Save8 37 / 14, Save9 37 / 14, MainQuestRailroad 17 / 5, ...Automatron 17 / 4, ...FarHarbor 18 / 9, Save7/Save8 (Tony) 8 / 2,
+    nate/nora 7 / 2.
+  - CLI `--fo4-effects <player|ref> [--sources]` (numbered #0.., what removal does, how many script instances go with each) and
+    `--fo4-remove-effects <actor>:<#n,#m|all|from:<item id or plugin>> [--sources] -o` (src/cli/EffectsF4Cli.cpp, any actor; written
+    save read back). CTest `cli_fo4_effects` (tests/cli_fo4_effects.cmake: argument checks; with RESAVERPP_FO4_SAVES removes one
+    no-stat effect of the player of each save and counts the effects of the new save).
+  - Script instances of removed effects are removed with them now (`fo4cf::RemoveActiveEffects` step 5, `EffectScriptInstances`,
+    `ops::PurgeInstances` = PurgeScript's thread/stack/queued-call logic for an instance set, plus their queued unbinds;
+    `ops::ReferrersOutside`). Verified in Fallout4.exe 1.11.240: the Papyrus handle of an active effect is
+    GameScript::HandlePolicy::GetHandleForObject (vtable 0x25b8620, vfunc 7 0x109a4f0, type 0xA3) = 2 << 48 | uniqueID (+0x8c) << 32 |
+    target form id; in the save that is the instance's unknown2bits (2), unknown (the unique id) and RefID (the actor) - matched on
+    every scripted effect of the test saves (unique id = effect data +33, after 16 bytes, 4 refs, the hit effect list's vsval count
+    and a u32; ActiveEffect::LoadGame 0xb74e90 reads it at 0xb75214; the hit list was empty on all ~3,000 effects). For a type 2
+    handle IsHandleLoaded (0x109a2d0) / IsHandleObjectAvailable (0x109a3d0) only look up the actor's form, ShouldAttemptToCleanHandle
+    (0x109a490) is false, GetObjectForHandle (0x109aae0) searches the actor's effects for the unique id: so a left instance stays
+    loaded with no effect behind it, and Start's unique id pick (0xb76730: the lowest id the actor's current effects do not use) can
+    give a later effect the same handle. The game's own saves: on actors whose effect list is saved, 1 such leftover instance in 12
+    saves (Save10 SynthCrippleMeleeScript on 00190540); hundreds on actors whose effect list is not saved (low process). Not traced:
+    the VM's own load loop that calls these policy functions. An instance another object still names (variables of instances,
+    references, arrays, structs, threads kept) is kept and the result says so. rs_unit: 318 instances removed with 1872 effects of
+    12 saves (no threads on them, none kept), Papyrus section reads back clean; one edited save round-trips byte-identical.
 - Linux/Wine is not officially supported.
 
 - Co-save viewer/cleaner (2026-11-06, branch cosave, not published): `core/Cosave.*` reads/writes .skse/.f4se byte-exact (format
