@@ -110,6 +110,30 @@ namespace ess
 			return it == _effects.end() ? nullptr : &it->second;
 		}
 
+		// CELL records, as the last plugin in load order that overrides each has them (a deleted override removes the cell).
+		// The game's TESObjectCELL keeps DATA in +0x40 (bit 0: interior, Fallout4.exe 1.11.240 0x4c28d1; ResetInterior's
+		// 0x4c9330 tests it) and XCLC's x / y in its exterior data (0x4c2ac9); the worldspace is the one whose World Children
+		// group (group type 1) holds the record.
+		struct CellDef
+		{
+			std::uint16_t flags = 0;          // DATA (bit 0: interior)
+			bool          hasData = false;
+			bool          hasGrid = false;    // XCLC read
+			std::int32_t  x = 0, y = 0;       // XCLC
+			std::uint32_t worldspace = 0;     // runtime form id of the WRLD holding it (0: not in a worldspace's group)
+			bool          persistent = false; // record flag 0x400 in a worldspace: the worldspace's persistent cell
+			std::uint16_t plugin = 0;         // index into plugins(): the last plugin that overrides it
+			bool          interior() const { return hasData && (flags & 1); }
+		};
+		const CellDef* cell(std::uint32_t a_formID) const
+		{
+			auto it = _cells.find(a_formID);
+			return it == _cells.end() ? nullptr : &it->second;
+		}
+		// the exterior cell at a grid position of a worldspace (not its persistent cell); 0 when no plugin has one
+		std::uint32_t cellAt(std::uint32_t a_worldspace, std::int32_t a_x, std::int32_t a_y) const;
+		std::size_t   cellCount() const { return _cells.size(); }
+
 		std::vector<std::string> missing;  // plugins of the save whose file was not found
 		// True only for a plugin that was found and read to the end (not missing, no read error): only then does
 		// "the form is not in it" mean the plugin really no longer has the form. a_plugin: any letter case.
@@ -128,6 +152,8 @@ namespace ess
 		std::uint32_t addString(const std::string& s);
 
 		std::unordered_map<std::uint32_t, Form> _forms;
+		std::unordered_map<std::uint32_t, CellDef> _cells;
+		std::unordered_map<std::uint64_t, std::uint32_t> _cellAt;  // (worldspace, x, y) key -> cell
 		std::unordered_map<std::uint32_t, quests::QuestDef> _quests;
 		std::unordered_map<std::uint32_t, MagicEffectDef>   _mgef;
 		std::unordered_map<std::uint32_t, std::vector<EffectItem>> _effects;

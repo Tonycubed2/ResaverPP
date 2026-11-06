@@ -157,9 +157,20 @@ namespace ess
 		return off;
 	}
 
+	namespace
+	{
+		std::uint64_t GridKey(std::uint32_t a_ws, std::int32_t a_x, std::int32_t a_y)
+		{
+			return (static_cast<std::uint64_t>(a_ws) << 32) ^ (static_cast<std::uint64_t>(static_cast<std::uint16_t>(a_x)) << 16) ^
+			       static_cast<std::uint16_t>(a_y);
+		}
+	}
+
 	void PluginDB::load(const Input& a_in, Progress& a_progress)
 	{
 		_forms.clear();
+		_cells.clear();
+		_cellAt.clear();
 		_quests.clear();
 		_pool.clear();
 		_plugins.clear();
@@ -306,9 +317,24 @@ namespace ess
 				// ---- records
 				std::size_t pos = 24 + tes4Size;
 				const auto  plugIdx = static_cast<std::uint16_t>(_plugins.size() - 1);
+				// the groups the reader is in (end offset, group type, label): a CELL's worldspace is the label of the
+				// World Children group (type 1) around it
+				struct Group
+				{
+					std::size_t   end;
+					std::int32_t  type;
+					std::uint32_t label;
+				};
+				std::vector<Group> groups;
 				while (pos + 24 <= file.size()) {
+					while (!groups.empty() && pos >= groups.back().end) {
+						groups.pop_back();
+					}
 					const auto* h = file.data() + pos;
 					if (Is(h, "GRUP")) {
+						std::int32_t gtype;
+						std::memcpy(&gtype, h + 12, 4);
+						groups.push_back({ pos + U32(h + 4), gtype, U32(h + 8) });
 						pos += 24;  // descend into the group
 						continue;
 					}
@@ -318,6 +344,13 @@ namespace ess
 						break;
 					}
 					pos = next;
+					const bool isCell = Is(h, "CELL");
+					if (isCell && (flags & 0x20)) {  // a deleted override: the cell is gone
+						std::uint32_t gone;
+						if (toRuntime(rawID, gone)) {
+							_cells.erase(gone);
+						}
+					}
 					if (Skip(h) || (flags & 0x20)) {  // skipped type or deleted
 						continue;
 					}
@@ -364,6 +397,7 @@ namespace ess
 					bool           gotMgef = false;
 					std::vector<EffectItem> effs;
 					quests::QuestDef qd;
+					CellDef          cellDef;
 					for (std::size_t p = 0; p + 6 <= n;) {
 						const auto* st = d + p;
 						std::uint32_t len;
@@ -412,6 +446,13 @@ namespace ess
 							std::memcpy(&effs.back().magnitude, d + p, 4);
 							effs.back().area = U32(d + p + 4);
 							effs.back().duration = U32(d + p + 8);
+						} else if (isCell && Is(st, "DATA") && len >= 1) {
+							cellDef.hasData = true;
+							cellDef.flags = static_cast<std::uint16_t>(d[p] | (len >= 2 ? d[p + 1] << 8 : 0));
+						} else if (isCell && Is(st, "XCLC") && len >= 8) {
+							cellDef.hasGrid = true;
+							std::memcpy(&cellDef.x, d + p, 4);
+							std::memcpy(&cellDef.y, d + p + 4, 4);
 						} else if (placed && Is(st, "NAME") && len == 4) {
 							std::uint32_t b;
 							if (toRuntime(U32(d + p), b)) {
@@ -482,6 +523,23 @@ namespace ess
 							}
 						}
 						p += len;
+					}
+					if (isCell) {
+						// an override without DATA keeps the earlier flags
+						if (const auto it = _cells.find(id); it != _cells.end() && !cellDef.hasData) {
+							cellDef.hasData = it->second.hasData;
+							cellDef.flags = it->second.flags;
+						}
+						for (auto g = groups.rbegin(); g != groups.rend(); ++g) {
+							std::uint32_t ws;
+							if (g->type == 1 && toRuntime(g->label, ws)) {
+								cellDef.worldspace = ws;
+								break;
+							}
+						}
+						cellDef.persistent = cellDef.worldspace && (flags & 0x400);
+						cellDef.plugin = plugIdx;
+						_cells[id] = cellDef;
 					}
 					auto& f = _forms[id];
 					std::memcpy(f.type, h, 4);
@@ -556,6 +614,21 @@ namespace ess
 			}
 			++a_progress.done;
 		}
+		for (const auto& [id, c] : _cells) {
+			if (c.worldspace && c.hasGrid && !c.persistent && !c.interior()) {
+				_cellAt[GridKey(c.worldspace, c.x, c.y)] = id;
+			}
+		}
+	}
+
+	std::uint32_t PluginDB::cellAt(std::uint32_t a_worldspace, std::int32_t a_x, std::int32_t a_y) const
+	{
+		const auto it = _cellAt.find(GridKey(a_worldspace, a_x, a_y));
+		if (it == _cellAt.end()) {
+			return 0;
+		}
+		const auto* c = cell(it->second);  // (the key packs x / y in 16 bits: check them)
+		return c && c->x == a_x && c->y == a_y ? it->second : 0;
 	}
 
 	const PluginDB::Form* PluginDB::find(std::uint32_t a_formID) const
