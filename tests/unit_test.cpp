@@ -19,13 +19,18 @@
 #include "core/PluginDB.h"
 #include "core/Quests.h"
 #include "core/ChangeFormData.h"
+#include "core/FollowersSky.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
+#include "core/WorkshopFO4.h"
+#include "core/WorldItemsFO4.h"
+#include "core/CellResetFO4.h"
 
 #include <filesystem>
 #include <fstream>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -3218,6 +3223,200 @@ void TestFo4Combat()
 	std::printf("(fo4 combat: %zu real saves, %zu actors with a combat controller)\n", tested, combat);
 }
 
+// Fallout 4 active effect removal: the rules of PlanEffectRemoval (what the game's end of each effect undoes, see
+// ChangeFormFO4.h), then with RESAVERPP_FO4_SAVES every actor of every real save: its removable effects removed (with
+// a value modifier's strength taken off its modifier, the four vitals included), written, read back exactly.
+void TestFo4ActiveEffects()
+{
+	namespace f4 = ess::fo4cf;
+	{
+		f4::Actor pc;
+		pc.player = true;
+		f4::Actor npc;
+		f4::ActiveEffect e;
+		e.data = { 0, 40 };
+		e.archetype = 34;
+		e.flags = 0x14200;  // started, magnitude as saved, inactive bit 0x4000 only
+		e.magnitude = 2;
+		f4::EffectSource ab;
+		ab.known = true;
+		ab.mgefFlags = 0xa02;  // recover
+		ab.actorValue = 0x2C2;
+		std::memcpy(ab.itemType, "SPEL", 4);
+		ab.spellType = 4;
+		ab.castType = 0;
+		auto u = f4::PlanEffectRemoval(pc, e, &ab);
+		Check(u.ok && u.modifier && u.slot == 0 && u.amount == 2 && u.actorValue == 0x2C2, "fo4 effects: the player's ability -> modifier slot 0");
+		u = f4::PlanEffectRemoval(npc, e, &ab);
+		Check(u.ok && u.modifier && u.slot == 1, "fo4 effects: an NPC's ability -> slot 1");
+		auto en = ab;
+		std::memcpy(en.itemType, "ENCH", 4);
+		en.spellType = 6;
+		Check(f4::PlanEffectRemoval(pc, e, &en).slot == 0, "fo4 effects: the player's constant effect enchantment -> slot 0");
+		en.castType = 1;
+		Check(f4::PlanEffectRemoval(pc, e, &en).slot == 1, "fo4 effects: the player's fire and forget enchantment -> slot 1");
+		auto al = ab;
+		std::memcpy(al.itemType, "ALCH", 4);
+		al.spellType = 7;
+		al.castType = 1;
+		Check(f4::PlanEffectRemoval(pc, e, &al).slot == 0, "fo4 effects: the player's potion on S.P.E.C.I.A.L. -> slot 0");
+		al.actorValue = 0x2D4;
+		Check(f4::PlanEffectRemoval(pc, e, &al).slot == 0, "fo4 effects: the player's potion on Health -> slot 0");
+		al.actorValue = 0x2D7;
+		Check(f4::PlanEffectRemoval(pc, e, &al).slot == 1, "fo4 effects: the player's potion on another game actor value -> slot 1");
+		al.poison = true;
+		al.actorValue = 0x2C2;
+		Check(f4::PlanEffectRemoval(pc, e, &al).slot == 1, "fo4 effects: a poison -> slot 1");
+		al.poison = false;
+		al.actorValue = 0x01000800;
+		Check(!f4::PlanEffectRemoval(pc, e, &al).ok, "fo4 effects: the player's potion on a plugin's actor value is refused (its type is not known)");
+		auto norec = ab;
+		norec.mgefFlags = 0x800;
+		u = f4::PlanEffectRemoval(pc, e, &norec);
+		Check(u.ok && !u.modifier, "fo4 effects: without recover nothing is undone");
+		Check(!f4::PlanEffectRemoval(pc, e, nullptr).ok, "fo4 effects: a running value modifier with no plugin data is refused");
+		auto off = e;
+		off.flags = 0xc280;  // inactive, never started
+		u = f4::PlanEffectRemoval(pc, off, nullptr);
+		Check(u.ok && !u.modifier, "fo4 effects: an effect not started is removed with nothing to undo");
+		off.flags = 0x3c280;  // started and finished
+		u = f4::PlanEffectRemoval(pc, off, nullptr);
+		Check(u.ok && !u.modifier, "fo4 effects: a finished effect is removed with nothing to undo");
+		auto taper = e;
+		taper.flags = 0x14000;
+		Check(!f4::PlanEffectRemoval(pc, taper, &ab).ok, "fo4 effects: a running value modifier whose strength tapers is refused");
+		auto script = e;
+		script.archetype = 1;
+		Check(f4::PlanEffectRemoval(pc, script, nullptr).ok, "fo4 effects: a running script effect is removed (its Finish changes nothing saved)");
+		auto dual = e;
+		dual.archetype = 5;
+		Check(!f4::PlanEffectRemoval(pc, dual, &ab).ok, "fo4 effects: a running dual value modifier is refused");
+		dual.archetype = 36;
+		Check(f4::PlanEffectRemoval(pc, dual, nullptr).ok, "fo4 effects: archetype 36 (a plain ActiveEffect) is removed");
+	}
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 effects: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	namespace fs = std::filesystem;
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	const auto  tmp = fs::temp_directory_path() / "rs_unit_fo4fx.fos";
+	std::size_t tested = 0, removedAll = 0, statsAll = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		if (!s->isFO4()) continue;
+		struct Want
+		{
+			std::size_t                                  effects = 0;
+			std::map<std::uint32_t, std::array<float, 3>> mods;
+			float                                        vit[4][3]{};
+		};
+		std::map<std::uint32_t, Want> want;
+		std::size_t                   removed = 0, failed = 0, stats = 0;
+		std::string                   firstErr;
+		for (auto& c : s->changeForms) {
+			if (c.typeCode() != 1) continue;
+			const auto a = f4::DecodeActor(*s, c);
+			if (!a.complete || a.effects.empty()) continue;
+			// every started value modifier gets a made-up source: an ability on an actor value the actor has a modifier for
+			// (the player's slot 0, an NPC's slot 1), so the modifier edit is exercised; the others none
+			std::vector<f4::EffectSource> src(a.effects.size());
+			Want                          w;
+			for (const auto& m : a.modifiers) w.mods[m.formID] = { m.mod[0], m.mod[1], m.mod[2] };
+			for (int k = 0; k < 4; ++k)
+				for (int j = 0; j < 3; ++j) w.vit[k][j] = j < static_cast<int>(std::min<std::uint32_t>(a.vitals[k].count, 3)) ? a.vitals[k].mod[j] : 0.0f;
+			std::vector<std::size_t> pick;
+			for (std::size_t i = 0; i < a.effects.size(); ++i) {
+				const auto& e = a.effects[i];
+				if ((e.archetype == 0 || e.archetype == 34) && e.started() && !a.modifiers.empty()) {
+					auto& x = src[i];
+					x.known = true;
+					x.mgefFlags = 0x2;
+					x.actorValue = i % 5 == 4 ? f4::kVitalAV[i % 4] : a.modifiers[i % a.modifiers.size()].formID;
+					std::memcpy(x.itemType, "SPEL", 4);
+					x.spellType = 4;
+					x.castType = 0;
+				}
+				const auto u = f4::PlanEffectRemoval(a, e, &src[i]);
+				if (!u.ok) continue;
+				pick.push_back(i);
+				if (u.modifier && u.amount != 0) {
+					float* v = nullptr;
+					for (int k = 0; k < 4; ++k)
+						if (f4::kVitalAV[k] == u.actorValue) v = &w.vit[k][u.slot];
+					if (!v) v = &w.mods[u.actorValue][u.slot];
+					*v -= u.amount;
+					if (std::fabs(*v) <= 0.0001f) *v = 0;
+					++stats;
+				}
+			}
+			if (pick.empty()) continue;
+			std::vector<std::string> changes;
+			const auto               e = f4::RemoveActiveEffects(*s, c, pick, src, &changes);
+			if (!e.empty()) {
+				++failed;
+				if (firstErr.empty()) firstErr = e;
+				continue;
+			}
+			w.effects = a.effects.size() - pick.size();
+			removed += pick.size();
+			want[c.refID.data] = std::move(w);
+		}
+		{
+			const auto    bytes = s->serialize();
+			std::ofstream out(tmp, std::ios::binary);
+			out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		auto        again = SaveFile::load(tmp);
+		std::size_t ok = 0;
+		for (const auto& c : again->changeForms) {
+			const auto it = want.find(c.refID.data);
+			if (c.typeCode() != 1 || it == want.end()) continue;
+			const auto a = f4::DecodeActor(*again, c);
+			bool       good = a.complete && a.effects.size() == it->second.effects;
+			for (const auto& m : a.modifiers) {
+				const auto& x = it->second.mods[m.formID];
+				good = good && m.mod[0] == x[0] && m.mod[1] == x[1] && m.mod[2] == x[2];
+			}
+			for (int k = 0; k < 4; ++k)
+				for (int j = 0; j < 3; ++j)
+					good = good && (j < static_cast<int>(std::min<std::uint32_t>(a.vitals[k].count, 3)) ? a.vitals[k].mod[j] : 0.0f) == it->second.vit[k][j];
+			ok += good;
+		}
+		Check(failed == 0 && ok == want.size(), ("fo4 effects: " + f.filename().string() + ": " + std::to_string(removed) + " effects removed from " +
+		      std::to_string(want.size()) + " actors (" + std::to_string(stats) + " modifiers put back), " + std::to_string(ok) +
+		      " read back exactly" + (firstErr.empty() ? "" : "; " + firstErr)).c_str());
+		removedAll += removed;
+		statsAll += stats;
+		++tested;
+	}
+	std::error_code ec;
+	fs::remove(tmp, ec);
+	Check(tested == 0 || (removedAll > 0 && statsAll > 0), "fo4 effects: the real saves had effects to remove and modifiers to put back");
+	std::printf("(fo4 effects: %zu real saves, %zu effects removed, %zu modifiers put back)\n", tested, removedAll, statsAll);
+}
+
 // Fallout 4 player: the PlayerCharacter part (PlayerCharacter::LoadGame 0xd65bd0 after Actor::LoadGame) read through
 // fo4cf::detail::PlayerPart on bytes laid out as the game reads them, at form versions that take different branches;
 // then, with RESAVERPP_FO4_SAVES, every real save's player read completely, its Pip-Boy lists, a plugin's items removed
@@ -3421,6 +3620,158 @@ void TestFo4Player()
 	std::printf("(fo4 player: %zu real saves)\n", tested);
 }
 
+// Fallout 4 settlements: the workbench's actor values (extra 0xC2), the build meter, the used budget reset
+void TestFo4Workshops()
+{
+	namespace fs = std::filesystem;
+	namespace ws = ess::fo4ws;
+	using B = std::vector<std::uint8_t>;
+	auto u32 = [](B& b, std::uint32_t v) { for (int i = 0; i < 4; ++i) b.push_back(static_cast<std::uint8_t>(v >> (8 * i))); };
+	auto f32 = [&](B& b, float f) { std::uint32_t v; std::memcpy(&v, &f, 4); u32(b, v); };
+	auto ref = [](B& b, std::uint32_t formID) { const std::uint32_t d = formID ? ((1u << 22) | formID) : 0; b.push_back(d >> 16); b.push_back(d >> 8); b.push_back(d); };
+	{
+		// a REFR with extra data (change flag 31): vsval 2 extras: 0xC2 {bases: MaxDraws 1000, CurrentDraws 900, Happiness 50;
+		// modifiers: CurrentTriangles (0, 0, 10)}, then 0x1f (one byte)
+		B r;
+		r.push_back(2 << 2);
+		r.push_back(0xC2);
+		r.push_back(3 << 2);
+		ref(r, ws::kAvMaxDraws); f32(r, 1000.f);
+		ref(r, ws::kAvCurrentDraws); f32(r, 900.f);
+		ref(r, ws::kAvHappiness); f32(r, 50.f);
+		r.push_back(1 << 2);
+		ref(r, ws::kAvCurrentTriangles); f32(r, 0.f); f32(r, 0.f); f32(r, 10.f);
+		r.push_back(0x1f);
+		r.push_back(7);
+		ess::SaveFile save;
+		save.header.magic = "FO4_SAVEGAME";
+		save.formVersion = 68;
+		ess::ChangeForm c;
+		c.refID.data = (1u << 22) | 0x250FE;
+		c.typeField = 0;
+		c.changeFlags = 1u << 31;
+		c.data = r;
+		c.length1 = static_cast<std::uint32_t>(r.size());
+		save.changeForms.push_back(c);
+		const auto d = ess::fo4cf::DecodeRefr(save, save.changeForms[0]);
+		const auto st = ws::ReadStorage(r, d, save);
+		Check(d.complete && st && st->present && st->bases.size() == 3 && st->mods.size() == 1 && st->value(ws::kAvCurrentDraws) == 900.f &&
+				  st->value(ws::kAvCurrentTriangles) == 10.f && st->value(ws::kAvMaxTriangles) == 0.f,
+			"fo4 workshop: extra 0xC2 read (vsval n x {ref, f32}, vsval m x {ref, 3 x f32}); value = base + modifiers");
+		bool       changed = false;
+		const auto why = ws::SetUsed(save, 0x250FE, 0.f, 0.f, &changed);
+		const auto b2 = ess::cf::Body(save.changeForms[0]);
+		const auto d2 = ess::fo4cf::DecodeRefr(save, save.changeForms[0]);
+		const auto st2 = ws::ReadStorage(b2, d2, save);
+		Check(why.empty() && changed && d2.complete && st2 && st2->value(ws::kAvCurrentDraws) == 0.f && st2->value(ws::kAvCurrentTriangles) == 0.f &&
+				  st2->base(ws::kAvCurrentTriangles) == -10.f && st2->value(ws::kAvMaxDraws) == 1000.f && st2->value(ws::kAvHappiness) == 50.f &&
+				  st2->bases.size() == 4 && b2.size() == r.size() + 7 && b2.back() == 7 && b2[b2.size() - 2] == 0x1f,
+			"fo4 workshop: reset sets the current bases so base + modifiers is 0 (a triangles entry added), the rest kept");
+		changed = true;
+		Check(ws::SetUsed(save, 0x250FE, 0.f, 0.f, &changed).empty() && !changed, "fo4 workshop: resetting again changes nothing");
+		Check(!ws::SetUsed(save, 0x250FE, -1.f, std::nullopt).empty() && !ws::SetUsed(save, 0x12345, 0.f, 0.f).empty(),
+			"fo4 workshop: negative numbers and unknown workshops refused");
+
+		ws::Settlement s;
+		s.currentDraws = 861;
+		s.maxDraws = 1000;
+		s.currentTriangles = 497844;
+		s.maxTriangles = 500000;
+		Check(std::fabs(s.meter() - 497844.0 / 500000.0) < 1e-6 && !s.overBudget(), "fo4 workshop: the meter is the larger share");
+		s.maxDraws = 0;
+		s.maxTriangles = 0;
+		s.currentDraws = 10000;
+		Check(s.limitDraws() == 10000 && s.limitTriangles() == 10000000 && s.overBudget(), "fo4 workshop: max 0 = the game's default; full at 1.0");
+	}
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 workshops: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	const auto tmp = fs::temp_directory_path() / "rs_unit_ws.fos";
+	auto       CheckS = [](bool a_ok, const std::string& a_what) { Check(a_ok, a_what.c_str()); };
+	std::size_t tested = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		const auto name = f.filename().string();
+		const auto list = ws::List(*s);
+		std::size_t sanctuary = 0, edited = 0;
+		for (const auto& w : list) {
+			sanctuary += w.formID == 0x250FE && w.location == 0x1F228;  // SanctuaryHillsLocation
+		}
+		CheckS(list.size() >= 30 && sanctuary == 1, "fo4 workshop: " + name + ": " + std::to_string(list.size()) + " workshops, Sanctuary's at its location");
+		if (name.rfind("Save14_", 0) == 0) {
+			std::size_t over = 0;
+			for (const auto& w : ws::Check(*s)) {
+				over += w.kind == ws::Finding::Kind::kOverBudget && w.form == 0x66EB6;
+			}
+			CheckS(over == 1, "fo4 workshop: Save14: The Castle (66EB6) over budget (1005094 / 1000000 triangles)");
+		}
+		const auto before = s->changeForms;
+		std::set<std::uint32_t> touched;
+		for (const auto& w : list) {
+			if (!w.hasStorage || !w.readable) continue;
+			bool changed = false;
+			const auto why = ws::SetUsed(*s, w.formID, 0.f, 0.f, &changed);
+			CheckS(why.empty(), "fo4 workshop: " + name + ": reset " + why);
+			if (changed) {
+				++edited;
+				touched.insert(w.formID);
+			}
+		}
+		const auto bytes = s->serialize();
+		{
+			std::ofstream out(tmp, std::ios::binary);
+			out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		auto back = SaveFile::load(tmp);
+		bool same = back->changeForms.size() == before.size() && back->serialize() == bytes;
+		std::size_t others = 0;
+		for (std::size_t i = 0; same && i < before.size(); ++i) {
+			const auto id = back->formIDOf(back->changeForms[i].refID);
+			if (!touched.contains(id) || back->changeForms[i].typeCode() != 0) {
+				others += ess::cf::Body(back->changeForms[i]) != ess::cf::Body(before[i]);
+			}
+		}
+		bool zero = true;
+		const auto list2 = ws::List(*back);
+		for (std::size_t i = 0; i < list2.size() && i < list.size(); ++i) {
+			const auto& a = list[i];
+			const auto& b = list2[i];
+			if (a.hasStorage && a.readable) {
+				zero = zero && b.usedDraws() == 0 && b.usedTriangles() == 0 && b.maxDraws == a.maxDraws && b.maxTriangles == a.maxTriangles &&
+				       b.population == a.population && b.happiness == a.happiness && b.readable;
+			}
+		}
+		CheckS(same && others == 0 && zero && list2.size() == list.size(), "fo4 workshop: " + name + ": " + std::to_string(edited) +
+			" workshops reset, written and read back; every other change form unchanged");
+		++tested;
+	}
+	fs::remove(tmp);
+	CheckS(tested > 0, "fo4 workshop: real saves tested (" + std::to_string(tested) + ")");
+}
+
 void TestFo4HavokFormLists()
 {
 	namespace fs = std::filesystem;
@@ -3580,6 +3931,388 @@ void TestFo4HavokFormLists()
 	std::printf("(fo4 havok / purify: %zu real saves)\n", tested);
 }
 
+// Skyrim followers / beast form (core/FollowersSky): the global variables block in memory, then real saves from
+// RESAVERPP_SKY_SAVES="dir;dir" (Tony's Save88, SkyrimIstari's Save89: PlayerFollowerCount 1 with an empty Follower alias)
+void TestSkyFollowers()
+{
+	namespace fs = std::filesystem;
+	{
+		ess::SaveFile s;
+		ess::GlobalData g;
+		g.type = 3;
+		g.raw = { 2 << 2 };  // vsval 2
+		auto put = [&](std::uint32_t id, float v) {
+			const std::uint32_t r = (1u << 22) | id;  // a Skyrim.esm form id (RefID type 1)
+			g.raw.push_back(static_cast<std::uint8_t>(r >> 16));
+			g.raw.push_back(static_cast<std::uint8_t>(r >> 8));
+			g.raw.push_back(static_cast<std::uint8_t>(r));
+			std::uint8_t b[4];
+			std::memcpy(b, &v, 4);
+			g.raw.insert(g.raw.end(), b, b + 4);
+		};
+		put(ess::skyf::kPlayerFollowerCount, 1.0f);
+		put(0x39, 47.5f);
+		s.table1.push_back(std::move(g));
+		std::string err;
+		auto        all = ess::skyf::ReadGlobals(s, &err);
+		Check(err.empty() && all.size() == 2 && all[0].formID == 0x0BCC98 && all[0].value == 1.0f && all[1].formID == 0x39 && all[1].value == 47.5f,
+			"skyf: the global variables block (vsval count, RefID + f32)");
+		Check(ess::skyf::SetGlobal(s, 0x0BCC98, 0.0f).empty() && ess::skyf::ReadGlobals(s)[0].value == 0.0f && ess::skyf::ReadGlobals(s)[1].value == 47.5f,
+			"skyf: a global set in place, the others kept");
+		Check(!ess::skyf::SetGlobal(s, 0x123456, 1.0f).empty(), "skyf: a global the save does not have is refused");
+		s.table1[0].raw.push_back(0);
+		Check(ess::skyf::ReadGlobals(s, &err).empty() && !err.empty(), "skyf: a block with bytes left over is not trusted");
+		// a FollowerActor's rank: the reference's change first, then the base NPC's, else the plugin's (-2)
+		ess::skyf::FollowerActor a;
+		a.refFactions = { { ess::skyf::kCurrentFollowerFaction, -1 } };
+		a.baseFactions = { { ess::skyf::kCurrentFollowerFaction, 0 }, { ess::skyf::kDismissedFollowerFaction, 0 } };
+		Check(a.rank(ess::skyf::kCurrentFollowerFaction) == -1 && a.inFaction(ess::skyf::kDismissedFollowerFaction) &&
+				  a.rank(ess::skyf::kPlayerFollowerFaction) == -2,
+			"skyf: faction rank from the reference, then the base NPC");
+	}
+
+	// the beast form verdicts (PlayerWerewolfChangeScript / DLC1PlayerVampireChangeScript), one per case
+	{
+		using B = ess::skyf::BeastState;
+		auto make = [](ess::skyf::Beast k) {
+			B b;
+			b.kind = k;
+			b.questEdid = k == ess::skyf::Beast::kWerewolf ? "PlayerWerewolfQuest" : "DLC1PlayerVampireQuest";
+			b.questInSave = true;
+			b.beastRace = 0x000CDD84;
+			b.originalRace = 0x00013746;
+			return b;
+		};
+		auto wolf = make(ess::skyf::Beast::kWerewolf);
+		wolf.questRunning = true;
+		wolf.stagesDone = { 0, 1, 10 };
+		wolf.raceIsBeast = true;
+		wolf.hasShiftBackTime = true;
+		wolf.shiftBackTime = 10.0f;
+		wolf.gameDaysPassed = 10.01f;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kNone, "skyf beast: a werewolf whose time is not up is fine");
+		wolf.gameDaysPassed = 10.5f;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kSetStage, "skyf beast: a werewolf past its time: stage 100");
+		wolf.untimed = true;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kNone, "skyf beast: an untimed werewolf (C03Rampage) is left alone");
+		wolf.untimed = false;
+		wolf.stagesDone.push_back(100);
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert, "skyf beast: still a werewolf after stage 100: the script's ShiftBack again");
+		wolf.questRunning = false;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert && wolf.problem.find("not running") != std::string::npos, "skyf beast: a werewolf with the quest stopped");
+		wolf.originalRace = 0;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kCannot, "skyf beast: no race to go back to: the console");
+		wolf.originalRace = 0x00013746;
+		wolf.raceIsBeast = false;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kNone, "skyf beast: human, quest stopped, nothing left: fine");
+		wolf.spells = { 0x0010C6E8 };
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert, "skyf beast: human but the claws are still there");
+		wolf.spells.clear();
+		wolf.questRunning = true;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert && wolf.problem.find("Shutdown") != std::string::npos, "skyf beast: human but the quest still runs after stage 100");
+		auto lord = make(ess::skyf::Beast::kVampireLord);
+		lord.questRunning = true;
+		lord.stagesDone = { 0, 1, 10 };
+		lord.raceIsBeast = true;
+		lord.hasRevertPower = true;
+		ess::skyf::Judge(lord);
+		Check(lord.fix == B::Fix::kNone, "skyf beast: a Vampire Lord with Revert Form is fine (no time limit)");
+		lord.hasRevertPower = false;
+		ess::skyf::Judge(lord);
+		Check(lord.fix == B::Fix::kSetStage, "skyf beast: a Vampire Lord without Revert Form: stage 100");
+	}
+
+	const char* env = std::getenv("RESAVERPP_SKY_SAVES");
+	if (!env || !*env) {
+		std::printf("(skyf: RESAVERPP_SKY_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) {
+			e = all.size();
+		}
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".ess") {
+					files.push_back(f.path());
+				}
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	for (const auto& f : files) {
+		const auto tag = "skyf " + f.filename().string().substr(0, 12) + ": ";
+		auto       save = ess::SaveFile::load(f);
+		const auto st = ess::skyf::ReadFollowers(*save);
+		Check(st.error.empty() && st.questInSave && st.scriptFound && (st.hasCount || st.followerCount == 0.0f), (tag + "the follower quest and its script are read (a count never changed in game is not saved: 0)").c_str());
+		std::size_t teammates = 0;
+		for (const auto& a : st.actors) {
+			teammates += a.teammate ? 1 : 0;
+			Check(a.decoded, (tag + "every follower-sign actor's state is read").c_str());
+		}
+		const bool stuckCount = std::any_of(st.findings.begin(), st.findings.end(), [](const ess::skyf::Finding& x) { return x.issue == ess::skyf::Issue::kCountWithoutFollower; });
+		Check(stuckCount == (st.followerCount >= 1 && !st.inAlias(ess::skyf::kFollowerAlias)), (tag + "\"you already have a follower\" exactly when the count is 1 and the alias empty").c_str());
+		for (const auto& b : ess::skyf::ReadBeastForms(*save)) {
+			Check(!b.raceIsBeast && b.fix == ess::skyf::BeastState::Fix::kNone, (tag + b.questEdid + ": a human player with nothing left over").c_str());
+		}
+		// the fixes: the count, then one teammate flag; the save writes and reads back with only those bytes changed
+		if (stuckCount) {
+			std::string done;
+			Check(ess::skyf::FixFollowerCount(*save, false, &done).empty() && done == "PlayerFollowerCount 1 -> 0", (tag + "the count fixed").c_str());
+			Check(!ess::skyf::FixFollowerCount(*save, false).empty(), (tag + "a count that already fits is left alone").c_str());
+		}
+		const ess::skyf::FollowerActor* mate = nullptr;
+		for (const auto& a : st.actors) {
+			if (a.teammate && !mate) {
+				mate = &a;
+			}
+		}
+		if (mate) {
+			const auto id = mate->formID;
+			Check(ess::skyf::ClearTeammate(*save, id).empty(), (tag + "a teammate flag switched off").c_str());
+			Check(!ess::skyf::ClearTeammate(*save, id).empty(), (tag + "an actor that is no teammate is refused").c_str());
+			Check(!ess::skyf::ClearTeammate(*save, 0x14).empty(), (tag + "never the player").c_str());
+		}
+		const auto bytes = save->serialize();
+		const auto tmp = fs::temp_directory_path() / "rs_skyf_test.ess";
+		{
+			std::ofstream o(tmp, std::ios::binary);
+			o.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		auto       back = ess::SaveFile::load(tmp);
+		const auto st2 = ess::skyf::ReadFollowers(*back);
+		std::size_t teammates2 = 0;
+		for (const auto& a : st2.actors) {
+			teammates2 += a.teammate ? 1 : 0;
+		}
+		Check(teammates2 + (mate ? 1 : 0) == teammates && (!stuckCount || st2.followerCount == 0.0f) &&
+				  std::none_of(st2.findings.begin(), st2.findings.end(), [](const ess::skyf::Finding& x) { return x.issue == ess::skyf::Issue::kCountWithoutFollower; }),
+			(tag + "written and read back with the fixes").c_str());
+		std::error_code ec;
+		fs::remove(tmp, ec);
+		for (const auto& x : ess::skyf::FindStuckStages(*save)) {
+			Check(x.quest != 0 && !x.topFrame.empty(), (tag + "a running stage script names its quest and where it waits").c_str());
+		}
+	}
+}
+
+// Fallout 4 dropped / created items in the world (fo4world) and reset an area (fo4cell): synthetic change forms, then with
+// RESAVERPP_FO4_SAVES: Tony's Save8 minus its dropped pistols has Save7's change forms; every real save's removable items
+// removed, written, read back, nothing else changed; cells reset as ResetInterior does, written, read back.
+void TestFo4WorldItems()
+{
+	namespace fs = std::filesystem;
+	using B = std::vector<std::uint8_t>;
+	auto u32 = [](B& b, std::uint32_t v) { for (int i = 0; i < 4; ++i) b.push_back(static_cast<std::uint8_t>(v >> (8 * i))); };
+	auto f32 = [&](B& b, float f) { std::uint32_t v; std::memcpy(&v, &f, 4); u32(b, v); };
+	auto ref = [](B& b, std::uint32_t d) { b.push_back(static_cast<std::uint8_t>(d >> 16)); b.push_back(static_cast<std::uint8_t>(d >> 8)); b.push_back(static_cast<std::uint8_t>(d)); };
+	auto mk = [](std::uint8_t type, std::uint32_t flags, std::uint32_t refid, const B& body) {
+		ess::ChangeForm c;
+		c.refID.data = refid;
+		c.typeField = type;
+		c.changeFlags = flags;
+		c.data = body;
+		c.length1 = static_cast<std::uint32_t>(body.size());
+		return c;
+	};
+	// a created reference as the game writes it with no other change: initial type 5 (worldspace, position, rotation,
+	// a byte, base object)
+	auto created = [&](std::uint32_t base, float x, float y) {
+		B r;
+		ref(r, 0x40003C);
+		f32(r, x); f32(r, y); f32(r, 100.f);
+		f32(r, 0.f); f32(r, 0.f); f32(r, 1.f);
+		r.push_back(1);
+		ref(r, 0x400000 | base);
+		return r;
+	};
+	ess::SaveFile save;
+	save.header.magic = "FO4_SAVEGAME";
+	save.formVersion = 68;
+	save.visitedWorldspaces = { 0x3C };
+	save.changeForms.push_back(mk(0, 0, 0x800101, created(0x24F55, -75436.f, 90779.f)));  // FF000101: nothing refers to it
+	save.changeForms.push_back(mk(0, 0, 0x800102, created(0x24F55, 4096.f, 0.f)));       // FF000102: a quest names it
+	B q = { 1, 2, 3 };
+	ref(q, 0x800102);
+	save.changeForms.push_back(mk(8, 0x2, 0x400200, q));  // (QUST bytes holding the RefID)
+	const fo4world::Lookup look{ [](std::uint32_t id) { return id == 0x24F55 ? std::string("WEAP") : id == 0x3C ? std::string("WRLD") : std::string(); },
+		[](std::uint32_t id) { return id == 0x24F55 ? std::string("Pipe Pistol") : id == 0x3C ? std::string("Commonwealth") : std::string(); } };
+	const auto l = fo4world::List(save, look);
+	Check(l.items.size() == 2 && l.items[0].removable && l.items[0].kind == "Weapon" && l.items[0].item && l.items[0].exterior &&
+			  l.items[0].gridX == -19 && l.items[0].gridY == 22 && l.items[0].base == 0x24F55 && l.items[0].count == 1,
+		"fo4 world items: a created reference lying in the world is listed with its kind and cell");
+	Check(l.items.size() == 2 && !l.items[1].removable && l.items[1].why.find("00000200") != std::string::npos &&
+			  fo4world::PlaceOf(l.items[1], look) == "Commonwealth (1, 0)",
+		"fo4 world items: one whose RefID another change form holds is kept, the form named");
+	const auto questBody = save.changeForms[2].data;
+	const auto rr = fo4world::Remove(save, { 0xFF000101, 0xFF000102, 0xFF000999 });
+	Check(rr.removed == 1 && rr.refused.size() == 2 && save.changeForms.size() == 2 && save.changeForms[0].refID.data == 0x800102 &&
+			  save.changeForms[1].data == questBody,
+		"fo4 world items: only the removable one is removed, the rest refused with a reason, nothing else changed");
+
+	// a CELL change form as the game writes it: interior with a detach time and map seen data
+	B cellBody;
+	u32(cellBody, 9);
+	cellBody.push_back(1 << 2);  // vsval 1
+	cellBody.push_back(0x14);
+	cellBody.push_back(0xFF);
+	cellBody.insert(cellBody.end(), 32, 0x7F);
+	const auto cellCf = mk(6, 0xC0000000u, 0x4016D8, cellBody);
+	const auto cd = fo4cell::DecodeCell(save, cellCf);
+	Check(cd.complete && cd.initialType == 3 && cd.initialSize == 4 && cd.detach == 9 && cd.hasSeen && cd.interior == 1,
+		"fo4 cell: interior: detach time, seen data (vsval n x 34 bytes), read to the end");
+	B ext = { 1, 0, 0xEF, 0x18 };  // worldspace index 1, x -17, y 24
+	u32(ext, 0x22);
+	ext.insert(ext.end(), 32, 0x11);
+	const auto ed = fo4cell::DecodeCell(save, mk(6, 0xE0000000u, 0x40DCFA, ext));
+	Check(ed.complete && ed.initialType == 1 && ed.x == -17 && ed.y == 24 && ed.worldspace == 0x3C && ed.detach == 0x22 && ed.interior == 0,
+		"fo4 cell: exterior: worldspace index (1-based), byte coordinates, detach time, 32 bytes of seen data");
+	B seenOnly(cellBody.begin() + 4, cellBody.end());
+	const auto sd = fo4cell::DecodeCell(save, mk(6, 0x80000000u, 0x4016D8, seenOnly));
+	Check(sd.complete && sd.interior == 1 && sd.initialType == 0, "fo4 cell: seen data without a detach time: the layout that reads to the end");
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 world items / cells: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	const auto tmp = fs::temp_directory_path() / "rs_unit_world.fos";
+	auto       writeBack = [&](ess::SaveFile& s) {
+        const auto bytes = s.serialize();
+        {
+            std::ofstream out(tmp, std::ios::binary);
+            out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        }
+        return SaveFile::load(tmp);
+	};
+	auto bodies = [](const ess::SaveFile& s) {
+		std::map<std::uint32_t, B> m;
+		for (const auto& c : s.changeForms) m[s.formIDOf(c.refID)] = ess::cf::Body(c);
+		return m;
+	};
+	// Tony's Save7 -> Save8: 9 Pipe Pistols dropped (3 new references; FF000D87 left the inventory, a quest alias)
+	const fs::path* s7 = nullptr;
+	const fs::path* s8 = nullptr;
+	for (const auto& f : files) {
+		const auto n = f.filename().string();
+		if (n.rfind("Save7_F110F019", 0) == 0) s7 = &f;
+		if (n.rfind("Save8_F110F019", 0) == 0) s8 = &f;
+	}
+	if (s7 && s8) {
+		auto a = SaveFile::load(*s7);
+		auto b = SaveFile::load(*s8);
+		const auto lb = fo4world::List(*b);
+		std::map<std::uint32_t, const fo4world::Item*> byId;
+		for (const auto& it : lb.items) byId[it.formID] = &it;
+		const bool listed = byId.count(0xFF001199) && byId.count(0xFF0011BB) && byId.count(0xFF0013CF) && byId.count(0xFF000D87);
+		Check(listed && byId[0xFF001199]->removable && byId[0xFF001199]->count == 3 && byId[0xFF0011BB]->count == 4 &&
+				  byId[0xFF0013CF]->count == 1 && byId[0xFF000D87]->count == 1 && byId[0xFF001199]->base == 0x24F55 &&
+				  !byId[0xFF000D87]->removable && byId[0xFF000D87]->why.find("quest") != std::string::npos,
+			"fo4 world items: Save8 lists the 9 dropped Pipe Pistols (3 + 4 + 1 + 1), FF000D87 kept (quest alias)");
+		const auto before = bodies(*b);
+		const auto r = fo4world::Remove(*b, { 0xFF001199, 0xFF0011BB, 0xFF0013CF, 0xFF000D87 });
+		auto       back = writeBack(*b);
+		const auto after = bodies(*back);
+		std::set<std::uint32_t> ka, kb;
+		for (const auto& c : a->changeForms) ka.insert(a->formIDOf(c.refID));
+		for (const auto& c : back->changeForms) kb.insert(back->formIDOf(c.refID));
+		bool same = after.size() + 3 == before.size();
+		for (const auto& [id, body] : after) same = same && before.count(id) && before.at(id) == body;
+		Check(r.removed == 3 && r.refused.size() == 1 && ka == kb && same && back->formIDs == a->formIDs,
+			"fo4 world items: Save8 minus the dropped pistols has Save7's change forms and form id array, nothing else changed");
+	}
+	std::size_t tested = 0, removedAll = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		const auto name = f.filename().string();
+		const auto l2 = fo4world::List(*s);
+		std::set<std::uint32_t> ids;
+		for (const auto& it : l2.items) if (it.removable) ids.insert(it.formID);
+		const auto before = bodies(*s);
+		const auto r = fo4world::Remove(*s, ids);
+		auto       back = writeBack(*s);
+		const auto after = bodies(*back);
+		bool same = after.size() + ids.size() == before.size();
+		for (const auto& [id, body] : after) same = same && !ids.count(id) && before.count(id) && before.at(id) == body;
+		const auto l3 = fo4world::List(*back);
+		std::size_t still = 0;
+		for (const auto& it : l3.items) still += it.removable && ids.count(it.formID);
+		Check(r.removed == ids.size() && r.refused.empty() && same && still == 0,
+			("fo4 world items: " + name + ": every removable item removed, written, read back, nothing else changed").c_str());
+		removedAll += r.removed;
+
+		// reset: an interior with a change form, an interior without one, an exterior; the player's cell refused
+		auto cs = SaveFile::load(f);
+		const auto cells = fo4cell::ListCells(*cs);
+		std::vector<std::uint32_t> pick;
+		const fo4cell::CellInfo* playerCell = nullptr;
+		bool intCf = false, intNew = false, ext2 = false;
+		for (const auto& c : cells) {
+			if (c.player) playerCell = &c;
+			if (!c.why.empty()) continue;
+			if (!c.exterior && c.hasChangeForm && !intCf) { intCf = true; pick.push_back(c.formID); }
+			else if (!c.exterior && !c.hasChangeForm && !intNew) { intNew = true; pick.push_back(c.formID); }
+			else if (c.exterior && !ext2) { ext2 = true; pick.push_back(c.formID); }
+		}
+		const auto cbefore = bodies(*cs);
+		bool       ok = true;
+		for (const auto id : pick) ok = ok && fo4cell::ResetCell(*cs, id).empty();
+		if (playerCell) ok = ok && !fo4cell::ResetCell(*cs, playerCell->formID).empty();
+		auto cback = writeBack(*cs);
+		const auto cafter = bodies(*cback);
+		for (const auto id : pick) {
+			const ess::ChangeForm* cf = nullptr;
+			for (const auto& c : cback->changeForms) if (c.typeCode() == 6 && cback->formIDOf(c.refID) == id) cf = &c;
+			const auto d = cf ? fo4cell::DecodeCell(*cback, *cf) : fo4cell::CellData{};
+			ok = ok && cf && d.complete && d.detach == fo4cell::kDetachReset && (cf->changeFlags & 0x40000000u);
+		}
+		std::size_t changed = 0;
+		for (const auto& [id, body] : cafter) changed += !cbefore.count(id) || cbefore.at(id) != body;
+		Check(ok && playerCell && changed == pick.size() && cafter.size() == cbefore.size() + (intNew ? 1 : 0),
+			("fo4 cell: " + name + ": cells reset (detach time 0xFFFFFFFF), written, read back, nothing else changed; the player's cell refused").c_str());
+		std::printf("(fo4 world: %s: %zu items listed, %zu removed; %zu cells, %zu reset)\n", name.c_str(), l2.items.size(), r.removed, cells.size(), pick.size());
+		++tested;
+	}
+	fs::remove(tmp);
+	std::printf("(fo4 world items / cells: %zu real saves, %zu items removed)\n", tested, removedAll);
+}
+
+
 int main()
 {
 	TestFloatLiteral();
@@ -3609,9 +4342,13 @@ int main()
 	TestFo4ChangeForms();
 	TestTransplantFO4();
 	TestFo4HavokFormLists();
+	TestFo4Workshops();
 	TestFo4ActorPackages();
 	TestFo4Player();
 	TestFo4Combat();
+	TestSkyFollowers();
+	TestFo4WorldItems();
+	TestFo4ActiveEffects();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

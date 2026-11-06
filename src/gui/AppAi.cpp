@@ -201,9 +201,10 @@ namespace
 				R"J({"type":"object","properties":{"save":{"type":"string","description":"the .fos save (default: the open save)"}}})J" },
 			{ "fo4_edit_player",
 				"Fallout 4 saves only: change the player's level, experience, caps, S.P.E.C.I.A.L. (1-100), perk ranks (1-255; a perk the "
-				"player does not have is added, if the save already refers to it) or remove perks, and write a NEW save. Give only what "
-				"changes.",
-				R"J({"type":"object","properties":{"save":{"type":"string","description":"the .fos save (default: the open save)"},"out":{"type":"string","description":"the new save's path (from suggest_save_name)"},"level":{"type":"integer"},"experience":{"type":"number"},"caps":{"type":"integer"},"special":{"type":"object","description":"e.g. {\"Strength\": 6, \"Luck\": 3}","properties":{"Strength":{"type":"integer"},"Perception":{"type":"integer"},"Endurance":{"type":"integer"},"Charisma":{"type":"integer"},"Intelligence":{"type":"integer"},"Agility":{"type":"integer"},"Luck":{"type":"integer"}}},"perks":{"type":"array","items":{"type":"string"},"description":"perk form id and rank, e.g. [\"0004D88B:2\"]"},"remove_perks":{"type":"array","items":{"type":"string"},"description":"perk form ids"},"why":{"type":"string","description":"one plain sentence for the user: what this does"}},"required":["out"]})J" },
+				"player does not have is added, if the save already refers to it), remove perks, or remove active effects (by their "
+				"number in fo4_player's list, or all from one item or plugin; a running effect that changes a stat has the stat put "
+				"back as when it ends), and write a NEW save. Give only what changes.",
+				R"J({"type":"object","properties":{"save":{"type":"string","description":"the .fos save (default: the open save)"},"out":{"type":"string","description":"the new save's path (from suggest_save_name)"},"level":{"type":"integer"},"experience":{"type":"number"},"caps":{"type":"integer"},"special":{"type":"object","description":"e.g. {\"Strength\": 6, \"Luck\": 3}","properties":{"Strength":{"type":"integer"},"Perception":{"type":"integer"},"Endurance":{"type":"integer"},"Charisma":{"type":"integer"},"Intelligence":{"type":"integer"},"Agility":{"type":"integer"},"Luck":{"type":"integer"}}},"perks":{"type":"array","items":{"type":"string"},"description":"perk form id and rank, e.g. [\"0004D88B:2\"]"},"remove_perks":{"type":"array","items":{"type":"string"},"description":"perk form ids"},"remove_effects":{"type":"array","items":{"type":"integer"},"description":"active effect numbers as fo4_player lists them (#n)"},"remove_effects_from":{"type":"array","items":{"type":"string"},"description":"remove every active effect from these magic items (form id hex) or plugins (file name)"},"why":{"type":"string","description":"one plain sentence for the user: what this does"}},"required":["out"]})J" },
 			{ "write_text_file",
 				"Write a text file (an .ini setting, a plugins list, notes). An existing file is backed up first. Not for saves, plugins, "
 				"archives or DLLs.",
@@ -1295,6 +1296,17 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		}
 		std::error_code ec;
 		const bool openSave = !st.save.empty() && std::filesystem::equivalent(in, st.save, ec);
+		// what the plugins say about each active effect (the app's plugin names, for the save open in the app only)
+		auto effectSources = [&](const f4::Actor& a_actor) {
+			std::vector<f4::EffectSource> out(a_actor.effects.size());
+			if (openSave) {
+				_ai.runOnUi([&]() -> std::string {
+					out = f4::EffectSources(*sv, a_actor, _db.get());
+					return std::string();
+				});
+			}
+			return out;
+		};
 		auto names = [&](const std::vector<std::uint32_t>& a_ids) {
 			std::map<std::uint32_t, std::string> m;
 			if (openSave) {
@@ -1350,9 +1362,26 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 			} else {
 				o += "perks: could not be read in this save" + (actor.error.empty() ? std::string() : " (" + actor.error + ")") + "\n";
 			}
-			o += "active effects: " + std::to_string(actor.effects.size()) + " (shown only; they are not removed for Fallout 4)\n";
-			for (std::size_t i = 0; i < actor.effects.size() && i < 60; ++i) {
-				o += "  " + label(sv->formIDOf(actor.effects[i].item)) + "  effect " + std::to_string(actor.effects[i].effectIndex) + "\n";
+			const auto srcs = effectSources(actor);
+			o += "active effects: " + std::to_string(actor.effects.size()) + (actor.complete ? "" : " (the player's data does not read completely: none can be removed)") + "\n";
+			for (std::size_t i = 0; i < actor.effects.size() && i < 80; ++i) {
+				const auto& e = actor.effects[i];
+				const auto  plan = f4::PlanEffectRemoval(actor, e, &srcs[i]);
+				o += "  #" + std::to_string(i) + "  " + label(sv->formIDOf(e.item)) + "  effect " + std::to_string(e.effectIndex);
+				if (e.data.size() >= 16) {
+					std::snprintf(b, sizeof(b), "%g", e.magnitude);
+					o += e.started() ? std::string(", running, strength ") + b : (e.flags & 0x20000u) ? std::string(", ended") : std::string(", not started");
+				}
+				if (!plan.ok) {
+					o += "; cannot be removed: " + plan.why;
+				} else if (plan.modifier && plan.amount != 0) {
+					std::snprintf(b, sizeof(b), "%+g", -plan.amount);
+					o += "; removing it puts back actor value " + Hex8(plan.actorValue) + " " + b;
+				}
+				o += "\n";
+			}
+			if (actor.effects.size() > 80) {
+				o += "  ... " + std::to_string(actor.effects.size() - 80) + " more\n";
 			}
 			if (!openSave) {
 				o += "(names are given for the save open in the app only)\n";
@@ -1420,8 +1449,58 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 			removePerks.push_back(id);
 			plan.push_back("remove perk " + Hex8(id));
 		}
+		// active effects: by number, or all from an item / plugin; checked (PlanEffectRemoval) before asking
+		std::vector<std::size_t> fxPick;
+		std::vector<f4::EffectSource> fxSources;
+		{
+			const auto nums = args.list("remove_effects");
+			const auto from = args.list("remove_effects_from");
+			if (!nums.empty() || !from.empty()) {
+				if (!actor.complete) {
+					return fail("the player's saved data does not read completely (" + actor.error + "): active effects cannot be removed");
+				}
+				fxSources = effectSources(actor);
+				for (const auto& x : nums) {
+					const auto t = x.rfind('#', 0) == 0 ? x.substr(1) : x;
+					char*      end = nullptr;
+					const auto n = std::strtoul(t.c_str(), &end, 10);
+					if (t.empty() || *end || n >= actor.effects.size()) {
+						return fail("remove_effects: there is no active effect #" + t + " (the player has " + std::to_string(actor.effects.size()) + ")");
+					}
+					fxPick.push_back(n);
+				}
+				for (const auto& x : from) {
+					std::uint32_t id = 0;
+					auto          got = x.find('.') == std::string::npos && ParseHexId(x, id) ? f4::EffectsFrom(*sv, actor, id) : f4::EffectsFromPlugin(*sv, actor, x);
+					if (got.empty()) {
+						return fail("remove_effects_from: the player has no active effect from \"" + x + "\"");
+					}
+					fxPick.insert(fxPick.end(), got.begin(), got.end());
+				}
+				std::sort(fxPick.begin(), fxPick.end());
+				fxPick.erase(std::unique(fxPick.begin(), fxPick.end()), fxPick.end());
+				std::string stats;
+				for (const auto i : fxPick) {
+					const auto u = f4::PlanEffectRemoval(actor, actor.effects[i], &fxSources[i]);
+					if (!u.ok) {
+						return fail("active effect #" + std::to_string(i) + " cannot be removed: " + u.why +
+							(openSave ? std::string() : " (the plugins' data is used for the save open in the app only)"));
+					}
+					if (u.modifier && u.amount != 0) {
+						char b[64];
+						std::snprintf(b, sizeof(b), " %+g", -u.amount);
+						stats += (stats.empty() ? "" : ", ") + Hex8(u.actorValue) + b;
+					}
+				}
+				std::string list;
+				for (const auto i : fxPick) {
+					list += (list.empty() ? "#" : ", #") + std::to_string(i);
+				}
+				plan.push_back("remove active effects " + list + (stats.empty() ? std::string() : " (stats put back: " + stats + ")"));
+			}
+		}
 		if (plan.empty()) {
-			return fail("nothing to change: give level, experience, caps, special, perks or remove_perks");
+			return fail("nothing to change: give level, experience, caps, special, perks, remove_perks, remove_effects or remove_effects_from");
 		}
 		std::string planText;
 		for (const auto& p : plan) {
@@ -1476,11 +1555,28 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 			auto*       pcf = p ? sv->findChangeForm(p->refID) : nullptr;
 			ok = step("remove perk " + Hex8(id), pcf ? f4::RemovePerk(*sv, *pcf, id) : std::string("the player's saved data is not in this save"));
 		}
+		std::vector<std::string> fxChanges;
+		if (ok && !fxPick.empty()) {
+			// the effects first read are still the player's list: the edits above do not touch it (checked again here)
+			const auto* p = f4::FindPlayer(*sv);
+			auto*       pcf = p ? sv->findChangeForm(p->refID) : nullptr;
+			const auto  now = pcf ? f4::DecodeActor(*sv, *pcf) : f4::Actor{};
+			bool        same = pcf && now.effects.size() == actor.effects.size();
+			for (std::size_t i = 0; same && i < now.effects.size(); ++i) {
+				same = now.effects[i].item == actor.effects[i].item && now.effects[i].effectIndex == actor.effects[i].effectIndex &&
+				       now.effects[i].range.size() == actor.effects[i].range.size();
+			}
+			ok = step("active effects", same ? f4::RemoveActiveEffects(*sv, *pcf, fxPick, fxSources, &fxChanges)
+			                                  : std::string("the player's active effects read differently after the other changes"));
+		}
 		if (!ok) {
 			return fail("not changed (nothing was written): " + why);
 		}
 		if (const auto e = writeSave(*sv, out); !e.empty()) {
 			return fail(e);
+		}
+		for (const auto& c : fxChanges) {
+			planText += "; " + c;
 		}
 		return "changed: " + planText + "\n(written: " + platform::ToUtf8(out) + ")" + unsavedNote(in);
 	}

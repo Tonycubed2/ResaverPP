@@ -64,6 +64,10 @@ THE RUNNING GAME (game_command)
   CONTROLS <notify> -> switches the player's controls back on (EnablePlayerControls) (helper 12)
   SAVEGAME <notify> -> saves the game as a new save ReSaverPP_Rescue_<date>_<time>: its name (helper 12)
   RESCUE <notify> -> all three: save, controls, followers (helper 12). Holding Ctrl in the game for 8 seconds does the same.
+  FOLLOWERSET <formid> <notify> -> 1 / 0 <why>: DialogueFollowerScript.SetFollower on the vanilla follower quest (takes a lost or dismissed follower back the vanilla way; refused while someone living is the follower) (helper 13)
+  TEAMMATE <formid> <0|1> <notify> -> 1 / 0 <why>: Actor.SetPlayerTeammate (helper 13)
+  BEASTREVERT <werewolf|vampire> <notify> -> 1 / 0 <why>: the transformation script's own ShiftBack() after its guards are reset: race back, claws / Vampire Lord powers, factions, controls, beast form menus (helper 13)
+  Dismissing the vanilla follower is SETSTAGE 000750BA 400 <notify> "" (DialogueFollower stage 400 runs DismissFollower()). A werewolf whose time ran out is SETSTAGE 0002BA16 100 (the script's ShiftBack); a Vampire Lord without Revert Form: SETSTAGE <DLC1PlayerVampireQuest id> 100.
   <notify> is hud (top-left notification), box (message box), none, or ini (the helper's setting). <message> may be empty ("") for the default text.
 - Form IDs for game_command are the runtime IDs, the same as the save shows. Quests without any script may answer that only the console can do it; then give the user the console command (setstage / stopquest / resetquest <editor id>).
 - When the game is connected, quest fixes in the running game are better than save edits: the game's own scripts run. Tell the user to save in the game afterwards.
@@ -84,6 +88,10 @@ RECIPES
 - Lost follower: with the game running (helper 12), game_command GATHER brings every follower to the player at once, no save needed.
   Otherwise in the save: --npcs <name>, then --move-to-player <formid> -o <new save>.
 - Stuck, cannot move (a scene or mod left the controls off): game_command CONTROLS; RESCUE also saves and gathers the followers.
+- Followers ("you already have a follower", a dismissed follower still following, a follower gone, a dead one still counted): run_cli {save} --followers lists who is in the vanilla follower quest's Follower / Animal alias, the follower factions, the teammate flag, where each is, PlayerFollowerCount, and the problems with their fixes.
+  In the save (verified edits only): --fix-follower-count / --fix-animal-count (the count the alias says), --clear-teammate <ids> (the flag SetPlayerTeammate(false) clears). Everything else in the running game: SETSTAGE 000750BA 400 (dismiss), FOLLOWERSET <id>, TEAMMATE <id> 0|1, GATHER <notify> <id>. Follower mods (NFF, AFT...) keep their own quests: change those with the mod's own menu.
+- Stuck as a werewolf or Vampire Lord, or its claws / powers / factions left on you: run_cli {save} --beast-form says what is wrong and which fix: SETSTAGE <quest> 100 or BEASTREVERT (game only: race, controls and menus are game state; the save is not edited for this).
+- Quests between stages: --stuck-stages lists stage scripts that were still running when the game saved (they carry on when it loads); with the game running, QUEST shows where the quest stands now.
 - Player: --player, --set-gold, --set-skill, --set-level, --set-perks, --set-item, --set-bounty, --clear-crimes.
 - Mod menus (MCM) missing: --fix-mcm. Enchanted items with no charge: --charged, --fix-charges.
 - A form by name: find_form (uses the plugin names the app has read), or run_cli {save} --find <text> --sources <mods folder>.
@@ -115,7 +123,10 @@ WHAT WORKS ON A FALLOUT 4 SAVE
 - Papyrus cleaning, each writing a new save with -o: --remove-unattached, --remove-undefined, --terminate-undefined, --remove-nonexistent, --purge-script <name> (--keep-instances, --delete-forms), --batch <list.txt>; --spawned / --remove-spawned-gone; --mods (scripts per mod), --report, --compare <other.fos>.
 - --remove-mod <plugin> (--dry-run first; the base game, DLC and Creation Club plugins are refused), --rename-plugin <old> <new>, --delete-form <formid>.
 - Quests: --quests [text] (state, stage, objectives, the Pip-Boy quest log; with --sources the names, stages and stage texts), --journal.
-- The player: fo4_player (level, experience, caps, S.P.E.C.I.A.L., perks with ranks, active effects) and fo4_edit_player (writes level, experience, caps, S.P.E.C.I.A.L., perk ranks, adds or removes perks; the same code as the app's Edit player window). The command line has --fo4-perks, --fo4-set-perk <id>:<rank>, --fo4-remove-perk <id>, --fo4-set-level <n>, --fo4-set-xp <n> too. Active effects are shown, not removed. Only perks the save already refers to can be added; a level can only be set once the character has levelled up in the game (before that the save keeps no level of its own).
+- Companions: run_cli {save} --fo4-companions [--sources <mods folder>] lists every companion (actors with CompanionActorScript or DogmeatActorScript, mod companions included) with affinity (the saved CA_Affinity value; "not saved" means the plugin's value still applies), threshold, romance (CA_IsRomantic), infatuation, left for good (HasLeftPlayerPermanently), DisallowedCompanionFaction, FollowerState (1 follow, 2 wait, 4 go home), where the save has it, the follower quest's Companion and Dogmeat slots, and what does not add up (the slot and the actor's own alias list disagree, someone without a companion script in the slot, a companion missing from ActiveCompanions, affinity outside the script's range), each with console commands. --fo4-set-affinity <ref>:<value> -o <new save> sets affinity in the save, only when the save already has a value for that companion and within the script's range; threshold scenes, the companion perk and quest stages then follow the next time affinity changes in the game. The app's Tools > Companions window does the same.
+- "Won't follow / not my companion any more": the save cannot be made consistent by editing (being a companion is the scripts' work: the alias, teammate flag, keywords, event registrations), so it is done in the running game. With ReSaverHelper for Fallout 4 version 15 connected and a save loaded, use game_command APPLY (records below): companion <ref> <1 if it left for good, else 0> <its script>, companionfollow <ref> for one told to wait or sent home, affinity <ref> <value> <its script> for affinity the scripts' way (it stops below a threshold whose scene has not played). The app's Companions window has the same "Run in the game" buttons. Without the helper, give the user the console commands --fo4-companions prints: <ref>.cf "CompanionActorScript.UnsetHasLeftPlayerPermanently" (only when it left for good), then cqf 000289E4 "FollowersScript.AllowCompanion" <ref> 1 1 (the follower quest by its form id; the current companion is dismissed); cqf 000289E4 "FollowersScript.FollowerFollow" <ref>; <ref>.cf "CompanionActorScript.SetAffinity" <value>. They type these in the game's console (~). A DLC or mod companion's form id is the save's: the game must run the same load order.
+- Stuck quests: run_cli {save} --fo4-quest-check --sources <mods folder or Data> reads the stage scripts of every running quest (from the game's BA2s and the mods) and lists stages that are done but whose script stopped before a line that always runs (a stage it sets is not done, an objective it shows or completes is not): the quest cannot go on by itself. Each finding has the console command (setstage / setobjectivedisplayed / setobjectivecompleted); stage commands can also go through game_command APPLY setstage. The Save check window shows the same findings.
+- The player: fo4_player (level, experience, caps, S.P.E.C.I.A.L., perks with ranks, active effects) and fo4_edit_player (writes level, experience, caps, S.P.E.C.I.A.L., perk ranks, adds or removes perks, removes active effects by their #number in fo4_player's list or all from one item/plugin with remove_effects_from; the same code as the app's Edit player window). The command line has --fo4-perks, --fo4-set-perk <id>:<rank>, --fo4-remove-perk <id>, --fo4-set-level <n>, --fo4-set-xp <n> too. A running effect that changes a stat has the stat put back as when it ends; fo4_player says per effect what removing it does, and which cannot be removed (with the reason). Stat-changing running effects need the plugin names, which only the save open in the app has. Only perks the save already refers to can be added; a level can only be set once the character has levelled up in the game (before that the save keeps no level of its own).
 - Items left by removed mods: leftover_items lists them (containers; actors whose saved data is read fully), remove_leftover_items takes them out into a new save.
 - Forms by name: find_form (the plugin names and editor IDs the app read from the Fallout 4 plugins).
 - Crash logs: run_cli {save} --crash-log <Buffout 4 crash log> finds the objects the log names in this save.
@@ -123,6 +134,9 @@ WHAT WORKS ON A FALLOUT 4 SAVE
 - Reset Havok (--reset-havok -o <new save>: empties the saved physics data of objects, so they settle again; the game itself writes empty physics data) and Purify FormLists (--purify-formlists -o <new save>: removes empty entries from form lists).
 - Merged patch (--merged-patch <out.esp> --sources <mods folder> --game <Fallout 4 folder>, or the app's Merged patch window): merges leveled items, leveled NPCs, leveled spells, containers, form lists, outfits, misc items, keys, NPCs, armour, weapons, ammunition, books, potions, ingredients, spells and cells (a cell's previs and precombined data stays the winning mod's; worldspaces are only copied in as the parent of a merged exterior cell).
 - Mods: missing plugins, file conflicts and BA2 archives (--bsa-list / --bsa-find / --bsa-extract read .ba2 too, --file-conflicts).
+- Settlements: run_cli {save} --fo4-settlements lists every settlement workshop (workbench form id, location, WorkshopID) with its build budget (draws and triangles used / max, the build meter = the larger share, full at 100%), population, happiness, the objects and settlers linked to it, and the settlement checks (over budget; objects or settlers linked to a workbench that is not in the game; settlers whose workshopID names no workshop or another workbench than their link). With --sources the location names. --fo4-reset-budget <workbench id|all|over> -o <new save> sets the used draws and triangles to 0; --fo4-set-budget <id>:<draws>:<triangles> sets numbers ("-" leaves one as it is). The game never counts the objects: it keeps a running total on the workbench that building adds to and scrapping or storing takes from (never below 0), so after a reset the objects already built stay but no longer count (the whole budget is free) and scrapping them later cannot go below 0. The max values are not changed (a max of 0 means the game's default, 10000 draws / 10000000 triangles). The app's Tools > Settlements window does the same.
+- Dropped and created items lying in the world (spawned FF objects, not in inventories): run_cli {save} --fo4-world-items (--sources for names and kinds; --all-objects adds non-items such as workshop builds) lists them by cell and by mod with counts, and says which can be removed; --fo4-remove-world-items <ids|all> -o <new save> removes them (their change forms; the game keeps nothing else about them). Kept, with the reason: quest items (quest aliases), objects with scripts on them, objects held by someone, and objects whose id appears anywhere else in the save. The app's Tools > World items and areas window does the same.
+- Reset an area: run_cli {save} --fo4-cells lists the cells the save knows; --fo4-reset-cell <cell id> -o <new save> does what the console command ResetInterior does: the game resets that cell the next time it loads it (by its own rules: dropped and spawned items in it are deleted except quest items and things someone holds; the objects placed in it go through the game's own respawn code; only what is in the cell then is touched, an actor that walked elsewhere is not). Not the player's cell or the cells loaded around the player (refused); an exterior cell the save has no coordinates for and a cell the save does not say is an interior are refused too. In the running game the user can type ResetInterior <cell id> while outside it instead.
 
 NOT AVAILABLE FOR FALLOUT 4 SAVES (say so plainly instead of trying; offer what works)
 - Skyrim's player options (--player, --set-gold, --set-skill, --set-level, --set-xp, --set-perks, --set-souls, --set-av, --set-item, --remove-item, --remove-spell, --set-legendary, --set-bounty, --clear-crimes, --effects, --remove-effect): use fo4_player / fo4_edit_player.
@@ -142,9 +156,10 @@ THE RUNNING GAME (game_command)
   CONTROLSRESET <notify> -> gives the controls back to the game's own settings (after CONTROLS, once the scene or mod that stuck them is over)
   SAVEGAME <notify> -> saves the game as a new save ReSaverPP_Rescue_<date>_<time>: its name
   RESCUE <notify> -> SAVEGAME, CONTROLS and GATHER at once. Holding Ctrl in the game for iRescueHoldSeconds (8) does the same.
-  APPLY <record> (helper 13) -> runs one fixed console command in the loaded game: 1 and the command (1 means the game ran it, not that it did something), or 0 and why not. Only these records:
+  APPLY <record> (helper 13; companion records from 15) -> runs one fixed console command in the loaded game: 1 and the command (1 means the game ran it, not that it did something), or 0 and why not. Only these records:
     additem <formid> <count 1..1000000> -> player.additem;  addperk <formid> <ranks 1..100> -> player.addperk, once per rank;
     setstage <quest formid> <stage 0..65535> -> setstage;  completequest <quest formid> -> completequest
+    (helper 15) companion <ref> <0|1> [script] -> (1: <ref>.cf "<script>.UnsetHasLeftPlayerPermanently") then cqf 000289E4 "FollowersScript.AllowCompanion" <ref> 1 1;  companionfollow <ref> -> cqf 000289E4 "FollowersScript.FollowerFollow" <ref>;  affinity <ref> <-100000..100000> [script] -> <ref>.cf "<script>.SetAffinity" <n>. [script] is the companion's script as --fo4-companions shows it (CompanionActorScript unless a mod companion extends it).
   <notify> is hud (top-left notification), box (message box), none, or ini (the helper's setting).
 - The Fallout 4 helper has no quest commands (QUEST, SETSTAGE, COMPLETE, STOP, RESET, REFRESH, PROGRESS), no FOLLOWERS and no SNAPSHOT. Quest stages in the running game go through APPLY setstage / completequest, or the user types the console command (setstage <quest form id> <stage>, completequest <quest form id>).
 - APPLY needs the GAME's form ids: they are the save's only when the game runs the same load order as the save. To bring a whole character's progress over, use the Transplant page (it makes the game save first and takes the load order from that save) or --fo4-transplant.
@@ -162,8 +177,11 @@ RECIPES (Fallout 4)
 - Script lag, a save that grows: --mods, --spawned, --report; then --purge-script <name> or --remove-mod for the mod responsible.
 - A mod was removed: --remove-mod <plugin> --dry-run, then the same with -o; leftover_items / remove_leftover_items for its items.
 - Stuck quest: --quests <name or editor id> (with --sources for names and stage texts); in the running game APPLY setstage, or the console command for the user.
+- Companion problems (affinity, won't follow, left, romance): run_cli {save} --fo4-companions, then the commands it prints or --fo4-set-affinity.
 - Lost companion: game_command GATHER. Stuck, cannot move: CONTROLS (CONTROLSRESET afterwards); RESCUE also saves and calls the companion.
 - Player: fo4_player, then fo4_edit_player with out from suggest_save_name.
+- "I can't build in my settlement" / the build meter is full: --fo4-settlements, then --fo4-reset-budget <workbench id> -o <new save> (out from suggest_save_name); say what a reset means (built objects stay, no longer counted).
+- Too many dropped items, junk piled up somewhere, an area that should look fresh again: --fo4-world-items, then --fo4-remove-world-items or --fo4-reset-cell.
 - --sources <mods folder> and --profile <MO2 profile folder> let the command line read the installed mods; use the values in CURRENT STATE when they are set.
 )T";
 
@@ -194,14 +212,20 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 				{ "--set-legendary", "Skyrim's legendary skills" },
 				{ "--set-bounty", "Skyrim's crime factions" },
 				{ "--clear-crimes", "Skyrim's crime factions" },
-				{ "--effects", "use fo4_player (it lists the active effects)" },
-				{ "--remove-effect", "active effects are only shown for Fallout 4 (fo4_player)" },
+				{ "--effects", "use fo4_player (it lists the active effects, numbered)" },
+				{ "--remove-effect", "use fo4_edit_player with remove_effects (numbers from fo4_player) or remove_effects_from" },
 				{ "--npcs", "Find NPCs reads Skyrim's actor data; in the running game GATHER calls your companion and Dogmeat" },
 				{ "--move-to-player", "moving actors reads Skyrim's actor data; in the running game GATHER calls your companion and Dogmeat" },
 				{ "--reset-ai", "reads Skyrim's actor data" },
 				{ "--remove-flag", "reads Skyrim's change form layouts" },
 				{ "--remove-extra", "reads Skyrim's change form layouts" },
 				{ "--fix-mcm", "it fixes SkyUI's MCM, a Skyrim mod" },
+				{ "--followers", "Skyrim's follower quest and actor data" },
+				{ "--fix-follower-count", "Skyrim's follower quest" },
+				{ "--fix-animal-count", "Skyrim's follower quest" },
+				{ "--clear-teammate", "reads Skyrim's actor data" },
+				{ "--beast-form", "Skyrim's werewolf and Vampire Lord" },
+				{ "--stuck-stages", "reads Skyrim's quest and Papyrus data" },
 				{ "--path-idles", "a Skyrim crash (path idles)" },
 				{ "--fix-path-idles", "a Skyrim crash (path idles)" },
 				{ "--charged", "Skyrim's enchantment charges" },

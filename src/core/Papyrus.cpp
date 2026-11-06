@@ -1152,4 +1152,9 @@ namespace ess
 		auto it = _activeIdx.find(id);
 		return it == _activeIdx.end() ? nullptr : &activeScripts[it->second];
 	}
+
+	void WriteThreadData(Writer& w, ThreadID a_id, const ActiveScriptData& a_data)
+	{
+		WriteActiveData(w, a_id, a_data);
+	}
 }

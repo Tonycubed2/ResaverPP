@@ -408,6 +408,9 @@ std::vector<App::CheckItem> App::checkItems()
 		v.push_back(std::move(it));
 	}
 
+	// load order limits and mods gone from it that still take space (AppF4Bloat.cpp)
+	bloatCheckItems(v);
+
 	// enchanted items that can never be recharged
 	{
 		std::size_t broken = 0;
@@ -432,6 +435,28 @@ std::vector<App::CheckItem> App::checkItems()
 				}
 				const auto n = cf::FixCharges(*_save, 3000, only);
 				markEdited(Fmt(tr("Gave %zu item(s) a max charge of 3000"), n));
+			};
+			it.options.push_back(std::move(o));
+			v.push_back(std::move(it));
+		}
+	}
+
+	// Fallout 4: many dropped / spawned items lying in the world (AppF4World.cpp)
+	if (fo4()) {
+		const auto n = f4WorldRemovable();
+		if (n >= 500) {
+			CheckItem it;
+			it.level = Risk::kInfo;
+			it.title = Fmt(tr("%zu dropped or spawned items lie in the world"), n);
+			it.what = tr("Each one is kept in the save. Thousands of them make the save bigger and areas slower to load.");
+			CheckOption o;
+			o.label = tr("Show World items and areas");
+			o.risk = Risk::kSafe;
+			o.why = tr("Only shows them; you choose what to remove there.");
+			o.act = [this] {
+				_showF4World = true;
+				_f4WorldTab = 0;
+				_showCheck = false;
 			};
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));
@@ -475,6 +500,13 @@ std::vector<App::CheckItem> App::checkItems()
 		}
 	}
 
+	// Fallout 4 settlements: over budget, broken workshop links, settlers' workshop data (AppF4Settlements.cpp)
+	if (fo4()) {
+		settlementCheckItems(v);
+	}
+	skyfCheckItems(v);  // followers, beast form, quests between stages (AppSkyFollowers.cpp)
+	// Fallout 4: companions, quests whose stage script stopped early (AppF4Companions.cpp)
+	appendCheckItemsF4(v);
 	cosaveCheck(v);  // data of SKSE / F4SE plugins no longer installed (AppCosave.cpp)
 
 	std::stable_sort(v.begin(), v.end(), [](const CheckItem& a, const CheckItem& b) { return static_cast<int>(a.level) > static_cast<int>(b.level); });

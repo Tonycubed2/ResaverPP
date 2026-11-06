@@ -21,6 +21,10 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   too), switch your controls back on, save the game as a new save - from ReSaver Plus's "Work on the running game"
   window with no save open, or by holding Ctrl in the game for 8 seconds (`bRescueHotkey`, `iRescueHoldSeconds`), which
   does all three even without ReSaver Plus.
+- Followers and beast form (version 13): take a follower back the vanilla way (DialogueFollowerScript.SetFollower), switch a
+  character's teammate flag, and turn you back from werewolf / Vampire Lord form with the transformation script's own ShiftBack
+  (its "already busy" guards are reset first, so a revert that stopped half way runs to the end). Version 13 also sets
+  PlayerFollowerCount (0BCC98) when Transplant brings a vanilla follower back; 10-12 looked up 0BCCAE, a perk, so the count stayed 0.
 - Legendary Edition has its own helper (`helper-le`), with the same commands.
 - Confirms every action in game: top-left notification or a message box (`sNotify` in ReSaverHelper.ini).
 - Optional: refresh the journal automatically after every save load (`bRefreshJournalOnLoad=1`).

@@ -113,7 +113,7 @@ void App::open(const std::filesystem::path& a_path)
 		if (_save->isFO4()) {
 			// Fallout 4: its own setup (mods folder, game folder, profile, load order); the tools that need the
 			// save's change forms decoded (Skyrim only so far) close
-			_showPlayer = _showActors = _showTransplant = _showMerge = false;
+			_showPlayer = _showActors = _showTransplant = _showMerge = _showSkyFollowers = false;
 			if (!_settingsLoaded) {
 				loadSettings();
 			}
@@ -1044,6 +1044,10 @@ void App::draw()
 		watchdog::Section("drawTransplant");
 		drawTransplant();
 	}
+	if (_showF4World && _save) {
+		watchdog::Section("drawF4World");
+		drawF4World();
+	}
 	if (_showAnalysis) {
 		watchdog::Section("drawAnalysis");
 		drawAnalysis();
@@ -1060,9 +1064,21 @@ void App::draw()
 			drawPlayer();
 		}
 	}
+	if (_showSettlements || !_ws) {
+		watchdog::Section("drawSettlementsF4");
+		drawSettlementsF4();
+	}
 	if (_showActors && _save) {
 		watchdog::Section("drawActors");
 		drawActors();
+	}
+	if (_showSkyFollowers && _save && !fo4()) {
+		watchdog::Section("drawSkyFollowers");
+		drawSkyFollowers();
+	}
+	if (_showCompanionsF4 && _save) {
+		watchdog::Section("drawCompanionsF4");
+		drawCompanionsF4();
 	}
 	if (_showLeftovers && _save) {
 		watchdog::Section("drawLeftovers");
@@ -1071,6 +1087,14 @@ void App::draw()
 	if (_showHistory) {
 		watchdog::Section("drawHistory");
 		drawHistory();
+	}
+	if (_showBloat && _save) {
+		watchdog::Section("drawBloat");
+		drawBloat();
+	}
+	if (_showLoCheck) {
+		watchdog::Section("drawLoadOrderCheck");
+		drawLoadOrderCheck();
 	}
 	if (_showCrashLog && _save) {
 		watchdog::Section("drawCrashLog");
@@ -1313,6 +1337,11 @@ void App::drawMenu()
 		tips::Tip(tr("Everything ReSaver++ noticed about this save, and what can safely be done about it."));
 		ImGui::MenuItem(tr("Transplant progress from a bad save..."), nullptr, &_showTransplant);
 		tips::Tip(tr("Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one."));
+		if (fo4()) {
+			ImGui::MenuItem(tr("World items and areas..."), nullptr, &_showF4World);
+			tips::Tip(tr("Items dropped or spawned in the world, by place and by mod, and remove them; or reset an area as the game's "
+						 "ResetInterior does."));
+		}
 		ImGui::MenuItem(tr("Analysis"), nullptr, &_showAnalysis);
 		tips::Tip(tr("A text report of the save: which mods and scripts take the most space and run the most."));
 		if (ImGui::MenuItem(tr("Report..."))) {
@@ -1328,7 +1357,20 @@ void App::drawMenu()
 		}
 		tips::Tip(tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."));
 		ImGui::MenuItem(tr("Find NPCs (where they are, bring one to you)..."), nullptr, &_showActors, !fo4());
+		if (fo4()) {
+			ImGui::MenuItem(tr("Settlements (build budget)..."), nullptr, &_showSettlements);
+			tips::Tip(tr("Every settlement with its build budget, population and happiness; reset the used budget of a settlement whose "
+			          "build meter is full."));
+		}
 		tips::Tip(tr("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you."));
+		ImGui::MenuItem(tr("Followers and beast form..."), nullptr, &_showSkyFollowers, !fo4());
+		tips::Tip(tr("Your followers (dismissed, lost, \"you already have a follower\"), a werewolf or Vampire Lord form you are stuck in, "
+					 "and quests that were between stages, with the fixes."));
+		if (fo4()) {
+			ImGui::MenuItem(tr("Companions (affinity, romance, won't follow)..."), nullptr, &_showCompanionsF4);
+			tips::Tip(tr("Fallout 4: every companion with affinity, romance, whether it left for good and where it is; set affinity, and "
+			          "console commands to make one your companion again."));
+		}
 		ImGui::Separator();
 		if (ImGui::MenuItem(tr("Save history (growth over time)..."))) {
 			shortcut(Sc::kHistory);
@@ -1367,6 +1409,16 @@ void App::drawMenu()
 			_homePanel = false;
 		}
 		tips::Tip(tr("Look at the save's script arrays: which are biggest, and which nothing points at any more."));
+		if (ImGui::MenuItem(tr("Save bloat by mod..."))) {
+			shortcut(Sc::kBloat);
+		}
+		tips::Tip(tr("What each mod takes in this save (scripts, changed and created forms, inventory entries), the biggest causes and how "
+		          "they grew since an older save."));
+		if (ImGui::MenuItem(tr("Load order check..."))) {
+			shortcut(Sc::kLoadOrderCheck);
+		}
+		tips::Tip(tr("Full and light plugins against the game's limits, light plugins with form IDs out of range, missing or late masters, "
+		          "plugins the game will not load."));
 		if (ImGui::MenuItem(_db ? tr("Read plugin names again") : tr("Read plugin names"), nullptr, false, _sources.scanned() && !namesLoading())) {
 			startNames(true);
 		}

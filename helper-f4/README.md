@@ -12,6 +12,8 @@ key for a stuck game.
 - **Hold Ctrl for 8 seconds in the game:** all three at once, even when ReSaver Plus is not running.
 - **Transplant (version 13, quest objectives from 14):** brings your character's progress from an old save (one
   that crashes or will not load) into a good one. See below.
+- **Companions (version 15):** from ReSaver Plus's Tools > Companions window: make an actor your companion again
+  (also one that left for good), tell your companion to follow, set a companion's affinity. See below.
 
 ## Transplant
 
@@ -41,6 +43,23 @@ top, with ticks:
 The plugin only accepts these five kinds of records, with checked arguments: it cannot be used to run any other
 console command. The console does not say whether a command did something, so afterwards save in the game, open
 that save in ReSaver Plus and compare again: whatever is still listed did not take.
+
+## Companions (version 15)
+
+ReSaver Plus's Companions window (Fallout 4 saves) shows every companion with affinity, romance, whether it left for
+good and where it is. Its "Run in the game" buttons send one record each; the plugin runs the follower system's own
+Papyrus functions through the console, the same as typing them:
+
+- make it my companion again: `<ref>.cf "CompanionActorScript.UnsetHasLeftPlayerPermanently"` (only when it left for
+  good), then `cqf 000289E4 "FollowersScript.AllowCompanion" <ref> 1 1` (out of DisallowedCompanionFaction, then the
+  game's SetCompanion / SetDogmeatCompanion: the companion slot, follow, teammate; your current companion is dismissed)
+- follow me: `cqf 000289E4 "FollowersScript.FollowerFollow" <ref>`
+- affinity: `<ref>.cf "CompanionActorScript.SetAffinity" <value>` (the companion's own ModAffinity: threshold scenes,
+  the companion perk, and it stays below a threshold whose scene has not played yet)
+
+`000289E4` is the Followers quest of Fallout4.esm (always load index 00). A mod companion whose script extends
+CompanionActorScript gets its own script's name in the `cf` lines. Only these three record kinds, with checked
+arguments (8-digit form ids, 0/1, a number -100000..100000, a script name of letters, digits, `_` and `:`).
 
 ## Requirements
 
@@ -86,6 +105,16 @@ SteamStub layer removed to read the code), and the 2015 1.1.29 (its code is encr
     as 159 pointers at start; the same values F4SE 0.6.23 / 0.7.x hard-code). Slot 0x16 is
     `ConcreteFormFactory<Script, 22>` in all three; its virtual function 1 makes a new Script.
   - Script::text at +0x38 (the game's own SetText writes it) and form type 0x16, in all three.
+- **The companion commands (version 15):** CallFunction "cf" 0x028b and CallQuestFunction "cqf" 0x028c have the same
+  name, opcode and parameters (String, optional strings; Quest, String, optional strings) in all four tables; their
+  code is the same in 1.10.984 and 1.11.240. The console reads a form argument (also cqf's quest) as "player", else
+  a form whose editor id the game kept, else a hex form id (`_strtoui64(text, 16)`): 1.10.163 +0x4E7620, 1.10.984
+  +0x561AE0, 1.11.240 +0x5B5D90 (984 = 1.11.240 instruction for instruction; 163 the same order). Whether the game
+  keeps the Followers quest's editor id was not settled from the code, so the plugin uses the form id; the Gather
+  command (version 12) used `cqf Followers` and uses `cqf 000289E4` now. cf / cqf split "Script.Function" at the
+  first '.' (1.11.240 +0x60C5C0, 1.10.984 +0x5B8360, 1.10.163 +0x533770) and convert each argument to the
+  function's parameter type (a form: "none", "player", "selected" or a hex form id, +0x60AA80 / +0x5B6820 /
+  +0x533420; a float with atof; an int with atoi; a bool is false for "0", "false" or "").
 - **Not checked:** 1.10.980 (only its Address Library file was read: the same ids), 1.11.x builds other than 1.11.240
   (the 1.11 Address Library files give the ids; no exe), and anything in the game (no test run in Fallout 4 yet).
 

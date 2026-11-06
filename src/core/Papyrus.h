@@ -336,4 +336,7 @@ namespace ess
 		std::unordered_map<EID, std::size_t>      _instIdx, _refIdx, _arrIdx, _structIdx;
 		std::unordered_map<ThreadID, std::size_t> _activeIdx;
 	};
+
+	// One thread's saved data as Papyrus::write writes it (with w's width flags): for measuring a thread's size.
+	void WriteThreadData(Writer& w, ThreadID a_id, const ActiveScriptData& a_data);
 }

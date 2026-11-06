@@ -24,9 +24,11 @@ namespace Rescue
 
 	void Gather()
 	{
-		// (Followers: the vanilla follower quest; its script's own teleport, with the teleport effects)
-		Game::Console("cqf Followers \"FollowersScript.TryToTeleportCompanion\" player 1 1");
-		Game::Console("cqf Followers \"FollowersScript.TryToTeleportDogmeat\" player 1 1");
+		// (Followers 000289E4, Fallout4.esm: the vanilla follower quest; its script's own teleport, with the teleport
+		// effects. By form id: the console reads a quest argument as an editor id only when the game kept the quest's
+		// editor id, a hex form id always - see Transplant.h)
+		Game::Console("cqf 000289E4 \"FollowersScript.TryToTeleportCompanion\" player 1 1");
+		Game::Console("cqf 000289E4 \"FollowersScript.TryToTeleportDogmeat\" player 1 1");
 	}
 
 	std::string RunAll()

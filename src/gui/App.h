@@ -5,6 +5,7 @@
 #include "core/Lang.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
+#include "core/WorkshopFO4.h"
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
 #include "core/ChangeFormFO4.h"
@@ -52,6 +53,8 @@
 struct ImFont;
 struct ScriptDoc;   // AppScripts.cpp
 struct CompileJob;  // AppScripts.cpp
+
+struct F4WorldState;  // AppF4World.cpp
 
 class App
 {
@@ -120,6 +123,9 @@ public:
 		} else if (w == "gallery" || w == "gallerylist") {
 			_galleryList = w == "gallerylist";
 			startOpenDialog();
+		} else if (w == "f4world" || w == "f4cells") {
+			_showF4World = true;
+			_f4WorldTab = w == "f4cells" ? 1 : 0;
 		} else if (w == "livegame") {
 			_showLiveGame = true;
 		} else if (w == "collect") {
@@ -145,6 +151,8 @@ public:
 			_showAssets = true;
 		} else if (w == "actors") {
 			_showActors = true;
+		} else if (w == "skyfollowers") {
+			_showSkyFollowers = true;
 		} else if (w == "player") {
 			_showPlayer = true;
 			_pvLoaded = false;
@@ -598,6 +606,20 @@ private:
 	void        drawLookup();
 	void        drawPlayer();
 	void        drawPlayerFO4();  // AppPlayerFO4.cpp
+	// Fallout 4 settlements: build budget, its reset, the Save check's settlement findings (AppF4Settlements.cpp)
+	struct WsState;
+	std::shared_ptr<WsState> _ws;
+	bool        _showSettlements = false;
+	void        drawSettlementsF4();
+	bool        settlementsPoll();  // true while nothing is read yet
+	void        settlementCheckItems(std::vector<CheckItem>& a_items);
+	std::string settlementName(const ess::fo4ws::Settlement& a_s) const;
+	// Fallout 4: dropped / created items in the world and reset an area (AppF4World.cpp)
+	void                               drawF4World();
+	bool                               _showF4World = false;
+	int                                _f4WorldTab = 0;  // 0 items, 1 areas (test hook "f4cells")
+	std::shared_ptr<F4WorldState>      _f4World;
+	std::size_t                        f4WorldRemovable();  // Save check: removable dropped items (cached per edit)  // AppPlayerFO4.cpp
 	// Main screen shortcuts: the Clean and Tools menu entries as buttons under the overview (AppHome.cpp)
 	enum class Sc
 	{
@@ -606,7 +628,9 @@ private:
 		kPlayer, kActors, kTransplant, kLookup,
 		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex,
 		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog, kSkyrimLogs, kAskAi, kBsa, kCollectLogs,
-		kLiveGame, kGather, kCosave
+		kLiveGame, kGather,
+		kBloat, kLoadOrderCheck,  // AppF4Bloat.cpp
+		kCosave                   // AppCosave.cpp
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	// a Fallout 4 save is open: the tools built on Skyrim's data (its change forms, plugins, mods, logs) are off
@@ -618,6 +642,16 @@ private:
 	void        goHome();              // "Main menu": close the tools, back to the overview with its shortcuts
 	bool        _homePanel = true;
 	void        drawActors();
+	// Skyrim followers, beast form, quests between stages (AppSkyFollowers.cpp)
+	struct SkyFollowersView;
+	std::shared_ptr<SkyFollowersView> _skyf;
+	bool        _showSkyFollowers = false;
+	void        drawSkyFollowers();
+	void        skyfRefresh();
+	void        skyfCheckItems(std::vector<CheckItem>& a_items);
+	void        skyfInGame(std::uint32_t a_formID, std::function<void(std::uint32_t)> a_then);
+	void        skyfAsk(std::vector<std::string> a_command, const std::string& a_what);
+	void        skyfDismissInGame();
 	// leftover items, save history, Papyrus log, saves folder (AppExtras.cpp)
 	void        drawLeftovers();
 	void        drawMergedPatch();
@@ -906,6 +940,16 @@ private:
 	int           _shotW = 0, _shotH = 0;
 
 	bool _showAnalysis = false;
+	// Save bloat by mod and the load order check (AppF4Bloat.cpp); their state lives in that file
+	struct BloatState;
+	std::shared_ptr<BloatState> _bloatState;
+	BloatState&                 bloatState();
+	void                        bloatReport(bool a_allowHere);  // the open save's report: started, collected, or (edited save) made here
+	std::shared_ptr<ess::ScriptSources> bloatSources();
+	bool                        _showBloat = false, _showLoCheck = false;
+	void                        drawBloat();
+	void                        drawLoadOrderCheck();
+	void                        bloatCheckItems(std::vector<CheckItem>& a_items);  // the Save check's findings of both
 	bool _showAbout = false;
 
 	// modal state
@@ -1005,6 +1049,8 @@ private:
 	std::map<std::uint32_t, int> _f4PerkEdit;
 	char                       _f4PerkFilter[64]{}, _f4AddPerk[16]{};
 	int                        _f4AddRank = 1;
+	std::vector<ess::fo4cf::EffectSource> _f4FxSources;  // per active effect, from the plugins
+	const ess::PluginDB*       _f4FxSourcesDb = nullptr;
 	int                        _pvGold = 0;
 	float                      _pvSkills[18]{};
 	std::vector<std::array<int, 2>> _pvBounty;
@@ -1104,4 +1150,14 @@ private:
 	ess::modremove::Options                 _removeOpt;
 	std::unique_ptr<ess::modremove::Plan>   _removePlan;
 	bool                              _scanPathPopup = false;
+
+	// Fallout 4 companions window and save checks (AppF4Companions.cpp; core/CompanionsFO4.h, core/QuestChecksFO4.h)
+	struct F4CompanionsState;
+	std::shared_ptr<F4CompanionsState> _f4comp;
+	bool                               _showCompanionsF4 = false;
+	F4CompanionsState&                 f4companions();  // read once per save and edit
+	void                               drawCompanionsF4();
+	void                               appendCheckItemsF4(std::vector<CheckItem>& a_items);
+	void                               f4compSend(std::vector<std::string> a_record, const std::string& a_what);  // helper 15 APPLY
+	std::string                        f4compCannot() const;  // why the running game cannot take it now, "" if it can
 };

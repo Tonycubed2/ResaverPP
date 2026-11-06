@@ -11,6 +11,10 @@
 #include <string>
 #include <vector>
 
+namespace ess
+{
+	class PluginDB;
+}
 namespace ess::fo4cf
 {
 	struct Range
@@ -106,6 +110,24 @@ namespace ess::fo4cf
 		std::uint32_t archetype = 0;   // the effect archetype the data was saved for
 		Range         range;           // the whole entry
 		Range         data;            // the effect's own data (ActiveEffect::LoadGame), skipped by size
+		// the start of every class's data (ActiveEffect::LoadGame 0xb74e90 reads +0x78, +0x80, +0x7c, +0x84 first);
+		// valid when the data has at least 16 bytes
+		float         elapsed = 0, magnitude = 0, duration = 0;
+		std::uint32_t flags = 0;
+		// flag bits as ActiveEffect::Update (0xb75b10..) sets them: 0x10000 started (the class's Start ran: a value
+		// modifier's strength is in the actor's saved modifiers), 0x20000 finished (Finish ran: taken off again), 0x8000
+		// inactive (conditions false: finished), 0x40000 dispelled, 0x80 has conditions, 0x200 the magnitude is the
+		// saved one (0xb740d0)
+		bool          started() const { return (flags & 0x10000u) != 0 && (flags & 0x20000u) == 0; }
+	};
+	// The four actor values the game keeps outside the actor value storage (Actor +0x444 .. +0x468, 0xccbe80), each
+	// saved by 0xced2e0 as u32 n and min(n, 3) f32 modifiers (the rest are 0): Health, ActionPoints, UnusedStamina, Rads
+	constexpr std::uint32_t kVitalAV[4] = { 0x2D4, 0x2D5, 0x2D6, 0x2E1 };
+	struct VitalMods
+	{
+		std::uint32_t count = 0;
+		float         mod[3] = {};
+		Range         range;  // the u32 and the floats
 	};
 	struct ActorValue
 	{
@@ -175,6 +197,9 @@ namespace ess::fo4cf
 		Range         processRange;
 		Range         effectsRange;     // end of the active effect list (begin 0 when there is none)
 		std::vector<ActiveEffect>  effects;
+		bool          hasEffectList = false;  // the middle-high process was saved (process level 0 or 1): the list exists
+		Range         effectList;       // the list with its vsval count (AIProcess middle-high data, 0xb896c0)
+		VitalMods     vitals[4];        // modifiers of kVitalAV (read before the actor values)
 		Range                      valuesRange;  // the actor value storage (0xcedc80)
 		std::vector<ActorValue>    values;       // base values
 		std::vector<ActorValueMod> modifiers;
@@ -227,6 +252,59 @@ namespace ess::fo4cf
 	// list count is a vsval, so the body is rebuilt; it is decoded again before the change is kept.
 	std::string AddPerk(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_perkFormID, std::uint8_t a_rank);
 	std::string RemovePerk(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_perkFormID);
+
+	// ---- removing active effects ----
+	// What the plugins say about an effect (EffectSourceOf): its MGEF and the magic item it comes from. Needed only to undo
+	// a started value modifier's strength.
+	struct EffectSource
+	{
+		bool          known = false;      // the item and its effect were found in the plugins
+		std::uint32_t mgef = 0;           // runtime form ids
+		std::uint32_t mgefFlags = 0;      // MGEF DATA flags (0x2: recover, undone when it ends)
+		std::uint32_t archetype = 0xFFFFFFFF;
+		std::uint32_t actorValue = 0;     // AVIF form id (0: none)
+		char          itemType[5] = {};   // SPEL, ENCH, ALCH, INGR, SCRL
+		std::uint8_t  spellType = 0xFF;   // SPEL type (4 ability), ENCH enchant type (6), ALCH 7, INGR 8, SCRL 13
+		std::uint8_t  castType = 0xFF;    // 0 constant effect
+		bool          poison = false;     // ALCH
+	};
+	// What removing one effect undoes, by the rules of the game's own end of that effect (Finish), so that the actor is
+	// as it would be had the effect ended:
+	//  - not started, or already finished: nothing (its Start never ran or its Finish already did);
+	//  - archetype 0 (ValueModifierEffect) / 34 (PeakValueModifierEffect), MGEF recover: Finish (0xba02d0 -> 0xba0150 ->
+	//    0xba0400) takes the saved magnitude off the modifier slot its Start used: for the player, slot 0 when the item is
+	//    an ability (spell type 4), a constant effect enchantment, or a potion that is not a poison and changes Health or a
+	//    S.P.E.C.I.A.L. value (actor value type 1); otherwise slot 1. A modifier within 0.0001 of 0 becomes 0 (0xcc9b70).
+	//    Without recover nothing is undone (0xba0130);
+	//  - archetypes whose Finish does nothing to the actor: 1 Script (0xb96bc0 frees runtime objects), 2, 3, 9, 10, 15,
+	//    16, 19, 27, 28, 29, 33, 35 (0xb77720, an empty function) and those without a class of their own (17, 26, 30, 36:
+	//    a plain ActiveEffect, 0xb89b00);
+	//  - anything else that is started: refused (its end would change the actor in ways not modelled here).
+	struct EffectUndo
+	{
+		bool          ok = true;          // false: refused (why says why)
+		bool          modifier = false;   // a modifier is changed
+		std::uint32_t actorValue = 0;
+		int           slot = -1;          // 0..2
+		float         amount = 0;         // taken off
+		std::string   why;
+	};
+	EffectUndo PlanEffectRemoval(const Actor& a_actor, const ActiveEffect& a_effect, const EffectSource* a_source);
+	// Removes these entries (indexes into DecodeActor().effects) from the actor's active effect list: the entries go, the
+	// vsval count in front of them is rewritten, and each one's started value modifier is taken off its modifier
+	// (PlanEffectRemoval; a_sources: one per effect of the actor, or empty when the plugins are not loaded). Refused
+	// unless the whole body reads exactly (Actor::complete); the result is decoded again and must read exactly, with
+	// the same parts before and after the list, before it is kept. a_changes: what was changed, one line each.
+	std::string RemoveActiveEffects(SaveFile& a_save, ChangeForm& a_cf, const std::vector<std::size_t>& a_indexes,
+		const std::vector<EffectSource>& a_sources, std::vector<std::string>* a_changes = nullptr);
+
+	// The effects (indexes) that come from one magic item (runtime form id) / from the plugin that defines the item
+	// (SaveFile::pluginOf's name, any letter case).
+	std::vector<std::size_t> EffectsFrom(const SaveFile& a_save, const Actor& a_actor, std::uint32_t a_item);
+	std::vector<std::size_t> EffectsFromPlugin(const SaveFile& a_save, const Actor& a_actor, const std::string& a_plugin);
+
+	// The source of every active effect of an actor (one per DecodeActor().effects entry).
+	std::vector<EffectSource> EffectSources(const SaveFile& a_save, const Actor& a_actor, const PluginDB* a_db);
 
 	// The body is decompressed here; a_cf must be a REFR / ACHR (Refr) or NPC_ (Npc) of a Fallout 4 save.
 	Refr DecodeRefr(const SaveFile& a_save, const ChangeForm& a_cf);

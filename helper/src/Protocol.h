@@ -33,6 +33,11 @@
 //   SAVEGAME <notify>                     -> OK  <save name>             (a new save ReSaverPP_Rescue_<date>; version 12)
 //   RESCUE <notify>                       -> OK  <one line: what was done>   (SAVEGAME, CONTROLS, GATHER; version 12;
 //                                            the same as holding Ctrl in the game for iRescueHoldSeconds)
+//   FOLLOWERSET <formid hex> <notify>     -> OK  1 | OK 0 <why not>   (DialogueFollowerScript.SetFollower on the vanilla follower
+//                                         quest; refused while somebody living is in its Follower alias; version 13)
+//   TEAMMATE <formid hex> <0|1> <notify>  -> OK  1 | OK 0 <why not>   (Actor.SetPlayerTeammate; version 13)
+//   BEASTREVERT <werewolf|vampire> <notify> -> OK 1 | OK 0 <why not>  (the change script's guards set back to false, then its
+//                                         own ShiftBack(): PlayerWerewolfChangeScript / DLC1PlayerVampireChangeScript; version 13)
 // <notify>: hud (top-left notification), box (message box), none, or ini (the helper's own setting).
 #include <string>
 #include <vector>
@@ -40,7 +45,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 12;
+	inline constexpr int            kHelperVersion = 13;
 
 	inline std::string Escape(const std::string& a_in)
 	{

@@ -1,6 +1,8 @@
 #include <cctype>
+#include <cmath>
 #include <tuple>
 // ReSaver++ command line - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
+#include "core/FollowersSky.h"
 #include "core/Batch.h"
 #include "core/Bsa.h"
 #include "core/CliHelp.h"
@@ -27,6 +29,9 @@
 #include "core/Quests.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
+#include "core/SaveBloat.h"
+#include "core/LoadOrderCheck.h"
+#include "core/WorkshopFO4.h"
 #include <functional>
 #include <map>
 #include <set>
@@ -43,6 +48,8 @@
 
 using namespace ess;
 
+int Fo4WorldMain(int argc, char** argv);  // WorldF4.cpp: Fallout 4 world items / reset an area (-1: not those options)
+
 namespace
 {
 	template <class... A>
@@ -54,6 +61,9 @@ namespace
 	}
 }
 
+bool IsFo4CompanionsCommand(int argc, char** argv);  // CompanionsCli.cpp
+int  Fo4CompanionsMain(int argc, char** argv);
+
 static void Usage()
 {
 	std::fputs(ess::CliUsage(), stdout);
@@ -64,6 +74,73 @@ static bool _stricmp_portable(const std::string& a_a, const std::string& a_b)
 	return a_a.size() == a_b.size() && std::equal(a_a.begin(), a_a.end(), a_b.begin(), [](char x, char y) {
 		return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
 	});
+}
+
+// resaverpp-cli --load-order-check [--sources <mods>] [--profile <dir>] [--game <dir>] [--plugins-txt <file>] [--fo4 | --le]
+static int LoadOrderCheckMain(int argc, char** argv)
+{
+	std::filesystem::path mods, profile, game, pluginsTxt, overwrite;
+	bool                  fo4 = false, le = false;
+	for (int i = 2; i < argc; ++i) {
+		const std::string a = argv[i];
+		auto              next = [&]() -> std::string {
+			if (i + 1 >= argc) {
+				std::fprintf(stderr, "missing value after %s\n", a.c_str());
+				std::exit(1);
+			}
+			return argv[++i];
+		};
+		if (a == "--sources") mods = next();
+		else if (a == "--profile") profile = next();
+		else if (a == "--game") game = next();
+		else if (a == "--plugins-txt") pluginsTxt = next();
+		else if (a == "--fo4") fo4 = true;
+		else if (a == "--le") le = true;
+		else {
+			std::fprintf(stderr, "unknown option %s\n", a.c_str());
+			return 1;
+		}
+	}
+	if (!mods.empty()) {
+		if (auto mo2 = FindMo2Instance(mods)) {
+			if (profile.empty()) profile = mo2->profilesDir / mo2->selectedProfile;
+			overwrite = mo2->overwriteDir;
+			if (game.empty()) game = mo2->gamePath;
+		}
+	}
+	std::error_code ec;
+	fo4 = fo4 || (!game.empty() && std::filesystem::exists(game / "Fallout4.exe", ec));
+	le = le || (!game.empty() && std::filesystem::exists(game / "TESV.exe", ec));
+	if (pluginsTxt.empty()) {
+		pluginsTxt = profile.empty() ? loadorder::GamePluginsTxt(fo4 ? 2 : 0, le) : profile / "plugins.txt";
+	}
+	ScriptSources src;
+	const auto    order = profile.empty() ? std::vector<std::string>{} : LoadModList(profile);
+	if (!mods.empty() || !game.empty()) {
+		src.scan(mods.empty() ? (game / "Data") : mods, order.empty() ? nullptr : &order, overwrite, game.empty() ? std::filesystem::path{} : game / "Data");
+	}
+	locheck::Options opt;
+	opt.game = fo4 ? locheck::Game::kFallout4 : le ? locheck::Game::kSkyrimLE : locheck::Game::kSkyrimSE;
+	opt.loadOrder = merge::ReadLoadOrder(pluginsTxt, game, fo4 ? 2 : -1);
+	opt.findPlugin = [&](const std::string& a_name) -> std::optional<std::filesystem::path> {
+		if (auto p = src.pluginPath(a_name)) {
+			return p;
+		}
+		if (!game.empty()) {
+			const auto f = game / "Data" / a_name;
+			std::error_code e2;
+			if (std::filesystem::exists(f, e2)) {
+				return f;
+			}
+		}
+		return std::nullopt;
+	};
+	std::printf("load order: %zu plugins (%s)\n", opt.loadOrder.size(), pluginsTxt.string().c_str());
+	const auto r = locheck::Check(opt);
+	for (const auto& l : locheck::Describe(r)) {
+		std::printf("%s\n", l.c_str());
+	}
+	return r.hasErrors() ? 2 : 0;
 }
 
 // resaverpp-cli --merged-patch <out.esp> --sources <mods> [--profile <dir>] [--game <dir>] [--plugins-txt <file>] [--language <lang>]
@@ -388,6 +465,9 @@ int main(int argc, char** argv)
 	if (std::string(argv[1]) == "--merged-patch") {
 		return MergedPatchMain(argc, argv);
 	}
+	if (std::string(argv[1]) == "--load-order-check") {
+		return LoadOrderCheckMain(argc, argv);
+	}
 	if (std::string(argv[1]) == "--file-conflicts") {
 		return FileConflictsMain(argc, argv);
 	}
@@ -400,6 +480,12 @@ int main(int argc, char** argv)
 	if (std::string(argv[1]) == "--cosave") {
 		return CosaveMain(argc, argv);
 	}
+	if (IsFo4CompanionsCommand(argc, argv)) {
+		return Fo4CompanionsMain(argc, argv);
+	}
+	if (const int r = Fo4WorldMain(argc, argv); r >= 0) {
+		return r;
+	}
 	std::vector<std::string> purge;
 	bool                     fixMcm = false, delForms = false, keepInst = false, unattached = false, undefined = false, termUndef = false, nonexist = false;
 	std::size_t              top = 20;
@@ -409,6 +495,8 @@ int main(int argc, char** argv)
 	std::string              batchFile, compareWith, reportFile, transplantFrom;
 	bool                     dryRun = false, spawned = false, spawnedGone = false, charged = false, allowDamaged = false;
 	bool                     pathIdles = false, fixPathIdles = false;
+	bool                     followersView = false, beastView = false, stuckStagesView = false, fixFollowerCount = false, fixAnimalCount = false;
+	std::vector<std::uint32_t> clearTeammates;
 	int                      fixCharges = 0;
 	bool                     questsView = false;
 	bool journalOnly = false;
@@ -433,6 +521,10 @@ int main(int argc, char** argv)
 	std::vector<std::pair<std::uint32_t, int>> fo4PerkEdits;
 	int           fo4Level = -1;
 	std::string   fo4Transplant;  // --fo4-transplant <old save>
+	bool          bloatView = false;  // --bloat
+	std::string   bloatCompare;       // --bloat-compare <older save>
+	bool          fo4Settlements = false;  // --fo4-settlements
+	std::vector<std::tuple<std::string, std::optional<float>, std::optional<float>>> fo4Budgets;  // --fo4-reset-budget / --fo4-set-budget
 	bool          fo4TransplantWrite = false;
 	double        fo4Xp = -1;  // --fo4-set-perk (rank) / --fo4-remove-perk (-1)
 	std::vector<std::pair<std::string, float>> playerSkills;
@@ -495,6 +587,28 @@ int main(int argc, char** argv)
 			fo4Level = std::atoi(next().c_str());
 		} else if (a == "--fo4-transplant") {
 			fo4Transplant = next();
+		} else if (a == "--bloat") {
+			bloatView = true;
+		} else if (a == "--bloat-compare") {
+			bloatView = true;
+			bloatCompare = next();
+		} else if (a == "--fo4-settlements") {
+			fo4Settlements = true;
+		} else if (a == "--fo4-reset-budget") {
+			fo4Budgets.emplace_back(next(), 0.0f, 0.0f);
+		} else if (a == "--fo4-set-budget") {
+			// <workshop>:<draws>:<triangles>, "-" leaves one alone
+			const auto v = next();
+			const auto c1 = v.find(':'), c2 = c1 == std::string::npos ? c1 : v.find(':', c1 + 1);
+			if (c2 == std::string::npos) {
+				std::fprintf(stderr, "--fo4-set-budget needs <workshop formid>:<draws>:<triangles> (\"-\" leaves one as it is)\n");
+				return 1;
+			}
+			auto num = [](const std::string& t) -> std::optional<float> {
+				if (t == "-") return std::nullopt;
+				return static_cast<float>(std::atof(t.c_str()));
+			};
+			fo4Budgets.emplace_back(v.substr(0, c1), num(v.substr(c1 + 1, c2 - c1 - 1)), num(v.substr(c2 + 1)));
 		} else if (a == "--fo4-transplant-write") {
 			fo4TransplantWrite = true;
 		} else if (a == "--fo4-set-xp") {
@@ -566,6 +680,28 @@ int main(int argc, char** argv)
 			pathIdles = true;
 		} else if (a == "--fix-path-idles") {
 			fixPathIdles = true;
+		} else if (a == "--followers") {
+			followersView = true;
+		} else if (a == "--beast-form") {
+			beastView = true;
+		} else if (a == "--stuck-stages") {
+			stuckStagesView = true;
+		} else if (a == "--fix-follower-count") {
+			fixFollowerCount = true;
+		} else if (a == "--fix-animal-count") {
+			fixAnimalCount = true;
+		} else if (a == "--clear-teammate") {
+			// one form id or several, separated by commas (hex, as --followers shows them)
+			const auto list = next();
+			std::size_t start = 0;
+			for (std::size_t i = 0; i <= list.size(); ++i) {
+				if (i == list.size() || list[i] == ',') {
+					if (i > start) {
+						clearTeammates.push_back(static_cast<std::uint32_t>(std::stoul(list.substr(start, i - start), nullptr, 16)));
+					}
+					start = i + 1;
+				}
+			}
 		} else if (a == "--charged") {
 			charged = true;
 		} else if (a == "--fix-charges") {
@@ -658,7 +794,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty() || fixFollowerCount || fixAnimalCount || !clearTeammates.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -704,6 +840,29 @@ int main(int argc, char** argv)
 		} else if (removeCrashActors) {
 			std::fputs("--remove-crash-actors needs --crash-log\n", stderr);
 			return 1;
+		}
+		if (bloatView) {
+			// save bloat by mod (and growth since an older save)
+			const auto rep = bloat::Build(*save);
+			for (const auto& l : bloat::Describe(rep, top)) {
+				std::printf("%s\n", l.c_str());
+			}
+			if (!bloatCompare.empty()) {
+				try {
+					const auto old = SaveFile::load(bloatCompare);
+					const auto g = bloat::Compare(bloat::Build(*old), rep);
+					std::printf("\nGrowth since %s:\n", std::filesystem::path(bloatCompare).filename().string().c_str());
+					for (const auto& l : bloat::DescribeGrowth(g, top)) {
+						std::printf("%s\n", l.c_str());
+					}
+				} catch (const std::exception& e) {
+					std::fprintf(stderr, "could not read %s: %s\n", bloatCompare.c_str(), e.what());
+					return 1;
+				}
+			}
+			if (!edits) {
+				return 0;
+			}
 		}
 		if (!fo4Transplant.empty()) {
 			// Fallout 4 Transplant: what the old save has that this one does not, and where each part goes
@@ -919,7 +1078,7 @@ int main(int argc, char** argv)
 			return 3;
 		}
 		ScriptSources src;
-		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone || questsView || effectsView || !removeEffects.empty())) {
+		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone || questsView || effectsView || !removeEffects.empty() || fo4Settlements || followersView || beastView || stuckStagesView)) {
 			std::filesystem::path profDir = profile, overwrite, gameData;
 			if (auto mo2 = FindMo2Instance(sources)) {
 				if (profDir.empty()) {
@@ -1023,6 +1182,107 @@ int main(int argc, char** argv)
 			std::printf("%zu character(s) saved waiting for an idle the save does not keep (this save crashes on load)\n", stuck.size());
 			for (const auto& s : stuck) {
 				std::printf("  %08X  %zu path follower(s) in state 14\n", s.formID, s.count);
+			}
+		}
+		if (followersView || beastView || stuckStagesView) {
+			std::unique_ptr<PluginDB> db;
+			if (!src.empty()) {
+				PluginDB::Input in2;
+				PrepareInput(*save, in2);
+				in2.sources = src;
+				PluginDB::Progress prog;
+				db = std::make_unique<PluginDB>();
+				db->load(in2, prog);
+			}
+			auto nm = [&](std::uint32_t id) -> std::string {
+				if (!db || !id) {
+					return {};
+				}
+				const auto d = db->describe(id);
+				return d.empty() ? std::string() : " " + d;
+			};
+			if (followersView) {
+				const auto st = skyf::ReadFollowers(*save, [&](std::uint32_t ref) -> std::uint32_t {
+					const auto* f = db ? db->find(ref) : nullptr;
+					return f ? f->base : 0;
+				});
+				if (!st.error.empty()) {
+					std::fprintf(stderr, "%s\n", st.error.c_str());
+					return 1;
+				}
+				std::printf("vanilla follower quest (DialogueFollower 000750BA): %s; PlayerFollowerCount %s, PlayerAnimalCount %s\n",
+					st.questRunning ? "running" : (st.questInSave ? "not running" : "not in the save"),
+					st.hasCount ? Fmt("%g", st.followerCount).c_str() : "0 (never changed in game)", st.hasAnimalCount ? Fmt("%g", st.animalCount).c_str() : "0 (never changed in game)");
+				for (const auto& [al, ref] : st.runAliases) {
+					std::printf("  quest alias %d (%s) -> %08X%s\n", al, al == skyf::kFollowerAlias ? "Follower" : al == skyf::kAnimalAlias ? "Animal" : "?", ref, nm(ref).c_str());
+				}
+				std::printf("%zu actor(s) with a follower sign:\n", st.actors.size());
+				for (const auto& a : st.actors) {
+					std::string why;
+					auto        add = [&](const std::string& w) { why += (why.empty() ? "" : ", ") + w; };
+					if (a.inFollowerAlias) add("Follower alias");
+					if (a.inAnimalAlias) add("Animal alias");
+					if (a.teammate) add("teammate");
+					if (a.inFaction(skyf::kCurrentFollowerFaction)) add("CurrentFollowerFaction");
+					if (a.inFaction(skyf::kPlayerFollowerFaction)) add("PlayerFollowerFaction");
+					if (a.inFaction(skyf::kDismissedFollowerFaction)) add("dismissed");
+					if (a.inFaction(skyf::kCurrentHireling)) add("hireling");
+					if (a.dead()) add("dead");
+					if (a.disabled) add("disabled");
+					if (!a.aliases.empty()) add(Fmt("%zu quest alias(es)", a.aliases.size()));
+					std::printf("  %08X%s: %s%s\n", a.formID, nm(a.formID).c_str(), why.c_str(),
+						a.hasPosition ? Fmt("; in %08X%s", a.cell, nm(a.cell).c_str()).c_str() : "");
+				}
+				std::printf("%zu problem(s)\n", st.findings.size());
+				for (const auto& f : st.findings) {
+					std::printf("  %s%s%s\n    %s\n", f.actor ? Fmt("%08X", f.actor).c_str() : "the follower quest", nm(f.actor).c_str(), "", f.text.c_str());
+				}
+			}
+			if (beastView) {
+				const auto list = skyf::ReadBeastForms(*save);
+				if (list.empty()) {
+					std::printf("the player has never been a werewolf or a Vampire Lord in this save\n");
+				}
+				for (const auto& b : list) {
+					std::printf("%s (%08X): %s, stages done:", b.questEdid.c_str(), b.quest, b.questRunning ? "running" : (b.questInSave ? "not running" : "not in the save"));
+					for (auto st : b.stagesDone) {
+						std::printf(" %d", st);
+					}
+					std::printf("\n  race %08X%s (%s)%s, beast race %08X%s, race to go back to %08X%s\n", b.playerRace, nm(b.playerRace).c_str(), b.playerRaceFrom.c_str(),
+						b.raceIsBeast ? " = THE BEAST RACE" : "", b.beastRace, nm(b.beastRace).c_str(), b.originalRace, nm(b.originalRace).c_str());
+					std::printf("  script guards: tracking %d, trying to shift back %d, shifting back %d, shutting down %d\n", b.trackingStarted, b.tryingToShiftBack,
+						b.shiftingBack, b.shuttingDown);
+					for (auto x : b.spells) std::printf("  still has spell %08X%s\n", x, nm(x).c_str());
+					for (auto x : b.factions) std::printf("  still in faction %08X%s\n", x, nm(x).c_str());
+					for (auto x : b.items) std::printf("  still carries %08X%s\n", x, nm(x).c_str());
+					using F = skyf::BeastState::Fix;
+					std::printf("  %s\n", b.fix == F::kNone ? "nothing wrong" : b.problem.c_str());
+					if (b.fix == F::kSetStage) {
+						std::printf("  fix in the running game: setstage %s %d (ReSaverHelper SETSTAGE %08X %d)\n", b.questEdid.c_str(), skyf::kShiftBackStage, b.quest, skyf::kShiftBackStage);
+					} else if (b.fix == F::kGameRevert) {
+						std::printf("  fix in the running game: ReSaverHelper 13 BEASTREVERT %s (the script's own ShiftBack)\n", b.kind == skyf::Beast::kWerewolf ? "werewolf" : "vampire");
+					}
+				}
+			}
+			if (stuckStagesView) {
+				const auto list = skyf::FindStuckStages(*save, [&](std::uint32_t q) {
+					std::vector<int> v;
+					if (const auto* d = db ? db->quest(q) : nullptr) {
+						for (const auto& st : d->stages) {
+							if (st.flags & 4) {
+								v.push_back(st.index);
+							}
+						}
+					}
+					return v;
+				});
+				std::printf("%zu quest stage(s) not finished%s\n", list.size(), db ? "" : " (give --sources for the shut-down stage check and names)");
+				for (const auto& x : list) {
+					std::printf("  %08X%s stage %d: %s\n    %s\n", x.quest, nm(x.quest).c_str(), x.stage, x.kind.c_str(), x.text.c_str());
+				}
+			}
+			if (!edits) {
+				return 0;
 			}
 		}
 		if (charged) {
@@ -1129,6 +1389,45 @@ int main(int argc, char** argv)
 			}
 			std::printf("report written: %s (%zu lines)\n", reportFile.c_str(), lines.size());
 			return 0;
+		}
+		if (fo4Settlements) {
+			if (!save->isFO4()) {
+				std::fprintf(stderr, "--fo4-settlements needs a Fallout 4 save\n");
+				return 1;
+			}
+			std::unique_ptr<PluginDB> db;
+			if (!src.empty()) {
+				PluginDB::Input in2;
+				PrepareInput(*save, in2);
+				in2.sources = src;
+				in2.fo4 = true;
+				in2.language = "en";  // (Fallout4_en.strings)
+				PluginDB::Progress prog;
+				db = std::make_unique<PluginDB>();
+				db->load(in2, prog);
+			}
+			auto name = [&](std::uint32_t a_id) -> std::string {
+				if (!db || !a_id) return {};
+				const auto* f = db->find(a_id);
+				return f ? (db->name(*f).empty() ? db->edid(*f) : db->name(*f)) : std::string();
+			};
+			const auto list = fo4ws::List(*save);
+			std::printf("%-8s %-8s %-30s %4s %13s %21s %6s %5s %5s %s\n", "workshop", "location", "name", "id", "draws", "triangles", "meter", "pop", "happy", "linked");
+			for (const auto& w : list) {
+				std::printf("%08X %08X %-30.30s %4d %6lld/%-6lld %10lld/%-10lld %5.0f%% %5.0f %5.0f %zu objects, %zu actors%s%s%s\n", w.formID, w.location,
+					name(w.location).c_str(), w.workshopID, static_cast<long long>(w.usedDraws()), static_cast<long long>(w.limitDraws()),
+					static_cast<long long>(w.usedTriangles()), static_cast<long long>(w.limitTriangles()), std::floor(w.meter() * 100.0), w.population, w.happiness,
+					w.linkedObjects, w.linkedActors, w.overBudget() ? "  OVER BUDGET" : "", w.readable ? "" : "  (cannot be edited: ", w.readable ? "" : (w.error + ")").c_str());
+			}
+			std::printf("%zu settlement workshops. The game keeps a running total of what was built (draws, triangles): building adds, scrapping\n"
+			            "or storing subtracts (never below 0); it never counts the objects again. A max of 0 means the game's default\n"
+			            "(%u draws, %u triangles). The meter is the larger of the two shares.\n", list.size(), fo4ws::kDefaultMaxDraws, fo4ws::kDefaultMaxTriangles);
+			for (const auto& f : fo4ws::Check(*save)) {
+				std::printf("check: %s\n", f.text.c_str());
+			}
+			if (fo4Budgets.empty()) {
+				return 0;
+			}
 		}
 		if (questsView) {
 			std::unique_ptr<PluginDB> db;
@@ -1559,6 +1858,32 @@ int main(int argc, char** argv)
 			}
 			std::printf("removed %s from %08X\n", removeExtraName.c_str(), removeExtraForm);
 		}
+		for (const auto& [which, draws, tris] : fo4Budgets) {
+			if (!save->isFO4()) {
+				std::fprintf(stderr, "--fo4-reset-budget / --fo4-set-budget need a Fallout 4 save\n");
+				return 1;
+			}
+			std::vector<std::uint32_t> targets;
+			for (const auto& w : fo4ws::List(*save)) {
+				if (which == "all" ? w.hasStorage : which == "over" ? (w.hasStorage && w.overBudget()) : w.formID == static_cast<std::uint32_t>(std::stoul(which, nullptr, 16))) {
+					targets.push_back(w.formID);
+				}
+			}
+			if (targets.empty()) {
+				std::fprintf(stderr, "no settlement workshop matches \"%s\" (give a workbench form id, \"all\" or \"over\"; --fo4-settlements lists them)\n", which.c_str());
+				return 1;
+			}
+			for (const auto id : targets) {
+				bool       changed = false;
+				const auto why = fo4ws::SetUsed(*save, id, draws, tris, &changed);
+				if (!why.empty()) {
+					std::fprintf(stderr, "could not change the budget of %08X: %s\n", id, why.c_str());
+					return 1;
+				}
+				auto num = [](const std::optional<float>& v) { return v ? Fmt("%g", *v) : std::string("unchanged"); };
+				std::printf("workshop %08X: used draws %s, triangles %s%s\n", id, num(draws).c_str(), num(tris).c_str(), changed ? "" : " (already so)");
+			}
+		}
 		if (fo4Level >= 0 || fo4Xp >= 0) {
 			if (!save->isFO4()) {
 				std::fprintf(stderr, "--fo4-set-level / --fo4-set-xp need a Fallout 4 save\n");
@@ -1795,6 +2120,26 @@ int main(int argc, char** argv)
 		}
 		if (fixPathIdles) {
 			std::printf("fixed the path of %zu character(s) (state 14 -> 1)\n", cf::FixStuckPathIdles(*save));
+		}
+		if (fixFollowerCount || fixAnimalCount) {
+			for (const bool animal : { false, true }) {
+				if (animal ? !fixAnimalCount : !fixFollowerCount) {
+					continue;
+				}
+				std::string done;
+				if (const auto why = skyf::FixFollowerCount(*save, animal, &done); !why.empty()) {
+					std::fprintf(stderr, "%s\n", why.c_str());
+					return 1;
+				}
+				std::printf("%s\n", done.c_str());
+			}
+		}
+		for (const auto id : clearTeammates) {
+			if (const auto why = skyf::ClearTeammate(*save, id); !why.empty()) {
+				std::fprintf(stderr, "%08X: %s\n", id, why.c_str());
+				return 1;
+			}
+			std::printf("%08X is no longer your teammate\n", id);
 		}
 		if (fixCharges > 0) {
 			std::printf("fixed charges of %zu item(s)\n", cf::FixCharges(*save, static_cast<std::uint16_t>(std::min(fixCharges, 65535)), {}));
