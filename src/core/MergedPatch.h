@@ -14,12 +14,15 @@
 // with their worldspace copied in as the parent).
 // Skyrim SE/AE/VR: the patch is a light (ESL-flagged) plugin. Skyrim Legendary Edition (found from Skyrim.esm's
 // header): a normal plugin in LE's format, since LE has no light plugins.
-// Fallout 4 (Fallout4.esm in the load order): only the record types whose every part is confirmed in xEdit's Fallout 4
-// definitions (wbDefinitionsFO4) are merged: leveled items, NPCs and spells (LVLO + COED entries, LLCT count, LVLM, LVLG,
-// LLKC keyword chances, LVSG epic loot chance, ONAM override name), containers (COCT/CNTO/COED, keywords, PRPS...), form
-// lists, outfits, misc items and keys (keywords, components). The header is written as Fallout 4's (HEDR version and
-// record version copied from Fallout4.esm, 1.0 / 131 if it cannot be read; INTV and INCC), records in Fallout 4's group
-// order, light (ESL, 0x200) unless Options::light is off.
+// Fallout 4 (Fallout4.esm in the load order): every part of a record is read with xEdit's Fallout 4 definitions
+// (wbDefinitionsFO4); a record with a part not in them is left to the winning plugin. Merged: leveled items, NPCs and spells
+// (LVLO + COED entries, LLCT count, LVLM, LVLG, LLKC keyword chances, LVSG epic loot chance, ONAM override name), containers
+// (COCT/CNTO/COED, keywords, PRPS...), form lists, outfits, misc items and keys, NPCs (factions, spells, perks, inventory,
+// keywords; face, level and template each from one plugin; Fallout 4's ACBS/AIDT/DNAM), armour, weapons (DNAM/FNAM/CRDT field
+// by field), ammunition, books, potions, ingredients, spells (effects with conditions read with Fallout 4's condition
+// functions), and cells (as for Skyrim; previs and precombined data always the winner's). Object templates (OBTE..STOP) are
+// taken whole. The header is written as Fallout 4's (HEDR version and record version copied from Fallout4.esm, 1.0 / 131 if
+// it cannot be read; INTV and INCC), records in Fallout 4's group order, light (ESL, 0x200) unless Options::light is off.
 #pragma once
 
 #include <atomic>
@@ -88,9 +91,9 @@ namespace ess::merge
 	const char*  CategoryWhy(Category a_cat);     // what can go wrong, for the menu's hover text
 	const char*  CategoryDetail(Category a_cat);  // everything it covers, record by record
 	const char*  CategoryDetail(Category a_cat, bool a_fo4);  // the same for Fallout 4's merged types
-	// whether a kind of change can happen in a game's merged patch (Fallout 4 merges fewer record types)
+	// whether a kind of change can happen in a game's merged patch (all of them for both games now)
 	bool         CategoryApplies(Category a_cat, bool a_fo4);
-	// the record types merged for a game, and (Fallout 4) the ones left out because their layout is not confirmed yet
+	// the record types merged for a game, and (Fallout 4) what is left out (worldspaces, a cell's previs and precombined data)
 	const std::vector<std::string>& MergedTypes(bool a_fo4);
 	const char*  Fo4NotMerged();
 

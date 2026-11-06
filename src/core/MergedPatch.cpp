@@ -1550,7 +1550,7 @@ namespace ess::merge
 			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || (r == "BOOK" && has("CNAM")) || (r == "LVLI" && has("ONAM")) ||
 				(r == "AMMO" && has("ONAM")) || has("ATTX"))
 				return Category::kNames;  // (Fallout 4: LVLI ONAM override name, AMMO ONAM short name, NPC_ ATTX activate text)
-			if (r == "AMMO" && has("NAM1")) return Category::kModels;  // (Fallout 4: the casing model)
+			if ((r == "AMMO" && has("NAM1")) || has("BOD2")) return Category::kModels;  // (Fallout 4: the casing model, body slots)
 			if (has("OBND") || has("PTRN") || has("MODL") || has("MOD2") || has("MOD3") || has("MOD4") || has("ICON") || has("ICO2") || has("DEST") || has("MDOB") ||
 				has("BODT"))
 				return Category::kModels;
@@ -2927,30 +2927,15 @@ namespace ess::merge
 
 	const char* Fo4NotMerged()
 	{
-		return "Not merged for Fallout 4 yet (their layouts differ from Skyrim's and are not checked yet; the winning plugin's version "
-			   "stays, as without a patch): NPCs, armour, weapons, ammunition, books, potions, ingredients, spells, cells and worldspaces.";
+		return "Fallout 4: worldspaces are not merged (one is copied in only as the parent of a merged exterior cell, as for Skyrim), "
+			   "and a cell's previs and precombined data always stays as the winning mod has it: it belongs to that mod's previs and "
+			   "precombined files. Any record with a part ReSaver Plus does not know is left to the winning mod, and the report says "
+			   "which part.";
 	}
 
-	bool CategoryApplies(Category a_cat, bool a_fo4)
+	bool CategoryApplies(Category, bool)
 	{
-		if (!a_fo4) {
-			return true;
-		}
-		switch (a_cat) {
-		case Category::kLeveledLists:
-		case Category::kContainers:
-		case Category::kOutfits:
-		case Category::kFormLists:
-		case Category::kKeywords:
-		case Category::kItemValues:
-		case Category::kNames:
-		case Category::kModels:
-		case Category::kScripts:
-		case Category::kRenumberFix:
-			return true;
-		default:
-			return false;  // NPCs, magic effects and cells are not merged for Fallout 4
-		}
+		return true;  // every kind of change can happen for Fallout 4 too since its NPCs, items, spells and cells are merged
 	}
 
 	const char* CategoryName(Category a_cat)
@@ -2998,22 +2983,76 @@ namespace ess::merge
 			return "Form lists (lists of forms that scripts, conditions, workshop menus and crafting read): their entries. What every mod "
 				   "added or removed is combined; added entries go at the end.";
 		case Category::kKeywords:
-			return "Keywords on containers, misc items and keys, with the keyword count. What every mod added or removed is combined.";
+			return "Keywords on NPCs, containers, armour, weapons, ammunition, misc items, keys, books, potions, ingredients and spells, "
+				   "with the keyword count. What every mod added or removed is combined.";
+		case Category::kNpcLists:
+			return "NPCs: factions (with rank), spells and leveled spells (with their count), perks (with rank and the perk count), and "
+				   "inventory items (with count, owner and item condition, and the item count). What every mod added or removed, and "
+				   "rank or count changes, are combined.";
+		case Category::kNpcFace:
+			return "NPCs, taken as one set from the last mod that changed any part of it: race, head parts, hair and facial hair colour, "
+				   "head texture, texture lighting, morph keys and values, face tint layers (with their value and colour), body morph "
+				   "regions, face morphs, facial morph intensity and body weight (thin, muscular, fat).";
+		case Category::kNpcValues:
+			return "NPCs, each value from the last mod that changed it. Configuration: flags (female, essential, respawn, unique, "
+				   "protected, PC level mult, simple actor, invulnerable...), XP value offset, level or level multiplier with the "
+				   "minimum and maximum calculated level (taken together from one mod), disposition, template flags with the default "
+				   "template and the template actors (taken together from one mod), bleedout override. AI data: aggression, "
+				   "confidence, energy, morality, mood, assistance, aggro radius behaviour and distances, no slow approach. Also: death "
+				   "item, voice, legendary template and chance, preview transform, animation sound, skin, far-away model, attack race, "
+				   "attacks (damage, chance, spell, flags, angles, stagger, event, weapon and required slot), the spectator, "
+				   "observe-dead-body, guard-warn, combat, follower command and follower elevator package lists, properties, forced "
+				   "location ref type, native terminal, AI packages, attach parent slots, object template (default mods), class, "
+				   "calculated health and action points, far-away model distance, geared-up weapons, height, sound level, actor sounds "
+				   "or the NPC they are inherited from, power armor stand, default and sleeping outfit, default package list, crime "
+				   "faction, combat style and gift filter.";
 		case Category::kItemValues:
-			return "Each value from the last mod that changed it. Leveled lists: chance none, max count, flags (calculate from all levels, "
-				   "for each item in count, use all), chance-none global, keyword chances, epic loot chance. Containers: flags (respawns, "
-				   "show owner...), weight, properties, forced location ref type, native terminal, open, close and take-all sounds, "
-				   "filter list. Misc items and keys: value, weight, pick-up and put-down sounds, featured item message, components (with "
-				   "their display indices).";
+			return "Each value from the last mod that changed it. Weapons: ammo, speed, reload speed, reach, minimum and maximum range, "
+				   "attack delay, out-of-range damage, on hit, skill, resist, flags (automatic, bolt action, has scope...), capacity, "
+				   "animation type, base and secondary damage, weight, value, sound level, attack, attack 2D, attack loop, attack fail, "
+				   "idle, equip, unequip and fast-equip sounds, accuracy bonus, attack seconds, action point cost, full power seconds, "
+				   "minimum power per shot, stagger, firing (fire and reload seconds, rumble, sighted transition, number of projectiles, "
+				   "override projectile), critical damage, critical charge bonus and critical effect, enchantment and its amount, "
+				   "impact data set, NPC ammo list, aim model, zoom, template, damage types, embedded weapon mod, melee speed. Armour: "
+				   "value, weight, health, armour rating, base addon index, stagger rating, resistances, race, template armour, "
+				   "enchantment. Weapons and armour: equip type, block bash impact data set and material, instance naming, attach "
+				   "parent slots, object template (default mods). Ammunition: value, weight, projectile, flags, damage, health. Books: "
+				   "value, weight, flags together with what the book teaches (actor value, spell or perk), text offset, featured item "
+				   "message, inventory art. Potions: weight, value, flags (food, medicine, poison...), addiction, addiction chance, "
+				   "consume and crafting sounds, equip type. Ingredients: value, weight, flags. Spells: base cost, flags, type, charge "
+				   "time, cast type, target type, cast duration, range, casting perk, equip type. Leveled lists: chance none, max count, "
+				   "flags (calculate from all levels, for each item in count, use all), chance-none global, keyword chances, epic loot "
+				   "chance. Containers: flags (respawns, show owner...), weight, properties, forced location ref type, native terminal, "
+				   "open, close and take-all sounds, filter list. Misc items and keys: value, weight, featured item message, components "
+				   "(with their display indices). Items: pick-up and put-down sounds.";
+		case Category::kEffects:
+			return "Potions, ingredients and spells: the whole list of magic effects, each with its magnitude, area and duration and its "
+				   "conditions (read with Fallout 4's own condition functions), taken as one list from the last mod that changed it.";
 		case Category::kNames:
-			return "Editor IDs, names and a leveled item's override name, from the last mod that changed each.";
+			return "Editor IDs, names, NPC short names and activate text, descriptions, book text, a leveled item's override name, "
+				   "ammunition short names and a potion's addiction name, from the last mod that changed each, on every merged record "
+				   "type, cells included.";
 		case Category::kModels:
-			return "From the last mod that changed each: models with their texture data, colour remapping, material swap and flags, "
-				   "inventory icons, object bounds, preview transform and destruction data (health, resistances, stages, explosion, "
-				   "debris, damaged models).";
+			return "From the last mod that changed each: models with their texture data, colour remapping, material swap and flags "
+				   "(world model, male and female world models, 1st person model, ammunition casing model), inventory icons, armour "
+				   "armatures (ARMA, with their addon index), body slots, object bounds, preview transform and destruction data "
+				   "(health, resistances, stages, explosion, debris, damaged models).";
 		case Category::kScripts:
-			return "The scripts attached to containers, misc items and keys, with every property value (structs included), taken as one "
-				   "set from the last mod that changed it.";
+			return "The scripts attached to NPCs, containers, armour, weapons, ammunition, misc items, keys, books, potions and "
+				   "ingredients, with every property value (structs included), taken as one set from the last mod that changed it.";
+		case Category::kCellLighting:
+			return "Cells, taken as one set from the last mod that changed any part of it: the lighting (ambient, directional and fog "
+				   "colours, fog distances, power and clip distance, light fade, near and far height fog, which values come from the "
+				   "lighting template) and the lighting template.";
+		case Category::kCellWater:
+			return "Cells, taken as one set from the last mod that changed any part of it: water height, water type, water environment "
+				   "map and water currents.";
+		case Category::kCellOther:
+			return "Cells, each from the last mod that changed it: location, owner (an NPC or a faction, with its no-crime flag) and "
+				   "required faction rank, lock list, exterior LOD, sky and weather from a region, acoustic space, encounter zone, music "
+				   "type, image space, god rays, cell flags, exterior grid position and land flags, terrain visibility and maximum "
+				   "height data. A cell's previs and precombined data (timestamps, previs cell, precombined object levels, previs and "
+				   "combined references) always stays as the winning mod has it: it belongs to that mod's previs and precombined files.";
 		default:
 			return CategoryDetail(a_cat);
 		}
@@ -3189,7 +3228,7 @@ namespace ess::merge
 		o << merged.size() << " of them were merged into the patch; " << skipped.size() << " could not be merged (the winning plugin's version stays).\n";
 		if (fo4) {
 			o << "Fallout 4 load order. Merged record types: leveled items, leveled NPCs, leveled spells, containers, form lists, outfits, "
-				 "misc items and keys.\n"
+				 "misc items, keys, NPCs, armour, weapons, ammunition, books, potions, ingredients, spells and cells.\n"
 			  << Fo4NotMerged() << "\n";
 		}
 		o << (legendary ? "Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes a load order slot.\n\n"

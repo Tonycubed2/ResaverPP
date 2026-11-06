@@ -68,15 +68,39 @@ project; you do the coding, building, delivering and publishing.
   Tests: rs_unit with `RESAVERPP_FO4_SAVES="dir;dir"` reads real saves (Tony's Save7 -> Save8 must list the 9 Pipe Pistols
   00024F55). Test hook `RESAVERPP_TEST_TPOLD=<old.fos>` + `RESAVERPP_TEST_SHORTCUT=12`. Not tested in the real game yet.
 - Fallout 4 merged patch (2026-11-05, not published): `core/MergedPatch.*` with `Options::game` 2 (or Fallout4.esm in the load
-  order). Merged types: LVLI, LVLN, LVSP, CONT, FLST, OTFT, MISC, KEYM, layouts from xEdit's wbDefinitionsFO4 (dev-4.1.6) in
+  order). Merged types: LVLI, LVLN, LVSP, CONT, FLST, OTFT, MISC, KEYM (+ the types listed below), layouts from xEdit's wbDefinitionsFO4 (dev-4.1.6) in
   `LayoutFO4`/`Lists`/`Order`/`Groups`/`Fields` (a_fo4): LVLO 12 bytes with chance none, LLCT u8, LVLM, LVLG, LLKC/CVPA/DAMC/PRPS
   as {form, 4 bytes} pairs (kFormPairs), LVSG, LVLI ONAM, MODS/DMDS material swaps, VMAD v6 structs (types 7/17; 6/16 refused).
-  NPC_ is read only to know COED owners. Every unknown part leaves the record to the winner (reported). Leveled entries are
+  Every unknown part leaves the record to the winner (reported). Leveled entries are
   written sorted by level for FO4. Header: HEDR/record version copied from Fallout4.esm (1.0/131), INTV + INCC, FO4 group order,
   ESL 0x200 unless `Options::light` is off (GUI: an open FO4 save with form version < 68; CLI `--no-esl`). CLI `--fo4` (or
-  Fallout4.exe in `--game`). NPCs, armour, weapons, ammo, books, potions, ingredients, spells, cells are NOT merged for FO4 yet.
-  Tests: TestMergedPatchFO4 (synthetic), TestMergedPatchFO4Real with `RESAVERPP_FO4_PLUGINS="file;file"` (DLCworkshop01.esm:
-  35 records, 32 list merges, none skipped). Not tested in the real game yet.
+  Fallout4.exe in `--game`).
+  Since 2026-11-06 (branch mp2) also NPC_, ARMO, WEAP, AMMO, BOOK, ALCH, INGR, SPEL, CELL (WRLD copied only as an exterior cell's
+  parent, RNAM/OFST dropped as for Skyrim), every part from wbDefinitionsFO4 (dev-4.1.6), same per-field design as Skyrim:
+  - NPC_: lists SNAM {faction, rank s8} (5 bytes), SPLO/SPCT, PRKR {perk, rank u8}/PRKZ, CNTO+COED/COCT, KWDA/KSIZ. ACBS 20 bytes
+    (flags @0, XP offset @4, level @6, min @8, max @10, disposition @12, template flags @14, bleedout @16); linkNpcParts uses
+    those offsets, template = TPLT + TPTA (13 forms). Face unit: RNAM PNAM HCLF BCLF FTST QNAM MSDK MSDV TETI TEND MRSV FMRI FMRS
+    FMIN MWGT. Attack unit ATKD (44, spell @8) ATKE ATKW ATKS ATKT; actor sounds CS2H CS2K CS2D CS2E CS2F CSCR. AIDT 24 (or 20),
+    DNAM 8 field by field.
+  - Object templates (OBTE, then OBTF/FULL/OBTS per combination, STOP) are packed into ONE pseudo-subrecord "OBTE" in canon (its
+    FULL would mix with the record's name) and unpacked in write(). OBTS: the keyword count is a u8 (xEdit's array count -4 =
+    byte; checked on real data), includes 7 bytes, properties 24 bytes (value 1 a form for value types 4 and 6).
+  - WEAP: DNAM 132 (forms @0, 40, 44, 73..101), FNAM 41 (@29), CRDT 12 (@8) via Kind::kFixed (other sizes: left to the winner);
+    EITM+EAMT unit, 1st person MOD4 unit. ARMO: male+female models + icons one unit (MODC appears in both), INDX+MODL armatures
+    one unit (not a list), DATA 12, FNAM 8. AMMO: DNAM 16 (projectile @0), NAM1+NAM2 casing unit. BOOK: DNAM 13, teaches @1 is a
+    form when flags & 0x15; flags+teaches merged as one 5-byte value. ALCH ENIT 20 (@8, @16), INGR ENIT 8, SPEL SPIT 36 (@32).
+    DAMA {damage type, u32} (12 bytes from record version 152: refused).
+  - Conditions (CTDA 32): Fallout 4's own table `core/ConditionFunctionsFO4.h` (generated from wbDefinitionsFO4 by
+    scratchpad mp2tools/gencond.py: 479 functions); reference/actor/package parameters are numbers when the type flag has 0x02
+    (alias, except GetIsCurrentPackage run on a quest alias) or 0x08 (package data).
+  - CELL: DATA u16 flags, XCLC, lighting {XCLL, LTMP}, water {XCLW XCWT XWEM XWCN XWCU}, owner {XOWN (12 bytes), XRNK}, XCLR
+    regions list, the rest single units. Previs/precombined {VISI RVIS PCMB CNAM ZNAM XPRI XCRI} is never taken from a non-winner
+    (applyUnits skips it): it belongs to the winner's previs/precombined files. XCRI: references count = 2x entries.
+  Tests: TestMergedPatchFO4 (synthetic lists), TestMergedPatchFO4Types (synthetic, every new type, renumbering, alias numbers,
+  previs kept), TestMergedPatchFO4Real with `RESAVERPP_FO4_PLUGINS="file;file"`: every own record forced to change in ModA (a list
+  entry, OBND bit, or CELL DATA 0x10) and renamed in ModB; all merged, read back with the same subrecords. DLCRobot 1256,
+  DLCCoast 18860 (17614 cells), DLCNukaWorld 6597, DLCworkshop01 77, ccBGSFO4115-X02 171 merges, none left out. INGR has no
+  real records in those plugins (synthetic only). Not tested in the real game yet; Fallout4.esm itself not run through yet.
 - Versions are whole numbers, +1 per release. **Current published version: v57** (SE, LE and Fallout 4 pages, 2026-11-05; v57 adds the Russian interface, the Leftover items plugin-read fix and Fallout 4 Reset Havok / Purify / Merged patch / AI / NPC+player leftovers; ReSaverHelper F4 13; the Fallout 4 main file is packed as Data/Tools/ReSaverPP/ with mod manager download on: nexus-upload layout=data-tools, mod_manager=true) (v53 was never published on its own). v55: Collect all logs gathers Fallout 4 (F4SE folder, Logs, Fallout4*.ini, AppData Fallout4 plugins.txt, Fallout4.exe version; zip "Fallout 4 logs <date>.zip").
 - Fallout 4 Reset Havok + Purify FormLists (2026-11-05, not published): REFR change flag 2 = initial data + havok blob, read
   by the initial data loader 0xbf77b0 (not LoadGame) through 0xc10b00 blob kind 2: u8 (form version the blob was written

@@ -119,7 +119,7 @@ WHAT WORKS ON A FALLOUT 4 SAVE
 - Crash logs: run_cli {save} --crash-log <Buffout 4 crash log> finds the objects the log names in this save.
 - Transplant (an old save that crashes into a good one): run_cli {save} --fo4-transplant <old.fos> lists level, experience, S.P.E.C.I.A.L., caps, perks, items and quests the old save has, each marked file (--fo4-transplant-write -o <new save> writes those) or game (the app's Tools > Transplant progress page puts them into the running game through ReSaverHelper 13).
 - Reset Havok (--reset-havok -o <new save>: empties the saved physics data of objects, so they settle again; the game itself writes empty physics data) and Purify FormLists (--purify-formlists -o <new save>: removes empty entries from form lists).
-- Merged patch (--merged-patch <out.esp> --sources <mods folder> --game <Fallout 4 folder>, or the app's Merged patch window): merges leveled items, leveled NPCs, leveled spells, containers, form lists, outfits, misc items and keys; NPCs, armour, weapons and the other types are not merged for Fallout 4 yet.
+- Merged patch (--merged-patch <out.esp> --sources <mods folder> --game <Fallout 4 folder>, or the app's Merged patch window): merges leveled items, leveled NPCs, leveled spells, containers, form lists, outfits, misc items, keys, NPCs, armour, weapons, ammunition, books, potions, ingredients, spells and cells (a cell's previs and precombined data stays the winning mod's; worldspaces are only copied in as the parent of a merged exterior cell).
 - Mods: missing plugins, file conflicts and BA2 archives (--bsa-list / --bsa-find / --bsa-extract read .ba2 too, --file-conflicts).
 
 NOT AVAILABLE FOR FALLOUT 4 SAVES (say so plainly instead of trying; offer what works)

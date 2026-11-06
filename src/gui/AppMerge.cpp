@@ -65,8 +65,8 @@ void App::drawMergedPatch()
 	const bool f4NoLight = f4 && _save && _save->isFO4() && _save->formVersion < 68;
 	ImGui::NewLine();
 	if (f4) {
-		ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, container, form list, outfit or the keywords of a misc item or "
-						   "key, the game only uses the one loaded last, and the other mod's additions are lost. The merged patch reads "
+		ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, container, NPC, item, spell, cell, form list or outfit, the game "
+						   "only uses the one loaded last, and the other mod's additions are lost. The merged patch reads "
 						   "every plugin in your Fallout 4 load order and writes one plugin that keeps both: what each mod added or "
 						   "removed is combined. Every other value stays as the winning mod has it, as the game does without a patch."));
 		ImGui::TextWrapped("%s", merge::Fo4NotMerged());

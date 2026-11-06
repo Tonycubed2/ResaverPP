@@ -769,7 +769,7 @@ namespace
 		Check(oddSkipped, "merge FO4: a record with an unknown part is not merged, with the reason");
 		bool npcMerged = false;
 		for (const auto& m : r.merged) npcMerged = npcMerged || m.type == "NPC_";
-		Check(!npcMerged && r.merged.size() == 4, "merge FO4: LVLI, CONT, FLST, MISC merged; the NPC both mods changed the same way stays the winner's");
+		Check(!npcMerged && r.merged.size() == 4, "merge FO4: LVLI, CONT, FLST, MISC merged; the NPC whose class both mods changed stays the winner's");
 		Check(r.masters == std::vector<std::string>({ "Fallout4.esm", "DLCRobot.esm", "ModB.esp" }), "merge FO4: masters Fallout4, DLCRobot, ModB");
 		save("Patch.esp", r.file);
 		// the header: TES4 record version 131, HEDR 1.0, INTV then INCC, ESL flag
