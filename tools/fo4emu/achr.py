@@ -79,6 +79,7 @@ class A:
         e.stub(0xc10e60, lambda e2: 0)   # stores a loaded blob in a map (no reads)
         e.stub(0x66c3e0, lambda e2: 0)   # quest stage lookup on a (fake) quest: no reads
         e.stub(0x66a290, lambda e2: 0)   # quest objective lookup: no reads
+        e.stub(0x66e040, lambda e2: 0)   # a quest's entry by id (extra 0x88, 0x2ab92f) on a (fake) quest: no reads
         def newid(e2):  # 0xbedd20 (called by 0xcea430 only here): gives the created package its saved form id
             pkg=struct.unpack('<Q',e2.u.mem_read(e2.r(UC_X86_REG_RBX)+8,8))[0]
             e2.u.mem_write(pkg+0x14, struct.pack('<I', e2.r(UC_X86_REG_RDX)&0xffffffff)); return 0
