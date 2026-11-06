@@ -3594,7 +3594,7 @@ void App::detailMod(std::uint64_t k)
 		}
 		// the four buttons of a row fit whatever language they are in
 		float actW = ImGui::GetStyle().ItemSpacing.x * 3 + 8;
-		for (const char* l : { tr("Terminate"), tr("Stop"), tr("Kill"), tr("Show") }) {
+		for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
 			actW += ImGui::CalcTextSize(l).x + ImGui::GetStyle().FramePadding.x * 2;
 		}
 		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_NoSort, std::max(280.0f, actW), 4);
@@ -3672,27 +3672,27 @@ void App::detailMod(std::uint64_t k)
 			}
 			ImGui::TableSetColumnIndex(col);
 			ImGui::BeginDisabled(s->threads.empty());
-			if (ImGui::SmallButton(tr("Terminate"))) {
+			if (ImGui::SmallButton(trc("row", "Terminate"))) {
 				killThreads(s->threads, {}, s->script + tr(" on ") + r.name, true);
 			}
 			ImGui::EndDisabled();
 			tips::Tip(tr("Terminate: its running threads end the moment the game resumes them."));
 			ImGui::SameLine();
 			ImGui::BeginDisabled(s->threads.empty());
-			if (ImGui::SmallButton(tr("Stop"))) {
+			if (ImGui::SmallButton(trc("row", "Stop"))) {
 				killThreads(s->threads, {}, s->script + tr(" on ") + r.name, false);
 			}
 			ImGui::EndDisabled();
 			tips::Tip(tr("Stop: delete its running threads and their queued calls; keep the script and its data.\nSafe for a mod you keep (e.g. a stuck MCM)."));
 			ImGui::SameLine();
 			ImGui::BeginDisabled(s->engineType && s->threads.empty());
-			if (ImGui::SmallButton(tr("Kill"))) {
+			if (ImGui::SmallButton(trc("row", "Kill"))) {
 				killThreads(s->threads, s->engineType ? std::set<EID>{} : s->instances, s->script + tr(" on ") + r.name, false);
 			}
 			ImGui::EndDisabled();
 			tips::Tip(tr("Delete its running threads and its instances (for engine types, only the threads). For a mod you are removing."));
 			ImGui::SameLine();
-			if (ImGui::SmallButton(tr("Show"))) {
+			if (ImGui::SmallButton(trc("row", "Show"))) {
 				_cat = s->threads.empty() ? Cat::kInstances : Cat::kThreads;
 				std::snprintf(_filter, sizeof(_filter), "%s", s->script.c_str());
 				_rowsDirty = true;

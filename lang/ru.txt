@@ -53,6 +53,10 @@ language "Русский"
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
+
+# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
+
+# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 en "Anthropic (Claude)"
 tr "Anthropic (Claude)"
 
@@ -2212,7 +2216,7 @@ tr "Удалить выполняющиеся потоки этого мода �
 
 # App.cpp:3550  if (ImGui::Button(Fmt(tr("Kill all its scripts (%zu)"), allInst.size()).c_str())) {
 en "Kill all its scripts (%zu)"
-tr "Убить все его скрипты (%zu)"
+tr "Убить его скрипты (%zu)"
 
 # App.cpp:3554  tips::Tip(tr("Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are lef
 en "Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are left alone."
@@ -2260,27 +2264,25 @@ tr "Скрипт"
 en ".pex from"
 tr ".pex из"
 
-# App.cpp:3597  for (const char* l : { tr("Terminate"), tr("Stop"), tr("Kill"), tr("Show") }) {
-# App.cpp:3675  if (ImGui::SmallButton(tr("Terminate"))) {
-en "Terminate"
+# App.cpp:3597  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3675  if (ImGui::SmallButton(trc("row", "Terminate"))) {
+en "row|Terminate"
 tr "Завершить"
 
-# App.cpp:3597  for (const char* l : { tr("Terminate"), tr("Stop"), tr("Kill"), tr("Show") }) {
-# App.cpp:3682  if (ImGui::SmallButton(tr("Stop"))) {
-# AppAi.cpp:1963  if (ImGui::Button(tr("Stop"))) {
-en "Stop"
-tr "Остановить"
+# App.cpp:3597  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3682  if (ImGui::SmallButton(trc("row", "Stop"))) {
+en "row|Stop"
+tr "Стоп"
 
-# App.cpp:3597  for (const char* l : { tr("Terminate"), tr("Stop"), tr("Kill"), tr("Show") }) {
-# App.cpp:3689  if (ImGui::SmallButton(tr("Kill"))) {
-en "Kill"
+# App.cpp:3597  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3689  if (ImGui::SmallButton(trc("row", "Kill"))) {
+en "row|Kill"
 tr "Убить"
 
-# App.cpp:3597  for (const char* l : { tr("Terminate"), tr("Stop"), tr("Kill"), tr("Show") }) {
-# App.cpp:3695  if (ImGui::SmallButton(tr("Show"))) {
-# AppAi.cpp:1729  ImGui::Checkbox(tr("Show"), &showKey);
-en "Show"
-tr "Показать"
+# App.cpp:3597  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3695  if (ImGui::SmallButton(trc("row", "Show"))) {
+en "row|Show"
+tr "Список"
 
 # App.cpp:3654  TextColored(theme::Dim(), s->script + tr("  (engine type)"));
 en "  (engine type)"
@@ -2749,6 +2751,11 @@ tr "Адрес"
 en "API key"
 tr "API-ключ"
 
+# AppAi.cpp:1729  ImGui::Checkbox(tr("Show"), &showKey);
+# AppQuests.cpp:478  ImGui::TextUnformatted(tr("Show"));
+en "Show"
+tr "Показать"
+
 # AppAi.cpp:1730  tips::Tip(tr("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."));
 en "Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."
 tr "Хранится в resaverpp.ini, зашифрованным для вашей учётной записи Windows (прочитать его можете только вы на этом ПК)."
@@ -2859,6 +2866,11 @@ tr "Разрешать все изменения в этом чате"
 # AppAi.cpp:1950  if (ImGui::Button(tr("Don't"))) {
 en "Don't"
 tr "Не надо"
+
+# AppAi.cpp:1963  if (ImGui::Button(tr("Stop"))) {
+# AppBsa.cpp:204  if (ImGui::Button(tr("Stop"))) {
+en "Stop"
+tr "Остановить"
 
 # AppAi.cpp:1968  ImGui::TextDisabled("%s", tr("Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it."));
 en "Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it."
@@ -9919,7 +9931,7 @@ tr "3. Что есть в старом сохранении сверх того 
 
 # AppTransplantF4.cpp:418  ImGui::TextUnformatted(tr("Risky or cannot"));
 en "Risky or cannot"
-tr "Рискованно или нельзя"
+tr "Риск или нельзя"
 
 # AppTransplantF4.cpp:420  TextColored(theme::Good(), tr("[save file]"));
 # AppTransplantF4.cpp:454  TextColored(c.via == tf4::Via::kFile ? theme::Good() : theme::Caution(), c.via == tf4::Via::kFile ? tr("[save file]") : tr("[game]"));
@@ -9928,7 +9940,7 @@ tr "[файл сохранения]"
 
 # AppTransplantF4.cpp:422  ImGui::TextDisabled("%s", tr("written into the open save"));
 en "written into the open save"
-tr "пишется в открытое сохранение"
+tr "пишется в сохранение"
 
 # AppTransplantF4.cpp:424  TextColored(theme::Caution(), tr("[game]"));
 # AppTransplantF4.cpp:454  TextColored(c.via == tf4::Via::kFile ? theme::Good() : theme::Caution(), c.via == tf4::Via::kFile ? tr("[save file]") : tr("[game]"));
