@@ -483,6 +483,8 @@ std::vector<App::CheckItem> App::checkItems()
 		settlementCheckItems(v);
 	}
 	skyfCheckItems(v);  // followers, beast form, quests between stages (AppSkyFollowers.cpp)
+	// Fallout 4: companions, quests whose stage script stopped early (AppF4Companions.cpp)
+	appendCheckItemsF4(v);
 
 	std::stable_sort(v.begin(), v.end(), [](const CheckItem& a, const CheckItem& b) { return static_cast<int>(a.level) > static_cast<int>(b.level); });
 	return v;

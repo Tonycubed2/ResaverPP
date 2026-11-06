@@ -250,6 +250,29 @@ project; you do the coding, building, delivering and publishing.
   Light object id floor (0x800, or 0x001 with HEDR >= 1.0 and a master) from xEdit dev-4.1.6 wbDefinitionsFO4 (HardcodedRangeMinVersion);
   Skyrim limits from xEdit wbDefinitionsTES5 (not checked in SkyrimSE.exe). F4SE whatsnew: light plugin support came with 0.5.0
   (after 1.9.4, i.e. 1.10.20), not 1.10.162.
+- Fallout 4 companions + save checks (2026-11-06, branch comp, not published): `core/CompanionsFO4.*` (`ess::fo4comp`): companions
+  = actors with a CompanionActorScript (or derived) / DogmeatActorScript instance; FollowersScript's own variables give the follower
+  quest, CurrentCompanionFaction 00023C01, HasBeen 000A1B85, Disallowed 00075D56, CA_Affinity 000A1B80, CA_CurrentThreshold, CA_IsRomantic
+  00148DF6 ...; CommonPropertiesScript.FollowerState = AV 00000344 (constant globals 1 follow / 2 wait / 4 go home). An alias object's
+  instance `unknown` field = its ALST id (Companion 0, DogmeatCompanion 5, ActiveCompanions 6: checked against Fallout4.esm). Alias fills:
+  QUST change flag 28 run data ITEMS1 {u32 alias id, u8 created, ref} (TESQuest::LoadGame 0x66cd80..0x66d1c5, the ref's handle stored as
+  that alias's fill); the actor's side: extra 0x88 ExtraAliasInstanceArray (0x2ab7c0: vsval n x {TESQuest ref, u32 alias id}); extra 0x5b
+  ExtraFactionChanges (0x295ce9: vsval n x {TESFaction ref, i8 rank}, ref, u8). CurrentCompanionFaction comes from the aliases' ALFC, not
+  saved. Findings: slot holder without companion script, slot vs actor alias list disagree, two claimants, left for good
+  (HasLeftPlayerPermanently), DisallowedCompanionFaction, waiting/sent home, missing from ActiveCompanions, affinity outside
+  Min/MaxAffinity. Offline edit only SetAffinity (CA_Affinity base in place + Highest/LowestReached like ModAffinity; edited Codsworth
+  of Save8 read to the exact end by the game's Actor::LoadGame in tools/fo4emu). Being a companion again is the scripts' work
+  (SetPlayerTeammate, keywords, registrations, alias), so it is console text: `cqf Followers "FollowersScript.AllowCompanion" <ref> 1 1`,
+  `<ref>.cf "CompanionActorScript.UnsetHasLeftPlayerPermanently"`, `<ref>.cf "<script>.SetAffinity" <v>`, `cqf Followers
+  "FollowersScript.FollowerFollow" <ref>` (cf 0x028b / cqf 0x028c in the 1.10.163 / 984 / 1.11.240 tables; argument conversion 0x602590 /
+  0x60aa80: a form is hex id, "player", "selected" or "none"; a bool is false for "0", "false", ""). The helper has no generic console
+  command, so the app copies the commands. `core/QuestChecksFO4.*`: Fallout 4 .pex reader (`ess::pexfo4`) and the stopped-stage check
+  (done stage whose fragment's straight-line start sets a stage / shows / completes an objective that the save lacks, only when no other
+  function of the script touches it, the plugin defines it, and the script is not running or queued); 0 findings on 10 test saves. GUI
+  `gui/AppF4Companions.cpp` (Tools > Companions, Save check findings via `appendCheckItemsF4`), test hook `RESAVERPP_TEST_COMPANIONS=<ref>`.
+  CLI `--fo4-companions [--sources]`, `--fo4-set-affinity <ref>:<v> -o`, `--fo4-quest-check --sources`. Tests: `rs_fo4comp_test` (ctest
+  fo4comp; RESAVERPP_FO4_SAVES, RESAVERPP_FO4_DATA). Research scripts (not in the repo): scratchpad comptools/pexdis.py (FO4 .pex
+  disassembler), fragchk.py (the check's Python prototype), esmrec.py (one record's subrecords). Not tested in the real game.
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are

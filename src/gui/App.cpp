@@ -1072,6 +1072,10 @@ void App::draw()
 		watchdog::Section("drawSkyFollowers");
 		drawSkyFollowers();
 	}
+	if (_showCompanionsF4 && _save) {
+		watchdog::Section("drawCompanionsF4");
+		drawCompanionsF4();
+	}
 	if (_showLeftovers && _save) {
 		watchdog::Section("drawLeftovers");
 		drawLeftovers();
@@ -1349,6 +1353,11 @@ void App::drawMenu()
 		ImGui::MenuItem(tr("Followers and beast form..."), nullptr, &_showSkyFollowers, !fo4());
 		tips::Tip(tr("Your followers (dismissed, lost, \"you already have a follower\"), a werewolf or Vampire Lord form you are stuck in, "
 					 "and quests that were between stages, with the fixes."));
+		if (fo4()) {
+			ImGui::MenuItem(tr("Companions (affinity, romance, won't follow)..."), nullptr, &_showCompanionsF4);
+			tips::Tip(tr("Fallout 4: every companion with affinity, romance, whether it left for good and where it is; set affinity, and "
+			          "console commands to make one your companion again."));
+		}
 		ImGui::Separator();
 		if (ImGui::MenuItem(tr("Save history (growth over time)..."))) {
 			shortcut(Sc::kHistory);

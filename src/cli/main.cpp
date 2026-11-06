@@ -59,6 +59,9 @@ namespace
 	}
 }
 
+bool IsFo4CompanionsCommand(int argc, char** argv);  // CompanionsCli.cpp
+int  Fo4CompanionsMain(int argc, char** argv);
+
 static void Usage()
 {
 	std::fputs(ess::CliUsage(), stdout);
@@ -469,6 +472,9 @@ int main(int argc, char** argv)
 	}
 	if (std::string(argv[1]) == "--analyze-logs") {
 		return AnalyzeLogsMain(argc, argv);
+	}
+	if (IsFo4CompanionsCommand(argc, argv)) {
+		return Fo4CompanionsMain(argc, argv);
 	}
 	std::vector<std::string> purge;
 	bool                     fixMcm = false, delForms = false, keepInst = false, unattached = false, undefined = false, termUndef = false, nonexist = false;
