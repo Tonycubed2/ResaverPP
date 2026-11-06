@@ -11,3 +11,8 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
 - `actcmp.cpp <save> <trace>`: compares fo4cf::DecodeActor's reads with an emulator trace.
 - `dec.py`: Python reference decoder for REFR / NPC_. `pe.py`, `fw.py`, `cond.py`, `psum.py`, `rtti.py`: disassembly
   helpers (capstone, pefile, unicorn, numpy).
+- `havemu.py <dump>`: Reset Havok check. On every REFR with change flag 2 it runs the game's havok blob reader (0xc10b00, blob
+  kind 2, called by the initial data loader 0xbf77b0 after the initial data) and then TESObjectREFR::LoadGame (0x4f5c50);
+  counts bodies read to the exact end and whether a blob was stored (size 0: nothing stored).
+- `flstemu.py <dump>`: Purify FormLists check. Runs BGSListForm::LoadGame (0x5898f0; vtable 0x24abf80) on every FLST (type 42)
+  body, on it with two null entries put in (the game keeps them as entries) and on that purified.

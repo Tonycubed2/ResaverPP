@@ -1281,11 +1281,11 @@ void App::drawMenu()
 			shortcut(Sc::kMcm);
 		}
 		tips::Tip("Clear a stuck SkyUI mod-menu (MCM) registration, the usual cause of mod menus that never appear.");
-		if (ImGui::MenuItem("Reset Havok...", nullptr, false, !fo4())) {
+		if (ImGui::MenuItem("Reset Havok...")) {
 			shortcut(Sc::kHavok);
 		}
 		tips::Tip("Clear the saved physics state of objects, so they settle again when loaded. Fixes objects that fly around or jitter.");
-		if (ImGui::MenuItem("Purify FormLists...", nullptr, false, !fo4())) {
+		if (ImGui::MenuItem("Purify FormLists...")) {
 			shortcut(Sc::kPurify);
 		}
 		tips::Tip("Remove entries in form lists that point at things that no longer exist (left by removed mods).");

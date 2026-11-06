@@ -708,6 +708,7 @@ private:
 	void        detailChangeFormDecoded(const ess::ChangeForm& c);
 	void        actorFixes(const ess::ChangeForm& c, const ess::cf::Decoded& d);
 	void        resetHavok();
+	void        detailChangeFormFO4(const ess::ChangeForm& c);
 	void        purifyFormLists();
 	void        drawBatchModal();
 	void        compareWith(const std::filesystem::path& a_other);

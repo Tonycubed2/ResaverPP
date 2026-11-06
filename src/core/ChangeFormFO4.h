@@ -70,6 +70,14 @@ namespace ess::fo4cf
 		float         scale = 1.0f;
 		std::uint32_t formFlags = 0;  // bit 0
 
+		// bit 2 (havok moved): read with the initial data by the initial data loader (0xbf77b0), not by LoadGame:
+		// u8 (the form version the blob was written with), vsval size, that many bytes (0xc10b00, blob kind 2).
+		// A size of 0 stores nothing (the game writes it so itself for references with no physics state).
+		bool          hasHavok = false;
+		std::uint8_t  havokVersion = 0;
+		std::uint32_t havokSize = 0;
+		Range         havokRange;  // the u8, the vsval and the bytes
+
 		std::vector<Extra> extras;
 		bool               hasInventory = false;
 		std::vector<Item>  inventory;
@@ -179,6 +187,26 @@ namespace ess::fo4cf
 	Refr DecodeRefr(const SaveFile& a_save, const ChangeForm& a_cf);
 	Refr DecodeRefr(const SaveFile& a_save, const ChangeForm& a_cf, const std::vector<std::uint8_t>& a_body);
 	Npc  DecodeNpc(const SaveFile& a_save, const ChangeForm& a_cf);
+
+	// Reset Havok for one REFR: the havok blob's size becomes 0 (its version byte stays), so the game stores no physics
+	// state for it and places it at its initial data position. Only for a REFR whose body reads completely; the result
+	// is decoded again before it is kept. Returns "" (also when the blob was already empty: a_changed false), else why not.
+	std::string ClearHavok(const SaveFile& a_save, ChangeForm& a_cf, bool* a_changed = nullptr);
+
+	// A form list (FLST, change form type 42 in Fallout 4). BGSListForm::LoadGame (0x5898f0): TESForm::LoadGame
+	// (0x311980: bit 0, u32 + u16), then bit 31: u32 count and that many refs (the added forms); nothing else.
+	struct FormList
+	{
+		bool                       complete = false;
+		std::string                error;
+		std::vector<std::uint32_t> raw;   // the refs as stored (0 = null)
+		Range                      list;  // the count and the refs
+	};
+	FormList DecodeFormList(const SaveFile& a_save, const ChangeForm& a_cf);
+	// Removes the null entries (ref 0) from a form list's added forms; decoded again before it is kept.
+	// Returns "" (a_removed: entries removed), else why not (then the change form is unchanged).
+	std::string PurifyFormList(const SaveFile& a_save, ChangeForm& a_cf, std::size_t* a_removed = nullptr);
+	constexpr std::uint8_t kFlstType = 42;  // Fallout 4 numbering (Skyrim's FLST is 43)
 
 	// The player's reference (ACHR 0x14).
 	const ChangeForm* FindPlayer(const SaveFile& a_save);
