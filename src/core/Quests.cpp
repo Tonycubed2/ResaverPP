@@ -3,6 +3,7 @@
 
 #include "ByteIO.h"
 #include "ChangeFormData.h"
+#include "ChangeFormFO4.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -563,9 +564,10 @@ namespace ess::quests
 	namespace
 	{
 		// Fallout 4: where the player's quest log and objective list are in its ACHR body. The two lists are written
-		// one after the other (PlayerCharacter::LoadGame); the player's record is not decoded field by field, so they
-		// are found as the pair of lists, each a vsval count, whose entries all name quests with saved state (QUST
-		// change forms) and valid objective states. The longest pair is the one (checked on 15 saves: it is unique).
+		// one after the other (PlayerCharacter::LoadGame). When the player's body reads completely (fo4cf::DecodeActor)
+		// they are taken from there; else they are found as the pair of lists, each a vsval count, whose entries all
+		// name quests with saved state (QUST change forms) and valid objective states. The longest pair is the one
+		// (checked on 15 saves: it is unique; on 18 saves it is where DecodeActor reads the lists).
 		struct PipBoyLists
 		{
 			std::vector<std::uint8_t> body;
@@ -593,6 +595,16 @@ namespace ess::quests
 			} catch (const std::exception&) {
 				return out;
 			}
+			// the player's body read field by field (PlayerCharacter::LoadGame): the lists where the game reads them
+			if (const auto a = fo4cf::DecodeActor(a_save, *player); a.complete) {
+				out.logN = a.questLog.size();
+				out.objN = a.objectives.size();
+				out.logAt = out.logN ? a.questLog.front().range.begin : a.questLogRange.end;
+				out.objAt = out.objN ? a.objectives.front().range.begin : a.objectivesRange.end;
+				out.found = true;
+				return out;
+			}
+			// else found by shape
 			const auto& d = out.body;
 			auto        u32 = [&](std::size_t p) {
                 return static_cast<std::uint32_t>(d[p]) | (d[p + 1] << 8) | (d[p + 2] << 16) | (static_cast<std::uint32_t>(d[p + 3]) << 24);
