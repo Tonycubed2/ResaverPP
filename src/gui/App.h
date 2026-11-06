@@ -1148,4 +1148,6 @@ private:
 	F4CompanionsState&                 f4companions();  // read once per save and edit
 	void                               drawCompanionsF4();
 	void                               appendCheckItemsF4(std::vector<CheckItem>& a_items);
+	void                               f4compSend(std::vector<std::string> a_record, const std::string& a_what);  // helper 15 APPLY
+	std::string                        f4compCannot() const;  // why the running game cannot take it now, "" if it can
 };

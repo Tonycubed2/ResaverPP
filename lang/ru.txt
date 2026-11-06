@@ -12197,6 +12197,94 @@ tr "Во время «%s»: %s"
 en "Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."
 tr "Пожалуйста, сообщите об этом на странице мода, приложив файл ReSaverPP-startup.log (рядом с ReSaverPP.exe или в %TEMP%)."
 
+# AppF4Companions.cpp:65  st.gameNote = a_what + tr(": sending to the game...");
+en ": sending to the game..."
+tr ": отправляю в игру..."
+
+# AppF4Companions.cpp:71  note = a_what + tr(": the game could not do it: ") + LiveLink::Error(r);
+en ": the game could not do it: "
+tr ": игра не смогла это сделать: "
+
+# AppF4Companions.cpp:73  note = a_what + tr(": the game refused: ") + LiveLink::Field(r, 1);
+en ": the game refused: "
+tr ": игра отказала: "
+
+# AppF4Companions.cpp:75  note = a_what + tr(": the game is busy; the commands run when it gets to them. Look in the game.");
+en ": the game is busy; the commands run when it gets to them. Look in the game."
+tr ": игра занята; команды выполнятся, когда она до них дойдёт. Посмотрите в игре."
+
+# AppF4Companions.cpp:77  note = a_what + tr(": the game ran ") + LiveLink::Field(r, 1) +
+en ": the game ran "
+tr ": игра выполнила "
+
+# AppF4Companions.cpp:78  tr(". The console does not say whether the scripts did it: look in the game, then save there and open that save here.");
+en ". The console does not say whether the scripts did it: look in the game, then save there and open that save here."
+tr ". Консоль не сообщает, сделали ли это скрипты: посмотрите в игре, затем сохранитесь там и откройте это сохранение здесь."
+
+# AppF4Companions.cpp:90  return tr("Needs the game running with ReSaverHelper for Fallout 4 (version 15 or later).");
+en "Needs the game running with ReSaverHelper for Fallout 4 (version 15 or later)."
+tr "Нужна запущенная игра с ReSaverHelper для Fallout 4 (версии 15 или новее)."
+
+# AppF4Companions.cpp:93  return tr("The game connected is not Fallout 4.");
+en "The game connected is not Fallout 4."
+tr "Подключённая игра — не Fallout 4."
+
+# AppF4Companions.cpp:96  return Fmt(tr("Needs ReSaverHelper for Fallout 4 version 15 or later (the game has version %s)."), info.helperVersion.c_str());
+en "Needs ReSaverHelper for Fallout 4 version 15 or later (the game has version %s)."
+tr "Нужен ReSaverHelper для Fallout 4 версии 15 или новее (в игре версия %s)."
+
+# AppF4Companions.cpp:175  g.label = tr("Run it in the game");
+en "Run it in the game"
+tr "Выполнить в игре"
+
+# AppF4Companions.cpp:177  g.why = (cannot.empty() ? std::string() : cannot + " ") + o.why + tr(" ReSaverHelper runs these commands in the loaded game.");
+en " ReSaverHelper runs these commands in the loaded game."
+tr " ReSaverHelper выполняет эти команды в загруженной игре."
+
+# AppF4Companions.cpp:389  : std::string(tr("Its form id comes from this save's load order: the game must run the same "
+en "Its form id comes from this save's load order: the game must run the same plugins in the same order (load this save, or a later one with the same mods)."
+tr "Его ID формы взят из порядка загрузки этого сохранения: в игре должны быть те же плагины в том же порядке (загрузите это сохранение или более позднее с теми же модами)."
+
+# AppF4Companions.cpp:455  if (ImGui::Button(tr("Run in the game##aff"))) {
+en "Run in the game"
+tr "Выполнить в игре"
+
+# AppF4Companions.cpp:457  f4compSend(fo4comp::AffinityRecord(*c, n), Fmt(tr("Affinity of %s to %d"), label(c->ref).c_str(), n));
+en "Affinity of %s to %d"
+tr "Симпатия %s: %d"
+
+# AppF4Companions.cpp:460  tips::Tip(cannot.empty() ? (tr("ReSaverHelper runs it in the game: the companion's own script sets the affinity "
+en "ReSaverHelper runs it in the game: the companion's own script sets the affinity (CompanionActorScript.SetAffinity), with its threshold scenes and perk as in normal play. "
+tr "ReSaverHelper выполняет это в игре: симпатию устанавливает собственный скрипт компаньона (CompanionActorScript.SetAffinity), со сценами порогов и перком, как в обычной игре. "
+
+# AppF4Companions.cpp:472  if (ImGui::Button(tr("Run in the game: make it my companion again"))) {
+en "Run in the game: make it my companion again"
+tr "Выполнить в игре: снова сделать моим компаньоном"
+
+# AppF4Companions.cpp:473  f4compSend(fo4comp::CompanionRecord(*c), Fmt(tr("Make %s your companion"), label(c->ref).c_str()));
+en "Make %s your companion"
+tr "Сделать %s вашим компаньоном"
+
+# AppF4Companions.cpp:476  tips::Tip(cannot.empty() ? (tr("ReSaverHelper runs the game's own FollowersScript.AllowCompanion (and clears 'left for good' "
+en "ReSaverHelper runs the game's own FollowersScript.AllowCompanion (and clears 'left for good' first when it is set). Your current companion is dismissed. "
+tr "ReSaverHelper выполняет собственный FollowersScript.AllowCompanion игры (и сначала снимает «ушёл навсегда», если это стоит). Ваш текущий компаньон будет отпущен. "
+
+# AppF4Companions.cpp:481  if (ImGui::Button(tr("Run in the game: follow me"))) {
+en "Run in the game: follow me"
+tr "Выполнить в игре: следуй за мной"
+
+# AppF4Companions.cpp:482  f4compSend(fo4comp::FollowRecord(*c), Fmt(tr("%s: follow"), label(c->ref).c_str()));
+en "%s: follow"
+tr "%s: следовать"
+
+# AppF4Companions.cpp:485  tips::Tip(cannot.empty() ? (tr("ReSaverHelper runs FollowersScript.FollowerFollow: a companion told to wait or sent home follows "
+en "ReSaverHelper runs FollowersScript.FollowerFollow: a companion told to wait or sent home follows you again. "
+tr "ReSaverHelper выполняет FollowersScript.FollowerFollow: компаньон, которому велели ждать или которого отправили домой, снова следует за вами. "
+
+# AppF4Companions.cpp:492  if (ImGui::Button(tr("Copy command: follow me"))) {
+en "Copy command: follow me"
+tr "Копировать команду: следуй за мной"
+
 # ---- no longer used by the code (kept for reference; safe to delete) ----
 
 en "Biggest causes"

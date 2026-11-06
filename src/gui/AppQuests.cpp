@@ -185,8 +185,9 @@ bool App::helperAtLeast(int a_version) const
 {
 	const auto info = _live.info();
 	if (info.connected && info.runtime.rfind("F4", 0) == 0) {
-		// the Fallout 4 helper speaks version 12's rescue set only (no quests, journal or Transplant)
-		return a_version == 12;
+		// the Fallout 4 helper speaks version 12's rescue set (no quests or journal: the Skyrim features below 12), then its
+		// own: 13 Transplant APPLY, 14 objectives, 15 the companion records
+		return a_version >= 12 && std::atoi(info.helperVersion.c_str()) >= a_version;
 	}
 	return info.connected && std::atoi(info.helperVersion.c_str()) >= a_version;
 }

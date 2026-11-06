@@ -29,6 +29,7 @@ struct App::F4CompanionsState
 	std::uint32_t selected = 0;
 	std::map<std::uint32_t, float> affinityEdit;
 	std::string   status;
+	std::string   gameNote;  // the answer of the last record sent to the game
 };
 
 namespace
@@ -53,6 +54,51 @@ namespace
 		}
 		return s;
 	}
+}
+
+// sends one ReSaverHelper (Fallout 4, version 15) APPLY record; the answer is shown in the Companions window
+void App::f4compSend(std::vector<std::string> a_record, const std::string& a_what)
+{
+	auto& st = f4companions();
+	std::vector<std::string> cmd{ "APPLY" };
+	cmd.insert(cmd.end(), a_record.begin(), a_record.end());
+	st.gameNote = a_what + tr(": sending to the game...");
+	_status = st.gameNote;
+	auto state = _f4comp;
+	_live.request(std::move(cmd), [this, state, a_what](const LiveLink::Reply& r) {
+		std::string note;
+		if (!LiveLink::Ok(r)) {
+			note = a_what + tr(": the game could not do it: ") + LiveLink::Error(r);
+		} else if (LiveLink::Field(r, 0) == "0") {
+			note = a_what + tr(": the game refused: ") + LiveLink::Field(r, 1);
+		} else if (LiveLink::Field(r, 0) == "?") {
+			note = a_what + tr(": the game is busy; the commands run when it gets to them. Look in the game.");
+		} else {
+			note = a_what + tr(": the game ran ") + LiveLink::Field(r, 1) +
+			       tr(". The console does not say whether the scripts did it: look in the game, then save there and open that save here.");
+		}
+		state->gameNote = note;
+		_status = note;
+	});
+}
+
+// why the running game cannot take a record now ("" when it can)
+std::string App::f4compCannot() const
+{
+	const auto info = _live.info();
+	if (!info.connected) {
+		return tr("Needs the game running with ReSaverHelper for Fallout 4 (version 15 or later).");
+	}
+	if (info.runtime.rfind("F4", 0) != 0) {
+		return tr("The game connected is not Fallout 4.");
+	}
+	if (!helperAtLeast(fo4comp::kCompanionHelper)) {
+		return Fmt(tr("Needs ReSaverHelper for Fallout 4 version 15 or later (the game has version %s)."), info.helperVersion.c_str());
+	}
+	if (!info.inGame) {
+		return tr("Load a save in the game first.");
+	}
+	return {};
 }
 
 App::F4CompanionsState& App::f4companions()
@@ -122,6 +168,22 @@ void App::appendCheckItemsF4(std::vector<CheckItem>& a_items)
 			o.why = f.consoleWhy.empty() ? std::string(tr("Runs the game's own scripts in the running game; this file is not changed.")) : f.consoleWhy;
 			const auto text = Lines(f.console);
 			o.act = [text] { ImGui::SetClipboardText(text.c_str()); };
+			if (!f.record.empty()) {
+				// the same through ReSaverHelper (version 15) when the game runs; copying stays for when it does not
+				const auto cannot = f4compCannot();
+				CheckOption g;
+				g.label = tr("Run it in the game");
+				g.risk = Risk::kCaution;
+				g.why = (cannot.empty() ? std::string() : cannot + " ") + o.why + tr(" ReSaverHelper runs these commands in the loaded game.");
+				g.enabled = cannot.empty();
+				const auto rec = f.record;
+				const auto title = f.title;
+				g.act = [this, rec, title] {
+					f4compSend(rec, title);
+					_showCompanionsF4 = true;
+				};
+				it.options.push_back(std::move(g));
+			}
 			it.options.push_back(std::move(o));
 		}
 		// a value outside the script's range can be put back in the save
@@ -202,6 +264,7 @@ void App::drawCompanionsF4()
 	auto&       st = f4companions();
 	const auto& r = st.r;
 	const auto& sys = r.system;
+	const auto  quest = sys.quest ? Fmt("%08X", sys.quest) : std::string(fo4comp::kFollowersQuest);
 	auto        nameOf = [&](std::uint32_t a_id) -> std::string {
         if (!a_id || !_db) {
             return {};
@@ -241,6 +304,9 @@ void App::drawCompanionsF4()
 	}
 	if (!st.status.empty()) {
 		Wrapped(theme::Caution(), st.status);
+	}
+	if (!st.gameNote.empty()) {
+		Wrapped(theme::Good(), st.gameNote);
 	}
 	if (ImGui::Button(tr("Gather companions in the running game"))) {
 		shortcut(Sc::kGather);
@@ -316,6 +382,13 @@ void App::drawCompanionsF4()
 		ImGui::TextDisabled("%s", tr("Pick a companion above."));
 	} else {
 		ImGui::Text("%s  -  %s", label(c->ref).c_str(), c->script.c_str());
+		// the record carries the save's form id: the game's own for Fallout4.esm (always index 00) and for objects of this
+		// save's playthrough; for a DLC or mod companion only when the game runs the save's load order
+		const auto  top = c->ref >> 24;
+		std::string idNote = top == 0 || top == 0xFF ? std::string()
+		                                             : std::string(tr("Its form id comes from this save's load order: the game must run the same "
+		                                                              "plugins in the same order (load this save, or a later one with the same mods)."));
+		const auto cannot = f4compCannot();
 		if (!c->dogmeat) {
 			if (c->hasAffinity) {
 				ImGui::Text(tr("Affinity %.1f"), c->affinity);
@@ -378,6 +451,16 @@ void App::drawCompanionsF4()
 			tips::Tip(c->hasAffinity ? tr("Writes the new value into the save (CA_Affinity).")
 			                         : tr("The save has no affinity value for this companion yet: use the console command instead."));
 			ImGui::SameLine();
+			ImGui::BeginDisabled(!cannot.empty());
+			if (ImGui::Button(tr("Run in the game##aff"))) {
+				const int n = static_cast<int>(v < 0 ? v - 0.5f : v + 0.5f);
+				f4compSend(fo4comp::AffinityRecord(*c, n), Fmt(tr("Affinity of %s to %d"), label(c->ref).c_str(), n));
+			}
+			ImGui::EndDisabled();
+			tips::Tip(cannot.empty() ? (tr("ReSaverHelper runs it in the game: the companion's own script sets the affinity "
+			                               "(CompanionActorScript.SetAffinity), with its threshold scenes and perk as in normal play. ") + idNote).c_str()
+			                         : cannot.c_str());
+			ImGui::SameLine();
 			if (ImGui::Button(tr("Copy console command##aff"))) {
 				ImGui::SetClipboardText(fo4comp::SetAffinityCommand(*c, v).c_str());
 			}
@@ -385,8 +468,29 @@ void App::drawCompanionsF4()
 			             "its threshold scenes and perk as in normal play. The scripts hold it below a threshold whose scene has not "
 			             "played yet."));
 		}
+		ImGui::BeginDisabled(!cannot.empty());
+		if (ImGui::Button(tr("Run in the game: make it my companion again"))) {
+			f4compSend(fo4comp::CompanionRecord(*c), Fmt(tr("Make %s your companion"), label(c->ref).c_str()));
+		}
+		ImGui::EndDisabled();
+		tips::Tip(cannot.empty() ? (tr("ReSaverHelper runs the game's own FollowersScript.AllowCompanion (and clears 'left for good' "
+		                               "first when it is set). Your current companion is dismissed. ") + idNote).c_str()
+		                         : cannot.c_str());
+		ImGui::SameLine();
+		ImGui::BeginDisabled(!cannot.empty());
+		if (ImGui::Button(tr("Run in the game: follow me"))) {
+			f4compSend(fo4comp::FollowRecord(*c), Fmt(tr("%s: follow"), label(c->ref).c_str()));
+		}
+		ImGui::EndDisabled();
+		tips::Tip(cannot.empty() ? (tr("ReSaverHelper runs FollowersScript.FollowerFollow: a companion told to wait or sent home follows "
+		                               "you again. ") + idNote).c_str()
+		                         : cannot.c_str());
 		if (ImGui::Button(tr("Copy commands: make it my companion again"))) {
-			ImGui::SetClipboardText(Lines(fo4comp::MakeCompanionCommands(*c, "Followers")).c_str());
+			ImGui::SetClipboardText(Lines(fo4comp::MakeCompanionCommands(*c, quest)).c_str());
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(tr("Copy command: follow me"))) {
+			ImGui::SetClipboardText(fo4comp::FollowCommand(*c, quest).c_str());
 		}
 		tips::Tip(tr("For the running game (console ~): FollowersScript.AllowCompanion with ForceCompanion, the game's own way to make an "
 		             "actor your companion (out of DisallowedCompanionFaction, the companion slot, follow, teammate); clears 'left for "

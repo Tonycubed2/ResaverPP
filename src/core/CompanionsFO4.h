@@ -35,6 +35,12 @@ namespace ess::fo4comp
 	// / DismissCompanion put into the actor value
 	constexpr float kFollow = 1.0f, kWait = 2.0f, kGoHome = 4.0f;
 
+	// How console commands name the follower quest: its form id (Followers, Fallout4.esm 000289E4; Fallout4.esm is
+	// always load index 00). The console reads a quest argument as "player", an editor id the game kept, or a hex form
+	// id (Fallout4.exe 1.10.163 0x4e7620, 1.10.984 0x561ae0, 1.11.240 0x5b5d90); whether the game keeps the quest's
+	// editor id is not settled from the code, a form id always works.
+	inline constexpr const char* kFollowersQuest = "000289E4";
+
 	struct FollowerSystem
 	{
 		bool          found = false;     // a FollowersScript instance on a quest was found
@@ -108,6 +114,7 @@ namespace ess::fo4comp
 		std::string   title, what;
 		std::vector<std::string> console;  // console commands for the fix in the running game (one per line), empty: none
 		std::string   consoleWhy;          // what the commands do
+		std::vector<std::string> record;   // the same as one ReSaverHelper (Fallout 4, version 15) APPLY record, empty: none
 	};
 
 	struct Result
@@ -126,6 +133,7 @@ namespace ess::fo4comp
 	// 1.10.163, 1.10.984 and 1.11.240: CallFunction "cf" 0x028b with a reference, CallQuestFunction "cqf" 0x028c).
 	// The function arguments are converted by the game (0x602590 / 0x60aa80): a form is a hex form id, "player" or
 	// "none"; a bool is false for "0", "false" or "", else true.
+	//  - (cqf's quest is given as kFollowersQuest)
 	//  - affinity through the companion's own script (CompanionActorScript.SetAffinity -> ModAffinity: thresholds,
 	//    scenes and perk as in normal play): <ref>.cf "<script>.SetAffinity" <value>
 	std::string SetAffinityCommand(const Companion& a_c, float a_value);
@@ -133,7 +141,17 @@ namespace ess::fo4comp
 	//    DisallowedCompanionFaction, then SetCompanion / SetDogmeatCompanion by race), first clearing
 	//    HasLeftPlayerPermanently when it is set (CompanionActorScript.UnsetHasLeftPlayerPermanently).
 	//    a_quest: how the console names the follower quest ("Followers", or its form id).
-	std::vector<std::string> MakeCompanionCommands(const Companion& a_c, const std::string& a_quest);
+	std::vector<std::string> MakeCompanionCommands(const Companion& a_c, const std::string& a_quest = kFollowersQuest);
+	//  - follow (FollowersScript.FollowerFollow: FollowerState = iFollower_Com_Follow)
+	std::string FollowCommand(const Companion& a_c, const std::string& a_quest = kFollowersQuest);
+
+	// The same fixes as ReSaverHelper for Fallout 4 (version 15) APPLY records (helper-f4/src/Transplant.h); the helper
+	// runs exactly the commands above (with the quest by form id). The reference must be the game's form id: for forms
+	// of Fallout4.esm (load index 00) it is the save's; otherwise the game must run the save's load order.
+	constexpr int            kCompanionHelper = 15;
+	std::vector<std::string> CompanionRecord(const Companion& a_c);   // companion <ref> <0|1> <script>
+	std::vector<std::string> FollowRecord(const Companion& a_c);      // companionfollow <ref>
+	std::vector<std::string> AffinityRecord(const Companion& a_c, int a_value);  // affinity <ref> <n> <script>
 
 	// Sets the companion's affinity in the save: the saved base of the CA_Affinity actor value, and like
 	// CompanionActorScript.ModAffinity also CA_HighestReached / CA_LowestReached when the new value passes them (when

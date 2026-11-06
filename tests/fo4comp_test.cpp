@@ -259,13 +259,19 @@ static void TestCompanionCommands()
 	c.ref = 0x0001CA7D;
 	c.script = "CompanionActorScript";
 	Check(fo4comp::SetAffinityCommand(c, 750) == "0001CA7D.cf \"CompanionActorScript.SetAffinity\" 750", "companions: affinity command");
-	auto m = fo4comp::MakeCompanionCommands(c, "Followers");
-	Check(m.size() == 1 && m[0] == "cqf Followers \"FollowersScript.AllowCompanion\" 0001CA7D 1 1", "companions: make companion command");
+	auto m = fo4comp::MakeCompanionCommands(c);
+	Check(m.size() == 1 && m[0] == "cqf 000289E4 \"FollowersScript.AllowCompanion\" 0001CA7D 1 1", "companions: make companion command (quest by form id)");
+	Check(fo4comp::FollowCommand(c) == "cqf 000289E4 \"FollowersScript.FollowerFollow\" 0001CA7D", "companions: follow command");
+	Check(fo4comp::CompanionRecord(c) == std::vector<std::string>{ "companion", "0001CA7D", "0", "CompanionActorScript" } &&
+			  fo4comp::FollowRecord(c) == std::vector<std::string>{ "companionfollow", "0001CA7D" } &&
+			  fo4comp::AffinityRecord(c, -250) == std::vector<std::string>{ "affinity", "0001CA7D", "-250", "CompanionActorScript" },
+		"companions: helper 15 records");
 	c.hasLeftPermanently = true;
-	m = fo4comp::MakeCompanionCommands(c, "Followers");
+	Check(fo4comp::CompanionRecord(c)[2] == "1", "companions: record clears left for good");
+	m = fo4comp::MakeCompanionCommands(c);
 	Check(m.size() == 2 && m[0] == "0001CA7D.cf \"CompanionActorScript.UnsetHasLeftPlayerPermanently\"", "companions: left for good cleared first");
 	c.dogmeat = true;
-	Check(fo4comp::MakeCompanionCommands(c, "Followers").size() == 1, "companions: Dogmeat has no CompanionActorScript flag to clear");
+	Check(fo4comp::MakeCompanionCommands(c).size() == 1 && fo4comp::CompanionRecord(c).size() == 3, "companions: Dogmeat has no CompanionActorScript flag to clear");
 }
 
 static void TestCompanionsReal()

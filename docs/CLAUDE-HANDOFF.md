@@ -319,6 +319,18 @@ project; you do the coding, building, delivering and publishing.
   RESAVERPP_TEST_CAT=0 RESAVERPP_TEST_OPEN=f4world|f4cells); Save check finding at 500+ removable items. Checks: rs_unit
   TestFo4WorldItems; tools/fo4emu/cellemu.py (every CELL of Save8/Save14/MainQuest...FarHarbor/nate read exactly by the game's code;
   the edited cells give detach 0xFFFFFFFF). Not tested in the real game.
+- Companions through the helper (2026-11-06, branch comp2, not published; needs helper-f4 version 15, which Tony must build in
+  VS2022: `helper-f4/src/Transplant.h/.cpp`, `Protocol.h` (kHelperVersion 15), `Rescue.cpp`, README changed): APPLY records
+  `companion <ref> <0|1> [script]`, `companionfollow <ref>`, `affinity <ref> <n> [script]` -> `<ref>.cf "<script>.UnsetHasLeftPlayerPermanently"`
+  + `cqf 000289E4 "FollowersScript.AllowCompanion" <ref> 1 1`, `cqf 000289E4 "FollowersScript.FollowerFollow" <ref>`,
+  `<ref>.cf "<script>.SetAffinity" <n>`. The follower quest goes by form id everywhere now (Gather too): the console's form
+  argument reader (1.10.163 0x4e7620, 1.10.984 0x561ae0 = 1.11.240 0x5b5d90) takes "player", an editor id the game kept
+  (0x311d60), else `_strtoui64(text, 16)`; whether quests keep editor ids was not settled. cf/cqf -> 0x60b2c0 -> 0x60c5c0
+  (strchr '.': Script.Function) and 0x602b70 (arguments by type: atof / atoi / bool / forms via 0x60aa80); 984 the same
+  instruction for instruction, 163 the same order. App: Companions window "Run in the game" buttons and a Save check option
+  (`App::f4compSend`, `f4compCannot`; `fo4comp::CompanionRecord / FollowRecord / AffinityRecord`), copy buttons kept.
+  `App::helperAtLeast` for the Fallout 4 helper now compares versions from 12 up (it answered true only for 12, so Transplant's
+  13/14 checks were never met).
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are

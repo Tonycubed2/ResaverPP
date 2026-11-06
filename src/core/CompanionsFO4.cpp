@@ -228,6 +228,21 @@ namespace ess::fo4comp
 		return out;
 	}
 
+	std::string FollowCommand(const Companion& a_c, const std::string& a_quest)
+	{
+		return Fmt("cqf %s \"FollowersScript.FollowerFollow\" %08X", a_quest.c_str(), a_c.ref);
+	}
+
+	std::vector<std::string> CompanionRecord(const Companion& a_c)
+	{
+		if (a_c.dogmeat) {
+			return { "companion", Hex(a_c.ref), "0" };
+		}
+		return { "companion", Hex(a_c.ref), a_c.hasLeftPermanently ? "1" : "0", a_c.script };
+	}
+	std::vector<std::string> FollowRecord(const Companion& a_c) { return { "companionfollow", Hex(a_c.ref) }; }
+	std::vector<std::string> AffinityRecord(const Companion& a_c, int a_value) { return { "affinity", Hex(a_c.ref), std::to_string(a_value), a_c.script }; }
+
 	Result Read(const SaveFile& a_save)
 	{
 		Result out;
@@ -434,9 +449,9 @@ namespace ess::fo4comp
 
 		// ---- what does not add up --------------------------------------------------------------------------
 		using L = Finding::Level;
-		const std::string quest = "Followers";
+		const std::string quest = sys.quest ? Hex(sys.quest) : std::string(kFollowersQuest);
 		auto              add = [&](L a_level, std::uint32_t a_ref, std::string a_title, std::string a_what, std::vector<std::string> a_cmds = {},
-                       std::string a_why = {}) {
+                       std::string a_why = {}, std::vector<std::string> a_record = {}) {
             Finding f;
             f.level = a_level;
             f.ref = a_ref;
@@ -444,6 +459,7 @@ namespace ess::fo4comp
             f.what = std::move(a_what);
             f.console = std::move(a_cmds);
             f.consoleWhy = std::move(a_why);
+            f.record = std::move(a_record);
             out.findings.push_back(std::move(f));
 		};
 		const char* makeWhy = "Runs the game's own scripts in the running game (open the console with ~, type each line, Enter): "
@@ -476,14 +492,14 @@ namespace ess::fo4comp
 							"alias. The two halves of the companion link disagree (a mod or a console command that moved it in or out "
 							"halfway). Put it back consistently in the game:",
 							c.dogmeat ? "DogmeatCompanion" : "Companion", fill ? ("reference " + Hex(fill)).c_str() : "no one"),
-						MakeCompanionCommands(c, quest), makeWhy);
+						MakeCompanionCommands(c, quest), makeWhy, CompanionRecord(c));
 				} else if (c.inCompanionAlias && !c.aliasExtraSaysCompanion) {
 					add(L::kProblem, c.ref, Fmt("Companion %08X is in the follower quest's slot, but its own data does not say so", c.ref),
 						Fmt("The follower quest has %08X in its %s alias, but the actor's own alias list does not name it, so the "
 							"alias's packages and faction may not apply to it (it does not follow). Make it your companion again in "
 							"the game:",
 							c.ref, c.dogmeat ? "DogmeatCompanion" : "Companion"),
-						MakeCompanionCommands(c, quest), makeWhy);
+						MakeCompanionCommands(c, quest), makeWhy, CompanionRecord(c));
 				}
 			}
 			if (c.current()) {
@@ -491,13 +507,13 @@ namespace ess::fo4comp
 					add(L::kCaution, c.ref, Fmt("Your companion %08X has left you for good, as far as its script knows", c.ref),
 						"It is in the companion slot, but its CompanionActorScript has HasLeftPlayerPermanently set: affinity no "
 						"longer changes and its scenes treat it as gone. Clear the flag and make it your companion again:",
-						MakeCompanionCommands(c, quest), makeWhy);
+						MakeCompanionCommands(c, quest), makeWhy, CompanionRecord(c));
 				}
 				if (c.disallowed) {
 					add(L::kCaution, c.ref, Fmt("Your companion %08X is in DisallowedCompanionFaction", c.ref),
 						"It is in the companion slot, but it is also in the faction the scripts use for \"cannot be a companion now\" "
 						"(a story moment, or a mod). Dialogue to recruit or dismiss it may be missing.",
-						MakeCompanionCommands(c, quest), makeWhy);
+						MakeCompanionCommands(c, quest), makeWhy, CompanionRecord(c));
 				}
 				if (c.hasFollowerState && c.followerState != kFollow) {
 					const bool home = c.followerState == kGoHome;
@@ -505,27 +521,27 @@ namespace ess::fo4comp
 						Fmt("Its FollowerState is %g (%s). That is a normal command, not damage: talk to it and say Follow, or in the "
 							"running game:",
 							c.followerState, home ? "4 = go home" : c.followerState == kWait ? "2 = wait" : "not follow 1, wait 2 or go home 4"),
-						{ Fmt("cqf %s \"FollowersScript.FollowerFollow\" %08X", quest.c_str(), c.ref) },
-						"FollowersScript.FollowerFollow sets FollowerState to iFollower_Com_Follow (1), as the Follow command does.");
+						{ FollowCommand(c, quest) },
+						"FollowersScript.FollowerFollow sets FollowerState to iFollower_Com_Follow (1), as the Follow command does.", FollowRecord(c));
 				}
 				if (sys.aliasActive >= 0 && sys.questDecoded && !c.dogmeat && !c.inActive) {
 					add(L::kCaution, c.ref, Fmt("Your companion %08X is missing from ActiveCompanions", c.ref),
 						"FollowersScript.SetCompanion adds every new companion to the ActiveCompanions collection; this one is in "
 						"the companion slot but not in it, so it was put there some other way. Scripts that go through "
 						"ActiveCompanions (teleporting, sleeping near you) skip it.",
-						MakeCompanionCommands(c, quest), makeWhy);
+						MakeCompanionCommands(c, quest), makeWhy, CompanionRecord(c));
 				}
 			} else {
 				if (c.hasLeftPermanently) {
 					add(L::kInfo, c.ref, Fmt("%08X has left you for good", c.ref),
 						"Its CompanionActorScript has HasLeftPlayerPermanently set (it left because its affinity fell, or a quest "
 						"ended it). To have it back anyway:",
-						MakeCompanionCommands(c, quest), makeWhy);
+						MakeCompanionCommands(c, quest), makeWhy, CompanionRecord(c));
 				} else if (c.disallowed) {
 					add(L::kInfo, c.ref, Fmt("%08X cannot be your companion right now", c.ref),
 						"It is in DisallowedCompanionFaction: the story (or a mod) blocks it for now. Usually a quest takes it out "
 						"again; only force it if that quest is done or broken:",
-						MakeCompanionCommands(c, quest), makeWhy);
+						MakeCompanionCommands(c, quest), makeWhy, CompanionRecord(c));
 				}
 			}
 			if (c.hasAffinity && c.hasRange && (c.affinity > c.maxAffinity || c.affinity < c.minAffinity)) {
@@ -533,7 +549,8 @@ namespace ess::fo4comp
 					"The companion scripts keep affinity between MinAffinity and MaxAffinity; a value outside was set by a mod or "
 					"the console. ReSaver++ can put it back at the nearest limit in the save, or in the game:",
 					{ SetAffinityCommand(c, std::clamp(c.affinity, c.minAffinity, c.maxAffinity)) },
-					"CompanionActorScript.SetAffinity changes affinity the scripts' way (ModAffinity), in the running game.");
+					"CompanionActorScript.SetAffinity changes affinity the scripts' way (ModAffinity), in the running game.",
+					AffinityRecord(c, static_cast<int>(std::clamp(c.affinity, c.minAffinity, c.maxAffinity))));
 			}
 		}
 		// two actors in the same slot
