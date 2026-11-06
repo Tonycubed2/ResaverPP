@@ -97,6 +97,15 @@ namespace ess::cosave
 	// The DLLs in <folder>\SKSE\Plugins (F4SE\Plugins) of every mod folder of the scan, its overwrite folder and
 	// the game's Data folder; with no scan, only a_data (a Data folder, a mods folder or a single mod).
 	std::vector<Dll> ListPluginDlls(const ScriptSources* a_sources, const std::filesystem::path& a_data, bool a_fo4);
+	// the folders of a scan, copied (for a search on another thread while the scan may be replaced)
+	struct DllRoots
+	{
+		std::filesystem::path root, overwrite, gameData;
+		bool                  scanned = false, ranked = false, vortex = false;
+		std::set<std::string> enabled;
+	};
+	DllRoots         RootsOf(const ScriptSources& a_sources);
+	std::vector<Dll> ListPluginDlls(const DllRoots& a_roots, const std::filesystem::path& a_data, bool a_fo4);
 	// uid -> the DLLs that set it. a_x86: Skyrim LE.
 	std::map<std::uint32_t, std::vector<std::size_t>> FindIds(const std::vector<Dll>& a_dlls, const std::set<std::uint32_t>& a_uids, bool a_x86,
 		std::size_t* a_read = nullptr);
@@ -126,9 +135,13 @@ namespace ess::cosave
 		std::size_t            dllsSearched = 0;
 		bool                   searched = false;
 		std::size_t            notInstalledBytes = 0, notInstalledCount = 0;
+		std::size_t            installedCount = 0;  // none found while DLLs were searched: probably the wrong folder
+		bool plausible() const { return searched && installedCount > 0; }
 	};
 	// a_dlls empty: nothing searched, every plugin kUnknown (except id 0).
 	View MakeView(const File& a_file, const std::vector<Dll>& a_dlls, bool a_x86);
+	// the same with a search already made (FindIds over a_dlls)
+	View MakeView(const File& a_file, const std::vector<Dll>& a_dlls, const std::map<std::uint32_t, std::vector<std::size_t>>& a_found, std::size_t a_searched);
 
 	// ---- the plugin list SKSE / F4SE / PapyrusUtil keep in a 'PLGN' chunk -------------------------------------
 	// u16 count, then per plugin: u8 index, u16 light index when index == 0xFE, u16 name length, name.

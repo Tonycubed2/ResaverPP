@@ -406,8 +406,30 @@ namespace ess::cosave
 
 	// ---------------------------------------------------------------------------------------------- DLLs
 
+	DllRoots RootsOf(const ScriptSources& a_sources)
+	{
+		DllRoots r;
+		r.scanned = a_sources.scanned();
+		r.root = a_sources.root;
+		r.overwrite = a_sources.overwriteDir;
+		r.gameData = a_sources.gameData;
+		r.ranked = a_sources.ranked;
+		r.vortex = a_sources.vortex;
+		r.enabled = a_sources.enabledFolders;
+		return r;
+	}
+
 	std::vector<Dll> ListPluginDlls(const ScriptSources* a_sources, const std::filesystem::path& a_data, bool a_fo4)
 	{
+		if (a_sources) {
+			return ListPluginDlls(RootsOf(*a_sources), a_data, a_fo4);
+		}
+		return ListPluginDlls(DllRoots{}, a_data, a_fo4);
+	}
+
+	std::vector<Dll> ListPluginDlls(const DllRoots& a_roots, const std::filesystem::path& a_data, bool a_fo4)
+	{
+		const DllRoots* a_sources = a_roots.scanned ? &a_roots : nullptr;
 		namespace fs = std::filesystem;
 		std::vector<Dll> out;
 		const std::string xse = a_fo4 ? "f4se" : "skse";
@@ -430,7 +452,7 @@ namespace ess::cosave
             }
 		};
 		std::error_code ec;
-		if (a_sources && a_sources->scanned()) {
+		if (a_sources) {
 			if (!a_sources->vortex && !a_sources->root.empty() && fs::is_directory(a_sources->root, ec)) {
 				bool isData = false;
 				for (const auto& e : fs::directory_iterator(a_sources->root, ec)) {
@@ -445,14 +467,14 @@ namespace ess::cosave
 							continue;
 						}
 						const auto name = m.path().filename().string();
-						const bool enabled = !a_sources->ranked || a_sources->enabledFolders.contains(name);
+						const bool enabled = !a_sources->ranked || a_sources->enabled.contains(name);
 						add(m.path(), name, enabled);
 					}
 				}
 			}
 			// (Vortex deploys into the game's Data folder: that is where the game loads its DLLs from)
-			if (!a_sources->overwriteDir.empty()) {
-				add(a_sources->overwriteDir, "Overwrite", true);
+			if (!a_sources->overwrite.empty()) {
+				add(a_sources->overwrite, "Overwrite", true);
 			}
 			if (!a_sources->gameData.empty()) {
 				add(a_sources->gameData, "", true);
@@ -559,16 +581,23 @@ namespace ess::cosave
 
 	View MakeView(const File& a_file, const std::vector<Dll>& a_dlls, bool a_x86)
 	{
-		View                    v;
 		std::set<std::uint32_t> uids;
 		for (const auto& p : a_file.plugins) {
 			uids.insert(p.uid);
 		}
 		std::map<std::uint32_t, std::vector<std::size_t>> found;
+		std::size_t                                       searched = 0;
 		if (!a_dlls.empty()) {
-			found = FindIds(a_dlls, uids, a_x86, &v.dllsSearched);
-			v.searched = v.dllsSearched > 0;
+			found = FindIds(a_dlls, uids, a_x86, &searched);
 		}
+		return MakeView(a_file, a_dlls, found, searched);
+	}
+
+	View MakeView(const File& a_file, const std::vector<Dll>& a_dlls, const std::map<std::uint32_t, std::vector<std::size_t>>& found, std::size_t a_searched)
+	{
+		View v;
+		v.dllsSearched = a_searched;
+		v.searched = a_searched > 0;
 		for (const auto& p : a_file.plugins) {
 			PluginRow r;
 			r.uid = p.uid;
@@ -615,6 +644,9 @@ namespace ess::cosave
 				r.status = Status::kUnknown;  // too short an id to search for
 			} else {
 				r.status = Status::kNotInstalled;
+			}
+			if (r.status == Status::kInstalled) {
+				++v.installedCount;
 			}
 			if (r.status == Status::kNotInstalled || r.status == Status::kDisabled) {
 				v.notInstalledBytes += r.bytes;
@@ -1087,7 +1119,9 @@ namespace ess::cosave
 				}
 			}
 		}
-		if (a_view.searched && a_view.notInstalledCount) {
+		if (a_view.searched && !a_view.plausible()) {
+			s += "none of these plugins was found in the DLLs searched: probably not the folder the game loads from\n";
+		} else if (a_view.searched && a_view.notInstalledCount) {
 			s += Fmt("%s from %zu plugin(s) no longer installed (or disabled)\n", SizeText(a_view.notInstalledBytes).c_str(), a_view.notInstalledCount);
 		}
 		const auto b = papu::Analyze(a_file);

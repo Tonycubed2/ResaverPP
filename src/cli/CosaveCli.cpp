@@ -181,6 +181,10 @@ int CosaveMain(int argc, char** argv)
 				std::fputs("--cosave-remove not-installed needs --sources (a mods folder or the Data folder) to tell what is installed\n", stderr);
 				return 1;
 			}
+			if (!view.plausible()) {
+				std::fputs("none of the co-save's plugins was found in --sources: that is probably not the folder the game loads its DLLs from; nothing removed\n", stderr);
+				return 1;
+			}
 			for (const auto& r : view.rows) {
 				if (r.status == cosave::Status::kNotInstalled) {
 					opt.removeUids.insert(r.uid);
