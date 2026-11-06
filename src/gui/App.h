@@ -5,6 +5,7 @@
 #include "core/Lang.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
+#include "core/WorkshopFO4.h"
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
 #include "core/ChangeFormFO4.h"
@@ -589,6 +590,14 @@ private:
 	void        drawLookup();
 	void        drawPlayer();
 	void        drawPlayerFO4();  // AppPlayerFO4.cpp
+	// Fallout 4 settlements: build budget, its reset, the Save check's settlement findings (AppF4Settlements.cpp)
+	struct WsState;
+	std::shared_ptr<WsState> _ws;
+	bool        _showSettlements = false;
+	void        drawSettlementsF4();
+	bool        settlementsPoll();  // true while nothing is read yet
+	void        settlementCheckItems(std::vector<CheckItem>& a_items);
+	std::string settlementName(const ess::fo4ws::Settlement& a_s) const;
 	// Main screen shortcuts: the Clean and Tools menu entries as buttons under the overview (AppHome.cpp)
 	enum class Sc
 	{

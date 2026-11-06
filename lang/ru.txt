@@ -10802,6 +10802,174 @@ tr "Во время «%s»: %s"
 en "Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."
 tr "Пожалуйста, сообщите об этом на странице мода, приложив файл ReSaverPP-startup.log (рядом с ReSaverPP.exe или в %TEMP%)."
 
+# App.cpp:1332  ImGui::MenuItem(tr("Settlements (build budget)..."), nullptr, &_showSettlements);
+en "Settlements (build budget)..."
+tr "Поселения (лимит строительства)..."
+
+# App.cpp:1333  tips::Tip(tr("Every settlement with its build budget, population and happiness; reset the used budget of a settlement whose "
+en "Every settlement with its build budget, population and happiness; reset the used budget of a settlement whose build meter is full."
+tr "Все поселения с их лимитом строительства, населением и счастьем; сброс использованного лимита поселения, у которого шкала строительства заполнена."
+
+# AppF4Settlements.cpp:137  return a_s.location ? Fmt(tr("location %08X"), a_s.location) : Fmt(tr("workshop %08X"), a_s.formID);
+en "location %08X"
+tr "локация %08X"
+
+# AppF4Settlements.cpp:137  return a_s.location ? Fmt(tr("location %08X"), a_s.location) : Fmt(tr("workshop %08X"), a_s.formID);
+en "workshop %08X"
+tr "мастерская %08X"
+
+# AppF4Settlements.cpp:155  it.title = Fmt(tr("%zu settlement(s) are over their build budget"), over.size());
+en "%zu settlement(s) are over their build budget"
+tr "Поселений сверх лимита строительства: %zu"
+
+# AppF4Settlements.cpp:158  list += Fmt(tr("\n  - %s: %lld / %lld draws, %lld / %lld triangles"), settlementName(*s).c_str(), static_cast<long long>(s->usedDraws()),
+en "\n  - %s: %lld / %lld draws, %lld / %lld triangles"
+tr "\n  - %s: %lld / %lld вызовов отрисовки, %lld / %lld треугольников"
+
+# AppF4Settlements.cpp:161  it.what = tr("Their build meter is full, so nothing more can be built there.") + list +
+en "Their build meter is full, so nothing more can be built there."
+tr "Их шкала строительства заполнена, поэтому там больше ничего нельзя построить."
+
+# AppF4Settlements.cpp:162  tr("\nThe game does not count the objects: it keeps a running total that building adds to and scrapping or storing takes "
+en "\nThe game does not count the objects: it keeps a running total that building adds to and scrapping or storing takes from (never below 0). Settlements tells you more and can reset that total."
+tr "\nИгра не пересчитывает объекты: она ведёт накопительный итог, к которому строительство прибавляет, а разборка или убирание на склад вычитает (не ниже 0). В окне «Поселения» подробнее, там же этот итог можно сбросить."
+
+# AppF4Settlements.cpp:165  o.label = tr("Open Settlements");
+en "Open Settlements"
+tr "Открыть «Поселения»"
+
+# AppF4Settlements.cpp:200  it.title = Fmt(tr("%zu workshop object(s) or settler(s) are linked to a workshop that is not in the game"), missing);
+en "%zu workshop object(s) or settler(s) are linked to a workshop that is not in the game"
+tr "Объектов мастерской или поселенцев, связанных с мастерской, которой нет в игре: %zu"
+
+# AppF4Settlements.cpp:201  it.what = tr("Each workshop object and settler is linked to its settlement's workbench (the WorkshopItemKeyword link). These name "
+en "Each workshop object and settler is linked to its settlement's workbench (the WorkshopItemKeyword link). These name a workbench that was a created object no longer in the save, or one from a plugin the save does not have, so the workshop scripts get None for them."
+tr "Каждый объект мастерской и каждый поселенец связан с верстаком своего поселения (связь WorkshopItemKeyword). Эти указывают на верстак, который был созданным объектом и больше не существует в сохранении, или на верстак из плагина, которого в сохранении нет, поэтому скрипты мастерской получают для них None."
+
+# AppF4Settlements.cpp:209  it.title = Fmt(tr("%zu settler(s) have workshop data that does not add up"), badID + mismatch);
+en "%zu settler(s) have workshop data that does not add up"
+tr "Поселенцев с несогласованными данными мастерской: %zu"
+
+# AppF4Settlements.cpp:210  it.what = tr("A settler's workshopID (WorkshopNPCScript) is its settlement's place in WorkshopParent's list of workshops, and the "
+en "A settler's workshopID (WorkshopNPCScript) is its settlement's place in WorkshopParent's list of workshops, and the game links the settler to that same workbench. These name no workshop in that list, or a different workbench than the one they are linked to, so the settlement scripts may count them wrongly or not find them."
+tr "workshopID поселенца (WorkshopNPCScript) — это место его поселения в списке мастерских WorkshopParent, и игра связывает поселенца с тем же верстаком. Эти указывают на номер, которого нет в этом списке, или на другой верстак, чем тот, с которым они связаны, поэтому скрипты поселений могут считать их неправильно или не находить."
+
+# AppF4Settlements.cpp:237  if (!ImGui::Begin(trId("Settlements"), &_showSettlements, ImGuiWindowFlags_NoCollapse)) {
+en "Settlements"
+tr "Поселения"
+
+# AppF4Settlements.cpp:242  ImGui::TextWrapped("%s", tr("Every settlement workshop in this save with its build budget, as the game's build meter counts it: "
+en "Every settlement workshop in this save with its build budget, as the game's build meter counts it: the larger of draws used / max and triangles used / max. The game does not count the objects in a settlement. It keeps a running total on the workbench: building adds the object's draws and triangles, scrapping or storing takes them off (never below 0), and the total also starts with what the settlement had built when you got it."
+tr "Все мастерские поселений в этом сохранении с их лимитом строительства, как его считает шкала строительства игры: большее из двух — вызовы отрисовки (использовано / максимум) и треугольники (использовано / максимум). Игра не пересчитывает объекты в поселении. Она ведёт накопительный итог на верстаке: строительство прибавляет вызовы отрисовки и треугольники объекта, разборка или убирание на склад вычитает их (не ниже 0), а начинается итог с того, что уже было построено в поселении, когда вы его получили."
+
+# AppF4Settlements.cpp:246  ImGui::TextWrapped("%s", tr("Reset used budget sets that total to 0 (or to the numbers you type). The objects already built stay "
+en "Reset used budget sets that total to 0 (or to the numbers you type). The objects already built stay where they are but are no longer counted, so the whole budget is free again; scrapping them later takes their numbers off again, but never below 0. The max values are not changed. Nothing is written until you save (File > Save or Save As)."
+tr "Сброс использованного лимита ставит этот итог в 0 (или в числа, которые вы введёте). Уже построенные объекты остаются на месте, но больше не учитываются, так что весь лимит снова свободен; если потом их разобрать, их числа снова вычтутся, но не ниже 0. Максимальные значения не меняются. Ничего не записывается, пока вы не сохраните («Файл > Сохранить» или «Сохранить как»)."
+
+# AppF4Settlements.cpp:252  ImGui::TextDisabled("%s", tr("Reading the settlements..."));
+en "Reading the settlements..."
+tr "Чтение поселений..."
+
+# AppF4Settlements.cpp:263  ImGui::TextDisabled("%s", tr("This save has no settlement workshops (no WorkshopScript on any reference)."));
+en "This save has no settlement workshops (no WorkshopScript on any reference)."
+tr "В этом сохранении нет мастерских поселений (ни на одном объекте нет WorkshopScript)."
+
+# AppF4Settlements.cpp:281  markChanged(Fmt(tr("Reset the used build budget of %zu settlement(s)"), done));
+en "Reset the used build budget of %zu settlement(s)"
+tr "Сброшен использованный лимит строительства поселений: %zu"
+
+# AppF4Settlements.cpp:285  if (ImGui::Button(tr("Tick the ones over budget"))) {
+en "Tick the ones over budget"
+tr "Отметить те, что сверх лимита"
+
+# AppF4Settlements.cpp:303  if (ImGui::Button(Fmt(tr("Reset used budget of %zu ticked"), w.ticked.size()).c_str())) {
+en "Reset used budget of %zu ticked"
+tr "Сбросить использованный лимит у отмеченных (%zu)"
+
+# AppF4Settlements.cpp:307  tips::Tip(tr("Set the draws and triangles used of the ticked settlements to 0. Their objects stay; the game just stops counting "
+en "Set the draws and triangles used of the ticked settlements to 0. Their objects stay; the game just stops counting them, so the whole budget is free again. Max values are left alone."
+tr "Поставить использованные вызовы отрисовки и треугольники отмеченных поселений в 0. Их объекты остаются; игра просто перестаёт их учитывать, так что весь лимит снова свободен. Максимальные значения не трогаются."
+
+# AppF4Settlements.cpp:315  ImGui::TableSetupColumn(tr("Settlement"));
+en "Settlement"
+tr "Поселение"
+
+# AppF4Settlements.cpp:316  ImGui::TableSetupColumn(tr("Workbench"), ImGuiTableColumnFlags_WidthFixed);
+en "Workbench"
+tr "Верстак"
+
+# AppF4Settlements.cpp:317  ImGui::TableSetupColumn(tr("Draws used / max"), ImGuiTableColumnFlags_WidthFixed);
+en "Draws used / max"
+tr "Вызовы отрисовки: исп. / макс."
+
+# AppF4Settlements.cpp:318  ImGui::TableSetupColumn(tr("Triangles used / max"), ImGuiTableColumnFlags_WidthFixed);
+en "Triangles used / max"
+tr "Треугольники: исп. / макс."
+
+# AppF4Settlements.cpp:319  ImGui::TableSetupColumn(tr("Build meter"), ImGuiTableColumnFlags_WidthFixed, 140);
+en "Build meter"
+tr "Шкала строительства"
+
+# AppF4Settlements.cpp:320  ImGui::TableSetupColumn(tr("Population"), ImGuiTableColumnFlags_WidthFixed);
+en "Population"
+tr "Население"
+
+# AppF4Settlements.cpp:321  ImGui::TableSetupColumn(tr("Happiness"), ImGuiTableColumnFlags_WidthFixed);
+en "Happiness"
+tr "Счастье"
+
+# AppF4Settlements.cpp:322  ImGui::TableSetupColumn(tr("Linked"), ImGuiTableColumnFlags_WidthFixed);
+en "Linked"
+tr "Связано"
+
+# AppF4Settlements.cpp:337  tips::Tip((tr("This workbench cannot be edited: ") + s.error).c_str());
+en "This workbench cannot be edited: "
+tr "Этот верстак нельзя изменить: "
+
+# AppF4Settlements.cpp:339  tips::Tip(tr("The save keeps no budget numbers for this workbench yet: nothing is used."));
+en "The save keeps no budget numbers for this workbench yet: nothing is used."
+tr "Сохранение пока не хранит чисел лимита для этого верстака: ничего не использовано."
+
+# AppF4Settlements.cpp:348  ImGui::SetTooltip("%s", Fmt(tr("%s (%s)\nWorkshopID %d, %s\nClick to type other numbers below."), s.script.c_str(),
+en "%s (%s)\nWorkshopID %d, %s\nClick to type other numbers below."
+tr "%s (%s)\nWorkshopID %d, %s\nЩёлкните, чтобы ввести другие числа ниже."
+
+# AppF4Settlements.cpp:349  s.location ? Fmt("%08X", s.location).c_str() : "-", s.workshopID, s.ownedByPlayer ? tr("owned by the player") : tr("not owned by the player")).c_str()
+en "owned by the player"
+tr "принадлежит игроку"
+
+# AppF4Settlements.cpp:349  s.location ? Fmt("%08X", s.location).c_str() : "-", s.workshopID, s.ownedByPlayer ? tr("owned by the player") : tr("not owned by the player")).c_str()
+en "not owned by the player"
+tr "не принадлежит игроку"
+
+# AppF4Settlements.cpp:369  ImGui::SetTooltip("%s", tr("Objects / actors in the save linked to this workbench (WorkshopItemKeyword). Objects from the "
+en "Objects / actors in the save linked to this workbench (WorkshopItemKeyword). Objects from the plugins that the save never changed are not counted."
+tr "Объекты / персонажи в сохранении, связанные с этим верстаком (WorkshopItemKeyword). Объекты из плагинов, которые сохранение не меняло, не учитываются."
+
+# AppF4Settlements.cpp:384  ImGui::InputInt(tr("draws##ed"), &w.editDraws, 10, 100);
+en "draws"
+tr "вызовы отрисовки"
+
+# AppF4Settlements.cpp:387  ImGui::InputInt(tr("triangles##ed"), &w.editTriangles, 1000, 100000);
+en "triangles"
+tr "треугольники"
+
+# AppF4Settlements.cpp:392  if (ImGui::Button(tr("Set used budget"))) {
+en "Set used budget"
+tr "Задать использованный лимит"
+
+# AppF4Settlements.cpp:397  markChanged(Fmt(tr("Set the used build budget of %s to %d draws, %d triangles"), settlementName(*cur).c_str(), w.editDraws, w.editTriangles));
+en "Set the used build budget of %s to %d draws, %d triangles"
+tr "Использованный лимит строительства «%s» задан: %d вызовов отрисовки, %d треугольников"
+
+# AppF4Settlements.cpp:401  tips::Tip(tr("Write these numbers as the settlement's used draws and triangles (the running total the game adds to and takes from)."));
+en "Write these numbers as the settlement's used draws and triangles (the running total the game adds to and takes from)."
+tr "Записать эти числа как использованные вызовы отрисовки и треугольники поселения (накопительный итог, к которому игра прибавляет и из которого вычитает)."
+
+# AppF4Settlements.cpp:403  ImGui::TextDisabled("%s", tr("Click a settlement to type its used numbers yourself."));
+en "Click a settlement to type its used numbers yourself."
+tr "Щёлкните поселение, чтобы ввести его использованные числа самому."
+
 # ---- no longer used by the code (kept for reference; safe to delete) ----
 
 en "Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in ReSaver Plus. Both are read from their files, so the old save never has to load. What a save can hold (level, experience, S.P.E.C.I.A.L., caps, perk ranks) is written into the open save; items, new perks and quest stages are put into the running game by ReSaverHelper %d or newer (the F4SE plugin) once the good save is loaded."
