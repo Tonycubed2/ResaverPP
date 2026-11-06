@@ -24,6 +24,12 @@ for fn in sys.argv[1:]:
         cur[0]=ref
         try: p=a.parse(ref,fl,b); ok=p==len(b)
         except Exception as ex: ok=False
+        if not ok:
+            # an emulator that has run many actors can collect state its snapshot does not restore: read the actor
+            # again on a fresh one
+            a=A(fv)
+            try: p=a.parse(ref,fl,b); ok=p==len(b); st['fresh emulator']+=ok
+            except Exception: ok=False
         st[ok]+=1
         if not ok: bad.append(hex(ref))
-    print(os.path.basename(fn), 'exact', st[True], 'not', st[False], bad[:10], 'reference end from the game\'s loader', used[0], flush=True)
+    print(os.path.basename(fn), 'exact', st[True], 'not', st[False], '(fresh emulator %d)'%st['fresh emulator'], bad[:10], 'reference end from the game\'s loader', used[0], flush=True)
