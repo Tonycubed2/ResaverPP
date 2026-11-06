@@ -305,6 +305,9 @@ void App::drawPlayerFO4()
 		ImGui::TextWrapped("%s", tr("Remove takes an effect off the character, and when it is running and changes a stat, puts the stat back as the "
 						   "game does when the effect ends. An effect from something you still wear, a perk or a mod's script can come back "
 						   "when the game gives it again."));
+		ImGui::TextWrapped("%s", tr("The effect's own scripts (its ActiveMagicEffect script instances, with their running threads) are removed "
+						   "with it, as when the game ends an effect. If another script still holds one of them, that instance is kept "
+						   "and the result says so."));
 		if (!_db) {
 			TextColored(theme::Warn(), tr("Plugin names are not loaded: running effects that change a stat cannot be removed (which stat is in "
 										   "the plugins). Load them (Tools > Read plugin names)."));

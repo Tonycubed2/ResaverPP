@@ -942,7 +942,7 @@ namespace ess::fo4cf
 					for (std::size_t k = 0; k < refs.size() && k < 4; ++k) {
 						list += (k ? ", " : "") + refs[k];
 					}
-					changes.push_back(Fx("%zu ActiveMagicEffect script instance(s) of the removed effects left in the save: other "
+					changes.insert(changes.begin(), Fx("%zu ActiveMagicEffect script instance(s) of the removed effects left in the save: other "
 										 "scripts still name them (%s%s)",
 										 ids.size(), list.c_str(), refs.size() > 4 ? ", ..." : ""));
 				} else {
@@ -953,7 +953,7 @@ namespace ess::fo4cf
 						}
 					}
 					const auto r = ops::PurgeInstances(a_save, ids);
-					changes.push_back(Fx("script instances removed with the effects: %zu (%s); %zu thread(s), %zu suspended stack(s), %zu "
+					changes.insert(changes.begin(), Fx("script instances removed with the effects: %zu (%s); %zu thread(s), %zu suspended stack(s), %zu "
 										 "queued call(s) with them",
 						r.instances, names.c_str(), r.threads, r.stacks, r.messages));
 				}
