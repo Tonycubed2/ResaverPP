@@ -43,6 +43,8 @@
 
 using namespace ess;
 
+int Fo4WorldMain(int argc, char** argv);  // WorldF4.cpp: Fallout 4 world items / reset an area (-1: not those options)
+
 namespace
 {
 	template <class... A>
@@ -394,6 +396,9 @@ int main(int argc, char** argv)
 	}
 	if (std::string(argv[1]) == "--analyze-logs") {
 		return AnalyzeLogsMain(argc, argv);
+	}
+	if (const int r = Fo4WorldMain(argc, argv); r >= 0) {
+		return r;
 	}
 	std::vector<std::string> purge;
 	bool                     fixMcm = false, delForms = false, keepInst = false, unattached = false, undefined = false, termUndef = false, nonexist = false;
