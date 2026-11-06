@@ -96,8 +96,9 @@ project; you do the coding, building, delivering and publishing.
   byte for byte, decoded again). Checked read for read against the emulator (tools/fo4emu: actcmp, stack1.py, fails.cpp).
   Still stopping: Havok objects' first appearance (0xed5cf0, odd id: class 0x30290669 0x89cd40 has entries whose loader comes
   from a runtime registry 0x3271390), the 0x87c540 block (full of Havok objects; the emulator does not read it either), the
-  PlayerCharacter part (player not editable), and ACHR reference parts with some extra data types (0x6c package data, 0xd5,
-  0x1b, ...) or misreads ("unexpected end of data" in the reference part, mostly Save10).
+  PlayerCharacter part (player not editable), a few rare extra data types (0x3d, 0x9d) and a created package with procedure
+  data (mask bit 2). Extra 0x6c (package data), 0x1b, 0xd3, 0xd5 and 0x5c's per-entry lists are decoded. Coverage: every NPC
+  but 1-2% of the big saves (Save10: 11040 of 11073 non-player ACHRs read exactly; 539 -> 1891 of 1892 in nate_cleansave).
 - v51 (published 2026-11-02): Edit player > Active magic effects (list, tick, Remove; CLI `--effects`, `--remove-effect 3,7`).
   Save layout: high process ACTIVE EFFECTS = vsval count, each {REF item, u8 effect index, vsval type (= MGEF archetype),
   vsval size, DATA: f32 elapsed, f32 magnitude, f32 duration, u32 flags, ...}. Checked on Tony's Save112: the player's
