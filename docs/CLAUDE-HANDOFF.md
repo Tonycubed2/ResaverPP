@@ -333,6 +333,18 @@ project; you do the coding, building, delivering and publishing.
   13/14 checks were never met).
 - Linux/Wine is not officially supported.
 
+- Co-save viewer/cleaner (2026-11-06, branch cosave, not published): `core/Cosave.*` reads/writes .skse/.f4se byte-exact (format
+  identical in skse/Serialization.cpp LE 1.7.x, skse64/Serialization.cpp, f4se/Serialization.cpp: header sig/format 1/xse ver/runtime/
+  numPlugins; plugin {uid, numChunks, length}; chunk {type, version, length}; the loader ignores numPlugins and reads while 12 bytes
+  remain). `KnownTable()`: uid -> plugin with the source file of each SetUniqueID call (or "DLL:" for ids read from a shipped DLL).
+  Installed or not: `FindIds` searches the mods' SKSE/F4SE\Plugins DLLs for the id as a SetUniqueID immediate (x64 BA / B9 / 41 B8,
+  x86 68 push); nothing found at all = wrong folder (`View::plausible`). PapyrusUtil (uid 884715692+227106806, text records
+  INTV..FORL, PLGN load order) broken down by plugin/key/object; objects on forms of gone plugins removed by byte ranges (count
+  adjusted). JContainers ('JSTR', boost archive) size only. GUI `gui/AppCosave.cpp` (Tools > SKSE/F4SE co-save, home button,
+  Sc::kCosave, Save check line), edits `_save->cosave` + markEdited, written with Save As. CLI `--cosave` (CosaveCli.cpp). Tests
+  `rs_cosave_test` (RESAVERPP_COSAVES="dir;dir" for real files). Tony's 167 .skse co-saves: all byte-identical. No .f4se tested
+  (none on Tony's PC). SKSE VR source not reachable: VR not verified.
+
 ## 2. Where things are
 
 - GitHub: `Tonycubed2/ResaverPP` (public), branch `main`. Other threads also push here, so ALWAYS
