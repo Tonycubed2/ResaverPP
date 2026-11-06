@@ -35,8 +35,9 @@ namespace ess::fo4cf
 				return;
 			}
 			if (pkg.type() == RefID::Type::kCreated) {  // 0x2ecb40: a created package saves its own form
-				if (b.u8() != 0xFF) {
-					b.fail("a created package's form");
+				const auto t = b.u8();
+				if (t != 0xFF) {
+					detail::CreatedPackage(b, t);  // ChangeFormFO4Pkg.cpp
 				}
 			}
 			const auto type = b.u8();

@@ -409,4 +409,49 @@ namespace ess::fo4cf::detail
 			return;
 		}
 	}
+
+	// 0xcea430 for a created package (form id 0xFFxxxxxx): 0x757db0 makes the package for its type and its
+	// LoadGame (vtable +0x90) reads the form. TESPackage::LoadGame 0x75e5a0 (a created form): the 12 bytes of
+	// package data (PKDT), a u8 mask - bit 0 a location (0x767060), bit 1 a target (0x7683e0), bit 2 the
+	// procedure data object's own data (vtable +0x28 of the object 0x758b20 made for the type) - then a u32.
+	void CreatedPackage(In& b, std::uint8_t a_type)
+	{
+		const int type = static_cast<std::int8_t>(a_type);
+		// 0x757db0's table (index type + 1): 9, 17 and 45 make no package (the game could not have saved one)
+		if (type == 9 || type == 17 || type == 45 || type < -1 || type > 45) {
+			b.fail("a created package of type " + std::to_string(type));
+		}
+		auto base = [&] {  // 75e5a0
+			b.raw(12);
+			const auto mask = b.u8();
+			if (mask & 1) Location(b);
+			if (mask & 2) Target(b);
+			if (mask & 4) b.fail("a created package's procedure data");
+			b.u32();
+		};
+		switch (type) {
+		case 15:
+		case 28:  // vtable 0x2517128, LoadGame 0xde7240
+			base();
+			b.ref();  // 22b640
+			b.ref();
+			b.ref();
+			b.u8();
+			b.u8();
+			return;
+		case 21:  // 0xde5d80, LoadGame 0xde6350
+			base();
+			for (auto n = b.vs(); n; --n) {
+				b.u8();
+				b.u16();
+			}
+			b.u8();
+			return;
+		case 22: case 23: case 24:  // 0xde9550, 0xdef230, 0xdee310: not decoded
+			b.fail("a created package of type " + std::to_string(type));
+		default:  // TESPackage 0x757fb0 (vtable 0x2516ea8)
+			base();
+			return;
+		}
+	}
 }

@@ -75,4 +75,6 @@ namespace ess::fo4cf::detail
 	void Pid70(In& b);
 	// A package's saved data (the AI process's package instances, 0xcea430): a_type is the package type byte.
 	void PackageData(In& b, std::uint8_t a_type);
+	// A created package's own form (a_type: its package type), read before the type byte by 0xcea430.
+	void CreatedPackage(In& b, std::uint8_t a_type);
 }
