@@ -101,6 +101,11 @@ if (RESAVERPP_TESTS)
 	add_test(NAME cosave COMMAND rs_cosave_test)
 	# save bloat by mod and the load order check (real saves / plugins: RESAVERPP_FO4_SAVES, RESAVERPP_SKYRIM_SAVES, RESAVERPP_FO4_DATA)
 	add_test(NAME bloat COMMAND rs_bloat_test)
+	# Fallout 4 active effects through the command line (real saves: RESAVERPP_FO4_SAVES)
+	if (TARGET resaverpp-cli)
+		add_test(NAME cli_fo4_effects COMMAND ${CMAKE_COMMAND} -DCLI=$<TARGET_FILE:resaverpp-cli> -DOUT=${CMAKE_BINARY_DIR}/cli_fo4_effects
+			-P ${CMAKE_SOURCE_DIR}/tests/cli_fo4_effects.cmake)
+	endif()
 	# every text the GUI translates is in lang/ru.txt
 	find_package(Python3 COMPONENTS Interpreter QUIET)
 	if (Python3_FOUND)
