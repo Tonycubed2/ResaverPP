@@ -86,6 +86,18 @@ project; you do the coding, building, delivering and publishing.
   BGSListForm::LoadGame 0x5898f0: bit 0 u32+u16, bit 31 u32 count + refs (null refs are kept as entries by the game);
   `fo4cf::DecodeFormList` / `PurifyFormList`. Checked with tools/fo4emu/havemu.py and flstemu.py; rs_unit
   TestFo4HavokFormLists (real saves with RESAVERPP_FO4_SAVES).
+- Fallout 4 NPC change forms (2026-11-05, branch npc, not published): `core/ChangeFormFO4Pkg.cpp` decodes the AI process's
+  package data (0xcea430: type byte -> 2 form id, 13, 14, 16 nothing, 18 procedure tree; the tree's states and data objects
+  are saved by class name and loaded through the procedure factory 0x7106f0 (state LoadGame vtable +0x38, data object +0x40
+  of the IPackageData base, which is the base at +8 for ObjectList/Ref/RefOLD/Location/LocationWrapper) or the location
+  factory 0x21c2b0 (+0xc8: LocRef, LocPt, Prim, LocCell)); a created package's own form (0x757db0, TESPackage::LoadGame
+  0x75e5a0); the movement controller's Havok pathing requests (0xfe74a0 -> +0x88, common part 0xfe7680). `fo4cf::Actor::complete`
+  = an NPC whose Actor::LoadGame ends at the body's end; Leftover items (RemoveInventoryItemsFO4) edits those (actor part kept
+  byte for byte, decoded again). Checked read for read against the emulator (tools/fo4emu: actcmp, stack1.py, fails.cpp).
+  Still stopping: Havok objects' first appearance (0xed5cf0, odd id: class 0x30290669 0x89cd40 has entries whose loader comes
+  from a runtime registry 0x3271390), the 0x87c540 block (full of Havok objects; the emulator does not read it either), the
+  PlayerCharacter part (player not editable), and ACHR reference parts with some extra data types (0x6c package data, 0xd5,
+  0x1b, ...) or misreads ("unexpected end of data" in the reference part, mostly Save10).
 - v51 (published 2026-11-02): Edit player > Active magic effects (list, tick, Remove; CLI `--effects`, `--remove-effect 3,7`).
   Save layout: high process ACTIVE EFFECTS = vsval count, each {REF item, u8 effect index, vsval type (= MGEF archetype),
   vsval size, DATA: f32 elapsed, f32 magnitude, f32 duration, u32 flags, ...}. Checked on Tony's Save112: the player's
