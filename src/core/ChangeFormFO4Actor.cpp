@@ -5,6 +5,7 @@
 #include "ChangeFormData.h"
 #include "ChangeFormFO4.h"
 #include "ChangeFormFO4In.h"
+#include "Ops.h"
 #include "PluginDB.h"
 
 #include <algorithm>
@@ -70,6 +71,11 @@ namespace ess::fo4cf
 					std::memcpy(&e.magnitude, d + 4, 4);
 					std::memcpy(&e.duration, d + 8, 4);
 					std::memcpy(&e.flags, d + 12, 4);
+					// 4 refs, the hit effect list's vsval count (0: one 0 byte), u32, then the unique id (0xb75214)
+					if (size >= 35 && d[28] == 0) {
+						e.uniqueKnown = true;
+						e.uniqueID = static_cast<std::uint16_t>(d[33] | (d[34] << 8));
+					}
 				}
 				b.skip(size);  // ActiveEffect::LoadGame (0xb74e90) or a skip of the same size
 				e.data.end = e.range.end = b.r.pos();
@@ -915,10 +921,63 @@ namespace ess::fo4cf
 			return "the edited actor does not read back exactly: nothing changed";
 		}
 		a_cf = std::move(copy);
+		// 5. the removed effects' ActiveMagicEffect script instances (see the header)
+		if (auto* p = a_save.papyrus()) {
+			const auto    actor = a_save.formIDOf(a_cf.refID);
+			std::set<EID> ids;
+			for (const auto i : pick) {
+				const auto& e = d.effects[i];
+				const auto  mine = EffectScriptInstances(a_save, actor, e);
+				if (!e.uniqueKnown) {
+					changes.push_back(Fx("effect %zu: its unique id is not readable (its hit effect list is not empty), so any script "
+										 "instance of it is left in the save",
+						i));
+				}
+				ids.insert(mine.begin(), mine.end());
+			}
+			if (!ids.empty()) {
+				const auto refs = ops::ReferrersOutside(*p, ids);
+				if (!refs.empty()) {
+					std::string list;
+					for (std::size_t k = 0; k < refs.size() && k < 4; ++k) {
+						list += (k ? ", " : "") + refs[k];
+					}
+					changes.push_back(Fx("%zu ActiveMagicEffect script instance(s) of the removed effects left in the save: other "
+										 "scripts still name them (%s%s)",
+										 ids.size(), list.c_str(), refs.size() > 4 ? ", ..." : ""));
+				} else {
+					std::string names;
+					for (const auto& inst : p->instances) {
+						if (ids.contains(inst.id)) {
+							names += (names.empty() ? "" : ", ") + p->str(inst.script);
+						}
+					}
+					const auto r = ops::PurgeInstances(a_save, ids);
+					changes.push_back(Fx("script instances removed with the effects: %zu (%s); %zu thread(s), %zu suspended stack(s), %zu "
+										 "queued call(s) with them",
+						r.instances, names.c_str(), r.threads, r.stacks, r.messages));
+				}
+			}
+		}
 		if (a_changes) {
 			*a_changes = std::move(changes);
 		}
 		return {};
+	}
+
+	std::vector<std::uint64_t> EffectScriptInstances(const SaveFile& a_save, std::uint32_t a_actor, const ActiveEffect& a_effect)
+	{
+		std::vector<std::uint64_t> out;
+		const auto*                p = a_save.papyrus();
+		if (!p || !a_effect.uniqueKnown || !a_effect.uniqueID || !a_actor) {
+			return out;
+		}
+		for (const auto& i : p->instances) {
+			if (i.unknown2bits == 2 && i.unknown == a_effect.uniqueID && a_save.formIDOf(i.refID) == a_actor) {
+				out.push_back(i.id);
+			}
+		}
+		return out;
 	}
 
 	std::vector<std::size_t> EffectsFrom(const SaveFile& a_save, const Actor& a_actor, std::uint32_t a_item)

@@ -64,6 +64,12 @@ namespace ess::ops
 		std::size_t threads = 0, stacks = 0, messages = 0, instances = 0, forms = 0;
 	};
 	PurgeResult PurgeScript(SaveFile& s, const std::string& a_scriptName, bool a_deleteCreatedForms, bool a_keepInstances = false);
+	// The same for a set of instances: their threads (frames running on them), those threads' suspended stacks and queued
+	// calls, calls made on them or passing them, their queued unbinds, then the instances.
+	PurgeResult PurgeInstances(SaveFile& s, const std::set<EID>& a_ids);
+	// What would still name one of these instances after PurgeInstances: variables of other instances, references,
+	// arrays, struct instances, and frames of threads PurgeInstances keeps (one line each; empty: nothing).
+	std::vector<std::string> ReferrersOutside(const Papyrus& p, const std::set<EID>& a_ids);
 
 	// SkyUI MCM registration jam: removes every thread that is registering a menu (any frame in
 	// OnConfigManagerReady / OnConfigManagerReset) or running inside SKI_ConfigManager, their

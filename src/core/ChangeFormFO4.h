@@ -119,6 +119,14 @@ namespace ess::fo4cf
 		// inactive (conditions false: finished), 0x40000 dispelled, 0x80 has conditions, 0x200 the magnitude is the
 		// saved one (0xb740d0)
 		bool          started() const { return (flags & 0x10000u) != 0 && (flags & 0x20000u) == 0; }
+		// the effect's unique id (+0x8c), read by ActiveEffect::LoadGame (0xb75214) after the 16 bytes above, four refs
+		// (+0x38 caster, +0x58 target, +0x70, +0x60: 3 bytes each), the hit effect list (vsval count, 0xc0fd30; its entries
+		// have class data of their own) and a u32 (+0x88). Known only when that list is empty (one 0 byte), which it was
+		// for every one of the ~3,000 effects of the 12 test saves. 0: no script handle was taken for it. With the actor it
+		// makes the Papyrus handle of the effect's ActiveMagicEffect scripts (GameScript::HandlePolicy::GetHandleForObject
+		// 0x109a4f0, type 0xA3: 2 << 48 | unique id << 32 | the target's form id)
+		bool          uniqueKnown = false;
+		std::uint16_t uniqueID = 0;
 	};
 	// The four actor values the game keeps outside the actor value storage (Actor +0x444 .. +0x468, 0xccbe80), each
 	// saved by 0xced2e0 as u32 n and min(n, 3) f32 modifiers (the rest are 0): Health, ActionPoints, UnusedStamina, Rads
@@ -295,8 +303,24 @@ namespace ess::fo4cf
 	// (PlanEffectRemoval; a_sources: one per effect of the actor, or empty when the plugins are not loaded). Refused
 	// unless the whole body reads exactly (Actor::complete); the result is decoded again and must read exactly, with
 	// the same parts before and after the list, before it is kept. a_changes: what was changed, one line each.
+	//
+	// The effects' Papyrus ActiveMagicEffect script instances (EffectScriptInstances) go with them, with their threads,
+	// suspended stacks, queued calls and queued unbinds (ops::PurgeInstances, the Purge script code), so the save is what
+	// the game writes after an effect ends. What the game does with such an instance when it is left (Fallout4.exe
+	// 1.11.240, GameScript::HandlePolicy, vtable 0x25b8620): for a type 2 (active effect) handle IsHandleLoaded (0x109a2d0)
+	// and IsHandleObjectAvailable (0x109a3d0) only ask whether the actor's form exists, ShouldAttemptToCleanHandle
+	// (0x109a490) answers false, so the VM keeps the object; GetObjectForHandle (0x109aae0) looks for an effect of the
+	// actor with that unique id and finds none, so the script has no effect, and no effect event reaches it. A new effect
+	// on the actor takes the lowest unique id its current effects do not use (0xb76730), which can be the removed one's:
+	// its scripts then get the same handle as the old instance. In the 12 test saves the game itself kept such an
+	// instance only once (an actor whose effect list is saved, with no effect of that id): Save10 SynthCrippleMeleeScript
+	// on 00190540. An instance is kept (and the reason added to a_changes) when another object still names it: a
+	// variable of another instance, reference, array, struct or of a thread that is not removed (ops::ReferrersOutside).
 	std::string RemoveActiveEffects(SaveFile& a_save, ChangeForm& a_cf, const std::vector<std::size_t>& a_indexes,
 		const std::vector<EffectSource>& a_sources, std::vector<std::string>* a_changes = nullptr);
+	// The Papyrus instances bound to an effect of this actor: handle type 2 (the instance's unknown2bits), the effect's
+	// unique id (its unknown u16), the actor (its RefID). Empty when the unique id is not known or 0.
+	std::vector<std::uint64_t> EffectScriptInstances(const SaveFile& a_save, std::uint32_t a_actor, const ActiveEffect& a_effect);
 
 	// The effects (indexes) that come from one magic item (runtime form id) / from the plugin that defines the item
 	// (SaveFile::pluginOf's name, any letter case).
