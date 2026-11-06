@@ -10925,9 +10925,6 @@ tr "ID"
 en "Can remove"
 tr "Можно удалить"
 
-# AppF4World.cpp:243  Fmt(tr("%s  (%zu objects, %lld in all, %zu removable)"), key.c_str(), g.items.size(), g.total, g.removable).c_str());
-en "%s  (%zu objects, %lld in all, %zu removable)"
-tr "%s  (объектов: %zu, всего: %lld, удаляемых: %zu)"
 
 # AppF4World.cpp:270  ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(theme::Dim()), "%s", (tr("kept: ") + it->why).c_str());
 en "kept: "
@@ -10985,3 +10982,11 @@ tr "Сброс назначен для %s: игра сбросит её при �
 # AppF4World.cpp:350  _status = tr("Not reset: ") + why;
 en "Not reset: "
 tr "Не сброшено: "
+
+# AppF4World.cpp  group rows
+en "%zu object(s)"
+tr "объектов: %zu"
+
+# AppF4World.cpp  group rows
+en "%zu removable"
+tr "удаляемых: %zu"

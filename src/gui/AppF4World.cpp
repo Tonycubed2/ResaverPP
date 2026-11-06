@@ -143,9 +143,11 @@ void App::drawF4World()
 										"containers and bodies, objects spawned by scripts. They are kept in the save one by one, so thousands of "
 										"them make the save bigger and areas slower to load. Removing one takes it out of the save: it is gone "
 										"from the world when you load. Items in inventories are not listed."));
-			ImGui::TextDisabled("%s", tr("Kept (cannot be removed here): quest items (quest aliases), objects with scripts on them, objects held "
-										 "by someone, and objects whose ID appears anywhere else in the save, so nothing is left pointing at a "
-										 "missing object."));
+			ImGui::PushStyleColor(ImGuiCol_Text, theme::Dim());
+			ImGui::TextWrapped("%s", tr("Kept (cannot be removed here): quest items (quest aliases), objects with scripts on them, objects held "
+										"by someone, and objects whose ID appears anywhere else in the save, so nothing is left pointing at a "
+										"missing object."));
+			ImGui::PopStyleColor();
 			ImGui::Checkbox(tr("Group by mod"), &s.byMod);
 			ImGui::SameLine();
 			ImGui::Checkbox(tr("Also other spawned objects"), &s.otherObjects);
@@ -239,8 +241,13 @@ void App::drawF4World()
 					}
 					ImGui::EndDisabled();
 					ImGui::TableSetColumnIndex(1);
-					const bool open = ImGui::TreeNodeEx("##node", ImGuiTreeNodeFlags_SpanAllColumns, "%s",
-						Fmt(tr("%s  (%zu objects, %lld in all, %zu removable)"), key.c_str(), g.items.size(), g.total, g.removable).c_str());
+					const bool open = ImGui::TreeNodeEx("##node", ImGuiTreeNodeFlags_SpanAllColumns, "%s", key.c_str());
+					ImGui::TableSetColumnIndex(2);
+					ImGui::TextDisabled("%s", Fmt(tr("%zu object(s)"), g.items.size()).c_str());
+					ImGui::TableSetColumnIndex(3);
+					ImGui::TextDisabled("%lld", g.total);
+					ImGui::TableSetColumnIndex(6);
+					ImGui::TextDisabled("%s", Fmt(tr("%zu removable"), g.removable).c_str());
 					if (open) {
 						for (const auto* it : g.items) {
 							ImGui::PushID(static_cast<int>(it->formID));
@@ -291,11 +298,13 @@ void App::drawF4World()
 										"the game resets it the next time it loads it, by its own rules. Dropped and spawned items in it are "
 										"deleted (not quest items, not things someone holds), and the objects placed in it by the game and mods "
 										"go through the game's own respawn code, as when a cell respawns after a while."));
-			ImGui::TextDisabled("%s", tr("Not done: the player's cell and the cells loaded around the player (the game does not reset a cell "
+			ImGui::PushStyleColor(ImGuiCol_Text, theme::Dim());
+			ImGui::TextWrapped("%s", tr("Not done: the player's cell and the cells loaded around the player (the game does not reset a cell "
 										 "while a save loads), an outdoor cell the save has no coordinates for, and a cell the save does not say "
 										 "is indoors. Only what is in the cell when the game resets it is touched: an actor that walked elsewhere "
 										 "is not. Settlements: their workshop objects belong to the settlement; resetting a settlement cell is not "
 										 "recommended."));
+			ImGui::PopStyleColor();
 			ImGui::Checkbox(tr("Only cells with saved changes in them"), &s.cellsChangedOnly);
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(220);
