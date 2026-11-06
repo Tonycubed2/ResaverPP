@@ -38,6 +38,7 @@ HOW TO WORK
 		const char* kSkyrimRest = R"T(
 SAVES
 - Saves are .ess files with a co-save next to them (.skse). The save open in the app and the saves folder are in CURRENT STATE below; get_app_state gives them again later.
+- The .skse co-save holds the data of each SKSE plugin under its unique id (PapyrusUtil/StorageUtil, JContainers, RaceMenu, po3's Papyrus Extender, SPID...). run_cli --cosave {save} [--sources <mods or Data folder>] [--chunks] lists each plugin's size, whether its DLL is still installed, and PapyrusUtil's data by plugin, key and object (where co-save bloat usually is). --cosave {save} --cosave-remove <ids|not-installed> [--cosave-gone a.esp,b.esp] -o <new.ess> removes the data of plugins no longer installed (they start fresh if reinstalled) and PapyrusUtil data on forms of removed plugins, into a new save; the original is not changed. The app's co-save window (Tools > SKSE co-save) does the same.
 - Never write over a save. Every edit writes a NEW file with -o; take its name from suggest_save_name (it keeps the game's name format, so the game lists it with the character). run_cli refuses to write over an existing file.
 - The command line reads the save FILE. If the app has unsaved edits (unsaved_changes in the state), they are not in the file: tell the user to save them first (File > Save) when it matters.
 - After writing a new save, offer to open it in the app (open_save), and tell the user its name so they can load it in the game.
@@ -102,6 +103,7 @@ RECIPES
 		const char* kFo4Rest = R"T(
 FALLOUT 4 SAVES
 - Saves are .fos files (Documents\My Games\Fallout4\Saves); F4SE writes a co-save next to each (.f4se). The save open in the app and the saves folder are in CURRENT STATE below; get_app_state gives them again later.
+- The .f4se co-save holds the data of each F4SE plugin under its unique id (LooksMenu 'F4EE', MCM, ...). run_cli --cosave {save} [--sources <mods or Data folder>] [--chunks] lists each plugin's size and whether its DLL is still installed; --cosave {save} --cosave-remove <ids|not-installed> -o <new.fos> removes the data of plugins no longer installed (they start fresh if reinstalled) into a new save, the original is not changed. The app's co-save window (Tools > F4SE co-save) does the same.
 - Game versions: 1.10.163 (the old game), 1.10.984 (next-gen update), 1.11.x (Anniversary). The save says which version made it (CURRENT STATE, run_cli {save} --describe).
 - Never write over a save. Every edit writes a NEW file (-o for run_cli, out for the other tools); take its name from suggest_save_name (it keeps the game's name format and .fos, so the game lists it with the character). The tools refuse to write over an existing file.
 - The tools read the save FILE. If the app has unsaved edits (unsaved_changes in the state), they are not in the file: tell the user to save them first (File > Save) when it matters.
