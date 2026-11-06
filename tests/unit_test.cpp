@@ -3317,7 +3317,7 @@ void TestFo4ActiveEffects()
 	}
 	std::sort(files.begin(), files.end());
 	const auto  tmp = fs::temp_directory_path() / "rs_unit_fo4fx.fos";
-	std::size_t tested = 0, removedAll = 0, statsAll = 0;
+	std::size_t tested = 0, removedAll = 0, statsAll = 0, scriptsAll = 0, threadsAll = 0, keptAll = 0;
 	for (const auto& f : files) {
 		std::unique_ptr<SaveFile> s;
 		try {
@@ -3333,8 +3333,9 @@ void TestFo4ActiveEffects()
 			float                                        vit[4][3]{};
 		};
 		std::map<std::uint32_t, Want> want;
-		std::size_t                   removed = 0, failed = 0, stats = 0;
+		std::size_t                   removed = 0, failed = 0, stats = 0, scripts = 0, kept = 0, scriptsWrong = 0;
 		std::string                   firstErr;
+		const auto                    instancesBefore = s->papyrus() ? s->papyrus()->instances.size() : 0;
 		for (auto& c : s->changeForms) {
 			if (c.typeCode() != 1) continue;
 			const auto a = f4::DecodeActor(*s, c);
@@ -3372,12 +3373,32 @@ void TestFo4ActiveEffects()
 				}
 			}
 			if (pick.empty()) continue;
+			// the picked effects' ActiveMagicEffect instances (handle type 2, unique id, this actor)
+			std::set<std::uint64_t> inst;
+			for (const auto i : pick) {
+				const auto v = f4::EffectScriptInstances(*s, s->formIDOf(c.refID), a.effects[i]);
+				inst.insert(v.begin(), v.end());
+			}
 			std::vector<std::string> changes;
 			const auto               e = f4::RemoveActiveEffects(*s, c, pick, src, &changes);
 			if (!e.empty()) {
 				++failed;
 				if (firstErr.empty()) firstErr = e;
 				continue;
+			}
+			if (!inst.empty()) {
+				const bool keptThem = !changes.empty() && changes[0].find("left in the save") != std::string::npos;
+				std::size_t still = 0;
+				for (const auto& x : s->papyrus()->instances) still += inst.contains(x.id);
+				if (keptThem) {
+					kept += inst.size();
+					scriptsWrong += still != inst.size();
+				} else {
+					scripts += inst.size();
+					scriptsWrong += still != 0 || changes.empty() || changes[0].find("script instances removed") == std::string::npos;
+					// the threads removed with them are counted in the line
+					if (const auto at = changes[0].find("); "); at != std::string::npos) threadsAll += std::strtoul(changes[0].c_str() + at + 3, nullptr, 10);
+				}
 			}
 			w.effects = a.effects.size() - pick.size();
 			removed += pick.size();
@@ -3389,6 +3410,12 @@ void TestFo4ActiveEffects()
 			out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
 		}
 		auto        again = SaveFile::load(tmp);
+		Check(scriptsWrong == 0 && again->papyrus() && again->papyrus()->instances.size() == instancesBefore - scripts &&
+				  again->papyrus()->check().empty(),
+			("fo4 effects: " + f.filename().string() + ": " + std::to_string(scripts) + " ActiveMagicEffect instances removed with their effects, " +
+				std::to_string(kept) + " kept (named elsewhere); the Papyrus section reads back with the right instance count").c_str());
+		scriptsAll += scripts;
+		keptAll += kept;
 		std::size_t ok = 0;
 		for (const auto& c : again->changeForms) {
 			const auto it = want.find(c.refID.data);
@@ -3414,7 +3441,9 @@ void TestFo4ActiveEffects()
 	std::error_code ec;
 	fs::remove(tmp, ec);
 	Check(tested == 0 || (removedAll > 0 && statsAll > 0), "fo4 effects: the real saves had effects to remove and modifiers to put back");
-	std::printf("(fo4 effects: %zu real saves, %zu effects removed, %zu modifiers put back)\n", tested, removedAll, statsAll);
+	Check(tested == 0 || scriptsAll > 0, "fo4 effects: the real saves had effect script instances to remove");
+	std::printf("(fo4 effects: %zu real saves, %zu effects removed, %zu modifiers put back, %zu script instances removed with them (%zu threads), %zu kept)\n",
+		tested, removedAll, statsAll, scriptsAll, threadsAll, keptAll);
 }
 
 // Fallout 4 player: the PlayerCharacter part (PlayerCharacter::LoadGame 0xd65bd0 after Actor::LoadGame) read through
