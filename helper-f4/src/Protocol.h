@@ -38,6 +38,9 @@
 //                                            (version 14) objective <quest formid> <index 0..65535> <state 1..5>
 //                                                -> setobjectivedisplayed <quest> <index> 1 (states 1, 3, 5), then
 //                                                   setobjectivecompleted <quest> <index> 1 (2, 3) or setobjectivefailed (4, 5)
+//                                            (version 15) the companion fixes (Transplant.h): companion <ref> <0|1> [script],
+//                                                companionfollow <ref>, affinity <ref> <n> [script] -> the follower scripts'
+//                                                AllowCompanion / FollowerFollow / SetAffinity through cqf and cf
 //                                            The form ids are the game's (ReSaver Plus works them out from the load order).
 //   RESOLVE <plugin> <local id hex>       -> OK  <runtime form id hex>
 //   FOLLOWERS                             -> OK  <count>  <one field per follower: runtime id*Plugin.esp:localid*name*why*where*skip 0|1>
@@ -56,7 +59,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 14;
+	inline constexpr int            kHelperVersion = 15;
 
 	inline std::string Escape(const std::string& a_in)
 	{

@@ -23,6 +23,39 @@ namespace Transplant
 			return true;
 		}
 
+		bool Number(const std::string& a_text, long long a_min, long long a_max, long long& a_out);
+
+		// a Papyrus script name: letters, digits, '_' and ':' (namespaces), 1 to 80 characters; nothing that could end the
+		// quoted "Script.Function" argument or start another console command
+		bool ScriptName(const std::string& a_text)
+		{
+			if (a_text.empty() || a_text.size() > 80) {
+				return false;
+			}
+			for (const char c : a_text) {
+				if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != ':') {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		// a decimal number with an optional leading '-' in [a_min, a_max]
+		bool Signed(const std::string& a_text, long long a_min, long long a_max, long long& a_out)
+		{
+			const bool neg = !a_text.empty() && a_text[0] == '-';
+			long long  v = 0;
+			if (!Number(neg ? a_text.substr(1) : a_text, 0, 9999999999LL, v)) {
+				return false;
+			}
+			v = neg ? -v : v;
+			if (v < a_min || v > a_max) {
+				return false;
+			}
+			a_out = v;
+			return true;
+		}
+
 		// a plain decimal number in [a_min, a_max]
 		bool Number(const std::string& a_text, long long a_min, long long a_max, long long& a_out)
 		{
@@ -51,7 +84,8 @@ namespace Transplant
 		auto        at = [&](std::size_t i) { return i < a_record.size() ? a_record[i] : std::string(); };
 		std::string id;
 		long long   n = 0;
-		if (kind != "additem" && kind != "addperk" && kind != "setstage" && kind != "completequest" && kind != "objective") {
+		if (kind != "additem" && kind != "addperk" && kind != "setstage" && kind != "completequest" && kind != "objective" &&
+			kind != "companion" && kind != "companionfollow" && kind != "affinity") {
 			a_why = "unknown record: " + kind;
 			return false;
 		}
@@ -102,6 +136,44 @@ namespace Transplant
 				a_out.push_back(std::format("setobjectivecompleted {} {} 1", id, n));
 			} else if (state == 4 || state == 5) {
 				a_out.push_back(std::format("setobjectivefailed {} {} 1", id, n));
+			}
+		} else if (kind == "companion" || kind == "companionfollow" || kind == "affinity") {
+			// (version 15) the companion fixes, through the follower system's own scripts. The follower quest is given by
+			// its form id: Followers is 000289E4 in Fallout4.esm, which is always load index 00 (the console's form
+			// argument reader takes a hex form id; an editor id only when the game kept that form's editor id)
+			const std::size_t scriptAt = kind == "companionfollow" ? 2 : 3;
+			std::string       script = "CompanionActorScript";
+			if (a_record.size() > scriptAt + 1) {
+				a_why = "too many fields for " + kind;
+				return false;
+			}
+			if (kind != "companionfollow" && a_record.size() > scriptAt) {
+				if (!ScriptName(at(scriptAt))) {
+					a_why = "not a script name: " + at(scriptAt);
+					return false;
+				}
+				script = at(scriptAt);
+			} else if (kind == "companionfollow" && a_record.size() > 2) {
+				a_why = "too many fields for companionfollow";
+				return false;
+			}
+			if (kind == "companion") {
+				if (!Number(at(2), 0, 1, n)) {
+					a_why = "not 0 or 1 (left for good): " + at(2);
+					return false;
+				}
+				if (n == 1) {
+					a_out.push_back(std::format("{}.cf \"{}.UnsetHasLeftPlayerPermanently\"", id, script));
+				}
+				a_out.push_back(std::format("cqf 000289E4 \"FollowersScript.AllowCompanion\" {} 1 1", id));
+			} else if (kind == "companionfollow") {
+				a_out.push_back(std::format("cqf 000289E4 \"FollowersScript.FollowerFollow\" {}", id));
+			} else {
+				if (!Signed(at(2), -100000, 100000, n)) {
+					a_why = "not an affinity (-100000 to 100000): " + at(2);
+					return false;
+				}
+				a_out.push_back(std::format("{}.cf \"{}.SetAffinity\" {}", id, script, n));
 			}
 		} else {
 			a_out.push_back(std::format("completequest {}", id));
