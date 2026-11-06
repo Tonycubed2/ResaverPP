@@ -3879,6 +3879,34 @@ namespace ess::cf
 	HavokResult ResetHavok(SaveFile& a_save, const TypeLookup& a_types, bool a_dryRun)
 	{
 		HavokResult r;
+		if (a_save.isFO4()) {
+			// Fallout 4: the blob's size is set to 0 (fo4cf::ClearHavok), the way the game writes a reference with no
+			// physics state; the blob is not zeroed, because the game parses its bytes (0x4f7440) when the 3D loads.
+			for (auto& cf : a_save.changeForms) {
+				if (static_cast<ChangeFormType>(cf.typeCode()) != ChangeFormType::REFR || !Bit(cf.changeFlags, 2)) {
+					continue;
+				}
+				const auto d = fo4cf::DecodeRefr(a_save, cf);
+				if (!d.complete || !d.hasHavok) {
+					++r.failed;
+					continue;
+				}
+				if (d.havokSize == 0) {
+					continue;  // nothing saved: nothing to reset
+				}
+				if (a_dryRun) {
+					++r.reset;
+					continue;
+				}
+				bool changed = false;
+				if (fo4cf::ClearHavok(a_save, cf, &changed).empty() && changed) {
+					++r.reset;
+				} else {
+					++r.failed;
+				}
+			}
+			return r;
+		}
 		for (auto& cf : a_save.changeForms) {
 			if (static_cast<ChangeFormType>(cf.typeCode()) != ChangeFormType::REFR || !Bit(cf.changeFlags, 2)) {
 				continue;
@@ -3900,6 +3928,13 @@ namespace ess::cf
 
 	std::size_t NullEntries(const SaveFile& a_save, const ChangeForm& a_cf)
 	{
+		if (a_save.isFO4()) {
+			if (a_cf.typeCode() != fo4cf::kFlstType) {
+				return 0;
+			}
+			const auto d = fo4cf::DecodeFormList(a_save, a_cf);
+			return d.complete ? static_cast<std::size_t>(std::count(d.raw.begin(), d.raw.end(), 0u)) : 0;
+		}
 		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::FLST) {
 			return 0;
 		}
@@ -3914,6 +3949,38 @@ namespace ess::cf
 	PurifyResult PurifyFormLists(SaveFile& a_save, bool a_dryRun, std::uint32_t a_onlyRefID)
 	{
 		PurifyResult r;
+		if (a_save.isFO4()) {
+			for (auto& cf : a_save.changeForms) {
+				if (cf.typeCode() != fo4cf::kFlstType || !Bit(cf.changeFlags, 31)) {
+					continue;
+				}
+				if (a_onlyRefID && cf.refID.data != a_onlyRefID) {
+					continue;
+				}
+				const auto d = fo4cf::DecodeFormList(a_save, cf);
+				if (!d.complete) {
+					++r.failed;
+					continue;
+				}
+				const auto nulls = static_cast<std::size_t>(std::count(d.raw.begin(), d.raw.end(), 0u));
+				if (!nulls) {
+					continue;
+				}
+				if (a_dryRun) {
+					r.entries += nulls;
+					++r.forms;
+					continue;
+				}
+				std::size_t removed = 0;
+				if (fo4cf::PurifyFormList(a_save, cf, &removed).empty() && removed) {
+					r.entries += removed;
+					++r.forms;
+				} else {
+					++r.failed;
+				}
+			}
+			return r;
+		}
 		for (auto& cf : a_save.changeForms) {
 			if (static_cast<ChangeFormType>(cf.typeCode()) != ChangeFormType::FLST || !Bit(cf.changeFlags, 31)) {
 				continue;

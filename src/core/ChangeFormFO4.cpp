@@ -363,7 +363,15 @@ namespace ess::fo4cf
 					}
 				});
 			}
-			if (Bit(f, 2)) part("havok", [&] { Skip(r, 1); Skip(r, Vs(r)); });
+			if (Bit(f, 2)) {
+				part("havok", [&] {
+					out.hasHavok = true;
+					out.havokVersion = r.u8();
+					out.havokSize = Vs(r);
+					Skip(r, out.havokSize);
+				});
+				out.havokRange = out.parts.back().range;
+			}
 			if (out.actor) part("actor prefix", [&] { Skip(r, 8); });  // Actor::LoadGame (0xc8abd0) reads u32 u32 first
 			const auto refrBegin = r.pos();
 			if (Bit(f, 0)) part("form flags", [&] { out.formFlags = r.u32(); Skip(r, 2); });
@@ -412,6 +420,119 @@ namespace ess::fo4cf
 			out.error = Msg(e);
 		}
 		return out;
+	}
+
+	std::string ClearHavok(const SaveFile& a_save, ChangeForm& a_cf, bool* a_changed)
+	{
+		if (a_changed) {
+			*a_changed = false;
+		}
+		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::REFR) {
+			return "not an object reference (REFR)";
+		}
+		auto       body = cf::Body(a_cf);
+		const auto d = DecodeRefr(a_save, a_cf, body);
+		if (!d.complete) {
+			return "this reference could not be read completely (" + d.error + "): nothing changed";
+		}
+		if (!d.hasHavok) {
+			return "this reference has no saved havok data";
+		}
+		if (d.havokSize == 0) {
+			return {};
+		}
+		// keep the version byte, write vsval 0 (one byte), drop the blob
+		const auto                begin = d.havokRange.begin, end = d.havokRange.end;
+		std::vector<std::uint8_t> nb(body.begin(), body.begin() + static_cast<std::ptrdiff_t>(begin + 1));
+		nb.push_back(0);
+		nb.insert(nb.end(), body.begin() + static_cast<std::ptrdiff_t>(end), body.end());
+		ChangeForm copy = a_cf;
+		cf::SetBody(copy, nb);
+		const auto again = DecodeRefr(a_save, copy);
+		const bool same = again.complete && again.hasHavok && again.havokSize == 0 && again.havokRange.end == begin + 2 &&
+		                  std::equal(nb.begin() + static_cast<std::ptrdiff_t>(begin + 2), nb.end(), body.begin() + static_cast<std::ptrdiff_t>(end));
+		if (!same) {
+			return "the reset reference did not read back (" + again.error + "): nothing changed";
+		}
+		a_cf = std::move(copy);
+		if (a_changed) {
+			*a_changed = true;
+		}
+		return {};
+	}
+
+	FormList DecodeFormList(const SaveFile& a_save, const ChangeForm& a_cf)
+	{
+		FormList out;
+		if (!a_save.isFO4() || a_cf.typeCode() != kFlstType) {
+			out.error = "not a Fallout 4 form list";
+			return out;
+		}
+		try {
+			const auto body = cf::Body(a_cf);
+			Reader     r(body.data(), body.size());
+			if (Bit(a_cf.changeFlags, 0)) {
+				Skip(r, 6);
+			}
+			if (Bit(a_cf.changeFlags, 31)) {
+				out.list.begin = r.pos();
+				const auto n = r.u32();
+				r.need(3ull * n);
+				for (std::uint32_t i = 0; i < n; ++i) {
+					out.raw.push_back(Ref(r).data);
+				}
+				out.list.end = r.pos();
+			}
+			out.complete = r.pos() == body.size();
+			if (!out.complete) {
+				out.error = "data left over (" + std::to_string(body.size() - r.pos()) + " bytes)";
+			}
+		} catch (const std::exception& e) {
+			out.error = Msg(e);
+		}
+		return out;
+	}
+
+	std::string PurifyFormList(const SaveFile& a_save, ChangeForm& a_cf, std::size_t* a_removed)
+	{
+		if (a_removed) {
+			*a_removed = 0;
+		}
+		const auto d = DecodeFormList(a_save, a_cf);
+		if (!d.complete) {
+			return "this form list could not be read completely (" + d.error + "): nothing changed";
+		}
+		const auto nulls = static_cast<std::size_t>(std::count(d.raw.begin(), d.raw.end(), 0u));
+		if (!nulls) {
+			return {};
+		}
+		const auto                body = cf::Body(a_cf);
+		std::vector<std::uint8_t> nb(body.begin(), body.begin() + static_cast<std::ptrdiff_t>(d.list.begin));
+		const auto                kept = static_cast<std::uint32_t>(d.raw.size() - nulls);
+		for (int i = 0; i < 4; ++i) {
+			nb.push_back(static_cast<std::uint8_t>(kept >> (8 * i)));
+		}
+		std::vector<std::uint32_t> want;
+		for (auto v : d.raw) {
+			if (v) {
+				nb.push_back(static_cast<std::uint8_t>(v >> 16));
+				nb.push_back(static_cast<std::uint8_t>(v >> 8));
+				nb.push_back(static_cast<std::uint8_t>(v));
+				want.push_back(v);
+			}
+		}
+		nb.insert(nb.end(), body.begin() + static_cast<std::ptrdiff_t>(d.list.end), body.end());
+		ChangeForm copy = a_cf;
+		cf::SetBody(copy, nb);
+		const auto again = DecodeFormList(a_save, copy);
+		if (!again.complete || again.raw != want) {
+			return "the form list did not read back (" + again.error + "): nothing changed";
+		}
+		a_cf = std::move(copy);
+		if (a_removed) {
+			*a_removed = nulls;
+		}
+		return {};
 	}
 
 	const ChangeForm* FindPlayer(const SaveFile& a_save)
