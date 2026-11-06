@@ -24,26 +24,30 @@ namespace ess::fo4cf::detail
 		void U(In& b, int n) { for (int i = 0; i < n; ++i) b.u32(); }
 
 		void PathRequest(In& b);  // dd93b0
+		void Path(In& b);         // 1e00eb0
+	}
 
-		// dd85c0: a pointer id; the first time an id is seen the object follows (0xdd93b0)
-		void Pid68(In& b)
-		{
-			const auto id = b.u32();
-			if (id && b.ids68.insert(id).second) {
-				PathRequest(b);
+	// dd85c0: a pointer id; the first time an id is seen the object follows (0xdd93b0)
+	void Pid68(In& b)
+	{
+		const auto id = b.u32();
+		if (id && b.ids68.insert(id).second) {
+			PathRequest(b);
+		}
+	}
+	// dd8700: the same for paths (0xdd9580: u32 class id, then the path 0x1e00eb0)
+	void Pid70(In& b)
+	{
+		const auto id = b.u32();
+		if (id && b.ids70.insert(id).second) {
+			if (b.u32() != 0) {
+				Path(b);
 			}
 		}
-		void Path(In& b);  // 1e00eb0
-		// dd8700: the same for paths (0xdd9580: u32 class id, then the path 0x1e00eb0)
-		void Pid70(In& b)
-		{
-			const auto id = b.u32();
-			if (id && b.ids70.insert(id).second) {
-				if (b.u32() != 0) {
-					Path(b);
-				}
-			}
-		}
+	}
+
+	namespace
+	{
 		// dd8850: only the id
 		void Pid78(In& b)
 		{
@@ -60,16 +64,21 @@ namespace ess::fo4cf::detail
 			if (!b.ref().isZero()) b.u32(); else b.ref();
 		}
 
-		// 1df23d0: a path point
-		void PathPoint(In& b)
-		{
-			F(b, 3);
-			Obj1df2(b);
-			b.ref();
-			b.u16();
-			b.u8();
-			b.u8();
-		}
+	}
+
+	// 1df23d0: a path point
+	void PathPoint(In& b)
+	{
+		F(b, 3);
+		Obj1df2(b);
+		b.ref();
+		b.u16();
+		b.u8();
+		b.u8();
+	}
+
+	namespace
+	{
 
 		void Obj1e61(In& b)  // 1e61d80
 		{

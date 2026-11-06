@@ -41,9 +41,7 @@ namespace ess::fo4cf
 			}
 			const auto type = b.u8();
 			if (type != 0xFF) {
-				if (type != 16) {  // 16: no data (0x7634d0)
-					b.fail("package data (procedure trees)");
-				}
+				detail::PackageData(b, type);  // ChangeFormFO4Pkg.cpp
 			}
 			b.u32(); b.u32(); b.u32(); b.u16(); b.u8(); b.u8();
 			b.ref();

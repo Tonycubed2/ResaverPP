@@ -52,6 +52,15 @@ namespace ess::fo4cf::detail
 			}
 		}
 		void wstr() { mark('S'); const auto n = r.u16(); r.need(n); r.seek(r.pos() + n); }
+		std::string wstrS()  // the same read, keeping the text (class names)
+		{
+			mark('S');
+			const auto n = r.u16();
+			r.need(n);
+			std::string s(reinterpret_cast<const char*>(r.here()), n);
+			r.seek(r.pos() + n);
+			return s;
+		}
 		void blob(std::size_t n) { mark('B'); r.need(n); r.seek(r.pos() + n); }  // copied as one block
 		void skip(std::size_t n) { r.need(n); r.seek(r.pos() + n); }             // not read by the game here
 		[[noreturn]] void fail(const std::string& a_what) { throw Stop("actor part: " + a_what + " not decoded"); }
@@ -59,4 +68,11 @@ namespace ess::fo4cf::detail
 
 	// The movement controller (0xdc8e40), read when the actor's "has a controller" byte is set.
 	void MovementController(In& b);
+	// Pathing pieces shared with the package data (ChangeFormFO4Move.cpp): a path point (0x1df23d0) and the
+	// reader's pointer ids +0x68 (0xdd85c0) and +0x70 (0xdd8700).
+	void PathPoint(In& b);
+	void Pid68(In& b);
+	void Pid70(In& b);
+	// A package's saved data (the AI process's package instances, 0xcea430): a_type is the package type byte.
+	void PackageData(In& b, std::uint8_t a_type);
 }
