@@ -61,6 +61,8 @@ language "Русский"
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
+
+# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 en "Anthropic (Claude)"
 tr "Anthropic (Claude)"
 
@@ -255,7 +257,7 @@ tr "Отложенные отвязки"
 
 # App.cpp:49  case App::Cat::kQuests: return N_("Quests");
 # AppHome.cpp:319  { Sc::kQuests, tr("Quests"), tr("running, completed, the journal"),
-# AppTransplantF4.cpp:89  case tf4::Kind::kQuest: return tr("Quests");
+# AppTransplantF4.cpp:92  case tf4::Kind::kObjective: return tr("Quests");
 en "Quests"
 tr "Квесты"
 
@@ -3151,7 +3153,7 @@ tr "Распаковать показанные (%zu, %.1f МБ)"
 
 # AppBsa.cpp:202  Fmt(tr("%zu of %zu"), v.done.load(), v.total.load()).c_str());
 # AppTransplant.cpp:1085  Fmt(tr("%zu of %zu"), _tpPos, _tpRun.size()).c_str());
-# AppTransplantF4.cpp:577  Fmt(tr("%zu of %zu"), _tf4Pos, _tf4Run.size()).c_str());
+# AppTransplantF4.cpp:607  Fmt(tr("%zu of %zu"), _tf4Pos, _tf4Run.size()).c_str());
 en "%zu of %zu"
 tr "%zu из %zu"
 
@@ -3666,7 +3668,7 @@ tr "Проверка сохранения: "
 
 # AppCheck.cpp:510  ImGui::TextUnformatted(tr("Safe"));
 # AppTransplant.cpp:773  ImGui::TextUnformatted(tr("Safe"));
-# AppTransplantF4.cpp:412  ImGui::TextUnformatted(tr("Safe"));
+# AppTransplantF4.cpp:442  ImGui::TextUnformatted(tr("Safe"));
 en "Safe"
 tr "Безопасно"
 
@@ -3849,7 +3851,7 @@ tr "Мод (плагин)"
 
 # AppExtras.cpp:167  ImGui::TableSetupColumn(tr("Items"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
 # AppTransplant.cpp:178  const auto kind = it.record.size() > 12 && !it.record[12].empty() ? it.record[12] : std::string(tr("Items"));
-# AppTransplantF4.cpp:88  case tf4::Kind::kItem: return tr("Items");
+# AppTransplantF4.cpp:90  case tf4::Kind::kItem: return tr("Items");
 en "Items"
 tr "Предметы"
 
@@ -9182,7 +9184,7 @@ en "No bounties or crimes recorded."
 tr "Наград за голову и преступлений не записано."
 
 # AppTransplant.cpp:71  return s.error.empty() ? tr("not chosen yet") : s.error;
-# AppTransplantF4.cpp:71  return s.error.empty() ? tr("not chosen yet") : s.error;
+# AppTransplantF4.cpp:73  return s.error.empty() ? tr("not chosen yet") : s.error;
 en "not chosen yet"
 tr "ещё не выбрано"
 
@@ -9219,7 +9221,7 @@ en ",  look saved (RaceMenu)"
 tr ",  внешность сохранена (RaceMenu)"
 
 # AppTransplant.cpp:157  list(tr("Perks"), names(s.perks));
-# AppTransplantF4.cpp:87  case tf4::Kind::kPerk: return tr("Perks");
+# AppTransplantF4.cpp:89  case tf4::Kind::kPerk: return tr("Perks");
 en "Perks"
 tr "Перки"
 
@@ -9301,7 +9303,7 @@ en ", %zu could not be (see the Transplant page)"
 tr ", не удалось: %zu (см. страницу переноса)"
 
 # AppTransplant.cpp:337  _status = Fmt(tr("Transplanting %zu of %zu: %s"), _tpPos + 1, _tpRun.size(), ch.label.c_str());
-# AppTransplantF4.cpp:242  _status = Fmt(tr("Transplanting %zu of %zu: %s"), _tf4Pos + 1, _tf4Run.size(), ch.label.c_str());
+# AppTransplantF4.cpp:256  _status = Fmt(tr("Transplanting %zu of %zu: %s"), _tf4Pos + 1, _tf4Run.size(), ch.label.c_str());
 en "Transplanting %zu of %zu: %s"
 tr "Переношу %zu из %zu: %s"
 
@@ -9384,12 +9386,12 @@ en "%zu quest(s) of the bad save's journal are not in the game's journal: see th
 tr "Квестов из журнала плохого сохранения нет в журнале игры: %zu — см. список."
 
 # AppTransplant.cpp:570  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Arrows and bolts") : t == "BOOK" ? tr("Books and spell
-# AppTransplantF4.cpp:136  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Ammunition") : t == "ALCH" ? tr("Aid: food, drink, che
+# AppTransplantF4.cpp:147  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Ammunition") : t == "ALCH" ? tr("Aid: food, drink, che
 en "Weapons"
 tr "Оружие"
 
 # AppTransplant.cpp:570  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Arrows and bolts") : t == "BOOK" ? tr("Books and spell
-# AppTransplantF4.cpp:136  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Ammunition") : t == "ALCH" ? tr("Aid: food, drink, che
+# AppTransplantF4.cpp:147  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Ammunition") : t == "ALCH" ? tr("Aid: food, drink, che
 en "Armor and clothing"
 tr "Броня и одежда"
 
@@ -9414,7 +9416,7 @@ en "Soul gems"
 tr "Камни душ"
 
 # AppTransplant.cpp:571  : t == "ALCH" ? tr("Potions and food") : t == "INGR" ? tr("Ingredients") : t == "SLGM" ? tr("Soul gems") : t == "KEYM" ? tr("Keys")
-# AppTransplantF4.cpp:137  : t == "BOOK" ? tr("Books and magazines") : t == "MISC" ? tr("Junk and miscellaneous") : t == "KEYM" ? tr("Keys") : t == "NOTE" ? tr("Holotapes and no
+# AppTransplantF4.cpp:148  : t == "BOOK" ? tr("Books and magazines") : t == "MISC" ? tr("Junk and miscellaneous") : t == "KEYM" ? tr("Keys") : t == "NOTE" ? tr("Holotapes and no
 en "Keys"
 tr "Ключи"
 
@@ -9468,7 +9470,7 @@ tr "Развернуть на всё окно ReSaver++"
 
 # AppTransplant.cpp:641  if (!ImGui::Begin(trId("Transplant"), &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
 # AppTransplant.cpp:1063  confirm(tr("Transplant"),
-# AppTransplantF4.cpp:284  if (!ImGui::Begin(trId("Transplant"), &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
+# AppTransplantF4.cpp:304  if (!ImGui::Begin(trId("Transplant"), &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
 en "Transplant"
 tr "Перенос прогресса"
 
@@ -9589,7 +9591,7 @@ en "Is the GOOD save loaded in the game right now? (Load it from the game's menu
 tr "ХОРОШЕЕ сохранение сейчас загружено в игре? (Сначала загрузите его из меню игры и сделайте резервное сохранение.)\n\nПосле OK ненадолго переключитесь в игру: она стоит на паузе, пока её окно не активно."
 
 # AppTransplant.cpp:749  Wrapped(theme::Bad(), tr("These are two different characters (") + _tpBad.player + " / " + _tpGood.player + ").");
-# AppTransplantF4.cpp:383  Wrapped(theme::Bad(), tr("These are two different characters (") + _tf4Old.player + " / " + _tf4Good.player + ").");
+# AppTransplantF4.cpp:413  Wrapped(theme::Bad(), tr("These are two different characters (") + _tf4Old.player + " / " + _tf4Good.player + ").");
 en "These are two different characters ("
 tr "Это два разных персонажа ("
 
@@ -9602,7 +9604,7 @@ en "3. What to bring over (%zu)"
 tr "3. Что перенести (%zu)"
 
 # AppTransplant.cpp:776  ImGui::TextUnformatted(tr("Caution (hover to read why)"));
-# AppTransplantF4.cpp:415  ImGui::TextUnformatted(tr("Caution (hover to read why)"));
+# AppTransplantF4.cpp:445  ImGui::TextUnformatted(tr("Caution (hover to read why)"));
 en "Caution (hover to read why)"
 tr "Осторожно (см. подсказку)"
 
@@ -9627,7 +9629,7 @@ en "Fold every group below."
 tr "Свернуть все группы ниже."
 
 # AppTransplant.cpp:793  if (ImGui::SmallButton(tr("Tick everything"))) {
-# AppTransplantF4.cpp:429  if (ImGui::SmallButton(tr("Tick everything"))) {
+# AppTransplantF4.cpp:459  if (ImGui::SmallButton(tr("Tick everything"))) {
 en "Tick everything"
 tr "Отметить всё"
 
@@ -9636,7 +9638,7 @@ en "Tick everything that can be brought over (things whose mod is not in the gam
 tr "Отметить всё, что можно перенести (то, чьего мода нет в игре, остаётся без отметки)."
 
 # AppTransplant.cpp:800  if (ImGui::SmallButton(tr("Untick everything"))) {
-# AppTransplantF4.cpp:435  if (ImGui::SmallButton(tr("Untick everything"))) {
+# AppTransplantF4.cpp:465  if (ImGui::SmallButton(tr("Untick everything"))) {
 en "Untick everything"
 tr "Снять все отметки"
 
@@ -9666,7 +9668,7 @@ tr "сделано: "
 
 # AppTransplant.cpp:840  it->second->ok ? (it->second->why.empty() ? tr("done") : tr("done: ") + it->second->why) : tr("not done: ") + it->second->why);
 # AppTransplant.cpp:902  set(tr("not done: ") + LiveLink::Error(r));
-# AppTransplantF4.cpp:466  TextColored(it->second.first ? theme::Good() : theme::Bad(), it->second.first ? it->second.second : tr("not done: ") + it->second.second);
+# AppTransplantF4.cpp:496  TextColored(it->second.first ? theme::Good() : theme::Bad(), it->second.first ? it->second.second : tr("not done: ") + it->second.second);
 en "not done: "
 tr "не сделано: "
 
@@ -9679,7 +9681,7 @@ en "Untick everything in this group."
 tr "Снять все отметки в этой группе."
 
 # AppTransplant.cpp:866  return Fmt(tr("%zu of %zu ticked"), t, a_in.size());
-# AppTransplantF4.cpp:475  return Fmt(tr("%zu of %zu ticked"), t, a_in.size());
+# AppTransplantF4.cpp:505  return Fmt(tr("%zu of %zu ticked"), t, a_in.size());
 en "%zu of %zu ticked"
 tr "отмечено: %zu из %zu"
 
@@ -9792,254 +9794,262 @@ tr "Готово: перенесено %zu, не перенесено %zu (см.
 en "Nothing is taken away from the good save: things are only added, and levels and skills only raised."
 tr "Из хорошего сохранения ничего не убирается: вещи только добавляются, а уровни и навыки только повышаются."
 
-# AppTransplantF4.cpp:80  return Fmt(tr("%s  level %d, %s caps, %zu perks, %zu items, %zu quests completed"), s.player.c_str(), s.level,
+# AppTransplantF4.cpp:82  return Fmt(tr("%s  level %d, %s caps, %zu perks, %zu items, %zu quests completed"), s.player.c_str(), s.level,
 en "%s  level %d, %s caps, %zu perks, %zu items, %zu quests completed"
 tr "%s  уровень %d, крышек %s, перков %zu, предметов %zu, квестов завершено %zu"
 
-# AppTransplantF4.cpp:90  default: return tr("Character: level, experience, S.P.E.C.I.A.L., caps");
+# AppTransplantF4.cpp:93  default: return tr("Character: level, experience, S.P.E.C.I.A.L., caps");
 en "Character: level, experience, S.P.E.C.I.A.L., caps"
 tr "Персонаж: уровень, опыт, S.P.E.C.I.A.L., крышки"
 
-# AppTransplantF4.cpp:104  _status = _tf4Old.valid ? tr("Read the old save ") + platform::ToUtf8(a_path.filename()) : _tf4Old.error;
+# AppTransplantF4.cpp:107  _status = _tf4Old.valid ? tr("Read the old save ") + platform::ToUtf8(a_path.filename()) : _tf4Old.error;
 en "Read the old save "
 tr "Прочитано старое сохранение "
 
-# AppTransplantF4.cpp:136  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Ammunition") : t == "ALCH" ? tr("Aid: food, drink, che
+# AppTransplantF4.cpp:147  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Ammunition") : t == "ALCH" ? tr("Aid: food, drink, che
 en "Ammunition"
 tr "Боеприпасы"
 
-# AppTransplantF4.cpp:136  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Ammunition") : t == "ALCH" ? tr("Aid: food, drink, che
+# AppTransplantF4.cpp:147  return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Ammunition") : t == "ALCH" ? tr("Aid: food, drink, che
 en "Aid: food, drink, chems"
 tr "Помощь: еда, напитки, препараты"
 
-# AppTransplantF4.cpp:137  : t == "BOOK" ? tr("Books and magazines") : t == "MISC" ? tr("Junk and miscellaneous") : t == "KEYM" ? tr("Keys") : t == "NOTE" ? tr("Holotapes and no
+# AppTransplantF4.cpp:148  : t == "BOOK" ? tr("Books and magazines") : t == "MISC" ? tr("Junk and miscellaneous") : t == "KEYM" ? tr("Keys") : t == "NOTE" ? tr("Holotapes and no
 en "Books and magazines"
 tr "Книги и журналы"
 
-# AppTransplantF4.cpp:137  : t == "BOOK" ? tr("Books and magazines") : t == "MISC" ? tr("Junk and miscellaneous") : t == "KEYM" ? tr("Keys") : t == "NOTE" ? tr("Holotapes and no
+# AppTransplantF4.cpp:148  : t == "BOOK" ? tr("Books and magazines") : t == "MISC" ? tr("Junk and miscellaneous") : t == "KEYM" ? tr("Keys") : t == "NOTE" ? tr("Holotapes and no
 en "Junk and miscellaneous"
 tr "Хлам и разное"
 
-# AppTransplantF4.cpp:137  : t == "BOOK" ? tr("Books and magazines") : t == "MISC" ? tr("Junk and miscellaneous") : t == "KEYM" ? tr("Keys") : t == "NOTE" ? tr("Holotapes and no
+# AppTransplantF4.cpp:148  : t == "BOOK" ? tr("Books and magazines") : t == "MISC" ? tr("Junk and miscellaneous") : t == "KEYM" ? tr("Keys") : t == "NOTE" ? tr("Holotapes and no
 en "Holotapes and notes"
 tr "Голозаписи и записки"
 
-# AppTransplantF4.cpp:138  : t == "CMPO" ? tr("Components") : tr("Other");
+# AppTransplantF4.cpp:149  : t == "CMPO" ? tr("Components") : tr("Other");
 en "Components"
 tr "Компоненты"
 
-# AppTransplantF4.cpp:143  return tr("~ Background quests (not in the Pip-Boy): normally leave these unticked");
+# AppTransplantF4.cpp:154  return tr("Quest objectives (after the stages)");
+en "Quest objectives (after the stages)"
+tr "Цели квестов (после стадий)"
+
+# AppTransplantF4.cpp:157  return tr("~ Background quests (not in the Pip-Boy): normally leave these unticked");
 en "~ Background quests (not in the Pip-Boy): normally leave these unticked"
 tr "~ Фоновые квесты (не в Пип-Бое): обычно их не отмечают"
 
-# AppTransplantF4.cpp:160  _status = tr("Transplant: the game saves first (a save to go back to; its load order gives the form ids)...");
+# AppTransplantF4.cpp:174  _status = tr("Transplant: the game saves first (a save to go back to; its load order gives the form ids)...");
 en "Transplant: the game saves first (a save to go back to; its load order gives the form ids)..."
 tr "Перенос: сначала игра сохраняется (сохранение, чтобы вернуться; его порядок загрузки даёт ID форм)..."
 
-# AppTransplantF4.cpp:164  _status = tr("The game could not save: ") + LiveLink::Error(r);
+# AppTransplantF4.cpp:178  _status = tr("The game could not save: ") + LiveLink::Error(r);
 en "The game could not save: "
 tr "Игра не смогла сохраниться: "
 
-# AppTransplantF4.cpp:200  ? tr("The game's load order is the good save's.")
+# AppTransplantF4.cpp:214  ? tr("The game's load order is the good save's.")
 en "The game's load order is the good save's."
 tr "Порядок загрузки игры совпадает с хорошим сохранением."
 
-# AppTransplantF4.cpp:201  : tr("The game's load order is not the good save's: the form ids are worked out from the game's.");
+# AppTransplantF4.cpp:215  : tr("The game's load order is not the good save's: the form ids are worked out from the game's.");
 en "The game's load order is not the good save's: the form ids are worked out from the game's."
 tr "Порядок загрузки игры не совпадает с хорошим сохранением: ID форм рассчитываются по порядку игры."
 
-# AppTransplantF4.cpp:202  _tf4GameNote += tr(" The game saved as ") + platform::ToUtf8(p.filename()) + tr(" first (load it to go back).");
+# AppTransplantF4.cpp:216  _tf4GameNote += tr(" The game saved as ") + platform::ToUtf8(p.filename()) + tr(" first (load it to go back).");
 en " The game saved as "
 tr " Игра сначала сохранилась как "
 
-# AppTransplantF4.cpp:202  _tf4GameNote += tr(" The game saved as ") + platform::ToUtf8(p.filename()) + tr(" first (load it to go back).");
+# AppTransplantF4.cpp:216  _tf4GameNote += tr(" The game saved as ") + platform::ToUtf8(p.filename()) + tr(" first (load it to go back).");
 en " first (load it to go back)."
 tr " (загрузите его, чтобы вернуться)."
 
-# AppTransplantF4.cpp:213  _status = tr("The save the game made was not found in the saves folders ReSaver Plus knows, so the game's load order could not be "
+# AppTransplantF4.cpp:227  _status = tr("The save the game made was not found in the saves folders ReSaver Plus knows, so the game's load order could not be "
 en "The save the game made was not found in the saves folders ReSaver Plus knows, so the game's load order could not be checked. Choose the saves folder in Settings, or put them in with the good save's load order."
 tr "Сохранение, сделанное игрой, не найдено в известных ReSaver Plus папках сохранений, поэтому порядок загрузки игры проверить не удалось. Выберите папку сохранений в настройках или вносите с порядком загрузки хорошего сохранения."
 
-# AppTransplantF4.cpp:228  _status = Fmt(tr("Transplant: %zu of %zu sent to the game%s. Quests may keep running their scripts for a while; then save in the game, open "
+# AppTransplantF4.cpp:242  _status = Fmt(tr("Transplant: %zu of %zu sent to the game%s. Quests may keep running their scripts for a while; then save in the game, open "
 en "Transplant: %zu of %zu sent to the game%s. Quests may keep running their scripts for a while; then save in the game, open that save here and compare again: anything still listed did not take."
 tr "Перенос: отправлено в игру %zu из %zu%s. Квесты могут ещё какое-то время выполнять свои скрипты; затем сохранитесь в игре, откройте это сохранение здесь и сравните снова: всё, что ещё в списке, не прижилось."
 
-# AppTransplantF4.cpp:230  _tf4Run.size() - failed, _tf4Run.size(), failed ? Fmt(tr(", %zu could not be (see the list)"), failed).c_str() : "");
+# AppTransplantF4.cpp:244  _tf4Run.size() - failed, _tf4Run.size(), failed ? Fmt(tr(", %zu could not be (see the list)"), failed).c_str() : "");
 en ", %zu could not be (see the list)"
 tr ", не удалось: %zu (см. список)"
 
-# AppTransplantF4.cpp:247  _tf4Results[idx] = { false, !id ? ch.plugin + tr(" is not in the game's load order") : tr("nothing to do") };
+# AppTransplantF4.cpp:258  _tf4Results[idx] = { false, Fmt(tr("needs ReSaverHelper %d"), kObjectiveHelper) };
+en "needs ReSaverHelper %d"
+tr "нужен ReSaverHelper %d"
+
+# AppTransplantF4.cpp:267  _tf4Results[idx] = { false, !id ? ch.plugin + tr(" is not in the game's load order") : tr("nothing to do") };
 en " is not in the game's load order"
 tr " нет в порядке загрузки игры"
 
-# AppTransplantF4.cpp:247  _tf4Results[idx] = { false, !id ? ch.plugin + tr(" is not in the game's load order") : tr("nothing to do") };
+# AppTransplantF4.cpp:267  _tf4Results[idx] = { false, !id ? ch.plugin + tr(" is not in the game's load order") : tr("nothing to do") };
 en "nothing to do"
 tr "делать нечего"
 
-# AppTransplantF4.cpp:259  _tf4Results[a_idx] = { true, tr("sent: ") + a_said };
+# AppTransplantF4.cpp:279  _tf4Results[a_idx] = { true, tr("sent: ") + a_said };
 en "sent: "
 tr "отправлено: "
 
-# AppTransplantF4.cpp:296  ImGui::TextWrapped(tr("Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in "
-en "Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in ReSaver Plus. Both are read from their files, so the old save never has to load. What a save can hold (level, experience, S.P.E.C.I.A.L., caps, perk ranks) is written into the open save; items, new perks and quest stages are put into the running game by ReSaverHelper %d or newer (the F4SE plugin) once the good save is loaded."
-tr "Перенесите прогресс персонажа из старого сохранения (которое падает или не загружается) в хорошее — открытое в ReSaver Plus. Оба читаются из файлов, поэтому старое сохранение загружать не нужно. То, что может хранить сохранение (уровень, опыт, S.P.E.C.I.A.L., крышки, ранги перков), записывается в открытое сохранение; предметы, новые перки и стадии квестов вносит в запущенную игру ReSaverHelper %d или новее (плагин F4SE), когда загружено хорошее сохранение."
+# AppTransplantF4.cpp:316  ImGui::TextWrapped(tr("Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in "
+en "Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in ReSaver Plus. Both are read from their files, so the old save never has to load. What a save can hold (level, experience, S.P.E.C.I.A.L., caps, perk ranks, items with their mods, names and condition) is written into the open save; new perks, quest stages and objectives are put into the running game by ReSaverHelper %d or newer (the F4SE plugin) once the good save is loaded."
+tr "Перенесите прогресс персонажа из старого сохранения (которое падает или не загружается) в хорошее — открытое в ReSaver Plus. Оба читаются из файлов, поэтому старое сохранение загружать не нужно. То, что может хранить сохранение (уровень, опыт, S.P.E.C.I.A.L., крышки, ранги перков, предметы с их модами, названиями и состоянием), записывается в открытое сохранение; новые перки, стадии и цели квестов вносит в запущенную игру ReSaverHelper %d или новее (плагин F4SE), когда загружено хорошее сохранение."
 
-# AppTransplantF4.cpp:321  c.label = (c.kind == tf4::Kind::kPerk ? tr("Perk ") : c.kind == tf4::Kind::kItem ? tr("Item ") : c.kind == tf4::Kind::kQuest ? tr("Quest ") : "") + c.
+# AppTransplantF4.cpp:351  c.label = (c.kind == tf4::Kind::kPerk ? tr("Perk ") : c.kind == tf4::Kind::kItem ? tr("Item ") : c.kind == tf4::Kind::kQuest || c.kind == tf4::Kind::k
 en "Perk "
 tr "Перк "
 
-# AppTransplantF4.cpp:321  c.label = (c.kind == tf4::Kind::kPerk ? tr("Perk ") : c.kind == tf4::Kind::kItem ? tr("Item ") : c.kind == tf4::Kind::kQuest ? tr("Quest ") : "") + c.
+# AppTransplantF4.cpp:351  c.label = (c.kind == tf4::Kind::kPerk ? tr("Perk ") : c.kind == tf4::Kind::kItem ? tr("Item ") : c.kind == tf4::Kind::kQuest || c.kind == tf4::Kind::k
 en "Item "
 tr "Предмет "
 
-# AppTransplantF4.cpp:321  c.label = (c.kind == tf4::Kind::kPerk ? tr("Perk ") : c.kind == tf4::Kind::kItem ? tr("Item ") : c.kind == tf4::Kind::kQuest ? tr("Quest ") : "") + c.
+# AppTransplantF4.cpp:351  c.label = (c.kind == tf4::Kind::kPerk ? tr("Perk ") : c.kind == tf4::Kind::kItem ? tr("Item ") : c.kind == tf4::Kind::kQuest || c.kind == tf4::Kind::k
 en "Quest "
 tr "Квест "
 
-# AppTransplantF4.cpp:331  ImGui::SeparatorText(tr("1. The old save: where the progress is"));
+# AppTransplantF4.cpp:361  ImGui::SeparatorText(tr("1. The old save: where the progress is"));
 en "1. The old save: where the progress is"
 tr "1. Старое сохранение: где прогресс"
 
-# AppTransplantF4.cpp:337  if (ImGui::Button(tr("Choose the old save...")) && platform::HasNativeDialogs()) {
+# AppTransplantF4.cpp:367  if (ImGui::Button(tr("Choose the old save...")) && platform::HasNativeDialogs()) {
 en "Choose the old save..."
 tr "Выбрать старое сохранение..."
 
-# AppTransplantF4.cpp:342  tips::Tip(tr("The save with the progress you want back: it may crash or not load at all, it is only read from its file."));
+# AppTransplantF4.cpp:372  tips::Tip(tr("The save with the progress you want back: it may crash or not load at all, it is only read from its file."));
 en "The save with the progress you want back: it may crash or not load at all, it is only read from its file."
 tr "Сохранение с прогрессом, который вы хотите вернуть: оно может падать или вообще не загружаться — оно только читается из файла."
 
-# AppTransplantF4.cpp:347  if (ImGui::BeginCombo("##tf4saves", tr("or pick one from this folder"))) {
+# AppTransplantF4.cpp:377  if (ImGui::BeginCombo("##tf4saves", tr("or pick one from this folder"))) {
 en "or pick one from this folder"
 tr "или выберите из этой папки"
 
-# AppTransplantF4.cpp:370  Wrapped(theme::Caution(), tr("Could not be read from this save: ") + parts + ".");
-# AppTransplantF4.cpp:390  Wrapped(theme::Caution(), tr("Could not be read from this save: ") + parts + ".");
+# AppTransplantF4.cpp:400  Wrapped(theme::Caution(), tr("Could not be read from this save: ") + parts + ".");
+# AppTransplantF4.cpp:420  Wrapped(theme::Caution(), tr("Could not be read from this save: ") + parts + ".");
 en "Could not be read from this save: "
 tr "Не удалось прочитать из этого сохранения: "
 
-# AppTransplantF4.cpp:373  ImGui::TextDisabled(tr("%zu item stack(s) made in the game (no plugin) are left out."), _tf4Old.skippedItems);
+# AppTransplantF4.cpp:403  ImGui::TextDisabled(tr("%zu item stack(s) made in the game (no plugin) are left out."), _tf4Old.skippedItems);
 en "%zu item stack(s) made in the game (no plugin) are left out."
 tr "Стопки предметов, созданных в игре (без плагина), не включены: %zu."
 
-# AppTransplantF4.cpp:377  ImGui::SeparatorText(tr("2. The good save: the one open in ReSaver Plus"));
+# AppTransplantF4.cpp:407  ImGui::SeparatorText(tr("2. The good save: the one open in ReSaver Plus"));
 en "2. The good save: the one open in ReSaver Plus"
 tr "2. Хорошее сохранение: открытое в ReSaver Plus"
 
-# AppTransplantF4.cpp:378  ImGui::TextWrapped("%s", _save ? Summary(_tf4Good).c_str() : tr("Open the good save first (File > Open)."));
+# AppTransplantF4.cpp:408  ImGui::TextWrapped("%s", _save ? Summary(_tf4Good).c_str() : tr("Open the good save first (File > Open)."));
 en "Open the good save first (File > Open)."
 tr "Сначала откройте хорошее сохранение (Файл > Открыть)."
 
-# AppTransplantF4.cpp:393  if (ImGui::SmallButton(tr("Compare again"))) {
+# AppTransplantF4.cpp:423  if (ImGui::SmallButton(tr("Compare again"))) {
 en "Compare again"
 tr "Сравнить снова"
 
-# AppTransplantF4.cpp:400  tips::Tip(tr("Read both saves again and list the differences (e.g. after a Transplant: open the save the game made afterwards and compare)."));
+# AppTransplantF4.cpp:430  tips::Tip(tr("Read both saves again and list the differences (e.g. after a Transplant: open the save the game made afterwards and compare)."));
 en "Read both saves again and list the differences (e.g. after a Transplant: open the save the game made afterwards and compare)."
 tr "Прочитать оба сохранения снова и показать различия (например, после переноса: откройте сохранение, сделанное игрой после него, и сравните)."
 
-# AppTransplantF4.cpp:410  ImGui::SeparatorText(Fmt(tr("3. What the old save has on top (%zu)"), _tf4Changes.size()).c_str());
+# AppTransplantF4.cpp:440  ImGui::SeparatorText(Fmt(tr("3. What the old save has on top (%zu)"), _tf4Changes.size()).c_str());
 en "3. What the old save has on top (%zu)"
 tr "3. Что есть в старом сохранении сверх того (%zu)"
 
-# AppTransplantF4.cpp:418  ImGui::TextUnformatted(tr("Risky or cannot"));
+# AppTransplantF4.cpp:448  ImGui::TextUnformatted(tr("Risky or cannot"));
 en "Risky or cannot"
 tr "Риск или нельзя"
 
-# AppTransplantF4.cpp:420  TextColored(theme::Good(), tr("[save file]"));
-# AppTransplantF4.cpp:454  TextColored(c.via == tf4::Via::kFile ? theme::Good() : theme::Caution(), c.via == tf4::Via::kFile ? tr("[save file]") : tr("[game]"));
+# AppTransplantF4.cpp:450  TextColored(theme::Good(), tr("[save file]"));
+# AppTransplantF4.cpp:484  TextColored(c.via == tf4::Via::kFile ? theme::Good() : theme::Caution(), c.via == tf4::Via::kFile ? tr("[save file]") : tr("[game]"));
 en "[save file]"
 tr "[файл сохранения]"
 
-# AppTransplantF4.cpp:422  ImGui::TextDisabled("%s", tr("written into the open save"));
+# AppTransplantF4.cpp:452  ImGui::TextDisabled("%s", tr("written into the open save"));
 en "written into the open save"
 tr "пишется в сохранение"
 
-# AppTransplantF4.cpp:424  TextColored(theme::Caution(), tr("[game]"));
-# AppTransplantF4.cpp:454  TextColored(c.via == tf4::Via::kFile ? theme::Good() : theme::Caution(), c.via == tf4::Via::kFile ? tr("[save file]") : tr("[game]"));
+# AppTransplantF4.cpp:454  TextColored(theme::Caution(), tr("[game]"));
+# AppTransplantF4.cpp:484  TextColored(c.via == tf4::Via::kFile ? theme::Good() : theme::Caution(), c.via == tf4::Via::kFile ? tr("[save file]") : tr("[game]"));
 en "[game]"
 tr "[игра]"
 
-# AppTransplantF4.cpp:426  ImGui::TextDisabled("%s", tr("put into the running game"));
+# AppTransplantF4.cpp:456  ImGui::TextDisabled("%s", tr("put into the running game"));
 en "put into the running game"
 tr "вносится в игру"
 
-# AppTransplantF4.cpp:443  ImGui::InputTextWithHint("##tf4filter", tr("search"), _tf4Filter, sizeof(_tf4Filter));
+# AppTransplantF4.cpp:473  ImGui::InputTextWithHint("##tf4filter", tr("search"), _tf4Filter, sizeof(_tf4Filter));
 en "search"
 tr "поиск"
 
-# AppTransplantF4.cpp:526  Wrapped(theme::Good(), tr("The good save already has everything the old one has (of what can be read from the files)."));
+# AppTransplantF4.cpp:556  Wrapped(theme::Good(), tr("The good save already has everything the old one has (of what can be read from the files)."));
 en "The good save already has everything the old one has (of what can be read from the files)."
 tr "В хорошем сохранении уже есть всё, что есть в старом (из того, что можно прочитать из файлов)."
 
-# AppTransplantF4.cpp:539  if (ImGui::Button(Fmt(tr("A. Write %zu ticked thing(s) into the open save"), fileRun.size()).c_str())) {
+# AppTransplantF4.cpp:569  if (ImGui::Button(Fmt(tr("A. Write %zu ticked thing(s) into the open save"), fileRun.size()).c_str())) {
 en "A. Write %zu ticked thing(s) into the open save"
 tr "A. Записать отмеченное в открытое сохранение (%zu)"
 
-# AppTransplantF4.cpp:543  _tf4Results[i] = { why.empty(), why.empty() ? tr("written into the save") : why };
+# AppTransplantF4.cpp:573  _tf4Results[i] = { why.empty(), why.empty() ? tr("written into the save") : why };
 en "written into the save"
 tr "записано в сохранение"
 
-# AppTransplantF4.cpp:547  markChanged(Fmt(tr("Transplant: %zu thing(s) written into the save"), done));
+# AppTransplantF4.cpp:577  markChanged(Fmt(tr("Transplant: %zu thing(s) written into the save"), done));
 en "Transplant: %zu thing(s) written into the save"
 tr "Перенос: записано в сохранение: %zu"
 
-# AppTransplantF4.cpp:549  _status = Fmt(tr("Transplant: %zu of %zu written into the open save. Save it (File > Save), load it in Fallout 4, then use B for the rest."), done,
+# AppTransplantF4.cpp:579  _status = Fmt(tr("Transplant: %zu of %zu written into the open save. Save it (File > Save), load it in Fallout 4, then use B for the rest."), done,
 en "Transplant: %zu of %zu written into the open save. Save it (File > Save), load it in Fallout 4, then use B for the rest."
 tr "Перенос: записано в открытое сохранение %zu из %zu. Сохраните его (Файл > Сохранить), загрузите в Fallout 4, затем выполните B для остального."
 
-# AppTransplantF4.cpp:553  tips::Tip(tr("Level, experience, S.P.E.C.I.A.L., caps and perk ranks are written into the save open here. Nothing is on disk until you\n"
-en "Level, experience, S.P.E.C.I.A.L., caps and perk ranks are written into the save open here. Nothing is on disk until you\nuse File > Save (a backup of the file is kept). Then load that save in the game for step B."
-tr "Уровень, опыт, S.P.E.C.I.A.L., крышки и ранги перков записываются в открытое здесь сохранение. На диске ничего нет, пока вы не\nнажмёте «Файл > Сохранить» (резервная копия файла сохраняется). Затем загрузите это сохранение в игре для шага B."
+# AppTransplantF4.cpp:583  tips::Tip(tr("Level, experience, S.P.E.C.I.A.L., caps, perk ranks and items (with their mods, names and condition) are written into the\n"
+en "Level, experience, S.P.E.C.I.A.L., caps, perk ranks and items (with their mods, names and condition) are written into the\nsave open here. Nothing is on disk until you use File > Save (a backup of the file is kept). Then load that save in the game for step B."
+tr "Уровень, опыт, S.P.E.C.I.A.L., крышки, ранги перков и предметы (с их модами, названиями и состоянием) записываются в\nоткрытое здесь сохранение. На диск ничего не попадёт, пока вы не выберете Файл > Сохранить (копия файла сохраняется). Затем загрузите это сохранение в игре для шага B."
 
-# AppTransplantF4.cpp:557  const bool goBtn = ImGui::Button(Fmt(tr("B. Put %zu ticked thing(s) into the running game"), gameRun.size()).c_str());
+# AppTransplantF4.cpp:587  const bool goBtn = ImGui::Button(Fmt(tr("B. Put %zu ticked thing(s) into the running game"), gameRun.size()).c_str());
 en "B. Put %zu ticked thing(s) into the running game"
 tr "B. Внести отмеченное в запущенную игру (%zu)"
 
-# AppTransplantF4.cpp:559  tips::Tip(tr("ReSaverHelper puts the items, perks and quest stages into the game loaded now (the good save, after step A).\n"
-en "ReSaverHelper puts the items, perks and quest stages into the game loaded now (the good save, after step A).\nThe game saves first (a save to go back to); its load order gives the form ids."
-tr "ReSaverHelper вносит предметы, перки и стадии квестов в загруженную сейчас игру (хорошее сохранение, после шага A).\nСначала игра сохраняется (сохранение, чтобы вернуться); его порядок загрузки даёт ID форм."
+# AppTransplantF4.cpp:589  tips::Tip(tr("ReSaverHelper puts the perks, quest stages and objectives into the game loaded now (the good save, after step A).\n"
+en "ReSaverHelper puts the perks, quest stages and objectives into the game loaded now (the good save, after step A).\nThe game saves first (a save to go back to); its load order gives the form ids."
+tr "ReSaverHelper вносит перки, стадии и цели квестов в загруженную сейчас игру (хорошее сохранение после шага A).\nСначала игра сохраняется (сохранение для отката); её порядок загрузки даёт ID форм."
 
-# AppTransplantF4.cpp:562  confirm(tr("Transplant into the game"),
+# AppTransplantF4.cpp:592  confirm(tr("Transplant into the game"),
 en "Transplant into the game"
 tr "Перенос в игру"
 
-# AppTransplantF4.cpp:563  Fmt(tr("Put %zu ticked thing(s) into the game now?\n\n"
+# AppTransplantF4.cpp:593  Fmt(tr("Put %zu ticked thing(s) into the game now?\n\n"
 en "Put %zu ticked thing(s) into the game now?\n\n- The GOOD save (after step A, saved and loaded) must be the one loaded in Fallout 4.\n- The game makes a new save first, so you can go back.\n- After OK, switch to Fallout 4 and stay there, unpaused with menus closed, until it is done.\n- Quest stages run their scripts: give them a minute, then save in the game."
 tr "Внести в игру отмеченное сейчас (%zu)?\n\n- В Fallout 4 должно быть загружено ХОРОШЕЕ сохранение (после шага A, сохранённое и загруженное).\n- Сначала игра сделает новое сохранение, чтобы можно было вернуться.\n- После OK переключитесь в Fallout 4 и оставайтесь там без паузы и с закрытыми меню, пока всё не закончится.\n- Стадии квестов выполняют свои скрипты: дайте им минуту, затем сохранитесь в игре."
 
-# AppTransplantF4.cpp:574  TextColored(theme::Caution(), Fmt(tr("Waiting for the game's save (%.0f s): switch to Fallout 4 for a moment..."), ImGui::GetTime() - _tf4WaitStart));
+# AppTransplantF4.cpp:604  TextColored(theme::Caution(), Fmt(tr("Waiting for the game's save (%.0f s): switch to Fallout 4 for a moment..."), ImGui::GetTime() - _tf4WaitStart));
 en "Waiting for the game's save (%.0f s): switch to Fallout 4 for a moment..."
 tr "Жду сохранения игры (%.0f с): ненадолго переключитесь в Fallout 4..."
 
-# AppTransplantF4.cpp:582  if (ImGui::SmallButton(tr("Put them in with the good save's load order"))) {
+# AppTransplantF4.cpp:612  if (ImGui::SmallButton(tr("Put them in with the good save's load order"))) {
 en "Put them in with the good save's load order"
 tr "Вносить с порядком загрузки хорошего сохранения"
 
-# AppTransplantF4.cpp:585  _tf4GameNote = tr("The game's load order was not checked: the form ids are the good save's.");
+# AppTransplantF4.cpp:615  _tf4GameNote = tr("The game's load order was not checked: the form ids are the good save's.");
 en "The game's load order was not checked: the form ids are the good save's."
 tr "Порядок загрузки игры не проверялся: ID форм взяты из хорошего сохранения."
 
-# AppTransplantF4.cpp:591  tips::Tip(tr("Only when the game runs with the same mods, in the same order, as when the good save was made."));
+# AppTransplantF4.cpp:621  tips::Tip(tr("Only when the game runs with the same mods, in the same order, as when the good save was made."));
 en "Only when the game runs with the same mods, in the same order, as when the good save was made."
 tr "Только если игра запущена с теми же модами в том же порядке, что и при создании хорошего сохранения."
 
-# AppTransplantF4.cpp:593  ImGui::Checkbox(tr("Mark quests completed in the old save as completed"), &_tf4MarkCompleted);
+# AppTransplantF4.cpp:623  ImGui::Checkbox(tr("Mark quests completed in the old save as completed"), &_tf4MarkCompleted);
 en "Mark quests completed in the old save as completed"
 tr "Отмечать завершёнными квесты, завершённые в старом сохранении"
 
-# AppTransplantF4.cpp:594  tips::Tip(tr("After setting a quest's last stage, CompleteQuest marks it completed, as it was in the old save (also when the game\n"
+# AppTransplantF4.cpp:624  tips::Tip(tr("After setting a quest's last stage, CompleteQuest marks it completed, as it was in the old save (also when the game\n"
 en "After setting a quest's last stage, CompleteQuest marks it completed, as it was in the old save (also when the game\nrefuses the stage). Untick to only set the stage."
 tr "После установки последней стадии квеста CompleteQuest отмечает его завершённым, как было в старом сохранении (и когда игра\nотклоняет стадию). Снимите отметку, чтобы только ставить стадию."
 
-# AppTransplantF4.cpp:598  ImGui::TextDisabled(tr("B needs Fallout 4 running with ReSaverHelper %d+ and a save loaded."), kTransplantHelper);
+# AppTransplantF4.cpp:628  ImGui::TextDisabled(tr("B needs Fallout 4 running with ReSaverHelper %d+ and a save loaded."), kTransplantHelper);
 en "B needs Fallout 4 running with ReSaverHelper %d+ and a save loaded."
 tr "Для B нужен запущенный Fallout 4 с ReSaverHelper %d+ и загруженным сохранением."
 
-# AppTransplantF4.cpp:600  Wrapped(theme::Caution(), Fmt(tr("ReSaverHelper %s is running: B needs version %d (Optional files on the mod page)."), info.helperVersion.c_str(), kTr
+# AppTransplantF4.cpp:630  Wrapped(theme::Caution(), Fmt(tr("ReSaverHelper %s is running: B needs version %d (Optional files on the mod page)."), info.helperVersion.c_str(), kTr
 en "ReSaverHelper %s is running: B needs version %d (Optional files on the mod page)."
 tr "Запущен ReSaverHelper %s: для B нужна версия %d (дополнительные файлы на странице мода)."
 
-# AppTransplantF4.cpp:604  ImGui::TextDisabled("%s", tr("Nothing is taken from the good save: things are only added, and values only raised."));
+# AppTransplantF4.cpp:634  ImGui::TextDisabled("%s", tr("Nothing is taken from the good save: things are only added, and values only raised."));
 en "Nothing is taken from the good save: things are only added, and values only raised."
 tr "Из хорошего сохранения ничего не убирается: вещи только добавляются, а значения только повышаются."
 
@@ -10793,6 +10803,15 @@ en "Please report this on the mod page with the file ReSaverPP-startup.log (next
 tr "Пожалуйста, сообщите об этом на странице мода, приложив файл ReSaverPP-startup.log (рядом с ReSaverPP.exe или в %TEMP%)."
 
 # ---- no longer used by the code (kept for reference; safe to delete) ----
+
+en "Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in ReSaver Plus. Both are read from their files, so the old save never has to load. What a save can hold (level, experience, S.P.E.C.I.A.L., caps, perk ranks) is written into the open save; items, new perks and quest stages are put into the running game by ReSaverHelper %d or newer (the F4SE plugin) once the good save is loaded."
+tr "Перенесите прогресс персонажа из старого сохранения (которое падает или не загружается) в хорошее — открытое в ReSaver Plus. Оба читаются из файлов, поэтому старое сохранение загружать не нужно. То, что может хранить сохранение (уровень, опыт, S.P.E.C.I.A.L., крышки, ранги перков), записывается в открытое сохранение; предметы, новые перки и стадии квестов вносит в запущенную игру ReSaverHelper %d или новее (плагин F4SE), когда загружено хорошее сохранение."
+
+en "Level, experience, S.P.E.C.I.A.L., caps and perk ranks are written into the save open here. Nothing is on disk until you\nuse File > Save (a backup of the file is kept). Then load that save in the game for step B."
+tr "Уровень, опыт, S.P.E.C.I.A.L., крышки и ранги перков записываются в открытое здесь сохранение. На диске ничего нет, пока вы не\nнажмёте «Файл > Сохранить» (резервная копия файла сохраняется). Затем загрузите это сохранение в игре для шага B."
+
+en "ReSaverHelper puts the items, perks and quest stages into the game loaded now (the good save, after step A).\nThe game saves first (a save to go back to); its load order gives the form ids."
+tr "ReSaverHelper вносит предметы, перки и стадии квестов в загруженную сейчас игру (хорошее сохранение, после шага A).\nСначала игра сохраняется (сохранение, чтобы вернуться); его порядок загрузки даёт ID форм."
 
 en "  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's change forms decoded are greyed out)"
 tr "  (работают инструменты очистки, списки скриптов, моды, логи и конфликты файлов; инструменты, которым нужны расшифрованные изменённые формы сохранения, неактивны)"

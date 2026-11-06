@@ -51,7 +51,7 @@ namespace Transplant
 		auto        at = [&](std::size_t i) { return i < a_record.size() ? a_record[i] : std::string(); };
 		std::string id;
 		long long   n = 0;
-		if (kind != "additem" && kind != "addperk" && kind != "setstage" && kind != "completequest") {
+		if (kind != "additem" && kind != "addperk" && kind != "setstage" && kind != "completequest" && kind != "objective") {
 			a_why = "unknown record: " + kind;
 			return false;
 		}
@@ -79,6 +79,30 @@ namespace Transplant
 				return false;
 			}
 			a_out.push_back(std::format("setstage {} {}", id, n));
+		} else if (kind == "objective") {
+			long long state = 0;
+			if (!Number(at(2), 0, 65535, n)) {
+				a_why = "not an objective index (0 to 65535): " + at(2);
+				return false;
+			}
+			if (!Number(at(3), 1, 5, state)) {
+				a_why = "not an objective state (1 to 5): " + at(3);
+				return false;
+			}
+			if (a_record.size() > 4) {
+				a_why = "too many fields for objective";
+				return false;
+			}
+			// the game's own state changes (0x629bc0 in 1.11.240): shown first, then completed or failed, so a dormant
+			// objective ends as 3 / 5 (shown) or 2 / 4 (not shown) like in the old save
+			if (state & 1) {
+				a_out.push_back(std::format("setobjectivedisplayed {} {} 1", id, n));
+			}
+			if (state == 2 || state == 3) {
+				a_out.push_back(std::format("setobjectivecompleted {} {} 1", id, n));
+			} else if (state == 4 || state == 5) {
+				a_out.push_back(std::format("setobjectivefailed {} {} 1", id, n));
+			}
 		} else {
 			a_out.push_back(std::format("completequest {}", id));
 		}

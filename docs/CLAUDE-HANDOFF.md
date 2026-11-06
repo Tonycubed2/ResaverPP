@@ -67,6 +67,42 @@ project; you do the coding, building, delivering and publishing.
   = next rank, 0x1039 SetStage, 0x1071 CompleteQuest). CLI `--fo4-transplant <old.fos>` [`--fo4-transplant-write -o`].
   Tests: rs_unit with `RESAVERPP_FO4_SAVES="dir;dir"` reads real saves (Tony's Save7 -> Save8 must list the 9 Pipe Pistols
   00024F55). Test hook `RESAVERPP_TEST_TPOLD=<old.fos>` + `RESAVERPP_TEST_SHORTCUT=12`. Not tested in the real game yet.
+- Fallout 4 Transplant 2 (2026-11-06, branch tp2, not published; needs helper-f4 version 14 for objectives, which Tony must
+  build in VS2022: `helper-f4/src/Transplant.h/.cpp`, `Protocol.h`, `Server.cpp` changed): items now go INTO THE SAVE FILE with
+  their extra data (`tf4::AddItemStacks`, Kind::kItem Via::kFile): per stack object mods (extra 0x35 BGSObjectInstanceExtra,
+  LoadGame 0x24a240: u16 template index, u32 n, n x {ref, u8 attach index, u8 rank, u8 flags from form version 0x15}),
+  text display data (0x99, 0x2acdf0: ref message, ref quest, i32, u16, wstring name when both null and -2, vsval n x
+  {wstring, ref}) and ExtraHealth (0x25 f32); `StackData::key()` = what makes two stacks the same thing. Other stack extras
+  (0x2e ExtraLeveledItem, 0x9f ExtraUniqueID, 0x88 ExtraAliasInstanceArray, 0x95 ExtraFromAlias, 0x1c ExtraReferenceHandles,
+  0x21 ownership, 0xc9 ExtraModRank, 0x48, 0x8e, 0xa0; names from RTTI) are left behind. Stacks are added to the player's
+  last entry for that item (u32 stack count raised) or as a new entry (u32 item count raised); stack flags 0 (u16 at +0x24 of
+  BGSInventoryItem::Stack, 0x34a310). Form ids are moved plugin+local -> the good save's load order; a form id the save's
+  array lacks is APPENDED to `formIDs` (the loader 0xbeadb0 reads the array as u32 count + ids, index i+1 -> id, nothing
+  else). Needs `Actor::complete` for the player; the actor part is kept byte for byte and everything is decoded again.
+  In-game fallback (plain additem) only when the player cannot be edited or a stack names a form the good save cannot
+  (created forms, missing plugins). No console command adds an item with mods/name/condition: AttachMod (amod, 0x5f7f20)
+  edits a REFERENCE's own extra data (the calling or console-selected ref), not an inventory item.
+  Quest objectives: Kind::kObjective (QUST change flag 29: vsval n x {u32 index, u32 state}; TESQuest::LoadGame 0x66ca40 only
+  stores the state byte (+0x1f) of objectives the quest has; the Pip-Boy list lives in PlayerCharacter and is kept by the
+  objective's SetState 0x629bc0, which also runs only for running quests, marks change flag 29, fires the HUD/event code
+  and calls the player 0xd60610) -> not edited offline, sent as helper record `objective <quest> <index> <state>` ->
+  setobjectivedisplayed/completed/failed (0x11a2/0x11a1/0x1184: Displayed 1 -> SetState(1) unless shown; Completed: 3 from
+  shown, 2 from dormant, nothing from 2..5; Failed 5/4). Only objectives the good save has dormant/shown, of quests running
+  and not completed in the old save and listed in the Pip-Boy; sent after all stages.
+  Versions: the command tables (names, opcodes, parameters; tools/fo4emu/cmdtab.py <exe> <out>) of 1.1.29, 1.10.163,
+  1.10.984 and 1.11.240 are the same for every command the helper uses. Tony's 1.10.163 / 1.10.984 / 1.1.29 exes are
+  SteamStub 3.1 wrapped: the 163/984 code was decrypted locally to read it (scratchpad tool, not in the repo; 1.1.29 left
+  encrypted). tools/fo4emu/norm.py compares functions instruction by instruction across exes: 1.10.984 = 1.11.240 for every
+  command used and for CompileAndRun / Script::SetText; 1.10.163 read by hand (same logic). Console path per version:
+  CompileAndRun 163 +0x4E29B0 / 984 +0x55E3E0 / 1.11.240 +0x5B2690 (the console's own callers pass script, compiler, 1,
+  ref), form factory array +0x58D3BF0 / +0x2E69490 / +0x30EB9D0 (cleared as 0x4f8 bytes at start; = F4SE's values), slot
+  0x16 = ConcreteFormFactory<Script,22>, vfunc 1 allocates 0x80 + Script ctor (type byte 0x16), Script text +0x38: all
+  verified. Not verified: 1.10.980 exe, other 1.11 builds, F4SE plugin loading on old versions, anything in the real game.
+  Checks: rs_unit (506 with RESAVERPP_FO4_SAVES): Save7 -> Save8 = one file change, stacks 8 x "Pipe Pistol" 6 mods +
+  1 x "Pipe Pistol" 13 mods, written, read back: 16 pistols, Diff empty; Save14 -> Save8 (fo4full) 113 file changes incl.
+  103 items, 26 form ids appended, read back only the game part left. tools/fo4emu invcheck.py + emucheck.py on the edited
+  players (dump of ACHR 0x14 in dumpcf format): the game's inventory loader and Actor/PlayerCharacter::LoadGame read to the
+  exact end.
 - Fallout 4 merged patch (2026-11-05, not published): `core/MergedPatch.*` with `Options::game` 2 (or Fallout4.esm in the load
   order). Merged types: LVLI, LVLN, LVSP, CONT, FLST, OTFT, MISC, KEYM (+ the types listed below), layouts from xEdit's wbDefinitionsFO4 (dev-4.1.6) in
   `LayoutFO4`/`Lists`/`Order`/`Groups`/`Fields` (a_fo4): LVLO 12 bytes with chance none, LLCT u8, LVLM, LVLG, LLKC/CVPA/DAMC/PRPS

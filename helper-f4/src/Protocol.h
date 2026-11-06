@@ -4,7 +4,7 @@
 // F4NG (1.10.984) or F4AE (1.11.x), and it answers HELLO, GETOPTION, SETOPTION, NOTIFY, SAVEGAME, CONTROLS,
 // GATHER (the companion and Dogmeat: the game's own FollowersScript.TryToTeleportCompanion / ...Dogmeat; no
 // ids), RESCUE and CONTROLSRESET (ResetForceEnabledPlayerControls), and from version 13 APPLY with the Fallout 4
-// Transplant records (Transplant.h: additem, addperk, setstage, completequest; nothing else). Everything else
+// Transplant records (Transplant.h: additem, addperk, setstage, completequest, from 14 objective; nothing else). Everything else
 // answers ERR.
 // One request per line, one reply line per request. Fields are separated by tabs; tab, newline and
 // backslash inside a field are written as \t, \n and \\.
@@ -35,6 +35,9 @@
 //                                              addperk <formid> <ranks 1..100>             -> player.addperk <formid>, <ranks> times
 //                                              setstage <quest formid> <stage 0..65535>    -> setstage <quest> <stage>
 //                                              completequest <quest formid>                -> completequest <quest>
+//                                            (version 14) objective <quest formid> <index 0..65535> <state 1..5>
+//                                                -> setobjectivedisplayed <quest> <index> 1 (states 1, 3, 5), then
+//                                                   setobjectivecompleted <quest> <index> 1 (2, 3) or setobjectivefailed (4, 5)
 //                                            The form ids are the game's (ReSaver Plus works them out from the load order).
 //   RESOLVE <plugin> <local id hex>       -> OK  <runtime form id hex>
 //   FOLLOWERS                             -> OK  <count>  <one field per follower: runtime id*Plugin.esp:localid*name*why*where*skip 0|1>
@@ -53,7 +56,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 13;
+	inline constexpr int            kHelperVersion = 14;
 
 	inline std::string Escape(const std::string& a_in)
 	{
