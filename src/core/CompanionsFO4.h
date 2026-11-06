@@ -144,6 +144,16 @@ namespace ess::fo4comp
 	std::vector<std::string> MakeCompanionCommands(const Companion& a_c, const std::string& a_quest = kFollowersQuest);
 	//  - follow (FollowersScript.FollowerFollow: FollowerState = iFollower_Com_Follow)
 	std::string FollowCommand(const Companion& a_c, const std::string& a_quest = kFollowersQuest);
+	//  - empty the follower quest's Companion slot (FollowersScript.ClearCompanion, then <ref>.setplayerteammate 0) or
+	//    Dogmeat slot (FollowersScript.ClearDogmeatCompanion). Both functions take no arguments (Fallout4 - Misc.ba2
+	//    FollowersScript.pex). ClearCompanion's CompanionDataToggle(False, False, True, True) casts the slot holder to
+	//    CompanionActorScript and calls SetPlayerTeammate on that; for a holder without the script the cast gives None,
+	//    the call fails with a Papyrus error, and the function goes on (Clear, SendCompanionChangeEvent,
+	//    PlayerHasActiveCompanion 0), so the teammate flag is turned off by the console's SetPlayerTeammate 0x11c4
+	//    (1.11.240 0x5d5a40 -> 0xc93070(actor, arg != 0, 1, 0), actors only (form type 0x41); the favor / XP arguments
+	//    are read only when turning the flag on; 1.10.984 0x581790 the same instruction for instruction, 1.10.163
+	//    0x507340 the same code). ClearDogmeatCompanion uses the holder as an Actor and turns the flag off itself.
+	std::vector<std::string> ClearSlotCommands(std::uint32_t a_ref, bool a_dogmeat, const std::string& a_quest = kFollowersQuest);
 
 	// The same fixes as ReSaverHelper for Fallout 4 (version 15) APPLY records (helper-f4/src/Transplant.h); the helper
 	// runs exactly the commands above (with the quest by form id). The reference must be the game's form id: for forms
@@ -151,6 +161,7 @@ namespace ess::fo4comp
 	constexpr int            kCompanionHelper = 15;
 	std::vector<std::string> CompanionRecord(const Companion& a_c);   // companion <ref> <0|1> <script>
 	std::vector<std::string> FollowRecord(const Companion& a_c);      // companionfollow <ref>
+	std::vector<std::string> ClearSlotRecord(std::uint32_t a_ref, bool a_dogmeat);  // clearcompanion <ref> <0|1 Dogmeat slot>
 	std::vector<std::string> AffinityRecord(const Companion& a_c, int a_value);  // affinity <ref> <n> <script>
 
 	// Sets the companion's affinity in the save: the saved base of the CA_Affinity actor value, and like

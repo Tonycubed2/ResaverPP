@@ -272,6 +272,15 @@ static void TestCompanionCommands()
 	Check(m.size() == 2 && m[0] == "0001CA7D.cf \"CompanionActorScript.UnsetHasLeftPlayerPermanently\"", "companions: left for good cleared first");
 	c.dogmeat = true;
 	Check(fo4comp::MakeCompanionCommands(c).size() == 1 && fo4comp::CompanionRecord(c).size() == 3, "companions: Dogmeat has no CompanionActorScript flag to clear");
+	// emptying a slot held by an actor without a companion script
+	Check(fo4comp::ClearSlotCommands(0x0A001234, false) ==
+			  std::vector<std::string>{ "cqf 000289E4 \"FollowersScript.ClearCompanion\"", "0A001234.setplayerteammate 0" },
+		"companions: clear the companion slot (ClearCompanion, then the teammate flag off)");
+	Check(fo4comp::ClearSlotCommands(0x0A001234, true) == std::vector<std::string>{ "cqf 000289E4 \"FollowersScript.ClearDogmeatCompanion\"" },
+		"companions: clear the Dogmeat slot");
+	Check(fo4comp::ClearSlotRecord(0x0A001234, false) == std::vector<std::string>{ "clearcompanion", "0A001234", "0" } &&
+			  fo4comp::ClearSlotRecord(0x0A001234, true) == std::vector<std::string>{ "clearcompanion", "0A001234", "1" },
+		"companions: helper 15 clearcompanion record");
 }
 
 static void TestCompanionsReal()

@@ -85,7 +85,7 @@ namespace Transplant
 		std::string id;
 		long long   n = 0;
 		if (kind != "additem" && kind != "addperk" && kind != "setstage" && kind != "completequest" && kind != "objective" &&
-			kind != "companion" && kind != "companionfollow" && kind != "affinity") {
+			kind != "companion" && kind != "companionfollow" && kind != "affinity" && kind != "clearcompanion") {
 			a_why = "unknown record: " + kind;
 			return false;
 		}
@@ -136,6 +136,26 @@ namespace Transplant
 				a_out.push_back(std::format("setobjectivecompleted {} {} 1", id, n));
 			} else if (state == 4 || state == 5) {
 				a_out.push_back(std::format("setobjectivefailed {} {} 1", id, n));
+			}
+		} else if (kind == "clearcompanion") {
+			// (version 15) empty the follower quest's Companion slot (0) or Dogmeat slot (1) the game's way. Both FollowersScript
+			// functions take no arguments. ClearCompanion's first step works on the holder as a CompanionActorScript; for a
+			// holder without that script it fails (Papyrus error, the function goes on), so the teammate flag it would turn off
+			// is turned off with the console's SetPlayerTeammate (0x11c4; actors only, the favor / XP arguments only matter
+			// when turning it on). ClearDogmeatCompanion turns it off itself.
+			if (!Number(at(2), 0, 1, n)) {
+				a_why = "not 0 (companion slot) or 1 (Dogmeat slot): " + at(2);
+				return false;
+			}
+			if (a_record.size() > 3) {
+				a_why = "too many fields for clearcompanion";
+				return false;
+			}
+			if (n == 1) {
+				a_out.push_back("cqf 000289E4 \"FollowersScript.ClearDogmeatCompanion\"");
+			} else {
+				a_out.push_back("cqf 000289E4 \"FollowersScript.ClearCompanion\"");
+				a_out.push_back(std::format("{}.setplayerteammate 0", id));
 			}
 		} else if (kind == "companion" || kind == "companionfollow" || kind == "affinity") {
 			// (version 15) the companion fixes, through the follower system's own scripts. The follower quest is given by

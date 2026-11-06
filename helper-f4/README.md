@@ -13,7 +13,8 @@ key for a stuck game.
 - **Transplant (version 13, quest objectives from 14):** brings your character's progress from an old save (one
   that crashes or will not load) into a good one. See below.
 - **Companions (version 15):** from ReSaver Plus's Tools > Companions window: make an actor your companion again
-  (also one that left for good), tell your companion to follow, set a companion's affinity. See below.
+  (also one that left for good), tell your companion to follow, set a companion's affinity, empty a companion slot
+  held by an actor without a companion script. See below.
 
 ## Transplant
 
@@ -56,9 +57,16 @@ Papyrus functions through the console, the same as typing them:
 - follow me: `cqf 000289E4 "FollowersScript.FollowerFollow" <ref>`
 - affinity: `<ref>.cf "CompanionActorScript.SetAffinity" <value>` (the companion's own ModAffinity: threshold scenes,
   the companion perk, and it stays below a threshold whose scene has not played yet)
+- clear a companion slot held by an actor without a companion script (a removed companion mod, or a mod that forced
+  its NPC into the slot): `cqf 000289E4 "FollowersScript.ClearCompanion"` then `<ref>.setplayerteammate 0`, or for the
+  Dogmeat slot `cqf 000289E4 "FollowersScript.ClearDogmeatCompanion"`. Both functions take no arguments (checked in
+  FollowersScript.pex from Fallout4 - Misc.ba2). ClearCompanion's first step treats the slot holder as a
+  CompanionActorScript; for this holder that step fails with a Papyrus error and the function goes on (clears the
+  alias, sends the companion change event, PlayerHasActiveCompanion 0), so the teammate flag it would have turned off
+  is turned off with the console's SetPlayerTeammate.
 
 `000289E4` is the Followers quest of Fallout4.esm (always load index 00). A mod companion whose script extends
-CompanionActorScript gets its own script's name in the `cf` lines. Only these three record kinds, with checked
+CompanionActorScript gets its own script's name in the `cf` lines. Only these four record kinds, with checked
 arguments (8-digit form ids, 0/1, a number -100000..100000, a script name of letters, digits, `_` and `:`).
 
 ## Requirements
@@ -115,6 +123,9 @@ SteamStub layer removed to read the code), and the 2015 1.1.29 (its code is encr
   first '.' (1.11.240 +0x60C5C0, 1.10.984 +0x5B8360, 1.10.163 +0x533770) and convert each argument to the
   function's parameter type (a form: "none", "player", "selected" or a hex form id, +0x60AA80 / +0x5B6820 /
   +0x533420; a float with atof; an int with atoi; a bool is false for "0", "false" or "").
+  SetPlayerTeammate (0x11c4, reference, one Integer) is +0x5D5A40 in 1.11.240: an actor (form type 0x41) gets
+  Actor::SetPlayerTeammate(arg != 0, 1, 0) (+0xC93070, which reads the favor / XP arguments only when turning it on);
+  1.10.984 +0x581790 is the same instruction for instruction, 1.10.163 +0x507340 the same code.
 - **Not checked:** 1.10.980 (only its Address Library file was read: the same ids), 1.11.x builds other than 1.11.240
   (the 1.11 Address Library files give the ids; no exe), and anything in the game (no test run in Fallout 4 yet).
 
