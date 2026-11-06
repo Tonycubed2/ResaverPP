@@ -1,7 +1,9 @@
 // ReSaver++ command line: Fallout 4 companions (core/CompanionsFO4.h).
 //   resaverpp-cli <save.fos> --fo4-companions [--sources <Data or MO2 mods folder>]
 //   resaverpp-cli <save.fos> --fo4-set-affinity <ref hex>:<value> -o <out.fos>
+//   resaverpp-cli <save.fos> --fo4-quest-check --sources <Data or MO2 mods folder>   (core/QuestChecksFO4.h)
 #include "core/CompanionsFO4.h"
+#include "core/QuestChecksFO4.h"
 #include "core/PluginDB.h"
 #include "core/Save.h"
 #include "core/ScriptSources.h"
@@ -30,7 +32,7 @@ bool IsFo4CompanionsCommand(int argc, char** argv)
 {
 	for (int i = 2; i < argc; ++i) {
 		const std::string a = argv[i];
-		if (a == "--fo4-companions" || a == "--fo4-set-affinity") {
+		if (a == "--fo4-companions" || a == "--fo4-set-affinity" || a == "--fo4-quest-check") {
 			return true;
 		}
 	}
@@ -43,7 +45,7 @@ int Fo4CompanionsMain(int argc, char** argv)
 	bool        view = false;
 	std::uint32_t setRef = 0;
 	float       setValue = 0;
-	bool        set = false;
+	bool        set = false, questCheck = false;
 	for (int i = 2; i < argc; ++i) {
 		const std::string a = argv[i];
 		auto              next = [&]() -> std::string {
@@ -55,6 +57,8 @@ int Fo4CompanionsMain(int argc, char** argv)
 		};
 		if (a == "--fo4-companions") {
 			view = true;
+		} else if (a == "--fo4-quest-check") {
+			questCheck = true;
 		} else if (a == "--sources") {
 			sources = next();
 		} else if (a == "-o") {
@@ -81,8 +85,12 @@ int Fo4CompanionsMain(int argc, char** argv)
 			return 1;
 		}
 		std::unique_ptr<PluginDB> db;
+		ScriptSources             src;
+		if (questCheck && sources.empty()) {
+			std::fprintf(stderr, "--fo4-quest-check needs --sources <the game's Data folder or the MO2 mods folder>\n");
+			return 1;
+		}
 		if (!sources.empty()) {
-			ScriptSources src;
 			src.scan(sources);
 			PluginDB::Input in;
 			PrepareInput(*save, in);
@@ -143,8 +151,10 @@ int Fo4CompanionsMain(int argc, char** argv)
 					line += b;
 				} else if (!c.dogmeat) {
 					line += "affinity not saved";
+				} else {
+					line += "Dogmeat (no affinity)";
 				}
-				if (c.hasThreshold) {
+				if (c.hasThreshold && !c.dogmeat) {
 					std::snprintf(b, sizeof(b), ", threshold %g", c.threshold);
 					line += b;
 				}
@@ -184,6 +194,19 @@ int Fo4CompanionsMain(int argc, char** argv)
 				std::printf("[%s] %s\n    %s\n", LevelWord(f.level), f.title.c_str(), f.what.c_str());
 				for (const auto& cmd : f.console) {
 					std::printf("    console: %s\n", cmd.c_str());
+				}
+			}
+		}
+		if (questCheck) {
+			fo4quest::Stats st;
+			const auto      found = fo4quest::FindStoppedStages(*save, *db, src, &st);
+			std::printf("quest check: %zu running quests with stage scripts, %zu scripts read, %zu not found, %zu skipped (their script is "
+						"running or queued), %zu lines checked, %zu findings\n",
+				st.quests, st.scriptsRead, st.scriptsMissing, st.skippedRunning, st.checks, found.size());
+			for (const auto& f : found) {
+				std::printf("[PROBLEM] %s\n    %s\n", f.title.c_str(), f.what.c_str());
+				for (const auto& c : f.console) {
+					std::printf("    console: %s\n", c.c_str());
 				}
 			}
 		}
