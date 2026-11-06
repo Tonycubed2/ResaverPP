@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_set>
@@ -190,7 +191,7 @@ namespace ess::fo4cell
 
 		// The cells of the save (every CELL change form, the cells saved positions lie in) and a_extra when a plugin
 		// defines it, with the reason each one cannot be reset.
-		std::vector<CellInfo> Collect(const SaveFile& a_save, const fo4world::Lookup& a_lookup, std::uint32_t a_extra)
+		std::vector<CellInfo> Collect(const SaveFile& a_save, const fo4world::Lookup& a_lookup, const std::vector<std::uint32_t>& a_extra)
 		{
 			std::vector<CellInfo> out;
 			if (!a_save.isFO4()) {
@@ -332,8 +333,10 @@ namespace ess::fo4cell
 					}
 				}
 			}
-			if (a_extra && !byId.contains(a_extra) && RecordOf(a_lookup, a_extra).known) {
-				add(a_extra);
+			for (const auto extra : a_extra) {
+				if (extra && !byId.contains(extra) && RecordOf(a_lookup, extra).known) {
+					add(extra);
+				}
 			}
 			for (auto& ci : out) {
 				fromPlugins(ci);
@@ -411,14 +414,15 @@ namespace ess::fo4cell
 		}
 	}
 
-	std::vector<CellInfo> ListCells(const SaveFile& a_save, const fo4world::Lookup& a_lookup) { return Collect(a_save, a_lookup, 0); }
+	std::vector<CellInfo> ListCells(const SaveFile& a_save, const fo4world::Lookup& a_lookup) { return Collect(a_save, a_lookup, {}); }
 
-	std::string ResetCell(SaveFile& a_save, std::uint32_t a_cellFormID, const fo4world::Lookup& a_lookup)
+	namespace
 	{
-		if (!a_save.isFO4()) {
-			return "not a Fallout 4 save";
-		}
-		const auto cells = Collect(a_save, a_lookup, a_cellFormID);
+	// one cell of a_cells (the save's cells before any of this batch's edits; a cell's own data does not depend on the
+	// other cells' change forms)
+	std::string ResetOne(SaveFile& a_save, std::uint32_t a_cellFormID, const std::vector<CellInfo>& a_cells, const fo4world::Lookup& a_lookup)
+	{
+		const auto& cells = a_cells;
 		const auto it = std::find_if(cells.begin(), cells.end(), [&](const CellInfo& c) { return c.formID == a_cellFormID; });
 		if (it == cells.end()) {
 			const auto type = a_lookup.type ? a_lookup.type(a_cellFormID) : std::string();
@@ -521,5 +525,36 @@ namespace ess::fo4cell
 		a_save.changeForms.insert(a_save.changeForms.begin() + static_cast<std::ptrdiff_t>(at), std::move(copy));
 		a_save.reindexChangeForms();
 		return "";
+	}
+	}
+
+	std::string ResetCell(SaveFile& a_save, std::uint32_t a_cellFormID, const fo4world::Lookup& a_lookup)
+	{
+		return ResetCells(a_save, { a_cellFormID }, a_lookup).front();
+	}
+
+	std::vector<std::string> ResetCells(SaveFile& a_save, const std::vector<std::uint32_t>& a_cellFormIDs, const fo4world::Lookup& a_lookup)
+	{
+		std::vector<std::string> out;
+		if (!a_save.isFO4()) {
+			out.assign(std::max<std::size_t>(a_cellFormIDs.size(), 1), "not a Fallout 4 save");
+			return out;
+		}
+		const auto cells = Collect(a_save, a_lookup, a_cellFormIDs);
+		std::set<std::uint32_t> done;
+		for (const auto id : a_cellFormIDs) {
+			if (done.contains(id)) {
+				out.push_back(Hex(id) + ": a reset is already set for it");
+				continue;
+			}
+			out.push_back(ResetOne(a_save, id, cells, a_lookup));
+			if (out.back().empty()) {
+				done.insert(id);
+			}
+		}
+		if (out.empty()) {
+			out.push_back("no cell given");
+		}
+		return out;
 	}
 }

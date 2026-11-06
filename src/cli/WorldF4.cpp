@@ -162,8 +162,11 @@ int Fo4WorldMain(int argc, char** argv)
 							"next time it loads it.%s\n",
 					cells.size(), can, db ? "" : " (without --sources, indoors / outdoors comes from the save only)");
 			}
-			for (const auto id : ParseIds(resetIds)) {
-				const auto why = fo4cell::ResetCell(*save, id, look);
+			const auto ids = ParseIds(resetIds);
+			const auto results = ids.empty() ? std::vector<std::string>{} : fo4cell::ResetCells(*save, ids, look);
+			for (std::size_t k = 0; k < ids.size(); ++k) {
+				const auto id = ids[k];
+				const auto& why = results[k];
 				if (why.empty()) {
 					std::printf("cell %08X: reset set (detach time 0xFFFFFFFF): the game resets it the next time it loads it\n", id);
 					edited = true;

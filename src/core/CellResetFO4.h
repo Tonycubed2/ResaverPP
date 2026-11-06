@@ -93,4 +93,6 @@ namespace ess::fo4cell
 	// known place, and when the cell's change form cannot be read. Returns "" when done; the change form is decoded again
 	// before it is kept (nothing in the save changes when it does not read back).
 	std::string ResetCell(SaveFile& a_save, std::uint32_t a_cellFormID, const fo4world::Lookup& a_lookup = {});
+	// Several cells at once (the save's cells are read once): one result per id, "" for each one done.
+	std::vector<std::string> ResetCells(SaveFile& a_save, const std::vector<std::uint32_t>& a_cellFormIDs, const fo4world::Lookup& a_lookup = {});
 }
