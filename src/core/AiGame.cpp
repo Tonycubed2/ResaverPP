@@ -113,7 +113,7 @@ WHAT WORKS ON A FALLOUT 4 SAVE
 - Papyrus cleaning, each writing a new save with -o: --remove-unattached, --remove-undefined, --terminate-undefined, --remove-nonexistent, --purge-script <name> (--keep-instances, --delete-forms), --batch <list.txt>; --spawned / --remove-spawned-gone; --mods (scripts per mod), --report, --compare <other.fos>.
 - --remove-mod <plugin> (--dry-run first; the base game, DLC and Creation Club plugins are refused), --rename-plugin <old> <new>, --delete-form <formid>.
 - Quests: --quests [text] (state, stage, objectives, the Pip-Boy quest log; with --sources the names, stages and stage texts), --journal.
-- The player: fo4_player (level, experience, caps, S.P.E.C.I.A.L., perks with ranks, active effects) and fo4_edit_player (writes level, experience, caps, S.P.E.C.I.A.L., perk ranks, adds or removes perks; the same code as the app's Edit player window). The command line has --fo4-perks, --fo4-set-perk <id>:<rank>, --fo4-remove-perk <id>, --fo4-set-level <n>, --fo4-set-xp <n> too. Active effects are shown, not removed. Only perks the save already refers to can be added; a level can only be set once the character has levelled up in the game (before that the save keeps no level of its own).
+- The player: fo4_player (level, experience, caps, S.P.E.C.I.A.L., perks with ranks, active effects) and fo4_edit_player (writes level, experience, caps, S.P.E.C.I.A.L., perk ranks, adds or removes perks, removes active effects by their #number in fo4_player's list or all from one item/plugin with remove_effects_from; the same code as the app's Edit player window). The command line has --fo4-perks, --fo4-set-perk <id>:<rank>, --fo4-remove-perk <id>, --fo4-set-level <n>, --fo4-set-xp <n> too. A running effect that changes a stat has the stat put back as when it ends; fo4_player says per effect what removing it does, and which cannot be removed (with the reason). Stat-changing running effects need the plugin names, which only the save open in the app has. Only perks the save already refers to can be added; a level can only be set once the character has levelled up in the game (before that the save keeps no level of its own).
 - Items left by removed mods: leftover_items lists them (containers; actors whose saved data is read fully), remove_leftover_items takes them out into a new save.
 - Forms by name: find_form (the plugin names and editor IDs the app read from the Fallout 4 plugins).
 - Crash logs: run_cli {save} --crash-log <Buffout 4 crash log> finds the objects the log names in this save.
@@ -192,8 +192,8 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 				{ "--set-legendary", "Skyrim's legendary skills" },
 				{ "--set-bounty", "Skyrim's crime factions" },
 				{ "--clear-crimes", "Skyrim's crime factions" },
-				{ "--effects", "use fo4_player (it lists the active effects)" },
-				{ "--remove-effect", "active effects are only shown for Fallout 4 (fo4_player)" },
+				{ "--effects", "use fo4_player (it lists the active effects, numbered)" },
+				{ "--remove-effect", "use fo4_edit_player with remove_effects (numbers from fo4_player) or remove_effects_from" },
 				{ "--npcs", "Find NPCs reads Skyrim's actor data; in the running game GATHER calls your companion and Dogmeat" },
 				{ "--move-to-player", "moving actors reads Skyrim's actor data; in the running game GATHER calls your companion and Dogmeat" },
 				{ "--reset-ai", "reads Skyrim's actor data" },
