@@ -1044,6 +1044,10 @@ void App::draw()
 		watchdog::Section("drawTransplant");
 		drawTransplant();
 	}
+	if (_showF4World && _save) {
+		watchdog::Section("drawF4World");
+		drawF4World();
+	}
 	if (_showAnalysis) {
 		watchdog::Section("drawAnalysis");
 		drawAnalysis();
@@ -1309,6 +1313,11 @@ void App::drawMenu()
 		tips::Tip(tr("Everything ReSaver++ noticed about this save, and what can safely be done about it."));
 		ImGui::MenuItem(tr("Transplant progress from a bad save..."), nullptr, &_showTransplant);
 		tips::Tip(tr("Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one."));
+		if (fo4()) {
+			ImGui::MenuItem(tr("World items and areas..."), nullptr, &_showF4World);
+			tips::Tip(tr("Items dropped or spawned in the world, by place and by mod, and remove them; or reset an area as the game's "
+						 "ResetInterior does."));
+		}
 		ImGui::MenuItem(tr("Analysis"), nullptr, &_showAnalysis);
 		tips::Tip(tr("A text report of the save: which mods and scripts take the most space and run the most."));
 		if (ImGui::MenuItem(tr("Report..."))) {

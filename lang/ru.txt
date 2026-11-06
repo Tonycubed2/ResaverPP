@@ -10815,3 +10815,173 @@ tr "ReSaverHelper вносит предметы, перки и стадии кв
 
 en "  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's change forms decoded are greyed out)"
 tr "  (работают инструменты очистки, списки скриптов, моды, логи и конфликты файлов; инструменты, которым нужны расшифрованные изменённые формы сохранения, неактивны)"
+
+# App.cpp:1317  ImGui::MenuItem(tr("World items and areas..."), nullptr, &_showF4World);
+en "World items and areas..."
+tr "Предметы в мире и локации..."
+
+# App.cpp:1318  tips::Tip(tr("Items dropped or spawned in the world, by place and by mod, and remove them; or reset an area as the game's "
+en "Items dropped or spawned in the world, by place and by mod, and remove them; or reset an area as the game's ResetInterior does."
+tr "Предметы, выброшенные или появившиеся в мире, по местам и по модам, и их удаление; или сброс локации, как это делает команда игры ResetInterior."
+
+# AppCheck.cpp:447  it.title = Fmt(tr("%zu dropped or spawned items lie in the world"), n);
+en "%zu dropped or spawned items lie in the world"
+tr "В мире лежит %zu выброшенных или появившихся предметов"
+
+# AppCheck.cpp:448  it.what = tr("Each one is kept in the save. Thousands of them make the save bigger and areas slower to load.");
+en "Each one is kept in the save. Thousands of them make the save bigger and areas slower to load."
+tr "Каждый из них хранится в сохранении. Тысячи таких предметов увеличивают сохранение и замедляют загрузку локаций."
+
+# AppCheck.cpp:450  o.label = tr("Show World items and areas");
+en "Show World items and areas"
+tr "Открыть «Предметы в мире и локации»"
+
+# AppCheck.cpp:452  o.why = tr("Only shows them; you choose what to remove there.");
+en "Only shows them; you choose what to remove there."
+tr "Только показывает их; что удалить, вы выбираете там."
+
+# AppF4World.cpp:116  if (!ImGui::Begin(trId("World items and areas"), &_showF4World, ImGuiWindowFlags_NoCollapse)) {
+en "World items and areas"
+tr "Предметы в мире и локации"
+
+# AppF4World.cpp:126  tr("Your mods are not scanned yet (or are still being scanned): names, kinds and places show as form IDs until then."));
+en "Your mods are not scanned yet (or are still being scanned): names, kinds and places show as form IDs until then."
+tr "Ваши моды ещё не просканированы (или сканируются): до этого названия, виды и места показываются как ID форм."
+
+# AppF4World.cpp:138  if (ImGui::BeginTabItem(trId("Dropped and created items"), nullptr, f0)) {
+en "Dropped and created items"
+tr "Выброшенные и созданные предметы"
+
+# AppF4World.cpp:142  ImGui::TextWrapped("%s", tr("Things lying in the world that the game made while you played: items you dropped, loot spilled from "
+en "Things lying in the world that the game made while you played: items you dropped, loot spilled from containers and bodies, objects spawned by scripts. They are kept in the save one by one, so thousands of them make the save bigger and areas slower to load. Removing one takes it out of the save: it is gone from the world when you load. Items in inventories are not listed."
+tr "Вещи в мире, созданные игрой во время прохождения: выброшенные вами предметы, добыча, выпавшая из контейнеров и тел, объекты, созданные скриптами. Каждая хранится в сохранении отдельно, поэтому тысячи таких вещей увеличивают сохранение и замедляют загрузку локаций. Удаление убирает предмет из сохранения: после загрузки его нет в мире. Предметы в инвентарях не показываются."
+
+# AppF4World.cpp:146  ImGui::TextDisabled("%s", tr("Kept (cannot be removed here): quest items (quest aliases), objects with scripts on them, objects held "
+en "Kept (cannot be removed here): quest items (quest aliases), objects with scripts on them, objects held by someone, and objects whose ID appears anywhere else in the save, so nothing is left pointing at a missing object."
+tr "Остаются (здесь не удаляются): квестовые предметы (псевдонимы квестов), объекты со скриптами, объекты, которые кто-то держит, и объекты, чей ID встречается где-либо ещё в сохранении, чтобы ничто не ссылалось на пропавший объект."
+
+# AppF4World.cpp:149  ImGui::Checkbox(tr("Group by mod"), &s.byMod);
+en "Group by mod"
+tr "Группировать по модам"
+
+# AppF4World.cpp:151  ImGui::Checkbox(tr("Also other spawned objects"), &s.otherObjects);
+en "Also other spawned objects"
+tr "Также другие созданные объекты"
+
+# AppF4World.cpp:152  tips::Tip(tr("Furniture, workshop builds, markers, activators and the like: not items. Most of them belong to settlements or quests; "
+en "Furniture, workshop builds, markers, activators and the like: not items. Most of them belong to settlements or quests; remove only what you know."
+tr "Мебель, постройки мастерской, маркеры, активаторы и т. п.: не предметы. Большинство из них относится к поселениям или квестам; удаляйте только то, в чём уверены."
+
+# AppF4World.cpp:155  ImGui::Checkbox(tr("Only removable"), &s.onlyRemovable);
+en "Only removable"
+tr "Только удаляемые"
+
+# AppF4World.cpp:158  ImGui::InputTextWithHint("##wfilter", tr("filter: name, place, mod, ID"), s.filter, sizeof(s.filter));
+en "filter: name, place, mod, ID"
+tr "фильтр: название, место, мод, ID"
+
+# AppF4World.cpp:186  ImGui::Text("%s", Fmt(tr("%zu object(s) (%lld counting stacks) in %zu group(s); %zu removable; %zu selected. %zu more are in inventories."),
+en "%zu object(s) (%lld counting stacks) in %zu group(s); %zu removable; %zu selected. %zu more are in inventories."
+tr "Объектов: %zu (%lld с учётом стопок) в группах: %zu; удаляемых: %zu; выбрано: %zu. Ещё %zu в инвентарях."
+
+# AppF4World.cpp:189  if (ImGui::Button(tr("Select all removable shown"))) {
+en "Select all removable shown"
+tr "Выбрать все показанные удаляемые"
+
+# AppF4World.cpp:195  if (ImGui::Button(tr("Clear selection"))) s.selected.clear();
+en "Clear selection"
+tr "Снять выбор"
+
+# AppF4World.cpp:198  if (ImGui::Button(Fmt(tr("Remove selected (%zu)"), s.selected.size()).c_str())) {
+en "Remove selected (%zu)"
+tr "Удалить выбранные (%zu)"
+
+# AppF4World.cpp:200  confirm(tr("Remove world items"),
+en "Remove world items"
+tr "Удаление предметов из мира"
+
+# AppF4World.cpp:201  Fmt(tr("Remove %zu object(s) from the world?\n\nTheir saved data is taken out of the save; when you load it they are "
+en "Remove %zu object(s) from the world?\n\nTheir saved data is taken out of the save; when you load it they are gone. Nothing else in the save changes. Keep a copy of the save (File > Save As writes a new file)."
+tr "Удалить из мира объекты (%zu)?\n\nИх данные убираются из сохранения; после загрузки их не будет. Больше в сохранении ничего не меняется. Сохраните копию сохранения («Файл > Сохранить как» пишет новый файл)."
+
+# AppF4World.cpp:207  markEdited(Fmt(tr("Removed %zu object(s) from the world (%zu kept)"), r.removed, r.refused.size()));
+en "Removed %zu object(s) from the world (%zu kept)"
+tr "Удалено объектов из мира: %zu (оставлено: %zu)"
+
+# AppF4World.cpp:217  ImGui::TableSetupColumn(tr("Object"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+en "Object"
+tr "Объект"
+
+# AppF4World.cpp:218  ImGui::TableSetupColumn(tr("Kind"), ImGuiTableColumnFlags_WidthStretch, 1.6f);
+en "Kind"
+tr "Вид"
+
+# AppF4World.cpp:221  ImGui::TableSetupColumn(tr("ID"), ImGuiTableColumnFlags_WidthFixed, 80);
+# AppF4World.cpp:311  ImGui::TableSetupColumn(tr("ID"), ImGuiTableColumnFlags_WidthFixed, 80);
+en "ID"
+tr "ID"
+
+# AppF4World.cpp:222  ImGui::TableSetupColumn(tr("Can remove"), ImGuiTableColumnFlags_WidthStretch, 2.6f);
+en "Can remove"
+tr "Можно удалить"
+
+# AppF4World.cpp:243  Fmt(tr("%s  (%zu objects, %lld in all, %zu removable)"), key.c_str(), g.items.size(), g.total, g.removable).c_str());
+en "%s  (%zu objects, %lld in all, %zu removable)"
+tr "%s  (объектов: %zu, всего: %lld, удаляемых: %zu)"
+
+# AppF4World.cpp:270  ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(theme::Dim()), "%s", (tr("kept: ") + it->why).c_str());
+en "kept: "
+tr "остаётся: "
+
+# AppF4World.cpp:282  if (ImGui::BeginTabItem(trId("Reset an area"), nullptr, f1)) {
+# AppF4World.cpp:340  confirm(tr("Reset an area"),
+en "Reset an area"
+tr "Сброс локации"
+
+# AppF4World.cpp:290  ImGui::TextWrapped("%s", tr("Reset an area does what the game's console command ResetInterior does: the cell is marked to reset, and "
+en "Reset an area does what the game's console command ResetInterior does: the cell is marked to reset, and the game resets it the next time it loads it, by its own rules. Dropped and spawned items in it are deleted (not quest items, not things someone holds), and the objects placed in it by the game and mods go through the game's own respawn code, as when a cell respawns after a while."
+tr "Сброс локации делает то же, что консольная команда игры ResetInterior: ячейка помечается для сброса, и игра сбрасывает её при следующей загрузке по своим правилам. Выброшенные и созданные предметы в ней удаляются (кроме квестовых и тех, что кто-то держит), а объекты, размещённые в ней игрой и модами, проходят через собственный код возрождения игры, как при возрождении ячейки через некоторое время."
+
+# AppF4World.cpp:294  ImGui::TextDisabled("%s", tr("Not done: the player's cell and the cells loaded around the player (the game does not reset a cell "
+en "Not done: the player's cell and the cells loaded around the player (the game does not reset a cell while a save loads), an outdoor cell the save has no coordinates for, and a cell the save does not say is indoors. Only what is in the cell when the game resets it is touched: an actor that walked elsewhere is not. Settlements: their workshop objects belong to the settlement; resetting a settlement cell is not recommended."
+tr "Не выполняется: для ячейки игрока и ячеек, загруженных вокруг него (игра не сбрасывает ячейку во время загрузки сохранения), для наружной ячейки без координат в сохранении и для ячейки, о которой сохранение не говорит, что она внутренняя. Затрагивается только то, что находится в ячейке в момент сброса: персонаж, ушедший в другое место, не затрагивается. Поселения: их объекты мастерской принадлежат поселению; сбрасывать ячейку поселения не рекомендуется."
+
+# AppF4World.cpp:299  ImGui::Checkbox(tr("Only cells with saved changes in them"), &s.cellsChangedOnly);
+en "Only cells with saved changes in them"
+tr "Только ячейки с сохранёнными изменениями"
+
+# AppF4World.cpp:302  ImGui::InputTextWithHint("##cfilter", tr("filter: name or ID"), s.cellFilter, sizeof(s.cellFilter));
+en "filter: name or ID"
+tr "фильтр: название или ID"
+
+# AppF4World.cpp:307  ImGui::TableSetupColumn(tr("Cell"), ImGuiTableColumnFlags_WidthStretch, 2.6f);
+en "Cell"
+tr "Ячейка"
+
+# AppF4World.cpp:309  ImGui::TableSetupColumn(tr("Dropped items"), ImGuiTableColumnFlags_WidthFixed, 110);
+en "Dropped items"
+tr "Выброшенные предметы"
+
+# AppF4World.cpp:310  ImGui::TableSetupColumn(tr("Changed objects"), ImGuiTableColumnFlags_WidthFixed, 120);
+en "Changed objects"
+tr "Изменённые объекты"
+
+# AppF4World.cpp:317  : std::string(tr("indoors"));
+en "indoors"
+tr "внутри"
+
+# AppF4World.cpp:327  if (c.createdItems) tips::Tip(Fmt(tr("%zu of them would be deleted by the reset."), c.createdRemovable).c_str());
+en "%zu of them would be deleted by the reset."
+tr "Из них при сбросе будет удалено: %zu."
+
+# AppF4World.cpp:341  Fmt(tr("Reset %s?\n\nThe game resets this cell the next time you go there: its dropped and spawned items are "
+en "Reset %s?\n\nThe game resets this cell the next time you go there: its dropped and spawned items are deleted (not quest items) and what is placed in it goes through the game's own respawn code. This is what the console command ResetInterior does. Keep a copy of the save."
+tr "Сбросить %s?\n\nИгра сбросит эту ячейку, когда вы туда придёте в следующий раз: выброшенные и созданные предметы в ней удаляются (кроме квестовых), а размещённое в ней проходит через собственный код возрождения игры. Это то же, что делает консольная команда ResetInterior. Сохраните копию сохранения."
+
+# AppF4World.cpp:348  markEdited(Fmt(tr("Reset set for %s: the game resets it the next time it loads it"), label.c_str()));
+en "Reset set for %s: the game resets it the next time it loads it"
+tr "Сброс назначен для %s: игра сбросит её при следующей загрузке"
+
+# AppF4World.cpp:350  _status = tr("Not reset: ") + why;
+en "Not reset: "
+tr "Не сброшено: "

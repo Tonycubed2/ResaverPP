@@ -121,6 +121,8 @@ WHAT WORKS ON A FALLOUT 4 SAVE
 - Reset Havok (--reset-havok -o <new save>: empties the saved physics data of objects, so they settle again; the game itself writes empty physics data) and Purify FormLists (--purify-formlists -o <new save>: removes empty entries from form lists).
 - Merged patch (--merged-patch <out.esp> --sources <mods folder> --game <Fallout 4 folder>, or the app's Merged patch window): merges leveled items, leveled NPCs, leveled spells, containers, form lists, outfits, misc items, keys, NPCs, armour, weapons, ammunition, books, potions, ingredients, spells and cells (a cell's previs and precombined data stays the winning mod's; worldspaces are only copied in as the parent of a merged exterior cell).
 - Mods: missing plugins, file conflicts and BA2 archives (--bsa-list / --bsa-find / --bsa-extract read .ba2 too, --file-conflicts).
+- Dropped and created items lying in the world (spawned FF objects, not in inventories): run_cli {save} --fo4-world-items (--sources for names and kinds; --all-objects adds non-items such as workshop builds) lists them by cell and by mod with counts, and says which can be removed; --fo4-remove-world-items <ids|all> -o <new save> removes them (their change forms; the game keeps nothing else about them). Kept, with the reason: quest items (quest aliases), objects with scripts on them, objects held by someone, and objects whose id appears anywhere else in the save. The app's Tools > World items and areas window does the same.
+- Reset an area: run_cli {save} --fo4-cells lists the cells the save knows; --fo4-reset-cell <cell id> -o <new save> does what the console command ResetInterior does: the game resets that cell the next time it loads it (by its own rules: dropped and spawned items in it are deleted except quest items and things someone holds; the objects placed in it go through the game's own respawn code; only what is in the cell then is touched, an actor that walked elsewhere is not). Not the player's cell or the cells loaded around the player (refused); an exterior cell the save has no coordinates for and a cell the save does not say is an interior are refused too. In the running game the user can type ResetInterior <cell id> while outside it instead.
 
 NOT AVAILABLE FOR FALLOUT 4 SAVES (say so plainly instead of trying; offer what works)
 - Skyrim's player options (--player, --set-gold, --set-skill, --set-level, --set-xp, --set-perks, --set-souls, --set-av, --set-item, --remove-item, --remove-spell, --set-legendary, --set-bounty, --clear-crimes, --effects, --remove-effect): use fo4_player / fo4_edit_player.
@@ -162,6 +164,7 @@ RECIPES (Fallout 4)
 - Stuck quest: --quests <name or editor id> (with --sources for names and stage texts); in the running game APPLY setstage, or the console command for the user.
 - Lost companion: game_command GATHER. Stuck, cannot move: CONTROLS (CONTROLSRESET afterwards); RESCUE also saves and calls the companion.
 - Player: fo4_player, then fo4_edit_player with out from suggest_save_name.
+- Too many dropped items, junk piled up somewhere, an area that should look fresh again: --fo4-world-items, then --fo4-remove-world-items or --fo4-reset-cell.
 - --sources <mods folder> and --profile <MO2 profile folder> let the command line read the installed mods; use the values in CURRENT STATE when they are set.
 )T";
 

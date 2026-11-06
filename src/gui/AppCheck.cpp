@@ -438,6 +438,28 @@ std::vector<App::CheckItem> App::checkItems()
 		}
 	}
 
+	// Fallout 4: many dropped / spawned items lying in the world (AppF4World.cpp)
+	if (fo4()) {
+		const auto n = f4WorldRemovable();
+		if (n >= 500) {
+			CheckItem it;
+			it.level = Risk::kInfo;
+			it.title = Fmt(tr("%zu dropped or spawned items lie in the world"), n);
+			it.what = tr("Each one is kept in the save. Thousands of them make the save bigger and areas slower to load.");
+			CheckOption o;
+			o.label = tr("Show World items and areas");
+			o.risk = Risk::kSafe;
+			o.why = tr("Only shows them; you choose what to remove there.");
+			o.act = [this] {
+				_showF4World = true;
+				_f4WorldTab = 0;
+				_showCheck = false;
+			};
+			it.options.push_back(std::move(o));
+			v.push_back(std::move(it));
+		}
+	}
+
 	// the journal shows objectives of quests that are over (Skyrim's quest data)
 	if (!fo4()) {
 		std::size_t shownDone = 0;
