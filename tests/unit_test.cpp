@@ -2449,9 +2449,8 @@ void TestFo4ActorPackages()
 				}
 			}
 		}
-		// nearly every NPC whose reference part reads must read to the end of its body now (a few actors still stop
-		// in Havok objects or the 0x87c540 block)
-		Check(refrRead > 0 && complete * 100 >= refrRead * 97, ("fo4 actors: 97% of the NPCs read completely in " + name + " (" +
+		// every NPC must read to the end of its body (TestFo4Combat checks every ACHR, the player included)
+		Check(refrRead > 0 && complete == npcs, ("fo4 actors: every NPC reads completely in " + name + " (" +
 		      std::to_string(complete) + " of " + std::to_string(refrRead) + ")").c_str());
 		if (perPlugin.empty()) continue;
 		const auto plugin = std::max_element(perPlugin.begin(), perPlugin.end(), [](auto& x, auto& y) { return x.second < y.second; })->first;
@@ -2505,6 +2504,217 @@ void TestFo4ActorPackages()
 	std::error_code ec;
 	fs::remove(tmp, ec);
 	std::printf("(fo4 actors: %zu real saves)\n", tested);
+}
+
+// Fallout 4 actors: the combat controller (CombatController::LoadGame 0x87c540) and the combat objects (0xed5cf0), the
+// extra data lists 0x32 / 0x34 / 0x44 / 0x87 and 0x9d, a created package's data object (mask bit 4) and the package
+// data class names the game registers; on bytes laid out as the game reads them (layouts checked against the game's
+// loader in tools/fo4emu), then with RESAVERPP_FO4_SAVES every NPC of every real save read completely.
+void TestFo4Combat()
+{
+	using B = std::vector<std::uint8_t>;
+	auto u8 = [](B& b, std::uint8_t v) { b.push_back(v); };
+	auto u16 = [](B& b, std::uint16_t v) { b.push_back(static_cast<std::uint8_t>(v)); b.push_back(static_cast<std::uint8_t>(v >> 8)); };
+	auto u32 = [](B& b, std::uint32_t v) { for (int i = 0; i < 4; ++i) b.push_back(static_cast<std::uint8_t>(v >> (8 * i))); };
+	auto u64 = [&](B& b, std::uint64_t v) { u32(b, static_cast<std::uint32_t>(v)); u32(b, static_cast<std::uint32_t>(v >> 32)); };
+	auto raw = [](B& b, std::size_t n) { b.insert(b.end(), n, 0); };
+	auto ref = [](B& b, std::uint32_t formID) { const std::uint32_t d = formID ? ((1u << 22) | formID) : 0; b.push_back(d >> 16); b.push_back(d >> 8); b.push_back(d); };
+	auto vs = [](B& b, std::uint32_t v) { b.push_back(static_cast<std::uint8_t>(v << 2)); };  // below 64
+	auto ws = [&](B& b, const std::string& t) { u16(b, static_cast<std::uint16_t>(t.size())); b.insert(b.end(), t.begin(), t.end()); };
+	// reads a_b with a_fn: "" when it ends exactly at the end, else what happened
+	auto run = [](const B& a_b, auto a_fn, std::uint32_t a_ver = 68) -> std::string {
+		ess::Reader r(a_b.data(), a_b.size());
+		ess::fo4cf::detail::In in{ r, a_ver };
+		try {
+			a_fn(in);
+		} catch (const std::exception& e) {
+			return e.what();
+		}
+		return r.pos() == a_b.size() ? std::string() : "stopped at " + std::to_string(r.pos()) + " of " + std::to_string(a_b.size());
+	};
+	auto object = [](ess::fo4cf::detail::In& in) { ess::fo4cf::detail::Object(in); };
+
+	{  // CombatAreaHoldPosition: the type registry's values (0x89cb10) take the FIRST entry with the hash (0xE9DCB5DD:
+	   // entry 3, 32 bytes, not entry 5's 52), an unknown hash entry 0 (12 bytes), 0xFFFFFFFF nothing
+		B b;
+		u64(b, 0x1CEAFB23A11ull);
+		u32(b, 0x55FAB455);
+		ref(b, 0x10); u32(b, 1); u8(b, 0); u8(b, 1); u32(b, 0); u32(b, 0); u32(b, 0xFFFFFFFF); ref(b, 0);  // the area part
+		ref(b, 0x11); u32(b, 0); u32(b, 0);
+		vs(b, 2);
+		u32(b, 0); u32(b, 0xE9DCB5DD); u16(b, 0); u8(b, 0); raw(b, 32); ref(b, 0); ref(b, 0x12);
+		u32(b, 1); u32(b, 0x12345678); u16(b, 0); u8(b, 0); raw(b, 12); ref(b, 0); ref(b, 0);
+		u32(b, 0); u32(b, 0); u32(b, 0);
+		Check(run(b, object).empty(), "fo4 combat: CombatAreaHoldPosition with registry values (first entry with the hash; unknown hash -> entry 0)");
+		B even; u64(even, 0x1CEAFB23A10ull);
+		Check(run(even, object).empty(), "fo4 combat: an even object id reads nothing more");
+		B none; u64(none, 0);
+		Check(run(none, object).empty(), "fo4 combat: object id 0 is no object");
+	}
+	{  // an odd id seen again is loaded by the object already known under it (0xed5b40), whatever class id follows
+		B b;
+		u64(b, 0x2001ull); u32(b, 0xA0DD2269); ref(b, 0x20);   // CombatPositionTracker: a form id
+		u64(b, 0x2001ull); u32(b, 0xC8CC82FC); ref(b, 0x21);   // the same object again: still a form id, not 20 bytes
+		Check(run(b, [&](ess::fo4cf::detail::In& in) { object(in); object(in); }).empty(),
+			"fo4 combat: an odd object id read again is loaded by its first class");
+		B u; u64(u, 0x3001ull); u32(u, 0xDEADBEEF);
+		Check(run(u, object).find("0xDEADBEEF") != std::string::npos, "fo4 combat: an unknown object class stops the decoder");
+	}
+	{  // the combat controller with every part: named values and the tree state are sized blocks
+		auto build = [&](bool a_new) {
+			B b;
+			ref(b, 0x30); ref(b, 0x14); u32(b, 0x72); u32(b, 1); u32(b, 0);
+			for (int i = 0; i < 5; ++i) u8(b, 0);
+			u32(b, 0); u32(b, 0); u32(b, 0);
+			vs(b, 1); u64(b, 0x4001ull); u32(b, 0xC5642853); raw(b, 12); u32(b, 3); u32(b, 2); u32(b, 0); u32(b, 0);
+			u32(b, 0xFFFFFFFF); u32(b, 0xFFFFFFFF);
+			vs(b, 0);
+			u32(b, 0);
+			vs(b, 1); u64(b, 0x4003ull); u32(b, 0x5ACB99C8); ref(b, 0x31); u32(b, 0); u32(b, 1); ref(b, 0x32); u16(b, 2); u16(b, 0); u32(b, 0); u32(b, 7);
+			u32(b, 0);
+			vs(b, 0);
+			u64(b, 0x4000ull);  // an object read before
+			u64(b, 0);
+			vs(b, 0);
+			vs(b, 1); ws(b, "Key"); ws(b, "Value");
+			// 0xeda730
+			for (int i = 0; i < 4; ++i) u8(b, 0);
+			if (a_new) u8(b, 0);  // form version 0x14 and up
+			for (int i = 0; i < 4; ++i) u8(b, 0);
+			u32(b, 0); raw(b, 12); raw(b, 12); u32(b, 0); u32(b, 0); u8(b, 4); u8(b, 4); u32(b, 0); u32(b, 0); u8(b, 0); u32(b, 0);
+			for (int i = 0; i < 8; ++i) u32(b, 0);
+			vs(b, 1); ref(b, 0x33); raw(b, 12); ref(b, 0); u32(b, 0); u32(b, 0);
+			vs(b, 1); raw(b, 12); ref(b, 0x34); u32(b, 0);
+			vs(b, 2); ref(b, 0x35); ref(b, 0x36);
+			u8(b, 0); u32(b, 0); u32(b, 0); u32(b, 0); u32(b, 0);
+			// 0xea7100
+			for (int i = 0; i < 13; ++i) u32(b, 0);
+			u16(b, 0);
+			if (a_new) u16(b, 0);  // form version 0x33 and up
+			u32(b, 0); u32(b, 0); u16(b, 2);
+			for (int i = 0; i < 7; ++i) vs(b, 0);
+			vs(b, 0); u16(b, 3); u32(b, 0); u32(b, 0); u32(b, 0); u32(b, 0);
+			vs(b, 0); u16(b, 3); u32(b, 0); u32(b, 0); u32(b, 0); u32(b, 0);
+			vs(b, 0);
+			vs(b, 1); ref(b, 0x37); u32(b, 0);
+			vs(b, 0);
+			vs(b, 0);
+			vs(b, 0);
+			// 0xe75e30: two named values (sized: the reader ends at the saved size)
+			vs(b, 2); ws(b, "DialogueAttackTimer"); vs(b, 8); u32(b, 0); u32(b, 0x40A00000);
+			ws(b, "NotAKnownName"); vs(b, 3); raw(b, 3);
+			u32(b, 0);
+			// 0xeff4d0
+			u32(b, 0x16); u8(b, 1); vs(b, 16); raw(b, 16);
+			vs(b, 1); u32(b, 0x15);
+			vs(b, 1); ws(b, "Node"); u32(b, 1); vs(b, 1); u32(b, 2); vs(b, 1); u32(b, 3); u32(b, 4);
+			return b;
+		};
+		auto cc = [](ess::fo4cf::detail::In& in) { ess::fo4cf::detail::CombatController(in); };
+		Check(run(build(true), cc).empty(), "fo4 combat: the combat controller (0x87c540) with every part reads exactly");
+		Check(run(build(false), cc, 0x13).empty() && !run(build(true), cc, 0x13).empty(),
+			"fo4 combat: the combat controller's form version branches (0x14, 0x33)");
+	}
+
+	{  // extra data lists: 0x32 (form id + active effects), 0x34, 0x44, 0x87 with entries; 0x9d a form id
+		B e;
+		vs(e, 7);
+		u8(e, 0x79); u32(e, 1); u32(e, 2);
+		u8(e, 0xa9); u32(e, 1); ref(e, 0x46); ref(e, 0x47); u8(e, 0);
+		u8(e, 0x32); ref(e, 0x40); vs(e, 1); ref(e, 0x41); u8(e, 0); vs(e, 2); vs(e, 4); u32(e, 0);
+		u8(e, 0x34); vs(e, 2); u32(e, 1); u32(e, 2); u32(e, 3); u32(e, 4);
+		u8(e, 0x44); vs(e, 3); u32(e, 0); u32(e, 0); u32(e, 0);
+		u8(e, 0x87); raw(e, 12); ref(e, 0x42); u32(e, 0); vs(e, 1); raw(e, 12); ref(e, 0x43); raw(e, 12); ref(e, 0x44); u8(e, 1);
+		u8(e, 0x9d); ref(e, 0x45);
+		ess::SaveFile save;
+		save.header.magic = "FO4_SAVEGAME";
+		save.formVersion = 68;
+		ess::ChangeForm c;
+		c.refID.data = (1u << 22) | 0xC02;
+		c.typeField = 0;
+		c.changeFlags = 1u << 10;
+		c.data = e;
+		c.length1 = static_cast<std::uint32_t>(e.size());
+		const auto d = ess::fo4cf::DecodeRefr(save, c);
+		Check(d.complete && d.extras.size() == 7 && d.extras[0].range.size() == 9 && d.extras[1].range.size() == 12 &&
+		          d.extras[3].type == 0x34 && d.extras[6].type == 0x9d &&
+		          d.extras[3].range.size() == 18 && d.extras[5].range.size() == 1 + 12 + 3 + 4 + 1 + 12 + 3 + 12 + 3 + 1,
+			"fo4 extra data: 0x32, 0x34, 0x44 and 0x87 are lists, 0x9d a form id, 0x79 two u32, 0xa9 u32 + two form ids + u8");
+	}
+	{  // a created package's data object (mask bit 4): Follow, UseItem, Patrol, Custom; none for other types
+		auto pkg = [&](int a_type, const B& a_data) {
+			B b; raw(b, 12); u8(b, 4); b.insert(b.end(), a_data.begin(), a_data.end()); u32(b, 0);
+			return run(b, [a_type](ess::fo4cf::detail::In& in) { ess::fo4cf::detail::CreatedPackage(in, static_cast<std::uint8_t>(a_type)); });
+		};
+		B follow; u32(follow, 5); u8(follow, 1); u8(follow, 0); u32(follow, 0); ref(follow, 0x50);
+		B useItem; u8(useItem, 0);
+		B patrol; u8(patrol, 1); u8(patrol, 0);
+		Check(pkg(1, follow).empty() && pkg(8, useItem).empty() && pkg(13, patrol).empty() && pkg(18, {}).empty() && pkg(19, {}).empty(),
+			"fo4 package: a created package's data object (Follow, UseItem, Patrol, Custom)");
+		Check(!pkg(2, {}).empty(), "fo4 package: a created package type without a data object stops the decoder");
+	}
+	{  // package data objects by the names the game registers: SingleRef (a target), Ref (nothing), LocWrapper
+		B b;
+		u32(b, 0);
+		vs(b, 4);
+		u8(b, 0); ws(b, "SingleRef"); u8(b, 0); u32(b, 0); ref(b, 0x60);
+		u8(b, 1); ws(b, "Ref");
+		u8(b, 2); ws(b, "LocWrapper"); u8(b, 1); ws(b, "Prim"); ref(b, 0x61); u8(b, 0);
+		u8(b, 3); ws(b, "LocationSelector"); u8(b, 5); u32(b, 0); u32(b, 9);
+		ws(b, "");
+		auto pd = [](ess::fo4cf::detail::In& in) { ess::fo4cf::detail::PackageData(in, 18); };
+		Check(run(b, pd).empty(), "fo4 package: data objects SingleRef, Ref, LocWrapper and LocationSelector read as the game's classes");
+		B old;
+		u32(old, 0); vs(old, 1); u8(old, 0); ws(old, "LocationWrapper"); u8(old, 0); ws(old, "");
+		Check(!run(old, pd).empty(), "fo4 package: a name the game does not register stops the decoder");
+	}
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 combat: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	namespace fs = std::filesystem;
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	std::size_t tested = 0, combat = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		if (!s->isFO4()) continue;
+		std::size_t achr = 0, complete = 0;
+		std::string first;
+		for (const auto& c : s->changeForms) {
+			if (c.typeCode() != 1) continue;
+			++achr;
+			const auto a = ess::fo4cf::DecodeActor(*s, c);
+			complete += a.complete;
+			combat += a.complete && a.hasCombat;
+			if (!a.complete && first.empty()) first = a.error;
+		}
+		Check(achr > 0 && complete == achr, ("fo4 combat: every ACHR of " + f.filename().string() + " read to the end of its body (" +
+		      std::to_string(complete) + " of " + std::to_string(achr) + (first.empty() ? "" : "; " + first) + ")").c_str());
+		++tested;
+	}
+	Check(tested == 0 || combat > 0, "fo4 combat: the real saves have actors with a combat controller, read completely");
+	std::printf("(fo4 combat: %zu real saves, %zu actors with a combat controller)\n", tested, combat);
 }
 
 // Fallout 4 player: the PlayerCharacter part (PlayerCharacter::LoadGame 0xd65bd0 after Actor::LoadGame) read through
@@ -2899,6 +3109,7 @@ int main()
 	TestFo4HavokFormLists();
 	TestFo4ActorPackages();
 	TestFo4Player();
+	TestFo4Combat();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

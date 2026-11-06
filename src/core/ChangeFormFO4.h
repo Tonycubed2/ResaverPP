@@ -182,6 +182,8 @@ namespace ess::fo4cf
 		// after the actor values (Actor::LoadGame from 0xc8b0d2)
 		bool          hasController = false;  // the movement controller (0xdc8e40) was saved
 		Range         controllerRange;
+		bool          hasCombat = false;      // the combat controller (0x87c540) was saved
+		Range         combatRange;
 		bool          hasPerks = false;       // the perk lists (0x986b40) were saved
 		Range         perksRange;             // the three lists (begin = the first vsval)
 		Range         perkList;               // the first list with its vsval count

@@ -5,6 +5,7 @@
 #include "ChangeFormFO4.h"
 
 #include <cstdint>
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -28,6 +29,9 @@ namespace ess::fo4cf::detail
 		// Actor::LoadGame; an id seen for the first time is followed by the object it stands for)
 		std::set<std::uint32_t> ids68, ids70, ids78;
 		bool                    noTable = false;  // no pointer id table (a REFR's own extra data): an id stops reading
+		// the combat objects already read in this change form (0xed5cf0: id with bit 0 cleared -> class id); an odd id
+		// seen again is loaded again by the object it stands for
+		std::map<std::uint64_t, std::uint32_t> objects;
 
 		void          mark(char k) { if (trace) trace->push_back({ static_cast<std::uint32_t>(r.pos()), k }); }
 		void          raw(std::size_t n) { mark('R'); r.need(n); r.seek(r.pos() + n); }
@@ -79,6 +83,11 @@ namespace ess::fo4cf::detail
 	void PackageData(In& b, std::uint8_t a_type);
 	// A created package's own form (a_type: its package type), read before the type byte by 0xcea430.
 	void CreatedPackage(In& b, std::uint8_t a_type);
+	// A combat object pointer (0xed5cf0, 0xed5bd0, 0xed5e10): u64 id, an odd id followed by its class id and the object
+	// (ChangeFormFO4Combat.cpp).
+	void Object(In& b);
+	// The actor's combat controller (CombatController::LoadGame 0x87c540).
+	void CombatController(In& b);
 	// A knowledge entry (0xd2faa0): read by the AI process and by PlayerCharacter::LoadGame.
 	void Knowledge(In& b);
 	// An inventory (0x34ee00) at the cursor, with the actor's pointer id tables (ChangeFormFO4.cpp).

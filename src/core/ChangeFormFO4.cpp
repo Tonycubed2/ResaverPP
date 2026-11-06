@@ -55,14 +55,13 @@ namespace ess::fo4cf
 			case 0x19: return 13;
 			case 0x1c: return 6;
 			case 0x1d: return 0;
-			case 0x1e: case 0x25: case 0x2e: case 0x32: case 0x55: case 0x5d: case 0xa0: case 0xbb: case 0xc9:
+			case 0x1e: case 0x25: case 0x2e: case 0x55: case 0x5d: case 0xa0: case 0xbb: case 0xc9:
 			case 0x2f: case 0x23: case 0x27: case 0x28: case 0x53: case 0x59: case 0x6a: return 4;
-			case 0x1f: case 0x2c: case 0x34: case 0x44: case 0x49: case 0x54: case 0x4d: case 0x9c: return 1;
+			case 0x1f: case 0x2c: case 0x49: case 0x54: case 0x4d: case 0x9c: return 1;
 			case 0x21: case 0x58: case 0x95: case 0x3e: return 7;
 			case 0x31: return 28;
 			case 0x38: case 0x48: case 0x65: case 0x70: case 0x85: case 0x89: case 0x8b: case 0x92: case 0xc3:
 			case 0xc4: case 0x8e: case 0x68: case 0x22: return 3;
-			case 0x87: return 20;
 			case 0x9f: case 0x9b: return 5;
 			case 0xa1: return 88;
 			case 0xb0: case 0x26: return 8;
@@ -169,6 +168,46 @@ namespace ess::fo4cf
 			case 0xc2:
 				Skip(r, 7ull * Vs(r));
 				Skip(r, 15ull * Vs(r));
+				return;
+			case 0x32:  // 0x29661c: a form id (0x21e330), then an active effect list (0xb896c0, as the actor's)
+				Ref(r);
+				for (auto n = Vs(r); n; --n) {
+					Ref(r);
+					Skip(r, 1);
+					Vs(r);
+					Skip(r, Vs(r));
+				}
+				return;
+			case 0x79:  // 0x297fbc -> 0x2a8d30: two u32
+				Skip(r, 8);
+				return;
+			case 0xa9:  // 0x297b83 -> 0xdbf560: u32 type (0 MountInteraction, 1 PassengerInteraction: their LoadGame
+			            // 0xdbfe20 reads nothing), two form ids, u8
+				Skip(r, 4);
+				Ref(r);
+				Ref(r);
+				Skip(r, 1);
+				return;
+			case 0x9d:  // 0x2977ee: a form id (0x21e390)
+				Ref(r);
+				return;
+			case 0x34:  // 0x295a4b: vsval n x (u32, u32)
+				Skip(r, 8ull * Vs(r));
+				return;
+			case 0x44:  // 0x295bdb: vsval n x u32 (0xd4c830)
+				Skip(r, 4ull * Vs(r));
+				return;
+			case 0x87:  // 0x29757e: 12 bytes, a form id, u32, vsval n x (12 bytes, form id, 12 bytes, form id, u8)
+				Skip(r, 12);
+				Ref(r);
+				Skip(r, 4);
+				for (auto n = Vs(r); n; --n) {
+					Skip(r, 12);
+					Ref(r);
+					Skip(r, 12);
+					Ref(r);
+					Skip(r, 1);
+				}
 				return;
 			case 0x35:  // object mods
 				{

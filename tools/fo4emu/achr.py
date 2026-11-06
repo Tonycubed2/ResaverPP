@@ -5,6 +5,10 @@ from dec import refr as pyrefr, npc as pynpc, Unsupported
 from cf import load
 import collections, time
 RDF={0xc0fd90:'R',0xc0fa10:'REF',0xc0fd30:'VS',0xc0fa90:'WS',0xc0fb90:'WS2',0xc0fdd0:'XF',0xc0ffb0:'R12'}
+# the package data factory's registrations (name -> creator), from the game's 0x705b60 calls: CRT initializers
+# 0x1091fa..0x1097aa and 0x709f90 (Topic, on demand). The creators return the IPackageData base (vtable +0x40 LoadGame).
+DATA_CREATORS={'Bool':0x704b00,'Float':0x704420,'Int':0x704790,'Location':0x702c20,'LocationSelector':0x702c20,
+    'LocWrapper':0x704eb0,'Ref':0x702f80,'TargetSelector':0x702de0,'ObjectList':0x707fa0,'SingleRef':0x709a80,'Topic':0x70a210}
 class A:
     def __init__(s, ver, fakeforms=True, inits=True, fakes=True):
         s.do_inits=inits; s.do_fakes=fakes
@@ -79,10 +83,14 @@ class A:
         e.stub(0xc10e60, lambda e2: 0)   # stores a loaded blob in a map (no reads)
         e.stub(0x66c3e0, lambda e2: 0)   # quest stage lookup on a (fake) quest: no reads
         e.stub(0x66a290, lambda e2: 0)   # quest objective lookup: no reads
+        e.stub(0x66e040, lambda e2: 0)   # a quest's entry by id (extra 0x88, 0x2ab92f) on a (fake) quest: no reads
         def newid(e2):  # 0xbedd20 (called by 0xcea430 only here): gives the created package its saved form id
             pkg=struct.unpack('<Q',e2.u.mem_read(e2.r(UC_X86_REG_RBX)+8,8))[0]
             e2.u.mem_write(pkg+0x14, struct.pack('<I', e2.r(UC_X86_REG_RDX)&0xffffffff)); return 0
         e.stub(0xbedd20, newid)
+        # 0xe78b40: registers a loaded cover location (Havok class 0x4f117e2b, 0xe801a0, when its flag bit 12 is set) with the
+        # cover manager singleton (0x330f910, not built here); called with the manager and the object, not the buffer
+        e.stub(0xe78b40, lambda e2: 0)
         e.stub(0x2383e0, lambda e2: 0)  # a hash map insert reached only from created forms' constructors (no reads)
         if s.do_inits:
             import initall
@@ -99,6 +107,12 @@ class A:
                 e.call(0x1024f80, cam, limit=2000000); e.call(0x1025480, cam, 0, limit=2000000)
                 u.mem_write(g, struct.pack('<Q',cam))
             except UcError: s.initerr.append('camera')
+        # the Havok/pathing type registry (0x3271390: 0x40-byte entries {u32 type hash, ..., +0x30 LoadGame}; 0x32713a8 its
+        # count, numbered by CRT initializers): filled by the game's own 0x89ce90, which the game runs from 0xed1b40 (a
+        # pathing world constructor) and not from a CRT initializer; 0x89cb10 looks a saved type hash up in it
+        if not struct.unpack('<Q',u.mem_read(BASE+0x3271390,8))[0]:
+            try: e.call(0x89ce90, limit=50000000)
+            except UcError: s.initerr.append('registry 0x89ce90')
         if s.do_fakes:
             sentinel=e.alloc(0x20)
             def build(names):
@@ -109,7 +123,7 @@ class A:
                     u.mem_write(creator, struct.pack('<Q',cvt)); u.mem_write(cvt+8, struct.pack('<Q',code))
                     # package data classes with two bases: the game's own creators (they return the IPackageData
                     # base at +8, whose vtable +0x40 is the LoadGame)
-                    REAL={'ObjectList':0x707fa0,'Ref':0x709a80,'RefOLD':0x702f80,'LocationWrapper':0x704eb0,'Location':0x702c20}
+                    REAL=DATA_CREATORS
                     if nm in REAL:
                         u.mem_write(cvt+8, struct.pack('<Q',BASE+REAL[nm]))
                     else:
@@ -120,7 +134,11 @@ class A:
                     u.mem_write(ents[i], struct.pack('<QQQ', ent, creator, nxt))
                 tbl=e.alloc(0x20); u.mem_write(tbl, bytes(u.mem_read(ents[0],0x18)))
                 return tbl
-            tbl=build(list(s.fmap.items()))
+            # package data classes under the names the game registers them (0x705b60 calls, see DATA_CREATORS), with the
+            # game's own creators; the procedure states keep the fake creators (vtables from factory.pkl)
+            names=[(n,v) for n,v in s.fmap.items() if n not in ('Ref','RefOLD','LocationWrapper','Location','ObjectList','Bool','Float','Int','TargetSelector','Topic')]
+            names+=[(n,0) for n in DATA_CREATORS]
+            tbl=build(names)
             g1=BASE+0x32174c0
             u.mem_write(g1+0xc, struct.pack('<I',1)); u.mem_write(g1+0x18, struct.pack('<Q',sentinel)); u.mem_write(g1+0x1820, struct.pack('<Q',tbl))
             e.stub(0x7106f0, lambda e2: g1)
