@@ -89,24 +89,24 @@ void App::openBsa(const std::filesystem::path& a_path)
 void App::drawBsa()
 {
 	prepareWindow("Unpack a BSA archive", ImVec2(0.75f, 0.8f));
-	if (!ImGui::Begin("Unpack a BSA archive", &_showBsa, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("Unpack a BSA archive"), &_showBsa, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
 	maximizeControl("Unpack a BSA archive");
 	const bool running = _bsaView && _bsaView->running;
 	ImGui::BeginDisabled(running);
-	if (ImGui::Button("Open a BSA or BA2...")) {
+	if (ImGui::Button(tr("Open a BSA or BA2..."))) {
 		const auto start = _bsaView ? _bsaView->path.parent_path() : (_sourcesPath.empty() ? gameFolder() / "Data" : platform::FromUtf8(_sourcesPath));
-		if (auto p = platform::OpenFileDialog(start, "bsa;ba2", "BSA and BA2 archives")) {
+		if (auto p = platform::OpenFileDialog(start, "bsa;ba2", tr("BSA and BA2 archives"))) {
 			openBsa(*p);
 		}
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Pick a .bsa (Skyrim) or .ba2 (Fallout 4) file: a mod's archive, or one of the game's in Data.");
+	tips::Tip(tr("Pick a .bsa (Skyrim) or .ba2 (Fallout 4) file: a mod's archive, or one of the game's in Data."));
 	if (!_bsaView) {
 		ImGui::SameLine();
-		ImGui::TextDisabled("No archive open.");
+		ImGui::TextDisabled("%s", tr("No archive open."));
 		ImGui::End();
 		return;
 	}
@@ -118,14 +118,14 @@ void App::drawBsa()
 	}
 	if (!v.error.empty() || !v.bsa) {
 		ImGui::PushStyleColor(ImGuiCol_Text, theme::Bad());
-		ImGui::TextWrapped("Could not read it: %s", v.error.c_str());
+		ImGui::TextWrapped(tr("Could not read it: %s"), v.error.c_str());
 		ImGui::PopStyleColor();
 		ImGui::End();
 		return;
 	}
 	const auto& entries = v.bsa->entries();
 	ImGui::SameLine();
-	ImGui::TextDisabled("(%zu files, %s)", entries.size(), v.bsa->version() == 105 ? "Special Edition" : "Legendary Edition");
+	ImGui::TextDisabled(tr("(%zu files, %s)"), entries.size(), v.bsa->version() == 105 ? "Special Edition" : "Legendary Edition");
 
 	// which files the filter shows
 	const auto                     f = [&] {
@@ -143,26 +143,26 @@ void App::drawBsa()
 	}
 
 	ImGui::SetNextItemWidth(460);
-	ImGui::InputTextWithHint("##bsafilter", "show only paths containing... (e.g. scripts\\ or a name)", v.filter, sizeof(v.filter));
+	ImGui::InputTextWithHint("##bsafilter", tr("show only paths containing... (e.g. scripts\\ or a name)"), v.filter, sizeof(v.filter));
 	ImGui::SameLine();
-	ImGui::TextDisabled("%zu shown", shown.size());
+	ImGui::TextDisabled(tr("%zu shown"), shown.size());
 
 	ImGui::AlignTextToFramePadding();
-	ImGui::TextUnformatted("Unpack into:");
+	ImGui::TextUnformatted(tr("Unpack into:"));
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(std::max(200.0f, ImGui::GetContentRegionAvail().x - 120));
 	ImGui::InputText("##bsadest", v.dest, sizeof(v.dest));
 	ImGui::SameLine();
-	if (ImGui::Button("Choose...")) {
-		if (auto p = platform::PickFolderDialog("Folder to unpack the archive into")) {
+	if (ImGui::Button(tr("Choose..."))) {
+		if (auto p = platform::PickFolderDialog(tr("Folder to unpack the archive into"))) {
 			std::snprintf(v.dest, sizeof(v.dest), "%s", platform::ToUtf8(*p).c_str());
 		}
 	}
 	ImGui::PushStyleColor(ImGuiCol_Text, theme::Caution());
-	ImGui::TextWrapped("Not into the game's Data folder or a mod's folder: loose files there replace the ones in the archive in the "
-	                   "game. Unpack somewhere of your own to look at or work on the files.");
+	ImGui::TextWrapped("%s", tr("Not into the game's Data folder or a mod's folder: loose files there replace the ones in the archive in the "
+	                   "game. Unpack somewhere of your own to look at or work on the files."));
 	ImGui::PopStyleColor();
-	ImGui::Checkbox("Replace files already in that folder", &v.overwrite);
+	ImGui::Checkbox(tr("Replace files already in that folder"), &v.overwrite);
 
 	auto start = [&](bool a_all) {
 		if (v.thread.joinable()) {
@@ -186,12 +186,12 @@ void App::drawBsa()
 		});
 	};
 	ImGui::BeginDisabled(running || v.dest[0] == 0);
-	if (ImGui::Button(Fmt("Unpack all %zu files", entries.size()).c_str())) {
+	if (ImGui::Button(Fmt(tr("Unpack all %zu files"), entries.size()).c_str())) {
 		start(true);
 	}
 	ImGui::SameLine();
 	ImGui::BeginDisabled(f.empty() || shown.empty());
-	if (ImGui::Button(Fmt("Unpack the %zu shown (%.1f MB)", shown.size(), shownBytes / 1048576.0).c_str())) {
+	if (ImGui::Button(Fmt(tr("Unpack the %zu shown (%.1f MB)"), shown.size(), shownBytes / 1048576.0).c_str())) {
 		start(false);
 	}
 	ImGui::EndDisabled();
@@ -199,9 +199,9 @@ void App::drawBsa()
 	if (running) {
 		ImGui::SameLine();
 		ImGui::ProgressBar(v.total ? static_cast<float>(v.done) / static_cast<float>(v.total) : 0.0f, ImVec2(220, 0),
-			Fmt("%zu of %zu", v.done.load(), v.total.load()).c_str());
+			Fmt(tr("%zu of %zu"), v.done.load(), v.total.load()).c_str());
 		ImGui::SameLine();
-		if (ImGui::Button("Stop")) {
+		if (ImGui::Button(tr("Stop"))) {
 			v.cancel = true;
 		}
 	} else if (v.haveResult) {
@@ -210,11 +210,11 @@ void App::drawBsa()
 		}
 		ImGui::SameLine();
 		TextColored(v.result.failed ? theme::Warn() : theme::Good(),
-			Fmt("Unpacked %zu file(s), %.1f MB%s%s", v.result.written, v.result.bytes / 1048576.0,
-				v.result.skipped ? Fmt(", %zu already there kept", v.result.skipped).c_str() : "",
-				v.result.failed ? Fmt(", %zu failed", v.result.failed).c_str() : ""));
+			Fmt(tr("Unpacked %zu file(s), %.1f MB%s%s"), v.result.written, v.result.bytes / 1048576.0,
+				v.result.skipped ? Fmt(tr(", %zu already there kept"), v.result.skipped).c_str() : "",
+				v.result.failed ? Fmt(tr(", %zu failed"), v.result.failed).c_str() : ""));
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Open the folder")) {
+		if (ImGui::SmallButton(tr("Open the folder"))) {
 			platform::OpenWithDefaultApp(v.resultFolder);
 		}
 		for (const auto& e : v.result.errors) {
@@ -226,9 +226,9 @@ void App::drawBsa()
 	// the files
 	if (ImGui::BeginTable("##bsafiles", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn("File (double-click a script to read it, any other file to open it)", ImGuiTableColumnFlags_WidthStretch);
-		ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, 90);
-		ImGui::TableSetupColumn("Packed", ImGuiTableColumnFlags_WidthFixed, 70);
+		ImGui::TableSetupColumn(tr("File (double-click a script to read it, any other file to open it)"), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(tr("Size"), ImGuiTableColumnFlags_WidthFixed, 90);
+		ImGui::TableSetupColumn(tr("Packed"), ImGuiTableColumnFlags_WidthFixed, 70);
 		ImGui::TableHeadersRow();
 		ImGuiListClipper clip;
 		clip.Begin(static_cast<int>(shown.size()));
@@ -244,9 +244,9 @@ void App::drawBsa()
 					open = &e;
 				}
 				ImGui::TableNextColumn();
-				ImGui::Text(e.size >= 1048576 ? "%.1f MB" : "%.0f KB", e.size >= 1048576 ? e.size / 1048576.0 : e.size / 1024.0 + 0.5);
+				ImGui::Text(e.size >= 1048576 ? tr("%.1f MB") : tr("%.0f KB"), e.size >= 1048576 ? e.size / 1048576.0 : e.size / 1024.0 + 0.5);
 				ImGui::TableNextColumn();
-				ImGui::TextDisabled("%s", e.compressed ? "yes" : "no");
+				ImGui::TextDisabled("%s", e.compressed ? tr("yes") : tr("no"));
 				ImGui::PopID();
 			}
 		}
@@ -269,7 +269,7 @@ void App::drawBsa()
 					platform::OpenWithDefaultApp(file);
 				}
 			} catch (const std::exception& e) {
-				_error = "Could not read " + open->path + " from the archive:\n\n" + e.what();
+				_error = tr("Could not read ") + open->path + tr(" from the archive:\n\n") + e.what();
 			}
 		}
 	}

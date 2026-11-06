@@ -176,30 +176,30 @@ void App::drawModCharged(const std::string& a_plugin)
 	for (const auto* c : mine) {
 		broken += cf::NeedsChargeFix(c->inv) ? 1 : 0;
 	}
-	ImGui::SeparatorText(Fmt("Enchanted and charged items from this mod (%zu)", mine.size()).c_str());
+	ImGui::SeparatorText(Fmt(tr("Enchanted and charged items from this mod (%zu)"), mine.size()).c_str());
 	if (mine.empty()) {
-		ImGui::TextDisabled("(none in any inventory)");
+		ImGui::TextDisabled("%s", tr("(none in any inventory)"));
 		return;
 	}
 	ImGui::PushStyleColor(ImGuiCol_Text, theme::Dim());
-	ImGui::TextWrapped("Items whose base record or enchantment comes from this mod, in any inventory (yours, followers', containers). "
+	ImGui::TextWrapped("%s", tr("Items whose base record or enchantment comes from this mod, in any inventory (yours, followers', containers). "
 					   "Enchantment and Max charge are stored on the item itself in the save (ExtraEnchantment), Charge is what is left "
 					   "(ExtraCharge); xEdit does not show these. \"From the plugin\": the base record's own enchantment and EAMT apply. "
-					   "An item with an enchantment but max charge 0 can never be recharged with soul gems.");
+					   "An item with an enchantment but max charge 0 can never be recharged with soul gems."));
 	ImGui::PopStyleColor();
 	if (broken) {
 		ImGui::PushStyleColor(ImGuiCol_Text, theme::Bad());
-		ImGui::TextWrapped("%zu item(s) cannot be recharged.", broken);
+		ImGui::TextWrapped(tr("%zu item(s) cannot be recharged."), broken);
 		ImGui::PopStyleColor();
 	}
 
 	if (ImGui::BeginTable("charged", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Resizable)) {
-		ImGui::TableSetupColumn("Item", ImGuiTableColumnFlags_WidthStretch, 2.2f);
-		ImGui::TableSetupColumn("Held by", ImGuiTableColumnFlags_WidthStretch, 1.6f);
-		ImGui::TableSetupColumn("Enchantment", ImGuiTableColumnFlags_WidthStretch, 2.0f);
-		ImGui::TableSetupColumn("Max charge", ImGuiTableColumnFlags_WidthStretch, 0.9f);
-		ImGui::TableSetupColumn("Charge", ImGuiTableColumnFlags_WidthStretch, 0.7f);
-		ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthStretch, 1.6f);
+		ImGui::TableSetupColumn(tr("Item"), ImGuiTableColumnFlags_WidthStretch, 2.2f);
+		ImGui::TableSetupColumn(tr("Held by"), ImGuiTableColumnFlags_WidthStretch, 1.6f);
+		ImGui::TableSetupColumn(tr("Enchantment"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+		ImGui::TableSetupColumn(tr("Max charge"), ImGuiTableColumnFlags_WidthStretch, 0.9f);
+		ImGui::TableSetupColumn(tr("Charge"), ImGuiTableColumnFlags_WidthStretch, 0.7f);
+		ImGui::TableSetupColumn(tr("Status"), ImGuiTableColumnFlags_WidthStretch, 1.6f);
 		ImGui::TableHeadersRow();
 		for (const auto* c : mine) {
 			const auto& e = c->inv;
@@ -211,45 +211,45 @@ void App::drawModCharged(const std::string& a_plugin)
 				ImGui::TextDisabled("x%d", e.count);
 			}
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(c->holder == 0x14 ? "Player" : formText(c->holder).c_str());
+			ImGui::TextUnformatted(c->holder == 0x14 ? tr("Player") : formText(c->holder).c_str());
 			ImGui::TableNextColumn();
 			if (!e.hasEnchant) {
-				ImGui::TextDisabled("from the plugin");
+				ImGui::TextDisabled("%s", tr("from the plugin"));
 			} else if (!e.enchRaw) {
-				ImGui::TextDisabled("(none)");
+				ImGui::TextDisabled("%s", tr("(none)"));
 			} else {
 				ImGui::TextUnformatted(formText(e.ench).c_str());
 				if ((e.ench >> 24) == 0xFF) {
 					ImGui::SameLine();
-					ImGui::TextDisabled("(made in game)");
+					ImGui::TextDisabled("%s", tr("(made in game)"));
 				}
 			}
 			ImGui::TableNextColumn();
 			if (e.hasEnchant) {
 				ImGui::Text("%u", e.maxCharge);
 			} else {
-				ImGui::TextDisabled("EAMT");
+				ImGui::TextDisabled("%s", tr("EAMT"));
 			}
 			ImGui::TableNextColumn();
 			if (e.hasCharge) {
 				ImGui::Text("%.0f", e.charge);
 			} else {
-				ImGui::TextDisabled("full");
+				ImGui::TextDisabled("%s", tr("full"));
 			}
 			ImGui::TableNextColumn();
 			if (e.hasEnchant && e.enchRaw && e.maxCharge == 0) {
 				ImGui::PushStyleColor(ImGuiCol_Text, theme::Bad());
-				ImGui::TextUnformatted("Cannot be recharged (max charge 0)");
+				ImGui::TextUnformatted(tr("Cannot be recharged (max charge 0)"));
 				ImGui::PopStyleColor();
 			} else if (cf::NeedsChargeFix(e)) {
 				ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
-				ImGui::TextUnformatted("Charge above its max");
+				ImGui::TextUnformatted(tr("Charge above its max"));
 				ImGui::PopStyleColor();
 			} else if (e.hasEnchant && !e.enchRaw) {
-				ImGui::TextDisabled("No enchantment set");
+				ImGui::TextDisabled("%s", tr("No enchantment set"));
 			} else {
 				ImGui::PushStyleColor(ImGuiCol_Text, theme::Good());
-				ImGui::TextUnformatted("OK");
+				ImGui::TextUnformatted(tr("OK"));
 				ImGui::PopStyleColor();
 			}
 		}
@@ -258,12 +258,12 @@ void App::drawModCharged(const std::string& a_plugin)
 
 	if (broken) {
 		ImGui::SetNextItemWidth(120);
-		ImGui::InputInt("Max charge to give them", &_chargeFixValue, 100, 500);
-		tips::Tip("The maximum enchantment charge given to the broken items. A grand or black soul gem holds 3000.");
+		ImGui::InputInt(tr("Max charge to give them"), &_chargeFixValue, 100, 500);
+		tips::Tip(tr("The maximum enchantment charge given to the broken items. A grand or black soul gem holds 3000."));
 		_chargeFixValue = std::clamp(_chargeFixValue, 1, 65535);
 		ImGui::SameLine();
-		ImGui::TextDisabled("(a grand or black soul gem holds 3000)");
-		if (ImGui::Button(Fmt("Fix %zu item(s) so they can be recharged", broken).c_str())) {
+		ImGui::TextDisabled("%s", tr("(a grand or black soul gem holds 3000)"));
+		if (ImGui::Button(Fmt(tr("Fix %zu item(s) so they can be recharged"), broken).c_str())) {
 			std::vector<std::pair<std::uint32_t, std::uint32_t>> only;
 			for (const auto* c : mine) {
 				if (cf::NeedsChargeFix(c->inv)) {
@@ -271,9 +271,9 @@ void App::drawModCharged(const std::string& a_plugin)
 				}
 			}
 			const auto n = cf::FixCharges(*_save, static_cast<std::uint16_t>(_chargeFixValue), only);
-			markEdited(Fmt("Gave %zu item(s) of %s a max charge of %d", n, a_plugin.c_str(), _chargeFixValue));
+			markEdited(Fmt(tr("Gave %zu item(s) of %s a max charge of %d"), n, a_plugin.c_str(), _chargeFixValue));
 		}
-		tips::Tip("Give these enchanted items a maximum charge so they can be recharged with soul gems again (their max charge was lost, often after a mod was removed).");
-		ImGui::TextDisabled("Only the edited save in memory changes; write it with File > Save As.");
+		tips::Tip(tr("Give these enchanted items a maximum charge so they can be recharged with soul gems again (their max charge was lost, often after a mod was removed)."));
+		ImGui::TextDisabled("%s", tr("Only the edited save in memory changes; write it with File > Save As."));
 	}
 }

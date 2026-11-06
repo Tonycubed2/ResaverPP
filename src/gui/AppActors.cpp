@@ -35,7 +35,7 @@ namespace
 void App::drawActors()
 {
 	prepareWindow("Find NPCs", ImVec2(0.75f, 0.8f));
-	if (!ImGui::Begin("Find NPCs", &_showActors, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("Find NPCs"), &_showActors, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
@@ -57,18 +57,18 @@ void App::drawActors()
 		for (const auto& p : places) {
 			ActorRow r;
 			r.place = p;
-			r.name = p.isPlayer ? "You (the player)" : formText(p.formID);
+			r.name = p.isPlayer ? tr("You (the player)") : formText(p.formID);
 			if (p.baseObject) {
-				r.name += "  (made in game: " + formText(p.baseObject) + ")";
+				r.name += tr("  (made in game: ") + formText(p.baseObject) + ")";
 			}
 			if (p.hasPosition) {
-				r.where = formText(p.cell) + Fmt("  at %.0f, %.0f, %.0f", p.pos[0], p.pos[1], p.pos[2]);
+				r.where = formText(p.cell) + Fmt(tr("  at %.0f, %.0f, %.0f"), p.pos[0], p.pos[1], p.pos[2]);
 				if (player && player->hasPosition && player->cell == p.cell && !p.isPlayer) {
 					const float dx = p.pos[0] - player->pos[0], dy = p.pos[1] - player->pos[1], dz = p.pos[2] - player->pos[2];
 					r.distance = std::sqrt(dx * dx + dy * dy + dz * dz);
 				}
 			} else {
-				r.where = "where its plugin places it (the game never moved it)";
+				r.where = tr("where its plugin places it (the game never moved it)");
 			}
 			r.filterKey = Upper(r.name + " " + Fmt("%08X", p.formID) + " " + r.where);
 			_actorRows.push_back(std::move(r));
@@ -76,20 +76,20 @@ void App::drawActors()
 	}
 
 	ImGui::NewLine();
-	ImGui::TextWrapped("Every NPC and creature the save has a record for, with the cell (inside) or worldspace (outside) the save has them "
+	ImGui::TextWrapped("%s", tr("Every NPC and creature the save has a record for, with the cell (inside) or worldspace (outside) the save has them "
 					   "in. \"Move to me\" puts one in front of you and resets its AI: use it for a lost or stuck follower. Changes are made "
-					   "in the loaded save; nothing is written until you use File > Save or Save As.");
+					   "in the loaded save; nothing is written until you use File > Save or Save As."));
 	ImGui::Spacing();
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 22);
-	ImGui::InputTextWithHint("##actfilter", "Filter: name, form id or place", _actorFilter, sizeof(_actorFilter));
-	tips::Tip("Show only actors whose name, form id or place contains this text, e.g. Lydia, Breezehome or 000A2C94.");
+	ImGui::InputTextWithHint("##actfilter", tr("Filter: name, form id or place"), _actorFilter, sizeof(_actorFilter));
+	tips::Tip(tr("Show only actors whose name, form id or place contains this text, e.g. Lydia, Breezehome or 000A2C94."));
 	ImGui::SameLine();
-	ImGui::Checkbox("Only near you", &_actorNearOnly);
-	tips::Tip("Only actors in the same cell (inside) or worldspace (outside) as you.");
+	ImGui::Checkbox(tr("Only near you"), &_actorNearOnly);
+	tips::Tip(tr("Only actors in the same cell (inside) or worldspace (outside) as you."));
 	ImGui::SameLine();
-	ImGui::Checkbox("Only actors the game moved", &_actorMovedOnly);
-	tips::Tip("Hide actors the game never moved: they stand where their plugin places them, so the save has no position for them "
-			  "(and they cannot be moved from here).");
+	ImGui::Checkbox(tr("Only actors the game moved"), &_actorMovedOnly);
+	tips::Tip(tr("Hide actors the game never moved: they stand where their plugin places them, so the save has no position for them "
+			  "(and they cannot be moved from here)."));
 
 	const auto filter = Upper(_actorFilter);
 	std::vector<const ActorRow*> rows;
@@ -107,15 +107,15 @@ void App::drawActors()
 		rows.push_back(&r);
 	}
 	ImGui::SameLine();
-	ImGui::TextDisabled("%zu of %zu actors", rows.size(), _actorRows.size());
+	ImGui::TextDisabled(tr("%zu of %zu actors"), rows.size(), _actorRows.size());
 
 	constexpr ImGuiTableFlags tf = ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable |
 	                               ImGuiTableFlags_Sortable | ImGuiTableFlags_SizingStretchProp;
 	if (ImGui::BeginTable("actors", 4, tf)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn("Actor", ImGuiTableColumnFlags_WidthStretch, 3.0f);
-		ImGui::TableSetupColumn("Where the save has it", ImGuiTableColumnFlags_WidthStretch, 3.0f);
-		ImGui::TableSetupColumn("Distance", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort, ImGui::GetFontSize() * 6);
+		ImGui::TableSetupColumn(tr("Actor"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+		ImGui::TableSetupColumn(tr("Where the save has it"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+		ImGui::TableSetupColumn(tr("Distance"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort, ImGui::GetFontSize() * 6);
 		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, ImGui::GetFontSize() * 8);
 		ImGui::TableHeadersRow();
 		if (auto* specs = ImGui::TableGetSortSpecs(); specs && specs->SpecsCount > 0) {
@@ -155,7 +155,7 @@ void App::drawActors()
 				if (r.place.hasPosition) {
 					ImGui::TextUnformatted(r.where.c_str());
 					if (r.place.startCell && r.place.startCell != r.place.cell) {
-						tips::Tipf("Its plugin placed it in %s; it has moved since.", formText(r.place.startCell).c_str());
+						tips::Tipf(tr("Its plugin placed it in %s; it has moved since."), formText(r.place.startCell).c_str());
 					}
 				} else {
 					ImGui::TextDisabled("%s", r.where.c_str());
@@ -165,46 +165,46 @@ void App::drawActors()
 					ImGui::TextDisabled("-");
 				} else if (r.distance >= 0) {
 					ImGui::Text("%.0f", r.distance);
-					tips::Tip("Distance from you in game units (about 70 units to a metre).");
+					tips::Tip(tr("Distance from you in game units (about 70 units to a metre)."));
 				} else {
-					ImGui::TextDisabled("elsewhere");
+					ImGui::TextDisabled("%s", tr("elsewhere"));
 				}
 				ImGui::TableNextColumn();
-				if (ImGui::SmallButton("go")) {
+				if (ImGui::SmallButton(tr("go"))) {
 					select(Cat::kChangeForms, r.place.refRaw);
 				}
-				tips::Tip("Open this actor's change form: its saved data, extra data and the NPC fixes.");
+				tips::Tip(tr("Open this actor's change form: its saved data, extra data and the NPC fixes."));
 				if (!r.place.isPlayer) {
 					ImGui::SameLine();
 					ImGui::BeginDisabled(!r.place.hasPosition);
-					if (ImGui::SmallButton("Move to me")) {
+					if (ImGui::SmallButton(tr("Move to me"))) {
 						const auto raw = r.place.refRaw;
 						const auto name = r.name;
-						confirm("Move to me",
-							"Move " + name + " next to you?\n\nThe save puts it a few steps in front of you, in the cell or worldspace you are in, "
+						confirm(tr("Move to me"),
+							tr("Move ") + name + tr(" next to you?\n\nThe save puts it a few steps in front of you, in the cell or worldspace you are in, "
 							"and resets its AI so it does not keep walking an old path. A follower then follows you again. Its own AI "
-							"package can still send it home later; that is the game, not the save.\n\nKeep a copy of the original save.",
+							"package can still send it home later; that is the game, not the save.\n\nKeep a copy of the original save."),
 							[this, raw, name] {
 								RefID id;
 								id.data = raw;
 								auto* cf = _save->findChangeForm(id);
 								if (!cf) {
-									_error = "Could not move " + name + ": its change form is gone";
+									_error = tr("Could not move ") + name + tr(": its change form is gone");
 									return;
 								}
 								if (auto why = cf::MoveActorToPlayer(*_save, *cf); !why.empty()) {
-									_error = "Could not move " + name + ": " + why;
+									_error = tr("Could not move ") + name + ": " + why;
 									return;
 								}
-								markChanged("Moved " + name + " next to you");
+								markChanged(tr("Moved ") + name + tr(" next to you"));
 							});
 					}
 					ImGui::EndDisabled();
 					if (r.place.hasPosition) {
-						tips::Tip("Put this actor in front of you and reset its AI. For a lost or stuck follower.");
+						tips::Tip(tr("Put this actor in front of you and reset its AI. For a lost or stuck follower."));
 					} else {
-						tips::Tip("The game never moved this actor, so the save has no position to change. In game: open the console, "
-								  "type prid followed by its form id, then moveto player.");
+						tips::Tip(tr("The game never moved this actor, so the save has no position to change. In game: open the console, "
+								  "type prid followed by its form id, then moveto player."));
 					}
 				}
 				ImGui::PopID();

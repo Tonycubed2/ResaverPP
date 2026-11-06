@@ -77,11 +77,11 @@ void App::drawOrphansModal()
 		openOrphans();
 	}
 	if (_orphansOpen) {
-		ImGui::OpenPopup("Instances on missing spawned objects");
+		ImGui::OpenPopup(trId("Instances on missing spawned objects"));
 		_orphansOpen = false;
 	}
 	ImGui::SetNextWindowSize(ImVec2(1000, 660), ImGuiCond_Appearing);
-	if (!ImGui::BeginPopupModal("Instances on missing spawned objects")) {
+	if (!ImGui::BeginPopupModal(trId("Instances on missing spawned objects"))) {
 		return;
 	}
 	// the mods scan finished while this was open: now "installed" can be told
@@ -89,15 +89,15 @@ void App::drawOrphansModal()
 		buildOrphans();
 	}
 
-	ImGui::TextWrapped("When a mod spawns something during play (a summon, a dropped item, a marker), its script gets saved with it. "
+	ImGui::TextWrapped("%s", tr("When a mod spawns something during play (a summon, a dropped item, a marker), its script gets saved with it. "
 					   "These script instances belong to spawned objects that no longer exist in the save, so nothing in the world "
-					   "uses them. They are grouped below by the mod that provides their script.");
-	TextColored(theme::Dim(), "Not installed / disabled: leftovers of mods that are gone; safe to remove (ticked). Game object types (ActorBase, "
+					   "uses them. They are grouped below by the mod that provides their script."));
+	TextColored(theme::Dim(), tr("Not installed / disabled: leftovers of mods that are gone; safe to remove (ticked). Game object types (ActorBase, "
 							  "ObjectReference...) are only the game's link to the deleted object; also ticked. Installed: a mod you still use; "
 							  "it may keep a reference to them on purpose, so they are not ticked. \"Held\" counts the ones another script, "
-							  "array or call still points to: removing those turns that reference into None.");
+							  "array or call still points to: removing those turns that reference into None."));
 	if (scanning()) {
-		TextColored(theme::Warn(), "Your mods are still being scanned; the Status column fills in when the scan finishes.");
+		TextColored(theme::Warn(), tr("Your mods are still being scanned; the Status column fills in when the scan finishes."));
 		drawBackgroundProgress(0);
 	}
 
@@ -108,9 +108,9 @@ void App::drawOrphansModal()
 	}
 	if (_orphans.empty()) {
 		ImGui::Spacing();
-		ImGui::TextUnformatted("This save has no script instances on missing spawned objects.");
+		ImGui::TextUnformatted(tr("This save has no script instances on missing spawned objects."));
 	} else {
-		ImGui::Text("%zu instance(s) from %zu mod group(s); %zu held by something else.", total, _orphans.size(), totalHeld);
+		ImGui::Text(tr("%zu instance(s) from %zu mod group(s); %zu held by something else."), total, _orphans.size(), totalHeld);
 	}
 
 	const float footer = ImGui::GetFrameHeightWithSpacing() * 3.2f;
@@ -120,10 +120,10 @@ void App::drawOrphansModal()
 			ImVec2(0, -footer))) {
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
-		ImGui::TableSetupColumn("Mod / script", ImGuiTableColumnFlags_WidthStretch, 4.0f);
-		ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthStretch, 1.8f);
-		ImGui::TableSetupColumn("Instances", ImGuiTableColumnFlags_WidthStretch, 0.9f);
-		ImGui::TableSetupColumn("Held", ImGuiTableColumnFlags_WidthStretch, 0.7f);
+		ImGui::TableSetupColumn(tr("Mod / script"), ImGuiTableColumnFlags_WidthStretch, 4.0f);
+		ImGui::TableSetupColumn(tr("Status"), ImGuiTableColumnFlags_WidthStretch, 1.8f);
+		ImGui::TableSetupColumn(tr("Instances"), ImGuiTableColumnFlags_WidthStretch, 0.9f);
+		ImGui::TableSetupColumn(tr("Held"), ImGuiTableColumnFlags_WidthStretch, 0.7f);
 		ImGui::TableHeadersRow();
 		for (std::size_t gi = 0; gi < _orphans.size(); ++gi) {
 			const auto& g = _orphans[gi];
@@ -134,20 +134,20 @@ void App::drawOrphansModal()
 			if (ImGui::Checkbox("##sel", &tick)) {
 				_orphanSel[gi] = tick ? 1 : 0;
 			}
-			tips::Tip("Ticked: remove this mod's script instances that sit on spawned objects that no longer exist.");
+			tips::Tip(tr("Ticked: remove this mod's script instances that sit on spawned objects that no longer exist."));
 			ImGui::TableNextColumn();
-			const bool open = ImGui::TreeNodeEx("##mod", ImGuiTreeNodeFlags_SpanAvailWidth, "%s  (%zu script%s)", g.mod.c_str(),
+			const bool open = ImGui::TreeNodeEx("##mod", ImGuiTreeNodeFlags_SpanAvailWidth, tr("%s  (%zu script%s)"), g.mod.c_str(),
 				g.scripts.size(), g.scripts.size() == 1 ? "" : "s");
-			tips::Tip("Open to see the scripts of this mod that have instances on missing spawned objects.");
+			tips::Tip(tr("Open to see the scripts of this mod that have instances on missing spawned objects."));
 			ImGui::TableNextColumn();
 			ImGui::PushStyleColor(ImGuiCol_Text, StatusColor(g.status));
 			ImGui::TextUnformatted(orphans::StatusText(g.status));
 			ImGui::PopStyleColor();
 			ImGui::TableNextColumn();
-			ImGui::Text("%zu", g.instances);
+			ImGui::Text(tr("%zu"), g.instances);
 			ImGui::TableNextColumn();
 			if (g.held) {
-				ImGui::Text("%zu", g.held);
+				ImGui::Text(tr("%zu"), g.held);
 			} else {
 				ImGui::TextDisabled("0");
 			}
@@ -161,14 +161,14 @@ void App::drawOrphansModal()
 					if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
 						viewScript(s.script);
 					}
-					tips::Tip("Double-click to view the script");
+					tips::Tip(tr("Double-click to view the script"));
 					ImGui::Unindent();
 					ImGui::TableNextColumn();
 					ImGui::TableNextColumn();
-					ImGui::Text("%zu", s.ids.size());
+					ImGui::Text(tr("%zu"), s.ids.size());
 					ImGui::TableNextColumn();
 					if (!s.held.empty()) {
-						ImGui::Text("%zu", s.held.size());
+						ImGui::Text(tr("%zu"), s.held.size());
 					} else {
 						ImGui::TextDisabled("0");
 					}
@@ -180,25 +180,25 @@ void App::drawOrphansModal()
 		ImGui::EndTable();
 	}
 
-	if (ImGui::Button("Tick not installed")) {
+	if (ImGui::Button(tr("Tick not installed"))) {
 		for (std::size_t i = 0; i < _orphans.size(); ++i) {
 			_orphanSel[i] = DefaultTick(_orphans[i].status) ? 1 : 0;
 		}
 	}
-	tips::Tip("Tick only the mods that are no longer installed: the safest choice.");
+	tips::Tip(tr("Tick only the mods that are no longer installed: the safest choice."));
 	ImGui::SameLine();
-	if (ImGui::Button("Tick all")) {
+	if (ImGui::Button(tr("Tick all"))) {
 		std::fill(_orphanSel.begin(), _orphanSel.end(), 1);
 	}
-	tips::Tip("Tick every mod in the list, including installed ones.");
+	tips::Tip(tr("Tick every mod in the list, including installed ones."));
 	ImGui::SameLine();
-	if (ImGui::Button("Tick none")) {
+	if (ImGui::Button(tr("Tick none"))) {
 		std::fill(_orphanSel.begin(), _orphanSel.end(), 0);
 	}
-	tips::Tip("Untick every mod.");
+	tips::Tip(tr("Untick every mod."));
 	ImGui::SameLine();
-	ImGui::Checkbox("Keep the held ones (safer)", &_orphansKeepHeld);
-	tips::Tip("Held instances are still pointed at by a script variable or array. Keeping them avoids breaking a script that still uses them.");
+	ImGui::Checkbox(tr("Keep the held ones (safer)"), &_orphansKeepHeld);
+	tips::Tip(tr("Held instances are still pointed at by a script variable or array. Keeping them avoids breaking a script that still uses them."));
 
 	std::set<EID> ids;
 	for (std::size_t i = 0; i < _orphans.size(); ++i) {
@@ -214,21 +214,21 @@ void App::drawOrphansModal()
 		}
 	}
 	ImGui::BeginDisabled(ids.empty());
-	if (ImGui::Button(Fmt("Remove %zu instance(s)", ids.size()).c_str(), ImVec2(220, 0))) {
+	if (ImGui::Button(Fmt(tr("Remove %zu instance(s)"), ids.size()).c_str(), ImVec2(220, 0))) {
 		const auto n = orphans::Remove(*_save, ids);
 		ImGui::CloseCurrentPopup();
 		_orphans.clear();
 		_orphanSel.clear();
-		markEdited(Fmt("Removed %zu instance(s) on missing spawned objects", n));
+		markEdited(Fmt(tr("Removed %zu instance(s) on missing spawned objects"), n));
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Delete the ticked script instances from the loaded save. Nothing is written until File > Save As; keep the original.");
+	tips::Tip(tr("Delete the ticked script instances from the loaded save. Nothing is written until File > Save As; keep the original."));
 	ImGui::SameLine();
-	if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+	if (ImGui::Button(tr("Cancel"), ImVec2(120, 0))) {
 		ImGui::CloseCurrentPopup();
 	}
-	tips::Tip("Close without changing anything.");
+	tips::Tip(tr("Close without changing anything."));
 	ImGui::SameLine();
-	TextColored(theme::Dim(), "Only the edited save in memory changes; write it with File > Save As.");
+	TextColored(theme::Dim(), tr("Only the edited save in memory changes; write it with File > Save As."));
 	ImGui::EndPopup();
 }

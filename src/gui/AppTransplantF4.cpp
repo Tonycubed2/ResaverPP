@@ -68,7 +68,7 @@ namespace
 	std::string Summary(const tf4::Snapshot& s)
 	{
 		if (!s.valid) {
-			return s.error.empty() ? "not chosen yet" : s.error;
+			return s.error.empty() ? tr("not chosen yet") : s.error;
 		}
 		std::size_t items = 0, done = 0;
 		for (const auto& [k, i] : s.items) {
@@ -77,17 +77,17 @@ namespace
 		for (const auto& [k, q] : s.quests) {
 			done += q.completed ? 1 : 0;
 		}
-		return Fmt("%s  level %d, %s caps, %zu perks, %zu items, %zu quests completed", s.player.c_str(), s.level,
+		return Fmt(tr("%s  level %d, %s caps, %zu perks, %zu items, %zu quests completed"), s.player.c_str(), s.level,
 			s.caps >= 0 ? std::to_string(s.caps).c_str() : "?", s.perks.size(), items, done);
 	}
 
 	const char* CategoryOf(tf4::Kind k)
 	{
 		switch (k) {
-		case tf4::Kind::kPerk: return "Perks";
-		case tf4::Kind::kItem: return "Items";
-		case tf4::Kind::kQuest: return "Quests";
-		default: return "Character: level, experience, S.P.E.C.I.A.L., caps";
+		case tf4::Kind::kPerk: return tr("Perks");
+		case tf4::Kind::kItem: return tr("Items");
+		case tf4::Kind::kQuest: return tr("Quests");
+		default: return tr("Character: level, experience, S.P.E.C.I.A.L., caps");
 		}
 	}
 	int CategoryIndex(tf4::Kind k) { return k == tf4::Kind::kPerk ? 1 : k == tf4::Kind::kItem ? 2 : k == tf4::Kind::kQuest ? 3 : 0; }
@@ -101,10 +101,10 @@ void App::transplantF4Load(const std::filesystem::path& a_path)
 		_tf4Old = tf4::FromSave(*s, platform::ToUtf8(a_path.filename()));
 		_tf4OldPath = a_path;
 		_tf4Dirty = true;
-		_status = _tf4Old.valid ? "Read the old save " + platform::ToUtf8(a_path.filename()) : _tf4Old.error;
+		_status = _tf4Old.valid ? tr("Read the old save ") + platform::ToUtf8(a_path.filename()) : _tf4Old.error;
 	} catch (const std::exception& e) {
 		_tf4Old = {};
-		_tf4Old.error = "Could not read " + platform::ToUtf8(a_path.filename()) + ": " + e.what();
+		_tf4Old.error = tr("Could not read ") + platform::ToUtf8(a_path.filename()) + ": " + e.what();
 		_status = _tf4Old.error;
 	}
 }
@@ -133,14 +133,14 @@ std::string App::transplantF4Group(const tf4::Change& a_c) const
 	if (a_c.kind == tf4::Kind::kItem && _db && a_c.goodFormID) {
 		if (const auto* f = _db->find(a_c.goodFormID)) {
 			const auto t = _db->type(*f);
-			return t == "WEAP" ? "Weapons" : t == "ARMO" ? "Armor and clothing" : t == "AMMO" ? "Ammunition" : t == "ALCH" ? "Aid: food, drink, chems"
-				   : t == "BOOK" ? "Books and magazines" : t == "MISC" ? "Junk and miscellaneous" : t == "KEYM" ? "Keys" : t == "NOTE" ? "Holotapes and notes"
-				   : t == "CMPO" ? "Components" : "Other";
+			return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Ammunition") : t == "ALCH" ? tr("Aid: food, drink, chems")
+				   : t == "BOOK" ? tr("Books and magazines") : t == "MISC" ? tr("Junk and miscellaneous") : t == "KEYM" ? tr("Keys") : t == "NOTE" ? tr("Holotapes and notes")
+				   : t == "CMPO" ? tr("Components") : tr("Other");
 		}
-		return "Other";
+		return tr("Other");
 	}
 	if (a_c.kind == tf4::Kind::kQuest && !a_c.journal) {
-		return "~ Background quests (not in the Pip-Boy): normally leave these unticked";
+		return tr("~ Background quests (not in the Pip-Boy): normally leave these unticked");
 	}
 	return a_c.kind == tf4::Kind::kLevel || a_c.kind == tf4::Kind::kXP || a_c.kind == tf4::Kind::kSpecial || a_c.kind == tf4::Kind::kCaps ? std::string() : a_c.plugin;
 }
@@ -157,11 +157,11 @@ void App::transplantF4StartGame(std::vector<std::size_t> a_run)
 	for (auto i : _tf4Run) {
 		_tf4Results.erase(i);
 	}
-	_status = "Transplant: the game saves first (a save to go back to; its load order gives the form ids)...";
+	_status = tr("Transplant: the game saves first (a save to go back to; its load order gives the form ids)...");
 	_live.request({ "SAVEGAME", "none" }, [this](const LiveLink::Reply& r) {
 		if (!LiveLink::Ok(r)) {
 			_tf4Running = false;
-			_status = "The game could not save: " + LiveLink::Error(r);
+			_status = tr("The game could not save: ") + LiveLink::Error(r);
 			return;
 		}
 		_tf4WaitSave = LiveLink::Field(r, 0) + ".fos";
@@ -197,9 +197,9 @@ void App::transplantF4PollSave()
 			_tf4GameOrder = s->plugins;
 			_tf4WaitSave.clear();
 			_tf4GameNote = _save && tf4::SameLoadOrder(_tf4GameOrder, _save->plugins)
-							   ? "The game's load order is the good save's."
-							   : "The game's load order is not the good save's: the form ids are worked out from the game's.";
-			_tf4GameNote += " The game saved as " + platform::ToUtf8(p.filename()) + " first (load it to go back).";
+							   ? tr("The game's load order is the good save's.")
+							   : tr("The game's load order is not the good save's: the form ids are worked out from the game's.");
+			_tf4GameNote += tr(" The game saved as ") + platform::ToUtf8(p.filename()) + tr(" first (load it to go back).");
 			transplantF4Step();
 		} catch (const std::exception&) {
 			// not complete yet: try again next frame
@@ -210,8 +210,8 @@ void App::transplantF4PollSave()
 		_tf4WaitSave.clear();
 		_tf4Running = false;
 		_tf4NeedOrder = true;
-		_status = "The save the game made was not found in the saves folders ReSaver Plus knows, so the game's load order could not be "
-				  "checked. Choose the saves folder in Settings, or put them in with the good save's load order.";
+		_status = tr("The save the game made was not found in the saves folders ReSaver Plus knows, so the game's load order could not be "
+				  "checked. Choose the saves folder in Settings, or put them in with the good save's load order.");
 	}
 }
 
@@ -225,9 +225,9 @@ void App::transplantF4Step()
 			}
 		}
 		_tf4Running = false;
-		_status = Fmt("Transplant: %zu of %zu sent to the game%s. Quests may keep running their scripts for a while; then save in the game, open "
-					  "that save here and compare again: anything still listed did not take.",
-			_tf4Run.size() - failed, _tf4Run.size(), failed ? Fmt(", %zu could not be (see the list)", failed).c_str() : "");
+		_status = Fmt(tr("Transplant: %zu of %zu sent to the game%s. Quests may keep running their scripts for a while; then save in the game, open "
+					  "that save here and compare again: anything still listed did not take."),
+			_tf4Run.size() - failed, _tf4Run.size(), failed ? Fmt(tr(", %zu could not be (see the list)"), failed).c_str() : "");
 		_live.request({ "NOTIFY", liveNotifyMode(), Fmt("ReSaver Plus: transplant done (%zu of %zu). Save when the quests are quiet.", _tf4Run.size() - failed, _tf4Run.size()) },
 			[](const LiveLink::Reply&) {});
 		return;
@@ -239,12 +239,12 @@ void App::transplantF4Step()
 		return;
 	}
 	const auto& ch = _tf4Changes[idx];
-	_status = Fmt("Transplanting %zu of %zu: %s", _tf4Pos + 1, _tf4Run.size(), ch.label.c_str());
+	_status = Fmt(tr("Transplanting %zu of %zu: %s"), _tf4Pos + 1, _tf4Run.size(), ch.label.c_str());
 	const auto& order = _tf4GameOrder.full.empty() && _save ? _save->plugins : _tf4GameOrder;
 	const auto  id = ch.kind == tf4::Kind::kCaps ? ch.goodFormID : tf4::RuntimeID(order, ch.plugin, ch.local);
 	auto        records = tf4::GameRecords(ch, id, _tf4MarkCompleted);
 	if (!id || records.empty()) {
-		_tf4Results[idx] = { false, !id ? ch.plugin + " is not in the game's load order" : "nothing to do" };
+		_tf4Results[idx] = { false, !id ? ch.plugin + tr(" is not in the game's load order") : tr("nothing to do") };
 		++_tf4Pos;
 		transplantF4Step();
 		return;
@@ -256,7 +256,7 @@ void App::transplantF4Step()
 void App::transplantF4Send(std::size_t a_idx, std::vector<ess::transplant::Record> a_rest, std::string a_said)
 {
 	if (a_rest.empty()) {
-		_tf4Results[a_idx] = { true, "sent: " + a_said };
+		_tf4Results[a_idx] = { true, tr("sent: ") + a_said };
 		++_tf4Pos;
 		transplantF4Step();
 		return;
@@ -281,7 +281,7 @@ void App::transplantF4Send(std::size_t a_idx, std::vector<ess::transplant::Recor
 void App::drawTransplantF4()
 {
 	prepareWindow("Transplant", ImVec2(0.9f, 0.9f));
-	if (!ImGui::Begin("Transplant", &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("Transplant"), &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
@@ -293,10 +293,10 @@ void App::drawTransplantF4()
 	const bool busy = _tf4Running || !_tf4WaitSave.empty();
 
 	ImGui::PushTextWrapPos(ImGui::GetContentRegionMax().x - 140);
-	ImGui::TextWrapped("Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in "
+	ImGui::TextWrapped(tr("Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in "
 					   "ReSaver Plus. Both are read from their files, so the old save never has to load. What a save can hold (level, "
 					   "experience, S.P.E.C.I.A.L., caps, perk ranks) is written into the open save; items, new perks and quest stages are "
-					   "put into the running game by ReSaverHelper %d or newer (the F4SE plugin) once the good save is loaded.",
+					   "put into the running game by ReSaverHelper %d or newer (the F4SE plugin) once the good save is loaded."),
 		kTransplantHelper);
 	ImGui::PopTextWrapPos();
 
@@ -318,7 +318,7 @@ void App::drawTransplantF4()
 				c.label = n + c.label.substr(8);
 			} else {
 				// no name (the plugins are not read): say what kind of thing it is
-				c.label = (c.kind == tf4::Kind::kPerk ? "Perk " : c.kind == tf4::Kind::kItem ? "Item " : c.kind == tf4::Kind::kQuest ? "Quest " : "") + c.label;
+				c.label = (c.kind == tf4::Kind::kPerk ? tr("Perk ") : c.kind == tf4::Kind::kItem ? tr("Item ") : c.kind == tf4::Kind::kQuest ? tr("Quest ") : "") + c.label;
 			}
 		}
 		_tf4Results.clear();
@@ -328,23 +328,23 @@ void App::drawTransplantF4()
 	// steps 1 and 2 side by side
 	if (ImGui::BeginTable("steps", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchSame)) {
 		ImGui::TableNextColumn();
-		ImGui::SeparatorText("1. The old save: where the progress is");
+		ImGui::SeparatorText(tr("1. The old save: where the progress is"));
 		ImGui::TextWrapped("%s", Summary(_tf4Old).c_str());
 		if (_tf4Old.valid) {
 			ImGui::TextDisabled("%s", _tf4Old.source.c_str());
 		}
 		ImGui::BeginDisabled(busy);
-		if (ImGui::Button("Choose the old save...") && platform::HasNativeDialogs()) {
+		if (ImGui::Button(tr("Choose the old save...")) && platform::HasNativeDialogs()) {
 			if (auto p = platform::OpenSaveDialog(_path.empty() ? savesFolder() : _path.parent_path())) {
 				transplantF4Load(*p);
 			}
 		}
-		tips::Tip("The save with the progress you want back: it may crash or not load at all, it is only read from its file.");
+		tips::Tip(tr("The save with the progress you want back: it may crash or not load at all, it is only read from its file."));
 		// the other saves of the same folder, newest first
 		if (!_path.empty()) {
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(-1);
-			if (ImGui::BeginCombo("##tf4saves", "or pick one from this folder")) {
+			if (ImGui::BeginCombo("##tf4saves", tr("or pick one from this folder"))) {
 				std::vector<std::pair<std::filesystem::file_time_type, std::filesystem::path>> saves;
 				std::error_code ec;
 				for (const auto& e : std::filesystem::directory_iterator(_path.parent_path(), ec)) {
@@ -367,37 +367,37 @@ void App::drawTransplantF4()
 			for (const auto& m : _tf4Old.missingParts) {
 				parts += (parts.empty() ? "" : ", ") + m;
 			}
-			Wrapped(theme::Caution(), "Could not be read from this save: " + parts + ".");
+			Wrapped(theme::Caution(), tr("Could not be read from this save: ") + parts + ".");
 		}
 		if (_tf4Old.valid && _tf4Old.skippedItems) {
-			ImGui::TextDisabled("%zu item stack(s) made in the game (no plugin) are left out.", _tf4Old.skippedItems);
+			ImGui::TextDisabled(tr("%zu item stack(s) made in the game (no plugin) are left out."), _tf4Old.skippedItems);
 		}
 
 		ImGui::TableNextColumn();
-		ImGui::SeparatorText("2. The good save: the one open in ReSaver Plus");
-		ImGui::TextWrapped("%s", _save ? Summary(_tf4Good).c_str() : "Open the good save first (File > Open).");
+		ImGui::SeparatorText(tr("2. The good save: the one open in ReSaver Plus"));
+		ImGui::TextWrapped("%s", _save ? Summary(_tf4Good).c_str() : tr("Open the good save first (File > Open)."));
 		if (_save) {
 			ImGui::TextDisabled("%s", platform::ToUtf8(_path.filename()).c_str());
 		}
 		if (_tf4Old.valid && _tf4Good.valid && _tf4Old.player != _tf4Good.player) {
-			Wrapped(theme::Bad(), "These are two different characters (" + _tf4Old.player + " / " + _tf4Good.player + ").");
+			Wrapped(theme::Bad(), tr("These are two different characters (") + _tf4Old.player + " / " + _tf4Good.player + ").");
 		}
 		if (_tf4Good.valid && !_tf4Good.missingParts.empty()) {
 			std::string parts;
 			for (const auto& m : _tf4Good.missingParts) {
 				parts += (parts.empty() ? "" : ", ") + m;
 			}
-			Wrapped(theme::Caution(), "Could not be read from this save: " + parts + ".");
+			Wrapped(theme::Caution(), tr("Could not be read from this save: ") + parts + ".");
 		}
 		ImGui::BeginDisabled(busy || !_save);
-		if (ImGui::SmallButton("Compare again")) {
+		if (ImGui::SmallButton(tr("Compare again"))) {
 			_tf4GoodChanged = true;
 			if (!_tf4OldPath.empty()) {
 				transplantF4Load(_tf4OldPath);
 			}
 		}
 		ImGui::EndDisabled();
-		tips::Tip("Read both saves again and list the differences (e.g. after a Transplant: open the save the game made afterwards and compare).");
+		tips::Tip(tr("Read both saves again and list the differences (e.g. after a Transplant: open the save the game made afterwards and compare)."));
 		ImGui::EndTable();
 	}
 
@@ -407,32 +407,32 @@ void App::drawTransplantF4()
 	}
 
 	// 3. the list
-	ImGui::SeparatorText(Fmt("3. What the old save has on top (%zu)", _tf4Changes.size()).c_str());
+	ImGui::SeparatorText(Fmt(tr("3. What the old save has on top (%zu)"), _tf4Changes.size()).c_str());
 	Dot(theme::Good());
-	ImGui::TextUnformatted("Safe");
+	ImGui::TextUnformatted(tr("Safe"));
 	ImGui::SameLine(0, 18);
 	Dot(theme::Caution());
-	ImGui::TextUnformatted("Caution (hover to read why)");
+	ImGui::TextUnformatted(tr("Caution (hover to read why)"));
 	ImGui::SameLine(0, 18);
 	Dot(theme::Bad());
-	ImGui::TextUnformatted("Risky or cannot");
+	ImGui::TextUnformatted(tr("Risky or cannot"));
 	ImGui::SameLine(0, 30);
-	TextColored(theme::Good(), "[save file]");
+	TextColored(theme::Good(), tr("[save file]"));
 	ImGui::SameLine();
-	ImGui::TextDisabled("written into the open save");
+	ImGui::TextDisabled("%s", tr("written into the open save"));
 	ImGui::SameLine(0, 18);
-	TextColored(theme::Caution(), "[game]");
+	TextColored(theme::Caution(), tr("[game]"));
 	ImGui::SameLine();
-	ImGui::TextDisabled("put into the running game");
+	ImGui::TextDisabled("%s", tr("put into the running game"));
 	ImGui::SameLine(0, 30);
 	ImGui::BeginDisabled(busy);
-	if (ImGui::SmallButton("Tick everything")) {
+	if (ImGui::SmallButton(tr("Tick everything"))) {
 		for (auto& c : _tf4Changes) {
 			c.tick = c.available;
 		}
 	}
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Untick everything")) {
+	if (ImGui::SmallButton(tr("Untick everything"))) {
 		for (auto& c : _tf4Changes) {
 			c.tick = false;
 		}
@@ -440,7 +440,7 @@ void App::drawTransplantF4()
 	ImGui::EndDisabled();
 	ImGui::SameLine(0, 20);
 	ImGui::SetNextItemWidth(-1);
-	ImGui::InputTextWithHint("##tf4filter", "search", _tf4Filter, sizeof(_tf4Filter));
+	ImGui::InputTextWithHint("##tf4filter", tr("search"), _tf4Filter, sizeof(_tf4Filter));
 	const auto needle = Lower(_tf4Filter);
 
 	auto row = [&](std::size_t i) {
@@ -451,7 +451,7 @@ void App::drawTransplantF4()
 		ImGui::EndDisabled();
 		ImGui::SameLine();
 		Dot(RiskCol(c.risk));
-		TextColored(c.via == tf4::Via::kFile ? theme::Good() : theme::Caution(), c.via == tf4::Via::kFile ? "[save file]" : "[game]");
+		TextColored(c.via == tf4::Via::kFile ? theme::Good() : theme::Caution(), c.via == tf4::Via::kFile ? tr("[save file]") : tr("[game]"));
 		ImGui::SameLine();
 		ImGui::TextUnformatted(c.label.c_str());
 		if (ImGui::IsItemHovered() && !c.why.empty()) {
@@ -463,7 +463,7 @@ void App::drawTransplantF4()
 		}
 		if (auto it = _tf4Results.find(i); it != _tf4Results.end()) {
 			ImGui::SameLine();
-			TextColored(it->second.first ? theme::Good() : theme::Bad(), it->second.first ? it->second.second : "not done: " + it->second.second);
+			TextColored(it->second.first ? theme::Good() : theme::Bad(), it->second.first ? it->second.second : tr("not done: ") + it->second.second);
 		}
 		ImGui::PopID();
 	};
@@ -472,7 +472,7 @@ void App::drawTransplantF4()
 		for (auto i : a_in) {
 			t += _tf4Changes[i].tick && _tf4Changes[i].available ? 1 : 0;
 		}
-		return Fmt("%zu of %zu ticked", t, a_in.size());
+		return Fmt(tr("%zu of %zu ticked"), t, a_in.size());
 	};
 	ImGui::BeginChild("##tf4list", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 3.6f), ImGuiChildFlags_Borders);
 	for (int cat = 0; cat < 4; ++cat) {
@@ -509,7 +509,7 @@ void App::drawTransplantF4()
 					if (!needle.empty()) {
 						ImGui::SetNextItemOpen(true);
 					}
-					if (ImGui::TreeNodeEx("##grp", ImGuiTreeNodeFlags_SpanAvailWidth, "%s   (%s)", name.empty() ? "Other" : name.c_str(), counts(gi).c_str())) {
+					if (ImGui::TreeNodeEx("##grp", ImGuiTreeNodeFlags_SpanAvailWidth, "%s   (%s)", name.empty() ? tr("Other") : name.c_str(), counts(gi).c_str())) {
 						for (auto i : gi) {
 							row(i);
 						}
@@ -523,7 +523,7 @@ void App::drawTransplantF4()
 		ImGui::PopID();
 	}
 	if (_tf4Changes.empty()) {
-		Wrapped(theme::Good(), "The good save already has everything the old one has (of what can be read from the files).");
+		Wrapped(theme::Good(), tr("The good save already has everything the old one has (of what can be read from the files)."));
 	}
 	ImGui::EndChild();
 
@@ -536,72 +536,72 @@ void App::drawTransplantF4()
 		}
 	}
 	ImGui::BeginDisabled(busy || fileRun.empty() || !_save);
-	if (ImGui::Button(Fmt("A. Write %zu ticked thing(s) into the open save", fileRun.size()).c_str())) {
+	if (ImGui::Button(Fmt(tr("A. Write %zu ticked thing(s) into the open save"), fileRun.size()).c_str())) {
 		std::size_t done = 0;
 		for (auto i : fileRun) {
 			const auto why = tf4::ApplyToFile(*_save, _tf4Changes[i]);
-			_tf4Results[i] = { why.empty(), why.empty() ? "written into the save" : why };
+			_tf4Results[i] = { why.empty(), why.empty() ? tr("written into the save") : why };
 			done += why.empty() ? 1 : 0;
 		}
 		if (done) {
-			markChanged(Fmt("Transplant: %zu thing(s) written into the save", done));
+			markChanged(Fmt(tr("Transplant: %zu thing(s) written into the save"), done));
 		}
-		_status = Fmt("Transplant: %zu of %zu written into the open save. Save it (File > Save), load it in Fallout 4, then use B for the rest.", done,
+		_status = Fmt(tr("Transplant: %zu of %zu written into the open save. Save it (File > Save), load it in Fallout 4, then use B for the rest."), done,
 			fileRun.size());
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Level, experience, S.P.E.C.I.A.L., caps and perk ranks are written into the save open here. Nothing is on disk until you\n"
-			  "use File > Save (a backup of the file is kept). Then load that save in the game for step B.");
+	tips::Tip(tr("Level, experience, S.P.E.C.I.A.L., caps and perk ranks are written into the save open here. Nothing is on disk until you\n"
+			  "use File > Save (a backup of the file is kept). Then load that save in the game for step B."));
 	ImGui::SameLine(0, 20);
 	ImGui::BeginDisabled(busy || gameRun.empty() || !helperOk);
-	const bool goBtn = ImGui::Button(Fmt("B. Put %zu ticked thing(s) into the running game", gameRun.size()).c_str());
+	const bool goBtn = ImGui::Button(Fmt(tr("B. Put %zu ticked thing(s) into the running game"), gameRun.size()).c_str());
 	ImGui::EndDisabled();
-	tips::Tip("ReSaverHelper puts the items, perks and quest stages into the game loaded now (the good save, after step A).\n"
-			  "The game saves first (a save to go back to); its load order gives the form ids.");
+	tips::Tip(tr("ReSaverHelper puts the items, perks and quest stages into the game loaded now (the good save, after step A).\n"
+			  "The game saves first (a save to go back to); its load order gives the form ids."));
 	if (goBtn) {
-		confirm("Transplant into the game",
-			Fmt("Put %zu ticked thing(s) into the game now?\n\n"
+		confirm(tr("Transplant into the game"),
+			Fmt(tr("Put %zu ticked thing(s) into the game now?\n\n"
 				"- The GOOD save (after step A, saved and loaded) must be the one loaded in Fallout 4.\n"
 				"- The game makes a new save first, so you can go back.\n"
 				"- After OK, switch to Fallout 4 and stay there, unpaused with menus closed, until it is done.\n"
-				"- Quest stages run their scripts: give them a minute, then save in the game.",
+				"- Quest stages run their scripts: give them a minute, then save in the game."),
 				gameRun.size()),
 			[this, gameRun] { transplantF4StartGame(gameRun); });
 	}
 	if (busy) {
 		ImGui::SameLine();
 		if (!_tf4WaitSave.empty()) {
-			TextColored(theme::Caution(), Fmt("Waiting for the game's save (%.0f s): switch to Fallout 4 for a moment...", ImGui::GetTime() - _tf4WaitStart));
+			TextColored(theme::Caution(), Fmt(tr("Waiting for the game's save (%.0f s): switch to Fallout 4 for a moment..."), ImGui::GetTime() - _tf4WaitStart));
 		} else {
 			ImGui::ProgressBar(_tf4Run.empty() ? 0.0f : static_cast<float>(_tf4Pos) / static_cast<float>(_tf4Run.size()), ImVec2(260, 0),
-				Fmt("%zu of %zu", _tf4Pos, _tf4Run.size()).c_str());
+				Fmt(tr("%zu of %zu"), _tf4Pos, _tf4Run.size()).c_str());
 		}
 	}
 	if (_tf4NeedOrder && !busy) {
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Put them in with the good save's load order")) {
+		if (ImGui::SmallButton(tr("Put them in with the good save's load order"))) {
 			_tf4NeedOrder = false;
 			_tf4GameOrder = {};
-			_tf4GameNote = "The game's load order was not checked: the form ids are the good save's.";
+			_tf4GameNote = tr("The game's load order was not checked: the form ids are the good save's.");
 			_tf4Run = gameRun;
 			_tf4Pos = 0;
 			_tf4Running = true;
 			transplantF4Step();
 		}
-		tips::Tip("Only when the game runs with the same mods, in the same order, as when the good save was made.");
+		tips::Tip(tr("Only when the game runs with the same mods, in the same order, as when the good save was made."));
 	}
-	ImGui::Checkbox("Mark quests completed in the old save as completed", &_tf4MarkCompleted);
-	tips::Tip("After setting a quest's last stage, CompleteQuest marks it completed, as it was in the old save (also when the game\n"
-			  "refuses the stage). Untick to only set the stage.");
+	ImGui::Checkbox(tr("Mark quests completed in the old save as completed"), &_tf4MarkCompleted);
+	tips::Tip(tr("After setting a quest's last stage, CompleteQuest marks it completed, as it was in the old save (also when the game\n"
+			  "refuses the stage). Untick to only set the stage."));
 	ImGui::SameLine(0, 30);
 	if (!live) {
-		ImGui::TextDisabled("B needs Fallout 4 running with ReSaverHelper %d+ and a save loaded.", kTransplantHelper);
+		ImGui::TextDisabled(tr("B needs Fallout 4 running with ReSaverHelper %d+ and a save loaded."), kTransplantHelper);
 	} else if (!helperOk) {
-		Wrapped(theme::Caution(), Fmt("ReSaverHelper %s is running: B needs version %d (Optional files on the mod page).", info.helperVersion.c_str(), kTransplantHelper));
+		Wrapped(theme::Caution(), Fmt(tr("ReSaverHelper %s is running: B needs version %d (Optional files on the mod page)."), info.helperVersion.c_str(), kTransplantHelper));
 	} else if (!_tf4GameNote.empty()) {
 		ImGui::TextDisabled("%s", _tf4GameNote.c_str());
 	} else {
-		ImGui::TextDisabled("Nothing is taken from the good save: things are only added, and values only raised.");
+		ImGui::TextDisabled("%s", tr("Nothing is taken from the good save: things are only added, and values only raised."));
 	}
 	ImGui::End();
 }

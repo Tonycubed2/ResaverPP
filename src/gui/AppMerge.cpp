@@ -41,7 +41,7 @@ namespace
 void App::drawMergedPatch()
 {
 	prepareWindow("Merged patch", ImVec2(0.8f, 0.85f));
-	if (!ImGui::Begin("Merged patch", &_showMerge, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("Merged patch"), &_showMerge, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
@@ -65,36 +65,36 @@ void App::drawMergedPatch()
 	const bool f4NoLight = f4 && _save && _save->isFO4() && _save->formVersion < 68;
 	ImGui::NewLine();
 	if (f4) {
-		ImGui::TextWrapped("When two mods change the same leveled list, container, form list, outfit or the keywords of a misc item or "
+		ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, container, form list, outfit or the keywords of a misc item or "
 						   "key, the game only uses the one loaded last, and the other mod's additions are lost. The merged patch reads "
 						   "every plugin in your Fallout 4 load order and writes one plugin that keeps both: what each mod added or "
-						   "removed is combined. Every other value stays as the winning mod has it, as the game does without a patch.");
+						   "removed is combined. Every other value stays as the winning mod has it, as the game does without a patch."));
 		ImGui::TextWrapped("%s", merge::Fo4NotMerged());
-		ImGui::TextWrapped(f4NoLight ? "Your save is from a Fallout 4 version without light plugins (before 1.10), so the patch is a normal "
-									   "plugin and takes a load order slot. Rebuild it after you add, remove or reorder mods."
-									 : "The patch is a light (ESL-flagged) plugin, so it takes no load order slot. It only needs a mod as a "
+		ImGui::TextWrapped("%s", f4NoLight ? tr("Your save is from a Fallout 4 version without light plugins (before 1.10), so the patch is a normal "
+									   "plugin and takes a load order slot. Rebuild it after you add, remove or reorder mods.")
+									 : tr("The patch is a light (ESL-flagged) plugin, so it takes no load order slot. It only needs a mod as a "
 									   "master when a patched record comes from that mod or points at one of its forms. Rebuild it after "
-									   "you add, remove or reorder mods.");
+									   "you add, remove or reorder mods."));
 	} else {
-		ImGui::TextWrapped("When two mods change the same leveled list, container, NPC, keyword list, form list or outfit, the game only "
+		ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, container, NPC, keyword list, form list or outfit, the game only "
 						   "uses the one loaded last, and the other mod's additions are lost. The merged patch reads every plugin in your "
 						   "load order and writes one plugin that keeps both: what each mod added or removed is combined. Every other value "
-						   "stays as the winning mod has it, as the game does without a patch.");
-		ImGui::TextWrapped("On Special Edition and Anniversary Edition the patch is a light (ESL-flagged) plugin, so it takes no load order "
+						   "stays as the winning mod has it, as the game does without a patch."));
+		ImGui::TextWrapped("%s", tr("On Special Edition and Anniversary Edition the patch is a light (ESL-flagged) plugin, so it takes no load order "
 						   "slot. On Legendary Edition (found automatically) it is a normal plugin in LE's format and needs one slot. It only "
 						   "needs a mod as a master when a patched record comes from that mod or points at one of its forms. Rebuild it after "
-						   "you add, remove or reorder mods.");
+						   "you add, remove or reorder mods."));
 	}
 	ImGui::Spacing();
-	ImGui::TextDisabled("Load order: %s", platform::ToUtf8(pluginsTxt).c_str());
+	ImGui::TextDisabled(tr("Load order: %s"), platform::ToUtf8(pluginsTxt).c_str());
 	if (_mo2 && !_profile.empty()) {
-		ImGui::TextDisabled("Mod Organizer profile: %s", _profile.c_str());
+		ImGui::TextDisabled(tr("Mod Organizer profile: %s"), _profile.c_str());
 	}
 
 	const bool noMods = _sourcesPath.empty() && !_sources.scanned();
 	if (noMods) {
-		Colored(theme::Warn(), "ReSaver Plus does not know where your mods are yet: set your mods folder (Mod Organizer) or game folder in "
-							   "Options > Settings, then come back here.");
+		Colored(theme::Warn(), tr("ReSaver Plus does not know where your mods are yet: set your mods folder (Mod Organizer) or game folder in "
+							   "Options > Settings, then come back here."));
 		ImGui::End();
 		return;
 	}
@@ -129,10 +129,10 @@ void App::drawMergedPatch()
 
 	// ---- what to merge -----------------------------------------------------------------------------
 	ImGui::Spacing();
-	if (ImGui::CollapsingHeader("What to merge", ImGuiTreeNodeFlags_DefaultOpen)) {
-		ImGui::TextWrapped("Untick a kind of change to leave it to the winning mod, as the game does without a patch. Under each kind is "
+	if (ImGui::CollapsingHeader(trId("What to merge"), ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::TextWrapped("%s", tr("Untick a kind of change to leave it to the winning mod, as the game does without a patch. Under each kind is "
 						   "everything it covers. SAFE: nothing to check. CAUTION: hover the row for what can go wrong. RISKY: check the "
-						   "records it changed after building (they are listed in red below and in the report).");
+						   "records it changed after building (they are listed in red below and in the report)."));
 		// how many changes of each kind the last build made
 		std::size_t counts[static_cast<int>(merge::Category::kCount)] = {};
 		if (_mergeResult) {
@@ -140,33 +140,33 @@ void App::drawMergedPatch()
 				for (const auto c : m.categories) ++counts[static_cast<int>(c)];
 			}
 		}
-		if (ImGui::SmallButton("Tick all")) {
+		if (ImGui::SmallButton(tr("Tick all"))) {
 			for (auto& off : _mergeOff) off = false;
 			_mergeOptionsChanged = true;
 			saveSettings();
 		}
-		tips::Tip("Merge every kind of change.");
+		tips::Tip(tr("Merge every kind of change."));
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Only the green ones")) {
+		if (ImGui::SmallButton(tr("Only the green ones"))) {
 			for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
 				_mergeOff[i] = merge::CategoryRisk(static_cast<merge::Category>(i)) > 0;
 			}
 			_mergeOptionsChanged = true;
 			saveSettings();
 		}
-		tips::Tip("Merge only the safe kinds: leveled lists, containers, outfits, keywords, item values, names and models.");
+		tips::Tip(tr("Merge only the safe kinds: leveled lists, containers, outfits, keywords, item values, names and models."));
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Green and yellow")) {
+		if (ImGui::SmallButton(tr("Green and yellow"))) {
 			for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
 				_mergeOff[i] = merge::CategoryRisk(static_cast<merge::Category>(i)) > 1;
 			}
 			_mergeOptionsChanged = true;
 			saveSettings();
 		}
-		tips::Tip("Leave out the risky kinds (scripts on records; a cell's location, owner, music and other settings).");
+		tips::Tip(tr("Leave out the risky kinds (scripts on records; a cell's location, owner, music and other settings)."));
 		if (ImGui::BeginTable("mergekinds", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
 			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 1.6f);
-			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("CAUTION").x + ImGui::GetFontSize());
+			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize(tr("CAUTION")).x + ImGui::GetFontSize());
 			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 4.0f);
 			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 1.5f);
 			for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
@@ -186,7 +186,7 @@ void App::drawMergedPatch()
 				}
 				ImGui::TableNextColumn();
 				ImGui::PushStyleColor(ImGuiCol_Text, risk >= 2 ? theme::Bad() : risk == 1 ? theme::Caution() : theme::Good());
-				ImGui::TextUnformatted(risk >= 2 ? "RISKY" : risk == 1 ? "CAUTION" : "SAFE");
+				ImGui::TextUnformatted(risk >= 2 ? tr("RISKY") : risk == 1 ? tr("CAUTION") : tr("SAFE"));
 				ImGui::PopStyleColor();
 				ImGui::TableNextColumn();
 				ImGui::TextWrapped("%s", merge::CategoryName(cat));
@@ -197,20 +197,20 @@ void App::drawMergedPatch()
 				tips::Tip(merge::CategoryWhy(cat));
 				ImGui::TableNextColumn();
 				if (_mergeResult) {
-					ImGui::TextDisabled("%zu change(s) last time", counts[i]);
+					ImGui::TextDisabled(tr("%zu change(s) last time"), counts[i]);
 				}
 				ImGui::PopID();
 			}
 			ImGui::EndTable();
 		}
 		if (_mergeOptionsChanged && _mergeResult) {
-			Colored(theme::Warn(), "Changed since the last build: build again to apply.");
+			Colored(theme::Warn(), tr("Changed since the last build: build again to apply."));
 		}
 	}
 
 	ImGui::Spacing();
 	ImGui::BeginDisabled(_mergeBusy || _mergeWaitScan);
-	if (ImGui::Button(_mergeResult ? "Build the merged patch again" : "Build the merged patch")) {
+	if (ImGui::Button(_mergeResult ? tr("Build the merged patch again") : tr("Build the merged patch"))) {
 		if (ensureSourcesScanned()) {
 			start();
 		} else {
@@ -218,18 +218,18 @@ void App::drawMergedPatch()
 		}
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Read every plugin of your load order and work out the merged patch. Nothing is written until you save it.");
+	tips::Tip(tr("Read every plugin of your load order and work out the merged patch. Nothing is written until you save it."));
 	if (_mergeWaitScan) {
 		ImGui::SameLine();
-		ImGui::TextDisabled("finding your mods first...");
+		ImGui::TextDisabled("%s", tr("finding your mods first..."));
 		drawBackgroundProgress(0);
 	}
 	if (_mergeBusy && _mergeProgress) {
 		ImGui::SameLine();
 		const auto total = _mergeProgress->total.load(), done = _mergeProgress->done.load();
 		ImGui::ProgressBar(total ? static_cast<float>(done) / static_cast<float>(total) : 0.0f, ImVec2(-1, 0),
-			Fmt("%s  %zu / %zu", _mergeProgress->current().c_str(), done, total).c_str());
-		if (ImGui::Button("Cancel")) {
+			Fmt(tr("%s  %zu / %zu"), _mergeProgress->current().c_str(), done, total).c_str());
+		if (ImGui::Button(tr("Cancel"))) {
 			_mergeProgress->cancel = true;
 		}
 	}
@@ -241,24 +241,24 @@ void App::drawMergedPatch()
 	const auto& r = *_mergeResult;
 	ImGui::Separator();
 	if (!r.ok) {
-		Colored(theme::Bad(), "The patch could not be built: " + r.error);
+		Colored(theme::Bad(), tr("The patch could not be built: ") + r.error);
 		ImGui::End();
 		return;
 	}
-	ImGui::Text("%zu of %zu plugins read. %zu records are changed differently by two or more plugins.", r.pluginsRead, _mergeLoadOrder, r.conflicts);
-	Colored(theme::Good(), Fmt("%zu records merged into the patch, with %zu masters.", r.merged.size(), r.masters.size()));
+	ImGui::Text(tr("%zu of %zu plugins read. %zu records are changed differently by two or more plugins."), r.pluginsRead, _mergeLoadOrder, r.conflicts);
+	Colored(theme::Good(), Fmt(tr("%zu records merged into the patch, with %zu masters."), r.merged.size(), r.masters.size()));
 	if (r.legendary) {
-		ImGui::TextDisabled("Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes one load order slot.");
+		ImGui::TextDisabled("%s", tr("Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes one load order slot."));
 	} else if (r.fo4) {
-		ImGui::TextDisabled(r.light ? "Fallout 4 load order: the patch is a light (ESL-flagged) plugin in Fallout 4's format."
-									: "Fallout 4 load order: the patch is a normal plugin in Fallout 4's format and takes one load order slot.");
+		ImGui::TextDisabled("%s", r.light ? tr("Fallout 4 load order: the patch is a light (ESL-flagged) plugin in Fallout 4's format.")
+									: tr("Fallout 4 load order: the patch is a normal plugin in Fallout 4's format and takes one load order slot."));
 	}
 	if (!r.skipped.empty()) {
-		ImGui::TextDisabled("%zu could not be merged; for those the winning mod's version stays, as without a patch.", r.skipped.size());
+		ImGui::TextDisabled(tr("%zu could not be merged; for those the winning mod's version stays, as without a patch."), r.skipped.size());
 	}
 	if (!r.missing.empty()) {
-		Colored(theme::Warn(), Fmt("%zu plugins of the load order were not found or could not be read (see the list below); their "
-								   "changes are not in the patch.",
+		Colored(theme::Warn(), Fmt(tr("%zu plugins of the load order were not found or could not be read (see the list below); their "
+								   "changes are not in the patch."),
 								   r.missing.size()));
 	}
 
@@ -271,7 +271,7 @@ void App::drawMergedPatch()
 		std::ofstream f(a_file, std::ios::binary);
 		f.write(reinterpret_cast<const char*>(_mergeResult->file.data()), static_cast<std::streamsize>(_mergeResult->file.size()));
 		if (!f) {
-			_error = "Could not write " + platform::ToUtf8(a_file);
+			_error = tr("Could not write ") + platform::ToUtf8(a_file);
 			return;
 		}
 		f.close();
@@ -279,46 +279,46 @@ void App::drawMergedPatch()
 		rep.replace_extension(".txt");
 		std::ofstream(rep) << _mergeResult->report();
 		_mergeSaved = platform::ToUtf8(a_file);
-		_status = "Wrote the merged patch: " + _mergeSaved;
+		_status = tr("Wrote the merged patch: ") + _mergeSaved;
 	};
-	if (ImGui::Button(_mo2 ? "Save it as a new mod in Mod Organizer" : "Save it in the game's Data folder")) {
+	if (ImGui::Button(_mo2 ? tr("Save it as a new mod in Mod Organizer") : tr("Save it in the game's Data folder"))) {
 		std::error_code ec;
 		if (std::filesystem::exists(outFile, ec)) {
-			confirm("Replace the merged patch", "Replace the merged patch made before?\n\n" + platform::ToUtf8(outFile),
+			confirm(tr("Replace the merged patch"), tr("Replace the merged patch made before?\n\n") + platform::ToUtf8(outFile),
 				[write, outFile] { write(outFile); });
 		} else {
 			write(outFile);
 		}
 	}
 	ImGui::EndDisabled();
-	tips::Tipf("Write %s and a report of what was merged (.txt) to %s", kPatchName, platform::ToUtf8(outFile.parent_path()).c_str());
+	tips::Tipf(tr("Write %s and a report of what was merged (.txt) to %s"), kPatchName, platform::ToUtf8(outFile.parent_path()).c_str());
 	ImGui::SameLine();
 	ImGui::BeginDisabled(r.merged.empty());
-	if (ImGui::Button("Save as...")) {
-		if (auto f = platform::SaveFileDialog(outFile.empty() ? std::filesystem::path(kPatchName) : outFile, "esp", "Merged patch")) {
+	if (ImGui::Button(tr("Save as..."))) {
+		if (auto f = platform::SaveFileDialog(outFile.empty() ? std::filesystem::path(kPatchName) : outFile, "esp", tr("Merged patch"))) {
 			write(*f);
 		}
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Choose where to write the patch yourself.");
+	tips::Tip(tr("Choose where to write the patch yourself."));
 	if (!_mergeSaved.empty()) {
-		Colored(theme::Good(), "Saved: " + _mergeSaved);
+		Colored(theme::Good(), tr("Saved: ") + _mergeSaved);
 		if (_mo2) {
-			ImGui::TextWrapped("In Mod Organizer: press F5 (refresh), tick the mod \"%s\" on the left, and make sure %s is ticked at the "
-							   "bottom of the plugin list on the right. Leave it last.",
+			ImGui::TextWrapped(tr("In Mod Organizer: press F5 (refresh), tick the mod \"%s\" on the left, and make sure %s is ticked at the "
+							   "bottom of the plugin list on the right. Leave it last."),
 				kModFolder, kPatchName);
 		} else {
-			ImGui::TextWrapped("Enable %s in your mod manager or the game's launcher and keep it last in the load order.", kPatchName);
+			ImGui::TextWrapped(tr("Enable %s in your mod manager or the game's launcher and keep it last in the load order."), kPatchName);
 		}
-		ImGui::TextWrapped(r.fo4         ? "Before playing, you can open it in FO4Edit (Check for Errors) to see what it changed."
-						   : r.legendary ? "Before playing, you can open it in TES5Edit (Check for Errors) to see what it changed."
-										 : "Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed.");
+		ImGui::TextWrapped("%s", r.fo4         ? tr("Before playing, you can open it in FO4Edit (Check for Errors) to see what it changed.")
+						   : r.legendary ? tr("Before playing, you can open it in TES5Edit (Check for Errors) to see what it changed.")
+										 : tr("Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed."));
 	}
 
 	// details
 	ImGui::Spacing();
 	if (ImGui::BeginChild("mergedetails", ImVec2(0, 0), ImGuiChildFlags_Borders)) {
-		if (ImGui::CollapsingHeader(Fmt("Merged records (%zu)###merged", r.merged.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::CollapsingHeader(Fmt(tr("Merged records (%zu)###merged"), r.merged.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGuiListClipper clip;
 			clip.Begin(static_cast<int>(r.merged.size()));
 			while (clip.Step()) {
@@ -333,29 +333,29 @@ void App::drawMergedPatch()
 					ImGui::PushStyleColor(ImGuiCol_Text, riskCol);
 					ImGui::Text("%s %s [%s]", m.type.c_str(), m.edid.c_str(), m.id.c_str());
 					ImGui::PopStyleColor();
-					tips::Tipf("Starts from %s (the winning mod).%s%s", m.winner.c_str(), changes.empty() ? "" : "\nAdded from the others: ",
+					tips::Tipf(tr("Starts from %s (the winning mod).%s%s"), m.winner.c_str(), changes.empty() ? "" : tr("\nAdded from the others: "),
 						changes.c_str());
 					ImGui::SameLine();
-					ImGui::TextDisabled("winner %s%s%s", m.winner.c_str(), changes.empty() ? "" : "  |  ", changes.c_str());
+					ImGui::TextDisabled(tr("winner %s%s%s"), m.winner.c_str(), changes.empty() ? "" : "  |  ", changes.c_str());
 				}
 			}
 		}
-		if (ImGui::CollapsingHeader(Fmt("Masters of the patch (%zu)###masters", r.masters.size()).c_str())) {
+		if (ImGui::CollapsingHeader(Fmt(tr("Masters of the patch (%zu)###masters"), r.masters.size()).c_str())) {
 			for (const auto& m : r.masters) {
 				auto it = r.masterWhy.find(m);
 				ImGui::BulletText("%s", m.c_str());
 				if (it != r.masterWhy.end()) {
 					ImGui::SameLine();
-					ImGui::TextDisabled("needed by %s", it->second.c_str());
+					ImGui::TextDisabled(tr("needed by %s"), it->second.c_str());
 				}
 			}
 		}
-		if (!r.skipped.empty() && ImGui::CollapsingHeader(Fmt("Not merged (%zu)###skipped", r.skipped.size()).c_str())) {
+		if (!r.skipped.empty() && ImGui::CollapsingHeader(Fmt(tr("Not merged (%zu)###skipped"), r.skipped.size()).c_str())) {
 			for (const auto& s : r.skipped) {
 				ImGui::BulletText("%s", s.c_str());
 			}
 		}
-		if (!r.fixes.empty() && ImGui::CollapsingHeader(Fmt("Broken references the patch fixes (%zu)###fixes", r.fixes.size()).c_str(),
+		if (!r.fixes.empty() && ImGui::CollapsingHeader(Fmt(tr("Broken references the patch fixes (%zu)###fixes"), r.fixes.size()).c_str(),
 									  ImGuiTreeNodeFlags_DefaultOpen)) {
 			for (const auto& s : r.fixes) {
 				ImGui::PushStyleColor(ImGuiCol_Text, theme::Good());
@@ -363,7 +363,7 @@ void App::drawMergedPatch()
 				ImGui::PopStyleColor();
 			}
 		}
-		if (!r.warnings.empty() && ImGui::CollapsingHeader(Fmt("Problems in your load order (%zu)###warnings", r.warnings.size()).c_str(),
+		if (!r.warnings.empty() && ImGui::CollapsingHeader(Fmt(tr("Problems in your load order (%zu)###warnings"), r.warnings.size()).c_str(),
 										 ImGuiTreeNodeFlags_DefaultOpen)) {
 			for (const auto& s : r.warnings) {
 				ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
@@ -371,7 +371,7 @@ void App::drawMergedPatch()
 				ImGui::PopStyleColor();
 			}
 		}
-		if (!r.missing.empty() && ImGui::CollapsingHeader(Fmt("Plugins not found (%zu)###missing", r.missing.size()).c_str())) {
+		if (!r.missing.empty() && ImGui::CollapsingHeader(Fmt(tr("Plugins not found (%zu)###missing"), r.missing.size()).c_str())) {
 			for (const auto& s : r.missing) {
 				ImGui::BulletText("%s", s.c_str());
 			}
@@ -388,7 +388,7 @@ void App::drawMergedPatch()
 void App::drawFileConflicts()
 {
 	prepareWindow("File conflicts", ImVec2(0.8f, 0.85f));
-	if (!ImGui::Begin("File conflicts", &_showAssets, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("File conflicts"), &_showAssets, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
@@ -398,16 +398,16 @@ void App::drawFileConflicts()
 		_assetsResult = std::move(_assetsIncoming);
 	}
 	ImGui::NewLine();
-	ImGui::TextWrapped("When two mods have the same file (a mesh, texture, script...), the game uses one of them. Loose files beat every "
+	ImGui::TextWrapped("%s", tr("When two mods have the same file (a mesh, texture, script...), the game uses one of them. Loose files beat every "
 					   "archive (BSA, or BA2 for Fallout 4); among loose files your mod order decides; among archives the plugin load order. This lists which "
 					   "mod overrides which, loose and inside archives. A script overridden by another mod's copy is worth a look: one "
-					   "of the two mods may not work as its author meant.");
+					   "of the two mods may not work as its author meant."));
 	if (!_mo2) {
-		Colored(theme::Warn(), "Without Mod Organizer only the game's Data folder can be read: files a mod manager already copied over each "
-							   "other there cannot be told apart any more. Archives against loose files still show.");
+		Colored(theme::Warn(), tr("Without Mod Organizer only the game's Data folder can be read: files a mod manager already copied over each "
+							   "other there cannot be told apart any more. Archives against loose files still show."));
 	}
 	ImGui::BeginDisabled(_assetsBusy);
-	if (ImGui::Button(_assetsResult ? "Look again" : "Find file conflicts")) {
+	if (ImGui::Button(_assetsResult ? tr("Look again") : tr("Find file conflicts"))) {
 		assets::Input in;
 		if (_mo2) {
 			in.modsDir = _mo2->modsDir;
@@ -434,36 +434,36 @@ void App::drawFileConflicts()
 		});
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Read the file list of every enabled mod and every archive the game loads (the files themselves are not opened).");
+	tips::Tip(tr("Read the file list of every enabled mod and every archive the game loads (the files themselves are not opened)."));
 	if (_assetsBusy && _assetsProgress) {
 		ImGui::SameLine();
 		const auto total = _assetsProgress->total.load(), done = _assetsProgress->done.load();
 		ImGui::ProgressBar(total ? static_cast<float>(done) / static_cast<float>(total) : 0.0f, ImVec2(-1, 0),
-			Fmt("%s  %zu / %zu", _assetsProgress->current().c_str(), done, total).c_str());
+			Fmt(tr("%s  %zu / %zu"), _assetsProgress->current().c_str(), done, total).c_str());
 	}
 	if (!_assetsResult || _assetsBusy) {
 		ImGui::End();
 		return;
 	}
 	const auto& r = *_assetsResult;
-	ImGui::Text("%zu files in %zu folders and %zu archives; %zu paths come from more than one place (%zu scripts).", r.files, r.modsRead,
+	ImGui::Text(tr("%zu files in %zu folders and %zu archives; %zu paths come from more than one place (%zu scripts)."), r.files, r.modsRead,
 		r.archives, r.conflicts.size(), r.scriptConflicts);
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 18);
-	ImGui::InputTextWithHint("##assetfilter", "Filter: mod name or file", _assetsFilter, sizeof(_assetsFilter));
-	tips::Tip("Show only pairs where a mod's name or one of the files contains this text.");
+	ImGui::InputTextWithHint("##assetfilter", tr("Filter: mod name or file"), _assetsFilter, sizeof(_assetsFilter));
+	tips::Tip(tr("Show only pairs where a mod's name or one of the files contains this text."));
 	ImGui::SameLine();
-	ImGui::Checkbox("Only scripts", &_assetsScriptsOnly);
-	tips::Tip("Only pairs where one mod overrides another's scripts (.pex).");
+	ImGui::Checkbox(tr("Only scripts"), &_assetsScriptsOnly);
+	tips::Tip(tr("Only pairs where one mod overrides another's scripts (.pex)."));
 	ImGui::SameLine();
-	ImGui::Checkbox("Hide the base game", &_assetsHideGame);
-	tips::Tip("Hide mods overriding the base game's own files: replacing them is what most mods are for.");
-	if (ImGui::Button("Save the full list...")) {
-		if (auto f = platform::SaveFileDialog("ReSaverPP File Conflicts.txt", "txt", "File conflicts")) {
+	ImGui::Checkbox(tr("Hide the base game"), &_assetsHideGame);
+	tips::Tip(tr("Hide mods overriding the base game's own files: replacing them is what most mods are for."));
+	if (ImGui::Button(tr("Save the full list..."))) {
+		if (auto f = platform::SaveFileDialog("ReSaverPP File Conflicts.txt", "txt", tr("File conflicts"))) {
 			std::ofstream(*f) << r.report(100000);
-			_status = "Wrote " + platform::ToUtf8(*f);
+			_status = tr("Wrote ") + platform::ToUtf8(*f);
 		}
 	}
-	tips::Tip("Write every conflict to a text file.");
+	tips::Tip(tr("Write every conflict to a text file."));
 	auto lower = [](std::string x) {
 		for (auto& c : x) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 		return x;
@@ -487,12 +487,12 @@ void App::drawFileConflicts()
 				if (!any) continue;
 			}
 			if (++shown > 2000) {
-				ImGui::TextDisabled("... more: narrow the filter");
+				ImGui::TextDisabled("%s", tr("... more: narrow the filter"));
 				break;
 			}
 			ImGui::PushID(static_cast<int>(pi));
-			const auto head = Fmt("%s  overrides  %s:  %zu file(s)%s", p.winner.c_str(), p.loser.c_str(), p.files,
-				p.scripts ? Fmt(", %zu script(s)", p.scripts).c_str() : "");
+			const auto head = Fmt(tr("%s  overrides  %s:  %zu file(s)%s"), p.winner.c_str(), p.loser.c_str(), p.files,
+				p.scripts ? Fmt(tr(", %zu script(s)"), p.scripts).c_str() : "");
 			if (p.scripts) ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
 			const bool open = ImGui::TreeNode(head.c_str());
 			if (p.scripts) ImGui::PopStyleColor();
@@ -502,7 +502,7 @@ void App::drawFileConflicts()
 					const auto& c = r.conflicts[ci];
 					if (_assetsScriptsOnly && !c.path.ends_with(".pex")) continue;
 					if (++n > 500) {
-						ImGui::TextDisabled("... %zu more (Save the full list)", p.conflicts.size() - 500);
+						ImGui::TextDisabled(tr("... %zu more (Save the full list)"), p.conflicts.size() - 500);
 						break;
 					}
 					std::string from;
@@ -510,13 +510,13 @@ void App::drawFileConflicts()
 						from += (i ? "  <  " : "") + r.sources[c.sources[i]].label();
 					}
 					ImGui::TextUnformatted(c.path.c_str());
-					tips::Tipf("Lowest to highest (the last one is used):\n%s", from.c_str());
+					tips::Tipf(tr("Lowest to highest (the last one is used):\n%s"), from.c_str());
 				}
 				ImGui::TreePop();
 			}
 			ImGui::PopID();
 		}
-		if (!shown) ImGui::TextDisabled("Nothing to show with these filters.");
+		if (!shown) ImGui::TextDisabled("%s", tr("Nothing to show with these filters."));
 	}
 	ImGui::EndChild();
 	ImGui::End();

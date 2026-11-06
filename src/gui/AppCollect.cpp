@@ -227,48 +227,48 @@ void App::drawCollectLogs()
 	ImGui::SetNextWindowSize(ImVec2(620, 0), ImGuiCond_Appearing);
 	const auto* vp = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y * 0.4f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	if (!ImGui::Begin("Collect all logs", &_showCollect, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize)) {
+	if (!ImGui::Begin(trId("Collect all logs"), &_showCollect, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize)) {
 		ImGui::End();
 		return;
 	}
 	auto& j = *_collectJob;
 	if (!j.finished) {
-		ImGui::TextUnformatted("Putting your game logs, load order, INI files and PC details into one zip...");
+		ImGui::TextUnformatted(tr("Putting your game logs, load order, INI files and PC details into one zip..."));
 		ImGui::ProgressBar(j.items.empty() ? 0.0f : static_cast<float>(j.done) / static_cast<float>(j.items.size()), ImVec2(580, 0),
-			(std::to_string(j.done.load()) + " of " + std::to_string(j.items.size()) + " files").c_str());
+			(std::to_string(j.done.load()) + tr(" of ") + std::to_string(j.items.size()) + tr(" files")).c_str());
 	} else if (!j.error.empty()) {
 		ImGui::PushStyleColor(ImGuiCol_Text, theme::Bad());
 		ImGui::PushTextWrapPos(580);
-		ImGui::TextUnformatted(("The zip could not be made: " + j.error).c_str());
+		ImGui::TextUnformatted((tr("The zip could not be made: ") + j.error).c_str());
 		ImGui::PopTextWrapPos();
 		ImGui::PopStyleColor();
 	} else {
 		ImGui::PushStyleColor(ImGuiCol_Text, theme::Good());
-		ImGui::TextUnformatted("Done: your logs are in a zip on your desktop.");
+		ImGui::TextUnformatted(tr("Done: your logs are in a zip on your desktop."));
 		ImGui::PopStyleColor();
 		ImGui::TextUnformatted(platform::ToUtf8(j.zip.filename()).c_str());
 		char b[128];
-		std::snprintf(b, sizeof(b), "%zu files, %.1f MB", j.files, j.bytes / 1048576.0);
+		std::snprintf(b, sizeof(b), tr("%zu files, %.1f MB"), j.files, j.bytes / 1048576.0);
 		ImGui::TextDisabled("%s", b);
 		ImGui::PushTextWrapPos(580);
-		ImGui::TextDisabled("Inside: the SKSE / F4SE folder with all its logs and crash logs, the Papyrus logs, your INI files and load order, "
+		ImGui::TextDisabled("%s", tr("Inside: the SKSE / F4SE folder with all its logs and crash logs, the Papyrus logs, your INI files and load order, "
 		                    "Mod Organizer's logs and profile lists, ReSaver Plus's logs, and system-info.txt (Windows, memory, "
-		                    "processor, video card). No saves, and not your AI key.");
+		                    "processor, video card). No saves, and not your AI key."));
 		ImGui::PopTextWrapPos();
 		if (!j.notes.empty()) {
 			for (const auto& n : j.notes) {
 				ImGui::TextDisabled("%s", n.c_str());
 			}
 		}
-		if (ImGui::Button("Show it in its folder")) {
+		if (ImGui::Button(tr("Show it in its folder"))) {
 			platform::ShowInFolder(j.zip);
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Copy its path")) {
+		if (ImGui::Button(tr("Copy its path"))) {
 			ImGui::SetClipboardText(platform::ToUtf8(j.zip).c_str());
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Close")) {
+		if (ImGui::Button(tr("Close"))) {
 			_showCollect = false;
 		}
 	}

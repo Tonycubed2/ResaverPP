@@ -2,6 +2,7 @@
 #pragma once
 
 #include <array>
+#include "core/Lang.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
 #include "core/Batch.h"
@@ -232,7 +233,7 @@ public:
 	std::function<void(std::uint64_t)>                          freeTexture;
 	// a line for the start-up log (ReSaverPP-startup.log): what was opened and how long it took, for reports
 	std::function<void(const std::string&)>                     startupLog;
-	std::string                                                 statusLine() const { return _error.empty() ? _status : _status + "  |  error: " + _error; }
+	std::string                                                 statusLine() const { return _error.empty() ? _status : _status + tr("  |  error: ") + _error; }
 
 	// Save check (AppCheck.cpp): how likely something is to break the game
 	enum class Risk
@@ -494,8 +495,9 @@ private:
 	};
 	const QuestPreview&                   questPreview(std::uint32_t a_formID);
 	void                                  liveQuest(std::uint32_t a_formID);  // asks the game for the quest's live state
+	// a_what is shown in the status bar; a_gameWhat (English) goes into the in-game notification (a_what when empty)
 	void                                  liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std::string& a_what,
-		                                      std::function<void(bool)> a_then = {});
+		                                      std::function<void(bool)> a_then = {}, const std::string& a_gameWhat = {});
 	// earlier quests of a quest line: quests whose journal names this one as the next quest, or whose
 	// completion stage script starts it / sets its stage; followed back, oldest first, not yet completed
 	struct ChainItem
@@ -601,7 +603,7 @@ private:
 	// a Fallout 4 save is open: the tools built on Skyrim's data (its change forms, plugins, mods, logs) are off
 	bool        fo4() const { return _save && _save->isFO4(); }
 	static bool SkyrimOnly(Sc a_which);
-	static constexpr const char* kSkyrimOnlyTip = "Skyrim saves only for now: this tool reads Skyrim's own data.";
+	static constexpr const char* kSkyrimOnlyTip = N_("Skyrim saves only for now: this tool reads Skyrim's own data.");
 	void        drawHome();            // the shortcut buttons
 	bool        anyToolOpen() const;
 	void        goHome();              // "Main menu": close the tools, back to the overview with its shortcuts
@@ -777,6 +779,11 @@ private:
 	std::filesystem::path compilerPath() const;
 	std::filesystem::path compileOutputFolder(const ScriptDoc& d) const;
 	bool ensureSourcesScanned();
+	// interface language (Options > Language, language= in the ini): applied at once
+	void                                setLanguage(const std::string& a_code);
+	const std::vector<i18n::Language>& languages(bool a_rescan = false);
+	void                                drawLanguageMenu();
+	std::vector<i18n::Language>         _languages;
 	void setTheme(int a_kind);  // 0 light, 1 grey, 2 dark  // false while the mods are being scanned (in the background)
 	void pollScan();
 	// progress of the background work (scan of the mods, then plugin names) as a bar; false if idle.
@@ -864,7 +871,7 @@ private:
 	std::unique_ptr<ess::SaveFile> _save;
 	std::unique_ptr<ess::ops::Report> _report;
 	std::filesystem::path          _path;
-	std::string                    _status = "Open a Skyrim or Fallout 4 save (File > Open, or drop a .ess or .fos onto this window).";
+	std::string                    _status = N_("Open a Skyrim or Fallout 4 save (File > Open, or drop a .ess or .fos onto this window).");
 	bool                           _dirty = false;
 	bool                           _quit = false;
 	bool                           _quitPending = false;

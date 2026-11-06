@@ -47,9 +47,9 @@ namespace
 	// "needs the running game" hint on a disabled button
 	void LiveHint(const LiveLink::Info& a_info)
 	{
-		tips::Tipf("%s", !a_info.connected ? "Start Skyrim with ReSaverHelper.dll installed to use this (an optional download on the ReSaver Plus page; "
-															 "Legendary Edition has its own ReSaverHelper on the LE page)."
-														: "Load a save in the game first.");
+		tips::Tipf("%s", !a_info.connected ? tr("Start Skyrim with ReSaverHelper.dll installed to use this (an optional download on the ReSaver Plus page; "
+															 "Legendary Edition has its own ReSaverHelper on the LE page).")
+														: tr("Load a save in the game first."));
 	}
 }
 
@@ -75,30 +75,30 @@ const App::QuestPreview& App::questPreview(std::uint32_t a_formID)
 	if (!_db) {
 		_previewPending = true;
 		_previewTmp = QuestPreview{};
-		_previewTmp.error = namesLoading() ? "Reading your plugins..." : "The plugins are not read yet (Options > Settings: mods folder, then names are read automatically).";
+		_previewTmp.error = namesLoading() ? tr("Reading your plugins...") : tr("The plugins are not read yet (Options > Settings: mods folder, then names are read automatically).");
 		return _previewTmp;
 	}
 	if (!ensureSourcesScanned()) {
 		_previewPending = true;
 		_previewTmp = QuestPreview{};
-		_previewTmp.error = "Reading your mods' scripts (in the background)...";
+		_previewTmp.error = tr("Reading your mods' scripts (in the background)...");
 		return _previewTmp;
 	}
 	auto& pv = _questPreviews[a_formID];
 	pv.done = true;
 	const auto* def = _db->quest(a_formID);
 	if (!def) {
-		pv.error = "This quest is not in your plugins.";
+		pv.error = tr("This quest is not in your plugins.");
 		return pv;
 	}
 	if (def->fragmentScript.empty()) {
-		pv.error = "This quest has no stage scripts.";
+		pv.error = tr("This quest has no stage scripts.");
 		return pv;
 	}
 	try {
 		const auto px = _sources.findPex(def->fragmentScript);
 		if (!px) {
-			pv.error = "Its stage script " + def->fragmentScript + ".pex was not found in your mods.";
+			pv.error = tr("Its stage script ") + def->fragmentScript + tr(".pex was not found in your mods.");
 			return pv;
 		}
 		const auto file = pex::Read(ScriptSources::readPex(*px));
@@ -111,7 +111,7 @@ const App::QuestPreview& App::questPreview(std::uint32_t a_formID)
 			}
 		}
 	} catch (const std::exception& e) {
-		pv.error = std::string("Could not read its stage script: ") + e.what();
+		pv.error = std::string(tr("Could not read its stage script: ")) + e.what();
 	}
 	return pv;
 }
@@ -142,14 +142,16 @@ void App::liveQuest(std::uint32_t a_formID)
 	});
 }
 
-void App::liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std::string& a_what, std::function<void(bool)> a_then)
+void App::liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std::string& a_what, std::function<void(bool)> a_then,
+	const std::string& a_gameWhat)
 {
-	const auto msg = "ReSaver++: " + a_what;
-	_status = "Asking the game: " + a_what + "...";
+	// (the in-game notification stays English: the game's font may not have the letters of the interface language)
+	const auto msg = "ReSaver++: " + (a_gameWhat.empty() ? a_what : a_gameWhat);
+	_status = tr("Asking the game: ") + a_what + "...";
 	_live.request({ "SETSTAGE", Fmt("%08X", a_formID), std::to_string(a_stage), liveNotifyMode(), msg },
 		[this, a_formID, a_what, a_then](const LiveLink::Reply& r) {
 			if (!LiveLink::Ok(r)) {
-				_status = "The game could not do it: " + LiveLink::Error(r);
+				_status = tr("The game could not do it: ") + LiveLink::Error(r);
 				if (a_then) {
 					a_then(false);
 				}
@@ -161,17 +163,17 @@ void App::liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std:
 				// helper 3 also tells where the quest stands after the refusal
 				const auto running = LiveLink::Field(r, 1), completed = LiveLink::Field(r, 2), stage = LiveLink::Field(r, 3);
 				if (completed == "1") {
-					why = " The quest is already completed in the game.";
+					why = tr(" The quest is already completed in the game.");
 				} else if (running == "0") {
-					why = " The quest could not start: the game could not find the people, places or items it needs (they are set up by "
-						  "the quest's normal beginning). \"Mark completed\" can still mark it done in the journal.";
+					why = tr(" The quest could not start: the game could not find the people, places or items it needs (they are set up by "
+						  "the quest's normal beginning). \"Mark completed\" can still mark it done in the journal.");
 				} else if (!stage.empty()) {
-					why = " The quest is running at stage " + stage + "; that stage's conditions were not met. \"Mark completed\" can still mark it done.";
+					why = tr(" The quest is running at stage ") + stage + tr("; that stage's conditions were not met. \"Mark completed\" can still mark it done.");
 				}
 			}
-			_status = f == "1" ? "Done in game: " + a_what + ". Save in the game to keep it." :
-			          f == "?" ? "The game is still running that stage's script: " + a_what + "." :
-			                     "The game refused that stage: " + a_what + "." + why;
+			_status = f == "1" ? tr("Done in game: ") + a_what + tr(". Save in the game to keep it.") :
+			          f == "?" ? tr("The game is still running that stage's script: ") + a_what + "." :
+			                     tr("The game refused that stage: ") + a_what + "." + why;
 			liveQuest(a_formID);
 			if (a_then) {
 				a_then(f != "0");
@@ -197,51 +199,51 @@ bool App::liveFO4() const
 
 void App::liveComplete(std::uint32_t a_formID, const std::string& a_name)
 {
-	const std::string what = "marked \"" + a_name + "\" completed";
-	_status = "Asking the game: " + what + "...";
-	_live.request({ "COMPLETE", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver++: " + what }, [this, a_formID, what](const LiveLink::Reply& r) {
+	const std::string what = Fmt(tr("marked \"%s\" completed"), a_name.c_str());
+	_status = tr("Asking the game: ") + what + "...";
+	_live.request({ "COMPLETE", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver++: " + Fmt("marked \"%s\" completed", a_name.c_str()) }, [this, a_formID, what](const LiveLink::Reply& r) {
 		if (!LiveLink::Ok(r)) {
-			_status = "The game could not do it: " + LiveLink::Error(r);
+			_status = tr("The game could not do it: ") + LiveLink::Error(r);
 			return;
 		}
 		const auto f = LiveLink::Field(r, 0);
-		_status = f == "1" ? "Done in game: " + what + ". Save in the game to keep it." :
-		          f == "?" ? "The game is busy; it does it as soon as it can: " + what + "." :
-		                     "The game did not mark it completed: " + what + ".";
+		_status = f == "1" ? tr("Done in game: ") + what + tr(". Save in the game to keep it.") :
+		          f == "?" ? tr("The game is busy; it does it as soon as it can: ") + what + "." :
+		                     tr("The game did not mark it completed: ") + what + ".";
 		liveQuest(a_formID);
 	});
 }
 
 void App::liveStop(std::uint32_t a_formID, const std::string& a_name)
 {
-	const std::string what = "stopped \"" + a_name + "\"";
-	_status = "Asking the game: " + what + "...";
-	_live.request({ "STOP", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver++: " + what }, [this, a_formID, what](const LiveLink::Reply& r) {
+	const std::string what = Fmt(tr("stopped \"%s\""), a_name.c_str());
+	_status = tr("Asking the game: ") + what + "...";
+	_live.request({ "STOP", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver++: stopped \"" + a_name + "\"" }, [this, a_formID, what](const LiveLink::Reply& r) {
 		if (!LiveLink::Ok(r)) {
-			_status = "The game could not do it: " + LiveLink::Error(r);
+			_status = tr("The game could not do it: ") + LiveLink::Error(r);
 			return;
 		}
 		const auto f = LiveLink::Field(r, 0);
-		_status = f == "1" ? "Done in game: " + what + ". Save in the game to keep it." :
-		          f == "?" ? "The game is busy; it stops the quest as soon as it can: " + what + "." :
-		                     "The game did not stop it: " + what + " (a quest with no script at all: use \"Copy stop command\" and the console).";
+		_status = f == "1" ? tr("Done in game: ") + what + tr(". Save in the game to keep it.") :
+		          f == "?" ? tr("The game is busy; it stops the quest as soon as it can: ") + what + "." :
+		                     tr("The game did not stop it: ") + what + tr(" (a quest with no script at all: use \"Copy stop command\" and the console).");
 		liveQuest(a_formID);
 	});
 }
 
 void App::liveReset(std::uint32_t a_formID, const std::string& a_name)
 {
-	const std::string what = "reset \"" + a_name + "\"";
-	_status = "Asking the game: " + what + "...";
-	_live.request({ "RESET", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver++: " + what }, [this, a_formID, what](const LiveLink::Reply& r) {
+	const std::string what = Fmt(tr("reset \"%s\""), a_name.c_str());
+	_status = tr("Asking the game: ") + what + "...";
+	_live.request({ "RESET", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver++: reset \"" + a_name + "\"" }, [this, a_formID, what](const LiveLink::Reply& r) {
 		if (!LiveLink::Ok(r)) {
-			_status = "The game could not do it: " + LiveLink::Error(r);
+			_status = tr("The game could not do it: ") + LiveLink::Error(r);
 			return;
 		}
 		const auto f = LiveLink::Field(r, 0);
-		_status = f == "1" ? "Done in game: " + what + ". Save in the game to keep it." :
-		          f == "?" ? "The game is busy; it resets the quest as soon as it can: " + what + "." :
-		                     "The game did not reset it: " + what + " (a quest with no script at all: use \"Copy reset command\" and the console).";
+		_status = f == "1" ? tr("Done in game: ") + what + tr(". Save in the game to keep it.") :
+		          f == "?" ? tr("The game is busy; it resets the quest as soon as it can: ") + what + "." :
+		                     tr("The game did not reset it: ") + what + tr(" (a quest with no script at all: use \"Copy reset command\" and the console).");
 		liveQuest(a_formID);
 	});
 }
@@ -313,33 +315,34 @@ std::vector<App::ChainItem>& App::questChain(std::uint32_t a_formID)
 void App::runChain()
 {
 	if (_chainPos >= _chainRun.size()) {
-		_status = Fmt("Quest line done in game (%zu quest(s)). Save in the game to keep it.", _chainRun.size());
+		_status = Fmt(tr("Quest line done in game (%zu quest(s)). Save in the game to keep it."), _chainRun.size());
 		_chainRun.clear();
 		_chainPos = 0;
 		return;
 	}
 	const auto c = _chainRun[_chainPos];
-	liveSetStage(c.formID, c.stage, Fmt("completed \"%s\" (stage %u, %zu of %zu)", c.name.c_str(), c.stage, _chainPos + 1, _chainRun.size()),
+	liveSetStage(c.formID, c.stage, Fmt(tr("completed \"%s\" (stage %u, %zu of %zu)"), c.name.c_str(), c.stage, _chainPos + 1, _chainRun.size()),
 		[this](bool ok) {
 			if (!ok) {
-				_status += "  Stopped the quest line here.";
+				_status += tr("  Stopped the quest line here.");
 				_chainRun.clear();
 				_chainPos = 0;
 				return;
 			}
 			++_chainPos;
 			runChain();
-		});
+		},
+		Fmt("completed \"%s\" (stage %u, %zu of %zu)", c.name.c_str(), c.stage, _chainPos + 1, _chainRun.size()));
 }
 
 void App::drawQuestNotifyChoice()
 {
-	const char* modes[] = { "Top-left notification", "Message box", "No message" };
+	const char* modes[] = { tr("Top-left notification"), tr("Message box"), tr("No message") };
 	ImGui::SetNextItemWidth(200);
 	if (ImGui::Combo("##qnotify", &_liveNotify, modes, 3)) {
 		saveSettings();
 	}
-	tips::Tip("How the game tells you what ReSaver++ did (also in Options > Settings > Live game).");
+	tips::Tip(tr("How the game tells you what ReSaver++ did (also in Options > Settings > Live game)."));
 }
 
 // ---- live status (status bar) -------------------------------------------------------------------
@@ -349,12 +352,12 @@ void App::drawLiveStatus()
 	_live.poll();
 	const auto info = _live.info();
 	if (!info.connected) {
-		ImGui::TextDisabled("Live game: not connected");
-		tips::Tip("Start Skyrim with ReSaverHelper.dll installed to complete, stop or reset quests, set stages and refresh the journal from here "
-				  "(Legendary Edition has its own ReSaverHelper).");
+		ImGui::TextDisabled("%s", tr("Live game: not connected"));
+		tips::Tip(tr("Start Skyrim with ReSaverHelper.dll installed to complete, stop or reset quests, set stages and refresh the journal from here "
+				  "(Legendary Edition has its own ReSaverHelper)."));
 		return;
 	}
-	TextColored(theme::Good(), Fmt("Live game: %s %s%s", info.runtime.c_str(), info.gameVersion.c_str(), info.inGame ? "" : " (main menu)"));
+	TextColored(theme::Good(), Fmt(tr("Live game: %s %s%s"), info.runtime.c_str(), info.gameVersion.c_str(), info.inGame ? "" : tr(" (main menu)")));
 }
 
 // ---- journal refresh (live) -----------------------------------------------------------------------
@@ -363,12 +366,12 @@ void App::startLiveRefresh()
 {
 	_live.request({ "REFRESH", liveNotifyMode() }, [this](const LiveLink::Reply& r) {
 		if (!LiveLink::Ok(r)) {
-			_status = "The game could not refresh the journal: " + LiveLink::Error(r);
+			_status = tr("The game could not refresh the journal: ") + LiveLink::Error(r);
 			return;
 		}
 		const auto n = std::strtoull(LiveLink::Field(r, 0).c_str(), nullptr, 10);
 		if (n == 0) {
-			_status = "Nothing to refresh: no running quest shows an objective.";
+			_status = tr("Nothing to refresh: no running quest shows an objective.");
 			return;
 		}
 		_liveRefresh = LiveRefresh{ true, 0, n, 0 };
@@ -391,25 +394,25 @@ void App::drawRefreshJournal(bool a_compact)
 			_liveRefresh.total = std::strtoull(LiveLink::Field(r, 1).c_str(), nullptr, 10);
 			if (LiveLink::Field(r, 2) != "1") {
 				_liveRefresh.running = false;
-				_status = Fmt("Journal refreshed in game: %zu objective(s). Save in the game to keep it.", _liveRefresh.done);
+				_status = Fmt(tr("Journal refreshed in game: %zu objective(s). Save in the game to keep it."), _liveRefresh.done);
 			}
 		});
 	}
 	ImGui::BeginDisabled(!can || _liveRefresh.running);
-	if (ImGui::Button("Refresh journal in game")) {
+	if (ImGui::Button(tr("Refresh journal in game"))) {
 		startLiveRefresh();
 	}
 	ImGui::EndDisabled();
 	if (!can) {
 		LiveHint(info);
-	} else tips::Tip("For every running quest, each objective the journal shows is hidden and shown again (completed / failed\n"
+	} else tips::Tip(tr("For every running quest, each objective the journal shows is hidden and shown again (completed / failed\n"
 						  "put back), so the game rebuilds its list. Brings back quests and objectives the journal stopped showing\n"
 						  "(the same fix as Quest Journal Limit Bug Fixer).\n\n"
-						  "Make a save in the game first and keep menus closed until it is done (helper 4 waits for them).");
+						  "Make a save in the game first and keep menus closed until it is done (helper 4 waits for them)."));
 	if (_liveRefresh.running) {
 		ImGui::SameLine();
 		const float frac = _liveRefresh.total ? float(_liveRefresh.done) / float(_liveRefresh.total) : 0.0f;
-		ImGui::ProgressBar(frac, ImVec2(a_compact ? 160.0f : 240.0f, 0), Fmt("%zu / %zu", _liveRefresh.done, _liveRefresh.total).c_str());
+		ImGui::ProgressBar(frac, ImVec2(a_compact ? 160.0f : 240.0f, 0), Fmt(tr("%zu / %zu"), _liveRefresh.done, _liveRefresh.total).c_str());
 	}
 	// the helper's own option: refresh after every save load
 	if (info.connected && !_liveOptionAsked) {
@@ -427,21 +430,21 @@ void App::drawRefreshJournal(bool a_compact)
 	}
 	bool autoOn = _liveAutoRefresh == 1;
 	ImGui::BeginDisabled(!info.connected || _liveAutoRefresh < 0);
-	if (ImGui::Checkbox("Refresh automatically after every save load", &autoOn)) {
+	if (ImGui::Checkbox(tr("Refresh automatically after every save load"), &autoOn)) {
 		_live.request({ "SETOPTION", "bRefreshJournalOnLoad", autoOn ? "1" : "0" }, [this, autoOn](const LiveLink::Reply& r) {
 			if (LiveLink::Ok(r)) {
 				_liveAutoRefresh = autoOn ? 1 : 0;
-				_status = autoOn ? "ReSaverHelper will refresh the journal after every save load (saved in ReSaverHelper.ini)."
-				                 : "ReSaverHelper will no longer refresh the journal on load.";
+				_status = autoOn ? tr("ReSaverHelper will refresh the journal after every save load (saved in ReSaverHelper.ini).")
+				                 : tr("ReSaverHelper will no longer refresh the journal on load.");
 			} else {
-				_status = "Could not change the helper's setting: " + LiveLink::Error(r);
+				_status = tr("Could not change the helper's setting: ") + LiveLink::Error(r);
 			}
 		});
 	}
 	ImGui::EndDisabled();
-	tips::Tipf("%s", info.connected ? "Saved in ReSaverHelper.ini (bRefreshJournalOnLoad). The helper waits a few seconds after the load,\n"
-											   "then refreshes and tells you when it is done."
-											   : "Start the game with ReSaverHelper.dll to change this, or set bRefreshJournalOnLoad=1 in ReSaverHelper.ini.");
+	tips::Tipf("%s", info.connected ? tr("Saved in ReSaverHelper.ini (bRefreshJournalOnLoad). The helper waits a few seconds after the load,\n"
+											   "then refreshes and tells you when it is done.")
+											   : tr("Start the game with ReSaverHelper.dll to change this, or set bRefreshJournalOnLoad=1 in ReSaverHelper.ini."));
 }
 
 // ---- list -----------------------------------------------------------------------------------------
@@ -457,42 +460,42 @@ void App::drawQuestsList()
 			shownDone += n;
 		}
 	}
-	ImGui::TextUnformatted(Fmt(fo4() ? "Your Pip-Boy shows %zu objective(s)." : "Your journal shows %zu objective(s).", shown).c_str());
+	ImGui::TextUnformatted(Fmt(fo4() ? tr("Your Pip-Boy shows %zu objective(s).") : tr("Your journal shows %zu objective(s)."), shown).c_str());
 	if (shownDone) {
 		ImGui::SameLine();
-		TextColored(theme::Warn(), Fmt("%zu of them belong to quests that are completed or stopped.", shownDone));
+		TextColored(theme::Warn(), Fmt(tr("%zu of them belong to quests that are completed or stopped."), shownDone));
 	}
 	if (!fo4()) {
 		drawRefreshJournal(true);  // (Skyrim's journal; the Fallout 4 helper does not do this)
 	}
 	if (!_db) {
-		Dim(namesLoading() ? "Reading your plugins for quest names, stages and journal text..."
-						   : "Quest names, stages and journal text come from your plugins: set your mods folder in Options > Settings.");
+		Dim(namesLoading() ? tr("Reading your plugins for quest names, stages and journal text...")
+						   : tr("Quest names, stages and journal text come from your plugins: set your mods folder in Options > Settings."));
 	}
 	ImGui::Separator();
 
 	ImGui::AlignTextToFramePadding();
-	ImGui::TextUnformatted("Show");
+	ImGui::TextUnformatted(tr("Show"));
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-1);
-	const char* shows[] = { fo4() ? "In the Pip-Boy" : "In the journal", "Running", "Completed", "All in this save", "Every quest in the game" };
+	const char* shows[] = { fo4() ? tr("In the Pip-Boy") : tr("In the journal"), tr("Running"), tr("Completed"), tr("All in this save"), tr("Every quest in the game") };
 	ImGui::Combo("##qshow", &_questShow, shows, 5);
-	tips::Tip("Which quests to list: those your journal shows, running ones, completed ones, every quest in this save, or every quest in your plugins.");
+	tips::Tip(tr("Which quests to list: those your journal shows, running ones, completed ones, every quest in this save, or every quest in your plugins."));
 	ImGui::AlignTextToFramePadding();
-	ImGui::TextUnformatted("Search");
+	ImGui::TextUnformatted(tr("Search"));
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(_questFilter[0] ? -60.0f : -1.0f);
-	ImGui::InputTextWithHint("##qfilter", "any word of the quest name, its editor ID or form ID", _questFilter, sizeof(_questFilter));
-	tips::Tip("Type any word of a quest's name, its editor ID or its form ID to find it.");
+	ImGui::InputTextWithHint("##qfilter", tr("any word of the quest name, its editor ID or form ID"), _questFilter, sizeof(_questFilter));
+	tips::Tip(tr("Type any word of a quest's name, its editor ID or its form ID to find it."));
 	if (_questFilter[0]) {
 		ImGui::SameLine();
-		if (ImGui::Button("Clear", ImVec2(-1, 0))) {
+		if (ImGui::Button(tr("Clear"), ImVec2(-1, 0))) {
 			_questFilter[0] = 0;
 		}
-		tips::Tip("Clear the search.");
+		tips::Tip(tr("Clear the search."));
 	}
 	if (_questShow == 4 && !_db) {
-		Dim("Every quest in the game comes from your plugins: they are not read yet.");
+		Dim(tr("Every quest in the game comes from your plugins: they are not read yet."));
 	}
 
 	struct Row
@@ -552,7 +555,7 @@ void App::drawQuestsList()
         r.q = q;
         r.def = def;
         r.label = std::move(label);
-        r.status = q ? q->statusText() : "not started (not in this save)";
+        r.status = q ? q->statusText() : tr("not started (not in this save)");
         r.stage = q ? q->highestDoneStage() : -1;
         r.shown = q ? q->shownObjectives() : 0;
         rows.push_back(std::move(r));
@@ -576,11 +579,11 @@ void App::drawQuestsList()
 	if (ImGui::BeginTable("quests", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable |
 										   ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Sortable)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn("Quest", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort, 4.0f, 0);
-		ImGui::TableSetupColumn("Form ID", ImGuiTableColumnFlags_WidthStretch, 1.0f, 1);
-		ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthStretch, 1.6f, 2);
-		ImGui::TableSetupColumn("Stage", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortDescending, 0.7f, 3);
-		ImGui::TableSetupColumn("Shown", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortDescending, 0.7f, 4);
+		ImGui::TableSetupColumn(tr("Quest"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort, 4.0f, 0);
+		ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthStretch, 1.0f, 1);
+		ImGui::TableSetupColumn(tr("Status"), ImGuiTableColumnFlags_WidthStretch, 1.6f, 2);
+		ImGui::TableSetupColumn(tr("Stage"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortDescending, 0.7f, 3);
+		ImGui::TableSetupColumn(tr("Shown"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortDescending, 0.7f, 4);
 		ImGui::TableHeadersRow();
 		// click a column header to sort by it (again to reverse); ties keep the name order
 		int  col = 0;
@@ -639,7 +642,7 @@ void App::drawQuestsList()
 				}
 				ImGui::TableNextColumn();
 				if (r.shown) {
-					ImGui::Text("%zu", r.shown);
+					ImGui::Text(tr("%zu"), r.shown);
 				}
 			}
 		}
@@ -664,7 +667,7 @@ void App::drawQuestDetail()
 		q = &notStarted;
 	}
 	if (!q) {
-		Dim("Click a quest to see its stages, journal entries and objectives, and what completing it gives.");
+		Dim(tr("Click a quest to see its stages, journal entries and objectives, and what completing it gives."));
 		return;
 	}
 	const auto* def = _db ? _db->quest(q->formID) : nullptr;
@@ -673,13 +676,13 @@ void App::drawQuestDetail()
 
 	ImGui::TextUnformatted(def && !def->name.empty() ? def->name.c_str() : (def ? def->edid.c_str() : Fmt("%08X", q->formID).c_str()));
 	Dim(Fmt("%s  |  %08X  |  %s", def ? def->edid.c_str() : "?", q->formID, def ? _db->plugins()[def->plugin].c_str() : _save->pluginOf(q->formID).c_str()));
-	ImGui::Text("In this save: %s, highest stage done %d, %zu objective(s) shown in the journal", q->statusText(), q->highestDoneStage(), q->shownObjectives());
+	ImGui::Text(tr("In this save: %s, highest stage done %d, %zu objective(s) shown in the journal"), q->statusText(), q->highestDoneStage(), q->shownObjectives());
 	if (q->journalKnown) {
 		std::string js;
 		for (const auto& o : q->journal) {
-			js += (js.empty() ? "" : ",  ") + Fmt("objective %d %s", o.index, quests::ObjectiveStateText(o.state));
+			js += (js.empty() ? "" : ",  ") + Fmt(tr("objective %d %s"), o.index, quests::ObjectiveStateText(o.state));
 		}
-		Dim(js.empty() ? std::string("The journal does not list it.") : "The journal lists: " + js);
+		Dim(js.empty() ? std::string(tr("The journal does not list it.")) : tr("The journal lists: ") + js);
 	}
 	// the quest's scripts with their property values (editable, like in the Creation Kit's quest window)
 	if (auto* pp = _save ? _save->papyrus() : nullptr) {
@@ -690,16 +693,16 @@ void App::drawQuestDetail()
 				++count;
 			}
 		}
-		if (count && ImGui::CollapsingHeader(Fmt("Scripts on this quest and their properties (%zu)", count).c_str())) {
-			Dim("Click edit to change a property's value in this save; an object property (a Spell, an Actor, a Quest...) can be pointed at "
-				"any form. Then save (File > Save As).");
+		if (count && ImGui::CollapsingHeader(Fmt(tr("Scripts on this quest and their properties (%zu)"), count).c_str())) {
+			Dim(tr("Click edit to change a property's value in this save; an object property (a Spell, an Actor, a Quest...) can be pointed at "
+				"any form. Then save (File > Save As)."));
 			for (std::size_t idx = 0; idx < p.instances.size(); ++idx) {
 				auto& i = p.instances[idx];
 				if (!i.data || _save->formIDOf(i.refID) != q->formID) {
 					continue;
 				}
 				ImGui::PushID(static_cast<int>(idx));
-				if (ImGui::TreeNodeEx(Fmt("%s  (%zu values)", p.str(i.script).c_str(), i.data->vars.size()).c_str(), count == 1 ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+				if (ImGui::TreeNodeEx(Fmt(tr("%s  (%zu values)"), p.str(i.script).c_str(), i.data->vars.size()).c_str(), count == 1 ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
 					_varsOwner = i.id;
 					varsTable("qvars", i.data->vars, memberNames(i.script), memberTypes(i.script));
 					_varsOwner = 0;
@@ -712,16 +715,16 @@ void App::drawQuestDetail()
 	if (live) {
 		auto it = _liveQuests.find(q->formID);
 		if (it != _liveQuests.end() && it->second.valid) {
-			TextColored(theme::Good(), Fmt("In the running game: stage %d, %s", it->second.stage,
-										   it->second.completed ? "completed" : it->second.running ? "running" : "not running"));
+			TextColored(theme::Good(), Fmt(tr("In the running game: stage %d, %s"), it->second.stage,
+										   it->second.completed ? tr("completed") : it->second.running ? tr("running") : tr("not running")));
 		} else if (it != _liveQuests.end()) {
-			Dim("In the running game: " + it->second.error);
+			Dim(tr("In the running game: ") + it->second.error);
 		}
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Check in game")) {
+		if (ImGui::SmallButton(tr("Check in game"))) {
 			liveQuest(q->formID);
 		}
-		tips::Tip("Ask the running game for this quest's current stage and state.");
+		tips::Tip(tr("Ask the running game for this quest's current stage and state."));
 	}
 
 	// ---- actions
@@ -729,7 +732,7 @@ void App::drawQuestDetail()
 	const std::string name = def ? (def->name.empty() ? def->edid : def->name) : Fmt("%08X", q->formID);
 	ImGui::Spacing();
 	ImGui::BeginDisabled(!live || completion.empty());
-	if (ImGui::Button("Complete quest in game")) {
+	if (ImGui::Button(tr("Complete quest in game"))) {
 		const auto st = completion.front();
 		const auto& pv = questPreview(q->formID);
 		std::string effects;
@@ -748,35 +751,36 @@ void App::drawQuestDetail()
 			}
 		}
 		if (!earlier.empty()) {
-			earlier = "\n\nEarlier quests of this quest line are not completed:" + earlier +
-					  "\nThis button completes only this quest. To complete them too, use \"Complete ... earlier quest(s) and this one\" below.";
+			earlier = tr("\n\nEarlier quests of this quest line are not completed:") + earlier +
+					  tr("\nThis button completes only this quest. To complete them too, use \"Complete ... earlier quest(s) and this one\" below.");
 		}
-		confirm("Complete quest",
-			Fmt("Set \"%s\" to its completion stage %u in the running game?\n\nThe game runs that stage's own script, so its rewards are given and "
+		confirm(tr("Complete quest"),
+			Fmt(tr("Set \"%s\" to its completion stage %u in the running game?\n\nThe game runs that stage's own script, so its rewards are given and "
 				"follow-up quests start the normal way.%s\n\nSkipping a quest's earlier stages can leave things unfinished (items not "
-				"collected, people not met). Make a save in the game first.%s",
-				name.c_str(), st, effects.empty() ? "" : ("\n\nWhat the stage script does:" + effects).c_str(),
+				"collected, people not met). Make a save in the game first.%s"),
+				name.c_str(), st, effects.empty() ? "" : (tr("\n\nWhat the stage script does:") + effects).c_str(),
 				q->hasFlags ? "" :
-				              "\n\nThis quest has not started in this save: setting the stage starts it and completes it at once. Its people and "
-				              "places are not set up yet, so parts of its script may do nothing, and quests that come after it may still start.") + earlier,
-			[this, fid = q->formID, st, name] { liveSetStage(fid, st, Fmt("completed \"%s\" (stage %u)", name.c_str(), st)); });
+				              tr("\n\nThis quest has not started in this save: setting the stage starts it and completes it at once. Its people and "
+				              "places are not set up yet, so parts of its script may do nothing, and quests that come after it may still start.")) + earlier,
+			[this, fid = q->formID, st, name] { liveSetStage(fid, st, Fmt(tr("completed \"%s\" (stage %u)"), name.c_str(), st), {},
+				                                                     Fmt("completed \"%s\" (stage %u)", name.c_str(), st)); });
 	}
 	ImGui::EndDisabled();
 	if (!live) {
 		LiveHint(info);
 	} else if (completion.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("No stage of this quest is marked as completing it.");
+		ImGui::SetTooltip("%s", tr("No stage of this quest is marked as completing it."));
 	} else if (live) {
-		tips::Tip("Set the quest to its completion stage in the running game. The stage's own script runs, so rewards are given and "
-				  "follow-up quests start the normal way. Make a save in the game first.");
+		tips::Tip(tr("Set the quest to its completion stage in the running game. The stage's own script runs, so rewards are given and "
+				  "follow-up quests start the normal way. Make a save in the game first."));
 	}
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!live || !helperAtLeast(3));
-	if (ImGui::Button("Mark completed")) {
-		confirm("Mark completed",
-			Fmt("Mark \"%s\" as completed in the running game, without running its stage script?\n\nIts objectives are completed and it moves to "
+	if (ImGui::Button(tr("Mark completed"))) {
+		confirm(tr("Mark completed"),
+			Fmt(tr("Mark \"%s\" as completed in the running game, without running its stage script?\n\nIts objectives are completed and it moves to "
 				"the completed quests in the journal. Unlike \"Complete quest in game\", no rewards are given and quests that normally "
-				"follow it are NOT started. Use it when the game refuses the completion stage. Make a save in the game first.",
+				"follow it are NOT started. Use it when the game refuses the completion stage. Make a save in the game first."),
 				name.c_str()),
 			[this, fid = q->formID, name] { liveComplete(fid, name); });
 	}
@@ -784,18 +788,18 @@ void App::drawQuestDetail()
 	if (!live) {
 		LiveHint(info);
 	} else if (!helperAtLeast(3) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("Needs ReSaverHelper version 3 (you have version %s).", info.helperVersion.c_str());
+		ImGui::SetTooltip(tr("Needs ReSaverHelper version 3 (you have version %s)."), info.helperVersion.c_str());
 	} else if (live) {
-		tips::Tip("Mark the quest completed in the running game without running its stage script: no rewards, and follow-up quests do "
-				  "not start. Use it when the game refuses the completion stage.");
+		tips::Tip(tr("Mark the quest completed in the running game without running its stage script: no rewards, and follow-up quests do "
+				  "not start. Use it when the game refuses the completion stage."));
 	}
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!live || !helperAtLeast(11));
-	if (ImGui::Button("Stop quest in game")) {
-		confirm("Stop quest",
-			Fmt("Stop \"%s\" in the running game?\n\nThe game stops it the normal way (Quest.Stop): its scripts are told, the people and "
+	if (ImGui::Button(tr("Stop quest in game"))) {
+		confirm(tr("Stop quest"),
+			Fmt(tr("Stop \"%s\" in the running game?\n\nThe game stops it the normal way (Quest.Stop): its scripts are told, the people and "
 				"items it held are let go, and its objectives leave the journal. It is not completed and gives no rewards. A quest that "
-				"starts by itself can start again later. Make a save in the game first.",
+				"starts by itself can start again later. Make a save in the game first."),
 				name.c_str()),
 			[this, fid = q->formID, name] { liveStop(fid, name); });
 	}
@@ -803,19 +807,19 @@ void App::drawQuestDetail()
 	if (!live) {
 		LiveHint(info);
 	} else if (!helperAtLeast(11) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("Needs ReSaverHelper version 11 (you have version %s).", info.helperVersion.c_str());
+		ImGui::SetTooltip(tr("Needs ReSaverHelper version 11 (you have version %s)."), info.helperVersion.c_str());
 	} else if (live) {
-		tips::Tip("Stop the quest in the running game, the way the game itself stops a quest: no rewards, its objectives leave the journal.");
+		tips::Tip(tr("Stop the quest in the running game, the way the game itself stops a quest: no rewards, its objectives leave the journal."));
 	}
 	// second row: reset, any stage; third row: the console commands
 	ImGui::BeginDisabled(!live || !helperAtLeast(11));
-	if (ImGui::Button("Reset quest in game")) {
-		confirm("Reset quest",
-			Fmt("Reset \"%s\" in the running game, as if it was never done?\n\nThe game's own reset (Quest.Reset): its stages, objectives "
+	if (ImGui::Button(tr("Reset quest in game"))) {
+		confirm(tr("Reset quest"),
+			Fmt(tr("Reset \"%s\" in the running game, as if it was never done?\n\nThe game's own reset (Quest.Reset): its stages, objectives "
 				"and the people and items it held are cleared, and it leaves the journal. A quest that normally starts with the game starts "
 				"again from its beginning; others can be started again the normal way (talking to the quest giver, reading the note...).\n\n"
 				"Not undone: rewards and items you already got, and anything other quests or mods did because of it. Values the quest's own "
-				"scripts keep are not cleared either, so a few mods' quests may still remember parts. Make a save in the game first.",
+				"scripts keep are not cleared either, so a few mods' quests may still remember parts. Make a save in the game first."),
 				name.c_str()),
 			[this, fid = q->formID, name] { liveReset(fid, name); });
 	}
@@ -823,9 +827,9 @@ void App::drawQuestDetail()
 	if (!live) {
 		LiveHint(info);
 	} else if (!helperAtLeast(11) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("Needs ReSaverHelper version 11 (you have version %s).", info.helperVersion.c_str());
+		ImGui::SetTooltip(tr("Needs ReSaverHelper version 11 (you have version %s)."), info.helperVersion.c_str());
 	} else if (live) {
-		tips::Tip("Reset the quest in the running game so it acts as if it was never done: stages and objectives cleared, out of the journal.");
+		tips::Tip(tr("Reset the quest in the running game so it acts as if it was never done: stages and objectives cleared, out of the journal."));
 	}
 	ImGui::SameLine();
 	// set any stage
@@ -838,11 +842,11 @@ void App::drawQuestDetail()
 	_setStageIdx = std::clamp(_setStageIdx, 0, std::max(0, static_cast<int>(stageList.size()) - 1));
 	ImGui::SetNextItemWidth(110);
 	ImGui::BeginDisabled(stageList.empty());
-	const bool tipOpen722 = ImGui::BeginCombo("##stage", stageList.empty() ? "stage" : Fmt("stage %u", stageList[_setStageIdx]).c_str());
-	tips::Tip("The stage \"Set stage in game\" and \"Copy console command\" use. Stages come from the quest's plugin.");
+	const bool tipOpen722 = ImGui::BeginCombo("##stage", stageList.empty() ? tr("stage") : Fmt(tr("stage %u"), stageList[_setStageIdx]).c_str());
+	tips::Tip(tr("The stage \"Set stage in game\" and \"Copy console command\" use. Stages come from the quest's plugin."));
 	if (tipOpen722) {
 		for (int i = 0; i < static_cast<int>(stageList.size()); ++i) {
-			if (ImGui::Selectable(Fmt("stage %u", stageList[i]).c_str(), i == _setStageIdx)) {
+			if (ImGui::Selectable(Fmt(tr("stage %u"), stageList[i]).c_str(), i == _setStageIdx)) {
 				_setStageIdx = i;
 			}
 		}
@@ -851,50 +855,51 @@ void App::drawQuestDetail()
 	ImGui::EndDisabled();
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!live || stageList.empty());
-	if (ImGui::Button("Set stage in game") && !stageList.empty()) {
+	if (ImGui::Button(tr("Set stage in game")) && !stageList.empty()) {
 		const auto st = stageList[_setStageIdx];
-		confirm("Set stage", Fmt("Set \"%s\" to stage %u in the running game? The stage's script runs. Make a save in the game first.", name.c_str(), st),
-			[this, fid = q->formID, st, name] { liveSetStage(fid, st, Fmt("\"%s\" set to stage %u", name.c_str(), st)); });
+		confirm(tr("Set stage"), Fmt(tr("Set \"%s\" to stage %u in the running game? The stage's script runs. Make a save in the game first."), name.c_str(), st),
+			[this, fid = q->formID, st, name] { liveSetStage(fid, st, Fmt(tr("\"%s\" set to stage %u"), name.c_str(), st), {},
+				                                                     Fmt("\"%s\" set to stage %u", name.c_str(), st)); });
 	}
 	ImGui::EndDisabled();
 	if (!live) {
 		LiveHint(info);
 	} else {
-		tips::Tip("Set the quest to the stage picked on the left in the running game. That stage's script runs. Skipping stages can "
-				  "leave things unfinished; make a save in the game first.");
+		tips::Tip(tr("Set the quest to the stage picked on the left in the running game. That stage's script runs. Skipping stages can "
+				  "leave things unfinished; make a save in the game first."));
 	}
 	// third row
 	ImGui::BeginDisabled(!def || def->edid.empty() || (completion.empty() && stageList.empty()));
-	if (ImGui::Button("Copy console command") && def) {
+	if (ImGui::Button(tr("Copy console command")) && def) {
 		const auto st = completion.empty() ? stageList[_setStageIdx] : completion.front();
 		ImGui::SetClipboardText(Fmt("setstage %s %u", def->edid.c_str(), st).c_str());
-		_status = Fmt("Copied: setstage %s %u  (paste it into the game's console with Ctrl+V)", def->edid.c_str(), st);
+		_status = Fmt(tr("Copied: setstage %s %u  (paste it into the game's console with Ctrl+V)"), def->edid.c_str(), st);
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Copies the console command that completes the quest (its completion stage), or sets the stage picked on the left.");
+	tips::Tip(tr("Copies the console command that completes the quest (its completion stage), or sets the stage picked on the left."));
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!def || def->edid.empty());
-	if (ImGui::Button("Copy stop command") && def) {
+	if (ImGui::Button(tr("Copy stop command")) && def) {
 		ImGui::SetClipboardText(Fmt("stopquest %s", def->edid.c_str()).c_str());
-		_status = Fmt("Copied: stopquest %s  (paste it into the game's console with Ctrl+V)", def->edid.c_str());
+		_status = Fmt(tr("Copied: stopquest %s  (paste it into the game's console with Ctrl+V)"), def->edid.c_str());
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Copies the console command that stops the quest (no helper needed): open the console in the game and paste it with Ctrl+V.");
+	tips::Tip(tr("Copies the console command that stops the quest (no helper needed): open the console in the game and paste it with Ctrl+V."));
 	ImGui::SameLine();
 	ImGui::BeginDisabled(!def || def->edid.empty());
-	if (ImGui::Button("Copy reset command") && def) {
+	if (ImGui::Button(tr("Copy reset command")) && def) {
 		ImGui::SetClipboardText(Fmt("resetquest %s", def->edid.c_str()).c_str());
-		_status = Fmt("Copied: resetquest %s  (paste it into the game's console with Ctrl+V)", def->edid.c_str());
+		_status = Fmt(tr("Copied: resetquest %s  (paste it into the game's console with Ctrl+V)"), def->edid.c_str());
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Copies the console command that resets the quest as if never done (no helper needed): paste it into the game's console.");
-	ImGui::TextDisabled("The game confirms with:");
+	tips::Tip(tr("Copies the console command that resets the quest as if never done (no helper needed): paste it into the game's console."));
+	ImGui::TextDisabled("%s", tr("The game confirms with:"));
 	ImGui::SameLine();
 	drawQuestNotifyChoice();
 
 	if (!def) {
 		ImGui::Spacing();
-		Dim("Stages, journal entries and objectives are read from your plugins once your mods folder is set.");
+		Dim(tr("Stages, journal entries and objectives are read from your plugins once your mods folder is set."));
 		return;
 	}
 
@@ -906,19 +911,19 @@ void App::drawQuestDetail()
 			open += c.done ? 0 : 1;
 		}
 		if (open) {
-			ImGui::SeparatorText(Fmt("Earlier quests in this quest line (%zu not completed)", open).c_str());
-			Dim("These quests lead to this one: their journal names it as the next quest, or their last stage starts it. Ticked ones are "
+			ImGui::SeparatorText(Fmt(tr("Earlier quests in this quest line (%zu not completed)"), open).c_str());
+			Dim(tr("These quests lead to this one: their journal names it as the next quest, or their last stage starts it. Ticked ones are "
 				"completed first, oldest first, then this quest. Quests that are one of several ways to get here (two factions, two "
-				"endings) are not ticked: tick the one you want.");
+				"endings) are not ticked: tick the one you want."));
 			for (auto& c : chain) {
 				if (c.done) {
 					continue;
 				}
 				ImGui::PushID(static_cast<int>(c.formID));
 				ImGui::Checkbox(c.name.c_str(), &c.tick);
-				tips::Tip("Ticked quests are completed first, oldest first, before this one.");
+				tips::Tip(tr("Ticked quests are completed first, oldest first, before this one."));
 				ImGui::SameLine();
-				ImGui::TextDisabled("stage %u%s", c.stage, c.alternative ? "   (one of several ways here)" : "");
+				ImGui::TextDisabled(tr("stage %u%s"), c.stage, c.alternative ? tr("   (one of several ways here)") : "");
 				ImGui::PopID();
 			}
 			std::vector<ChainItem> run;
@@ -933,55 +938,55 @@ void App::drawQuestDetail()
 			self.name = name;
 			run.push_back(self);
 			ImGui::BeginDisabled(!live || run.size() < 2 || !_chainRun.empty());
-			if (ImGui::Button(Fmt("Complete %zu earlier quest(s) and this one in game", run.size() - 1).c_str())) {
+			if (ImGui::Button(Fmt(tr("Complete %zu earlier quest(s) and this one in game"), run.size() - 1).c_str())) {
 				std::string list;
 				for (const auto& c : run) {
-					list += Fmt("\n    %s (stage %u)", c.name.c_str(), c.stage);
+					list += Fmt(tr("\n    %s (stage %u)"), c.name.c_str(), c.stage);
 				}
-				confirm("Complete quest line",
-					"Complete these quests in the running game, one after the other, in this order?" + list +
-						"\n\nEach stage's own script runs (rewards, follow-up quests). If the game refuses a stage, it stops there. "
-						"Skipping quests can leave things unfinished. Make a save in the game first.",
+				confirm(tr("Complete quest line"),
+					tr("Complete these quests in the running game, one after the other, in this order?") + list +
+						tr("\n\nEach stage's own script runs (rewards, follow-up quests). If the game refuses a stage, it stops there. "
+						"Skipping quests can leave things unfinished. Make a save in the game first."),
 					[this, run] {
 						_chainRun = run;
 						_chainPos = 0;
 						runChain();
 					});
 			}
-			tips::Tip("Complete the ticked earlier quests of this quest line one after the other, then this one, each through its own completion stage. Stops if the game refuses a stage.");
+			tips::Tip(tr("Complete the ticked earlier quests of this quest line one after the other, then this one, each through its own completion stage. Stops if the game refuses a stage."));
 			ImGui::EndDisabled();
 			if (!live) {
 				LiveHint(info);
 			}
 			if (!_chainRun.empty()) {
 				ImGui::SameLine();
-				ImGui::TextDisabled("working: %zu of %zu", _chainPos + 1, _chainRun.size());
+				ImGui::TextDisabled(tr("working: %zu of %zu"), _chainPos + 1, _chainRun.size());
 			}
 		} else if (_previewPending) {
-			Dim("Looking for earlier quests of this quest line (your mods' scripts are still being read)...");
+			Dim(tr("Looking for earlier quests of this quest line (your mods' scripts are still being read)..."));
 		}
 	}
 
 	// ---- what completing it does
 	if (!completion.empty()) {
-		ImGui::SeparatorText("What completing it does");
+		ImGui::SeparatorText(tr("What completing it does"));
 		const auto& pv = questPreview(q->formID);
 		if (!pv.error.empty()) {
 			Dim(pv.error);
 		}
 		for (const auto& [st, body] : pv.bodies) {
-			ImGui::Text("Stage %u completes the quest.", st);
+			ImGui::Text(tr("Stage %u completes the quest."), st);
 			const auto effects = quests::ScanEffects(body);
 			if (body.empty()) {
-				Dim("  Its stage has no script.");
+				Dim(tr("  Its stage has no script."));
 			} else if (effects.empty()) {
-				Dim("  Its script gives nothing directly (rewards, if any, come from other scripts or dialogue).");
+				Dim(tr("  Its script gives nothing directly (rewards, if any, come from other scripts or dialogue)."));
 			}
 			for (const auto& e : effects) {
 				const auto col = e.kind == quests::Effect::Kind::kReward ? theme::Good() : e.kind == quests::Effect::Kind::kQuest ? theme::Warn() : theme::Dim();
-				TextColored(col, (e.kind == quests::Effect::Kind::kReward ? "  gives / changes:  " : e.kind == quests::Effect::Kind::kQuest ? "  quests:  " : "  calls:  ") + e.line);
+				TextColored(col, (e.kind == quests::Effect::Kind::kReward ? tr("  gives / changes:  ") : e.kind == quests::Effect::Kind::kQuest ? tr("  quests:  ") : tr("  calls:  ")) + e.line);
 			}
-			if (!body.empty() && ImGui::TreeNode(Fmt("##body%u", st).c_str(), "Its full script (%zu lines)", body.size())) {
+			if (!body.empty() && ImGui::TreeNode(Fmt("##body%u", st).c_str(), tr("Its full script (%zu lines)"), body.size())) {
 				if (monoFont) {
 					ImGui::PushFont(monoFont);
 				}
@@ -995,11 +1000,11 @@ void App::drawQuestDetail()
 			}
 		}
 		// the properties the script uses, so names like JarlRewardLightArmor can be looked up
-		if (!def->properties.empty() && ImGui::TreeNode("props", "Properties of its stage script (%zu)", def->properties.size())) {
+		if (!def->properties.empty() && ImGui::TreeNode("props", tr("Properties of its stage script (%zu)"), def->properties.size())) {
 			for (const auto& p : def->properties) {
 				std::string v = p.type == 1 ? formText(p.form) : p.text;
 				if (p.type == 1 && p.alias >= 0) {
-					v = Fmt("alias %d of this quest", p.alias);
+					v = Fmt(tr("alias %d of this quest"), p.alias);
 				}
 				ImGui::BulletText("%s = %s", p.name.c_str(), v.c_str());
 			}
@@ -1008,11 +1013,11 @@ void App::drawQuestDetail()
 	}
 
 	// ---- stages
-	ImGui::SeparatorText(Fmt("Stages (%zu)", def->stages.size()).c_str());
+	ImGui::SeparatorText(Fmt(tr("Stages (%zu)"), def->stages.size()).c_str());
 	if (ImGui::BeginTable("stages", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp)) {
-		ImGui::TableSetupColumn("Stage", ImGuiTableColumnFlags_WidthStretch, 0.7f);
-		ImGui::TableSetupColumn("Done", ImGuiTableColumnFlags_WidthStretch, 0.5f);
-		ImGui::TableSetupColumn("Journal entry", ImGuiTableColumnFlags_WidthStretch, 6.0f);
+		ImGui::TableSetupColumn(tr("Stage"), ImGuiTableColumnFlags_WidthStretch, 0.7f);
+		ImGui::TableSetupColumn(tr("Done"), ImGuiTableColumnFlags_WidthStretch, 0.5f);
+		ImGui::TableSetupColumn(tr("Journal entry"), ImGuiTableColumnFlags_WidthStretch, 6.0f);
 		ImGui::TableHeadersRow();
 		for (const auto& s : def->stages) {
 			bool done = false;
@@ -1024,7 +1029,7 @@ void App::drawQuestDetail()
 			ImGui::Text("%u", s.index);
 			ImGui::TableNextColumn();
 			if (done) {
-				TextColored(theme::Good(), "done");
+				TextColored(theme::Good(), tr("done"));
 			}
 			ImGui::TableNextColumn();
 			std::string text;
@@ -1034,10 +1039,10 @@ void App::drawQuestDetail()
 				}
 			}
 			if (s.completes()) {
-				TextColored(theme::Good(), "[completes the quest]");
+				TextColored(theme::Good(), tr("[completes the quest]"));
 			}
 			if (s.fails()) {
-				TextColored(theme::Bad(), "[fails the quest]");
+				TextColored(theme::Bad(), tr("[fails the quest]"));
 			}
 			if (!text.empty()) {
 				ImGui::TextWrapped("%s", text.c_str());
@@ -1047,11 +1052,11 @@ void App::drawQuestDetail()
 	}
 
 	// ---- objectives
-	ImGui::SeparatorText(Fmt("Objectives (%zu)", def->objectives.size()).c_str());
+	ImGui::SeparatorText(Fmt(tr("Objectives (%zu)"), def->objectives.size()).c_str());
 	if (ImGui::BeginTable("objs", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp)) {
 		ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthStretch, 0.5f);
-		ImGui::TableSetupColumn("In this save", ImGuiTableColumnFlags_WidthStretch, 1.4f);
-		ImGui::TableSetupColumn("Objective", ImGuiTableColumnFlags_WidthStretch, 5.0f);
+		ImGui::TableSetupColumn(tr("In this save"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
+		ImGui::TableSetupColumn(tr("Objective"), ImGuiTableColumnFlags_WidthStretch, 5.0f);
 		ImGui::TableHeadersRow();
 		for (const auto& o : def->objectives) {
 			int state = 0;

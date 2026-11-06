@@ -26,7 +26,15 @@ target_compile_definitions(rs_thirdparty PUBLIC MINIZ_NO_ARCHIVE_APIS MINIZ_NO_S
 
 # ---- core -------------------------------------------------------------------------------
 file(GLOB RS_CORE_SOURCES CONFIGURE_DEPENDS src/core/*.cpp)
-add_library(rs_core STATIC ${RS_CORE_SOURCES})
+# interface translations: lang/<code>.txt built into the exe (src/core/Lang.h, TRANSLATING.md)
+file(GLOB RS_LANG_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/lang/*.txt)
+set(RS_LANG_CPP ${CMAKE_BINARY_DIR}/generated/LangEmbedded.cpp)
+add_custom_command(OUTPUT ${RS_LANG_CPP}
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
+	COMMAND ${CMAKE_COMMAND} -DLANG_DIR=${CMAKE_SOURCE_DIR}/lang -DOUT=${RS_LANG_CPP} -P ${CMAKE_SOURCE_DIR}/cmake/EmbedLang.cmake
+	DEPENDS ${RS_LANG_FILES} ${CMAKE_SOURCE_DIR}/cmake/EmbedLang.cmake
+	COMMENT "Embedding the interface translations (lang/*.txt)")
+add_library(rs_core STATIC ${RS_CORE_SOURCES} ${RS_LANG_CPP})
 target_include_directories(rs_core PUBLIC src)
 target_link_libraries(rs_core PUBLIC rs_thirdparty)
 

@@ -68,7 +68,7 @@ namespace
 	std::string Summary(const tp::Snapshot& s)
 	{
 		if (!s.valid) {
-			return s.error.empty() ? "not chosen yet" : s.error;
+			return s.error.empty() ? tr("not chosen yet") : s.error;
 		}
 		std::size_t items = 0, done = 0;
 		for (const auto& i : s.items) {
@@ -77,9 +77,9 @@ namespace
 		for (const auto& [k, q] : s.quests) {
 			done += q.completed ? 1 : 0;
 		}
-		return Fmt("%s%s%s: %zu quests completed, %zu items%s", s.player.empty() ? "" : (s.player + " ").c_str(), s.level > 0 ? Fmt("level %d", s.level).c_str() : "",
-			s.fromFile ? "  (read from the save file)" : "  (from the game)", done, items,
-			s.fromFile ? "" : Fmt(", %zu perks, %zu spells", s.perks.size(), s.spells.size()).c_str());
+		return Fmt(tr("%s%s%s: %zu quests completed, %zu items%s"), s.player.empty() ? "" : (s.player + " ").c_str(), s.level > 0 ? Fmt(tr("level %d"), s.level).c_str() : "",
+			s.fromFile ? tr("  (read from the save file)") : tr("  (from the game)"), done, items,
+			s.fromFile ? "" : Fmt(tr(", %zu perks, %zu spells"), s.perks.size(), s.spells.size()).c_str());
 	}
 
 	// a moving dashed frame around the last item: "do this next"
@@ -126,7 +126,7 @@ namespace
 			if (a_names.empty()) {
 				return;
 			}
-			if (ImGui::TreeNodeEx(a_title, ImGuiTreeNodeFlags_SpanAvailWidth, "%s (%zu)", a_title, a_names.size())) {
+			if (ImGui::TreeNodeEx(a_title, ImGuiTreeNodeFlags_SpanAvailWidth, tr("%s (%zu)"), a_title, a_names.size())) {
 				std::string line;
 				for (const auto& n : a_names) {
 					line += (line.empty() ? "" : ",   ") + n;
@@ -144,8 +144,8 @@ namespace
 			return v;
 		};
 		if (s.level > 0) {
-			ImGui::Text("Level %d%s%s", s.level, s.perkPoints > 0 ? Fmt(",  %d perk point(s) to spend", s.perkPoints).c_str() : "",
-				s.look.empty() ? "" : ",  look saved (RaceMenu)");
+			ImGui::Text(tr("Level %d%s%s"), s.level, s.perkPoints > 0 ? Fmt(tr(",  %d perk point(s) to spend"), s.perkPoints).c_str() : "",
+				s.look.empty() ? "" : tr(",  look saved (RaceMenu)"));
 		}
 		std::vector<std::string> skills;
 		for (int i = 0; i < 18; ++i) {
@@ -153,49 +153,49 @@ namespace
 				skills.push_back(Fmt("%s %.0f", tp::SkillName(i), s.skills[i].level));
 			}
 		}
-		list("Skills", skills);
-		list("Perks", names(s.perks));
-		list("Spells and powers", names(s.spells));
-		list("Shouts", names(s.shouts));
-		list("Words of power", names(s.words));
-		list("Map locations", names(s.markers));
-		list("Factions", names(s.factions));
+		list(tr("Skills"), skills);
+		list(tr("Perks"), names(s.perks));
+		list(tr("Spells and powers"), names(s.spells));
+		list(tr("Shouts"), names(s.shouts));
+		list(tr("Words of power"), names(s.words));
+		list(tr("Map locations"), names(s.markers));
+		list(tr("Factions"), names(s.factions));
 		std::vector<std::string> active, completed;
 		for (const auto& [k, q] : s.quests) {
 			const bool journal = s.journalKnown ? q.inJournal : q.known ? q.shown() : q.completed;
 			if (!journal) {
 				continue;
 			}
-			const auto n = !q.name.empty() ? q.name : !q.edid.empty() ? q.edid : Fmt("%06X", q.local);
+			const auto n = !q.name.empty() ? q.name : !q.edid.empty() ? q.edid : Fmt(tr("%06X"), q.local);
 			(q.completed ? completed : active).push_back(n);
 		}
 		std::sort(active.begin(), active.end());
 		std::sort(completed.begin(), completed.end());
-		list("Quests in progress (journal)", active);
-		list("Quests completed (journal)", completed);
+		list(tr("Quests in progress (journal)"), active);
+		list(tr("Quests completed (journal)"), completed);
 		std::map<std::string, std::vector<std::string>> kinds;
 		for (const auto& it : s.items) {
-			const auto kind = it.record.size() > 12 && !it.record[12].empty() ? it.record[12] : std::string("Items");
-			kinds[kind].push_back(it.count > 1 ? Fmt("%s x%d", it.name.c_str(), it.count) : it.name);
+			const auto kind = it.record.size() > 12 && !it.record[12].empty() ? it.record[12] : std::string(tr("Items"));
+			kinds[kind].push_back(it.count > 1 ? Fmt(tr("%s x%d"), it.name.c_str(), it.count) : it.name);
 		}
 		for (auto& [k, v] : kinds) {
 			std::sort(v.begin(), v.end());
-			list(("Inventory: " + k).c_str(), v);
+			list((tr("Inventory: ") + k).c_str(), v);
 		}
 		std::vector<std::string> made, worn;
 		for (const auto& p : s.potions) {
-			made.push_back(Fmt("%s x%d", p.name.c_str(), p.count));
+			made.push_back(Fmt(tr("%s x%d"), p.name.c_str(), p.count));
 		}
 		for (const auto& e : s.equips) {
 			worn.push_back(e.name);
 		}
-		list("Potions and poisons you made", made);
-		list("Worn and held", worn);
+		list(tr("Potions and poisons you made"), made);
+		list(tr("Worn and held"), worn);
 		std::vector<std::string> followers;
 		for (const auto& f : s.followers) {
 			followers.push_back(f.name);
 		}
-		list("Followers", followers);
+		list(tr("Followers"), followers);
 	}
 }
 
@@ -203,13 +203,13 @@ namespace
 
 void App::transplantSnapshot(bool a_bad)
 {
-	_status = "Asking the game for a snapshot of the loaded save: switch to Skyrim for a moment (it pauses in the background)...";
+	_status = tr("Asking the game for a snapshot of the loaded save: switch to Skyrim for a moment (it pauses in the background)...");
 	_tpWaiting = true;
 	_tpWaitStart = ImGui::GetTime();
 	_live.request({ "SNAPSHOT" }, [this, a_bad](const LiveLink::Reply& r) {
 		_tpWaiting = false;
 		if (!LiveLink::Ok(r)) {
-			_status = "The game could not take a snapshot: " + LiveLink::Error(r);
+			_status = tr("The game could not take a snapshot: ") + LiveLink::Error(r);
 			return;
 		}
 		auto s = tp::ReadSnapshot(platform::FromUtf8(LiveLink::Field(r, 0)));
@@ -217,7 +217,7 @@ void App::transplantSnapshot(bool a_bad)
 			_status = s.error;
 			return;
 		}
-		_status = Fmt("Snapshot of %s taken (%s records).", s.player.c_str(), LiveLink::Field(r, 1).c_str());
+		_status = Fmt(tr("Snapshot of %s taken (%s records)."), s.player.c_str(), LiveLink::Field(r, 1).c_str());
 		(a_bad ? _tpBad : _tpGood) = std::move(s);
 		_tpDirty = true;
 	});
@@ -234,9 +234,9 @@ void App::transplantFromFile(const std::filesystem::path& a_path)
 			transplantNames(_tpBad, *save);
 		}
 		_tpDirty = true;
-		_status = _tpBad.valid ? "Read " + platform::ToUtf8(a_path.filename()) : _tpBad.error;
+		_status = _tpBad.valid ? tr("Read ") + platform::ToUtf8(a_path.filename()) : _tpBad.error;
 	} catch (const std::exception& e) {
-		_error = "Could not read " + platform::ToUtf8(a_path.filename()) + ":\n\n" + e.what();
+		_error = tr("Could not read ") + platform::ToUtf8(a_path.filename()) + ":\n\n" + e.what();
 	}
 }
 
@@ -306,9 +306,9 @@ void App::transplantStep()
 		for (const auto& r : _tpResults) {
 			failed += r.ok ? 0 : 1;
 		}
-		_status = Fmt("Transplant done: %zu of %zu brought over%s. Quests may keep loading for a couple of minutes: save in the game when "
-					  "their messages stop.",
-			_tpRun.size() - failed, _tpRun.size(), failed ? Fmt(", %zu could not be (see the Transplant page)", failed).c_str() : "");
+		_status = Fmt(tr("Transplant done: %zu of %zu brought over%s. Quests may keep loading for a couple of minutes: save in the game when "
+					  "their messages stop."),
+			_tpRun.size() - failed, _tpRun.size(), failed ? Fmt(tr(", %zu could not be (see the Transplant page)"), failed).c_str() : "");
 		bool quests = false;
 		for (auto i : _tpRun) {
 			quests = quests || (i < _tpChanges.size() && _tpChanges[i].quest);
@@ -334,7 +334,7 @@ void App::transplantStep()
 		return;
 	}
 	const auto& ch = _tpChanges[idx];
-	_status = Fmt("Transplanting %zu of %zu: %s", _tpPos + 1, _tpRun.size(), ch.label.c_str());
+	_status = Fmt(tr("Transplanting %zu of %zu: %s"), _tpPos + 1, _tpRun.size(), ch.label.c_str());
 	auto done = [this, idx](bool a_ok, const std::string& a_why) {
 		_tpResults.push_back({ idx, a_ok, a_why });
 		++_tpPos;
@@ -350,7 +350,7 @@ void App::transplantStep()
 			} else if (LiveLink::Field(r, 0) == "0") {
 				done(false, LiveLink::Field(r, 1));
 			} else {
-				done(true, LiveLink::Field(r, 0) == "?" ? "the game is still doing it" : "");
+				done(true, LiveLink::Field(r, 0) == "?" ? tr("the game is still doing it") : "");
 			}
 		});
 		return;
@@ -372,7 +372,7 @@ void App::transplantStep()
         }
         _live.request({ "APPLY", "questobj", q->plugin, Fmt("%06X", q->local), "", q->objectives }, [done, a_ok, a_why](const LiveLink::Reply& r) {
             const bool ok = LiveLink::Ok(r) && LiveLink::Field(r, 0) != "0";
-            done(a_ok || ok, a_why + (a_why.empty() ? "" : ", ") + (ok ? "objectives shown in the journal" : "objectives not shown: " + LiveLink::Field(r, 1)));
+            done(a_ok || ok, a_why + (a_why.empty() ? "" : ", ") + (ok ? tr("objectives shown in the journal") : tr("objectives not shown: ") + LiveLink::Field(r, 1)));
         });
 	};
 	auto        run = [this, q, complete, markRefused, journalOnly, before, shown, done](std::uint32_t a_id) {
@@ -381,7 +381,7 @@ void App::transplantStep()
         auto      mark = [this, a_id, shown](const std::string& a_before) {
             _live.request({ "COMPLETE", Fmt("%08X", a_id), "none", "" }, [shown, a_before](const LiveLink::Reply& r) {
                 const bool ok = LiveLink::Ok(r) && LiveLink::Field(r, 0) != "0";
-                shown(ok, ok ? a_before + ", marked as done" : a_before + ", and it could not be marked as done either");
+                shown(ok, ok ? a_before + tr(", marked as done") : a_before + tr(", and it could not be marked as done either"));
             });
         };
         auto      stageStep = [this, a_id, stage, complete, markRefused, journalOnly, mark, shown, done]() {
@@ -391,9 +391,9 @@ void App::transplantStep()
             }
             if (stage < 0) {
                 if (complete || markRefused) {
-                    mark("completion stage not known (plugins not read)");
+                    mark(tr("completion stage not known (plugins not read)"));
                 } else {
-                    shown(false, "no stage to set");
+                    shown(false, tr("no stage to set"));
                 }
                 return;
             }
@@ -405,13 +405,13 @@ void App::transplantStep()
                 const auto f = LiveLink::Field(r, 0);
                 if (f == "0") {
                     if (markRefused) {
-                        mark(Fmt("refused stage %d", stage));
+                        mark(Fmt(tr("refused stage %d"), stage));
                     } else {
-                        shown(false, Fmt("refused stage %d", stage));
+                        shown(false, Fmt(tr("refused stage %d"), stage));
                     }
                     return;
                 }
-                shown(true, f == "?" ? Fmt("stage %d set; the game is still running its script", stage) : Fmt("stage %d set", stage));
+                shown(true, f == "?" ? Fmt(tr("stage %d set; the game is still running its script"), stage) : Fmt(tr("stage %d set"), stage));
             });
         };
         if (!before) {
@@ -441,7 +441,7 @@ void App::transplantCheckJournal()
 	_live.request({ "SNAPSHOT" }, [this](const LiveLink::Reply& r) {
 		_tpChecking = false;
 		if (!LiveLink::Ok(r)) {
-			_status = "Could not check the journal: " + LiveLink::Error(r);
+			_status = tr("Could not check the journal: ") + LiveLink::Error(r);
 			return;
 		}
 		transplantMissing(tp::ReadSnapshot(platform::FromUtf8(LiveLink::Field(r, 0))));
@@ -451,14 +451,14 @@ void App::transplantCheckJournal()
 void App::transplantMissing(const ess::transplant::Snapshot& now)
 {
 		if (!now.valid || !now.journalKnown) {
-			_status = "Could not check the journal (the snapshot has no journal list: ReSaverHelper 9 is needed).";
+			_status = tr("Could not check the journal (the snapshot has no journal list: ReSaverHelper 9 is needed).");
 			return;
 		}
 		// what the run did with each quest
 		std::map<const tp::Quest*, std::string> why;
 		for (std::size_t i = 0; i < _tpChanges.size(); ++i) {
 			if (const auto* q = _tpChanges[i].quest) {
-				why[q] = !_tpChanges[i].available ? "its mod is not in this game" : !_tpChanges[i].tick ? "it was not ticked" : "";
+				why[q] = !_tpChanges[i].available ? tr("its mod is not in this game") : !_tpChanges[i].tick ? tr("it was not ticked") : "";
 			}
 		}
 		for (const auto& res : _tpResults) {
@@ -482,16 +482,16 @@ void App::transplantMissing(const ess::transplant::Snapshot& now)
 			m.quest = &q;
 			m.completed = q.completed;
 			auto w = why.find(&q);
-			m.why = w == why.end() ? "it was not in the list (nothing to bring: the good save had it as far)"
+			m.why = w == why.end() ? tr("it was not in the list (nothing to bring: the good save had it as far)")
 					: !w->second.empty() ? w->second
-					: q.completed ? "the game would not complete it here"
-								  : "the game would not start it here: it starts from something in the game (a note, a person, a place)";
+					: q.completed ? tr("the game would not complete it here")
+								  : tr("the game would not start it here: it starts from something in the game (a note, a person, a place)");
 			_tpMissing.push_back(std::move(m));
 		}
 		std::sort(_tpMissing.begin(), _tpMissing.end(), [](const TpMissing& a, const TpMissing& b) { return a.name < b.name; });
 		_tpChecked = true;
-		_status = _tpMissing.empty() ? "Every quest of the bad save's journal is in the game's journal now."
-									 : Fmt("%zu quest(s) of the bad save's journal are not in the game's journal: see the list.", _tpMissing.size());
+		_status = _tpMissing.empty() ? tr("Every quest of the bad save's journal is in the game's journal now.")
+									 : Fmt(tr("%zu quest(s) of the bad save's journal are not in the game's journal: see the list."), _tpMissing.size());
 }
 
 // quests in quest-line order: a quest that leads into another one (its journal names the next quest, or
@@ -562,20 +562,20 @@ std::string App::transplantGroup(const tp::Change& a_ch) const
 			return at(12);  // written by ReSaverHelper 6
 		}
 		if (Lower(at(1)) == "skyrim.esm" && std::strtoul(at(2).c_str(), nullptr, 16) == 0xF) {
-			return "Gold";
+			return tr("Gold");
 		}
 		if (_db) {
 			if (const auto* f = _db->find(static_cast<std::uint32_t>(std::strtoul(at(3).c_str(), nullptr, 16)))) {
 				const auto t = _db->type(*f);
-				return t == "WEAP" ? "Weapons" : t == "ARMO" ? "Armor and clothing" : t == "AMMO" ? "Arrows and bolts" : t == "BOOK" ? "Books and spell tomes"
-					   : t == "ALCH" ? "Potions and food" : t == "INGR" ? "Ingredients" : t == "SLGM" ? "Soul gems" : t == "KEYM" ? "Keys"
-					   : t == "SCRL" ? "Scrolls" : t == "MISC" ? "Miscellaneous" : t == "LIGH" ? "Torches and lights" : "Other";
+				return t == "WEAP" ? tr("Weapons") : t == "ARMO" ? tr("Armor and clothing") : t == "AMMO" ? tr("Arrows and bolts") : t == "BOOK" ? tr("Books and spell tomes")
+					   : t == "ALCH" ? tr("Potions and food") : t == "INGR" ? tr("Ingredients") : t == "SLGM" ? tr("Soul gems") : t == "KEYM" ? tr("Keys")
+					   : t == "SCRL" ? tr("Scrolls") : t == "MISC" ? tr("Miscellaneous") : t == "LIGH" ? tr("Torches and lights") : tr("Other");
 			}
 		}
-		return "Other";
+		return tr("Other");
 	}
 	if (a_ch.cat == tp::Category::kMade) {
-		return at(0) == "potion" ? (at(3) == "1" ? "Poisons" : "Potions") : "Enchanted gear";
+		return at(0) == "potion" ? (at(3) == "1" ? tr("Poisons") : tr("Potions")) : tr("Enchanted gear");
 	}
 	if (a_ch.cat == tp::Category::kCharacter) {
 		return {};
@@ -584,7 +584,7 @@ std::string App::transplantGroup(const tp::Change& a_ch) const
 		return {};
 	}
 	if (a_ch.quest) {
-		return a_ch.background ? "~ Background quests (not in the journal): normally leave these unticked" : a_ch.quest->plugin;
+		return a_ch.background ? tr("~ Background quests (not in the journal): normally leave these unticked") : a_ch.quest->plugin;
 	}
 	return at(1);
 }
@@ -598,12 +598,12 @@ void App::maximizeControl(const char* a_id)
 	const float title = ImGui::GetFrameHeight();
 	bool        toggle = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect(wp, ImVec2(wp.x + ws.x, wp.y + title), false) &&
 				  ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
-	const char* label = maxed ? "Restore size" : "Maximize";
+	const char* label = maxed ? tr("Restore size") : tr("Maximize");
 	const float w = ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
 	const auto  back = ImGui::GetCursorPos();
 	ImGui::SetCursorPos(ImVec2(ImGui::GetWindowContentRegionMax().x - w, back.y));
 	toggle |= ImGui::SmallButton(label);
-	tips::Tipf("%s (or double-click the title bar)", maxed ? "Back to the size it had" : "Fill the whole ReSaver++ window");
+	tips::Tipf(tr("%s (or double-click the title bar)"), maxed ? tr("Back to the size it had") : tr("Fill the whole ReSaver++ window"));
 	ImGui::SetCursorPos(back);
 	if (toggle) {
 		if (maxed) {
@@ -638,7 +638,7 @@ void App::drawTransplant()
 		return;
 	}
 	prepareWindow("Transplant", ImVec2(0.9f, 0.9f));
-	if (!ImGui::Begin("Transplant", &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
+	if (!ImGui::Begin(trId("Transplant"), &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
@@ -649,104 +649,104 @@ void App::drawTransplant()
 	const bool busy = _tpRunning || _tpWaiting;
 
 	ImGui::PushTextWrapPos(ImGui::GetContentRegionMax().x - 140);
-	ImGui::TextWrapped("Bring your character's progress from a bad save into a good one from before. ReSaver++ lists what the bad save has and "
+	ImGui::TextWrapped("%s", tr("Bring your character's progress from a bad save into a good one from before. ReSaver++ lists what the bad save has and "
 					   "the good one does not; you tick what to bring; the game itself puts it into the good save the normal way, so the result "
-					   "is a clean save written by the game. Needs Skyrim running with ReSaverHelper.dll 5 or newer.");
+					   "is a clean save written by the game. Needs Skyrim running with ReSaverHelper.dll 5 or newer."));
 	ImGui::PopTextWrapPos();
 	if (!helperOk) {
-		Wrapped(theme::Caution(), info.connected ? Fmt("ReSaverHelper %s is running: version 5 or newer is needed (Optional files on the mod page).", info.helperVersion.c_str())
-												 : "ReSaverHelper is not connected: start Skyrim with ReSaverHelper.dll (version 5 or newer) installed.");
+		Wrapped(theme::Caution(), info.connected ? Fmt(tr("ReSaverHelper %s is running: version 5 or newer is needed (Optional files on the mod page)."), info.helperVersion.c_str())
+												 : tr("ReSaverHelper is not connected: start Skyrim with ReSaverHelper.dll (version 5 or newer) installed."));
 	}
 	if (helperOk && helperAtLeast(9) && !helperAtLeast(10)) {
-		Wrapped(theme::Caution(), Fmt("ReSaverHelper %s is running: followers need version 10. Install the newest ReSaverHelper and take new snapshots.",
+		Wrapped(theme::Caution(), Fmt(tr("ReSaverHelper %s is running: followers need version 10. Install the newest ReSaverHelper and take new snapshots."),
 									  info.helperVersion.c_str()));
 	}
 	if (helperOk && !helperAtLeast(9)) {
-		Wrapped(theme::Caution(), Fmt("ReSaverHelper %s is running: your look and worn gear need version 7, and quests brought into the journal need "
-									  "version 9. Install the newest ReSaverHelper and take new snapshots.",
+		Wrapped(theme::Caution(), Fmt(tr("ReSaverHelper %s is running: your look and worn gear need version 7, and quests brought into the journal need "
+									  "version 9. Install the newest ReSaverHelper and take new snapshots."),
 									  info.helperVersion.c_str()));
 	}
 	if (_tpWaiting && ImGui::GetTime() - _tpWaitStart > 75.0) {
 		_tpWaiting = false;
-		_status = "No answer from the game for the snapshot. Was Skyrim the active window for a few seconds? Try again; if it still does not "
-				  "answer, restart the game and send ReSaverHelper.log (Documents\\My Games\\Skyrim Special Edition\\SKSE).";
+		_status = tr("No answer from the game for the snapshot. Was Skyrim the active window for a few seconds? Try again; if it still does not "
+				  "answer, restart the game and send ReSaverHelper.log (Documents\\My Games\\Skyrim Special Edition\\SKSE).");
 	}
 	if (_tpWaiting) {
-		Wrapped(theme::Caution(), Fmt("Waiting for the game (%.0f s): switch to Skyrim for a few seconds (it pauses while it is not the active window), "
-									  "then come back.", ImGui::GetTime() - _tpWaitStart));
+		Wrapped(theme::Caution(), Fmt(tr("Waiting for the game (%.0f s): switch to Skyrim for a few seconds (it pauses while it is not the active window), "
+									  "then come back."), ImGui::GetTime() - _tpWaitStart));
 	}
 
 	// steps 1 and 2 side by side
 	if (ImGui::BeginTable("steps", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchSame)) {
 		ImGui::TableNextColumn();
-		ImGui::SeparatorText("1. The bad save: take its progress");
+		ImGui::SeparatorText(tr("1. The bad save: take its progress"));
 		ImGui::TextWrapped("%s", Summary(_tpBad).c_str());
 		ImGui::BeginDisabled(!live || !helperOk || busy);
-		const bool badBtn = ImGui::Button("Snapshot the game (bad save loaded in the game)");
-		tips::Tip("Load the BAD save in the game first. ReSaverHelper then writes down your character as the game sees it: level, skills, perks, spells, shouts, items, quests, map locations. Nothing is changed.");
+		const bool badBtn = ImGui::Button(tr("Snapshot the game (bad save loaded in the game)"));
+		tips::Tip(tr("Load the BAD save in the game first. ReSaverHelper then writes down your character as the game sees it: level, skills, perks, spells, shouts, items, quests, map locations. Nothing is changed."));
 		if (!_tpBad.valid && !busy) {
 			Marquee();
 			ImGui::SameLine();
-			TextColored(IM_COL32(255, 196, 40, 255), "<- step 1: start here");
+			TextColored(IM_COL32(255, 196, 40, 255), tr("<- step 1: start here"));
 		}
 		if (badBtn) {
-			confirm("Snapshot the bad save", "Is the BAD save loaded in the game right now?\n\nReSaverHelper writes down everything about your character "
+			confirm(tr("Snapshot the bad save"), tr("Is the BAD save loaded in the game right now?\n\nReSaverHelper writes down everything about your character "
 											 "in the loaded game: level, skills, perks, spells, shouts, items, quests, map locations.\n\n"
-											 "Skyrim pauses while it is not the active window: after OK, switch to the game for a moment.",
+											 "Skyrim pauses while it is not the active window: after OK, switch to the game for a moment."),
 				[this] { transplantSnapshot(true); });
 		}
 		ImGui::EndDisabled();
 		ImGui::BeginDisabled(busy);
-		if (ImGui::Button("Bad save won't load? Read it from the save file...") && platform::HasNativeDialogs()) {
+		if (ImGui::Button(tr("Bad save won't load? Read it from the save file...")) && platform::HasNativeDialogs()) {
 			if (auto p = platform::OpenSaveDialog(savesFolder())) {
 				transplantFromFile(*p);
 			}
 		}
-		tips::Tip("For a save the game cannot load at all. Without the game only part of it can be read:\n"
-							  "quests, items, spells and shouts, level. Not skills, perks, words of power, map locations or things you made.");
+		tips::Tip(tr("For a save the game cannot load at all. Without the game only part of it can be read:\n"
+							  "quests, items, spells and shouts, level. Not skills, perks, words of power, map locations or things you made."));
 		if (_save) {
-			if (ImGui::SmallButton("Use the save open in ReSaver++")) {
+			if (ImGui::SmallButton(tr("Use the save open in ReSaver++"))) {
 				_tpBad = tp::FromSave(*_save, platform::ToUtf8(_path.filename()));
 				transplantNames(_tpBad, *_save);
 				_tpDirty = true;
 			}
-			tips::Tip("Use the save opened in ReSaver++ as the bad save, without the game. Only part of it can be read this way (no skills, perks or map locations).");
+			tips::Tip(tr("Use the save opened in ReSaver++ as the bad save, without the game. Only part of it can be read this way (no skills, perks or map locations)."));
 		}
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Open a snapshot file...") && platform::HasNativeDialogs()) {
-			if (auto p = platform::OpenFileDialog({}, "txt", "ReSaverHelper snapshot (Documents\\My Games\\...\\SKSE\\ReSaverHelper)")) {
+		if (ImGui::SmallButton(tr("Open a snapshot file...")) && platform::HasNativeDialogs()) {
+			if (auto p = platform::OpenFileDialog({}, "txt", tr("ReSaverHelper snapshot (Documents\\My Games\\...\\SKSE\\ReSaverHelper)"))) {
 				transplantFromFile(*p);
 			}
 		}
-		tips::Tip("Open a snapshot ReSaverHelper wrote earlier (a .txt file in Documents\\My Games\\...\\SKSE\\ReSaverHelper).");
+		tips::Tip(tr("Open a snapshot ReSaverHelper wrote earlier (a .txt file in Documents\\My Games\\...\\SKSE\\ReSaverHelper)."));
 		ImGui::EndDisabled();
 		if (_tpBad.valid && _tpBad.fromFile) {
 			std::string parts;
 			for (const auto& m : _tpBad.missingParts) {
 				parts += (parts.empty() ? "" : ", ") + m;
 			}
-			Wrapped(theme::Caution(), "Read from the file without the game: " + parts + " are not included.");
+			Wrapped(theme::Caution(), tr("Read from the file without the game: ") + parts + tr(" are not included."));
 		}
 
 		ImGui::TableNextColumn();
-		ImGui::SeparatorText("2. The good save: load it in the game, then snapshot it");
+		ImGui::SeparatorText(tr("2. The good save: load it in the game, then snapshot it"));
 		ImGui::TextWrapped("%s", Summary(_tpGood).c_str());
 		ImGui::BeginDisabled(!live || !helperOk || !_tpBad.valid || busy);
-		const bool goodBtn = ImGui::Button(_tpGood.valid ? "Snapshot the game again (good save loaded in the game)" : "Snapshot the game (good save loaded in the game)");
-		tips::Tip("Load the GOOD save (an older save that works) in the game first, and make a backup save. ReSaverHelper writes down what it has, so ReSaver++ can list what the bad save has on top.");
+		const bool goodBtn = ImGui::Button(_tpGood.valid ? tr("Snapshot the game again (good save loaded in the game)") : tr("Snapshot the game (good save loaded in the game)"));
+		tips::Tip(tr("Load the GOOD save (an older save that works) in the game first, and make a backup save. ReSaverHelper writes down what it has, so ReSaver++ can list what the bad save has on top."));
 		if (_tpBad.valid && !_tpGood.valid && !busy) {
 			Marquee();
 			ImGui::SameLine();
-			TextColored(IM_COL32(255, 196, 40, 255), "<- step 2: now this");
+			TextColored(IM_COL32(255, 196, 40, 255), tr("<- step 2: now this"));
 		}
 		if (goodBtn) {
-			confirm("Snapshot the good save", "Is the GOOD save loaded in the game right now? (Load it from the game's menu first, and make a backup save.)\n\n"
-											  "After OK, switch to the game for a moment: it pauses while it is not the active window.",
+			confirm(tr("Snapshot the good save"), tr("Is the GOOD save loaded in the game right now? (Load it from the game's menu first, and make a backup save.)\n\n"
+											  "After OK, switch to the game for a moment: it pauses while it is not the active window."),
 				[this] { transplantSnapshot(false); });
 		}
 		ImGui::EndDisabled();
 		if (_tpBad.valid && _tpGood.valid && !_tpBad.player.empty() && !_tpGood.player.empty() && _tpBad.player != _tpGood.player) {
-			Wrapped(theme::Bad(), "These are two different characters (" + _tpBad.player + " / " + _tpGood.player + ").");
+			Wrapped(theme::Bad(), tr("These are two different characters (") + _tpBad.player + " / " + _tpGood.player + ").");
 		}
 		ImGui::EndTable();
 	}
@@ -758,7 +758,7 @@ void App::drawTransplant()
 	}
 	if (!_tpBad.valid || !_tpGood.valid) {
 		if (_tpBad.valid) {
-			ImGui::SeparatorText("What the bad save has (this is what can be brought over)");
+			ImGui::SeparatorText(tr("What the bad save has (this is what can be brought over)"));
 			ImGui::BeginChild("##tpbad", ImVec2(0, 0), ImGuiChildFlags_Borders);
 			SnapshotContents(_tpBad);
 			ImGui::EndChild();
@@ -768,46 +768,46 @@ void App::drawTransplant()
 	}
 
 	// step 3: what to bring, in folded groups
-	ImGui::SeparatorText(Fmt("3. What to bring over (%zu)", _tpChanges.size()).c_str());
+	ImGui::SeparatorText(Fmt(tr("3. What to bring over (%zu)"), _tpChanges.size()).c_str());
 	Dot(theme::Good());
-	ImGui::TextUnformatted("Safe");
+	ImGui::TextUnformatted(tr("Safe"));
 	ImGui::SameLine(0, 18);
 	Dot(theme::Caution());
-	ImGui::TextUnformatted("Caution (hover to read why)");
+	ImGui::TextUnformatted(tr("Caution (hover to read why)"));
 	ImGui::SameLine(0, 18);
 	Dot(theme::Bad());
-	ImGui::TextUnformatted("Cannot: its mod is not in the game");
+	ImGui::TextUnformatted(tr("Cannot: its mod is not in the game"));
 	ImGui::SameLine(0, 30);
 	int openAll = -1;
-	if (ImGui::SmallButton("Expand all")) {
+	if (ImGui::SmallButton(tr("Expand all"))) {
 		openAll = 1;
 	}
-	tips::Tip("Open every group below.");
+	tips::Tip(tr("Open every group below."));
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Collapse all")) {
+	if (ImGui::SmallButton(tr("Collapse all"))) {
 		openAll = 0;
 	}
-	tips::Tip("Fold every group below.");
+	tips::Tip(tr("Fold every group below."));
 	ImGui::SameLine();
 	ImGui::BeginDisabled(_tpRunning);
-	if (ImGui::SmallButton("Tick everything")) {
+	if (ImGui::SmallButton(tr("Tick everything"))) {
 		for (auto& c : _tpChanges) {
 			c.tick = c.available;
 		}
 	}
-	tips::Tip("Tick everything that can be brought over (things whose mod is not in the game stay unticked).");
+	tips::Tip(tr("Tick everything that can be brought over (things whose mod is not in the game stay unticked)."));
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Untick everything")) {
+	if (ImGui::SmallButton(tr("Untick everything"))) {
 		for (auto& c : _tpChanges) {
 			c.tick = false;
 		}
 	}
-	tips::Tip("Untick everything, e.g. to then tick only the few things you want.");
+	tips::Tip(tr("Untick everything, e.g. to then tick only the few things you want."));
 	ImGui::EndDisabled();
 	ImGui::SameLine(0, 20);
 	ImGui::SetNextItemWidth(-1);
-	ImGui::InputTextWithHint("##tpfilter", "search (opens the groups that match)", _tpFilter, sizeof(_tpFilter));
-	tips::Tip("Show only the things whose name contains this text; the groups that match open.");
+	ImGui::InputTextWithHint("##tpfilter", tr("search (opens the groups that match)"), _tpFilter, sizeof(_tpFilter));
+	tips::Tip(tr("Show only the things whose name contains this text; the groups that match open."));
 	const auto needle = Lower(_tpFilter);
 	if (!needle.empty()) {
 		openAll = 1;
@@ -823,7 +823,7 @@ void App::drawTransplant()
 		ImGui::BeginDisabled(!ch.available || _tpRunning);
 		ImGui::Checkbox("##t", &ch.tick);
 		ImGui::EndDisabled();
-		tips::Tip(ch.available ? "Ticked things are put into the game when you press Transplant." : "Cannot be brought over: the mod it comes from is not in the game.");
+		tips::Tip(ch.available ? tr("Ticked things are put into the game when you press Transplant.") : tr("Cannot be brought over: the mod it comes from is not in the game."));
 		ImGui::SameLine();
 		Dot(RiskCol(ch.risk));
 		ImGui::TextUnformatted(ch.label.c_str());
@@ -837,25 +837,25 @@ void App::drawTransplant()
 		if (auto it = results.find(i); it != results.end()) {
 			ImGui::SameLine();
 			TextColored(it->second->ok ? theme::Good() : theme::Bad(),
-				it->second->ok ? (it->second->why.empty() ? "done" : "done: " + it->second->why) : "not done: " + it->second->why);
+				it->second->ok ? (it->second->why.empty() ? tr("done") : tr("done: ") + it->second->why) : tr("not done: ") + it->second->why);
 		}
 		ImGui::PopID();
 	};
 	auto tickButtons = [&](const std::vector<std::size_t>& a_in) {
 		ImGui::BeginDisabled(_tpRunning);
-		if (ImGui::SmallButton("Tick all")) {
+		if (ImGui::SmallButton(tr("Tick all"))) {
 			for (auto i : a_in) {
 				_tpChanges[i].tick = _tpChanges[i].available;
 			}
 		}
-		tips::Tip("Tick everything in this group.");
+		tips::Tip(tr("Tick everything in this group."));
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Untick all")) {
+		if (ImGui::SmallButton(tr("Untick all"))) {
 			for (auto i : a_in) {
 				_tpChanges[i].tick = false;
 			}
 		}
-		tips::Tip("Untick everything in this group.");
+		tips::Tip(tr("Untick everything in this group."));
 		ImGui::EndDisabled();
 	};
 	auto counts = [&](const std::vector<std::size_t>& a_in) {
@@ -863,34 +863,34 @@ void App::drawTransplant()
 		for (auto i : a_in) {
 			t += _tpChanges[i].tick && _tpChanges[i].available ? 1 : 0;
 		}
-		return Fmt("%zu of %zu ticked", t, a_in.size());
+		return Fmt(tr("%zu of %zu ticked"), t, a_in.size());
 	};
 
 	ImGui::BeginChild("##tplist", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 2.4f), ImGuiChildFlags_Borders);
 	if (_tpChecking) {
-		Wrapped(theme::Caution(), "Checking the game's journal (switch to Skyrim for a moment if it takes long)...");
+		Wrapped(theme::Caution(), tr("Checking the game's journal (switch to Skyrim for a moment if it takes long)..."));
 	} else if (_tpChecked) {
 		if (_tpMissing.empty()) {
-			Wrapped(theme::Good(), "Every quest of the bad save's journal is in the game's journal now.");
+			Wrapped(theme::Good(), tr("Every quest of the bad save's journal is in the game's journal now."));
 		} else {
 			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(theme::Caution()));
 			ImGui::SetNextItemOpen(true, ImGuiCond_Appearing);
-			const bool open = ImGui::CollapsingHeader(Fmt("Quests that could not be brought over (%zu)###tpmissing", _tpMissing.size()).c_str());
-			tips::Tip("Quests from the bad save's journal that are not in the game's journal after the transplant, and why.");
+			const bool open = ImGui::CollapsingHeader(Fmt(tr("Quests that could not be brought over (%zu)###tpmissing"), _tpMissing.size()).c_str());
+			tips::Tip(tr("Quests from the bad save's journal that are not in the game's journal after the transplant, and why."));
 			ImGui::PopStyleColor();
 			if (open) {
 				ImGui::Indent();
-				ImGui::TextWrapped("These were in the bad save's journal but are not in the game's journal now. Unfinished ones come back when "
+				ImGui::TextWrapped("%s", tr("These were in the bad save's journal but are not in the game's journal now. Unfinished ones come back when "
 								   "you do what starts them in the game (read the note, talk to the person, go to the place). Completed ones "
-								   "can be marked as done here (like \"Mark refused quests as done\": no rewards, follow-up quests not started).");
+								   "can be marked as done here (like \"Mark refused quests as done\": no rewards, follow-up quests not started)."));
 				std::string all;
 				for (std::size_t mi = 0; mi < _tpMissing.size(); ++mi) {
 					auto& m = _tpMissing[mi];
 					ImGui::PushID(static_cast<int>(mi));
 					if (m.completed && m.quest) {
 						ImGui::BeginDisabled(!_live.info().connected || _tpRunning || !m.done.empty());
-						if (ImGui::SmallButton("Mark as done")) {
-							m.done = "marking...";
+						if (ImGui::SmallButton(tr("Mark as done"))) {
+							m.done = tr("marking...");
 							const auto* q = m.quest;
 							_live.request({ "RESOLVE", q->plugin, Fmt("%06X", q->local) }, [this, mi, q](const LiveLink::Reply& r) {
 								auto set = [this, mi](const std::string& a_done) {
@@ -899,16 +899,16 @@ void App::drawTransplant()
 									}
 								};
 								if (!LiveLink::Ok(r)) {
-									set("not done: " + LiveLink::Error(r));
+									set(tr("not done: ") + LiveLink::Error(r));
 									return;
 								}
 								_live.request({ "COMPLETE", LiveLink::Field(r, 0), "none", "" }, [this, q, set](const LiveLink::Reply& c) {
 									const bool ok = LiveLink::Ok(c) && LiveLink::Field(c, 0) != "0";
 									if (!ok) {
-										set("the game would not mark it as done");
+										set(tr("the game would not mark it as done"));
 										return;
 									}
-									set("marked as done");
+									set(tr("marked as done"));
 									if (!q->objectives.empty() && helperAtLeast(9)) {  // and listed in the journal as it was
 										_live.request({ "APPLY", "questobj", q->plugin, Fmt("%06X", q->local), "", q->objectives }, [](const LiveLink::Reply&) {});
 									}
@@ -916,31 +916,31 @@ void App::drawTransplant()
 							});
 						}
 						ImGui::EndDisabled();
-						tips::Tip("Mark this quest completed in the game, as it was in the bad save. No rewards are given and follow-up quests do not start.");
+						tips::Tip(tr("Mark this quest completed in the game, as it was in the bad save. No rewards are given and follow-up quests do not start."));
 						ImGui::SameLine();
 					}
 					Dot(m.completed ? theme::Caution() : theme::Bad());
 					ImGui::TextUnformatted(m.name.c_str());
 					ImGui::SameLine();
-					ImGui::TextDisabled("[%s]  %s  -  %s", m.edid.c_str(), m.completed ? "completed in the bad save" : "in progress in the bad save", m.why.c_str());
-					all += m.name + "  [" + m.edid + "]  (" + (m.completed ? "completed" : "in progress") + "): " + m.why + "\n";
+					ImGui::TextDisabled("[%s]  %s  -  %s", m.edid.c_str(), m.completed ? tr("completed in the bad save") : tr("in progress in the bad save"), m.why.c_str());
+					all += m.name + "  [" + m.edid + "]  (" + (m.completed ? tr("completed") : tr("in progress")) + "): " + m.why + "\n";
 					if (!m.done.empty()) {
 						ImGui::SameLine();
-						TextColored(m.done == "marked as done" ? theme::Good() : theme::Caution(), m.done);
+						TextColored(m.done == tr("marked as done") ? theme::Good() : theme::Caution(), m.done);
 					}
 					ImGui::PopID();
 				}
-				if (ImGui::SmallButton("Copy the list")) {
+				if (ImGui::SmallButton(tr("Copy the list"))) {
 					ImGui::SetClipboardText(all.c_str());
 				}
-				tips::Tip("Copy these quests and why they are missing as text.");
+				tips::Tip(tr("Copy these quests and why they are missing as text."));
 				ImGui::SameLine();
 				ImGui::BeginDisabled(!_live.info().connected || _tpRunning || _tpChecking);
-				if (ImGui::SmallButton("Check the journal again")) {
+				if (ImGui::SmallButton(tr("Check the journal again"))) {
 					transplantCheckJournal();
 				}
 				ImGui::EndDisabled();
-				tips::Tip("Quests may keep loading for a minute or two after the transplant: check again after that.");
+				tips::Tip(tr("Quests may keep loading for a minute or two after the transplant: check again after that."));
 				ImGui::Unindent();
 			}
 		}
@@ -982,7 +982,7 @@ void App::drawTransplant()
 			}
 		}
 		const bool open = ImGui::CollapsingHeader(Fmt("%s   (%s)###cat", tp::CategoryName(static_cast<tp::Category>(c)), counts(in).c_str()).c_str());
-		tips::Tip("One kind of progress the bad save has and the good one does not. Open it to tick what to bring over.");
+		tips::Tip(tr("One kind of progress the bad save has and the good one does not. Open it to tick what to bring over."));
 		if (appearance) {
 			// a glow around the header
 			const auto mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
@@ -997,7 +997,7 @@ void App::drawTransplant()
 			tickButtons(in);
 			if (c == static_cast<int>(tp::Category::kQuests)) {
 				ImGui::SameLine();
-				ImGui::TextDisabled("Quests run in quest-line order, after everything else.");
+				ImGui::TextDisabled("%s", tr("Quests run in quest-line order, after everything else."));
 			}
 			// groups: items by kind, the rest by mod (when there are many)
 			std::map<std::string, std::vector<std::size_t>> groups;
@@ -1015,7 +1015,7 @@ void App::drawTransplant()
 					if (openAll >= 0) {
 						ImGui::SetNextItemOpen(openAll == 1);
 					}
-					if (ImGui::TreeNodeEx("##grp", ImGuiTreeNodeFlags_SpanAvailWidth, "%s   (%s)", name.empty() ? "Other" : name.c_str(), counts(gi).c_str())) {
+					if (ImGui::TreeNodeEx("##grp", ImGuiTreeNodeFlags_SpanAvailWidth, "%s   (%s)", name.empty() ? tr("Other") : name.c_str(), counts(gi).c_str())) {
 						tickButtons(gi);
 						for (auto i : gi) {
 							row(i);
@@ -1030,7 +1030,7 @@ void App::drawTransplant()
 		ImGui::PopID();
 	}
 	if (_tpChanges.empty()) {
-		Wrapped(theme::Good(), "The good save already has everything the bad one has (of what could be read).");
+		Wrapped(theme::Good(), tr("The good save already has everything the bad one has (of what could be read)."));
 	}
 	ImGui::EndChild();
 
@@ -1044,28 +1044,28 @@ void App::drawTransplant()
 		}
 	}
 	ImGui::BeginDisabled(_tpRunning);
-	ImGui::Checkbox("Mark refused quests as done", &_tpMarkRefused);
+	ImGui::Checkbox(tr("Mark refused quests as done"), &_tpMarkRefused);
 	ImGui::EndDisabled();
-	tips::Tip("When the game refuses a quest's stage (its people or places are not set up in this save), the quest is marked\n"
+	tips::Tip(tr("When the game refuses a quest's stage (its people or places are not set up in this save), the quest is marked\n"
 						  "completed instead, and the list says so (\"refused stage 10, marked as done\"). Marked quests give no rewards\n"
 						  "and do not start the quests that normally follow them. This applies to quests that were only further along in\n"
-						  "the bad save too. Untick to leave refused quests as they are.");
+						  "the bad save too. Untick to leave refused quests as they are."));
 	ImGui::SameLine(0, 30);
 	ImGui::BeginDisabled(!live || !helperOk || run.empty() || busy);
-	const bool goBtn = ImGui::Button(Fmt("Transplant %zu ticked thing(s) into the game", run.size()).c_str());
-	tips::Tip("Put the ticked things into the game the normal way (the good save must be loaded). Make a save in the game first; then save in the game when it is done for a clean save.");
+	const bool goBtn = ImGui::Button(Fmt(tr("Transplant %zu ticked thing(s) into the game"), run.size()).c_str());
+	tips::Tip(tr("Put the ticked things into the game the normal way (the good save must be loaded). Make a save in the game first; then save in the game when it is done for a clean save."));
 	if (!busy && _tpResults.empty() && !run.empty() && live && helperOk) {
 		Marquee();
 		ImGui::SameLine();
-		TextColored(IM_COL32(255, 196, 40, 255), "<- step 3: go");
+		TextColored(IM_COL32(255, 196, 40, 255), tr("<- step 3: go"));
 	}
 	if (goBtn) {
-		confirm("Transplant",
-			Fmt("Put %zu ticked thing(s) into the game now?\n\n"
+		confirm(tr("Transplant"),
+			Fmt(tr("Put %zu ticked thing(s) into the game now?\n\n"
 				"- The GOOD save must be the one loaded in the game (the one snapshotted in step 2).\n"
 				"- Make a save in the game first, so you can go back.\n"
 				"- After OK, switch to Skyrim and stay there, unpaused with menus closed, until it is done.\n"
-				"- Quests may keep loading for a couple of minutes after that: save in the game when their messages stop.",
+				"- Quests may keep loading for a couple of minutes after that: save in the game when their messages stop."),
 				run.size()),
 			[this, run] {
 				_tpRun = run;
@@ -1082,7 +1082,7 @@ void App::drawTransplant()
 	if (_tpRunning) {
 		ImGui::SameLine();
 		ImGui::ProgressBar(_tpRun.empty() ? 0.0f : static_cast<float>(_tpPos) / static_cast<float>(_tpRun.size()), ImVec2(260, 0),
-			Fmt("%zu of %zu", _tpPos, _tpRun.size()).c_str());
+			Fmt(tr("%zu of %zu"), _tpPos, _tpRun.size()).c_str());
 	} else if (!_tpResults.empty()) {
 		std::size_t failed = 0;
 		for (const auto& r : _tpResults) {
@@ -1090,10 +1090,10 @@ void App::drawTransplant()
 		}
 		ImGui::SameLine();
 		TextColored(failed ? theme::Caution() : theme::Good(),
-			Fmt("Done: %zu brought over, %zu not (see the list). Quests may keep loading for a couple of minutes: save in the game when their "
-				"messages stop.",
+			Fmt(tr("Done: %zu brought over, %zu not (see the list). Quests may keep loading for a couple of minutes: save in the game when their "
+				"messages stop."),
 				_tpResults.size() - failed, failed));
 	}
-	ImGui::TextDisabled("Nothing is taken away from the good save: things are only added, and levels and skills only raised.");
+	ImGui::TextDisabled("%s", tr("Nothing is taken away from the good save: things are only added, and levels and skills only raised."));
 	ImGui::End();
 }

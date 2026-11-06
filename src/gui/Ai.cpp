@@ -3,6 +3,7 @@
 
 #include "Net.h"
 #include "core/Json.h"
+#include "core/Lang.h"
 
 #include <algorithm>
 #include <chrono>
@@ -19,21 +20,21 @@ namespace ai
 	const std::vector<Preset>& Presets()
 	{
 		static const std::vector<Preset> v = {
-			{ "Anthropic (Claude)", Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-				"Key from console.anthropic.com. Paid per use." },
-			{ "OpenAI (ChatGPT)", Api::kOpenAI, "https://api.openai.com/v1", "", true,
-				"Key from platform.openai.com. Paid per use. Use List models to pick one." },
-			{ "Google Gemini", Api::kOpenAI, "https://generativelanguage.googleapis.com/v1beta/openai", "", true,
-				"Key from aistudio.google.com (has a free tier). Use List models to pick one." },
-			{ "OpenRouter", Api::kOpenAI, "https://openrouter.ai/api/v1", "", true,
-				"One key for many engines (openrouter.ai). Pick a model that supports tools." },
-			{ "Ollama (on this PC)", Api::kOpenAI, "http://localhost:11434/v1", "", false,
-				"Free, runs on your PC, nothing leaves it. Needs a model with tool support (e.g. qwen3, llama3.1); small models make "
-				"more mistakes." },
-			{ "LM Studio (on this PC)", Api::kOpenAI, "http://localhost:1234/v1", "", false,
-				"Free, runs on your PC. Start its local server first; pick a model with tool support." },
-			{ "Other (OpenAI-compatible)", Api::kOpenAI, "", "", true,
-				"Any server that speaks the OpenAI chat completions API (KoboldCpp, a CHIM / Mantella setup's engine...)." },
+			{ N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
+				N_("Key from console.anthropic.com. Paid per use.") },
+			{ N_("OpenAI (ChatGPT)"), Api::kOpenAI, "https://api.openai.com/v1", "", true,
+				N_("Key from platform.openai.com. Paid per use. Use List models to pick one.") },
+			{ N_("Google Gemini"), Api::kOpenAI, "https://generativelanguage.googleapis.com/v1beta/openai", "", true,
+				N_("Key from aistudio.google.com (has a free tier). Use List models to pick one.") },
+			{ N_("OpenRouter"), Api::kOpenAI, "https://openrouter.ai/api/v1", "", true,
+				N_("One key for many engines (openrouter.ai). Pick a model that supports tools.") },
+			{ N_("Ollama (on this PC)"), Api::kOpenAI, "http://localhost:11434/v1", "", false,
+				N_("Free, runs on your PC, nothing leaves it. Needs a model with tool support (e.g. qwen3, llama3.1); small models make "
+				"more mistakes.") },
+			{ N_("LM Studio (on this PC)"), Api::kOpenAI, "http://localhost:1234/v1", "", false,
+				N_("Free, runs on your PC. Start its local server first; pick a model with tool support.") },
+			{ N_("Other (OpenAI-compatible)"), Api::kOpenAI, "", "", true,
+				N_("Any server that speaks the OpenAI chat completions API (KoboldCpp, a CHIM / Mantella setup's engine...).") },
 		};
 		return v;
 	}
@@ -138,7 +139,7 @@ namespace ai
 		std::string ErrorText(const net::Response& r)
 		{
 			if (r.status == 0) {
-				return r.error.empty() ? "no answer from the AI engine" : r.error;
+				return r.error.empty() ? tr("no answer from the AI engine") : r.error;
 			}
 			std::string msg;
 			try {
@@ -156,13 +157,13 @@ namespace ai
 			}
 			std::string hint;
 			if (r.status == 401 || r.status == 403) {
-				hint = " (the API key is wrong or missing)";
+				hint = tr(" (the API key is wrong or missing)");
 			} else if (r.status == 404) {
-				hint = " (wrong address or model name)";
+				hint = tr(" (wrong address or model name)");
 			} else if (r.status == 429) {
-				hint = " (too many requests or no credit left)";
+				hint = tr(" (too many requests or no credit left)");
 			}
-			return "the AI engine answered HTTP " + std::to_string(r.status) + hint + ": " + msg;
+			return tr("the AI engine answered HTTP ") + std::to_string(r.status) + hint + ": " + msg;
 		}
 
 		std::string ToolsJson(const std::vector<Tool>& a_tools, Api a_api)
@@ -323,7 +324,7 @@ namespace ai
 			try {
 				v = ess::json::Parse(a_body);
 			} catch (const std::exception& e) {
-				a_error = std::string("could not read the AI engine's answer: ") + e.what();
+				a_error = std::string(tr("could not read the AI engine's answer: ")) + e.what();
 				return false;
 			}
 			a_out.role = Message::Role::kAssistant;
@@ -332,7 +333,7 @@ namespace ai
 				a_stop = v.str("stop_reason");
 				const auto* content = v.get("content");
 				if (!content || content->type != Value::Type::kArray) {
-					a_error = "the AI engine's answer has no content";
+					a_error = tr("the AI engine's answer has no content");
 					return false;
 				}
 				for (const auto& b : content->a) {
@@ -353,7 +354,7 @@ namespace ai
 			}
 			const auto* choices = v.get("choices");
 			if (!choices || choices->type != Value::Type::kArray || choices->a.empty()) {
-				a_error = "the AI engine's answer has no choices";
+				a_error = tr("the AI engine's answer has no choices");
 				if (const auto* e = v.get("error")) {
 					a_error += ": " + (e->type == Value::Type::kString ? e->s : e->str("message"));
 				}
@@ -363,7 +364,7 @@ namespace ai
 			a_stop = ch.str("finish_reason");
 			const auto* msg = ch.get("message");
 			if (!msg) {
-				a_error = "the AI engine's answer has no message";
+				a_error = tr("the AI engine's answer has no message");
 				return false;
 			}
 			a_out.text = msg->str("content");
@@ -422,7 +423,7 @@ namespace ai
 			m.role = Message::Role::kUser;
 			m.text = a_text;
 			_messages.push_back(std::move(m));
-			_status = "Thinking...";
+			_status = tr("Thinking...");
 		}
 		++_revision;
 		_stop = false;
@@ -494,12 +495,12 @@ namespace ai
 			_approvalAnswer = std::promise<int>();
 			f = _approvalAnswer.get_future();
 			_approval = { true, a_what, a_command };
-			_status = "Waiting for your OK...";
+			_status = tr("Waiting for your OK...");
 		}
 		++_revision;
 		const int a = f.get();
 		std::lock_guard l(_m);
-		_status = "Working...";
+		_status = tr("Working...");
 		if (a == 2) {
 			_allowAll = true;
 		}
@@ -567,7 +568,7 @@ namespace ai
 		int         steps = 0;
 		while (!_stop) {
 			if (++steps > 40) {
-				note("Stopped after 40 steps without a final answer. Say \"go on\" to let it continue.", true);
+				note(tr("Stopped after 40 steps without a final answer. Say \"go on\" to let it continue."), true);
 				break;
 			}
 			if (!step(a_system, error)) {
@@ -577,7 +578,7 @@ namespace ai
 		if (!error.empty()) {
 			note(error, true);
 		} else if (_stop) {
-			note("Stopped.", false);
+			note(tr("Stopped."), false);
 		}
 		{
 			std::lock_guard l(_m);
@@ -616,7 +617,7 @@ namespace ai
 			std::lock_guard l(_m);
 			body = _settings.api == Api::kAnthropic ? AnthropicBody(_settings, a_system, _messages, _tools)
 			                                         : OpenAIBody(_settings, a_system, _messages, _tools);
-			_status = "Thinking...";
+			_status = tr("Thinking...");
 		}
 		++_revision;
 		net::Response r;
@@ -628,7 +629,7 @@ namespace ai
 			}
 			{
 				std::lock_guard l(_m);
-				_status = "The AI engine is busy, trying again...";
+				_status = tr("The AI engine is busy, trying again...");
 			}
 			for (int i = 0; i < (attempt + 1) * 30 && !_stop; ++i) {
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -638,7 +639,7 @@ namespace ai
 			return false;
 		}
 		if (r.status != 200) {
-			a_error = ErrorText(r) + "\n(asked " + Endpoint(_settings, "chat") + ")";
+			a_error = ErrorText(r) + tr("\n(asked ") + Endpoint(_settings, "chat") + ")";
 			return false;
 		}
 		Message     answer;
@@ -654,7 +655,7 @@ namespace ai
 		++_revision;
 		if (calls.empty()) {
 			if (stopReason == "length" || stopReason == "max_tokens") {
-				note("The answer was cut off (too long). Say \"go on\" to get the rest.", false);
+				note(tr("The answer was cut off (too long). Say \"go on\" to get the rest."), false);
 			}
 			return false;
 		}
@@ -664,7 +665,7 @@ namespace ai
 			}
 			{
 				std::lock_guard l(_m);
-				_status = "Running " + c.name + "...";
+				_status = tr("Running ") + c.name + "...";
 			}
 			++_revision;
 			Message t;
@@ -694,7 +695,7 @@ namespace ai
 		h.erase(h.begin());  // no body
 		const auto r = Send("GET", Endpoint(a_settings, "models"), h, "", never, 30);
 		if (r.status != 200) {
-			a_error = ErrorText(r) + "\n(asked " + Endpoint(a_settings, "models") + ")";
+			a_error = ErrorText(r) + tr("\n(asked ") + Endpoint(a_settings, "models") + ")";
 			return out;
 		}
 		try {
@@ -722,7 +723,7 @@ namespace ai
 		}
 		std::sort(out.begin(), out.end());
 		if (out.empty() && a_error.empty()) {
-			a_error = "the engine listed no models";
+			a_error = tr("the engine listed no models");
 		}
 		return out;
 	}

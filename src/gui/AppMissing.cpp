@@ -68,10 +68,10 @@ void App::checkMissingPlugins()
 	std::filesystem::path txt;
 	if (_mo2 && !_profile.empty()) {
 		txt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
-		_missingSource = "Mod Organizer profile \"" + _profile + "\"";
+		_missingSource = tr("Mod Organizer profile \"") + _profile + "\"";
 	} else {
 		txt = loadorder::GamePluginsTxt(_game, _save && _save->isLE());
-		_missingSource = _vortex ? "your load order (Vortex)" : "your load order";
+		_missingSource = _vortex ? tr("your load order (Vortex)") : tr("your load order");
 	}
 	const auto active = loadorder::Read(txt, gameFolder(), _game);
 	// scripts whose compiled file is nowhere: not in any mod (enabled or not) and not in the game's own
@@ -130,7 +130,7 @@ void App::checkMissingPlugins()
 	}
 
 	if (!active.known) {
-		_missingSource = "your load order";
+		_missingSource = tr("your load order");
 		return;  // no load order to compare plugins with (missing scripts can still be listed)
 	}
 	_missingFile = active.file;
@@ -239,38 +239,38 @@ void App::drawMissingBanner()
 	ImGui::BeginChild("##missing", ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * (scanning() ? 4.6f : 3.2f)), ImGuiChildFlags_Borders);
 	std::string msg;
 	if (!_missing.empty()) {
-		msg = _installKnown ? Fmt("%zu mod(s) in this save are not in %s: %zu no longer installed, %zu installed but not enabled.", _missing.size(),
+		msg = _installKnown ? Fmt(tr("%zu mod(s) in this save are not in %s: %zu no longer installed, %zu installed but not enabled."), _missing.size(),
 								  _missingSource.c_str(), gone, disabled)
-							: Fmt("%zu mod(s) in this save are not in %s.", _missing.size(), _missingSource.c_str());
+							: Fmt(tr("%zu mod(s) in this save are not in %s."), _missing.size(), _missingSource.c_str());
 	}
 	if (!_missingScripts.empty()) {
-		msg += (msg.empty() ? "" : " ") + Fmt("%zu script(s) in it are no longer installed anywhere.", _missingScripts.size());
+		msg += (msg.empty() ? "" : " ") + Fmt(tr("%zu script(s) in it are no longer installed anywhere."), _missingScripts.size());
 	}
 	if (!_unfoundScripts.empty()) {
-		msg += (msg.empty() ? "" : " ") + Fmt("%zu script(s) were not found in your mods (the game still had them when it saved).", _unfoundScripts.size());
+		msg += (msg.empty() ? "" : " ") + Fmt(tr("%zu script(s) were not found in your mods (the game still had them when it saved)."), _unfoundScripts.size());
 	}
 	if (!_installKnown && scanning()) {
-		msg += "  Checking which are still installed (scanning your mods)...";
+		msg += tr("  Checking which are still installed (scanning your mods)...");
 	}
 	if (_orderSuspect || _scanSuspect) {
-		msg += "  This looks wrong (see the review): nothing is ticked.";
+		msg += tr("  This looks wrong (see the review): nothing is ticked.");
 	}
 	TextColored(theme::Warn(), msg);
 	if (scanning()) {
 		drawBackgroundProgress(0);
 	}
-	if (ImGui::Button("Review and remove their leftovers...")) {
+	if (ImGui::Button(tr("Review and remove their leftovers..."))) {
 		for (auto& m : _missing) {
 			m.planned = false;
 		}
 		_missingOpen = true;
 	}
-	tips::Tip("List the mods this save used that are no longer installed, with what each left behind, and remove their leftovers into a new save file. Nothing changes until you confirm.");
+	tips::Tip(tr("List the mods this save used that are no longer installed, with what each left behind, and remove their leftovers into a new save file. Nothing changes until you confirm."));
 	ImGui::SameLine();
-	if (ImGui::Button("Hide")) {
+	if (ImGui::Button(tr("Hide"))) {
 		_missingDismissed = true;
 	}
-	tips::Tip("Hides this until the next save is opened. Clean > Mods and scripts no longer installed... brings it back.");
+	tips::Tip(tr("Hides this until the next save is opened. Clean > Mods and scripts no longer installed... brings it back."));
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
 }
@@ -282,40 +282,40 @@ void App::drawMissingModal()
 		_missingOpen = true;  // (test hook)
 	}
 	if (_missingOpen) {
-		ImGui::OpenPopup("Mods no longer in your load order");
+		ImGui::OpenPopup(trId("Mods no longer in your load order"));
 		_missingOpen = false;
 	}
 	ImGui::SetNextWindowSize(ImVec2(980, 640), ImGuiCond_Appearing);
-	if (!ImGui::BeginPopupModal("Mods no longer in your load order")) {
+	if (!ImGui::BeginPopupModal(trId("Mods no longer in your load order"))) {
 		return;
 	}
-	ImGui::TextWrapped("These plugins are listed in the save but are not enabled in %s. The game does not load them, so their scripts "
+	ImGui::TextWrapped(tr("These plugins are listed in the save but are not enabled in %s. The game does not load them, so their scripts "
 					   "and saved data are leftovers. Removing them cleans the save the way \"Remove mod from save\" does, with the "
-					   "same safety checks, and writes a NEW save file: the original is not changed.",
+					   "same safety checks, and writes a NEW save file: the original is not changed."),
 		_missingSource.c_str());
-	TextColored(theme::Dim(), "A mod that is only disabled for a test, or enabled in another profile, will need its data again: leave it unticked.");
+	TextColored(theme::Dim(), tr("A mod that is only disabled for a test, or enabled in another profile, will need its data again: leave it unticked."));
 	if (!_installKnown && scanning()) {
-		TextColored(theme::Warn(), "Still scanning your mods: until it is done ReSaver++ cannot tell uninstalled mods from disabled ones, so nothing "
-								   "is ticked. The list updates by itself when the scan is done.");
+		TextColored(theme::Warn(), tr("Still scanning your mods: until it is done ReSaver++ cannot tell uninstalled mods from disabled ones, so nothing "
+								   "is ticked. The list updates by itself when the scan is done."));
 	} else if (!_installKnown) {
-		TextColored(theme::Warn(), "Your mods folder is not set (Options > Settings), so ReSaver++ cannot tell uninstalled mods from disabled ones: "
-						   "nothing is ticked.");
+		TextColored(theme::Warn(), tr("Your mods folder is not set (Options > Settings), so ReSaver++ cannot tell uninstalled mods from disabled ones: "
+						   "nothing is ticked."));
 	}
-	TextColored(theme::Dim(), "Load order read from: " + platform::ToUtf8(_missingFile) +
-								  (_installKnown ? "    Mods folder: " + _sourcesPath : std::string()));
+	TextColored(theme::Dim(), tr("Load order read from: ") + platform::ToUtf8(_missingFile) +
+								  (_installKnown ? tr("    Mods folder: ") + _sourcesPath : std::string()));
 	if (_orderSuspect) {
 		const auto inSave = _save ? _save->plugins.full.size() + _save->plugins.lite.size() : 0;
 		if (_mo2) {
-			TextColored(theme::Bad(), Fmt("This load order does not match the save: only %zu of the save's %zu plugins are in it. It is probably "
+			TextColored(theme::Bad(), Fmt(tr("This load order does not match the save: only %zu of the save's %zu plugins are in it. It is probably "
 										  "the wrong profile. Nothing is ticked. Pick the profile you play with in Options > Settings (MO2 "
-										  "profile, under the mods folder) or in the Mods view.",
+										  "profile, under the mods folder) or in the Mods view."),
 										  _activeInSave, inSave));
 		} else {
-			TextColored(theme::Bad(), Fmt("This load order does not match the save: only %zu of the save's %zu plugins are in it. Nothing is "
+			TextColored(theme::Bad(), Fmt(tr("This load order does not match the save: only %zu of the save's %zu plugins are in it. Nothing is "
 										  "ticked. No Mod Organizer was found for your mods folder, so the game's own plugins.txt was read, "
 										  "which Mod Organizer does not use. In Options > Settings press \"Use a ModOrganizer.ini...\" and "
 										  "pick the ModOrganizer.ini of the Mod Organizer you play with (for a portable one such as Nolvus, "
-										  "the one next to its ModOrganizer.exe), then pick your profile in the MO2 profile list there.",
+										  "the one next to its ModOrganizer.exe), then pick your profile in the MO2 profile list there."),
 										  _activeInSave, inSave));
 		}
 	}
@@ -325,26 +325,26 @@ void App::drawMissingModal()
 			list += "\n    " + _sources.errors[i];
 		}
 		if (_sources.errors.size() > 6) {
-			list += Fmt("\n    ... and %zu more", _sources.errors.size() - 6);
+			list += Fmt(tr("\n    ... and %zu more"), _sources.errors.size() - 6);
 		}
-		TextColored(theme::Warn(), Fmt("%zu archive(s) or folder(s) could not be read, so a script \"not found\" may just be in one of them. "
-									   "Missing scripts are not ticked:",
+		TextColored(theme::Warn(), Fmt(tr("%zu archive(s) or folder(s) could not be read, so a script \"not found\" may just be in one of them. "
+									   "Missing scripts are not ticked:"),
 									   _sources.errors.size()) +
 									   list);
 	}
 	if (_scanSuspect) {
-		TextColored(theme::Bad(), Fmt("The mods scan found only %zu of the %zu plugins your load order enables, so it probably looked in the wrong "
-									  "folder. Nothing is ticked: check the mods folder in Options > Settings.",
+		TextColored(theme::Bad(), Fmt(tr("The mods scan found only %zu of the %zu plugins your load order enables, so it probably looked in the wrong "
+									  "folder. Nothing is ticked: check the mods folder in Options > Settings."),
 									  _activeFound, _activeChecked));
 	}
 	ImGui::Separator();
 
 	ImGui::BeginChild("rows", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 2.6f));
 	if (ImGui::BeginTable("missing", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp)) {
-		ImGui::TableSetupColumn("Plugin", 0, 3);
-		ImGui::TableSetupColumn("Status", 0, 3);
-		ImGui::TableSetupColumn("Left in the save", 0, 3);
-		ImGui::TableSetupColumn("Safety check", 0, 4);
+		ImGui::TableSetupColumn(tr("Plugin"), 0, 3);
+		ImGui::TableSetupColumn(tr("Status"), 0, 3);
+		ImGui::TableSetupColumn(tr("Left in the save"), 0, 3);
+		ImGui::TableSetupColumn(tr("Safety check"), 0, 4);
 		ImGui::TableHeadersRow();
 		for (std::size_t i = 0; i < _missing.size(); ++i) {
 			auto& m = _missing[i];
@@ -362,63 +362,63 @@ void App::drawMissingModal()
 			ImGui::BeginDisabled(nothing);
 			ImGui::Checkbox(m.plugin.c_str(), &m.selected);
 			ImGui::EndDisabled();
-			tips::Tip(nothing ? "This mod left nothing in the save: there is nothing to remove." : "Ticked: remove this mod's leftovers (its changed forms, scripts, instances and threads). A safety check runs first and refuses removals that would break the save.");
+			tips::Tip(nothing ? tr("This mod left nothing in the save: there is nothing to remove.") : tr("Ticked: remove this mod's leftovers (its changed forms, scripts, instances and threads). A safety check runs first and refuses removals that would break the save."));
 			ImGui::TableSetColumnIndex(1);
 			if (!m.renamedTo.empty()) {
-				TextColored(theme::Warn(), "renamed? Now enabled as:");
+				TextColored(theme::Warn(), tr("renamed? Now enabled as:"));
 				for (const auto& to : m.renamedTo) {
 					ImGui::PushID(to.c_str());
 					ImGui::BulletText("%s", to.c_str());
 					ImGui::SameLine();
-					if (ImGui::SmallButton("Point the save at it")) {
+					if (ImGui::SmallButton(tr("Point the save at it"))) {
 						const auto from = m.plugin;
-						confirm("Point the save at a renamed plugin",
-							"Change the save's entry " + from + " to " + to + "?\n\nUse this when you renamed the plugin (for example .esp to .esl). "
+						confirm(tr("Point the save at a renamed plugin"),
+							tr("Change the save's entry ") + from + tr(" to ") + to + tr("?\n\nUse this when you renamed the plugin (for example .esp to .esl). "
 							"The game then finds it under its new name and keeps everything the save holds from it: placed objects, NPC "
 							"changes, quest progress and its scripts.\n\nDo NOT use it if the plugin's records were renumbered (\"compacted\", "
 							"e.g. by ESLifier or xEdit's Compact FormIDs): then the save's ids no longer match, and only a new game or "
-							"undoing the conversion helps.\n\nKeep a copy of the original save.",
+							"undoing the conversion helps.\n\nKeep a copy of the original save."),
 							[this, from, to] {
 								if (auto why = ops::RenamePlugin(*_save, from, to); !why.empty()) {
-									_error = "Could not point the save at " + to + ": " + why;
+									_error = tr("Could not point the save at ") + to + ": " + why;
 									return;
 								}
-								markChanged("The save now loads " + to + " where it had " + from);
+								markChanged(tr("The save now loads ") + to + tr(" where it had ") + from);
 								checkMissingPlugins();
 							});
 					}
-					tips::Tip("Rename this plugin's entry in the save to the enabled plugin, so the game keeps the mod's data in this save. Only "
-							  "for a renamed plugin, not a compacted one.");
+					tips::Tip(tr("Rename this plugin's entry in the save to the enabled plugin, so the game keeps the mod's data in this save. Only "
+							  "for a renamed plugin, not a compacted one."));
 					ImGui::PopID();
 				}
 			} else if (m.installed) {
-				TextColored(theme::Warn(), "installed but not enabled" + (m.folder.empty() ? std::string() : " (" + m.folder + ")"));
+				TextColored(theme::Warn(), tr("installed but not enabled") + (m.folder.empty() ? std::string() : " (" + m.folder + ")"));
 			} else {
-				ImGui::TextUnformatted("not installed");
+				ImGui::TextUnformatted(tr("not installed"));
 			}
 			ImGui::TableSetColumnIndex(2);
 			if (nothing) {
-				ImGui::TextDisabled("nothing (already clean)");
+				ImGui::TextDisabled("%s", tr("nothing (already clean)"));
 			} else {
-				ImGui::Text("%zu forms, %zu scripts, %zu instances, %zu threads", m.changeForms, m.scripts, m.instances, m.threads);
+				ImGui::Text(tr("%zu forms, %zu scripts, %zu instances, %zu threads"), m.changeForms, m.scripts, m.instances, m.threads);
 			}
 			ImGui::TableSetColumnIndex(3);
 			if (!m.selected) {
 				ImGui::TextDisabled("-");
 			} else if (m.blocked) {
-				TextColored(theme::Bad(), "refused (see details)");
+				TextColored(theme::Bad(), tr("refused (see details)"));
 			} else {
-				ImGui::TextUnformatted("OK");
+				ImGui::TextUnformatted(tr("OK"));
 			}
 			if (m.planned && m.selected && ImGui::IsItemHovered()) {
 				ImGui::SetTooltip("%s", m.planText.c_str());
 			}
 			if (m.selected && m.planned) {
 				ImGui::SameLine();
-				if (ImGui::SmallButton("details")) {
+				if (ImGui::SmallButton(tr("details"))) {
 					ImGui::OpenPopup("plan");
 				}
-				tips::Tip("Show exactly what would be removed for this mod, or why the safety check refused it.");
+				tips::Tip(tr("Show exactly what would be removed for this mod, or why the safety check refused it."));
 				if (ImGui::BeginPopup("plan")) {
 					ImGui::PushTextWrapPos(ImGui::GetFontSize() * 45);
 					ImGui::TextUnformatted(m.planText.c_str());
@@ -432,34 +432,34 @@ void App::drawMissingModal()
 	}
 	// scripts whose files are gone (a script-only mod, or a mod's scripts on other mods' objects)
 	if (!_missingScripts.empty()) {
-		ImGui::Checkbox(Fmt("Also remove %zu script(s) that are no longer installed anywhere (their threads, queued calls and instances)",
+		ImGui::Checkbox(Fmt(tr("Also remove %zu script(s) that are no longer installed anywhere (their threads, queued calls and instances)"),
 							_missingScripts.size())
 							.c_str(),
 			&_removeMissingScripts);
-		tips::Tip("Also delete the threads, queued calls and instances of scripts whose files exist nowhere any more. The game cannot run them, so they only cost load time and log errors.");
-		if (ImGui::TreeNode("missing scripts", "Show them")) {
+		tips::Tip(tr("Also delete the threads, queued calls and instances of scripts whose files exist nowhere any more. The game cannot run them, so they only cost load time and log errors."));
+		if (ImGui::TreeNode("missing scripts", "%s", tr("Show them"))) {
 			for (const auto& [name, n] : _missingScripts) {
-				ImGui::BulletText("%s  (%zu in use)", name.c_str(), n);
+				ImGui::BulletText(tr("%s  (%zu in use)"), name.c_str(), n);
 			}
 			ImGui::TreePop();
 		}
-		TextColored(theme::Dim(), "Not found in any mod folder (enabled or not) nor in the game's own archives, and the save itself shows the game "
-								  "could not load them either. The game cannot run them any more.");
+		TextColored(theme::Dim(), tr("Not found in any mod folder (enabled or not) nor in the game's own archives, and the save itself shows the game "
+								  "could not load them either. The game cannot run them any more."));
 	}
 	// the game had these when it saved: only the scan says they are gone, so they are not ticked
 	if (!_unfoundScripts.empty()) {
 		ImGui::Spacing();
-		TextColored(theme::Warn(), Fmt("%zu script(s) were not found in your mods, but the game still loaded them when it made this save.",
+		TextColored(theme::Warn(), Fmt(tr("%zu script(s) were not found in your mods, but the game still loaded them when it made this save."),
 									   _unfoundScripts.size()));
-		TextColored(theme::Dim(), Fmt("Either their mod was uninstalled after this save, or ReSaver++ looked in the wrong place. Mods folder scanned: "
+		TextColored(theme::Dim(), Fmt(tr("Either their mod was uninstalled after this save, or ReSaver++ looked in the wrong place. Mods folder scanned: "
 									  "%s (%zu mod folders, %zu scripts). If these mods are still installed, do NOT remove them: check the "
-									  "mods folder in Options > Settings first. Removing a script a mod still uses restarts its quests and its MCM.",
+									  "mods folder in Options > Settings first. Removing a script a mod still uses restarts its quests and its MCM."),
 							  _sourcesPath.c_str(), _sources.modsScanned, _sources.pexFound));
-		ImGui::Checkbox(Fmt("Also remove these %zu script(s) (only if you uninstalled their mods)", _unfoundScripts.size()).c_str(), &_removeUnfoundScripts);
-		tips::Tip("Only tick this if you really uninstalled these mods. If they are still installed and ReSaver++ just looked in the wrong folder, removing them restarts their quests and MCM.");
-		if (ImGui::TreeNode("unfound scripts", "Show them")) {
+		ImGui::Checkbox(Fmt(tr("Also remove these %zu script(s) (only if you uninstalled their mods)"), _unfoundScripts.size()).c_str(), &_removeUnfoundScripts);
+		tips::Tip(tr("Only tick this if you really uninstalled these mods. If they are still installed and ReSaver++ just looked in the wrong folder, removing them restarts their quests and MCM."));
+		if (ImGui::TreeNode("unfound scripts", "%s", tr("Show them"))) {
 			for (const auto& [name, n] : _unfoundScripts) {
-				ImGui::BulletText("%s  (%zu in use)", name.c_str(), n);
+				ImGui::BulletText(tr("%s  (%zu in use)"), name.c_str(), n);
 			}
 			ImGui::TreePop();
 		}
@@ -475,8 +475,8 @@ void App::drawMissingModal()
 	{
 		target = EditedSaveName(_path, "cleaned");
 	}
-	ImGui::TextDisabled("New file: %s%s", platform::ToUtf8(target.filename()).c_str(),
-		refused ? Fmt("   (%zu refused by the safety check will be skipped)", refused).c_str() : "");
+	ImGui::TextDisabled(tr("New file: %s%s"), platform::ToUtf8(target.filename()).c_str(),
+		refused ? Fmt(tr("   (%zu refused by the safety check will be skipped)"), refused).c_str() : "");
 	std::vector<std::pair<std::string, std::size_t>> scriptList;
 	if (_removeMissingScripts) {
 		scriptList = _missingScripts;
@@ -486,7 +486,7 @@ void App::drawMissingModal()
 	}
 	const bool scriptsToo = !scriptList.empty();
 	ImGui::BeginDisabled(ticked == refused && !scriptsToo);
-	if (ImGui::Button("Remove and write new save", ImVec2(280, 0))) {
+	if (ImGui::Button(tr("Remove and write new save"), ImVec2(280, 0))) {
 		// one after the other: each plan is made on the save as the previous removal left it
 		std::size_t done = 0;
 		std::string skipped;
@@ -525,23 +525,23 @@ void App::drawMissingModal()
 		}
 		ImGui::CloseCurrentPopup();
 		if (done || scriptsDone) {
-			markEdited(Fmt("Removed the leftovers of %zu mod(s) and %zu missing script(s)", done, scriptsDone));
+			markEdited(Fmt(tr("Removed the leftovers of %zu mod(s) and %zu missing script(s)"), done, scriptsDone));
 			_modsDirty = true;
 			doSave(target);
 			_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
 			if (_error.empty()) {
-				_status = Fmt("Removed the leftovers of %zu mod(s) and %zu missing script(s), and wrote ", done, scriptsDone) + platform::ToUtf8(target.filename()) +
-						  (skipped.empty() ? "" : "  (skipped: " + skipped + ")");
+				_status = Fmt(tr("Removed the leftovers of %zu mod(s) and %zu missing script(s), and wrote "), done, scriptsDone) + platform::ToUtf8(target.filename()) +
+						  (skipped.empty() ? "" : tr("  (skipped: ") + skipped + ")");
 			}
 			checkMissingPlugins();
 		}
 	}
 	ImGui::EndDisabled();
-	tips::Tip("Remove the ticked leftovers and write the result as a NEW save file next to the original (the original is kept). Load the new save in the game and check it before playing on.");
+	tips::Tip(tr("Remove the ticked leftovers and write the result as a NEW save file next to the original (the original is kept). Load the new save in the game and check it before playing on."));
 	ImGui::SameLine();
-	if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+	if (ImGui::Button(tr("Cancel"), ImVec2(120, 0))) {
 		ImGui::CloseCurrentPopup();
 	}
-	tips::Tip("Close without changing anything.");
+	tips::Tip(tr("Close without changing anything."));
 	ImGui::EndPopup();
 }
