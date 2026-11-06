@@ -347,13 +347,19 @@ namespace ess
 					std::string   edid, full;
 					std::uint32_t base = 0;
 					std::uint32_t big = 0;
-					const bool     sk = !a_in.fo4;  // (Skyrim's layouts)
 					const bool     isQuest = Is(h, "QUST");  // (Fallout 4's layout too: xEdit wbDefinitionsFO4, checked on Fallout4.esm)
 					bool           pastObjectives = false;  // Fallout 4: after ANAM (the aliases, then NNAM is the description)
-					const bool     isSpell = sk && Is(h, "SPEL");
-					const bool     isMgef = sk && Is(h, "MGEF");
-					const bool     hasEffects = sk && (isSpell || Is(h, "ENCH") || Is(h, "ALCH") || Is(h, "INGR") || Is(h, "SCRL"));
-					std::uint8_t   spellType = 0xFF;
+					// MGEF DATA, EFID/EFIT and SPIT have the same places in Fallout 4 (checked on Fallout4.esm: FortifyStrength
+					// archetype 34 / AVIF 0x2C2, AbFortify* spells type 4 constant effect); its ENCH and ALCH keep their
+					// enchant / cast type and flags in ENIT (Fallout4.exe 1.11.240: EnchantmentItem +0xd0, AlchemyItem +0x1a8)
+					const bool     isSpell = Is(h, "SPEL");
+					const bool     isMgef = Is(h, "MGEF");
+					const bool     isEnch = a_in.fo4 && Is(h, "ENCH");
+					const bool     isAlch = a_in.fo4 && Is(h, "ALCH");
+					const bool     hasEffects = isSpell || Is(h, "ENCH") || Is(h, "ALCH") || Is(h, "INGR") || Is(h, "SCRL");
+					std::uint8_t   spellType = isAlch ? 7 : 0xFF;
+					std::uint8_t   castType = isAlch ? 1 : 0xFF;
+					bool           poison = false;
 					MagicEffectDef mg;
 					bool           gotMgef = false;
 					std::vector<EffectItem> effs;
@@ -383,6 +389,14 @@ namespace ess
 							}
 						} else if (isSpell && Is(st, "SPIT") && len >= 12) {
 							spellType = static_cast<std::uint8_t>(U32(d + p + 8));
+							if (a_in.fo4 && len >= 0x14) {
+								castType = static_cast<std::uint8_t>(U32(d + p + 0x10));
+							}
+						} else if (isEnch && Is(st, "ENIT") && len >= 0x18) {
+							castType = static_cast<std::uint8_t>(U32(d + p + 8));
+							spellType = static_cast<std::uint8_t>(U32(d + p + 0x14));
+						} else if (isAlch && Is(st, "ENIT") && len >= 8) {
+							poison = (U32(d + p + 4) & 0x20000u) != 0;
 						} else if (isMgef && Is(st, "DATA") && len >= 0x48) {
 							// MGEF DATA: flags at 0, archetype at 0x40, primary actor value at 0x44 (checked against
 							// Skyrim.esm: EnchFortifyCarryConstantSelf 34 / CarryWeight, AlchRestoreHealth 0 / Health)
@@ -481,8 +495,10 @@ namespace ess
 					if (base) {
 						f.base = base;
 					}
-					if (isSpell) {
+					if (isSpell || isEnch || isAlch) {
 						f.spellType = spellType;
+						f.castType = castType;
+						f.poison = poison;
 					}
 					if (gotMgef) {
 						_mgef[id] = mg;

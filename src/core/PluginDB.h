@@ -49,7 +49,11 @@ namespace ess
 			std::uint16_t plugin = 0;         // index into plugins(): last plugin that defines it
 			char          type[4]{};
 			std::uint8_t  spellType = 0xFF;   // SPEL: 0 spell, 1 disease, 2 power, 3 lesser power, 4 ability, 5 poison,
-			                                  // 10 addiction, 11 voice... (0xFF: not read)
+			                                  // 10 addiction, 11 voice... (0xFF: not read). Fallout 4 also: ENCH its
+			                                  // enchant type (ENIT +0x14: 6 enchantment), ALCH 7
+			std::uint8_t  castType = 0xFF;    // Fallout 4 SPEL (SPIT +0x10) / ENCH (ENIT +8): 0 constant effect, 1 fire
+			                                  // and forget, ...; ALCH 1
+			bool          poison = false;     // Fallout 4 ALCH: ENIT flags (+4) bit 0x20000
 		};
 
 		// Reads every plugin of the save that can be found. Safe to call on a worker thread.
