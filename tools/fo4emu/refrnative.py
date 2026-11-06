@@ -1,10 +1,12 @@
 # the game's own TESObjectREFR::LoadGame (0x4f5c50) on ACHR bodies (as Actor::LoadGame calls it): the positions of the
-# extra data type bytes it reads (0x2948dc) and where it ends; compare with refrpos.cpp. usage: refrnative.py <dump> <refid hex>...
+# extra data type bytes it reads (0x2948dc) and where it ends; compare with refrpos.cpp. usage: refrnative.py <dump> [refid hex...]
 import sys,os;sys.path.insert(0,'.')
 from achr import *
 import achr
 dump=sys.argv[1]; refs={int(x,16) for x in sys.argv[2:]}
-fv,cfs=load(f'dump/{dump}.bin'); a=A(fv); e=a.c.e
+# a dump name (dump/<name>.bin) or a dumpcf-format file; no refids: every ACHR in it
+fv,cfs=load(dump if dump.endswith('.bin') else f'dump/{dump}.bin')
+if not refs: refs={x[0] for x in cfs if x[1]==1}; a=A(fv); e=a.c.e
 del e.stubs[BASE+0x4f5c50]; achr.pyrefr=lambda *x,**k: 0
 types=[]; end=[None]
 def tb(u,addr,size,ud): types.append(pos(a.c.e, a.c.e.r(UC_X86_REG_RCX)))

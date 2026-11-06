@@ -1,5 +1,5 @@
 // fo4cf::DecodeActor's reads for the emulator comparison (trcmp.py): cpptrace <save> <out> [all|combat]
-// out: per complete non-player ACHR: u32 refid, u32 n, n x (u32 pos, u8 kind), u32 m, m x (u32 begin, u32 end) ranges
+// out: per complete non-player ACHR: u32 refid, u32 end of the reference part, u32 n, n x (u32 pos, u8 kind), u32 m, m x (u32 begin, u32 end) ranges
 // the decoder skips without reading (active effect data). 'combat' keeps only actors with a combat controller or a
 // combat object (an odd object id).
 #include "core/ChangeFormFO4.h"
@@ -33,7 +33,8 @@ int main(int argc, char** argv)
 			odd = a.hasController;  // checked by the comparison itself: all controller actors when asked
 		}
 		if (combatOnly && !a.hasCombat && !odd) continue;
-		w(c.refID.data); w(static_cast<std::uint32_t>(t.size()));
+		const auto refr = fo4cf::DecodeRefr(*save, c, body);
+		w(c.refID.data); w(static_cast<std::uint32_t>(refr.refrPart.end)); w(static_cast<std::uint32_t>(t.size()));
 		for (auto& [p, k] : t) { w(p); std::fputc(k, f); }
 		w(static_cast<std::uint32_t>(a.effects.size()));
 		for (auto& e : a.effects) { w(static_cast<std::uint32_t>(e.data.begin)); w(static_cast<std::uint32_t>(e.data.end)); }
