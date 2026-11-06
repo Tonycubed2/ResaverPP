@@ -299,6 +299,25 @@ namespace ess::skyf
 				st.questRunning = q.running();
 			}
 		}
+		for (const auto& c : a_save.changeForms) {
+			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::QUST || a_save.formIDOf(c.refID) != kDialogueFollower) {
+				continue;
+			}
+			const auto d = cf::Decode(a_save, c);
+			if (const auto* run = Kid(d.root, "QUEST_RUN_DATA")) {
+				st.hasRunData = true;
+				if (const auto* items = Kid(*run, "ITEMS1 (")) {
+					for (const auto& e : items->kids) {
+						const auto* al = Kid(e, "UNK");
+						const auto* fl = Kid(e, "FLAG");
+						const auto* ref = Kid(e, "REF0");
+						if (al && fl && ref && ToInt(fl->value) == 0) {
+							st.runAliases.push_back({ ToInt(al->value), ref->formID });
+						}
+					}
+				}
+			}
+		}
 		const auto* script = InstanceOn(a_save, kDialogueFollower, "DialogueFollowerScript");
 		st.scriptFound = script != nullptr;
 		if (script) {
@@ -393,6 +412,12 @@ namespace ess::skyf
 				fa.boolBitsAt = quick.levelAt + 4;
 			}
 			fa.disabled = quick.hasFormFlags && (quick.formFlags & 0x800);
+			for (const auto& [al, ref] : st.runAliases) {
+				if (ref == formID) {
+					fa.inFollowerAlias |= al == kFollowerAlias;
+					fa.inAnimalAlias |= al == kAnimalAlias;
+				}
+			}
 			const bool sign = fa.inFollowerAlias || fa.inAnimalAlias || fa.teammate || fa.inFaction(kCurrentFollowerFaction) ||
 			                  fa.inFaction(kPlayerFollowerFaction) || fa.inFaction(kDismissedFollowerFaction) || fa.inFaction(kCurrentHireling);
 			if (!sign) {
@@ -442,7 +467,26 @@ namespace ess::skyf
 					"DismissAnimal sets it to 0 when it clears the alias.",
 					st.animalCount));
 		}
+		for (const auto& [al, ref] : st.runAliases) {
+			const bool listed = std::any_of(st.actors.begin(), st.actors.end(), [&](const FollowerActor& a) {
+				return a.formID == ref && std::find(a.aliases.begin(), a.aliases.end(), std::pair<std::uint32_t, std::int32_t>{ kDialogueFollower, al }) != a.aliases.end();
+			});
+			if ((al == kFollowerAlias || al == kAnimalAlias) && !listed) {
+				add(Issue::kAliasMismatch, ref,
+					Fmt("The vanilla follower quest lists this reference in its %s alias, but the reference's own data does not say it is "
+						"in it. The game rebuilds an alias from both; they should agree.",
+						al == kFollowerAlias ? "Follower" : "Animal"));
+			}
+		}
 		for (const auto& a : st.actors) {
+			for (const auto& [q, al] : a.aliases) {
+				if (q == kDialogueFollower && (al == kFollowerAlias || al == kAnimalAlias) && st.hasRunData &&
+					std::find(st.runAliases.begin(), st.runAliases.end(), std::pair<std::int32_t, std::uint32_t>{ al, a.formID }) == st.runAliases.end()) {
+					add(Issue::kAliasMismatch, a.formID,
+						Fmt("This actor's own data says it is in the vanilla follower quest's %s alias, but the quest does not list it there.",
+							al == kFollowerAlias ? "Follower" : "Animal"));
+				}
+			}
 			if ((a.inFollowerAlias || a.inAnimalAlias) && a.dead()) {
 				add(Issue::kDeadInAlias, a.formID,
 					"This follower is dead but still in the vanilla follower quest's alias. FollowerAliasScript.OnDeath clears the alias "
@@ -464,11 +508,16 @@ namespace ess::skyf
 			if (a.inFollowerAlias && a.decoded && !a.teammate && !a.dead()) {
 				add(Issue::kAliasNotTeammate, a.formID, "This follower is in the Follower alias but is not your teammate: SetFollower makes it one.");
 			}
-			if (a.teammate && a.aliases.empty() && !a.inFaction(kCurrentFollowerFaction) && !a.dead()) {
+			if (a.teammate && !a.inFollowerAlias && !a.inAnimalAlias && a.inFaction(kDismissedFollowerFaction) && !a.dead()) {
+				add(Issue::kDismissedTeammate, a.formID,
+					"This follower was dismissed (it is in DismissedFollowerFaction) but is still flagged as your teammate. "
+					"DismissFollower puts it in that faction and switches the teammate flag off in the same go; here the flag "
+					"stayed on, so it still follows your sneaking, crimes and fights.");
+			} else if (a.teammate && a.aliases.empty() && !a.inFaction(kCurrentFollowerFaction) && !a.dead()) {
 				add(Issue::kStrayTeammate, a.formID,
-					"This actor is still flagged as your teammate, but no quest holds it as a follower and it is not in "
-					"CurrentFollowerFaction: it was left half dismissed. Teammates get your sneaking and crime rules and follow "
-					"your combat; DismissFollower switches the flag off.");
+					"This actor is flagged as your teammate but no quest holds it as a follower and it is not in "
+					"CurrentFollowerFaction. A mod may keep it as a teammate on purpose; if it is a follower you dismissed, "
+					"the flag was left on (DismissFollower switches it off).");
 			}
 			if (a.inFaction(kCurrentFollowerFaction) && a.aliases.empty() && !a.dead()) {
 				add(Issue::kFactionWithoutAlias, a.formID,
@@ -546,22 +595,6 @@ namespace ess::skyf
 	}
 
 	// ---------------------------------------------------------------------------------------------
-	bool BeastState::stuck() const
-	{
-		return raceIsBeast || (questRunning && shuttingDown != 1 && std::find(stagesDone.begin(), stagesDone.end(), kShiftBackStage) != stagesDone.end());
-	}
-
-	std::string BeastState::fix() const
-	{
-		if (questRunning) {
-			return "setstage";
-		}
-		if (raceIsBeast || leftovers()) {
-			return "game";
-		}
-		return {};
-	}
-
 	std::vector<BeastState> ReadBeastForms(const SaveFile& a_save)
 	{
 		std::vector<BeastState> out;
@@ -713,8 +746,59 @@ namespace ess::skyf
 				}
 			}
 			b.raceIsBeast = race && b.beastRace && race == b.beastRace;
-			if (!b.questInSave && !b.raceIsBeast && !b.leftovers()) {
-				continue;  // never transformed: nothing to show
+			if (inst) {
+				b.untimed = BoolVar(a_save, inst, "Untimed") == 1;
+				if (k == 1) {
+					const auto revert = FormVar(a_save, inst, "DLC1Revert");
+					b.hasRevertPower = revert && Has(spells, revert);
+				}
+			}
+			const bool ran = !b.stagesDone.empty();
+			if (!b.questInSave && !b.raceIsBeast) {
+				continue;  // never transformed: nothing to show (a lone spell may come from another mod)
+			}
+			const bool shiftBackDone = std::find(b.stagesDone.begin(), b.stagesDone.end(), kShiftBackStage) != b.stagesDone.end();
+			const char* form = k == 0 ? "werewolf" : "Vampire Lord";
+			using F = BeastState::Fix;
+			if (b.raceIsBeast && !b.questRunning) {
+				b.fix = F::kGameRevert;
+				b.problem = Fmt("You are still a %s (the player's race is the beast race), but the quest that turns you back (%s) is not "
+								"running, so nothing will ever change you back.",
+					form, b.questEdid.c_str());
+			} else if (b.raceIsBeast && shiftBackDone) {
+				b.fix = F::kGameRevert;
+				b.problem = Fmt("You are still a %s although the turn-back stage (%d) has already been set: the script's ShiftBack stopped "
+								"half way (it waits for a synced animation to end and for the race change) and will not run again by "
+								"itself, because its \"already doing it\" guards are set.",
+					form, kShiftBackStage);
+			} else if (b.raceIsBeast && k == 0 && !b.untimed && b.hasShiftBackTime && b.gameDaysPassed > b.shiftBackTime + 0.05f) {
+				b.fix = F::kSetStage;
+				b.problem = Fmt("Your werewolf time ran out %.1f game hours ago (PlayerWerewolfShiftBackTime %.3f, GameDaysPassed %.3f), but "
+								"you were not turned back. The script's update (every 5 seconds) sets stage %d when the time is up; it "
+								"stopped coming.",
+					(b.gameDaysPassed - b.shiftBackTime) * 24.0f, b.shiftBackTime, b.gameDaysPassed, kShiftBackStage);
+			} else if (b.raceIsBeast && k == 1 && !b.hasRevertPower) {
+				b.fix = F::kSetStage;
+				b.problem = Fmt("You are a Vampire Lord without the Revert Form power, so you cannot turn back yourself. Revert Form sets "
+								"stage %d of %s; that can be done for you.",
+					kShiftBackStage, b.questEdid.c_str());
+			} else if (!b.raceIsBeast && b.questRunning && shiftBackDone) {
+				b.fix = F::kGameRevert;
+				b.problem = Fmt("You are back to your own race, but %s is still running after its turn-back stage: its Shutdown never "
+								"finished. While it runs, the next transformation cannot start it again, and what Shutdown resets "
+								"(beast form menus, fast travel, being a ghost) may still be on.",
+					b.questEdid.c_str());
+			} else if (!b.raceIsBeast && !b.questRunning && ran && b.leftovers()) {
+				b.fix = F::kGameRevert;
+				b.problem = Fmt("You are back to your own race, but things the transformation gives and its turn-back takes away are still "
+								"on you: %zu spell(s), %zu faction(s), %zu item(s).",
+					b.spells.size(), b.factions.size(), b.items.size());
+			}
+			if (b.fix == F::kGameRevert && b.raceIsBeast && !b.originalRace) {
+				b.fix = F::kCannot;
+				b.problem += Fmt(" The script has no race to turn you back into (%s is None in the save), so its own turn-back would leave "
+								 "you as you are; set your race in the game's console (player.setrace <your race>), then use this again.",
+					k == 0 ? "CompanionsHousekeepingScript.PlayerOriginalRace" : "DLC1VampireTrackingQuest.PlayerRace");
 			}
 			out.push_back(std::move(b));
 		}

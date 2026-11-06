@@ -99,9 +99,11 @@ namespace ess::skyf
 		kDisabledInAlias,         // the follower in the alias is disabled
 		kFollowerAway,            // the follower in the alias is not where the player is
 		kDismissedInAlias,        // in the Follower alias and in DismissedFollowerFaction
-		kStrayTeammate,           // a teammate no quest alias holds and not in CurrentFollowerFaction (half dismissed)
+		kDismissedTeammate,       // dismissed (DismissedFollowerFaction) but still a teammate, in no follower alias: half dismissed
+		kStrayTeammate,           // a teammate no quest alias holds, not in CurrentFollowerFaction: maybe a mod's, maybe left over
 		kFactionWithoutAlias,     // CurrentFollowerFaction rank >= 0 but in no quest alias (a lost follower)
 		kAliasNotTeammate,        // in the Follower alias but not a teammate
+		kAliasMismatch,           // the quest's alias list and the actor's own alias list disagree
 	};
 	struct Finding
 	{
@@ -119,6 +121,10 @@ namespace ess::skyf
 		bool                       scriptFound = false;  // DialogueFollowerScript's instance
 		int                        iFollowerDismiss = -1;
 		std::uint32_t              playerCell = 0;
+		// the quest's own record of its filled aliases (QUST change form, QUEST_RUN_DATA: { alias id, flag 0, reference }), which
+		// the save keeps next to each reference's ExtraAliasInstanceArray (both agree in every save checked)
+		bool                       hasRunData = false;
+		std::vector<std::pair<std::int32_t, std::uint32_t>> runAliases;
 		std::vector<FollowerActor> actors;  // every actor with a follower sign (alias, follower factions, teammate)
 		std::vector<Finding>       findings;
 		const FollowerActor*       inAlias(std::int32_t a_alias) const;  // the living one, else any
@@ -162,12 +168,20 @@ namespace ess::skyf
 		bool          hasShiftBackTime = false;
 		float         shiftBackTime = 0, gameDaysPassed = 0;
 		int           levitateState = -1;  // DLC1: DCL1VampireLevitateStateGlobal (0 not a Vampire Lord, 1 walking, 2 flying)
-		std::vector<std::string> notes;   // what was seen, one line each
-		bool          stuck() const;      // the race is the beast race, or the quest runs past its shift back
+		bool          hasRevertPower = false;  // DLC1: DLC1Revert ("Revert Form") among the player's added spells
+		bool          untimed = false;         // the script's Untimed property
+		// what is wrong (empty: nothing) and what fixes it
+		enum class Fix
+		{
+			kNone,
+			kSetStage,     // the quest runs and only needs stage 100 (what the script's own OnUpdate / Revert() does)
+			kGameRevert,   // ReSaverHelper 13 BEASTREVERT: the script's ShiftBack() after its guards are reset
+			kCannot        // the script has no race to go back to (PlayerOriginalRace / PlayerRace is None)
+		};
+		Fix           fix = Fix::kNone;
+		std::string   problem;  // plain explanation
+		bool          stuck() const { return fix != Fix::kNone; }
 		bool          leftovers() const { return !spells.empty() || !factions.empty() || !items.empty(); }
-		// what to do: "setstage" (the quest runs: stage 100 is the script's own way back), "game" (needs the
-		// helper's BEASTREVERT: the quest is not running), "" (nothing to do)
-		std::string   fix() const;
 	};
 	std::vector<BeastState> ReadBeastForms(const SaveFile& a_save);
 
