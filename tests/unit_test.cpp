@@ -2180,6 +2180,45 @@ void TestTransplantFO4()
 		Check(tf4::GameRecords(c, 0xFE001801, false).empty(), "fo4 transplant: no setstage for a stage done already, no completequest when not asked");
 		c.via = tf4::Via::kFile;
 		Check(tf4::GameRecords(c, 0x14, true).empty(), "fo4 transplant: a file change has no helper record");
+		tf4::Change o;
+		o.kind = tf4::Kind::kObjective;
+		o.via = tf4::Via::kGame;
+		o.objective = 40;
+		o.state = 3;
+		const auto orec = tf4::GameRecords(o, 0x0001CB51, true);
+		Check(orec.size() == 1 && orec[0] == ess::transplant::Record{ "objective", "0001CB51", "40", "3" }, "fo4 transplant: objective record");
+		o.state = 0;
+		Check(tf4::GameRecords(o, 0x0001CB51, true).empty(), "fo4 transplant: no objective record for a dormant state");
+		o.state = 6;
+		Check(tf4::GameRecords(o, 0x0001CB51, true).empty(), "fo4 transplant: no objective record for a state the game does not have");
+	}
+	{
+		// what makes two stacks the same thing: mods, name, condition; never the count
+		tf4::StackData a, b;
+		a.count = 1;
+		b.count = 5;
+		Check(a.key() == b.key() && a.plain(), "fo4 transplant: plain stacks are the same thing");
+		a.hasMods = b.hasMods = true;
+		a.modTemplate = b.modTemplate = 4;
+		tf4::ObjectMod m;
+		m.mod = { false, "Fallout4.esm", 0x1F2D44 };
+		m.rank = 1;
+		a.mods.push_back(m);
+		b.mods.push_back(m);
+		b.mods.back().mod.plugin = "FALLOUT4.ESM";
+		Check(a.key() == b.key() && !a.plain(), "fo4 transplant: the same mods (plugin case does not matter)");
+		b.mods.back().mod.local = 0x1F2D45;
+		Check(a.key() != b.key(), "fo4 transplant: another mod is another thing");
+		b.mods = a.mods;
+		a.hasText = b.hasText = a.hasName = b.hasName = true;
+		a.textValue = b.textValue = -2;
+		a.name = "Pipe Pistol";
+		b.name = "My Pistol";
+		Check(a.key() != b.key(), "fo4 transplant: another name is another thing");
+		b.name = a.name;
+		a.hasHealth = true;
+		a.health = 0.5f;
+		Check(a.key() != b.key(), "fo4 transplant: condition counts");
 	}
 
 	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
@@ -2241,12 +2280,52 @@ void TestTransplantFO4()
 		const auto a = tf4::FromSave(*s7, "Save7");
 		const auto b = tf4::FromSave(*s8, "Save8");
 		Check(a.perksKnown && a.itemsKnown && b.perksKnown && b.itemsKnown && a.xp >= 0 && a.special[0] > 0, "fo4 transplant: Save7 / Save8 read fully");
+		Check(a.inventoryWritable && b.inventoryWritable, "fo4 transplant: Save7 / Save8: the player reads completely (items go into the file)");
 		const auto d = tf4::Diff(b, a, *s8);  // good Save8, old Save7
-		Check(d.size() == 1 && d[0].kind == tf4::Kind::kItem && d[0].via == tf4::Via::kGame && d[0].goodFormID == 0x00024F55 && d[0].count == 9 &&
+		Check(d.size() == 1 && d[0].kind == tf4::Kind::kItem && d[0].via == tf4::Via::kFile && d[0].goodFormID == 0x00024F55 && d[0].count == 9 &&
 				  d[0].available && d[0].tick,
-			"fo4 transplant: Save7 -> Save8 lists the 9 Pipe Pistols (00024F55), to be added in the game");
-		const auto rec = d.empty() ? std::vector<ess::transplant::Record>{} : tf4::GameRecords(d[0], d[0].goodFormID, true);
-		Check(rec.size() == 1 && rec[0] == ess::transplant::Record{ "additem", "00024F55", "9" }, "fo4 transplant: Save7 -> Save8 helper record");
+			"fo4 transplant: Save7 -> Save8 lists the 9 Pipe Pistols (00024F55), to be written into the save");
+		// Save7's four stacks the Save8 player lacks: 1 + 3 + 4 named "Pipe Pistol" with the same 6 mods (one stack), 1 with 13 mods
+		bool stacksOk = d.size() == 1 && d[0].stacks.size() == 2;
+		if (stacksOk) {
+			const auto& x = d[0].stacks[0].count == 8 ? d[0].stacks[0] : d[0].stacks[1];
+			const auto& y = d[0].stacks[0].count == 8 ? d[0].stacks[1] : d[0].stacks[0];
+			stacksOk = x.count == 8 && x.mods.size() == 6 && x.hasName && x.name == "Pipe Pistol" && x.modTemplate == 4 && y.count == 1 &&
+			           y.mods.size() == 13 && y.hasName && y.name == "Pipe Pistol" && y.modTemplate == 0x0F && x.problem.empty() && y.problem.empty();
+			for (const auto& m : x.mods) {
+				stacksOk = stacksOk && m.mod.plugin == "Fallout4.esm" && m.rank == 1;
+			}
+		}
+		Check(stacksOk, "fo4 transplant: Save7 -> Save8: the pistols' stacks with their mods and names");
+		Check(d.empty() || tf4::GameRecords(d[0], d[0].goodFormID, true).empty(), "fo4 transplant: Save7 -> Save8: no helper record (written into the file)");
+		if (d.size() == 1) {
+			auto       s8w = SaveFile::load(save8);
+			const auto why = tf4::ApplyToFile(*s8w, d[0]);
+			if (!why.empty()) {
+				std::printf("  (%s)\n", why.c_str());
+			}
+			Check(why.empty(), "fo4 transplant: Save7 -> Save8: the pistols written into the save");
+			const auto bytes = s8w->serialize();
+			const auto tmp = fs::temp_directory_path() / "rs_unit_tf4_s8.fos";
+			{
+				std::ofstream out(tmp, std::ios::binary);
+				out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+			}
+			auto       back = SaveFile::load(tmp);
+			const auto c = tf4::FromSave(*back, "written");
+			Check(c.inventoryWritable && tf4::Diff(c, a, *back).empty(), "fo4 transplant: Save8 with the pistols read back: nothing left to bring over");
+			const auto it = c.items.find(ess::transplant::FormKey{ "fallout4.esm", 0x24F55 });
+			std::size_t named = 0;
+			if (it != c.items.end()) {
+				for (const auto& st : it->second.stacks) {
+					named += st.hasName && st.name == "Pipe Pistol" && st.mods.size() >= 6 ? static_cast<std::size_t>(st.count) : 0;
+				}
+			}
+			Check(it != c.items.end() && it->second.count == 16 && named == 9, "fo4 transplant: Save8 now has 16 Pipe Pistols, 9 of them modded and named as in Save7");
+			const auto* p = ess::fo4cf::FindPlayer(*back);
+			Check(p && ess::fo4cf::DecodeActor(*back, *p).complete, "fo4 transplant: the written player reads to the end of its body");
+			fs::remove(tmp);
+		}
 		Check(tf4::Diff(a, b, *s7).empty(), "fo4 transplant: Save8 -> Save7: nothing (Save8 has less)");
 	} else {
 		std::printf("(fo4 transplant: Tony's Save7 / Save8 not found, that check skipped)\n");
@@ -2264,6 +2343,7 @@ void TestTransplantFO4()
 		auto       o = SaveFile::load(old);
 		const auto bad = tf4::FromSave(*o, "old");
 		auto       d = tf4::Diff(tf4::FromSave(*g, "good"), bad, *g);
+		const auto ids0 = g->formIDs.size();
 		std::size_t file = 0, written = 0, game = 0;
 		for (const auto& c : d) {
 			if (c.via == tf4::Via::kFile && c.available) {
@@ -2287,6 +2367,13 @@ void TestTransplantFO4()
 		Check(file > 0 && written == file, "fo4 transplant: the file part is written into the good save");
 		Check(fileLeft == 0 && game > 0, "fo4 transplant: after writing and reading the save back, only the game part is left");
 		Check(back->header.playerLevel == static_cast<std::uint32_t>(bad.level), "fo4 transplant: the level in the written save's header");
+		std::size_t items = 0;
+		for (const auto& c : d) {
+			items += c.kind == tf4::Kind::kItem && c.via == tf4::Via::kFile ? 1 : 0;
+		}
+		const auto* pl = ess::fo4cf::FindPlayer(*back);
+		Check(items > 0 && back->formIDs.size() > ids0 && pl && ess::fo4cf::DecodeActor(*back, *pl).complete,
+			"fo4 transplant: items with their extra data written (form ids added to the array where needed), the player still reads completely");
 		fs::remove(tmp);
 	}
 }
