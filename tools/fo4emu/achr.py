@@ -79,6 +79,11 @@ class A:
         e.stub(0xc10e60, lambda e2: 0)   # stores a loaded blob in a map (no reads)
         e.stub(0x66c3e0, lambda e2: 0)   # quest stage lookup on a (fake) quest: no reads
         e.stub(0x66a290, lambda e2: 0)   # quest objective lookup: no reads
+        def newid(e2):  # 0xbedd20 (called by 0xcea430 only here): gives the created package its saved form id
+            pkg=struct.unpack('<Q',e2.u.mem_read(e2.r(UC_X86_REG_RBX)+8,8))[0]
+            e2.u.mem_write(pkg+0x14, struct.pack('<I', e2.r(UC_X86_REG_RDX)&0xffffffff)); return 0
+        e.stub(0xbedd20, newid)
+        e.stub(0x2383e0, lambda e2: 0)  # a hash map insert reached only from created forms' constructors (no reads)
         if s.do_inits:
             import initall
             s.badinits=initall.run_inits(s)
@@ -102,9 +107,15 @@ class A:
                     ent=s.intern(nm.encode())
                     creator=e.alloc(0x20); cvt=e.alloc(0x40); code=e.alloc(0x10)
                     u.mem_write(creator, struct.pack('<Q',cvt)); u.mem_write(cvt+8, struct.pack('<Q',code))
-                    def make(e2, vt=vt, nm=nm):
-                        o=e2.alloc(0x800); e2.u.mem_write(o, struct.pack('<Q',BASE+vt)); s.made.append(nm); return o
-                    e.stub(code-BASE, make)
+                    # package data classes with two bases: the game's own creators (they return the IPackageData
+                    # base at +8, whose vtable +0x40 is the LoadGame)
+                    REAL={'ObjectList':0x707fa0,'Ref':0x709a80,'RefOLD':0x702f80,'LocationWrapper':0x704eb0,'Location':0x702c20}
+                    if nm in REAL:
+                        u.mem_write(cvt+8, struct.pack('<Q',BASE+REAL[nm]))
+                    else:
+                        def make(e2, vt=vt, nm=nm):
+                            o=e2.alloc(0x800); e2.u.mem_write(o, struct.pack('<Q',BASE+vt)); s.made.append(nm); return o
+                        e.stub(code-BASE, make)
                     nxt=ents[i+1] if i+1<len(ents) else sentinel
                     u.mem_write(ents[i], struct.pack('<QQQ', ent, creator, nxt))
                 tbl=e.alloc(0x20); u.mem_write(tbl, bytes(u.mem_read(ents[0],0x18)))

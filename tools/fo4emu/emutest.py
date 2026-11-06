@@ -20,6 +20,7 @@ def common_stubs(e):
     e.stub(0x311b80, lambda e: 0)                                 # lookup form by id
     def refid(e):
         p=e.r(UC_X86_REG_RCX); b=bytes(e.u.mem_read(p,3)); v=b[0]<<16|b[1]<<8|b[2]
+        if (v & 0xc00000) == 0x800000: return 0xff000000 | (v & 0x3fffff)  # a created form (0xc0af70)
         return (v & 0x3fffff) | 0x01000000 if v else 0
     e.stub(0xc0af70, refid)
     for a in (0x1659480,0x16596e0,0x1659400,0x16596d0,0x16583b0):

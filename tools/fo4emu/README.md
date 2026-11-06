@@ -16,3 +16,9 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
   counts bodies read to the exact end and whether a blob was stored (size 0: nothing stored).
 - `flstemu.py <dump>`: Purify FormLists check. Runs BGSListForm::LoadGame (0x5898f0; vtable 0x24abf80) on every FLST (type 42)
   body, on it with two null entries put in (the game keeps them as entries) and on that purified.
+- `stack1.py <dump> <refid hex> [from] [to]`: one ACHR with exact call stacks (function, return site) for every read.
+- `fails.cpp <save> [1]`: which ACHRs fo4cf::DecodeActor does not read to the end of the body, and why.
+- The fake procedure factory (`achr.py`) uses the game's own creators for the package data classes with two bases
+  (ObjectList, Ref, RefOLD, Location, LocationWrapper: the creators hand out the IPackageData base at +8). Created form
+  ids (refid type 2) become 0xFFxxxxxx (`emutest.py`) so created packages take the game's created-form path; 0xbedd20
+  (new form id) and 0x2383e0 (a form map insert) are stubbed.
