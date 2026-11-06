@@ -163,6 +163,7 @@ namespace ess
 		_quests.clear();
 		_pool.clear();
 		_plugins.clear();
+		_readOk.clear();
 		missing.clear();
 		errors.clear();
 		pluginsRead = recordsRead = 0;
@@ -529,6 +530,11 @@ namespace ess
 					}
 				}
 				++pluginsRead;
+				{
+					std::string l = pluginName;
+					for (auto& c : l) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+					_readOk.insert(l);
+				}
 			} catch (const std::exception& e) {
 				errors.push_back(pluginName + ": " + e.what());
 			}

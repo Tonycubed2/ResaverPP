@@ -92,15 +92,14 @@ void App::drawLeftovers()
 		_leftovers.clear();
 		_leftoversNote.clear();
 		const auto active = currentLoadOrder();
-		std::set<std::string> dbRead;
-		if (_db) {
-			for (const auto& p : _db->plugins()) {
-				dbRead.insert(Lower(p));
-			}
-		}
 		if (!active.known && !_db) {
 			_leftoversNote = tr("Your load order is not known yet (set your game folder and mod manager in Options > Settings) and plugin names "
 							 "are not read, so ReSaver Plus cannot tell which items no longer exist.");
+		}
+		if (_leftoversNote.empty() && _db && (!_db->missing.empty() || !_db->errors.empty())) {
+			_leftoversNote = Fmt(tr("%zu of your plugins were not found or could not be read: items from them are not checked here (an "
+									"item counts as gone only when its plugin was read and no longer has it)."),
+				_db->missing.size() + _db->errors.size());
 		}
 		std::map<std::string, std::size_t> index;
 		for (const auto& e : cf::ListInventories(*_save)) {
@@ -118,7 +117,7 @@ void App::drawLeftovers()
 					reason = tr("its plugin is not in the save's plugin list");
 				} else if (active.known && !active.plugins.contains(low)) {
 					reason = tr("its plugin is not in your load order");
-				} else if (_db && dbRead.contains(low) && !_db->find(e.item)) {
+				} else if (_db && _db->wasRead(plugin) && !_db->find(e.item)) {
 					reason = tr("the item is no longer in its plugin (the mod was updated or changed)");
 				} else {
 					continue;

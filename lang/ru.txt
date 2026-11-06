@@ -59,6 +59,8 @@ language "Русский"
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
+
+# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 en "Anthropic (Claude)"
 tr "Anthropic (Claude)"
 
@@ -231,7 +233,7 @@ tr "Ссылки"
 
 # App.cpp:44  case App::Cat::kArrays: return N_("Arrays");
 # App.cpp:2469  KV(tr("Arrays"), std::to_string(r.arrays));
-# AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
+# AppExtras.cpp:418  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 en "Arrays"
 tr "Массивы"
 
@@ -419,7 +421,7 @@ en "Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and
 tr "Читает логи SKSE, логи краша, лог Papyrus и собственные логи модов и показывает найденные проблемы. Сохранение не нужно."
 
 # App.cpp:956  if (ImGui::Button(tr("Ask the AI"), ImVec2(180, 0))) {
-# AppAi.cpp:1805  if (!ImGui::Begin(trId("Ask the AI"), &_showAi, ImGuiWindowFlags_NoCollapse)) {
+# AppAi.cpp:1799  if (!ImGui::Begin(trId("Ask the AI"), &_showAi, ImGuiWindowFlags_NoCollapse)) {
 # AppHome.cpp:365  { Sc::kAskAi, tr("Ask the AI"), tr("plain English: it uses ReSaver Plus for you"),
 en "Ask the AI"
 tr "Спросить ИИ"
@@ -1683,7 +1685,7 @@ en "Counts"
 tr "Количество"
 
 # App.cpp:2463  KV(tr("Script instances"), Fmt(tr("%zu  (%zu unattached, %zu undefined, %zu on missing spawned objects)"), r.instances, r.unattached,
-# AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
+# AppExtras.cpp:418  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 # AppMore.cpp:84  ImGui::SeparatorText(tr("Script instances"));
 en "Script instances"
 tr "Экземпляры скриптов"
@@ -1697,7 +1699,7 @@ en "%zu  (%zu undefined)"
 tr "%zu  (неопределённых %zu)"
 
 # App.cpp:2466  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
-# AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
+# AppExtras.cpp:418  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 en "Threads"
 tr "Потоки"
 
@@ -1714,7 +1716,7 @@ en "Function messages"
 tr "Сообщения функций"
 
 # App.cpp:2470  KV(tr("Change forms"), std::to_string(r.changeForms));
-# AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
+# AppExtras.cpp:418  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 # AppMore.cpp:94  ImGui::SeparatorText(tr("Change forms"));
 en "Change forms"
 tr "Изменённые формы"
@@ -1772,7 +1774,7 @@ tr "Выполнить (Enter). На диск ничего не пишется, 
 
 # App.cpp:2551  ImGui::OpenPopup(tr("Error##err"));
 # App.cpp:2554  if (ImGui::BeginPopupModal(tr("Error##err"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-# AppExtras.cpp:558  ImGui::TableSetupColumn(tr("Error"), ImGuiTableColumnFlags_WidthStretch, 4.0f);
+# AppExtras.cpp:557  ImGui::TableSetupColumn(tr("Error"), ImGuiTableColumnFlags_WidthStretch, 4.0f);
 en "Error"
 tr "Ошибка"
 
@@ -2103,7 +2105,7 @@ en "Load"
 tr "Загр."
 
 # App.cpp:3377  ImGui::TableSetupColumn(tr("Mod"), ImGuiTableColumnFlags_WidthStretch);
-# AppExtras.cpp:556  ImGui::TableSetupColumn(tr("Mod"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
+# AppExtras.cpp:555  ImGui::TableSetupColumn(tr("Mod"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
 en "Mod"
 tr "Мод"
 
@@ -2258,7 +2260,7 @@ tr "Скрипты, выполняющиеся на объектах этого 
 
 # App.cpp:3588  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 1.0f, 0);
 # App.cpp:3715  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch);
-# AppExtras.cpp:555  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
+# AppExtras.cpp:554  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
 en "Script"
 tr "Скрипт"
 
@@ -2721,164 +2723,164 @@ tr "Изменить что-то в запущенной игре"
 en "Write a text file"
 tr "Записать текстовый файл"
 
-# AppAi.cpp:1247  if (!_ai.approve(args.str("why").empty() ? tr("Remove leftover items into a new save") : args.str("why"),
+# AppAi.cpp:1241  if (!_ai.approve(args.str("why").empty() ? tr("Remove leftover items into a new save") : args.str("why"),
 en "Remove leftover items into a new save"
 tr "Удалить остатки предметов в новое сохранение"
 
-# AppAi.cpp:1436  if (!_ai.approve(args.str("why").empty() ? tr("Change the Fallout 4 player into a new save") : args.str("why"),
+# AppAi.cpp:1430  if (!_ai.approve(args.str("why").empty() ? tr("Change the Fallout 4 player into a new save") : args.str("why"),
 en "Change the Fallout 4 player into a new save"
 tr "Изменить персонажа Fallout 4 в новое сохранение"
 
-# AppAi.cpp:1684  if (ImGui::BeginCombo(tr("Engine"), tr(presets[static_cast<std::size_t>(s.preset)].name))) {
+# AppAi.cpp:1678  if (ImGui::BeginCombo(tr("Engine"), tr(presets[static_cast<std::size_t>(s.preset)].name))) {
 en "Engine"
 tr "Движок"
 
-# AppAi.cpp:1707  ImGui::TextUnformatted(tr("Kind:"));
+# AppAi.cpp:1701  ImGui::TextUnformatted(tr("Kind:"));
 en "Kind:"
 tr "Тип:"
 
-# AppAi.cpp:1709  changed |= ImGui::RadioButton(tr("OpenAI-compatible"), &api, 0);
+# AppAi.cpp:1703  changed |= ImGui::RadioButton(tr("OpenAI-compatible"), &api, 0);
 en "OpenAI-compatible"
 tr "Совместимый с OpenAI"
 
-# AppAi.cpp:1711  changed |= ImGui::RadioButton(tr("Anthropic"), &api, 1);
+# AppAi.cpp:1705  changed |= ImGui::RadioButton(tr("Anthropic"), &api, 1);
 en "Anthropic"
 tr "Anthropic"
 
-# AppAi.cpp:1717  if (ImGui::InputText(tr("Address"), buf, sizeof(buf))) {
+# AppAi.cpp:1711  if (ImGui::InputText(tr("Address"), buf, sizeof(buf))) {
 en "Address"
 tr "Адрес"
 
-# AppAi.cpp:1724  if (ImGui::InputText(tr("API key"), buf, sizeof(buf), showKey ? 0 : ImGuiInputTextFlags_Password)) {
+# AppAi.cpp:1718  if (ImGui::InputText(tr("API key"), buf, sizeof(buf), showKey ? 0 : ImGuiInputTextFlags_Password)) {
 en "API key"
 tr "API-ключ"
 
-# AppAi.cpp:1729  ImGui::Checkbox(tr("Show"), &showKey);
+# AppAi.cpp:1723  ImGui::Checkbox(tr("Show"), &showKey);
 # AppQuests.cpp:478  ImGui::TextUnformatted(tr("Show"));
 en "Show"
 tr "Показать"
 
-# AppAi.cpp:1730  tips::Tip(tr("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."));
+# AppAi.cpp:1724  tips::Tip(tr("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."));
 en "Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."
 tr "Хранится в resaverpp.ini, зашифрованным для вашей учётной записи Windows (прочитать его можете только вы на этом ПК)."
 
-# AppAi.cpp:1733  ImGui::TextDisabled("%s", tr("(not needed for an engine on this PC)"));
+# AppAi.cpp:1727  ImGui::TextDisabled("%s", tr("(not needed for an engine on this PC)"));
 en "(not needed for an engine on this PC)"
 tr "(не нужен для движка на этом ПК)"
 
-# AppAi.cpp:1737  if (ImGui::InputText(tr("Model"), buf, sizeof(buf))) {
+# AppAi.cpp:1731  if (ImGui::InputText(tr("Model"), buf, sizeof(buf))) {
 en "Model"
 tr "Модель"
 
-# AppAi.cpp:1744  if (ImGui::Button(listing ? tr("Listing...") : tr("List models"))) {
+# AppAi.cpp:1738  if (ImGui::Button(listing ? tr("Listing...") : tr("List models"))) {
 en "Listing..."
 tr "Получаю список..."
 
-# AppAi.cpp:1744  if (ImGui::Button(listing ? tr("Listing...") : tr("List models"))) {
+# AppAi.cpp:1738  if (ImGui::Button(listing ? tr("Listing...") : tr("List models"))) {
 en "List models"
 tr "Список моделей"
 
-# AppAi.cpp:1755  tips::Tip(tr("Ask the engine which models it has (also a quick test of the address and key)."));
+# AppAi.cpp:1749  tips::Tip(tr("Ask the engine which models it has (also a quick test of the address and key)."));
 en "Ask the engine which models it has (also a quick test of the address and key)."
 tr "Спросить у движка, какие у него есть модели (заодно быстрая проверка адреса и ключа)."
 
-# AppAi.cpp:1772  ImGui::TextDisabled(tr("%zu models found: click List models again to pick one."), _aiModels->list.size());
+# AppAi.cpp:1766  ImGui::TextDisabled(tr("%zu models found: click List models again to pick one."), _aiModels->list.size());
 en "%zu models found: click List models again to pick one."
 tr "Найдено моделей: %zu. Нажмите «Список моделей» ещё раз, чтобы выбрать."
 
-# AppAi.cpp:1777  ImGui::TextDisabled("%s", tr("Asking the engine..."));
+# AppAi.cpp:1771  ImGui::TextDisabled("%s", tr("Asking the engine..."));
 en "Asking the engine..."
 tr "Спрашиваю движок..."
 
-# AppAi.cpp:1783  changed |= ImGui::InputInt(tr("Longest answer (tokens)"), &s.maxTokens, 1024);
+# AppAi.cpp:1777  changed |= ImGui::InputInt(tr("Longest answer (tokens)"), &s.maxTokens, 1024);
 en "Longest answer (tokens)"
 tr "Самый длинный ответ (токены)"
 
-# AppAi.cpp:1787  changed |= ImGui::InputInt(tr("Wait for an answer (seconds)"), &s.timeoutSeconds, 30);
+# AppAi.cpp:1781  changed |= ImGui::InputInt(tr("Wait for an answer (seconds)"), &s.timeoutSeconds, 30);
 en "Wait for an answer (seconds)"
 tr "Ждать ответа (секунды)"
 
-# AppAi.cpp:1789  tips::Tip(tr("Engines on your own PC can be slow: give them more time."));
+# AppAi.cpp:1783  tips::Tip(tr("Engines on your own PC can be slow: give them more time."));
 en "Engines on your own PC can be slow: give them more time."
 tr "Движки на вашем ПК бывают медленными: дайте им больше времени."
 
-# AppAi.cpp:1792  ImGui::TextUnformatted(tr("What you type, and what the AI reads with its tools (parts of your save, your logs, file and mod names), is "
+# AppAi.cpp:1786  ImGui::TextUnformatted(tr("What you type, and what the AI reads with its tools (parts of your save, your logs, file and mod names), is "
 en "What you type, and what the AI reads with its tools (parts of your save, your logs, file and mod names), is sent to the engine you pick. An engine on this PC (Ollama, LM Studio) keeps everything here. Paid engines charge your account for each question; a question usually costs a few cents."
 tr "То, что вы пишете, и то, что ИИ читает своими инструментами (части сохранения, ваши логи, имена файлов и модов), отправляется выбранному движку. Движок на этом ПК (Ollama, LM Studio) оставляет всё здесь. Платные движки списывают оплату с вашего аккаунта за каждый вопрос; вопрос обычно стоит несколько центов."
 
-# AppAi.cpp:1819  if (ImGui::Button(_aiShowSettings ? tr("Hide engine settings") : tr("Engine settings"))) {
+# AppAi.cpp:1813  if (ImGui::Button(_aiShowSettings ? tr("Hide engine settings") : tr("Engine settings"))) {
 en "Hide engine settings"
 tr "Скрыть настройки движка"
 
-# AppAi.cpp:1819  if (ImGui::Button(_aiShowSettings ? tr("Hide engine settings") : tr("Engine settings"))) {
+# AppAi.cpp:1813  if (ImGui::Button(_aiShowSettings ? tr("Hide engine settings") : tr("Engine settings"))) {
 en "Engine settings"
 tr "Настройки движка"
 
-# AppAi.cpp:1823  if (ImGui::Checkbox(tr("Ask me before changes"), &s.askBeforeChanges)) {
+# AppAi.cpp:1817  if (ImGui::Checkbox(tr("Ask me before changes"), &s.askBeforeChanges)) {
 en "Ask me before changes"
 tr "Спрашивать перед изменениями"
 
-# AppAi.cpp:1826  tips::Tip(tr("On: the AI asks for your OK before it writes a new save, changes the running game or writes a file. It can look "
+# AppAi.cpp:1820  tips::Tip(tr("On: the AI asks for your OK before it writes a new save, changes the running game or writes a file. It can look "
 en "On: the AI asks for your OK before it writes a new save, changes the running game or writes a file. It can look at anything without asking. Off: it does what it decides."
 tr "Включено: ИИ спрашивает вашего согласия, прежде чем записать новое сохранение, изменить запущенную игру или записать файл. Смотреть он может что угодно без спроса. Выключено: он делает то, что решит."
 
-# AppAi.cpp:1829  if (ImGui::Button(tr("New chat"))) {
+# AppAi.cpp:1823  if (ImGui::Button(tr("New chat"))) {
 en "New chat"
 tr "Новый чат"
 
-# AppAi.cpp:1833  if (ImGui::Button(tr("Copy chat"))) {
+# AppAi.cpp:1827  if (ImGui::Button(tr("Copy chat"))) {
 en "Copy chat"
 tr "Копировать чат"
 
-# AppAi.cpp:1842  ImGui::TextUnformatted(tr("Pick an AI engine first: its address, API key and model."));
+# AppAi.cpp:1836  ImGui::TextUnformatted(tr("Pick an AI engine first: its address, API key and model."));
 en "Pick an AI engine first: its address, API key and model."
 tr "Сначала выберите ИИ-движок: его адрес, API-ключ и модель."
 
-# AppAi.cpp:1865  ImGui::TextUnformatted(tr("You"));
+# AppAi.cpp:1859  ImGui::TextUnformatted(tr("You"));
 en "You"
 tr "Вы"
 
-# AppAi.cpp:1876  ImGui::TextUnformatted(tr("AI"));
+# AppAi.cpp:1870  ImGui::TextUnformatted(tr("AI"));
 # AppTools.cpp:623  ImGui::SeparatorText(tr("AI"));
 en "AI"
 tr "ИИ"
 
-# AppAi.cpp:1879  if (ImGui::SmallButton(tr("Copy"))) {
+# AppAi.cpp:1873  if (ImGui::SmallButton(tr("Copy"))) {
 # AppMore.cpp:658  if (ImGui::Button(tr("Copy"))) {
 # AppScripts.cpp:955  if (ImGui::Button(tr("Copy"))) {
 en "Copy"
 tr "Копировать"
 
-# AppAi.cpp:1889  m.shown.empty() ? m.toolName.c_str() : m.shown.c_str(), m.error ? tr("  (failed)") : "");
+# AppAi.cpp:1883  m.shown.empty() ? m.toolName.c_str() : m.shown.c_str(), m.error ? tr("  (failed)") : "");
 en "  (failed)"
 tr "  (ошибка)"
 
-# AppAi.cpp:1936  ImGui::TextUnformatted(tr("The AI wants to make a change:"));
+# AppAi.cpp:1930  ImGui::TextUnformatted(tr("The AI wants to make a change:"));
 en "The AI wants to make a change:"
 tr "ИИ хочет внести изменение:"
 
-# AppAi.cpp:1942  if (ImGui::Button(tr("Allow"))) {
+# AppAi.cpp:1936  if (ImGui::Button(tr("Allow"))) {
 en "Allow"
 tr "Разрешить"
 
-# AppAi.cpp:1946  if (ImGui::Button(tr("Allow every change in this chat"))) {
+# AppAi.cpp:1940  if (ImGui::Button(tr("Allow every change in this chat"))) {
 en "Allow every change in this chat"
 tr "Разрешать все изменения в этом чате"
 
-# AppAi.cpp:1950  if (ImGui::Button(tr("Don't"))) {
+# AppAi.cpp:1944  if (ImGui::Button(tr("Don't"))) {
 en "Don't"
 tr "Не надо"
 
-# AppAi.cpp:1963  if (ImGui::Button(tr("Stop"))) {
+# AppAi.cpp:1957  if (ImGui::Button(tr("Stop"))) {
 # AppBsa.cpp:204  if (ImGui::Button(tr("Stop"))) {
 en "Stop"
 tr "Остановить"
 
-# AppAi.cpp:1968  ImGui::TextDisabled("%s", tr("Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it."));
+# AppAi.cpp:1962  ImGui::TextDisabled("%s", tr("Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it."));
 en "Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it."
 tr "Enter отправляет, Ctrl+Enter — новая строка. Любой текст в чате можно выделить мышью; Ctrl+C копирует его."
 
-# AppAi.cpp:1982  send |= ImGui::Button(tr("Send"), ImVec2(sendW, inputH));
+# AppAi.cpp:1976  send |= ImGui::Button(tr("Send"), ImVec2(sendW, inputH));
 en "Send"
 tr "Отправить"
 
@@ -2939,7 +2941,7 @@ en "%d.  %s, level %u"
 tr "%d.  %s, уровень %u"
 
 # AppArchive.cpp:233  ImGui::Text(tr("%d.  %s, level %u"), i + 1, e.character.empty() ? tr("(unreadable)") : e.character.c_str(), e.level);
-# AppExtras.cpp:983  byChar[_saves[i].ok ? _saves[i].playerName : std::string(tr("(unreadable)"))].push_back(i);
+# AppExtras.cpp:982  byChar[_saves[i].ok ? _saves[i].playerName : std::string(tr("(unreadable)"))].push_back(i);
 en "(unreadable)"
 tr "(не читается)"
 
@@ -2973,7 +2975,7 @@ en "File's own date"
 tr "Дата самого файла"
 
 # AppArchive.cpp:284  row(tr("Character"), e.character + tr(", level ") + std::to_string(e.level) + (e.race.empty() ? "" : " (" + e.race + ")"));
-# AppExtras.cpp:311  if (ImGui::BeginCombo(tr("Character"), text::ToUtf8(_historyChar).c_str())) {
+# AppExtras.cpp:310  if (ImGui::BeginCombo(tr("Character"), text::ToUtf8(_historyChar).c_str())) {
 # AppGallery.cpp:326  if (ImGui::BeginCombo(tr("Character"), _galleryCharacter.empty() ? tr("All characters") : _galleryCharacter.c_str())) {
 en "Character"
 tr "Персонаж"
@@ -2991,7 +2993,7 @@ en "Archived"
 tr "Заархивировано"
 
 # AppArchive.cpp:288  row(tr("Why"), e.reason);
-# AppExtras.cpp:167  ImGui::TableSetupColumn(tr("Why"), ImGuiTableColumnFlags_WidthStretch, 2.5f);
+# AppExtras.cpp:166  ImGui::TableSetupColumn(tr("Why"), ImGuiTableColumnFlags_WidthStretch, 2.5f);
 # AppLiveGame.cpp:209  ImGui::TableSetupColumn(tr("Why"), ImGuiTableColumnFlags_WidthFixed, 140);
 en "Why"
 tr "Причина"
@@ -3190,7 +3192,7 @@ en "no"
 tr "нет"
 
 # AppBsa.cpp:272  _error = tr("Could not read ") + open->path + tr(" from the archive:\n\n") + e.what();
-# AppExtras.cpp:793  TextColored(theme::Warn(), !_clog.file.empty() ? tr("Could not read ") + platform::ToUtf8(_clog.file) + ": " + _clog.error
+# AppExtras.cpp:792  TextColored(theme::Warn(), !_clog.file.empty() ? tr("Could not read ") + platform::ToUtf8(_clog.file) + ": " + _clog.error
 # AppMore.cpp:795  _error = tr("Could not read ") + platform::ToUtf8(*p);
 en "Could not read "
 tr "Не удалось прочитать "
@@ -3571,7 +3573,7 @@ en "They were saved just as they were about to play a short start, stop or turn 
 tr "Они были сохранены в тот момент, когда собирались проиграть короткую анимацию старта, остановки или поворота при ходьбе или в бою. Игра хранит в сохранении это состояние ожидания, но не саму анимацию, поэтому сразу после загрузки пытается проиграть отсутствующую анимацию и падает (Crash Logger: SkyrimSE.exe+0CEC680 на 1.6.1170, MovementMessagePlayIdle, PathFollowerStatePlayIdle).\nПерсонажи:"
 
 # AppCheck.cpp:360  it.what += Fmt(tr(" and %zu more"), stuck.size() - 8);
-# AppExtras.cpp:204  who += Fmt(tr(" and %zu more"), seen.size() - 4);
+# AppExtras.cpp:203  who += Fmt(tr(" and %zu more"), seen.size() - 4);
 en " and %zu more"
 tr " и ещё %zu"
 
@@ -3600,7 +3602,7 @@ en "A save this heavy loads slowly in the game too, and can crash or stutter. Th
 tr "Такое тяжёлое сохранение и в игре загружается медленно, а также может падать или подтормаживать. Обычные причины — мод, который всё создаёт NPC или существ, которых никто не убирает, или очень долгое прохождение во многих местах.\n«Найти NPC» показывает всех персонажей с их местом: ищите много копий одного и того же. «История сохранений» показывает, растёт ли их число от сохранения к сохранению. «Спросить ИИ» может разобраться в этом за вас."
 
 # AppCheck.cpp:400  h.label = tr("Save history");
-# AppExtras.cpp:279  if (!ImGui::Begin(trId("Save history"), &_showHistory, ImGuiWindowFlags_NoCollapse)) {
+# AppExtras.cpp:278  if (!ImGui::Begin(trId("Save history"), &_showHistory, ImGuiWindowFlags_NoCollapse)) {
 # AppHome.cpp:311  { Sc::kHistory, tr("Save history"), tr("which mods keep growing"),
 en "Save history"
 tr "История сохранений"
@@ -3796,497 +3798,501 @@ tr "Копировать путь"
 en "Leftover items"
 tr "Остатки предметов"
 
-# AppExtras.cpp:102  _leftoversNote = tr("Your load order is not known yet (set your game folder and mod manager in Options > Settings) and plugin names "
+# AppExtras.cpp:96  _leftoversNote = tr("Your load order is not known yet (set your game folder and mod manager in Options > Settings) and plugin names "
 en "Your load order is not known yet (set your game folder and mod manager in Options > Settings) and plugin names are not read, so ReSaver Plus cannot tell which items no longer exist."
 tr "Ваш порядок загрузки ещё неизвестен (укажите папку игры и менеджер модов в «Параметры > Настройки»), а имена из плагинов не прочитаны, поэтому ReSaver Plus не может определить, каких предметов больше нет."
 
-# AppExtras.cpp:110  reason = tr("an entry with no item");
+# AppExtras.cpp:100  _leftoversNote = Fmt(tr("%zu of your plugins were not found or could not be read: items from them are not checked here (an "
+en "%zu of your plugins were not found or could not be read: items from them are not checked here (an item counts as gone only when its plugin was read and no longer has it)."
+tr "Плагинов не найдено или не прочитано: %zu. Предметы из них здесь не проверяются (предмет считается пропавшим, только если его плагин прочитан и этого предмета в нём больше нет)."
+
+# AppExtras.cpp:109  reason = tr("an entry with no item");
 en "an entry with no item"
 tr "запись без предмета"
 
-# AppExtras.cpp:118  reason = tr("its plugin is not in the save's plugin list");
+# AppExtras.cpp:117  reason = tr("its plugin is not in the save's plugin list");
 en "its plugin is not in the save's plugin list"
 tr "его плагина нет в списке плагинов сохранения"
 
-# AppExtras.cpp:120  reason = tr("its plugin is not in your load order");
+# AppExtras.cpp:119  reason = tr("its plugin is not in your load order");
 en "its plugin is not in your load order"
 tr "его плагина нет в вашем порядке загрузки"
 
-# AppExtras.cpp:122  reason = tr("the item is no longer in its plugin (the mod was updated or changed)");
+# AppExtras.cpp:121  reason = tr("the item is no longer in its plugin (the mod was updated or changed)");
 en "the item is no longer in its plugin (the mod was updated or changed)"
 tr "предмета больше нет в его плагине (мод обновлён или изменён)"
 
-# AppExtras.cpp:143  ImGui::TextWrapped("%s", tr("Items in the inventories of the player, NPCs and containers whose mod is gone. The game cannot show them, and they "
+# AppExtras.cpp:142  ImGui::TextWrapped("%s", tr("Items in the inventories of the player, NPCs and containers whose mod is gone. The game cannot show them, and they "
 en "Items in the inventories of the player, NPCs and containers whose mod is gone. The game cannot show them, and they can break inventory and container menus or cause crashes. Removing them takes them out of every inventory in the save. Changes are made in the loaded save; nothing is written until you use File > Save or Save As."
 tr "Предметы в инвентарях игрока, NPC и контейнеров, чей мод удалён. Игра не может их показать, и они могут ломать меню инвентаря и контейнеров или вызывать краши. Удаление убирает их из всех инвентарей сохранения. Изменения вносятся в загруженное сохранение; на диск ничего не пишется, пока вы не нажмёте «Файл > Сохранить» или «Сохранить как»."
 
-# AppExtras.cpp:149  if (ImGui::Button(tr("Look again"))) {
+# AppExtras.cpp:148  if (ImGui::Button(tr("Look again"))) {
 # AppMerge.cpp:410  if (ImGui::Button(_assetsResult ? tr("Look again") : tr("Find file conflicts"))) {
 en "Look again"
 tr "Проверить снова"
 
-# AppExtras.cpp:152  tips::Tip(tr("Read every inventory again (after you changed your load order or read plugin names)."));
+# AppExtras.cpp:151  tips::Tip(tr("Read every inventory again (after you changed your load order or read plugin names)."));
 en "Read every inventory again (after you changed your load order or read plugin names)."
 tr "Перечитать все инвентари (после изменения порядка загрузки или чтения имён из плагинов)."
 
-# AppExtras.cpp:155  TextColored(theme::Good(), _leftoversNote.empty() ? tr("No leftover items: every item in every inventory belongs to a mod you have.") : tr("Nothing fo
+# AppExtras.cpp:154  TextColored(theme::Good(), _leftoversNote.empty() ? tr("No leftover items: every item in every inventory belongs to a mod you have.") : tr("Nothing fo
 en "No leftover items: every item in every inventory belongs to a mod you have."
 tr "Остатков нет: все предметы во всех инвентарях принадлежат вашим модам."
 
-# AppExtras.cpp:155  TextColored(theme::Good(), _leftoversNote.empty() ? tr("No leftover items: every item in every inventory belongs to a mod you have.") : tr("Nothing fo
+# AppExtras.cpp:154  TextColored(theme::Good(), _leftoversNote.empty() ? tr("No leftover items: every item in every inventory belongs to a mod you have.") : tr("Nothing fo
 en "Nothing found."
 tr "Ничего не найдено."
 
-# AppExtras.cpp:166  ImGui::TableSetupColumn(tr("Mod (plugin)"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+# AppExtras.cpp:165  ImGui::TableSetupColumn(tr("Mod (plugin)"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
 en "Mod (plugin)"
 tr "Мод (плагин)"
 
-# AppExtras.cpp:168  ImGui::TableSetupColumn(tr("Items"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+# AppExtras.cpp:167  ImGui::TableSetupColumn(tr("Items"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
 # AppTransplant.cpp:178  const auto kind = it.record.size() > 12 && !it.record[12].empty() ? it.record[12] : std::string(tr("Items"));
 # AppTransplantF4.cpp:88  case tf4::Kind::kItem: return tr("Items");
 en "Items"
 tr "Предметы"
 
-# AppExtras.cpp:169  ImGui::TableSetupColumn(tr("Entries"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+# AppExtras.cpp:168  ImGui::TableSetupColumn(tr("Entries"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
 en "Entries"
 tr "Записи"
 
-# AppExtras.cpp:177  tips::Tip(tr("Ticked: remove these items from every inventory."));
+# AppExtras.cpp:176  tips::Tip(tr("Ticked: remove these items from every inventory."));
 en "Ticked: remove these items from every inventory."
 tr "Отмечено: удалить эти предметы из всех инвентарей."
 
-# AppExtras.cpp:180  tips::Tip(tr("Show the items and who holds them."));
+# AppExtras.cpp:179  tips::Tip(tr("Show the items and who holds them."));
 en "Show the items and who holds them."
 tr "Показать предметы и у кого они."
 
-# AppExtras.cpp:200  who += (who.empty() ? "" : ", ") + (fid == 0x14 ? std::string(tr("you")) : formText(fid));
+# AppExtras.cpp:199  who += (who.empty() ? "" : ", ") + (fid == 0x14 ? std::string(tr("you")) : formText(fid));
 en "you"
 tr "вы"
 
-# AppExtras.cpp:206  ImGui::TextDisabled(tr("held by %s"), who.c_str());
+# AppExtras.cpp:205  ImGui::TextDisabled(tr("held by %s"), who.c_str());
 en "held by %s"
 tr "у %s"
 
-# AppExtras.cpp:218  if (ImGui::Button(Fmt(tr("Remove the ticked items (%zu entries)"), ticked).c_str())) {
+# AppExtras.cpp:217  if (ImGui::Button(Fmt(tr("Remove the ticked items (%zu entries)"), ticked).c_str())) {
 en "Remove the ticked items (%zu entries)"
 tr "Удалить отмеченные предметы (записей: %zu)"
 
-# AppExtras.cpp:219  confirm(tr("Remove leftover items"),
+# AppExtras.cpp:218  confirm(tr("Remove leftover items"),
 en "Remove leftover items"
 tr "Удалить остатки предметов"
 
-# AppExtras.cpp:220  Fmt(tr("Remove %zu inventory entries of items whose mod is gone, from every inventory in the save?\n\nOnly do this for mods you "
+# AppExtras.cpp:219  Fmt(tr("Remove %zu inventory entries of items whose mod is gone, from every inventory in the save?\n\nOnly do this for mods you "
 en "Remove %zu inventory entries of items whose mod is gone, from every inventory in the save?\n\nOnly do this for mods you removed for good: if you put the mod back, its items will not come back.\n\nKeep a copy of the original save."
 tr "Удалить записи инвентаря (%zu) с предметами удалённых модов из всех инвентарей сохранения?\n\nДелайте это только для модов, удалённых насовсем: если вернуть мод, его предметы не вернутся.\n\nСохраните копию исходного сохранения."
 
-# AppExtras.cpp:248  markChanged(Fmt(tr("Removed %zu leftover inventory entries%s"), removed,
+# AppExtras.cpp:247  markChanged(Fmt(tr("Removed %zu leftover inventory entries%s"), removed,
 en "Removed %zu leftover inventory entries%s"
 tr "Удалено записей с остатками предметов: %zu%s"
 
-# AppExtras.cpp:249  failed ? Fmt(tr(" (%zu inventories could not be changed and were left alone)"), failed).c_str() : ""));
+# AppExtras.cpp:248  failed ? Fmt(tr(" (%zu inventories could not be changed and were left alone)"), failed).c_str() : ""));
 en " (%zu inventories could not be changed and were left alone)"
 tr " (инвентари, которые не удалось изменить и которые оставлены как есть: %zu)"
 
-# AppExtras.cpp:254  tips::Tip(tr("Take the ticked mods' items out of every inventory in the loaded save."));
+# AppExtras.cpp:253  tips::Tip(tr("Take the ticked mods' items out of every inventory in the loaded save."));
 en "Take the ticked mods' items out of every inventory in the loaded save."
 tr "Убрать предметы отмеченных модов из всех инвентарей загруженного сохранения."
 
-# AppExtras.cpp:307  ImGui::TextWrapped("%s", tr("Every save ReSaver Plus opens is noted here (only numbers, in resaverpp-history.txt next to the program). Over "
+# AppExtras.cpp:306  ImGui::TextWrapped("%s", tr("Every save ReSaver Plus opens is noted here (only numbers, in resaverpp-history.txt next to the program). Over "
 en "Every save ReSaver Plus opens is noted here (only numbers, in resaverpp-history.txt next to the program). Over several saves it shows what keeps growing: a mod whose script instances climb save after save usually has a runaway script that will slow the game down and bloat the save."
 tr "Каждое сохранение, которое открывает ReSaver Plus, отмечается здесь (только числа, в resaverpp-history.txt рядом с программой). По нескольким сохранениям видно, что всё растёт: мод, чьи экземпляры скриптов растут от сохранения к сохранению, обычно содержит вышедший из-под контроля скрипт, который замедлит игру и раздует сохранение."
 
-# AppExtras.cpp:319  tips::Tip(tr("Whose saves to show."));
+# AppExtras.cpp:318  tips::Tip(tr("Whose saves to show."));
 en "Whose saves to show."
 tr "Чьи сохранения показывать."
 
-# AppExtras.cpp:322  if (ImGui::Button(tr("Read all of this character's saves"))) {
+# AppExtras.cpp:321  if (ImGui::Button(tr("Read all of this character's saves"))) {
 en "Read all of this character's saves"
 tr "Прочитать все сохранения этого персонажа"
 
-# AppExtras.cpp:357  tips::Tip(tr("Open every save of this character in the saves folder (one by one, in the background) and note their numbers, so the "
+# AppExtras.cpp:356  tips::Tip(tr("Open every save of this character in the saves folder (one by one, in the background) and note their numbers, so the "
 en "Open every save of this character in the saves folder (one by one, in the background) and note their numbers, so the history starts complete instead of filling up as you play."
 tr "Открыть все сохранения этого персонажа в папке сохранений (по одному, в фоне) и записать их числа, чтобы история сразу была полной, а не заполнялась по ходу игры."
 
-# AppExtras.cpp:361  ImGui::Text(tr("reading %zu of %zu saves..."), _historyDone.load(), _historyTotal.load());
+# AppExtras.cpp:360  ImGui::Text(tr("reading %zu of %zu saves..."), _historyDone.load(), _historyTotal.load());
 # AppGallery.cpp:342  ImGui::TextDisabled(tr("reading %zu of %zu saves..."), read, total);
 en "reading %zu of %zu saves..."
 tr "читаю сохранения: %zu из %zu..."
 
-# AppExtras.cpp:374  ImGui::TextDisabled("%s", tr("No saves noted for this character yet."));
+# AppExtras.cpp:373  ImGui::TextDisabled("%s", tr("No saves noted for this character yet."));
 en "No saves noted for this character yet."
 tr "Для этого персонажа сохранений пока не отмечено."
 
-# AppExtras.cpp:387  ImGui::TextDisabled(tr("Growth is judged over 4 or more saves; %zu noted so far."), rows.size());
+# AppExtras.cpp:386  ImGui::TextDisabled(tr("Growth is judged over 4 or more saves; %zu noted so far."), rows.size());
 en "Growth is judged over 4 or more saves; %zu noted so far."
 tr "Рост оценивается по 4 и более сохранениям; пока отмечено: %zu."
 
-# AppExtras.cpp:389  TextColored(theme::Good(), tr("Nothing keeps climbing: no mod's script instances grew steadily over the last saves."));
+# AppExtras.cpp:388  TextColored(theme::Good(), tr("Nothing keeps climbing: no mod's script instances grew steadily over the last saves."));
 en "Nothing keeps climbing: no mod's script instances grew steadily over the last saves."
 tr "Ничего не растёт: экземпляры скриптов ни одного мода стабильно не росли за последние сохранения."
 
-# AppExtras.cpp:391  TextColored(theme::Warn(), tr("Keeps growing over the last saves (script instances on that mod's objects):"));
+# AppExtras.cpp:390  TextColored(theme::Warn(), tr("Keeps growing over the last saves (script instances on that mod's objects):"));
 en "Keeps growing over the last saves (script instances on that mod's objects):"
 tr "Растёт за последние сохранения (экземпляры скриптов на объектах этого мода):"
 
-# AppExtras.cpp:393  ImGui::BulletText(tr("%s: %zu -> %zu over %zu saves"), g.plugin == "Created" ? tr("Spawned objects (any mod)") : g.plugin.c_str(), g.first, g.last,
+# AppExtras.cpp:392  ImGui::BulletText(tr("%s: %zu -> %zu over %zu saves"), g.plugin == "Created" ? tr("Spawned objects (any mod)") : g.plugin.c_str(), g.first, g.last,
 en "%s: %zu -> %zu over %zu saves"
 tr "%s: %zu -> %zu за %zu сохр."
 
-# AppExtras.cpp:393  ImGui::BulletText(tr("%s: %zu -> %zu over %zu saves"), g.plugin == "Created" ? tr("Spawned objects (any mod)") : g.plugin.c_str(), g.first, g.last,
+# AppExtras.cpp:392  ImGui::BulletText(tr("%s: %zu -> %zu over %zu saves"), g.plugin == "Created" ? tr("Spawned objects (any mod)") : g.plugin.c_str(), g.first, g.last,
 en "Spawned objects (any mod)"
 tr "Созданные объекты (любой мод)"
 
-# AppExtras.cpp:396  ImGui::TextDisabled("%s", tr("Look at that mod in the Mods view: a script that keeps creating instances or threads is the usual cause."));
+# AppExtras.cpp:395  ImGui::TextDisabled("%s", tr("Look at that mod in the Mods view: a script that keeps creating instances or threads is the usual cause."));
 en "Look at that mod in the Mods view: a script that keeps creating instances or threads is the usual cause."
 tr "Посмотрите этот мод в разделе «Моды»: обычная причина — скрипт, который всё создаёт экземпляры или потоки."
 
-# AppExtras.cpp:406  ImGui::PlotLines(a_label, v.data(), static_cast<int>(v.size()), 0, Fmt(tr("max %.0f"), hi).c_str(), 0.0f, hi * 1.1f + 1,
+# AppExtras.cpp:405  ImGui::PlotLines(a_label, v.data(), static_cast<int>(v.size()), 0, Fmt(tr("max %.0f"), hi).c_str(), 0.0f, hi * 1.1f + 1,
 en "max %.0f"
 tr "макс. %.0f"
 
-# AppExtras.cpp:415  ImGui::TextDisabled("%s", tr("Script instances (left), spawned objects (middle), save size in MB (right), oldest save first."));
+# AppExtras.cpp:414  ImGui::TextDisabled("%s", tr("Script instances (left), spawned objects (middle), save size in MB (right), oldest save first."));
 en "Script instances (left), spawned objects (middle), save size in MB (right), oldest save first."
 tr "Экземпляры скриптов (слева), созданные объекты (в центре), размер сохранения в МБ (справа), старые сохранения первыми."
 
-# AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
+# AppExtras.cpp:418  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 en "column|Save"
 tr "Сохранение"
 
-# AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
+# AppExtras.cpp:418  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 # AppGallery.cpp:432  ImGui::TableSetupColumn(tr("Date"), ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 1.3f);
 en "Date"
 tr "Дата"
 
-# AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
+# AppExtras.cpp:418  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 en "Spawned objects"
 tr "Созданные объекты"
 
-# AppExtras.cpp:462  if (!ImGui::Begin(trId("Papyrus log"), &_showPapyrusLog, ImGuiWindowFlags_NoCollapse)) {
-# AppExtras.cpp:498  if (auto f = platform::OpenFileDialog(candidates().front().parent_path(), "log", tr("Papyrus log"))) {
+# AppExtras.cpp:461  if (!ImGui::Begin(trId("Papyrus log"), &_showPapyrusLog, ImGuiWindowFlags_NoCollapse)) {
+# AppExtras.cpp:497  if (auto f = platform::OpenFileDialog(candidates().front().parent_path(), "log", tr("Papyrus log"))) {
 # AppHome.cpp:345  { Sc::kPapyrusLog, tr("Papyrus log"), tr("which mod is spamming errors"),
 en "Papyrus log"
 tr "Лог Papyrus"
 
-# AppExtras.cpp:496  if (ImGui::Button(tr("Open another log..."))) {
-# AppExtras.cpp:778  if (ImGui::Button(tr("Open another log..."))) {
+# AppExtras.cpp:495  if (ImGui::Button(tr("Open another log..."))) {
+# AppExtras.cpp:777  if (ImGui::Button(tr("Open another log..."))) {
 en "Open another log..."
 tr "Открыть другой лог..."
 
-# AppExtras.cpp:504  tips::Tip(tr("Pick a Papyrus log yourself (Papyrus.1.log is the session before, Papyrus.2.log the one before that)."));
+# AppExtras.cpp:503  tips::Tip(tr("Pick a Papyrus log yourself (Papyrus.1.log is the session before, Papyrus.2.log the one before that)."));
 en "Pick a Papyrus log yourself (Papyrus.1.log is the session before, Papyrus.2.log the one before that)."
 tr "Выбрать лог Papyrus самостоятельно (Papyrus.1.log — предыдущая сессия, Papyrus.2.log — ещё раньше)."
 
-# AppExtras.cpp:506  if (ImGui::Button(tr("Read again"))) {
-# AppExtras.cpp:788  if (ImGui::Button(tr("Read again"))) {
+# AppExtras.cpp:505  if (ImGui::Button(tr("Read again"))) {
+# AppExtras.cpp:787  if (ImGui::Button(tr("Read again"))) {
 en "Read again"
 tr "Перечитать"
 
-# AppExtras.cpp:509  tips::Tip(tr("Read the log again, e.g. after playing some more."));
+# AppExtras.cpp:508  tips::Tip(tr("Read the log again, e.g. after playing some more."));
 en "Read the log again, e.g. after playing some more."
 tr "Прочитать лог снова, например после того как вы ещё поиграли."
 
-# AppExtras.cpp:512  TextColored(theme::Warn(), tr("No Papyrus log found. Fallout 4 only writes one when logging is on: in Fallout4Custom.ini "
+# AppExtras.cpp:511  TextColored(theme::Warn(), tr("No Papyrus log found. Fallout 4 only writes one when logging is on: in Fallout4Custom.ini "
 en "No Papyrus log found. Fallout 4 only writes one when logging is on: in Fallout4Custom.ini (Documents\\My Games\\Fallout4, or your Mod Organizer profile's) under [Papyrus] set bEnableLogging=1, bEnableTrace=1 and bLoadDebugInformation=1, play a while, then look again. The log is in Documents\\My Games\\Fallout4\\Logs\\Script\\Papyrus.0.log."
 tr "Лог Papyrus не найден. Fallout 4 пишет его, только если включено логирование: в Fallout4Custom.ini (Документы\\My Games\\Fallout4 или в профиле Mod Organizer) в разделе [Papyrus] задайте bEnableLogging=1, bEnableTrace=1 и bLoadDebugInformation=1, поиграйте немного и проверьте снова. Лог лежит в Документы\\My Games\\Fallout4\\Logs\\Script\\Papyrus.0.log."
 
-# AppExtras.cpp:517  TextColored(theme::Warn(), tr("No Papyrus log found. The game only writes one when logging is on: in Skyrim.ini (or SkyrimCustom.ini) "
+# AppExtras.cpp:516  TextColored(theme::Warn(), tr("No Papyrus log found. The game only writes one when logging is on: in Skyrim.ini (or SkyrimCustom.ini) "
 en "No Papyrus log found. The game only writes one when logging is on: in Skyrim.ini (or SkyrimCustom.ini) under [Papyrus] set bEnableLogging=1, bEnableTrace=1 and bLoadDebugInformation=1, play a while, then look again. The log is in Documents\\My Games\\Skyrim Special Edition\\Logs\\Script\\Papyrus.0.log."
 tr "Лог Papyrus не найден. Игра пишет его, только если включено логирование: в Skyrim.ini (или SkyrimCustom.ini) в разделе [Papyrus] задайте bEnableLogging=1, bEnableTrace=1 и bLoadDebugInformation=1, поиграйте немного и проверьте снова. Лог лежит в Документы\\My Games\\Skyrim Special Edition\\Logs\\Script\\Papyrus.0.log."
 
-# AppExtras.cpp:526  ImGui::Text(tr("%zu errors and %zu warnings in %zu lines, in %zu groups."), _plog.errors, _plog.warnings, _plog.lines, _plog.groups.size());
+# AppExtras.cpp:525  ImGui::Text(tr("%zu errors and %zu warnings in %zu lines, in %zu groups."), _plog.errors, _plog.warnings, _plog.lines, _plog.groups.size());
 en "%zu errors and %zu warnings in %zu lines, in %zu groups."
 tr "Ошибок: %zu, предупреждений: %zu в %zu строках, групп: %zu."
 
-# AppExtras.cpp:527  ImGui::TextWrapped("%s", tr("The same error repeated many times by one script usually means a mod that is broken, missing a requirement, or "
+# AppExtras.cpp:526  ImGui::TextWrapped("%s", tr("The same error repeated many times by one script usually means a mod that is broken, missing a requirement, or "
 en "The same error repeated many times by one script usually means a mod that is broken, missing a requirement, or running on an object that is gone. Click a row for the full error and stack."
 tr "Одна и та же ошибка, много раз повторённая одним скриптом, обычно означает мод, который сломан, у которого нет нужного требования или который работает на исчезнувшем объекте. Щёлкните по строке, чтобы увидеть полную ошибку и стек."
 
-# AppExtras.cpp:554  ImGui::TableSetupColumn(tr("Times"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 4);
-# AppExtras.cpp:886  ImGui::TableSetupColumn(tr("Times"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.5f);
+# AppExtras.cpp:553  ImGui::TableSetupColumn(tr("Times"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 4);
+# AppExtras.cpp:885  ImGui::TableSetupColumn(tr("Times"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.5f);
 en "Times"
 tr "Раз"
 
-# AppExtras.cpp:557  ImGui::TableSetupColumn(tr("In this save"), ImGuiTableColumnFlags_WidthStretch, 1.2f);
-# AppExtras.cpp:887  ImGui::TableSetupColumn(tr("In this save"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+# AppExtras.cpp:556  ImGui::TableSetupColumn(tr("In this save"), ImGuiTableColumnFlags_WidthStretch, 1.2f);
+# AppExtras.cpp:886  ImGui::TableSetupColumn(tr("In this save"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
 # AppQuests.cpp:1058  ImGui::TableSetupColumn(tr("In this save"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
 en "In this save"
 tr "В этом сохранении"
 
-# AppExtras.cpp:568  if (ImGui::Selectable(g.script.empty() ? tr("(not named)") : g.script.c_str(), _plogOpen == static_cast<int>(i),
+# AppExtras.cpp:567  if (ImGui::Selectable(g.script.empty() ? tr("(not named)") : g.script.c_str(), _plogOpen == static_cast<int>(i),
 en "(not named)"
 tr "(без имени)"
 
-# AppExtras.cpp:572  tips::Tip(tr("Click to show the full error and its stack."));
+# AppExtras.cpp:571  tips::Tip(tr("Click to show the full error and its stack."));
 en "Click to show the full error and its stack."
 tr "Щёлкните, чтобы показать полную ошибку и её стек."
 
-# AppExtras.cpp:585  const bool go = ImGui::SmallButton(tr("show"));
-# AppExtras.cpp:936  if (ImGui::SmallButton(tr("show"))) {
+# AppExtras.cpp:584  const bool go = ImGui::SmallButton(tr("show"));
+# AppExtras.cpp:935  if (ImGui::SmallButton(tr("show"))) {
 en "show"
 tr "показать"
 
-# AppExtras.cpp:586  tips::Tip(tr("Show this script's instances (or threads) in the main window."));
+# AppExtras.cpp:585  tips::Tip(tr("Show this script's instances (or threads) in the main window."));
 en "Show this script's instances (or threads) in the main window."
 tr "Показать экземпляры (или потоки) этого скрипта в главном окне."
 
-# AppExtras.cpp:588  ImGui::Text(tr("%zu instances, %zu threads"), inst, thr);
+# AppExtras.cpp:587  ImGui::Text(tr("%zu instances, %zu threads"), inst, thr);
 en "%zu instances, %zu threads"
 tr "экз.: %zu, потоков: %zu"
 
-# AppExtras.cpp:596  ImGui::TextDisabled("%s", tr("not in this save"));
+# AppExtras.cpp:595  ImGui::TextDisabled("%s", tr("not in this save"));
 en "not in this save"
 tr "нет в этом сохранении"
 
-# AppExtras.cpp:644  return { Fmt(tr("%08X is not stored in this save: it is the base NPC of leveled actor %08X. The game builds it again from its "
+# AppExtras.cpp:643  return { Fmt(tr("%08X is not stored in this save: it is the base NPC of leveled actor %08X. The game builds it again from its "
 en "%08X is not stored in this save: it is the base NPC of leveled actor %08X. The game builds it again from its template (%s) every time the save loads, so it has no change form. The actor %08X is what the save has."
 tr "%08X не хранится в этом сохранении: это базовый NPC уровневого актёра %08X. Игра заново строит его по шаблону (%s) при каждой загрузке сохранения, поэтому изменённой формы у него нет. В сохранении есть актёр %08X."
 
-# AppExtras.cpp:650  return { Fmt(tr("%08X is not in this save. A spawned (FF) form that a crash log names but the save does not have was made by the "
+# AppExtras.cpp:649  return { Fmt(tr("%08X is not in this save. A spawned (FF) form that a crash log names but the save does not have was made by the "
 en "%08X is not in this save. A spawned (FF) form that a crash log names but the save does not have was made by the game after the save loaded, usually for an actor or object the save does have. Tools > Crash log reads the whole log and finds those."
 tr "%08X нет в этом сохранении. Созданную (FF) форму, которую называет лог краша, но которой нет в сохранении, игра создала уже после загрузки сохранения, обычно для актёра или объекта, который в сохранении есть. «Инструменты > Лог краша» читает весь лог и находит такие."
 
-# AppExtras.cpp:758  if (!ImGui::Begin(trId("Crash log"), &_showCrashLog, ImGuiWindowFlags_NoCollapse)) {
-# AppExtras.cpp:780  if (auto f = platform::OpenFileDialog(crashLogFolders().front(), "log", tr("Crash log"))) {
+# AppExtras.cpp:757  if (!ImGui::Begin(trId("Crash log"), &_showCrashLog, ImGuiWindowFlags_NoCollapse)) {
+# AppExtras.cpp:779  if (auto f = platform::OpenFileDialog(crashLogFolders().front(), "log", tr("Crash log"))) {
 # AppHome.cpp:288  { Sc::kCrashLog, tr("Crash log"), tr("find the object a crash names"),
 en "Crash log"
 tr "Лог краша"
 
-# AppExtras.cpp:786  tips::Tip(tr("Pick a crash log yourself, e.g. an older one or one from Trainwreck or .NET Script Framework."));
+# AppExtras.cpp:785  tips::Tip(tr("Pick a crash log yourself, e.g. an older one or one from Trainwreck or .NET Script Framework."));
 en "Pick a crash log yourself, e.g. an older one or one from Trainwreck or .NET Script Framework."
 tr "Выбрать лог краша самостоятельно, например более старый или от Trainwreck или .NET Script Framework."
 
-# AppExtras.cpp:791  tips::Tip(tr("Look for the newest crash log again, e.g. after the game crashed once more."));
+# AppExtras.cpp:790  tips::Tip(tr("Look for the newest crash log again, e.g. after the game crashed once more."));
 en "Look for the newest crash log again, e.g. after the game crashed once more."
 tr "Снова поискать последний лог краша, например после очередного падения игры."
 
-# AppExtras.cpp:795  ? tr("No crash log found. Buffout 4 (Buffout 4 NG for next-gen and Anniversary) writes them to "
+# AppExtras.cpp:794  ? tr("No crash log found. Buffout 4 (Buffout 4 NG for next-gen and Anniversary) writes them to "
 en "No crash log found. Buffout 4 (Buffout 4 NG for next-gen and Anniversary) writes them to Documents\\My Games\\Fallout4\\F4SE (crash-<date>.log) when the game crashes. Install it, let the game crash once, then look again, or pick a log with \"Open another log...\"."
 tr "Лог краша не найден. Buffout 4 (Buffout 4 NG для next-gen и Anniversary) пишет их в Документы\\My Games\\Fallout4\\F4SE (crash-<дата>.log), когда игра падает. Установите его, дайте игре упасть один раз и проверьте снова или выберите лог через «Открыть другой лог...»."
 
-# AppExtras.cpp:798  : tr("No crash log found. Crash Logger SSE/AE writes them to Documents\\My Games\\Skyrim Special Edition\\SKSE "
+# AppExtras.cpp:797  : tr("No crash log found. Crash Logger SSE/AE writes them to Documents\\My Games\\Skyrim Special Edition\\SKSE "
 en "No crash log found. Crash Logger SSE/AE writes them to Documents\\My Games\\Skyrim Special Edition\\SKSE (crash-<date>.log) when the game crashes. Install it, let the game crash once, then look again, or pick a log with \"Open another log...\"."
 tr "Лог краша не найден. Crash Logger SSE/AE пишет их в Документы\\My Games\\Skyrim Special Edition\\SKSE (crash-<дата>.log), когда игра падает. Установите его, дайте игре упасть один раз и проверьте снова или выберите лог через «Открыть другой лог...»."
 
-# AppExtras.cpp:806  TextColored(theme::Warn(), _clog.fo4 ? tr("This is a Fallout 4 crash log, and the save open is a Skyrim save: open the Fallout 4 save it is about.")
+# AppExtras.cpp:805  TextColored(theme::Warn(), _clog.fo4 ? tr("This is a Fallout 4 crash log, and the save open is a Skyrim save: open the Fallout 4 save it is about.")
 en "This is a Fallout 4 crash log, and the save open is a Skyrim save: open the Fallout 4 save it is about."
 tr "Это лог краша Fallout 4, а открыто сохранение Skyrim: откройте сохранение Fallout 4, к которому он относится."
 
-# AppExtras.cpp:807  : tr("This is a Skyrim crash log, and the save open is a Fallout 4 save: open the Skyrim save it is about."));
+# AppExtras.cpp:806  : tr("This is a Skyrim crash log, and the save open is a Fallout 4 save: open the Skyrim save it is about."));
 en "This is a Skyrim crash log, and the save open is a Fallout 4 save: open the Skyrim save it is about."
 tr "Это лог краша Skyrim, а открыто сохранение Fallout 4: откройте сохранение Skyrim, к которому он относится."
 
-# AppExtras.cpp:809  ImGui::TextDisabled("%s%s%s", _clog.tool.empty() ? tr("crash log") : _clog.tool.c_str(), _clog.time.empty() ? "" : tr(", crashed "),
+# AppExtras.cpp:808  ImGui::TextDisabled("%s%s%s", _clog.tool.empty() ? tr("crash log") : _clog.tool.c_str(), _clog.time.empty() ? "" : tr(", crashed "),
 en "crash log"
 tr "лог краша"
 
-# AppExtras.cpp:809  ImGui::TextDisabled("%s%s%s", _clog.tool.empty() ? tr("crash log") : _clog.tool.c_str(), _clog.time.empty() ? "" : tr(", crashed "),
+# AppExtras.cpp:808  ImGui::TextDisabled("%s%s%s", _clog.tool.empty() ? tr("crash log") : _clog.tool.c_str(), _clog.time.empty() ? "" : tr(", crashed "),
 en ", crashed "
 tr ", краш "
 
-# AppExtras.cpp:815  ImGui::TextWrapped("%s", tr("The forms the log names, the ones the game was working on when it crashed first, and what this save has of each. "
+# AppExtras.cpp:814  ImGui::TextWrapped("%s", tr("The forms the log names, the ones the game was working on when it crashed first, and what this save has of each. "
 en "The forms the log names, the ones the game was working on when it crashed first, and what this save has of each. A crash while a save loads is often one spawned or leveled NPC whose saved data no longer fits your mods. The log may name its base NPC first (an NPC FF......): the game builds that again every time the save loads, so it is not in the save, and the actor that uses it is shown instead."
 tr "Формы, которые называет лог (сначала те, с которыми игра работала в момент краша), и что есть о каждой в этом сохранении. Краш при загрузке сохранения часто вызывает один созданный или уровневый NPC, чьи сохранённые данные больше не подходят к вашим модам. Лог может сначала называть его базового NPC (NPC FF......): игра строит его заново при каждой загрузке сохранения, поэтому в сохранении его нет, и вместо него показан актёр, который его использует."
 
-# AppExtras.cpp:834  confirm(tr("Remove the actor from the save"),
+# AppExtras.cpp:833  confirm(tr("Remove the actor from the save"),
 en "Remove the actor from the save"
 tr "Удалить актёра из сохранения"
 
-# AppExtras.cpp:835  Fmt(tr("Delete the saved data of %s actor %08X?\n\nThe game drops it when the save loads; if a mod placed or spawns it, the mod "
+# AppExtras.cpp:834  Fmt(tr("Delete the saved data of %s actor %08X?\n\nThe game drops it when the save loads; if a mod placed or spawns it, the mod "
 en "Delete the saved data of %s actor %08X?\n\nThe game drops it when the save loads; if a mod placed or spawns it, the mod can make a new one. Nothing else in the save changes.%s\n\nWrite the save with File > Save As (under a new name) and load that. If the game crashes again, open the new crash log here."
 tr "Удалить сохранённые данные %s актёра %08X?\n\nИгра отбросит его при загрузке сохранения; если его поставил или создаёт мод, мод может создать нового. Больше в сохранении ничего не меняется.%s\n\nЗапишите сохранение через «Файл > Сохранить как» (под новым именем) и загрузите его. Если игра снова упадёт, откройте здесь новый лог краша."
 
-# AppExtras.cpp:838  a_f.created ? tr("spawned/leveled") : "", id,
+# AppExtras.cpp:837  a_f.created ? tr("spawned/leveled") : "", id,
 en "spawned/leveled"
 tr "созданного/уровневого"
 
-# AppExtras.cpp:839  scripts ? Fmt(tr(" Its %zu script instance(s) stay; Clean > Missing spawned objects can remove them later."), scripts).c_str() : ""),
+# AppExtras.cpp:838  scripts ? Fmt(tr(" Its %zu script instance(s) stay; Clean > Missing spawned objects can remove them later."), scripts).c_str() : ""),
 en " Its %zu script instance(s) stay; Clean > Missing spawned objects can remove them later."
 tr " Его экземпляры скриптов (%zu) остаются; «Очистка > Исчезнувшие созданные объекты» может удалить их позже."
 
-# AppExtras.cpp:842  markEdited(Fmt(tr("Removed actor %08X (named in the crash log)"), id));
+# AppExtras.cpp:841  markEdited(Fmt(tr("Removed actor %08X (named in the crash log)"), id));
 en "Removed actor %08X (named in the crash log)"
 tr "Удалён актёр %08X (назван в логе краша)"
 
-# AppExtras.cpp:847  ImGui::SeparatorText(tr("Likely cause"));
+# AppExtras.cpp:846  ImGui::SeparatorText(tr("Likely cause"));
 en "Likely cause"
 tr "Вероятная причина"
 
-# AppExtras.cpp:857  TextColored(theme::Caution(), Fmt(tr("Spawned or leveled actor %08X%s: the game was loading it when it crashed."), f->target,
+# AppExtras.cpp:856  TextColored(theme::Caution(), Fmt(tr("Spawned or leveled actor %08X%s: the game was loading it when it crashed."), f->target,
 en "Spawned or leveled actor %08X%s: the game was loading it when it crashed."
 tr "Созданный или уровневый актёр %08X%s: игра загружала его в момент краша."
 
-# AppExtras.cpp:859  if (ImGui::Button(Fmt(tr("Remove %08X from the save"), f->target).c_str())) {
+# AppExtras.cpp:858  if (ImGui::Button(Fmt(tr("Remove %08X from the save"), f->target).c_str())) {
 en "Remove %08X from the save"
 tr "Удалить %08X из сохранения"
 
-# AppExtras.cpp:862  tips::Tip(tr("Delete this actor's change form, the same as finding it in Change Forms and deleting it. Back up your save first; "
+# AppExtras.cpp:861  tips::Tip(tr("Delete this actor's change form, the same as finding it in Change Forms and deleting it. Back up your save first; "
 en "Delete this actor's change form, the same as finding it in Change Forms and deleting it. Back up your save first; File > Save As keeps the original."
 tr "Удалить изменённую форму этого актёра — то же, что найти её в «Изменённых формах» и удалить. Сначала сделайте резервную копию; «Файл > Сохранить как» сохраняет оригинал."
 
-# AppExtras.cpp:865  if (ImGui::Button(tr("Show it"))) {
+# AppExtras.cpp:864  if (ImGui::Button(tr("Show it"))) {
 en "Show it"
 tr "Показать"
 
-# AppExtras.cpp:870  tips::Tip(tr("Open its change form in the main window: everything the save has about it."));
+# AppExtras.cpp:869  tips::Tip(tr("Open its change form in the main window: everything the save has about it."));
 en "Open its change form in the main window: everything the save has about it."
 tr "Открыть его изменённую форму в главном окне: всё, что есть о нём в сохранении."
 
-# AppExtras.cpp:875  TextColored(theme::Dim(), tr("No spawned or leveled actor of this save was being loaded when the game crashed. The table shows what "
+# AppExtras.cpp:874  TextColored(theme::Dim(), tr("No spawned or leveled actor of this save was being loaded when the game crashed. The table shows what "
 en "No spawned or leveled actor of this save was being loaded when the game crashed. The table shows what the log names; a crash in the middle of play is more often a mod's DLL or a mesh than the save."
 tr "В момент краша игра не загружала ни одного созданного или уровневого актёра из этого сохранения. Таблица показывает, что называет лог; краш посреди игры чаще вызван DLL мода или мешем, чем сохранением."
 
-# AppExtras.cpp:878  TextColored(theme::Warn(), tr("None of the forms this log names are in this save. The log may be from another save or another game "
+# AppExtras.cpp:877  TextColored(theme::Warn(), tr("None of the forms this log names are in this save. The log may be from another save or another game "
 en "None of the forms this log names are in this save. The log may be from another save or another game session: check its date."
 tr "Ни одной формы, которую называет этот лог, в сохранении нет. Возможно, лог от другого сохранения или другой игровой сессии: проверьте его дату."
 
-# AppExtras.cpp:884  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6);
+# AppExtras.cpp:883  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6);
 # AppQuests.cpp:583  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthStretch, 1.0f, 1);
 # AppTools.cpp:295  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, 80);
 en "Form ID"
 tr "ID формы"
 
-# AppExtras.cpp:885  ImGui::TableSetupColumn(tr("In the log"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+# AppExtras.cpp:884  ImGui::TableSetupColumn(tr("In the log"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
 en "In the log"
 tr "В логе"
 
-# AppExtras.cpp:909  ImGui::TextDisabled("%s", tr("at the crash"));
+# AppExtras.cpp:908  ImGui::TextDisabled("%s", tr("at the crash"));
 en "at the crash"
 tr "в момент краша"
 
-# AppExtras.cpp:916  ImGui::TextWrapped("%s", Fmt(tr("%s change form%s%s"), f.cfType.c_str(), f.created ? tr(", spawned or leveled") : "",
+# AppExtras.cpp:915  ImGui::TextWrapped("%s", Fmt(tr("%s change form%s%s"), f.cfType.c_str(), f.created ? tr(", spawned or leveled") : "",
 en "%s change form%s%s"
 tr "Изменённая форма %s%s%s"
 
-# AppExtras.cpp:916  ImGui::TextWrapped("%s", Fmt(tr("%s change form%s%s"), f.cfType.c_str(), f.created ? tr(", spawned or leveled") : "",
+# AppExtras.cpp:915  ImGui::TextWrapped("%s", Fmt(tr("%s change form%s%s"), f.cfType.c_str(), f.created ? tr(", spawned or leveled") : "",
 en ", spawned or leveled"
 tr ", созданная или уровневая"
 
-# AppExtras.cpp:917  f.scripts ? Fmt(tr(", %zu scripts"), f.scripts).c_str() : "")
+# AppExtras.cpp:916  f.scripts ? Fmt(tr(", %zu scripts"), f.scripts).c_str() : "")
 # AppTools.cpp:323  ImGui::TextUnformatted(((li.hasCf ? std::string(tr("changed")) : std::string("-")) + (li.scripts ? Fmt(tr(", %zu scripts"), li.scripts) : std::string(
 en ", %zu scripts"
 tr ", скриптов: %zu"
 
-# AppExtras.cpp:921  ImGui::TextWrapped("%s", f.refRaw ? Fmt(tr("Not stored: the base NPC of leveled actor %08X, rebuilt at every load. The actor "
+# AppExtras.cpp:920  ImGui::TextWrapped("%s", f.refRaw ? Fmt(tr("Not stored: the base NPC of leveled actor %08X, rebuilt at every load. The actor "
 en "Not stored: the base NPC of leveled actor %08X, rebuilt at every load. The actor is in the save (%s)."
 tr "Не хранится: базовый NPC уровневого актёра %08X, пересобирается при каждой загрузке. Актёр есть в сохранении (%s)."
 
-# AppExtras.cpp:925  : tr("Not stored: a leveled actor's base NPC, rebuilt at every load."));
+# AppExtras.cpp:924  : tr("Not stored: a leveled actor's base NPC, rebuilt at every load."));
 en "Not stored: a leveled actor's base NPC, rebuilt at every load."
 tr "Не хранится: базовый NPC уровневого актёра, пересобирается при каждой загрузке."
 
-# AppExtras.cpp:928  ImGui::TextDisabled("%s", tr("Not in the save: made by the game after the save loaded."));
+# AppExtras.cpp:927  ImGui::TextDisabled("%s", tr("Not in the save: made by the game after the save loaded."));
 en "Not in the save: made by the game after the save loaded."
 tr "Нет в сохранении: создано игрой после загрузки сохранения."
 
-# AppExtras.cpp:931  ImGui::TextDisabled("%s", tr("Not changed by the save (the plugin's own form)."));
+# AppExtras.cpp:930  ImGui::TextDisabled("%s", tr("Not changed by the save (the plugin's own form)."));
 en "Not changed by the save (the plugin's own form)."
 tr "Не изменено сохранением (собственная форма плагина)."
 
-# AppExtras.cpp:941  tips::Tip(tr("Open the change form in the main window."));
+# AppExtras.cpp:940  tips::Tip(tr("Open the change form in the main window."));
 en "Open the change form in the main window."
 tr "Открыть изменённую форму в главном окне."
 
-# AppExtras.cpp:944  if (ImGui::SmallButton(tr("remove"))) {
+# AppExtras.cpp:943  if (ImGui::SmallButton(tr("remove"))) {
 en "remove"
 tr "удалить"
 
-# AppExtras.cpp:947  tips::Tip(tr("Delete this spawned or leveled actor's change form from the save."));
+# AppExtras.cpp:946  tips::Tip(tr("Delete this spawned or leveled actor's change form from the save."));
 en "Delete this spawned or leveled actor's change form from the save."
 tr "Удалить изменённую форму этого созданного или уровневого актёра из сохранения."
 
-# AppExtras.cpp:964  if (!ImGui::Begin(trId("Manage saves folder"), &_showSavesMgr, ImGuiWindowFlags_NoCollapse)) {
+# AppExtras.cpp:963  if (!ImGui::Begin(trId("Manage saves folder"), &_showSavesMgr, ImGuiWindowFlags_NoCollapse)) {
 # AppHome.cpp:308  { Sc::kSavesMgr, tr("Manage saves folder"), tr("delete old saves in bulk"),
 en "Manage saves folder"
 tr "Управление папкой сохранений"
 
-# AppExtras.cpp:976  ImGui::TextWrapped(tr("Saves folder: %s"), platform::ToUtf8(folder).c_str());
+# AppExtras.cpp:975  ImGui::TextWrapped(tr("Saves folder: %s"), platform::ToUtf8(folder).c_str());
 # AppMore.cpp:827  ImGui::TextWrapped(tr("Saves folder: %s"), platform::ToUtf8(savesFolder()).c_str());
 en "Saves folder: %s"
 tr "Папка сохранений: %s"
 
-# AppExtras.cpp:977  ImGui::TextWrapped("%s", tr("Pick old saves to delete. Each save's script extender file (.skse, or .f4se for Fallout 4) goes with it. Deleted saves go
+# AppExtras.cpp:976  ImGui::TextWrapped("%s", tr("Pick old saves to delete. Each save's script extender file (.skse, or .f4se for Fallout 4) goes with it. Deleted saves go
 en "Pick old saves to delete. Each save's script extender file (.skse, or .f4se for Fallout 4) goes with it. Deleted saves go to the Recycle Bin, so you can still get them back. The save that is open here is never deleted."
 tr "Выберите старые сохранения для удаления. Файл расширителя скриптов каждого сохранения (.skse, или .f4se для Fallout 4) удаляется вместе с ним. Удалённые сохранения попадают в корзину, так что их ещё можно вернуть. Открытое здесь сохранение никогда не удаляется."
 
-# AppExtras.cpp:985  ImGui::Text(total >= 1073741824 ? tr("%zu saves, %.1f GB") : tr("%zu saves, %.0f MB"), _saves.size(), total >= 1073741824 ? total / 1073741824.0 : tot
+# AppExtras.cpp:984  ImGui::Text(total >= 1073741824 ? tr("%zu saves, %.1f GB") : tr("%zu saves, %.0f MB"), _saves.size(), total >= 1073741824 ? total / 1073741824.0 : tot
 en "%zu saves, %.1f GB"
 tr "Сохранений: %zu, %.1f ГБ"
 
-# AppExtras.cpp:985  ImGui::Text(total >= 1073741824 ? tr("%zu saves, %.1f GB") : tr("%zu saves, %.0f MB"), _saves.size(), total >= 1073741824 ? total / 1073741824.0 : tot
+# AppExtras.cpp:984  ImGui::Text(total >= 1073741824 ? tr("%zu saves, %.1f GB") : tr("%zu saves, %.0f MB"), _saves.size(), total >= 1073741824 ? total / 1073741824.0 : tot
 en "%zu saves, %.0f MB"
 tr "Сохранений: %zu, %.0f МБ"
 
-# AppExtras.cpp:989  tips::Tip(tr("How many of each character's newest saves to keep."));
+# AppExtras.cpp:988  tips::Tip(tr("How many of each character's newest saves to keep."));
 en "How many of each character's newest saves to keep."
 tr "Сколько самых новых сохранений каждого персонажа оставить."
 
-# AppExtras.cpp:991  if (ImGui::Button(Fmt(tr("Tick all but the newest %d of each character"), _keepNewest).c_str())) {
+# AppExtras.cpp:990  if (ImGui::Button(Fmt(tr("Tick all but the newest %d of each character"), _keepNewest).c_str())) {
 en "Tick all but the newest %d of each character"
 tr "Отметить все, кроме %d новейших у каждого персонажа"
 
-# AppExtras.cpp:998  tips::Tip(tr("Tick every save except each character's newest ones. Nothing is deleted until you press Delete."));
+# AppExtras.cpp:997  tips::Tip(tr("Tick every save except each character's newest ones. Nothing is deleted until you press Delete."));
 en "Tick every save except each character's newest ones. Nothing is deleted until you press Delete."
 tr "Отметить все сохранения, кроме самых новых у каждого персонажа. Ничего не удаляется, пока вы не нажмёте «Удалить»."
 
-# AppExtras.cpp:1000  if (ImGui::Button(tr("Untick all"))) {
+# AppExtras.cpp:999  if (ImGui::Button(tr("Untick all"))) {
 # AppTools.cpp:1582  if (ImGui::SmallButton(tr("Untick all##fx"))) {
 # AppTransplant.cpp:853  if (ImGui::SmallButton(tr("Untick all"))) {
 en "Untick all"
 tr "Снять все отметки"
 
-# AppExtras.cpp:1003  tips::Tip(tr("Clear every tick."));
+# AppExtras.cpp:1002  tips::Tip(tr("Clear every tick."));
 en "Clear every tick."
 tr "Снять все отметки."
 
-# AppExtras.cpp:1005  if (ImGui::Button(tr("Read the folder again"))) {
+# AppExtras.cpp:1004  if (ImGui::Button(tr("Read the folder again"))) {
 en "Read the folder again"
 tr "Перечитать папку"
 
-# AppExtras.cpp:1008  tips::Tip(tr("List the saves again (after the game wrote new ones)."));
+# AppExtras.cpp:1007  tips::Tip(tr("List the saves again (after the game wrote new ones)."));
 en "List the saves again (after the game wrote new ones)."
 tr "Перечислить сохранения заново (после того как игра записала новые)."
 
-# AppExtras.cpp:1024  const bool open = ImGui::CollapsingHeader(Fmt(tr("%s  (%zu saves, %zu ticked)###%s"), text::ToUtf8(c).c_str(), idx.size(), sel, c.c_str()).c_str(),
+# AppExtras.cpp:1023  const bool open = ImGui::CollapsingHeader(Fmt(tr("%s  (%zu saves, %zu ticked)###%s"), text::ToUtf8(c).c_str(), idx.size(), sel, c.c_str()).c_str(),
 en "%s  (%zu saves, %zu ticked)"
 tr "%s  (сохранений: %zu, отмечено: %zu)"
 
-# AppExtras.cpp:1026  tips::Tip(tr("This character's saves, newest first."));
+# AppExtras.cpp:1025  tips::Tip(tr("This character's saves, newest first."));
 en "This character's saves, newest first."
 tr "Сохранения этого персонажа, новые сверху."
 
-# AppExtras.cpp:1051  ImGui::Text(tr("level %u"), s.playerLevel);
+# AppExtras.cpp:1050  ImGui::Text(tr("level %u"), s.playerLevel);
 en "level %u"
 tr "уровень %u"
 
-# AppExtras.cpp:1055  ImGui::Text(tr("%.1f MB%s"), (s.size + s.cosaveSize) / 1048576.0, isOpen ? tr("  (open)") : "");
+# AppExtras.cpp:1054  ImGui::Text(tr("%.1f MB%s"), (s.size + s.cosaveSize) / 1048576.0, isOpen ? tr("  (open)") : "");
 en "%.1f MB%s"
 tr "%.1f МБ%s"
 
-# AppExtras.cpp:1055  ImGui::Text(tr("%.1f MB%s"), (s.size + s.cosaveSize) / 1048576.0, isOpen ? tr("  (open)") : "");
+# AppExtras.cpp:1054  ImGui::Text(tr("%.1f MB%s"), (s.size + s.cosaveSize) / 1048576.0, isOpen ? tr("  (open)") : "");
 en "  (open)"
 tr "  (открыто)"
 
-# AppExtras.cpp:1064  if (ImGui::Button(Fmt(tr("Delete %zu ticked saves (%.1f MB) to the Recycle Bin"), ticked, tickedBytes / 1048576.0).c_str())) {
+# AppExtras.cpp:1063  if (ImGui::Button(Fmt(tr("Delete %zu ticked saves (%.1f MB) to the Recycle Bin"), ticked, tickedBytes / 1048576.0).c_str())) {
 en "Delete %zu ticked saves (%.1f MB) to the Recycle Bin"
 tr "Удалить отмеченные сохранения (%zu, %.1f МБ) в корзину"
 
-# AppExtras.cpp:1065  confirm(tr("Delete saves"), Fmt(tr("Move %zu saves and their .skse / .f4se files to the Recycle Bin?"), ticked), [this] {
+# AppExtras.cpp:1064  confirm(tr("Delete saves"), Fmt(tr("Move %zu saves and their .skse / .f4se files to the Recycle Bin?"), ticked), [this] {
 en "Delete saves"
 tr "Удаление сохранений"
 
-# AppExtras.cpp:1065  confirm(tr("Delete saves"), Fmt(tr("Move %zu saves and their .skse / .f4se files to the Recycle Bin?"), ticked), [this] {
+# AppExtras.cpp:1064  confirm(tr("Delete saves"), Fmt(tr("Move %zu saves and their .skse / .f4se files to the Recycle Bin?"), ticked), [this] {
 en "Move %zu saves and their .skse / .f4se files to the Recycle Bin?"
 tr "Переместить сохранения (%zu) и их файлы .skse / .f4se в корзину?"
 
-# AppExtras.cpp:1077  _status = Fmt(tr("Moved %zu files to the Recycle Bin"), files.size());
+# AppExtras.cpp:1076  _status = Fmt(tr("Moved %zu files to the Recycle Bin"), files.size());
 en "Moved %zu files to the Recycle Bin"
 tr "Перемещено в корзину файлов: %zu"
 
-# AppExtras.cpp:1079  _error = tr("Some saves could not be deleted (in use, or no permission). The list shows what is left.");
+# AppExtras.cpp:1078  _error = tr("Some saves could not be deleted (in use, or no permission). The list shows what is left.");
 en "Some saves could not be deleted (in use, or no permission). The list shows what is left."
 tr "Некоторые сохранения не удалось удалить (используются или нет прав). Список показывает, что осталось."
 
-# AppExtras.cpp:1085  tips::Tip(tr("Move the ticked saves and their .skse / .f4se files to the Recycle Bin."));
+# AppExtras.cpp:1084  tips::Tip(tr("Move the ticked saves and their .skse / .f4se files to the Recycle Bin."));
 en "Move the ticked saves and their .skse / .f4se files to the Recycle Bin."
 tr "Переместить отмеченные сохранения и их файлы .skse / .f4se в корзину."
 

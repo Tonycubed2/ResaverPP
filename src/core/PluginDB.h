@@ -3,6 +3,8 @@
 // (ReSaver's "Parse ESP/ESMs"). Only what is needed for naming is kept: editor ID, display
 // name, record type, and the base object of placed references the save mentions.
 #pragma once
+#include <cctype>
+#include <set>
 
 #include "Quests.h"
 #include "ScriptSources.h"
@@ -105,10 +107,19 @@ namespace ess
 		}
 
 		std::vector<std::string> missing;  // plugins of the save whose file was not found
+		// True only for a plugin that was found and read to the end (not missing, no read error): only then does
+		// "the form is not in it" mean the plugin really no longer has the form. a_plugin: any letter case.
+		bool wasRead(const std::string& a_plugin) const
+		{
+			std::string l = a_plugin;
+			for (auto& c : l) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			return _readOk.contains(l);
+		}
 		std::vector<std::string> errors;
 		std::size_t              pluginsRead = 0, recordsRead = 0;
 
 	private:
+		std::set<std::string> _readOk;  // lower-case names of the plugins read completely
 		std::string str(std::uint32_t off) const { return off == UINT32_MAX ? std::string() : std::string(_pool.data() + off); }
 		std::uint32_t addString(const std::string& s);
 

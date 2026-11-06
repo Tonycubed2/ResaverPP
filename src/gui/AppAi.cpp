@@ -1149,12 +1149,6 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		_ai.runOnUi([&]() -> std::string {
 			const auto active = currentLoadOrder();
 			const auto* db = openSave ? _db.get() : nullptr;  // (the plugin names are read for the open save's plugins)
-			std::set<std::string> dbRead;
-			if (db) {
-				for (const auto& p : db->plugins()) {
-					dbRead.insert(LowerA(p));
-				}
-			}
 			if (!active.known && !db) {
 				note = "The load order is not known (set the game folder and mod manager in Options > Settings) and plugin names are not "
 				       "read, so only items whose plugin is not in the save's own plugin list are found.\n";
@@ -1175,7 +1169,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 						reason = "its plugin is not in the save's plugin list";
 					} else if (active.known && !active.plugins.contains(low)) {
 						reason = "its plugin is not in your load order";
-					} else if (db && dbRead.contains(low) && !db->find(e.item)) {
+					} else if (db && db->wasRead(plugin) && !db->find(e.item)) {
 						reason = "the item is no longer in its plugin (the mod was updated or changed)";
 					} else {
 						continue;
