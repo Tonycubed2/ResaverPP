@@ -478,7 +478,7 @@ void App::drawQuestsList()
 	ImGui::TextUnformatted(tr("Show"));
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(-1);
-	const char* shows[] = { fo4() ? tr("In the Pip-Boy") : tr("In the journal"), tr("Running"), tr("Completed"), tr("All in this save"), tr("Every quest in the game") };
+	const char* shows[] = { fo4() ? tr("In the Pip-Boy") : tr("In the journal"), trc("quests", "Running"), tr("Completed"), tr("All in this save"), tr("Every quest in the game") };
 	ImGui::Combo("##qshow", &_questShow, shows, 5);
 	tips::Tip(tr("Which quests to list: those your journal shows, running ones, completed ones, every quest in this save, or every quest in your plugins."));
 	ImGui::AlignTextToFramePadding();

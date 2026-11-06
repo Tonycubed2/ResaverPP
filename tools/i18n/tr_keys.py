@@ -2,7 +2,7 @@
 """Lists the interface texts the code translates, and keeps lang/<code>.txt in step with them.
 
 A text is a key when it is a string literal (or adjacent literals) written straight inside tr(...), trId(...)
-or N_(...) in src/gui. The part after ## / ### (an ImGui id) is not part of the key.
+or N_(...) in src/gui; trc("context", "English") gives the key "context|English". The part after ## / ### (an ImGui id) is not part of the key.
 
   tr_keys.py --list                     every key, with where it is used
   tr_keys.py --check lang/ru.txt        fails (exit 1) when a key used in the code is not in the catalogue
@@ -47,8 +47,15 @@ def keys_in(path):
     src = open(path, encoding='utf-8').read()
     lines = src.split('\n')
     res = []
-    for m in re.finditer(r'(?<![A-Za-z0-9_:.>])(tr|trId|N_)\(\s*(?=")', src):
+    for m in re.finditer(r'(?<![A-Za-z0-9_:.>])(tr|trId|N_|trc)\(\s*(?=")', src):
         i = m.end()
+        ctx = None
+        if m.group(1) == 'trc':  # trc("context", "English"): the key is "context|English"
+            mc = re.match(r'"([A-Za-z0-9_ ]+)"\s*,\s*(?=")', src[i:])
+            if not mc:
+                continue
+            ctx = mc.group(1)
+            i += mc.end()
         parts = []
         # adjacent literals, with comments and whitespace between them
         while True:
@@ -72,6 +79,8 @@ def keys_in(path):
             if sep in text:
                 text = text.split(sep)[0]
                 break
+        if ctx:
+            text = ctx + '|' + text
         if text:
             ln = src.count('\n', 0, m.start()) + 1
             res.append((text, ln, lines[ln - 1].strip()))

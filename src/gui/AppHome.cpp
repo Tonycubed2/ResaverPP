@@ -253,10 +253,10 @@ void App::drawHome()
 					tr("Delete scripts whose .pex file is no longer installed (a removed mod), with their instances and references, and end threads "
 					"running them. Back up your save first."),
 					HomeRisk::kCaution, r ? n(r->undefinedScripts + r->undefinedInstances) : -1 },
-				{ Sc::kRemoveUnattached, tr("Remove unattached instances"), tr("scripts attached to nothing"),
+				{ Sc::kRemoveUnattached, trc("home", "Remove unattached instances"), tr("scripts attached to nothing"),
 					tr("Delete script instances that are attached to no object (their object is gone). They do nothing but take space. Usually safe."),
 					HomeRisk::kSafe, r ? n(r->unattached) : -1 },
-				{ Sc::kTerminateUndefined, tr("Stop threads of missing scripts"), tr("running scripts that can never finish"),
+				{ Sc::kTerminateUndefined, trc("home", "Stop threads of missing scripts"), tr("running scripts that can never finish"),
 					tr("End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy."), HomeRisk::kSafe,
 					r ? n(r->undefinedThreads) : -1 },
 				{ Sc::kOrphans, tr("Missing spawned objects"), tr("scripts on objects that are gone"),

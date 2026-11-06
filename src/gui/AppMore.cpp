@@ -748,7 +748,15 @@ void App::drawSettings()
 		tips::Tip(tr("For translators: reads lang/<code>.txt next to ReSaverPP.exe again, so your edits show without restarting. See TRANSLATING.md."));
 		if (!i18n::IsEnglish()) {
 			ImGui::SameLine();
-			ImGui::TextDisabled("%s", i18n::LoadNote().c_str());
+			const auto info = i18n::LastLoad();
+			std::string note = Fmt(tr("%zu texts built in"), info.builtin);
+			if (!info.file.empty()) {
+				note += Fmt(tr(", %zu from %s"), info.fromFile, info.file.c_str());
+			}
+			if (!info.error.empty()) {
+				note += Fmt(tr(" (stopped at an error: %s)"), info.error.c_str());
+			}
+			ImGui::TextDisabled("%s", note.c_str());
 		}
 	}
 	ImGui::SeparatorText(tr("Game"));

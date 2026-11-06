@@ -14,7 +14,8 @@
 //
 // Texts are C-style quoted: \n, \t, \" and \\ are the escapes. An empty tr "" means "not translated yet".
 // ImGui ids: in "Set##gold" / "Perks (%zu)###perks" only the part before ## is looked up and translated; the id
-// part is kept as it is. Format strings keep the same printf conversions in the same order (a unit test checks).
+// part is kept as it is. trc("home", "Mods") looks up "home|Mods" first (a translation for that place only).
+// Format strings keep the same printf conversions in the same order (a unit test checks).
 
 #include <string>
 #include <string_view>
@@ -65,14 +66,26 @@ namespace i18n
 	bool SetLanguage(const std::string& a_code);
 	const std::string& Current();
 	bool               IsEnglish();
-	// what happened when the language was loaded: "1234 texts (built-in) + 12 from lang/ru.txt", or an error
+	// what happened when the language was loaded: "1234 texts built in, 12 from lang/ru.txt", or an error (English)
 	std::string LoadNote();
+	struct LoadInfo
+	{
+		std::size_t builtin = 0;   // texts from the catalogue built into the exe
+		std::size_t fromFile = 0;  // texts from lang/<code>.txt next to the exe
+		std::string file;          // "lang/ru.txt" when there was one
+		std::string error;         // a syntax error in it (texts before it are used)
+	};
+	LoadInfo LastLoad();
 
 	// the translation (or the English); the returned pointer stays valid for the whole run
 	const char* Tr(const char* a_en);
 	// like Tr, but for window titles, popups, headers and tabs: the English stays the ImGui id
 	// ("Перенос###Transplant"), so window places and open states do not change with the language
 	const char* TrId(const char* a_en);
+
+	// a text whose translation depends on where it is ("Save" the verb on a button, "Save" the noun as a header):
+	// the catalogue key is "<context>|<English>"; without that key the plain translation of the English is used
+	const char* TrCtx(const char* a_context, const char* a_en);
 
 	// the printf conversions of a format string, in order ("%zu", "%s", "%.1f"); "%%" is not one
 	std::vector<std::string> FormatSpecs(std::string_view a_text);
@@ -81,5 +94,6 @@ namespace i18n
 inline const char* tr(const char* a_en) { return i18n::Tr(a_en); }
 inline const char* tr(const std::string& a_en) = delete;  // would be a dangling pointer: use tr(s.c_str()) on a stable string
 inline const char* trId(const char* a_en) { return i18n::TrId(a_en); }
+inline const char* trc(const char* a_context, const char* a_en) { return i18n::TrCtx(a_context, a_en); }
 // marks a text for the catalogue where it cannot be translated yet (static tables): tr() it where it is shown
 #define N_(a_text) a_text

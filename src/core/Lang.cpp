@@ -24,6 +24,7 @@ namespace i18n
 			std::unordered_map<std::string, std::string>          composed;  // "Set##gold" -> "Задать##gold"
 			std::unordered_map<std::string, std::string>          ids;       // "Transplant" -> "Перенос###Transplant"
 			std::string                                           note;
+			LoadInfo                                              info;
 		};
 
 		std::atomic<Table*> g_table{ nullptr };
@@ -258,6 +259,10 @@ namespace i18n
 				std::string err;
 				const bool  ok = load(ReadFile(p), fromFile, err);
 				known = true;
+				t->info.file = "lang/" + a_code + ".txt";
+				if (!ok) {
+					t->info.error = err;
+				}
 				note += std::string(note.empty() ? "" : ", ") + std::to_string(fromFile) + " from lang/" + a_code + ".txt";
 				if (!ok) {
 					note += " (stopped at an error, " + err + ")";
@@ -271,6 +276,8 @@ namespace i18n
 			return false;
 		}
 		t->note = note;
+		t->info.builtin = builtin;
+		t->info.fromFile = fromFile;
 		g_table.store(t);
 		g_current = a_code;
 		return true;
@@ -283,6 +290,12 @@ namespace i18n
 	{
 		auto* t = g_table.load();
 		return t ? t->note : std::string();
+	}
+
+	LoadInfo LastLoad()
+	{
+		auto* t = g_table.load();
+		return t ? t->info : LoadInfo{};
 	}
 
 	const char* Tr(const char* a_en)
@@ -328,6 +341,29 @@ namespace i18n
 			it->second = std::string(s) + "###" + a_en;
 		}
 		return it->second.c_str();
+	}
+
+	const char* TrCtx(const char* a_context, const char* a_en)
+	{
+		Table* t = g_table.load();
+		if (!t || !a_en || !a_en[0] || !a_context) {
+			return a_en;
+		}
+		std::string key = std::string(a_context) + "|" + a_en;
+		{
+			std::lock_guard l(t->m);
+			if (auto it = t->composed.find(key); it != t->composed.end()) {
+				return it->second.c_str();
+			}
+		}
+		const char* s = Lookup(t, key);
+		if (!s) {
+			return Tr(a_en);
+		}
+		std::lock_guard l(t->m);
+		auto& c = t->composed[key];
+		c = s;
+		return c.c_str();
 	}
 
 	std::vector<std::string> FormatSpecs(std::string_view a_text)

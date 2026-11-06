@@ -1531,7 +1531,7 @@ void App::drawCategories()
 		}
 		item(Cat::kQuests, inJournal, stale > 0);
 	}
-	ImGui::SeparatorText(tr("Save"));
+	ImGui::SeparatorText(trc("sidebar", "Save"));
 	item(Cat::kPlugins, _save->plugins.full.size() + _save->plugins.lite.size());
 	item(Cat::kChangeForms, _save->changeForms.size());
 	ImGui::SeparatorText(tr("Papyrus"));
@@ -3592,7 +3592,12 @@ void App::detailMod(std::uint64_t k)
 		if (_mods->hasSources) {
 			ImGui::TableSetupColumn(tr(".pex from"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 0.6f, 3);
 		}
-		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_NoSort, 280, 4);
+		// the four buttons of a row fit whatever language they are in
+		float actW = ImGui::GetStyle().ItemSpacing.x * 3 + 8;
+		for (const char* l : { tr("Terminate"), tr("Stop"), tr("Kill"), tr("Show") }) {
+			actW += ImGui::CalcTextSize(l).x + ImGui::GetStyle().FramePadding.x * 2;
+		}
+		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_NoSort, std::max(280.0f, actW), 4);
 		ImGui::TableHeadersRow();
 
 		std::vector<const mods::ScriptRow*> list;

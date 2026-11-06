@@ -88,7 +88,8 @@ namespace
 			std::ofstream f(dir / "xx.txt", std::ios::binary);
 			f << "\xEF\xBB\xBF"  // a BOM, as Notepad writes it
 			  << "language \"Test\"\n# comment\nen \"Open\"\ntr \"Otkryt\"\n\nen \"Set\"\ntr \"Zadat\"\nen \"Transplant\"\ntr \"Perenos\"\n"
-			  << "en \"Two\\nlines \\\"q\\\"\"\ntr \"Dve\\nstroki \\\"q\\\"\"\nen \"Untranslated\"\ntr \"\"\n";
+			  << "en \"Two\\nlines \\\"q\\\"\"\ntr \"Dve\\nstroki \\\"q\\\"\"\nen \"Untranslated\"\ntr \"\"\n"
+			  << "en \"Save\"\ntr \"Sokhranit\"\nen \"sidebar|Save\"\ntr \"Sokhranenie\"\n";
 		}
 		i18n::SetLangFolder(dir.string());
 		bool found = false;
@@ -103,6 +104,8 @@ namespace
 		Check(std::strcmp(tr("Set###g2"), "Zadat###g2") == 0, "tr keeps a ### id");
 		Check(std::strcmp(trId("Transplant"), "Perenos###Transplant") == 0, "trId keeps the English as the id");
 		Check(std::strcmp(tr("Two\nlines \"q\""), "Dve\nstroki \"q\"") == 0, "escapes");
+		Check(std::strcmp(trc("sidebar", "Save"), "Sokhranenie") == 0, "trc uses the context's own translation");
+		Check(std::strcmp(trc("menu", "Save"), "Sokhranit") == 0, "trc without a context entry uses the plain translation");
 		const char* u = "Untranslated";
 		Check(tr(u) == u, "an empty translation falls back to the English");
 		const char* n = "Not in the catalogue##x";

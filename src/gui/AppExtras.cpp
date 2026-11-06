@@ -416,7 +416,7 @@ void App::drawHistory()
 
 	if (ImGui::BeginTable("hist", 8, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
-		for (const char* h : { tr("Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms"), tr("Arrays") }) {
+		for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms"), tr("Arrays") }) {
 			ImGui::TableSetupColumn(h);
 		}
 		ImGui::TableHeadersRow();
