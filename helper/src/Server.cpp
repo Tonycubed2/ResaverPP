@@ -4,6 +4,7 @@
 #include "Protocol.h"
 #include "Rescue.h"
 #include "Settings.h"
+#include "SkyFix.h"
 #include "Transplant.h"
 
 namespace Server
@@ -129,6 +130,33 @@ namespace Server
 				}
 				Game::Notify(arg(0), "ReSaver++: game saved as " + st->save);
 				return { "OK", st->save };
+			}
+			// version 13: follower and beast form fixes, done by the game's own scripts (SkyFix.h)
+			if (cmd == "FOLLOWERSET" || cmd == "TEAMMATE" || cmd == "BEASTREVERT") {
+				auto       why = std::make_shared<std::string>("the game did not run it");
+				const auto id = ParseHex(arg(0));
+				const auto a1 = arg(1);
+				const bool ran = Game::RunOnMain(
+					[why, cmd, id, a1, which = arg(0)] {
+						if (cmd == "FOLLOWERSET") {
+							*why = SkyFix::SetFollower(id);
+						} else if (cmd == "TEAMMATE") {
+							*why = SkyFix::Teammate(id, a1 == "1");
+						} else {
+							*why = SkyFix::BeastRevert(which);
+						}
+					},
+					kWait);
+				if (!ran) {
+					return err("the game is busy (it did not answer within 30 seconds)");
+				}
+				const auto notify = cmd == "TEAMMATE" ? arg(2) : arg(1);
+				if (!why->empty()) {
+					Game::Notify(notify, "ReSaverHelper: " + *why);
+					return { "OK", "0", *why };
+				}
+				Game::Notify(notify, cmd == "FOLLOWERSET" ? "ReSaverHelper: follower taken back" : cmd == "TEAMMATE" ? "ReSaverHelper: teammate flag changed" : "ReSaverHelper: turning you back");
+				return { "OK", "1" };
 			}
 			if (cmd == "QUEST") {
 				struct State

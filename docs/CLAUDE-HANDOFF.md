@@ -157,6 +157,23 @@ project; you do the coding, building, delivering and publishing.
   workbenches changed); tools/fo4emu wsdump.cpp + wsemu.py: the game's TESObjectREFR::LoadGame on every reset workbench of all 12
   test saves reads to the exact end with the expected values (the fo4full Sanctuary body stops in its inventory in the emulator,
   edited or not). Not tested in the real game.
+- Skyrim followers / beast form / quests between stages (2026-11-06, branch skyf, not published; needs ReSaverHelper 13 for
+  three commands, which Tony must build in VS2022: `helper/src/SkyFix.h/.cpp` new, `Server.cpp`, `Protocol.h`, cmake lists):
+  `core/FollowersSky.*` (`ess::skyf`), GUI `gui/AppSkyFollowers.cpp` (Tools > Followers and beast form, Save check items via
+  `App::skyfCheckItems`), CLI `--followers --beast-form --stuck-stages --fix-follower-count --fix-animal-count --clear-teammate`.
+  Verified facts (SkyrimSE.exe 1.6.1170 decrypted locally with tp2tools/unstub.py, scratchpad skyf/): teammate = bit 26 of the
+  ACHR "BOOL BITS" (Actor+0xE8, IsPlayerTeammate native 0x9F5500); SetPlayerTeammate 0x68D690 also sets bit 7 of "BOOL FLAGS"
+  (+0x204) and counts PlayerCharacter+0xA10, which is not saved and is recounted in Actor::FinishLoadGame (0x687881); RemoveFromFaction
+  0x68B470 writes a unique NPC's change to its NPC_ (ACTOR_BASE_FACTIONS), others to ExtraFactionChanges; NPC_RACE (flag 25) = RACE
+  (npc+0x158, the actor copies it in SwitchRace 0x69ADF0) + OLDRACE (+0x1E8); ActorState byte 4 = life state. QUST QUEST_RUN_DATA
+  ITEMS1 = alias fills {alias id, flag 0, ref} (matches each ref's AliasInstanceArray in Save88); QUEST_INSTANCES are text-replacement
+  names (BGSQuestInstanceText), not fills. Global variables = table 1 type 3 (vsval n x {RefID, f32}). DialogueFollower 000750BA:
+  stage 400 = DismissFollower(); PlayerWerewolfQuest 0002BA16 / DLC1PlayerVampireQuest (Dawnguard 0071D0): stage 100 = ShiftBack().
+  Offline edits: only PlayerFollowerCount / PlayerAnimalCount and the teammate bits. Race/beast state is fixed only in game
+  (SETSTAGE <quest> 100, or helper 13 BEASTREVERT: guards __tryingToShiftBack/__shiftingBack/__shuttingDown set false, then
+  ShiftBack()). Helper 13 also fixes Transplant's follower count global (0BCC98; 10-12 used 0BCCAE, a perk; LE helper too).
+  Tests: rs_unit TestSkyFollowers with `RESAVERPP_SKY_SAVES="dir;dir"`. SkyrimIstari's Save89 has the "you already have a follower"
+  state (count 1, alias empty). No save in beast form was available: those verdicts are tested on human saves only.
 - Versions are whole numbers, +1 per release. **Current published version: v57** (SE, LE and Fallout 4 pages, 2026-11-05; v57 adds the Russian interface, the Leftover items plugin-read fix and Fallout 4 Reset Havok / Purify / Merged patch / AI / NPC+player leftovers; ReSaverHelper F4 13; the Fallout 4 main file is packed as Data/Tools/ReSaverPP/ with mod manager download on: nexus-upload layout=data-tools, mod_manager=true) (v53 was never published on its own). v55: Collect all logs gathers Fallout 4 (F4SE folder, Logs, Fallout4*.ini, AppData Fallout4 plugins.txt, Fallout4.exe version; zip "Fallout 4 logs <date>.zip").
 - Fallout 4 Reset Havok + Purify FormLists (2026-11-05, not published): REFR change flag 2 = initial data + havok blob, read
   by the initial data loader 0xbf77b0 (not LoadGame) through 0xc10b00 blob kind 2: u8 (form version the blob was written

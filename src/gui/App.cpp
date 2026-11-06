@@ -113,7 +113,7 @@ void App::open(const std::filesystem::path& a_path)
 		if (_save->isFO4()) {
 			// Fallout 4: its own setup (mods folder, game folder, profile, load order); the tools that need the
 			// save's change forms decoded (Skyrim only so far) close
-			_showPlayer = _showActors = _showTransplant = _showMerge = false;
+			_showPlayer = _showActors = _showTransplant = _showMerge = _showSkyFollowers = false;
 			if (!_settingsLoaded) {
 				loadSettings();
 			}
@@ -1068,6 +1068,10 @@ void App::draw()
 		watchdog::Section("drawActors");
 		drawActors();
 	}
+	if (_showSkyFollowers && _save && !fo4()) {
+		watchdog::Section("drawSkyFollowers");
+		drawSkyFollowers();
+	}
 	if (_showLeftovers && _save) {
 		watchdog::Section("drawLeftovers");
 		drawLeftovers();
@@ -1342,6 +1346,9 @@ void App::drawMenu()
 			          "build meter is full."));
 		}
 		tips::Tip(tr("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you."));
+		ImGui::MenuItem(tr("Followers and beast form..."), nullptr, &_showSkyFollowers, !fo4());
+		tips::Tip(tr("Your followers (dismissed, lost, \"you already have a follower\"), a werewolf or Vampire Lord form you are stuck in, "
+					 "and quests that were between stages, with the fixes."));
 		ImGui::Separator();
 		if (ImGui::MenuItem(tr("Save history (growth over time)..."))) {
 			shortcut(Sc::kHistory);

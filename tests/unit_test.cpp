@@ -19,6 +19,7 @@
 #include "core/PluginDB.h"
 #include "core/Quests.h"
 #include "core/ChangeFormData.h"
+#include "core/FollowersSky.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
 #include "core/WorkshopFO4.h"
@@ -3733,6 +3734,186 @@ void TestFo4HavokFormLists()
 	std::printf("(fo4 havok / purify: %zu real saves)\n", tested);
 }
 
+// Skyrim followers / beast form (core/FollowersSky): the global variables block in memory, then real saves from
+// RESAVERPP_SKY_SAVES="dir;dir" (Tony's Save88, SkyrimIstari's Save89: PlayerFollowerCount 1 with an empty Follower alias)
+void TestSkyFollowers()
+{
+	namespace fs = std::filesystem;
+	{
+		ess::SaveFile s;
+		ess::GlobalData g;
+		g.type = 3;
+		g.raw = { 2 << 2 };  // vsval 2
+		auto put = [&](std::uint32_t id, float v) {
+			const std::uint32_t r = (1u << 22) | id;  // a Skyrim.esm form id (RefID type 1)
+			g.raw.push_back(static_cast<std::uint8_t>(r >> 16));
+			g.raw.push_back(static_cast<std::uint8_t>(r >> 8));
+			g.raw.push_back(static_cast<std::uint8_t>(r));
+			std::uint8_t b[4];
+			std::memcpy(b, &v, 4);
+			g.raw.insert(g.raw.end(), b, b + 4);
+		};
+		put(ess::skyf::kPlayerFollowerCount, 1.0f);
+		put(0x39, 47.5f);
+		s.table1.push_back(std::move(g));
+		std::string err;
+		auto        all = ess::skyf::ReadGlobals(s, &err);
+		Check(err.empty() && all.size() == 2 && all[0].formID == 0x0BCC98 && all[0].value == 1.0f && all[1].formID == 0x39 && all[1].value == 47.5f,
+			"skyf: the global variables block (vsval count, RefID + f32)");
+		Check(ess::skyf::SetGlobal(s, 0x0BCC98, 0.0f).empty() && ess::skyf::ReadGlobals(s)[0].value == 0.0f && ess::skyf::ReadGlobals(s)[1].value == 47.5f,
+			"skyf: a global set in place, the others kept");
+		Check(!ess::skyf::SetGlobal(s, 0x123456, 1.0f).empty(), "skyf: a global the save does not have is refused");
+		s.table1[0].raw.push_back(0);
+		Check(ess::skyf::ReadGlobals(s, &err).empty() && !err.empty(), "skyf: a block with bytes left over is not trusted");
+		// a FollowerActor's rank: the reference's change first, then the base NPC's, else the plugin's (-2)
+		ess::skyf::FollowerActor a;
+		a.refFactions = { { ess::skyf::kCurrentFollowerFaction, -1 } };
+		a.baseFactions = { { ess::skyf::kCurrentFollowerFaction, 0 }, { ess::skyf::kDismissedFollowerFaction, 0 } };
+		Check(a.rank(ess::skyf::kCurrentFollowerFaction) == -1 && a.inFaction(ess::skyf::kDismissedFollowerFaction) &&
+				  a.rank(ess::skyf::kPlayerFollowerFaction) == -2,
+			"skyf: faction rank from the reference, then the base NPC");
+	}
+
+	// the beast form verdicts (PlayerWerewolfChangeScript / DLC1PlayerVampireChangeScript), one per case
+	{
+		using B = ess::skyf::BeastState;
+		auto make = [](ess::skyf::Beast k) {
+			B b;
+			b.kind = k;
+			b.questEdid = k == ess::skyf::Beast::kWerewolf ? "PlayerWerewolfQuest" : "DLC1PlayerVampireQuest";
+			b.questInSave = true;
+			b.beastRace = 0x000CDD84;
+			b.originalRace = 0x00013746;
+			return b;
+		};
+		auto wolf = make(ess::skyf::Beast::kWerewolf);
+		wolf.questRunning = true;
+		wolf.stagesDone = { 0, 1, 10 };
+		wolf.raceIsBeast = true;
+		wolf.hasShiftBackTime = true;
+		wolf.shiftBackTime = 10.0f;
+		wolf.gameDaysPassed = 10.01f;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kNone, "skyf beast: a werewolf whose time is not up is fine");
+		wolf.gameDaysPassed = 10.5f;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kSetStage, "skyf beast: a werewolf past its time: stage 100");
+		wolf.untimed = true;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kNone, "skyf beast: an untimed werewolf (C03Rampage) is left alone");
+		wolf.untimed = false;
+		wolf.stagesDone.push_back(100);
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert, "skyf beast: still a werewolf after stage 100: the script's ShiftBack again");
+		wolf.questRunning = false;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert && wolf.problem.find("not running") != std::string::npos, "skyf beast: a werewolf with the quest stopped");
+		wolf.originalRace = 0;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kCannot, "skyf beast: no race to go back to: the console");
+		wolf.originalRace = 0x00013746;
+		wolf.raceIsBeast = false;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kNone, "skyf beast: human, quest stopped, nothing left: fine");
+		wolf.spells = { 0x0010C6E8 };
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert, "skyf beast: human but the claws are still there");
+		wolf.spells.clear();
+		wolf.questRunning = true;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert && wolf.problem.find("Shutdown") != std::string::npos, "skyf beast: human but the quest still runs after stage 100");
+		auto lord = make(ess::skyf::Beast::kVampireLord);
+		lord.questRunning = true;
+		lord.stagesDone = { 0, 1, 10 };
+		lord.raceIsBeast = true;
+		lord.hasRevertPower = true;
+		ess::skyf::Judge(lord);
+		Check(lord.fix == B::Fix::kNone, "skyf beast: a Vampire Lord with Revert Form is fine (no time limit)");
+		lord.hasRevertPower = false;
+		ess::skyf::Judge(lord);
+		Check(lord.fix == B::Fix::kSetStage, "skyf beast: a Vampire Lord without Revert Form: stage 100");
+	}
+
+	const char* env = std::getenv("RESAVERPP_SKY_SAVES");
+	if (!env || !*env) {
+		std::printf("(skyf: RESAVERPP_SKY_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) {
+			e = all.size();
+		}
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".ess") {
+					files.push_back(f.path());
+				}
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	for (const auto& f : files) {
+		const auto tag = "skyf " + f.filename().string().substr(0, 12) + ": ";
+		auto       save = ess::SaveFile::load(f);
+		const auto st = ess::skyf::ReadFollowers(*save);
+		Check(st.error.empty() && st.questInSave && st.scriptFound && (st.hasCount || st.followerCount == 0.0f), (tag + "the follower quest and its script are read (a count never changed in game is not saved: 0)").c_str());
+		std::size_t teammates = 0;
+		for (const auto& a : st.actors) {
+			teammates += a.teammate ? 1 : 0;
+			Check(a.decoded, (tag + "every follower-sign actor's state is read").c_str());
+		}
+		const bool stuckCount = std::any_of(st.findings.begin(), st.findings.end(), [](const ess::skyf::Finding& x) { return x.issue == ess::skyf::Issue::kCountWithoutFollower; });
+		Check(stuckCount == (st.followerCount >= 1 && !st.inAlias(ess::skyf::kFollowerAlias)), (tag + "\"you already have a follower\" exactly when the count is 1 and the alias empty").c_str());
+		for (const auto& b : ess::skyf::ReadBeastForms(*save)) {
+			Check(!b.raceIsBeast && b.fix == ess::skyf::BeastState::Fix::kNone, (tag + b.questEdid + ": a human player with nothing left over").c_str());
+		}
+		// the fixes: the count, then one teammate flag; the save writes and reads back with only those bytes changed
+		if (stuckCount) {
+			std::string done;
+			Check(ess::skyf::FixFollowerCount(*save, false, &done).empty() && done == "PlayerFollowerCount 1 -> 0", (tag + "the count fixed").c_str());
+			Check(!ess::skyf::FixFollowerCount(*save, false).empty(), (tag + "a count that already fits is left alone").c_str());
+		}
+		const ess::skyf::FollowerActor* mate = nullptr;
+		for (const auto& a : st.actors) {
+			if (a.teammate && !mate) {
+				mate = &a;
+			}
+		}
+		if (mate) {
+			const auto id = mate->formID;
+			Check(ess::skyf::ClearTeammate(*save, id).empty(), (tag + "a teammate flag switched off").c_str());
+			Check(!ess::skyf::ClearTeammate(*save, id).empty(), (tag + "an actor that is no teammate is refused").c_str());
+			Check(!ess::skyf::ClearTeammate(*save, 0x14).empty(), (tag + "never the player").c_str());
+		}
+		const auto bytes = save->serialize();
+		const auto tmp = fs::temp_directory_path() / "rs_skyf_test.ess";
+		{
+			std::ofstream o(tmp, std::ios::binary);
+			o.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		auto       back = ess::SaveFile::load(tmp);
+		const auto st2 = ess::skyf::ReadFollowers(*back);
+		std::size_t teammates2 = 0;
+		for (const auto& a : st2.actors) {
+			teammates2 += a.teammate ? 1 : 0;
+		}
+		Check(teammates2 + (mate ? 1 : 0) == teammates && (!stuckCount || st2.followerCount == 0.0f) &&
+				  std::none_of(st2.findings.begin(), st2.findings.end(), [](const ess::skyf::Finding& x) { return x.issue == ess::skyf::Issue::kCountWithoutFollower; }),
+			(tag + "written and read back with the fixes").c_str());
+		std::error_code ec;
+		fs::remove(tmp, ec);
+		for (const auto& x : ess::skyf::FindStuckStages(*save)) {
+			Check(x.quest != 0 && !x.topFrame.empty(), (tag + "a running stage script names its quest and where it waits").c_str());
+		}
+	}
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -3766,6 +3947,7 @@ int main()
 	TestFo4ActorPackages();
 	TestFo4Player();
 	TestFo4Combat();
+	TestSkyFollowers();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

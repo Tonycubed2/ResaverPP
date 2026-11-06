@@ -780,7 +780,8 @@ namespace Transplant
 				q->ForceRefIntoAlias(static_cast<std::uint32_t>(Num(p[2])), actor);
 				++forced;
 				if (q->GetFormID() == 0x000750BA) {  // the vanilla follower quest: one follower taken
-					if (auto* g = Lookup("Skyrim.esm", "0BCCAE")) {
+					// PlayerFollowerCount 0BCC98 (was 0BCCAE, the perk ShieldWall00: the count was never set)
+					if (auto* g = Lookup("Skyrim.esm", "0BCC98")) {
 						if (auto* glob = g->As<RE::TESGlobal>()) {
 							glob->value = 1.0f;
 						}

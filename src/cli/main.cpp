@@ -2,6 +2,7 @@
 #include <cmath>
 #include <tuple>
 // ReSaver++ command line - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
+#include "core/FollowersSky.h"
 #include "core/Batch.h"
 #include "core/Bsa.h"
 #include "core/CliHelp.h"
@@ -478,6 +479,8 @@ int main(int argc, char** argv)
 	std::string              batchFile, compareWith, reportFile, transplantFrom;
 	bool                     dryRun = false, spawned = false, spawnedGone = false, charged = false, allowDamaged = false;
 	bool                     pathIdles = false, fixPathIdles = false;
+	bool                     followersView = false, beastView = false, stuckStagesView = false, fixFollowerCount = false, fixAnimalCount = false;
+	std::vector<std::uint32_t> clearTeammates;
 	int                      fixCharges = 0;
 	bool                     questsView = false;
 	bool journalOnly = false;
@@ -661,6 +664,28 @@ int main(int argc, char** argv)
 			pathIdles = true;
 		} else if (a == "--fix-path-idles") {
 			fixPathIdles = true;
+		} else if (a == "--followers") {
+			followersView = true;
+		} else if (a == "--beast-form") {
+			beastView = true;
+		} else if (a == "--stuck-stages") {
+			stuckStagesView = true;
+		} else if (a == "--fix-follower-count") {
+			fixFollowerCount = true;
+		} else if (a == "--fix-animal-count") {
+			fixAnimalCount = true;
+		} else if (a == "--clear-teammate") {
+			// one form id or several, separated by commas (hex, as --followers shows them)
+			const auto list = next();
+			std::size_t start = 0;
+			for (std::size_t i = 0; i <= list.size(); ++i) {
+				if (i == list.size() || list[i] == ',') {
+					if (i > start) {
+						clearTeammates.push_back(static_cast<std::uint32_t>(std::stoul(list.substr(start, i - start), nullptr, 16)));
+					}
+					start = i + 1;
+				}
+			}
 		} else if (a == "--charged") {
 			charged = true;
 		} else if (a == "--fix-charges") {
@@ -753,7 +778,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty() || fixFollowerCount || fixAnimalCount || !clearTeammates.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -1037,7 +1062,7 @@ int main(int argc, char** argv)
 			return 3;
 		}
 		ScriptSources src;
-		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone || questsView || effectsView || !removeEffects.empty() || fo4Settlements)) {
+		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone || questsView || effectsView || !removeEffects.empty() || fo4Settlements || followersView || beastView || stuckStagesView)) {
 			std::filesystem::path profDir = profile, overwrite, gameData;
 			if (auto mo2 = FindMo2Instance(sources)) {
 				if (profDir.empty()) {
@@ -1141,6 +1166,107 @@ int main(int argc, char** argv)
 			std::printf("%zu character(s) saved waiting for an idle the save does not keep (this save crashes on load)\n", stuck.size());
 			for (const auto& s : stuck) {
 				std::printf("  %08X  %zu path follower(s) in state 14\n", s.formID, s.count);
+			}
+		}
+		if (followersView || beastView || stuckStagesView) {
+			std::unique_ptr<PluginDB> db;
+			if (!src.empty()) {
+				PluginDB::Input in2;
+				PrepareInput(*save, in2);
+				in2.sources = src;
+				PluginDB::Progress prog;
+				db = std::make_unique<PluginDB>();
+				db->load(in2, prog);
+			}
+			auto nm = [&](std::uint32_t id) -> std::string {
+				if (!db || !id) {
+					return {};
+				}
+				const auto d = db->describe(id);
+				return d.empty() ? std::string() : " " + d;
+			};
+			if (followersView) {
+				const auto st = skyf::ReadFollowers(*save, [&](std::uint32_t ref) -> std::uint32_t {
+					const auto* f = db ? db->find(ref) : nullptr;
+					return f ? f->base : 0;
+				});
+				if (!st.error.empty()) {
+					std::fprintf(stderr, "%s\n", st.error.c_str());
+					return 1;
+				}
+				std::printf("vanilla follower quest (DialogueFollower 000750BA): %s; PlayerFollowerCount %s, PlayerAnimalCount %s\n",
+					st.questRunning ? "running" : (st.questInSave ? "not running" : "not in the save"),
+					st.hasCount ? Fmt("%g", st.followerCount).c_str() : "0 (never changed in game)", st.hasAnimalCount ? Fmt("%g", st.animalCount).c_str() : "0 (never changed in game)");
+				for (const auto& [al, ref] : st.runAliases) {
+					std::printf("  quest alias %d (%s) -> %08X%s\n", al, al == skyf::kFollowerAlias ? "Follower" : al == skyf::kAnimalAlias ? "Animal" : "?", ref, nm(ref).c_str());
+				}
+				std::printf("%zu actor(s) with a follower sign:\n", st.actors.size());
+				for (const auto& a : st.actors) {
+					std::string why;
+					auto        add = [&](const std::string& w) { why += (why.empty() ? "" : ", ") + w; };
+					if (a.inFollowerAlias) add("Follower alias");
+					if (a.inAnimalAlias) add("Animal alias");
+					if (a.teammate) add("teammate");
+					if (a.inFaction(skyf::kCurrentFollowerFaction)) add("CurrentFollowerFaction");
+					if (a.inFaction(skyf::kPlayerFollowerFaction)) add("PlayerFollowerFaction");
+					if (a.inFaction(skyf::kDismissedFollowerFaction)) add("dismissed");
+					if (a.inFaction(skyf::kCurrentHireling)) add("hireling");
+					if (a.dead()) add("dead");
+					if (a.disabled) add("disabled");
+					if (!a.aliases.empty()) add(Fmt("%zu quest alias(es)", a.aliases.size()));
+					std::printf("  %08X%s: %s%s\n", a.formID, nm(a.formID).c_str(), why.c_str(),
+						a.hasPosition ? Fmt("; in %08X%s", a.cell, nm(a.cell).c_str()).c_str() : "");
+				}
+				std::printf("%zu problem(s)\n", st.findings.size());
+				for (const auto& f : st.findings) {
+					std::printf("  %s%s%s\n    %s\n", f.actor ? Fmt("%08X", f.actor).c_str() : "the follower quest", nm(f.actor).c_str(), "", f.text.c_str());
+				}
+			}
+			if (beastView) {
+				const auto list = skyf::ReadBeastForms(*save);
+				if (list.empty()) {
+					std::printf("the player has never been a werewolf or a Vampire Lord in this save\n");
+				}
+				for (const auto& b : list) {
+					std::printf("%s (%08X): %s, stages done:", b.questEdid.c_str(), b.quest, b.questRunning ? "running" : (b.questInSave ? "not running" : "not in the save"));
+					for (auto st : b.stagesDone) {
+						std::printf(" %d", st);
+					}
+					std::printf("\n  race %08X%s (%s)%s, beast race %08X%s, race to go back to %08X%s\n", b.playerRace, nm(b.playerRace).c_str(), b.playerRaceFrom.c_str(),
+						b.raceIsBeast ? " = THE BEAST RACE" : "", b.beastRace, nm(b.beastRace).c_str(), b.originalRace, nm(b.originalRace).c_str());
+					std::printf("  script guards: tracking %d, trying to shift back %d, shifting back %d, shutting down %d\n", b.trackingStarted, b.tryingToShiftBack,
+						b.shiftingBack, b.shuttingDown);
+					for (auto x : b.spells) std::printf("  still has spell %08X%s\n", x, nm(x).c_str());
+					for (auto x : b.factions) std::printf("  still in faction %08X%s\n", x, nm(x).c_str());
+					for (auto x : b.items) std::printf("  still carries %08X%s\n", x, nm(x).c_str());
+					using F = skyf::BeastState::Fix;
+					std::printf("  %s\n", b.fix == F::kNone ? "nothing wrong" : b.problem.c_str());
+					if (b.fix == F::kSetStage) {
+						std::printf("  fix in the running game: setstage %s %d (ReSaverHelper SETSTAGE %08X %d)\n", b.questEdid.c_str(), skyf::kShiftBackStage, b.quest, skyf::kShiftBackStage);
+					} else if (b.fix == F::kGameRevert) {
+						std::printf("  fix in the running game: ReSaverHelper 13 BEASTREVERT %s (the script's own ShiftBack)\n", b.kind == skyf::Beast::kWerewolf ? "werewolf" : "vampire");
+					}
+				}
+			}
+			if (stuckStagesView) {
+				const auto list = skyf::FindStuckStages(*save, [&](std::uint32_t q) {
+					std::vector<int> v;
+					if (const auto* d = db ? db->quest(q) : nullptr) {
+						for (const auto& st : d->stages) {
+							if (st.flags & 4) {
+								v.push_back(st.index);
+							}
+						}
+					}
+					return v;
+				});
+				std::printf("%zu quest stage(s) not finished%s\n", list.size(), db ? "" : " (give --sources for the shut-down stage check and names)");
+				for (const auto& x : list) {
+					std::printf("  %08X%s stage %d: %s\n    %s\n", x.quest, nm(x.quest).c_str(), x.stage, x.kind.c_str(), x.text.c_str());
+				}
+			}
+			if (!edits) {
+				return 0;
 			}
 		}
 		if (charged) {
@@ -1978,6 +2104,26 @@ int main(int argc, char** argv)
 		}
 		if (fixPathIdles) {
 			std::printf("fixed the path of %zu character(s) (state 14 -> 1)\n", cf::FixStuckPathIdles(*save));
+		}
+		if (fixFollowerCount || fixAnimalCount) {
+			for (const bool animal : { false, true }) {
+				if (animal ? !fixAnimalCount : !fixFollowerCount) {
+					continue;
+				}
+				std::string done;
+				if (const auto why = skyf::FixFollowerCount(*save, animal, &done); !why.empty()) {
+					std::fprintf(stderr, "%s\n", why.c_str());
+					return 1;
+				}
+				std::printf("%s\n", done.c_str());
+			}
+		}
+		for (const auto id : clearTeammates) {
+			if (const auto why = skyf::ClearTeammate(*save, id); !why.empty()) {
+				std::fprintf(stderr, "%08X: %s\n", id, why.c_str());
+				return 1;
+			}
+			std::printf("%08X is no longer your teammate\n", id);
 		}
 		if (fixCharges > 0) {
 			std::printf("fixed charges of %zu item(s)\n", cf::FixCharges(*save, static_cast<std::uint16_t>(std::min(fixCharges, 65535)), {}));

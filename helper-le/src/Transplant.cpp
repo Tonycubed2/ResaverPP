@@ -633,7 +633,7 @@ namespace Transplant
 					CALL_MEMBER_FN(q, ForceRefTo)(static_cast<UInt32>(Num(p[2])), actor);
 					++forced;
 					if (q->formID == 0x000750BA) {  // the vanilla follower quest: one follower taken
-						if (auto* glob = As<TESGlobal>(le::Lookup("Skyrim.esm", 0x0BCCAE))) {
+						if (auto* glob = As<TESGlobal>(le::Lookup("Skyrim.esm", 0x0BCC98))) {
 							glob->value = 1.0f;
 						}
 					}
