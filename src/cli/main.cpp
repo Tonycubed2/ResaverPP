@@ -314,6 +314,8 @@ static int BsaMain(int argc, char** argv)
 }
 
 // resaverpp-cli --analyze-logs [<My Games folder>] [--days <n>]
+int CosaveMain(int argc, char** argv);  // CosaveCli.cpp
+
 static int AnalyzeLogsMain(int argc, char** argv)
 {
 	std::vector<std::filesystem::path> myGames;
@@ -394,6 +396,9 @@ int main(int argc, char** argv)
 	}
 	if (std::string(argv[1]) == "--analyze-logs") {
 		return AnalyzeLogsMain(argc, argv);
+	}
+	if (std::string(argv[1]) == "--cosave") {
+		return CosaveMain(argc, argv);
 	}
 	std::vector<std::string> purge;
 	bool                     fixMcm = false, delForms = false, keepInst = false, unattached = false, undefined = false, termUndef = false, nonexist = false;
