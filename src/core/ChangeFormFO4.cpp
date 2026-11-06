@@ -195,11 +195,14 @@ namespace ess::fo4cf
 				{
 					Skip(r, 11);
 					Ref(r);
-					for (auto n = Vs(r); n; --n) {
+					for (auto n = Vs(r); n; --n) {  // the entries (0x296aab)
 						Skip(r, (ver >= 0x17 ? 4 : 0) + 4 + (ver >= 0x1e ? 1 : 0));
 						WStr(r);
+						for (auto m = Vs(r); m; --m) {  // 0x437100 -> 0x436f00: a form id and a u32
+							Ref(r);
+							Skip(r, 4);
+						}
 					}
-					Skip(r, 7ull * Vs(r));
 					return;
 				}
 			case 0x98:  // 0x2ada30 / 0x2ae0b0

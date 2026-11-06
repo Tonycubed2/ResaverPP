@@ -63,7 +63,7 @@ def extra_entry(r, ty, ver, npc_fn=None, top=True):
             r.raw(4)
             if ver>=0x1e: r.raw(1)
             ws(r)
-        m=r.vs(); r.raw(7*m)
+            for j in range(r.vs()): r.ref(); r.raw(4)   # 0x437100 -> 0x436f00: form id, u32 (nothing after the entries)
     elif ty==0x98:   # 0x2ada30/0x2ae0b0; 0xc0fdd0 packs a 48-byte transform into 16 bytes
         n=r.vs()
         for i in range(n):
