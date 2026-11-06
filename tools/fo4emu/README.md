@@ -59,3 +59,6 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
   runs once and that it reads the expected (actor value, f32) pairs. `wsvers.py <exe>`: the extra type bytes of
   ExtraActorValueStorage (0xC2), ExtraLinkedRef (0x50), Workshop::ExtraData (0xBF) and the budget actor value form ids
   (0x348..0x34B) in another Fallout4.exe (1.10.163 / 1.10.984 / 1.11.240 agree).
+- `cellemu.py <dump>`: reset an area check. On every CELL (type 6) it runs the game's initial data type (0xbf6c40), read and parse
+  (0xbf7090: the detach time) and TESObjectCELL::LoadGame (0x4d7b30) on a fake cell; counts bodies read to the exact end and prints
+  the detach times (ResetInterior's 0xFFFFFFFF after `--fo4-reset-cell`).

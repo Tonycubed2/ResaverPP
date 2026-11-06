@@ -273,6 +273,27 @@ project; you do the coding, building, delivering and publishing.
   CLI `--fo4-companions [--sources]`, `--fo4-set-affinity <ref>:<v> -o`, `--fo4-quest-check --sources`. Tests: `rs_fo4comp_test` (ctest
   fo4comp; RESAVERPP_FO4_SAVES, RESAVERPP_FO4_DATA). Research scripts (not in the repo): scratchpad comptools/pexdis.py (FO4 .pex
   disassembler), fragchk.py (the check's Python prototype), esmrec.py (one record's subrecords). Not tested in the real game.
+- Fallout 4 world items + reset an area (2026-11-06, branch world, not published): `core/WorldItemsFO4.*` (`ess::fo4world`) lists the
+  created references (REFR change forms with FF ids; initial type 5 = cell/worldspace, position, rotation, u8, base) lying in the
+  world (extra 0x1C ExtraReferenceHandles = held in an inventory: not listed), by place (interior cell, or worldspace + pos/4096)
+  and by the base object's mod, kind from the base's record type, count from ExtraCount 0x24 (i16). Removal = deleting the change
+  form: Save7 -> Save8 (9 dropped Pipe Pistols) adds only the 3 new refs' change forms (FF001199 x3, FF0011BB x4, FF0013CF) and
+  nothing anywhere else (globals, other change forms, form id array, Papyrus); FF000D87 was in the player's inventory in Save7
+  and is a quest alias (QUST 0006DFAF alias 17, extras 0x88/0x8C) -> kept. Kept as well (the game's own cell reset 0x4d2588
+  keeps the same: 0x4fcc70/0x4fcc90 extra 0x1C, 0x4feb70/0x4fcd60 extra 0x88): scripted (Papyrus instance on the RefID), named
+  in any other change form / global block / form id array (byte search of the 3-byte RefID and the u32 id), not read completely.
+  Save8 minus the 3 = Save7's change form set and form id array. `core/CellResetFO4.*` (`ess::fo4cell`): reset = what console
+  ResetInterior (0x1127, 0x5d11d0 -> 0x4c9330(cell, 0xFFFFFFFF, 0)) writes: CELL change flag 30 with detach time 0xFFFFFFFF
+  (initial data per 0xbf6c40/0xbf7090: bit 30+29 {u16 worldspace index (1-based, visited worldspaces), i8 x, i8 y, u32}, 30+28
+  {u16, i16, i16, u32}, 30 alone {u32}); then TESObjectCELL::LoadGame 0x4d7b30: bit 0 u32+u16, bit 1 u16, bit 31 seen data
+  (interior vsval n x 34, exterior 32), bit 2 u16 string, bit 3 RefID. The game resets on the next attach (not during a load:
+  save manager flag 2 at +0x360). New interior CELL change form = flags 0x40000000 + 4 bytes (the game writes such forms itself,
+  e.g. Save14 0014FC9B). Refused: the player's cell, exterior cells within 2 of the player's, exterior cells without coordinates,
+  cells the save does not say are interiors. CLI `--fo4-world-items`, `--fo4-remove-world-items <ids|all>`, `--fo4-cells`,
+  `--fo4-reset-cell <id>` (src/cli/WorldF4.cpp); GUI Tools > World items and areas (`gui/AppF4World.cpp`, test hook
+  RESAVERPP_TEST_CAT=0 RESAVERPP_TEST_OPEN=f4world|f4cells); Save check finding at 500+ removable items. Checks: rs_unit
+  TestFo4WorldItems; tools/fo4emu/cellemu.py (every CELL of Save8/Save14/MainQuest...FarHarbor/nate read exactly by the game's code;
+  the edited cells give detach 0xFFFFFFFF). Not tested in the real game.
 - Linux/Wine is not officially supported.
 
 ## 2. Where things are

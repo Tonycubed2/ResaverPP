@@ -54,6 +54,8 @@ struct ImFont;
 struct ScriptDoc;   // AppScripts.cpp
 struct CompileJob;  // AppScripts.cpp
 
+struct F4WorldState;  // AppF4World.cpp
+
 class App
 {
 public:
@@ -121,6 +123,9 @@ public:
 		} else if (w == "gallery" || w == "gallerylist") {
 			_galleryList = w == "gallerylist";
 			startOpenDialog();
+		} else if (w == "f4world" || w == "f4cells") {
+			_showF4World = true;
+			_f4WorldTab = w == "f4cells" ? 1 : 0;
 		} else if (w == "livegame") {
 			_showLiveGame = true;
 		} else if (w == "collect") {
@@ -600,6 +605,12 @@ private:
 	bool        settlementsPoll();  // true while nothing is read yet
 	void        settlementCheckItems(std::vector<CheckItem>& a_items);
 	std::string settlementName(const ess::fo4ws::Settlement& a_s) const;
+	// Fallout 4: dropped / created items in the world and reset an area (AppF4World.cpp)
+	void                               drawF4World();
+	bool                               _showF4World = false;
+	int                                _f4WorldTab = 0;  // 0 items, 1 areas (test hook "f4cells")
+	std::shared_ptr<F4WorldState>      _f4World;
+	std::size_t                        f4WorldRemovable();  // Save check: removable dropped items (cached per edit)  // AppPlayerFO4.cpp
 	// Main screen shortcuts: the Clean and Tools menu entries as buttons under the overview (AppHome.cpp)
 	enum class Sc
 	{

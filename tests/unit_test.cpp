@@ -23,6 +23,8 @@
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
 #include "core/WorkshopFO4.h"
+#include "core/WorldItemsFO4.h"
+#include "core/CellResetFO4.h"
 
 #include <filesystem>
 #include <fstream>
@@ -3914,6 +3916,208 @@ void TestSkyFollowers()
 	}
 }
 
+// Fallout 4 dropped / created items in the world (fo4world) and reset an area (fo4cell): synthetic change forms, then with
+// RESAVERPP_FO4_SAVES: Tony's Save8 minus its dropped pistols has Save7's change forms; every real save's removable items
+// removed, written, read back, nothing else changed; cells reset as ResetInterior does, written, read back.
+void TestFo4WorldItems()
+{
+	namespace fs = std::filesystem;
+	using B = std::vector<std::uint8_t>;
+	auto u32 = [](B& b, std::uint32_t v) { for (int i = 0; i < 4; ++i) b.push_back(static_cast<std::uint8_t>(v >> (8 * i))); };
+	auto f32 = [&](B& b, float f) { std::uint32_t v; std::memcpy(&v, &f, 4); u32(b, v); };
+	auto ref = [](B& b, std::uint32_t d) { b.push_back(static_cast<std::uint8_t>(d >> 16)); b.push_back(static_cast<std::uint8_t>(d >> 8)); b.push_back(static_cast<std::uint8_t>(d)); };
+	auto mk = [](std::uint8_t type, std::uint32_t flags, std::uint32_t refid, const B& body) {
+		ess::ChangeForm c;
+		c.refID.data = refid;
+		c.typeField = type;
+		c.changeFlags = flags;
+		c.data = body;
+		c.length1 = static_cast<std::uint32_t>(body.size());
+		return c;
+	};
+	// a created reference as the game writes it with no other change: initial type 5 (worldspace, position, rotation,
+	// a byte, base object)
+	auto created = [&](std::uint32_t base, float x, float y) {
+		B r;
+		ref(r, 0x40003C);
+		f32(r, x); f32(r, y); f32(r, 100.f);
+		f32(r, 0.f); f32(r, 0.f); f32(r, 1.f);
+		r.push_back(1);
+		ref(r, 0x400000 | base);
+		return r;
+	};
+	ess::SaveFile save;
+	save.header.magic = "FO4_SAVEGAME";
+	save.formVersion = 68;
+	save.visitedWorldspaces = { 0x3C };
+	save.changeForms.push_back(mk(0, 0, 0x800101, created(0x24F55, -75436.f, 90779.f)));  // FF000101: nothing refers to it
+	save.changeForms.push_back(mk(0, 0, 0x800102, created(0x24F55, 4096.f, 0.f)));       // FF000102: a quest names it
+	B q = { 1, 2, 3 };
+	ref(q, 0x800102);
+	save.changeForms.push_back(mk(8, 0x2, 0x400200, q));  // (QUST bytes holding the RefID)
+	const fo4world::Lookup look{ [](std::uint32_t id) { return id == 0x24F55 ? std::string("WEAP") : id == 0x3C ? std::string("WRLD") : std::string(); },
+		[](std::uint32_t id) { return id == 0x24F55 ? std::string("Pipe Pistol") : id == 0x3C ? std::string("Commonwealth") : std::string(); } };
+	const auto l = fo4world::List(save, look);
+	Check(l.items.size() == 2 && l.items[0].removable && l.items[0].kind == "Weapon" && l.items[0].item && l.items[0].exterior &&
+			  l.items[0].gridX == -19 && l.items[0].gridY == 22 && l.items[0].base == 0x24F55 && l.items[0].count == 1,
+		"fo4 world items: a created reference lying in the world is listed with its kind and cell");
+	Check(l.items.size() == 2 && !l.items[1].removable && l.items[1].why.find("00000200") != std::string::npos &&
+			  fo4world::PlaceOf(l.items[1], look) == "Commonwealth (1, 0)",
+		"fo4 world items: one whose RefID another change form holds is kept, the form named");
+	const auto questBody = save.changeForms[2].data;
+	const auto rr = fo4world::Remove(save, { 0xFF000101, 0xFF000102, 0xFF000999 });
+	Check(rr.removed == 1 && rr.refused.size() == 2 && save.changeForms.size() == 2 && save.changeForms[0].refID.data == 0x800102 &&
+			  save.changeForms[1].data == questBody,
+		"fo4 world items: only the removable one is removed, the rest refused with a reason, nothing else changed");
+
+	// a CELL change form as the game writes it: interior with a detach time and map seen data
+	B cellBody;
+	u32(cellBody, 9);
+	cellBody.push_back(1 << 2);  // vsval 1
+	cellBody.push_back(0x14);
+	cellBody.push_back(0xFF);
+	cellBody.insert(cellBody.end(), 32, 0x7F);
+	const auto cellCf = mk(6, 0xC0000000u, 0x4016D8, cellBody);
+	const auto cd = fo4cell::DecodeCell(save, cellCf);
+	Check(cd.complete && cd.initialType == 3 && cd.initialSize == 4 && cd.detach == 9 && cd.hasSeen && cd.interior == 1,
+		"fo4 cell: interior: detach time, seen data (vsval n x 34 bytes), read to the end");
+	B ext = { 1, 0, 0xEF, 0x18 };  // worldspace index 1, x -17, y 24
+	u32(ext, 0x22);
+	ext.insert(ext.end(), 32, 0x11);
+	const auto ed = fo4cell::DecodeCell(save, mk(6, 0xE0000000u, 0x40DCFA, ext));
+	Check(ed.complete && ed.initialType == 1 && ed.x == -17 && ed.y == 24 && ed.worldspace == 0x3C && ed.detach == 0x22 && ed.interior == 0,
+		"fo4 cell: exterior: worldspace index (1-based), byte coordinates, detach time, 32 bytes of seen data");
+	B seenOnly(cellBody.begin() + 4, cellBody.end());
+	const auto sd = fo4cell::DecodeCell(save, mk(6, 0x80000000u, 0x4016D8, seenOnly));
+	Check(sd.complete && sd.interior == 1 && sd.initialType == 0, "fo4 cell: seen data without a detach time: the layout that reads to the end");
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 world items / cells: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	const auto tmp = fs::temp_directory_path() / "rs_unit_world.fos";
+	auto       writeBack = [&](ess::SaveFile& s) {
+        const auto bytes = s.serialize();
+        {
+            std::ofstream out(tmp, std::ios::binary);
+            out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        }
+        return SaveFile::load(tmp);
+	};
+	auto bodies = [](const ess::SaveFile& s) {
+		std::map<std::uint32_t, B> m;
+		for (const auto& c : s.changeForms) m[s.formIDOf(c.refID)] = ess::cf::Body(c);
+		return m;
+	};
+	// Tony's Save7 -> Save8: 9 Pipe Pistols dropped (3 new references; FF000D87 left the inventory, a quest alias)
+	const fs::path* s7 = nullptr;
+	const fs::path* s8 = nullptr;
+	for (const auto& f : files) {
+		const auto n = f.filename().string();
+		if (n.rfind("Save7_F110F019", 0) == 0) s7 = &f;
+		if (n.rfind("Save8_F110F019", 0) == 0) s8 = &f;
+	}
+	if (s7 && s8) {
+		auto a = SaveFile::load(*s7);
+		auto b = SaveFile::load(*s8);
+		const auto lb = fo4world::List(*b);
+		std::map<std::uint32_t, const fo4world::Item*> byId;
+		for (const auto& it : lb.items) byId[it.formID] = &it;
+		const bool listed = byId.count(0xFF001199) && byId.count(0xFF0011BB) && byId.count(0xFF0013CF) && byId.count(0xFF000D87);
+		Check(listed && byId[0xFF001199]->removable && byId[0xFF001199]->count == 3 && byId[0xFF0011BB]->count == 4 &&
+				  byId[0xFF0013CF]->count == 1 && byId[0xFF000D87]->count == 1 && byId[0xFF001199]->base == 0x24F55 &&
+				  !byId[0xFF000D87]->removable && byId[0xFF000D87]->why.find("quest") != std::string::npos,
+			"fo4 world items: Save8 lists the 9 dropped Pipe Pistols (3 + 4 + 1 + 1), FF000D87 kept (quest alias)");
+		const auto before = bodies(*b);
+		const auto r = fo4world::Remove(*b, { 0xFF001199, 0xFF0011BB, 0xFF0013CF, 0xFF000D87 });
+		auto       back = writeBack(*b);
+		const auto after = bodies(*back);
+		std::set<std::uint32_t> ka, kb;
+		for (const auto& c : a->changeForms) ka.insert(a->formIDOf(c.refID));
+		for (const auto& c : back->changeForms) kb.insert(back->formIDOf(c.refID));
+		bool same = after.size() + 3 == before.size();
+		for (const auto& [id, body] : after) same = same && before.count(id) && before.at(id) == body;
+		Check(r.removed == 3 && r.refused.size() == 1 && ka == kb && same && back->formIDs == a->formIDs,
+			"fo4 world items: Save8 minus the dropped pistols has Save7's change forms and form id array, nothing else changed");
+	}
+	std::size_t tested = 0, removedAll = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		const auto name = f.filename().string();
+		const auto l2 = fo4world::List(*s);
+		std::set<std::uint32_t> ids;
+		for (const auto& it : l2.items) if (it.removable) ids.insert(it.formID);
+		const auto before = bodies(*s);
+		const auto r = fo4world::Remove(*s, ids);
+		auto       back = writeBack(*s);
+		const auto after = bodies(*back);
+		bool same = after.size() + ids.size() == before.size();
+		for (const auto& [id, body] : after) same = same && !ids.count(id) && before.count(id) && before.at(id) == body;
+		const auto l3 = fo4world::List(*back);
+		std::size_t still = 0;
+		for (const auto& it : l3.items) still += it.removable && ids.count(it.formID);
+		Check(r.removed == ids.size() && r.refused.empty() && same && still == 0,
+			("fo4 world items: " + name + ": every removable item removed, written, read back, nothing else changed").c_str());
+		removedAll += r.removed;
+
+		// reset: an interior with a change form, an interior without one, an exterior; the player's cell refused
+		auto cs = SaveFile::load(f);
+		const auto cells = fo4cell::ListCells(*cs);
+		std::vector<std::uint32_t> pick;
+		const fo4cell::CellInfo* playerCell = nullptr;
+		bool intCf = false, intNew = false, ext2 = false;
+		for (const auto& c : cells) {
+			if (c.player) playerCell = &c;
+			if (!c.why.empty()) continue;
+			if (!c.exterior && c.hasChangeForm && !intCf) { intCf = true; pick.push_back(c.formID); }
+			else if (!c.exterior && !c.hasChangeForm && !intNew) { intNew = true; pick.push_back(c.formID); }
+			else if (c.exterior && !ext2) { ext2 = true; pick.push_back(c.formID); }
+		}
+		const auto cbefore = bodies(*cs);
+		bool       ok = true;
+		for (const auto id : pick) ok = ok && fo4cell::ResetCell(*cs, id).empty();
+		if (playerCell) ok = ok && !fo4cell::ResetCell(*cs, playerCell->formID).empty();
+		auto cback = writeBack(*cs);
+		const auto cafter = bodies(*cback);
+		for (const auto id : pick) {
+			const ess::ChangeForm* cf = nullptr;
+			for (const auto& c : cback->changeForms) if (c.typeCode() == 6 && cback->formIDOf(c.refID) == id) cf = &c;
+			const auto d = cf ? fo4cell::DecodeCell(*cback, *cf) : fo4cell::CellData{};
+			ok = ok && cf && d.complete && d.detach == fo4cell::kDetachReset && (cf->changeFlags & 0x40000000u);
+		}
+		std::size_t changed = 0;
+		for (const auto& [id, body] : cafter) changed += !cbefore.count(id) || cbefore.at(id) != body;
+		Check(ok && playerCell && changed == pick.size() && cafter.size() == cbefore.size() + (intNew ? 1 : 0),
+			("fo4 cell: " + name + ": cells reset (detach time 0xFFFFFFFF), written, read back, nothing else changed; the player's cell refused").c_str());
+		std::printf("(fo4 world: %s: %zu items listed, %zu removed; %zu cells, %zu reset)\n", name.c_str(), l2.items.size(), r.removed, cells.size(), pick.size());
+		++tested;
+	}
+	fs::remove(tmp);
+	std::printf("(fo4 world items / cells: %zu real saves, %zu items removed)\n", tested, removedAll);
+}
+
+
 int main()
 {
 	TestFloatLiteral();
@@ -3948,6 +4152,7 @@ int main()
 	TestFo4Player();
 	TestFo4Combat();
 	TestSkyFollowers();
+	TestFo4WorldItems();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }
