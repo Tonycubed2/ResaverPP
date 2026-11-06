@@ -12053,10 +12053,6 @@ tr "Удалено объектов из мира: %zu (оставлено: %zu)
 en "Object"
 tr "Объект"
 
-# AppF4World.cpp:218  ImGui::TableSetupColumn(tr("Kind"), ImGuiTableColumnFlags_WidthStretch, 1.6f);
-en "Kind"
-tr "Вид"
-
 # AppF4World.cpp:221  ImGui::TableSetupColumn(tr("ID"), ImGuiTableColumnFlags_WidthFixed, 80);
 # AppF4World.cpp:311  ImGui::TableSetupColumn(tr("ID"), ImGuiTableColumnFlags_WidthFixed, 80);
 en "ID"
