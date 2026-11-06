@@ -31,7 +31,7 @@ project; you do the coding, building, delivering and publishing.
   after the frames when thread flag == 0, fragments +4 bytes (quest/scene kinds; kind 2 = running thread id), no
   saveFileVersion u16. Change form types renumbered from 28 (no NOTE); change forms are NOT decoded for FO4
   (ChangeFormData::Decode returns an error), quests/journal off. GUI: App::fo4() + SkyrimOnly(Sc) grey out the
-  tools that need decoded change forms (Leftovers, MCM, Havok, Purify, Edit player, Find NPCs, Transplant, Quests,
+  tools that need decoded change forms (Leftovers, MCM, Edit player, Find NPCs, Transplant, Quests,
   merged patch, Open .pex).
 - v54 (published 2026-11-05 on SE, LE and Fallout 4): Fallout 4 is a third game setup (`App::_game` 0 SE / 1 VR / 2 FO4, `_setups[3]`,
   ini keys `active_game=`, `*_f4=`; `setGame(int)`; platform::DefaultSavesFolder/SkyrimInstallFolders/MyGamesName and
@@ -65,6 +65,14 @@ project; you do the coding, building, delivering and publishing.
   = next rank, 0x1039 SetStage, 0x1071 CompleteQuest). CLI `--fo4-transplant <old.fos>` [`--fo4-transplant-write -o`].
   Tests: rs_unit with `RESAVERPP_FO4_SAVES="dir;dir"` reads real saves (Tony's Save7 -> Save8 must list the 9 Pipe Pistols
   00024F55). Test hook `RESAVERPP_TEST_TPOLD=<old.fos>` + `RESAVERPP_TEST_SHORTCUT=12`. Not tested in the real game yet.
+- Fallout 4 Reset Havok + Purify FormLists (2026-11-05, not published): REFR change flag 2 = initial data + havok blob, read
+  by the initial data loader 0xbf77b0 (not LoadGame) through 0xc10b00 blob kind 2: u8 (form version the blob was written
+  with), vsval size, bytes; size 0 stores nothing (the game writes size 0 itself, e.g. 112 of 3889 in MainQuestRailroad).
+  The bytes are parsed by 0x4f7440 when the 3D loads (else kept in extra data 0x28c060), so Reset Havok for FO4 sets the
+  size to 0 and keeps the version byte (`fo4cf::ClearHavok`), not Skyrim's zeroing. FLST = type 42 in FO4;
+  BGSListForm::LoadGame 0x5898f0: bit 0 u32+u16, bit 31 u32 count + refs (null refs are kept as entries by the game);
+  `fo4cf::DecodeFormList` / `PurifyFormList`. Checked with tools/fo4emu/havemu.py and flstemu.py; rs_unit
+  TestFo4HavokFormLists (real saves with RESAVERPP_FO4_SAVES).
 - Versions are whole numbers, +1 per release. **Current published version: v56 on the Fallout 4 page (2026-11-05, with ReSaverHelper F4 13); SE and LE pages still v55** (v53 was never published on its own). v55: Collect all logs gathers Fallout 4 (F4SE folder, Logs, Fallout4*.ini, AppData Fallout4 plugins.txt, Fallout4.exe version; zip "Fallout 4 logs <date>.zip").
 - v51 (published 2026-11-02): Edit player > Active magic effects (list, tick, Remove; CLI `--effects`, `--remove-effect 3,7`).
   Save layout: high process ACTIVE EFFECTS = vsval count, each {REF item, u8 effect index, vsval type (= MGEF archetype),
