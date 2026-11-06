@@ -2,7 +2,8 @@
 //   <save.fos> --fo4-world-items [--all-objects] [--sources <mods> [--game <dir>] [--profile <dir>]]
 //   <save.fos> --fo4-remove-world-items <ids|all> [--all-objects] -o <out.fos>
 //   <save.fos> --fo4-cells [--sources ...]
-//   <save.fos> --fo4-reset-cell <cell id>[,<cell id>...] -o <out.fos>
+//   <save.fos> --fo4-reset-cell <cell id>[,<cell id>...] [--sources ...] -o <out.fos>   (any cell of the save or, with
+//              --sources, of the plugins: indoors / outdoors and an outdoor cell's place come from the plugins' CELL records)
 #include "core/CellResetFO4.h"
 #include "core/PluginDB.h"
 #include "core/ScriptSources.h"
@@ -94,19 +95,7 @@ int Fo4WorldMain(int argc, char** argv)
 			db->load(in, prog);
 			std::printf("plugins read %zu, %zu missing\n", db->pluginsRead, db->missing.size());
 		}
-		fo4world::Lookup look;
-		if (db) {
-			look.type = [&](std::uint32_t id) {
-				const auto* f = db->find(id);
-				return f ? db->type(*f) : std::string();
-			};
-			look.name = [&](std::uint32_t id) {
-				const auto* f = db->find(id);
-				if (!f) return std::string();
-				auto n = db->name(*f);
-				return n.empty() ? db->edid(*f) : n;
-			};
-		}
+		const auto look = fo4world::LookupFrom(db.get());
 		bool edited = false;
 		if (listItems || !removeIds.empty()) {
 			const auto l = fo4world::List(*save, look);
@@ -160,7 +149,9 @@ int Fo4WorldMain(int argc, char** argv)
 				std::size_t can = 0;
 				for (const auto& c : cells) {
 					char where[64] = "interior";
-					if (c.exterior) std::snprintf(where, sizeof where, "%08X (%d, %d)", c.worldspace, c.x, c.y);
+					if (!c.interiorKnown) std::snprintf(where, sizeof where, "indoors or outdoors?");
+					else if (c.exterior && c.hasGrid) std::snprintf(where, sizeof where, "%08X (%d, %d)", c.worldspace, c.x, c.y);
+					else if (c.exterior) std::snprintf(where, sizeof where, "outdoors (place?)");
 					std::printf("%08X %-28s %-22s %s%-9s created %zu (%zu go on reset), other changed %zu  %s\n", c.formID,
 						(c.name.empty() ? "-" : c.name).substr(0, 28).c_str(), where, c.hasChangeForm ? "" : "(no cell data) ",
 						c.pending ? "PENDING" : c.hasDetach ? ("t=" + std::to_string(c.detach)).c_str() : "", c.createdItems, c.createdRemovable, c.placed,
@@ -168,8 +159,8 @@ int Fo4WorldMain(int argc, char** argv)
 					can += c.why.empty();
 				}
 				std::printf("%zu cell(s), %zu can be reset. A reset does what the console's ResetInterior does: the game resets the cell the "
-							"next time it loads it.\n",
-					cells.size(), can);
+							"next time it loads it.%s\n",
+					cells.size(), can, db ? "" : " (without --sources, indoors / outdoors comes from the save only)");
 			}
 			for (const auto id : ParseIds(resetIds)) {
 				const auto why = fo4cell::ResetCell(*save, id, look);

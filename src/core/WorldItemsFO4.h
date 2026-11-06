@@ -21,6 +21,7 @@
 //    This is a byte search, so it can refuse an object nothing refers to, never the other way round.
 //  - one whose change form could not be read to its end.
 #pragma once
+#include "PluginDB.h"
 #include "Save.h"
 
 #include <cstdint>
@@ -31,11 +32,28 @@
 
 namespace ess::fo4world
 {
-	// Names from the plugins (PluginDB): record type ("WEAP") and display name of a form id; either may be empty.
+	// A CELL record as the plugins have it (PluginDB::CellDef, the last override).
+	struct CellRecord
+	{
+		bool          known = false;      // a loaded plugin defines the cell
+		bool          interior = false;   // DATA bit 0
+		bool          persistent = false; // a worldspace's persistent cell
+		bool          hasGrid = false;    // XCLC
+		std::uint32_t worldspace = 0;     // exterior: the worldspace
+		int           x = 0, y = 0;       // exterior: grid position
+		std::string   plugin;             // the last plugin that overrides it
+	};
+
+	// Names from the plugins (PluginDB): record type ("WEAP") and display name of a form id; either may be empty. cell: the
+	// CELL record of a form id; cellAt: the exterior cell at (worldspace, x, y), 0 if none. Any of them may be empty.
 	struct Lookup
 	{
 		std::function<std::string(std::uint32_t)> type, name;
+		std::function<CellRecord(std::uint32_t)>  cell;
+		std::function<std::uint32_t(std::uint32_t, int, int)> cellAt;
 	};
+	// All of the above from a loaded PluginDB (empty functions when a_db is null or not loaded). a_db must outlive it.
+	Lookup LookupFrom(const PluginDB* a_db);
 
 	struct Item
 	{

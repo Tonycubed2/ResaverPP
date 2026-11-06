@@ -82,6 +82,40 @@ namespace ess::fo4world
 		return a_type.empty() ? std::string("Unknown") : "Other (" + a_type + ")";
 	}
 
+	Lookup LookupFrom(const PluginDB* a_db)
+	{
+		Lookup look;
+		if (!a_db || !a_db->loaded()) {
+			return look;
+		}
+		look.type = [a_db](std::uint32_t id) {
+			const auto* f = a_db->find(id);
+			return f ? a_db->type(*f) : std::string();
+		};
+		look.name = [a_db](std::uint32_t id) {
+			const auto* f = a_db->find(id);
+			if (!f) return std::string();
+			auto n = a_db->name(*f);
+			return n.empty() ? a_db->edid(*f) : n;
+		};
+		look.cell = [a_db](std::uint32_t id) {
+			CellRecord r;
+			if (const auto* c = a_db->cell(id); c && c->hasData) {
+				r.known = true;
+				r.interior = c->interior();
+				r.persistent = c->persistent;
+				r.hasGrid = c->hasGrid;
+				r.worldspace = c->worldspace;
+				r.x = c->x;
+				r.y = c->y;
+				r.plugin = c->plugin < a_db->plugins().size() ? a_db->plugins()[c->plugin] : std::string();
+			}
+			return r;
+		};
+		look.cellAt = [a_db](std::uint32_t ws, int x, int y) { return a_db->cellAt(ws, x, y); };
+		return look;
+	}
+
 	std::string PlaceOf(const Item& a_item, const Lookup& a_lookup)
 	{
 		std::string n = a_lookup.name ? a_lookup.name(a_item.space) : std::string();

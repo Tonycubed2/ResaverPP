@@ -64,6 +64,11 @@ namespace ess::fo4cell
 		bool          hasChangeForm = false;
 		std::uint32_t changeFlags = 0;
 		bool          exterior = false;
+		bool          interiorKnown = false;  // the save (initial data) or the plugins (DATA) say indoors or outdoors
+		bool          inPlugins = false;      // a loaded plugin defines it (PluginDB through fo4world::Lookup::cell)
+		std::string   plugin;                 // ... the last one that overrides it
+		bool          persistent = false;     // a worldspace's persistent cell (from the plugins)
+		bool          hasGrid = false;        // exterior: worldspace and coordinates known (save, plugins, or saved positions)
 		std::uint32_t worldspace = 0;  // exterior: the worldspace
 		int           x = 0, y = 0;    // exterior: coordinates
 		bool          hasDetach = false;
@@ -76,11 +81,16 @@ namespace ess::fo4cell
 		bool          nearPlayer = false;   // exterior: in the cells loaded around the player (5 x 5)
 		std::string   why;                  // why it cannot be reset ("" = it can)
 	};
-	// The cells this save knows: every CELL change form, and the interior cells named by saved positions.
+	// The cells this save knows: every CELL change form, the cells saved positions lie in (outdoor ones through the plugins'
+	// grid when no change form names them), and with the plugins the player's cell and the 5 x 5 cells around it.
+	// a_lookup.cell (the plugins' CELL records) tells indoors from outdoors and gives an outdoor cell's place when the save
+	// does not.
 	std::vector<CellInfo> ListCells(const SaveFile& a_save, const fo4world::Lookup& a_lookup = {});
 
-	// Marks the cell for a reset as ResetInterior does (see above). Refused (with the reason) for the player's cell, for
-	// an exterior cell around the player, for an exterior cell the save has no coordinates for, and when the cell's
-	// change form cannot be read. Returns "" when done; the change form is decoded again before it is kept.
+	// Marks the cell for a reset as ResetInterior / Cell.Reset() do (see above). Any cell the save or a loaded plugin knows.
+	// Refused (with the reason) for the player's cell, for an exterior cell around the player, for a worldspace's
+	// persistent cell, for a form that is not a cell, for a cell not known to be indoors or outdoors, an outdoor one with no
+	// known place, and when the cell's change form cannot be read. Returns "" when done; the change form is decoded again
+	// before it is kept (nothing in the save changes when it does not read back).
 	std::string ResetCell(SaveFile& a_save, std::uint32_t a_cellFormID, const fo4world::Lookup& a_lookup = {});
 }
