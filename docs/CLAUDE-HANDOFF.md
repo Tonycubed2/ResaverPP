@@ -103,12 +103,15 @@ project; you do the coding, building, delivering and publishing.
   emulator now runs it. Named values (0xe75e30) and the tree state (0xeff4d0 -> 0xf04bf0) are sized blocks (writers
   0xe76300 / 0xf04b90 patch in the bytes written). Extra data 0x32 (form id + active effects), 0x34, 0x44, 0x87 are
   lists (were fixed sizes, right only when empty: the Save8-14 "reference part misread" and Save14's "extra 0x3d"), 0x9d
-  a form id. Package data class names are the game's registrations (factory 0x32174c0, 0x705b60 calls): SingleRef
+  a form id, 0x79 two u32, 0xa9 u32 type + two form ids + u8 (Mount/PassengerInteraction LoadGame 0xdbfe20 reads nothing). Package data class names are the game's registrations (factory 0x32174c0, 0x705b60 calls): SingleRef
   (0x709870), Ref (RefOLD class, nothing), LocWrapper, Location/LocationSelector, Topic/TargetSelector (nothing); the old
   names Ref/RefOLD/LocationWrapper were never written by the game. A created package's mask bit 4 = its data object
   (Follow u32+u8+location, UseItem u8+location, Patrol u8 u8, Custom nothing). Checked: tools/fo4emu trcmp.py (cmpall.sh)
   read for read on all actors of all saves, refrcheck.sh (reference part vs the game's TESObjectREFR::LoadGame),
-  npcremove.cpp + emucheck.py round trips; rs_unit TestFo4Combat.
+  npcremove.cpp + emucheck.py round trips (rtcheck.sh); rs_unit TestFo4Combat (491 passed with RESAVERPP_FO4_SAVES).
+  Emulator limits (not decoder issues): dec.py cannot read ~25 reference parts per big save (trcmp/emucheck then take the
+  decoder's / the game's own end), and ~0.3% of actors stop inside the emulator (a pointer-id hash map 0x1e0d0f0 that
+  never finishes growing, a few unmapped reads); for those the reads up to the stop are compared.
 - Fallout 4 player (2026-11-05, branch pc, not published): `core/ChangeFormFO4Player.cpp` (`fo4cf::detail::PlayerPart`) reads
   PlayerCharacter::LoadGame (0xd65bd0) after Actor::LoadGame to its end (0xd68175): fields, the Pip-Boy quest log (0xd6682a) and
   objectives (0xd66961, 0x61e170), PlayerCamera::LoadGame (0x102aac0, 13 camera states from the constructor 0x1024f80), knowledge
