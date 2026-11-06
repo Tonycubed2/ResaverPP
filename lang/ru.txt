@@ -63,6 +63,8 @@ language "Русский"
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
+
+# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 en "Anthropic (Claude)"
 tr "Anthropic (Claude)"
 
@@ -423,7 +425,7 @@ en "Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and
 tr "Читает логи SKSE, логи краша, лог Papyrus и собственные логи модов и показывает найденные проблемы. Сохранение не нужно."
 
 # App.cpp:956  if (ImGui::Button(tr("Ask the AI"), ImVec2(180, 0))) {
-# AppAi.cpp:1799  if (!ImGui::Begin(trId("Ask the AI"), &_showAi, ImGuiWindowFlags_NoCollapse)) {
+# AppAi.cpp:1895  if (!ImGui::Begin(trId("Ask the AI"), &_showAi, ImGuiWindowFlags_NoCollapse)) {
 # AppHome.cpp:365  { Sc::kAskAi, tr("Ask the AI"), tr("plain English: it uses ReSaver Plus for you"),
 en "Ask the AI"
 tr "Спросить ИИ"
@@ -1240,7 +1242,7 @@ tr "Изменённых форм этого плагина: %zu."
 
 # App.cpp:1942  KV(tr("Plugin"), _save->pluginOf(fid));
 # AppMissing.cpp:344  ImGui::TableSetupColumn(tr("Plugin"), 0, 3);
-# AppPlayerFO4.cpp:218  ImGui::TableSetupColumn(tr("Plugin"));
+# AppPlayerFO4.cpp:227  ImGui::TableSetupColumn(tr("Plugin"));
 en "Plugin"
 tr "Плагин"
 
@@ -1409,7 +1411,7 @@ en "Attached to"
 tr "Привязан к"
 
 # App.cpp:2152  KV(tr("State"), p.str(i->data->state).empty() ? tr("(default)") : p.str(i->data->state));
-# AppPlayerFO4.cpp:322  ImGui::TableSetupColumn(tr("State"));
+# AppPlayerFO4.cpp:331  ImGui::TableSetupColumn(tr("State"));
 en "State"
 tr "Состояние"
 
@@ -1841,7 +1843,7 @@ en "Full path of the save file to open."
 tr "Полный путь к открываемому файлу сохранения."
 
 # App.cpp:2610  if (ImGui::Button(tr("Open"), ImVec2(120, 0))) {
-# AppAi.cpp:479  if (ImGui::SmallButton(tr("Open"))) {
+# AppAi.cpp:480  if (ImGui::SmallButton(tr("Open"))) {
 en "Open"
 tr "Открыть"
 
@@ -2585,305 +2587,305 @@ tr "Поставить этого актёра перед вами и сброс
 en "The game never moved this actor, so the save has no position to change. In game: open the console, type prid followed by its form id, then moveto player."
 tr "Игра никогда не перемещала этого актёра, поэтому в сохранении нет позиции, которую можно изменить. В игре: откройте консоль, введите prid и его ID формы, затем moveto player."
 
-# AppAi.cpp:399  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
+# AppAi.cpp:400  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
 en "the last day"
 tr "за последний день"
 
-# AppAi.cpp:399  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
+# AppAi.cpp:400  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
 en "the last 3 days"
 tr "за последние 3 дня"
 
-# AppAi.cpp:399  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
+# AppAi.cpp:400  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
 en "the last 7 days"
 tr "за последние 7 дней"
 
-# AppAi.cpp:399  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
+# AppAi.cpp:400  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
 en "the last 30 days"
 tr "за последние 30 дней"
 
-# AppAi.cpp:399  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
+# AppAi.cpp:400  static const char* kDayNames[] = { N_("the last day"), N_("the last 3 days"), N_("the last 7 days"), N_("the last 30 days"), N_("any time") };
 en "any time"
 tr "за всё время"
 
-# AppAi.cpp:405  ImGui::TextUnformatted(tr("Logs written in"));
+# AppAi.cpp:406  ImGui::TextUnformatted(tr("Logs written in"));
 en "Logs written in"
 tr "Логи, записанные"
 
-# AppAi.cpp:418  if (ImGui::Checkbox(tr("The mods' own logs"), &_logsPlugins)) {
+# AppAi.cpp:419  if (ImGui::Checkbox(tr("The mods' own logs"), &_logsPlugins)) {
 en "The mods' own logs"
 tr "Собственные логи модов"
 
-# AppAi.cpp:422  tips::Tip((std::string(tr("Also read the logs every ")) + se + tr(" plugin writes for itself (in the ") + se +
+# AppAi.cpp:423  tips::Tip((std::string(tr("Also read the logs every ")) + se + tr(" plugin writes for itself (in the ") + se +
 en "Also read the logs every "
 tr "Также читать логи, которые каждый плагин "
 
-# AppAi.cpp:422  tips::Tip((std::string(tr("Also read the logs every ")) + se + tr(" plugin writes for itself (in the ") + se +
+# AppAi.cpp:423  tips::Tip((std::string(tr("Also read the logs every ")) + se + tr(" plugin writes for itself (in the ") + se +
 en " plugin writes for itself (in the "
 tr " пишет для себя (в папке "
 
-# AppAi.cpp:423  tr(" folder) for lines that say error or failed.")).c_str());
+# AppAi.cpp:424  tr(" folder) for lines that say error or failed.")).c_str());
 en " folder) for lines that say error or failed."
 tr "), в поисках строк с error или failed."
 
-# AppAi.cpp:426  if (ImGui::Button(tr("Analyze again"))) {
+# AppAi.cpp:427  if (ImGui::Button(tr("Analyze again"))) {
 en "Analyze again"
 tr "Анализировать снова"
 
-# AppAi.cpp:433  if (ImGui::Button(tr("Ask the AI about these"))) {
+# AppAi.cpp:434  if (ImGui::Button(tr("Ask the AI about these"))) {
 en "Ask the AI about these"
 tr "Спросить ИИ об этом"
 
-# AppAi.cpp:435  aiSend(tr("Analyze my ") + gameName + tr(" logs. ReSaver Plus found this:\n\n") + ess::logs::ToText(_logsJob->result) +
+# AppAi.cpp:436  aiSend(tr("Analyze my ") + gameName + tr(" logs. ReSaver Plus found this:\n\n") + ess::logs::ToText(_logsJob->result) +
 en "Analyze my "
 tr "Проанализируй мои логи "
 
-# AppAi.cpp:435  aiSend(tr("Analyze my ") + gameName + tr(" logs. ReSaver Plus found this:\n\n") + ess::logs::ToText(_logsJob->result) +
+# AppAi.cpp:436  aiSend(tr("Analyze my ") + gameName + tr(" logs. ReSaver Plus found this:\n\n") + ess::logs::ToText(_logsJob->result) +
 en " logs. ReSaver Plus found this:\n\n"
 tr ". ReSaver Plus нашёл вот что:\n\n"
 
-# AppAi.cpp:436  tr("\nLook deeper with the log tools where it helps, then tell me in plain words what is wrong and what to do about "
+# AppAi.cpp:437  tr("\nLook deeper with the log tools where it helps, then tell me in plain words what is wrong and what to do about "
 en "\nLook deeper with the log tools where it helps, then tell me in plain words what is wrong and what to do about it, most important first."
 tr "\nПосмотри глубже с помощью инструментов для логов, где это поможет, и потом простыми словами объясни, что не так и что с этим делать, начиная с самого важного."
 
-# AppAi.cpp:439  tips::Tip(tr("Send these findings to the AI chat: it reads the logs further and explains what to do."));
+# AppAi.cpp:440  tips::Tip(tr("Send these findings to the AI chat: it reads the logs further and explains what to do."));
 en "Send these findings to the AI chat: it reads the logs further and explains what to do."
 tr "Отправить эти находки в чат ИИ: он прочитает логи дальше и объяснит, что делать."
 
-# AppAi.cpp:441  if (ImGui::Button(tr("Collect all logs (zip)"))) {
+# AppAi.cpp:442  if (ImGui::Button(tr("Collect all logs (zip)"))) {
 en "Collect all logs (zip)"
 tr "Собрать все логи (zip)"
 
-# AppAi.cpp:444  tips::Tip(tr("Every log, your load order, INI files and PC details in one dated zip on your desktop, to send with a report."));
+# AppAi.cpp:445  tips::Tip(tr("Every log, your load order, INI files and PC details in one dated zip on your desktop, to send with a report."));
 en "Every log, your load order, INI files and PC details in one dated zip on your desktop, to send with a report."
 tr "Все логи, порядок загрузки, INI-файлы и сведения о ПК в одном zip с датой на рабочем столе — для отправки с отчётом."
 
-# AppAi.cpp:446  if (ImGui::Button(tr("Copy as text"))) {
+# AppAi.cpp:447  if (ImGui::Button(tr("Copy as text"))) {
 en "Copy as text"
 tr "Копировать как текст"
 
-# AppAi.cpp:452  ImGui::TextDisabled("%s", tr("Reading the logs..."));
+# AppAi.cpp:453  ImGui::TextDisabled("%s", tr("Reading the logs..."));
 en "Reading the logs..."
 tr "Читаю логи..."
 
-# AppAi.cpp:462  ImGui::Text(tr("%zu log(s) read%s. "), a.files.size(),
+# AppAi.cpp:463  ImGui::Text(tr("%zu log(s) read%s. "), a.files.size(),
 en "%zu log(s) read%s. "
 tr "Прочитано логов: %zu%s. "
 
-# AppAi.cpp:463  a.skipped ? (", " + std::to_string(a.skipped) + tr(" older one(s) left out")).c_str() : "");
+# AppAi.cpp:464  a.skipped ? (", " + std::to_string(a.skipped) + tr(" older one(s) left out")).c_str() : "");
 en " older one(s) left out"
 tr " более старых пропущено"
 
-# AppAi.cpp:467  ImGui::Text(tr("%zu problem(s)"), bad);
+# AppAi.cpp:468  ImGui::Text(tr("%zu problem(s)"), bad);
 en "%zu problem(s)"
 tr "Проблем: %zu"
 
-# AppAi.cpp:471  ImGui::TextUnformatted(tr("No problems"));
+# AppAi.cpp:472  ImGui::TextUnformatted(tr("No problems"));
 en "No problems"
 tr "Проблем нет"
 
-# AppAi.cpp:475  ImGui::Text(tr(", %zu to look at."), warn);
+# AppAi.cpp:476  ImGui::Text(tr(", %zu to look at."), warn);
 en ", %zu to look at."
 tr ", стоит взглянуть: %zu."
 
-# AppAi.cpp:476  if (ImGui::TreeNode(trId("Where it looked"))) {
+# AppAi.cpp:477  if (ImGui::TreeNode(trId("Where it looked"))) {
 en "Where it looked"
 tr "Где искал"
 
-# AppAi.cpp:487  ImGui::TextDisabled(tr("No %s folders found under Documents\\My Games."), gameName.c_str());
+# AppAi.cpp:488  ImGui::TextDisabled(tr("No %s folders found under Documents\\My Games."), gameName.c_str());
 en "No %s folders found under Documents\\My Games."
 tr "Папки %s в Документы\\My Games не найдены."
 
-# AppAi.cpp:520  if (ImGui::SmallButton(tr("Open the log"))) {
+# AppAi.cpp:521  if (ImGui::SmallButton(tr("Open the log"))) {
 # AppScripts.cpp:1353  if (ImGui::SmallButton(tr("Open the log"))) {
 en "Open the log"
 tr "Открыть лог"
 
-# AppAi.cpp:524  if (ImGui::SmallButton(tr("Ask the AI about this one"))) {
+# AppAi.cpp:525  if (ImGui::SmallButton(tr("Ask the AI about this one"))) {
 en "Ask the AI about this one"
 tr "Спросить ИИ об этом"
 
-# AppAi.cpp:526  std::string t = tr("Look at this from my ") + gameName + tr(" logs and tell me what it means and what to do:\n\n") + f.title + "\n" +
+# AppAi.cpp:527  std::string t = tr("Look at this from my ") + gameName + tr(" logs and tell me what it means and what to do:\n\n") + f.title + "\n" +
 en "Look at this from my "
 tr "Посмотри на это из моих логов "
 
-# AppAi.cpp:526  std::string t = tr("Look at this from my ") + gameName + tr(" logs and tell me what it means and what to do:\n\n") + f.title + "\n" +
+# AppAi.cpp:527  std::string t = tr("Look at this from my ") + gameName + tr(" logs and tell me what it means and what to do:\n\n") + f.title + "\n" +
 en " logs and tell me what it means and what to do:\n\n"
 tr " и скажи, что это значит и что делать:\n\n"
 
-# AppAi.cpp:531  t += tr("Log file: ") + platform::ToUtf8(f.file) + (f.line ? ":" + std::to_string(f.line) : std::string());
+# AppAi.cpp:532  t += tr("Log file: ") + platform::ToUtf8(f.file) + (f.line ? ":" + std::to_string(f.line) : std::string());
 en "Log file: "
 tr "Файл лога: "
 
-# AppAi.cpp:780  if (change && !_ai.approve(args.str("why").empty() ? tr("Run a command that writes a file") : args.str("why"), shown)) {
+# AppAi.cpp:781  if (change && !_ai.approve(args.str("why").empty() ? tr("Run a command that writes a file") : args.str("why"), shown)) {
 en "Run a command that writes a file"
 tr "Выполнить команду, которая записывает файл"
 
-# AppAi.cpp:886  !_ai.approve(args.str("why").empty() ? tr("Change something in the running game") : args.str("why"), shown)) {
+# AppAi.cpp:887  !_ai.approve(args.str("why").empty() ? tr("Change something in the running game") : args.str("why"), shown)) {
 en "Change something in the running game"
 tr "Изменить что-то в запущенной игре"
 
-# AppAi.cpp:1007  if (!_ai.approve(args.str("why").empty() ? tr("Write a text file") : args.str("why"), "write " + platform::ToUtf8(p))) {
+# AppAi.cpp:1008  if (!_ai.approve(args.str("why").empty() ? tr("Write a text file") : args.str("why"), "write " + platform::ToUtf8(p))) {
 en "Write a text file"
 tr "Записать текстовый файл"
 
-# AppAi.cpp:1241  if (!_ai.approve(args.str("why").empty() ? tr("Remove leftover items into a new save") : args.str("why"),
+# AppAi.cpp:1242  if (!_ai.approve(args.str("why").empty() ? tr("Remove leftover items into a new save") : args.str("why"),
 en "Remove leftover items into a new save"
 tr "Удалить остатки предметов в новое сохранение"
 
-# AppAi.cpp:1430  if (!_ai.approve(args.str("why").empty() ? tr("Change the Fallout 4 player into a new save") : args.str("why"),
+# AppAi.cpp:1509  if (!_ai.approve(args.str("why").empty() ? tr("Change the Fallout 4 player into a new save") : args.str("why"),
 en "Change the Fallout 4 player into a new save"
 tr "Изменить персонажа Fallout 4 в новое сохранение"
 
-# AppAi.cpp:1678  if (ImGui::BeginCombo(tr("Engine"), tr(presets[static_cast<std::size_t>(s.preset)].name))) {
+# AppAi.cpp:1774  if (ImGui::BeginCombo(tr("Engine"), tr(presets[static_cast<std::size_t>(s.preset)].name))) {
 en "Engine"
 tr "Движок"
 
-# AppAi.cpp:1701  ImGui::TextUnformatted(tr("Kind:"));
+# AppAi.cpp:1797  ImGui::TextUnformatted(tr("Kind:"));
 en "Kind:"
 tr "Тип:"
 
-# AppAi.cpp:1703  changed |= ImGui::RadioButton(tr("OpenAI-compatible"), &api, 0);
+# AppAi.cpp:1799  changed |= ImGui::RadioButton(tr("OpenAI-compatible"), &api, 0);
 en "OpenAI-compatible"
 tr "Совместимый с OpenAI"
 
-# AppAi.cpp:1705  changed |= ImGui::RadioButton(tr("Anthropic"), &api, 1);
+# AppAi.cpp:1801  changed |= ImGui::RadioButton(tr("Anthropic"), &api, 1);
 en "Anthropic"
 tr "Anthropic"
 
-# AppAi.cpp:1711  if (ImGui::InputText(tr("Address"), buf, sizeof(buf))) {
+# AppAi.cpp:1807  if (ImGui::InputText(tr("Address"), buf, sizeof(buf))) {
 en "Address"
 tr "Адрес"
 
-# AppAi.cpp:1718  if (ImGui::InputText(tr("API key"), buf, sizeof(buf), showKey ? 0 : ImGuiInputTextFlags_Password)) {
+# AppAi.cpp:1814  if (ImGui::InputText(tr("API key"), buf, sizeof(buf), showKey ? 0 : ImGuiInputTextFlags_Password)) {
 en "API key"
 tr "API-ключ"
 
-# AppAi.cpp:1723  ImGui::Checkbox(tr("Show"), &showKey);
+# AppAi.cpp:1819  ImGui::Checkbox(tr("Show"), &showKey);
 # AppQuests.cpp:478  ImGui::TextUnformatted(tr("Show"));
 en "Show"
 tr "Показать"
 
-# AppAi.cpp:1724  tips::Tip(tr("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."));
+# AppAi.cpp:1820  tips::Tip(tr("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."));
 en "Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."
 tr "Хранится в resaverpp.ini, зашифрованным для вашей учётной записи Windows (прочитать его можете только вы на этом ПК)."
 
-# AppAi.cpp:1727  ImGui::TextDisabled("%s", tr("(not needed for an engine on this PC)"));
+# AppAi.cpp:1823  ImGui::TextDisabled("%s", tr("(not needed for an engine on this PC)"));
 en "(not needed for an engine on this PC)"
 tr "(не нужен для движка на этом ПК)"
 
-# AppAi.cpp:1731  if (ImGui::InputText(tr("Model"), buf, sizeof(buf))) {
+# AppAi.cpp:1827  if (ImGui::InputText(tr("Model"), buf, sizeof(buf))) {
 en "Model"
 tr "Модель"
 
-# AppAi.cpp:1738  if (ImGui::Button(listing ? tr("Listing...") : tr("List models"))) {
+# AppAi.cpp:1834  if (ImGui::Button(listing ? tr("Listing...") : tr("List models"))) {
 en "Listing..."
 tr "Получаю список..."
 
-# AppAi.cpp:1738  if (ImGui::Button(listing ? tr("Listing...") : tr("List models"))) {
+# AppAi.cpp:1834  if (ImGui::Button(listing ? tr("Listing...") : tr("List models"))) {
 en "List models"
 tr "Список моделей"
 
-# AppAi.cpp:1749  tips::Tip(tr("Ask the engine which models it has (also a quick test of the address and key)."));
+# AppAi.cpp:1845  tips::Tip(tr("Ask the engine which models it has (also a quick test of the address and key)."));
 en "Ask the engine which models it has (also a quick test of the address and key)."
 tr "Спросить у движка, какие у него есть модели (заодно быстрая проверка адреса и ключа)."
 
-# AppAi.cpp:1766  ImGui::TextDisabled(tr("%zu models found: click List models again to pick one."), _aiModels->list.size());
+# AppAi.cpp:1862  ImGui::TextDisabled(tr("%zu models found: click List models again to pick one."), _aiModels->list.size());
 en "%zu models found: click List models again to pick one."
 tr "Найдено моделей: %zu. Нажмите «Список моделей» ещё раз, чтобы выбрать."
 
-# AppAi.cpp:1771  ImGui::TextDisabled("%s", tr("Asking the engine..."));
+# AppAi.cpp:1867  ImGui::TextDisabled("%s", tr("Asking the engine..."));
 en "Asking the engine..."
 tr "Спрашиваю движок..."
 
-# AppAi.cpp:1777  changed |= ImGui::InputInt(tr("Longest answer (tokens)"), &s.maxTokens, 1024);
+# AppAi.cpp:1873  changed |= ImGui::InputInt(tr("Longest answer (tokens)"), &s.maxTokens, 1024);
 en "Longest answer (tokens)"
 tr "Самый длинный ответ (токены)"
 
-# AppAi.cpp:1781  changed |= ImGui::InputInt(tr("Wait for an answer (seconds)"), &s.timeoutSeconds, 30);
+# AppAi.cpp:1877  changed |= ImGui::InputInt(tr("Wait for an answer (seconds)"), &s.timeoutSeconds, 30);
 en "Wait for an answer (seconds)"
 tr "Ждать ответа (секунды)"
 
-# AppAi.cpp:1783  tips::Tip(tr("Engines on your own PC can be slow: give them more time."));
+# AppAi.cpp:1879  tips::Tip(tr("Engines on your own PC can be slow: give them more time."));
 en "Engines on your own PC can be slow: give them more time."
 tr "Движки на вашем ПК бывают медленными: дайте им больше времени."
 
-# AppAi.cpp:1786  ImGui::TextUnformatted(tr("What you type, and what the AI reads with its tools (parts of your save, your logs, file and mod names), is "
+# AppAi.cpp:1882  ImGui::TextUnformatted(tr("What you type, and what the AI reads with its tools (parts of your save, your logs, file and mod names), is "
 en "What you type, and what the AI reads with its tools (parts of your save, your logs, file and mod names), is sent to the engine you pick. An engine on this PC (Ollama, LM Studio) keeps everything here. Paid engines charge your account for each question; a question usually costs a few cents."
 tr "То, что вы пишете, и то, что ИИ читает своими инструментами (части сохранения, ваши логи, имена файлов и модов), отправляется выбранному движку. Движок на этом ПК (Ollama, LM Studio) оставляет всё здесь. Платные движки списывают оплату с вашего аккаунта за каждый вопрос; вопрос обычно стоит несколько центов."
 
-# AppAi.cpp:1813  if (ImGui::Button(_aiShowSettings ? tr("Hide engine settings") : tr("Engine settings"))) {
+# AppAi.cpp:1909  if (ImGui::Button(_aiShowSettings ? tr("Hide engine settings") : tr("Engine settings"))) {
 en "Hide engine settings"
 tr "Скрыть настройки движка"
 
-# AppAi.cpp:1813  if (ImGui::Button(_aiShowSettings ? tr("Hide engine settings") : tr("Engine settings"))) {
+# AppAi.cpp:1909  if (ImGui::Button(_aiShowSettings ? tr("Hide engine settings") : tr("Engine settings"))) {
 en "Engine settings"
 tr "Настройки движка"
 
-# AppAi.cpp:1817  if (ImGui::Checkbox(tr("Ask me before changes"), &s.askBeforeChanges)) {
+# AppAi.cpp:1913  if (ImGui::Checkbox(tr("Ask me before changes"), &s.askBeforeChanges)) {
 en "Ask me before changes"
 tr "Спрашивать перед изменениями"
 
-# AppAi.cpp:1820  tips::Tip(tr("On: the AI asks for your OK before it writes a new save, changes the running game or writes a file. It can look "
+# AppAi.cpp:1916  tips::Tip(tr("On: the AI asks for your OK before it writes a new save, changes the running game or writes a file. It can look "
 en "On: the AI asks for your OK before it writes a new save, changes the running game or writes a file. It can look at anything without asking. Off: it does what it decides."
 tr "Включено: ИИ спрашивает вашего согласия, прежде чем записать новое сохранение, изменить запущенную игру или записать файл. Смотреть он может что угодно без спроса. Выключено: он делает то, что решит."
 
-# AppAi.cpp:1823  if (ImGui::Button(tr("New chat"))) {
+# AppAi.cpp:1919  if (ImGui::Button(tr("New chat"))) {
 en "New chat"
 tr "Новый чат"
 
-# AppAi.cpp:1827  if (ImGui::Button(tr("Copy chat"))) {
+# AppAi.cpp:1923  if (ImGui::Button(tr("Copy chat"))) {
 en "Copy chat"
 tr "Копировать чат"
 
-# AppAi.cpp:1836  ImGui::TextUnformatted(tr("Pick an AI engine first: its address, API key and model."));
+# AppAi.cpp:1932  ImGui::TextUnformatted(tr("Pick an AI engine first: its address, API key and model."));
 en "Pick an AI engine first: its address, API key and model."
 tr "Сначала выберите ИИ-движок: его адрес, API-ключ и модель."
 
-# AppAi.cpp:1859  ImGui::TextUnformatted(tr("You"));
+# AppAi.cpp:1955  ImGui::TextUnformatted(tr("You"));
 en "You"
 tr "Вы"
 
-# AppAi.cpp:1870  ImGui::TextUnformatted(tr("AI"));
+# AppAi.cpp:1966  ImGui::TextUnformatted(tr("AI"));
 # AppTools.cpp:623  ImGui::SeparatorText(tr("AI"));
 en "AI"
 tr "ИИ"
 
-# AppAi.cpp:1873  if (ImGui::SmallButton(tr("Copy"))) {
+# AppAi.cpp:1969  if (ImGui::SmallButton(tr("Copy"))) {
 # AppMore.cpp:658  if (ImGui::Button(tr("Copy"))) {
 # AppScripts.cpp:955  if (ImGui::Button(tr("Copy"))) {
 en "Copy"
 tr "Копировать"
 
-# AppAi.cpp:1883  m.shown.empty() ? m.toolName.c_str() : m.shown.c_str(), m.error ? tr("  (failed)") : "");
+# AppAi.cpp:1979  m.shown.empty() ? m.toolName.c_str() : m.shown.c_str(), m.error ? tr("  (failed)") : "");
 en "  (failed)"
 tr "  (ошибка)"
 
-# AppAi.cpp:1930  ImGui::TextUnformatted(tr("The AI wants to make a change:"));
+# AppAi.cpp:2026  ImGui::TextUnformatted(tr("The AI wants to make a change:"));
 en "The AI wants to make a change:"
 tr "ИИ хочет внести изменение:"
 
-# AppAi.cpp:1936  if (ImGui::Button(tr("Allow"))) {
+# AppAi.cpp:2032  if (ImGui::Button(tr("Allow"))) {
 en "Allow"
 tr "Разрешить"
 
-# AppAi.cpp:1940  if (ImGui::Button(tr("Allow every change in this chat"))) {
+# AppAi.cpp:2036  if (ImGui::Button(tr("Allow every change in this chat"))) {
 en "Allow every change in this chat"
 tr "Разрешать все изменения в этом чате"
 
-# AppAi.cpp:1944  if (ImGui::Button(tr("Don't"))) {
+# AppAi.cpp:2040  if (ImGui::Button(tr("Don't"))) {
 en "Don't"
 tr "Не надо"
 
-# AppAi.cpp:1957  if (ImGui::Button(tr("Stop"))) {
+# AppAi.cpp:2053  if (ImGui::Button(tr("Stop"))) {
 # AppBsa.cpp:204  if (ImGui::Button(tr("Stop"))) {
 en "Stop"
 tr "Остановить"
 
-# AppAi.cpp:1962  ImGui::TextDisabled("%s", tr("Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it."));
+# AppAi.cpp:2058  ImGui::TextDisabled("%s", tr("Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it."));
 en "Enter sends, Ctrl+Enter starts a new line. Select any text in the chat with the mouse; Ctrl+C copies it."
 tr "Enter отправляет, Ctrl+Enter — новая строка. Любой текст в чате можно выделить мышью; Ctrl+C копирует его."
 
-# AppAi.cpp:1976  send |= ImGui::Button(tr("Send"), ImVec2(sendW, inputH));
+# AppAi.cpp:2072  send |= ImGui::Button(tr("Send"), ImVec2(sendW, inputH));
 en "Send"
 tr "Отправить"
 
@@ -4391,7 +4393,7 @@ en "Save %u, %s"
 tr "Сохранение %u, %s"
 
 # AppGallery.cpp:434  ImGui::TableSetupColumn(tr("Level"), ImGuiTableColumnFlags_PreferSortDescending, 0.5f);
-# AppPlayerFO4.cpp:107  ImGui::TextUnformatted(tr("Level"));
+# AppPlayerFO4.cpp:110  ImGui::TextUnformatted(tr("Level"));
 # AppTools.cpp:1149  row(tr("Level"));
 en "Level"
 tr "Уровень"
@@ -5901,8 +5903,8 @@ en "Which element of the array the buttons act on (counting from 0)."
 tr "С каким элементом массива работают кнопки (считая с 0)."
 
 # AppMore.cpp:417  if (ImGui::Button(tr("Remove"))) {
-# AppPlayerFO4.cpp:252  if (ImGui::SmallButton(tr("Remove"))) {
-# AppPlayerFO4.cpp:377  if (ImGui::SmallButton(tr("Remove"))) {
+# AppPlayerFO4.cpp:261  if (ImGui::SmallButton(tr("Remove"))) {
+# AppPlayerFO4.cpp:389  if (ImGui::SmallButton(tr("Remove"))) {
 en "Remove"
 tr "Удалить"
 
@@ -6541,250 +6543,254 @@ tr "Изменения вносятся в загруженное сохране
 en "Could not change the player: "
 tr "Не удалось изменить персонажа: "
 
-# AppPlayerFO4.cpp:105  tips::Tip(tr("Level, experience and the bottle caps your character carries."));
+# AppPlayerFO4.cpp:108  tips::Tip(tr("Level, experience and the bottle caps your character carries."));
 en "Level, experience and the bottle caps your character carries."
 tr "Уровень, опыт и крышки, которые носит ваш персонаж."
 
-# AppPlayerFO4.cpp:110  ImGui::TextDisabled(tr("%u (this save keeps the game's starting level: it can be changed once the character has levelled up)"),
+# AppPlayerFO4.cpp:113  ImGui::TextDisabled(tr("%u (this save keeps the game's starting level: it can be changed once the character has levelled up)"),
 en "%u (this save keeps the game's starting level: it can be changed once the character has levelled up)"
 tr "%u (это сохранение хранит начальный уровень игры: его можно изменить, когда персонаж получит новый уровень)"
 
-# AppPlayerFO4.cpp:116  tips::Tip(tr("The character level. Type a new level, then press Set. The save's header (the load menu) is changed too."));
+# AppPlayerFO4.cpp:119  tips::Tip(tr("The character level. Type a new level, then press Set. The save's header (the load menu) is changed too."));
 en "The character level. Type a new level, then press Set. The save's header (the load menu) is changed too."
 tr "Уровень персонажа. Введите новый уровень и нажмите «Задать». Заголовок сохранения (меню загрузки) тоже меняется."
 
-# AppPlayerFO4.cpp:119  if (ImGui::SmallButton(tr("Set##level"))) {
-# AppPlayerFO4.cpp:137  if (ImGui::SmallButton(tr("Set##xp"))) {
-# AppPlayerFO4.cpp:155  if (ImGui::SmallButton(tr("Set##caps"))) {
+# AppPlayerFO4.cpp:122  if (ImGui::SmallButton(tr("Set##level"))) {
+# AppPlayerFO4.cpp:140  if (ImGui::SmallButton(tr("Set##xp"))) {
+# AppPlayerFO4.cpp:158  if (ImGui::SmallButton(tr("Set##caps"))) {
 en "Set"
 tr "Задать"
 
-# AppPlayerFO4.cpp:120  done(fo4cf::SetPlayerLevel(*_save, _f4LevelEdit), Fmt(tr("Level set to %d"), _f4LevelEdit));
+# AppPlayerFO4.cpp:123  done(fo4cf::SetPlayerLevel(*_save, _f4LevelEdit), Fmt(tr("Level set to %d"), _f4LevelEdit));
 en "Level set to %d"
 tr "Уровень: %d"
 
-# AppPlayerFO4.cpp:124  ImGui::TextDisabled(tr("now %d"), _f4Level);
-# AppPlayerFO4.cpp:190  ImGui::TextDisabled(tr("now %d"), _f4Special[i]);
+# AppPlayerFO4.cpp:127  ImGui::TextDisabled(tr("now %d"), _f4Level);
+# AppPlayerFO4.cpp:196  ImGui::TextDisabled(tr("now %d"), _f4Special[i]);
 en "now %d"
 tr "сейчас %d"
 
-# AppPlayerFO4.cpp:126  ImGui::TextUnformatted(tr("Experience"));
+# AppPlayerFO4.cpp:129  ImGui::TextUnformatted(tr("Experience"));
 en "Experience"
 tr "Опыт"
 
-# AppPlayerFO4.cpp:129  ImGui::TextDisabled("%s", tr("not saved for this character yet"));
+# AppPlayerFO4.cpp:132  ImGui::TextDisabled("%s", tr("not saved for this character yet"));
 en "not saved for this character yet"
 tr "для этого персонажа ещё не сохранён"
 
-# AppPlayerFO4.cpp:134  tips::Tip(tr("The experience points earned so far. Type a new amount, then press Set."));
+# AppPlayerFO4.cpp:137  tips::Tip(tr("The experience points earned so far. Type a new amount, then press Set."));
 en "The experience points earned so far. Type a new amount, then press Set."
 tr "Заработанные очки опыта. Введите новое значение и нажмите «Задать»."
 
-# AppPlayerFO4.cpp:138  done(fo4cf::SetPlayerXP(*_save, _f4XPEdit), Fmt(tr("Experience set to %.0f"), _f4XPEdit));
+# AppPlayerFO4.cpp:141  done(fo4cf::SetPlayerXP(*_save, _f4XPEdit), Fmt(tr("Experience set to %.0f"), _f4XPEdit));
 en "Experience set to %.0f"
 tr "Опыт: %.0f"
 
-# AppPlayerFO4.cpp:142  ImGui::TextDisabled(tr("now %.0f"), _f4XP);
+# AppPlayerFO4.cpp:145  ImGui::TextDisabled(tr("now %.0f"), _f4XP);
 en "now %.0f"
 tr "сейчас %.0f"
 
-# AppPlayerFO4.cpp:144  ImGui::TextUnformatted(tr("Caps"));
+# AppPlayerFO4.cpp:147  ImGui::TextUnformatted(tr("Caps"));
 en "Caps"
 tr "Крышки"
 
-# AppPlayerFO4.cpp:147  ImGui::TextDisabled("%s", tr("The player carries no caps in this save, so there is no caps entry to change."));
+# AppPlayerFO4.cpp:150  ImGui::TextDisabled("%s", tr("The player carries no caps in this save, so there is no caps entry to change."));
 en "The player carries no caps in this save, so there is no caps entry to change."
 tr "В этом сохранении у игрока нет крышек, поэтому менять нечего."
 
-# AppPlayerFO4.cpp:152  tips::Tip(tr("Type a new amount, then press Set."));
+# AppPlayerFO4.cpp:155  tips::Tip(tr("Type a new amount, then press Set."));
 en "Type a new amount, then press Set."
 tr "Введите новое значение и нажмите «Задать»."
 
-# AppPlayerFO4.cpp:156  done(fo4cf::SetPlayerCaps(*_save, _f4CapsEdit), Fmt(tr("Caps set to %d"), _f4CapsEdit));
+# AppPlayerFO4.cpp:159  done(fo4cf::SetPlayerCaps(*_save, _f4CapsEdit), Fmt(tr("Caps set to %d"), _f4CapsEdit));
 en "Caps set to %d"
 tr "Крышки: %d"
 
-# AppPlayerFO4.cpp:160  ImGui::TextDisabled(tr("now %lld"), static_cast<long long>(_f4Caps));
+# AppPlayerFO4.cpp:163  ImGui::TextDisabled(tr("now %lld"), static_cast<long long>(_f4Caps));
 en "now %lld"
 tr "сейчас %lld"
 
-# AppPlayerFO4.cpp:166  tips::Tip(tr("The character's saved base S.P.E.C.I.A.L. values (gear, chems and food add their bonuses on top while they are active)."));
+# AppPlayerFO4.cpp:172  tips::Tip(tr("The character's saved base S.P.E.C.I.A.L. values (gear, chems and food add their bonuses on top while they are active)."));
 en "The character's saved base S.P.E.C.I.A.L. values (gear, chems and food add their bonuses on top while they are active)."
 tr "Сохранённые базовые значения S.P.E.C.I.A.L. персонажа (снаряжение, препараты и еда добавляют свои бонусы сверху, пока действуют)."
 
-# AppPlayerFO4.cpp:175  ImGui::TextDisabled("%s", tr("not saved"));
+# AppPlayerFO4.cpp:181  ImGui::TextDisabled("%s", tr("not saved"));
 en "not saved"
 tr "не сохранено"
 
-# AppPlayerFO4.cpp:186  Fmt(tr("%s set to %d"), tr(kSpecial[i]), _f4SpecialEdit[i]));
+# AppPlayerFO4.cpp:192  Fmt(tr("%s set to %d"), tr(kSpecial[i]), _f4SpecialEdit[i]));
 en "%s set to %d"
 tr "%s: %d"
 
-# AppPlayerFO4.cpp:194  tips::Tip(tr("The saved base value. The character screen stops at 10 when you level up, but the saved value can be higher (some saves have 11)."));
+# AppPlayerFO4.cpp:200  tips::Tip(tr("The saved base value. The character screen stops at 10 when you level up, but the saved value can be higher (some saves have 11)."));
 en "The saved base value. The character screen stops at 10 when you level up, but the saved value can be higher (some saves have 11)."
 tr "Сохранённое базовое значение. Экран персонажа при повышении уровня останавливается на 10, но сохранённое значение может быть выше (в некоторых сохранениях 11)."
 
-# AppPlayerFO4.cpp:198  const bool hPerks = ImGui::CollapsingHeader(Fmt(tr("Perks (%zu)###perks"), _f4Actor.perks.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+# AppPlayerFO4.cpp:207  const bool hPerks = ImGui::CollapsingHeader(Fmt(tr("Perks (%zu)###perks"), _f4Actor.perks.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen);
 en "Perks (%zu)"
 tr "Перки (%zu)"
 
-# AppPlayerFO4.cpp:199  tips::Tip(tr("The perks the character has taken, with their rank. Change a rank, remove a perk or add one."));
+# AppPlayerFO4.cpp:208  tips::Tip(tr("The perks the character has taken, with their rank. Change a rank, remove a perk or add one."));
 en "The perks the character has taken, with their rank. Change a rank, remove a perk or add one."
 tr "Перки, взятые персонажем, с их рангом. Измените ранг, удалите перк или добавьте новый."
 
-# AppPlayerFO4.cpp:206  ImGui::TextDisabled(tr("The perks could not be read in this save: %s"), _f4Actor.error.empty() ? tr("no perk list") : _f4Actor.error.c_str());
+# AppPlayerFO4.cpp:215  ImGui::TextDisabled(tr("The perks could not be read in this save: %s"), _f4Actor.error.empty() ? tr("no perk list") : _f4Actor.error.c_str());
 en "The perks could not be read in this save: %s"
 tr "Не удалось прочитать перки в этом сохранении: %s"
 
-# AppPlayerFO4.cpp:206  ImGui::TextDisabled(tr("The perks could not be read in this save: %s"), _f4Actor.error.empty() ? tr("no perk list") : _f4Actor.error.c_str());
+# AppPlayerFO4.cpp:215  ImGui::TextDisabled(tr("The perks could not be read in this save: %s"), _f4Actor.error.empty() ? tr("no perk list") : _f4Actor.error.c_str());
 en "no perk list"
 tr "нет списка перков"
 
-# AppPlayerFO4.cpp:209  ImGui::InputTextWithHint("##perkf", tr("filter (e.g. gun nut, local leader)"), _f4PerkFilter, sizeof(_f4PerkFilter));
+# AppPlayerFO4.cpp:218  ImGui::InputTextWithHint("##perkf", tr("filter (e.g. gun nut, local leader)"), _f4PerkFilter, sizeof(_f4PerkFilter));
 en "filter (e.g. gun nut, local leader)"
 tr "фильтр (например, оружейник, местный лидер)"
 
-# AppPlayerFO4.cpp:216  ImGui::TableSetupColumn(tr("Perk"));
+# AppPlayerFO4.cpp:225  ImGui::TableSetupColumn(tr("Perk"));
 en "Perk"
 tr "Перк"
 
-# AppPlayerFO4.cpp:217  ImGui::TableSetupColumn(tr("Form id"), ImGuiTableColumnFlags_WidthFixed);
-# AppPlayerFO4.cpp:320  ImGui::TableSetupColumn(tr("Form id"), ImGuiTableColumnFlags_WidthFixed);
+# AppPlayerFO4.cpp:226  ImGui::TableSetupColumn(tr("Form id"), ImGuiTableColumnFlags_WidthFixed);
+# AppPlayerFO4.cpp:329  ImGui::TableSetupColumn(tr("Form id"), ImGuiTableColumnFlags_WidthFixed);
 en "Form id"
 tr "ID формы"
 
-# AppPlayerFO4.cpp:219  ImGui::TableSetupColumn(tr("Rank"), ImGuiTableColumnFlags_WidthFixed);
+# AppPlayerFO4.cpp:228  ImGui::TableSetupColumn(tr("Rank"), ImGuiTableColumnFlags_WidthFixed);
 en "Rank"
 tr "Ранг"
 
-# AppPlayerFO4.cpp:248  done(fo4cf::SetPerkRank(*_save, *pcf, k.formID, static_cast<std::uint8_t>(r)), Fmt(tr("%s: rank %d"), name.c_str(), r));
+# AppPlayerFO4.cpp:257  done(fo4cf::SetPerkRank(*_save, *pcf, k.formID, static_cast<std::uint8_t>(r)), Fmt(tr("%s: rank %d"), name.c_str(), r));
 en "%s: rank %d"
 tr "%s: ранг %d"
 
-# AppPlayerFO4.cpp:261  done(fo4cf::RemovePerk(*_save, *pcf, removeId), tr("Perk removed: ") + name);
+# AppPlayerFO4.cpp:270  done(fo4cf::RemovePerk(*_save, *pcf, removeId), tr("Perk removed: ") + name);
 en "Perk removed: "
 tr "Перк удалён: "
 
-# AppPlayerFO4.cpp:263  ImGui::TextUnformatted(tr("Add a perk (form id, hex):"));
+# AppPlayerFO4.cpp:272  ImGui::TextUnformatted(tr("Add a perk (form id, hex):"));
 en "Add a perk (form id, hex):"
 tr "Добавить перк (ID формы, hex):"
 
-# AppPlayerFO4.cpp:267  tips::Tip(tr("The perk's form id, as Find form by name (Tools menu) shows it. Only perks this save already refers to can be added."));
+# AppPlayerFO4.cpp:276  tips::Tip(tr("The perk's form id, as Find form by name (Tools menu) shows it. Only perks this save already refers to can be added."));
 en "The perk's form id, as Find form by name (Tools menu) shows it. Only perks this save already refers to can be added."
 tr "ID формы перка, как его показывает «Найти форму по имени» (меню «Инструменты»). Добавить можно только перки, на которые это сохранение уже ссылается."
 
-# AppPlayerFO4.cpp:269  ImGui::TextUnformatted(tr("rank"));
+# AppPlayerFO4.cpp:278  ImGui::TextUnformatted(tr("rank"));
 en "rank"
 tr "ранг"
 
-# AppPlayerFO4.cpp:276  if (ImGui::SmallButton(tr("Add"))) {
+# AppPlayerFO4.cpp:285  if (ImGui::SmallButton(tr("Add"))) {
 en "Add"
 tr "Добавить"
 
-# AppPlayerFO4.cpp:278  done(fo4cf::AddPerk(*_save, *pcf, id, static_cast<std::uint8_t>(_f4AddRank)), Fmt(tr("Perk added: %s, rank %d"), nameOf(id).c_str(), _f4AddRank));
+# AppPlayerFO4.cpp:287  done(fo4cf::AddPerk(*_save, *pcf, id, static_cast<std::uint8_t>(_f4AddRank)), Fmt(tr("Perk added: %s, rank %d"), nameOf(id).c_str(), _f4AddRank));
 en "Perk added: %s, rank %d"
 tr "Перк добавлен: %s, ранг %d"
 
-# AppPlayerFO4.cpp:289  const bool hFx = ImGui::CollapsingHeader(Fmt(tr("Active effects (%zu)###fx"), _f4Actor.effects.size()).c_str());
+# AppPlayerFO4.cpp:298  const bool hFx = ImGui::CollapsingHeader(Fmt(tr("Active effects (%zu)###fx"), _f4Actor.effects.size()).c_str());
 en "Active effects (%zu)"
 tr "Активные эффекты (%zu)"
 
-# AppPlayerFO4.cpp:290  tips::Tip(tr("The effects running on the character: chems, food, radiation, perks' and gear's effects. Remove ones that are stuck; the stat they chang
+# AppPlayerFO4.cpp:299  tips::Tip(tr("The effects running on the character: chems, food, radiation, perks' and gear's effects. Remove ones that are stuck; the stat they chang
 en "The effects running on the character: chems, food, radiation, perks' and gear's effects. Remove ones that are stuck; the stat they change is put back."
 tr "Эффекты, действующие на персонажа: химия, еда, радиация, эффекты перков и снаряжения. Удалите застрявшие; изменённая ими характеристика будет восстановлена."
 
-# AppPlayerFO4.cpp:296  ImGui::TextWrapped("%s", tr("Remove takes an effect off the character, and when it is running and changes a stat, puts the stat back as the "
+# AppPlayerFO4.cpp:305  ImGui::TextWrapped("%s", tr("Remove takes an effect off the character, and when it is running and changes a stat, puts the stat back as the "
 en "Remove takes an effect off the character, and when it is running and changes a stat, puts the stat back as the game does when the effect ends. An effect from something you still wear, a perk or a mod's script can come back when the game gives it again."
 tr "«Удалить» снимает эффект с персонажа, а если эффект действует и меняет характеристику, возвращает её так же, как игра делает при окончании эффекта. Эффект от того, что вы всё ещё носите, от перка или от скрипта мода может вернуться, когда игра наложит его снова."
 
-# AppPlayerFO4.cpp:300  TextColored(theme::Warn(), tr("Plugin names are not loaded: running effects that change a stat cannot be removed (which stat is in "
+# AppPlayerFO4.cpp:309  TextColored(theme::Warn(), tr("Plugin names are not loaded: running effects that change a stat cannot be removed (which stat is in "
 en "Plugin names are not loaded: running effects that change a stat cannot be removed (which stat is in the plugins). Load them (Tools > Read plugin names)."
 tr "Имена из плагинов не загружены: действующие эффекты, которые меняют характеристику, нельзя удалить (какую именно, указано в плагинах). Загрузите их (Инструменты > Прочитать имена из плагинов)."
 
-# AppPlayerFO4.cpp:304  TextColored(theme::Warn(), tr("The player's saved data does not read completely, so effects cannot be removed: ") + _f4Actor.error);
+# AppPlayerFO4.cpp:313  TextColored(theme::Warn(), tr("The player's saved data does not read completely, so effects cannot be removed: ") + _f4Actor.error);
 en "The player's saved data does not read completely, so effects cannot be removed: "
 tr "Сохранённые данные игрока читаются не полностью, поэтому эффекты нельзя удалить: "
 
-# AppPlayerFO4.cpp:311  ImGui::InputTextWithHint("##f4fxf", tr("filter (e.g. jet, rad, buffout)"), _pvFxFilter, sizeof(_pvFxFilter));
+# AppPlayerFO4.cpp:320  ImGui::InputTextWithHint("##f4fxf", tr("filter (e.g. jet, rad, buffout)"), _pvFxFilter, sizeof(_pvFxFilter));
 en "filter (e.g. jet, rad, buffout)"
 tr "фильтр (например, джет, рад, баффаут)"
 
-# AppPlayerFO4.cpp:319  ImGui::TableSetupColumn(tr("From"));
+# AppPlayerFO4.cpp:328  ImGui::TableSetupColumn(tr("From"));
 # AppTools.cpp:1588  for (const char* h : { "", tr("From"), tr("Effect"), tr("Strength"), tr("Changes"), tr("Time") }) {
 en "From"
 tr "Откуда"
 
-# AppPlayerFO4.cpp:323  ImGui::TableSetupColumn(tr("When removed"));
+# AppPlayerFO4.cpp:332  ImGui::TableSetupColumn(tr("When removed"));
 en "When removed"
 tr "При удалении"
 
-# AppPlayerFO4.cpp:335  state = tr("not readable");
+# AppPlayerFO4.cpp:344  state = tr("not readable");
 en "not readable"
 tr "не читается"
 
-# AppPlayerFO4.cpp:337  state = Fmt(tr("running, strength %g"), e.magnitude);
+# AppPlayerFO4.cpp:346  state = Fmt(tr("running, strength %g"), e.magnitude);
 en "running, strength %g"
 tr "действует, сила %g"
 
-# AppPlayerFO4.cpp:339  state = tr("ended (switched off)");
+# AppPlayerFO4.cpp:348  state = tr("ended (switched off)");
 en "ended (switched off)"
 tr "закончился (выключен)"
 
-# AppPlayerFO4.cpp:341  state = tr("not started");
+# AppPlayerFO4.cpp:350  state = tr("not started");
 en "not started"
 tr "не начался"
 
-# AppPlayerFO4.cpp:345  when = tr("cannot be removed: ") + plan.why;
+# AppPlayerFO4.cpp:354  when = tr("cannot be removed: ") + plan.why;
 en "cannot be removed: "
 tr "нельзя удалить: "
 
-# AppPlayerFO4.cpp:347  when = Fmt(tr("%s %+g (modifier %d)"), nameOf(plan.actorValue).c_str(), -plan.amount, plan.slot);
+# AppPlayerFO4.cpp:356  when = Fmt(tr("%s %+g (modifier %d)"), nameOf(plan.actorValue).c_str(), -plan.amount, plan.slot);
 en "%s %+g (modifier %d)"
 tr "%s %+g (модификатор %d)"
 
-# AppPlayerFO4.cpp:349  when = tr("no stat changes");
+# AppPlayerFO4.cpp:358  when = tr("no stat changes");
 en "no stat changes"
 tr "характеристики не меняются"
 
-# AppPlayerFO4.cpp:351  const auto effectName = src.mgef ? nameOf(src.mgef) : Fmt(tr("effect %u"), e.effectIndex);
+# AppPlayerFO4.cpp:360  const auto effectName = src.mgef ? nameOf(src.mgef) : Fmt(tr("effect %u"), e.effectIndex);
 # AppTools.cpp:1604  const auto  effect = mgef ? nameOf(mgef) : Fmt(tr("effect %u"), e.effectIndex);
 en "effect %u"
 tr "эффект %u"
 
-# AppPlayerFO4.cpp:381  tips::Tip(tr("Take this effect off the character (asks first)."));
+# AppPlayerFO4.cpp:393  tips::Tip(tr("Take this effect off the character (asks first)."));
 en "Take this effect off the character (asks first)."
 tr "Снять этот эффект с персонажа (сначала спросит)."
 
-# AppPlayerFO4.cpp:387  if (ImGui::SmallButton(Fmt(tr("All %zu from this source"), same.size()).c_str())) {
+# AppPlayerFO4.cpp:403  if (ImGui::SmallButton(Fmt(tr("All %zu from this source"), same.size()).c_str())) {
 en "All %zu from this source"
 tr "Все %zu из этого источника"
 
-# AppPlayerFO4.cpp:389  removeWhat = Fmt(tr("all %zu effects from %s"), same.size(), name.c_str());
+# AppPlayerFO4.cpp:405  removeWhat = Fmt(tr("all %zu effects from %s"), same.size(), name.c_str());
 en "all %zu effects from %s"
 tr "все %zu эффектов от %s"
 
-# AppPlayerFO4.cpp:391  tips::Tip(tr("Take every effect this item, spell or enchantment put on the character off it (asks first)."));
+# AppPlayerFO4.cpp:407  tips::Tip(allOk ? tr("Take every effect this item, spell or enchantment put on the character off it (asks first).")
 en "Take every effect this item, spell or enchantment put on the character off it (asks first)."
 tr "Снять с персонажа все эффекты, наложенные этим предметом, заклинанием или зачарованием (сначала спросит)."
 
-# AppPlayerFO4.cpp:407  confirm(tr("Remove active effects"),
+# AppPlayerFO4.cpp:408  : tr("One of this source's effects cannot be removed (see When removed)."));
+en "One of this source's effects cannot be removed (see When removed)."
+tr "Один из эффектов этого источника нельзя удалить (см. «При удалении»)."
+
+# AppPlayerFO4.cpp:424  confirm(tr("Remove active effects"),
 # AppTools.cpp:1568  confirm(tr("Remove active effects"), Fmt(tr("Remove %zu active effect(s) from the player, putting back the stats they change?"), rm.size()) + names,
 en "Remove active effects"
 tr "Удаление активных эффектов"
 
-# AppPlayerFO4.cpp:408  Fmt(tr("Remove %s from the player?"), removeWhat.c_str()) + (stats.empty() ? std::string() : tr("\nStats put back:") + stats),
+# AppPlayerFO4.cpp:425  Fmt(tr("Remove %s from the player?"), removeWhat.c_str()) + (stats.empty() ? std::string() : tr("\nStats put back:") + stats),
 en "Remove %s from the player?"
 tr "Удалить у игрока: %s?"
 
-# AppPlayerFO4.cpp:408  Fmt(tr("Remove %s from the player?"), removeWhat.c_str()) + (stats.empty() ? std::string() : tr("\nStats put back:") + stats),
+# AppPlayerFO4.cpp:425  Fmt(tr("Remove %s from the player?"), removeWhat.c_str()) + (stats.empty() ? std::string() : tr("\nStats put back:") + stats),
 en "\nStats put back:"
 tr "\nВосстанавливаемые характеристики:"
 
-# AppPlayerFO4.cpp:415  done(tr("the player's saved data is not in this save"), "");
+# AppPlayerFO4.cpp:432  done(tr("the player's saved data is not in this save"), "");
 en "the player's saved data is not in this save"
 tr "сохранённых данных игрока нет в этом сохранении"
 
-# AppPlayerFO4.cpp:420  std::string              what = tr("Effects removed: ") + removeWhat;
+# AppPlayerFO4.cpp:437  std::string              what = tr("Effects removed: ") + removeWhat;
 en "Effects removed: "
 tr "Удалены эффекты: "
 

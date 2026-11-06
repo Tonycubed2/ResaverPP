@@ -101,6 +101,9 @@ void App::drawPlayerFO4()
 	};
 
 	// ---- character: level, XP, caps ----
+	if (std::getenv("RESAVERPP_TEST_FX")) {  // test: only the active effects open
+		ImGui::SetNextItemOpen(false, ImGuiCond_Once);
+	}
 	const bool hChar = ImGui::CollapsingHeader(trId("Character"), ImGuiTreeNodeFlags_DefaultOpen);
 	tips::Tip(tr("Level, experience and the bottle caps your character carries."));
 	if (hChar) {
@@ -162,6 +165,9 @@ void App::drawPlayerFO4()
 	}
 
 	// ---- S.P.E.C.I.A.L. ----
+	if (std::getenv("RESAVERPP_TEST_FX")) {  // test: only the active effects open
+		ImGui::SetNextItemOpen(false, ImGuiCond_Once);
+	}
 	const bool hSpecial = ImGui::CollapsingHeader("S.P.E.C.I.A.L.", ImGuiTreeNodeFlags_DefaultOpen);
 	tips::Tip(tr("The character's saved base S.P.E.C.I.A.L. values (gear, chems and food add their bonuses on top while they are active)."));
 	if (hSpecial && ImGui::BeginTable("special", 4, ImGuiTableFlags_SizingFixedFit)) {
@@ -195,6 +201,9 @@ void App::drawPlayerFO4()
 	}
 
 	// ---- perks ----
+	if (std::getenv("RESAVERPP_TEST_FX")) {  // test: only the active effects open
+		ImGui::SetNextItemOpen(false, ImGuiCond_Once);
+	}
 	const bool hPerks = ImGui::CollapsingHeader(Fmt(tr("Perks (%zu)###perks"), _f4Actor.perks.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen);
 	tips::Tip(tr("The perks the character has taken, with their rank. Change a rank, remove a perk or add one."));
 	if (hPerks) {
@@ -372,6 +381,9 @@ void App::drawPlayerFO4()
 				} else {
 					ImGui::TextDisabled("%s", when.c_str());
 				}
+				if (ImGui::IsItemHovered()) {
+					ImGui::SetTooltip("%s", when.c_str());
+				}
 				ImGui::TableNextColumn();
 				ImGui::BeginDisabled(!plan.ok || !_f4Actor.complete || !pcf);
 				if (ImGui::SmallButton(tr("Remove"))) {
@@ -382,13 +394,18 @@ void App::drawPlayerFO4()
 				ImGui::EndDisabled();
 				const auto same = fo4cf::EffectsFrom(*_save, _f4Actor, id);
 				if (same.size() > 1) {
+					bool allOk = true;
+					for (const auto k : same) {
+						allOk = allOk && fo4cf::PlanEffectRemoval(_f4Actor, _f4Actor.effects[k], &_f4FxSources[k]).ok;
+					}
 					ImGui::SameLine();
-					ImGui::BeginDisabled(!_f4Actor.complete || !pcf);
+					ImGui::BeginDisabled(!allOk || !_f4Actor.complete || !pcf);
 					if (ImGui::SmallButton(Fmt(tr("All %zu from this source"), same.size()).c_str())) {
 						remove = same;
 						removeWhat = Fmt(tr("all %zu effects from %s"), same.size(), name.c_str());
 					}
-					tips::Tip(tr("Take every effect this item, spell or enchantment put on the character off it (asks first)."));
+					tips::Tip(allOk ? tr("Take every effect this item, spell or enchantment put on the character off it (asks first).")
+					                : tr("One of this source's effects cannot be removed (see When removed)."));
 					ImGui::EndDisabled();
 				}
 				ImGui::PopID();
