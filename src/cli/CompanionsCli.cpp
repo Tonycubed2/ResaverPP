@@ -203,6 +203,20 @@ int Fo4CompanionsMain(int argc, char** argv)
 			std::printf("quest check: %zu running quests with stage scripts, %zu scripts read, %zu not found, %zu skipped (their script is "
 						"running or queued), %zu lines checked, %zu findings\n",
 				st.quests, st.scriptsRead, st.scriptsMissing, st.skippedRunning, st.checks, found.size());
+			for (const auto& [plugin, n] : st.readBy) {
+				const auto m = st.missingBy.find(plugin);
+				const auto c = st.checksBy.find(plugin);
+				std::printf("    %s: %zu stage scripts read, %zu not found, %zu lines checked\n", plugin.c_str(), n,
+					m == st.missingBy.end() ? std::size_t(0) : m->second, c == st.checksBy.end() ? std::size_t(0) : c->second);
+			}
+			for (const auto& [plugin, n] : st.missingBy) {
+				if (!st.readBy.contains(plugin)) {
+					std::printf("    %s: 0 stage scripts read, %zu not found\n", plugin.c_str(), n);
+				}
+			}
+			for (const auto& m : st.missing) {
+				std::printf("    not found: %s\n", m.c_str());
+			}
 			for (const auto& f : found) {
 				std::printf("[PROBLEM] %s\n    %s\n", f.title.c_str(), f.what.c_str());
 				for (const auto& c : f.console) {

@@ -452,16 +452,22 @@ namespace ess::fo4quest
 					}
 				}
 				it = cache.emplace(key, s).first;
+				const auto plugin = a_save.pluginOf(q.formID);
 				if (s) {
 					++st.scriptsRead;
+					++st.readBy[plugin];
 				} else {
 					++st.scriptsMissing;
+					++st.missingBy[plugin];
+					st.missing.push_back(d->fragmentScript);
 				}
 			}
 			if (!it->second) {
 				continue;
 			}
+			const auto before = st.checks;
 			const auto found = CheckQuest(q, *d, *it->second, &st.checks);
+			st.checksBy[a_save.pluginOf(q.formID)] += st.checks - before;
 			out.insert(out.end(), found.begin(), found.end());
 		}
 		if (a_stats) {

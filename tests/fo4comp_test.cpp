@@ -415,6 +415,25 @@ static void TestCompanionsReal()
 		const auto      found = fo4quest::FindStoppedStages(*s, db, src, &st);
 		Check(st.scriptsRead > 0 && st.checks > 0 && found.empty(), f.filename().string() + ": quest check reads scripts, checks lines, finds nothing (" +
 																		 std::to_string(st.checks) + " lines, " + std::to_string(found.size()) + " findings)");
+		// the DLC quests' stage scripts come from the DLC archives ("<DLC> - Main.ba2"): every running DLC quest's script is
+		// found when the Data folder has those archives (the only script Tony's game lacks is a base game one)
+		std::string line = f.filename().string() + ":";
+		for (const auto& [plugin, n] : st.readBy) {
+			const auto m = st.missingBy.find(plugin);
+			const auto c = st.checksBy.find(plugin);
+			line += " " + plugin + " " + std::to_string(n) + " read" + (m == st.missingBy.end() ? "" : " " + std::to_string(m->second) + " missing") +
+			        " " + std::to_string(c == st.checksBy.end() ? 0 : c->second) + " lines;";
+			const auto lower = [](std::string x) { for (auto& ch : x) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch))); return x; }(plugin);
+			if (lower.rfind("dlc", 0) == 0 && fs::exists(fs::path(data) / (plugin.substr(0, plugin.size() - 4) + " - Main.ba2"))) {
+				Check(m == st.missingBy.end(), f.filename().string() + ": every running " + plugin + " quest's stage script is read from its archive");
+			}
+		}
+		for (const auto& [plugin, n] : st.missingBy) {
+			if (!st.readBy.contains(plugin)) {
+				line += " " + plugin + " 0 read " + std::to_string(n) + " missing;";
+			}
+		}
+		std::printf("(quest check %s %zu lines, %zu findings)\n", line.c_str(), st.checks, found.size());
 	}
 }
 
