@@ -1095,4 +1095,12 @@ private:
 	ess::modremove::Options                 _removeOpt;
 	std::unique_ptr<ess::modremove::Plan>   _removePlan;
 	bool                              _scanPathPopup = false;
+
+	// Fallout 4 companions window and save checks (AppF4Companions.cpp; core/CompanionsFO4.h, core/QuestChecksFO4.h)
+	struct F4CompanionsState;
+	std::shared_ptr<F4CompanionsState> _f4comp;
+	bool                               _showCompanionsF4 = false;
+	F4CompanionsState&                 f4companions();  // read once per save and edit
+	void                               drawCompanionsF4();
+	void                               appendCheckItemsF4(std::vector<CheckItem>& a_items);
 };

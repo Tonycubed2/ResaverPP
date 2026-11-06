@@ -1064,6 +1064,10 @@ void App::draw()
 		watchdog::Section("drawActors");
 		drawActors();
 	}
+	if (_showCompanionsF4 && _save) {
+		watchdog::Section("drawCompanionsF4");
+		drawCompanionsF4();
+	}
 	if (_showLeftovers && _save) {
 		watchdog::Section("drawLeftovers");
 		drawLeftovers();
@@ -1325,6 +1329,11 @@ void App::drawMenu()
 		tips::Tip(tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."));
 		ImGui::MenuItem(tr("Find NPCs (where they are, bring one to you)..."), nullptr, &_showActors, !fo4());
 		tips::Tip(tr("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you."));
+		if (fo4()) {
+			ImGui::MenuItem(tr("Companions (affinity, romance, won't follow)..."), nullptr, &_showCompanionsF4);
+			tips::Tip(tr("Fallout 4: every companion with affinity, romance, whether it left for good and where it is; set affinity, and "
+			          "console commands to make one your companion again."));
+		}
 		ImGui::Separator();
 		if (ImGui::MenuItem(tr("Save history (growth over time)..."))) {
 			shortcut(Sc::kHistory);

@@ -80,6 +80,8 @@ if (RESAVERPP_TESTS)
 	target_link_libraries(rs_psc_test PRIVATE rs_core)
 	add_executable(rs_unit tests/unit_test.cpp)
 	target_link_libraries(rs_unit PRIVATE rs_core)
+	add_executable(rs_fo4comp_test tests/fo4comp_test.cpp)  # Fallout 4 companions and quest check
+	target_link_libraries(rs_fo4comp_test PRIVATE rs_core)
 	add_executable(rs_save_test tests/save_test.cpp)
 	target_link_libraries(rs_save_test PRIVATE rs_core)
 	add_executable(rs_lang_test tests/lang_test.cpp)
@@ -89,6 +91,7 @@ if (RESAVERPP_TESTS)
 	enable_testing()
 	# needs nothing: regression tests built from data made in memory
 	add_test(NAME unit COMMAND rs_unit)
+	add_test(NAME fo4comp COMMAND rs_fo4comp_test)
 	# interface translations: lang/*.txt parse and keep the printf conversions of the English
 	add_test(NAME lang COMMAND rs_lang_test)
 	# every text the GUI translates is in lang/ru.txt

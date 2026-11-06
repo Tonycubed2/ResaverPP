@@ -475,6 +475,9 @@ std::vector<App::CheckItem> App::checkItems()
 		}
 	}
 
+	// Fallout 4: companions, quests whose stage script stopped early (AppF4Companions.cpp)
+	appendCheckItemsF4(v);
+
 	std::stable_sort(v.begin(), v.end(), [](const CheckItem& a, const CheckItem& b) { return static_cast<int>(a.level) > static_cast<int>(b.level); });
 	return v;
 }
