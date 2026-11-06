@@ -69,7 +69,7 @@ namespace SkyFix
 		auto*      vm = VM::GetSingleton();
 		const auto h = HandleOf(actor, static_cast<RE::VMTypeID>(RE::Character::FORMTYPE));
 		RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> none;
-		if (!vm || !h || !vm->DispatchMethodCall(h, "Actor", "SetPlayerTeammate", RE::MakeFunctionArguments(a_on, true), none)) {
+		if (!vm || !h || !vm->DispatchMethodCall(h, "Actor", "SetPlayerTeammate", RE::MakeFunctionArguments(static_cast<bool>(a_on), true), none)) {
 			return "no script object for this character";
 		}
 		spdlog::info("follower: {:08X} ({}) SetPlayerTeammate({}) dispatched", a_actor, NameOf(actor), a_on);
