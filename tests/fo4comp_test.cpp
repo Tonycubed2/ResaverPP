@@ -2,6 +2,8 @@
 // Synthetic checks always run. With RESAVERPP_FO4_SAVES="dir;dir" every .fos under those folders is read too (the follower
 // quest's slots, the companions, an affinity edit written and read back); with RESAVERPP_FO4_DATA=<Fallout 4 Data folder>
 // the quest check runs on those saves with the game's plugins and scripts (it must check lines and find nothing on them).
+#include "core/ChangeFormData.h"
+#include "core/ChangeFormFO4.h"
 #include "core/CompanionsFO4.h"
 #include "core/PluginDB.h"
 #include "core/QuestChecksFO4.h"
@@ -300,6 +302,43 @@ static void TestCompanionsReal()
 		}
 		if (name.rfind("Save7_F110F019", 0) == 0 || name.rfind("Save8_F110F019", 0) == 0) {
 			Check(r.system.companionFill == 0x0001CA7D && r.find(0x0001CA7D) && r.find(0x0001CA7D)->current(), name + ": Codsworth is the companion");
+		}
+		if (name.rfind("Save8_F110F019", 0) == 0) {
+			// the actor's own half of the link broken in memory (its ExtraAliasInstanceArray entry for the Companion
+			// alias renumbered in place): the check must see the two halves disagree
+			auto copy = SaveFile::load(f);
+			bool changed = false;
+			for (auto& cf : copy->changeForms) {
+				if (static_cast<ChangeFormType>(cf.typeCode()) != ChangeFormType::ACHR || copy->formIDOf(cf.refID) != 0x0001CA7D) continue;
+				auto       body = cf::Body(cf);
+				const auto rr = fo4cf::DecodeRefr(*copy, cf, body);
+				for (const auto& e : rr.extras) {
+					if (e.type != 0x88) continue;
+					std::size_t p = e.range.begin + 1;
+					const auto  sz = body[p] & 3;
+					std::uint32_t n = 0;
+					for (std::size_t k = 0; k < (sz == 0 ? 1u : sz == 1 ? 2u : 4u); ++k) n |= static_cast<std::uint32_t>(body[p + k]) << (8 * k);
+					p += sz == 0 ? 1 : sz == 1 ? 2 : 4;
+					n >>= 2;
+					for (std::uint32_t i = 0; i < n; ++i, p += 7) {
+						RefID q;
+						q.data = (static_cast<std::uint32_t>(body[p]) << 16) | (body[p + 1] << 8) | body[p + 2];
+						std::uint32_t a;
+						std::memcpy(&a, &body[p + 3], 4);
+						if (copy->formIDOf(q) == 0x000289E4 && a == 0) {
+							a = 99;
+							std::memcpy(&body[p + 3], &a, 4);
+							changed = true;
+						}
+					}
+				}
+				if (changed) cf::SetBody(cf, body);
+			}
+			Check(changed, name + ": Codsworth's alias list names the Companion alias");
+			const auto rb = fo4comp::Read(*copy);
+			Check(std::any_of(rb.findings.begin(), rb.findings.end(),
+					  [](const auto& x) { return x.ref == 0x0001CA7D && x.level == fo4comp::Finding::Level::kProblem && !x.console.empty(); }),
+				name + ": slot filled but the actor's own alias list does not say so -> a problem with console commands");
 		}
 		if (name.rfind("Save12_F6EE2084", 0) == 0) {
 			Check(r.system.companionFill == 0x00079305, name + ": Cait is the companion");
