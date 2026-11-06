@@ -1073,7 +1073,7 @@ int main(int argc, char** argv)
 				}
 				std::printf("vanilla follower quest (DialogueFollower 000750BA): %s; PlayerFollowerCount %s, PlayerAnimalCount %s\n",
 					st.questRunning ? "running" : (st.questInSave ? "not running" : "not in the save"),
-					st.hasCount ? Fmt("%g", st.followerCount).c_str() : "(not saved)", st.hasAnimalCount ? Fmt("%g", st.animalCount).c_str() : "(not saved)");
+					st.hasCount ? Fmt("%g", st.followerCount).c_str() : "0 (never changed in game)", st.hasAnimalCount ? Fmt("%g", st.animalCount).c_str() : "0 (never changed in game)");
 				for (const auto& [al, ref] : st.runAliases) {
 					std::printf("  quest alias %d (%s) -> %08X%s\n", al, al == skyf::kFollowerAlias ? "Follower" : al == skyf::kAnimalAlias ? "Animal" : "?", ref, nm(ref).c_str());
 				}

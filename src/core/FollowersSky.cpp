@@ -456,7 +456,7 @@ namespace ess::skyf
 					"alias empties; here that last step did not happen.",
 					st.followerCount));
 		}
-		if (st.hasCount && st.followerCount < 1 && followerAlive) {
+		if ((!st.hasCount || st.followerCount < 1) && followerAlive) {
 			add(Issue::kFollowerWithoutCount, follower->formID,
 				"Somebody is in the Follower alias but PlayerFollowerCount is 0, so another follower can be hired on top and the "
 				"vanilla dialogue treats you as having none. SetFollower sets it to 1.");
@@ -540,7 +540,10 @@ namespace ess::skyf
 		const bool  has = a_animal ? st.hasAnimalCount : st.hasCount;
 		const float now = a_animal ? st.animalCount : st.followerCount;
 		if (!has) {
-			return a_animal ? "the save has no value for PlayerAnimalCount" : "the save has no value for PlayerFollowerCount";
+			return a_animal ? "the save has no value for PlayerAnimalCount (the game never changed it), so it cannot be set in the file; in the "
+			                  "game's console: set PlayerAnimalCount to 1"
+			                : "the save has no value for PlayerFollowerCount (the game never changed it), so it cannot be set in the file; in the "
+			                  "game's console: set PlayerFollowerCount to 1";
 		}
 		if ((now >= 1) == alive) {
 			return a_animal ? "PlayerAnimalCount already matches the Animal alias" : "PlayerFollowerCount already matches the Follower alias";

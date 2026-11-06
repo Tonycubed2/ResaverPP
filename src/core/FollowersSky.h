@@ -116,6 +116,7 @@ namespace ess::skyf
 	{
 		std::string                error;
 		bool                       questInSave = false, questRunning = false;  // DialogueFollower's change form
+		// the counts: a global the game never changed is not saved; then it is the plugin's value (Skyrim.esm: 0 for both)
 		bool                       hasCount = false, hasAnimalCount = false;
 		float                      followerCount = 0, animalCount = 0;
 		bool                       scriptFound = false;  // DialogueFollowerScript's instance

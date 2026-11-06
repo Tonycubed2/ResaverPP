@@ -10870,8 +10870,8 @@ tr "Псевдоним Follower: %s, PlayerFollowerCount %s"
 
 # AppSkyFollowers.cpp:191  f.hasCount ? Fmt("%g", f.followerCount).c_str() : tr("(not saved)"));
 # AppSkyFollowers.cpp:193  f.hasAnimalCount ? Fmt("%g", f.animalCount).c_str() : tr("(not saved)"));
-en "(not saved)"
-tr "(не сохранено)"
+en "0 (never changed in game)"
+tr "0 (в игре не менялся)"
 
 # AppSkyFollowers.cpp:192  ImGui::Text(tr("Animal alias: %s, PlayerAnimalCount %s"), name(an ? an->formID : 0).c_str(),
 en "Animal alias: %s, PlayerAnimalCount %s"

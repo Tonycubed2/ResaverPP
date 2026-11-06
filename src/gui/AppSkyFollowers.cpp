@@ -188,9 +188,9 @@ void App::drawSkyFollowers()
 			const auto* an = f.inAlias(skyf::kAnimalAlias);
 			ImGui::Text(tr("Vanilla follower quest: %s"), f.questRunning ? tr("running") : f.questInSave ? tr("not running") : tr("not in the save"));
 			ImGui::Text(tr("Follower alias: %s, PlayerFollowerCount %s"), name(fa ? fa->formID : 0).c_str(),
-				f.hasCount ? Fmt("%g", f.followerCount).c_str() : tr("(not saved)"));
+				f.hasCount ? Fmt("%g", f.followerCount).c_str() : tr("0 (never changed in game)"));
 			ImGui::Text(tr("Animal alias: %s, PlayerAnimalCount %s"), name(an ? an->formID : 0).c_str(),
-				f.hasAnimalCount ? Fmt("%g", f.animalCount).c_str() : tr("(not saved)"));
+				f.hasAnimalCount ? Fmt("%g", f.animalCount).c_str() : tr("0 (never changed in game)"));
 			ImGui::Spacing();
 
 			// problems first, each with what fixes it

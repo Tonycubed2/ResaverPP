@@ -3649,7 +3649,7 @@ void TestSkyFollowers()
 		const auto tag = "skyf " + f.filename().string().substr(0, 12) + ": ";
 		auto       save = ess::SaveFile::load(f);
 		const auto st = ess::skyf::ReadFollowers(*save);
-		Check(st.error.empty() && st.questInSave && st.scriptFound && st.hasCount, (tag + "the follower quest, its script and the count are read").c_str());
+		Check(st.error.empty() && st.questInSave && st.scriptFound && (st.hasCount || st.followerCount == 0.0f), (tag + "the follower quest and its script are read (a count never changed in game is not saved: 0)").c_str());
 		std::size_t teammates = 0;
 		for (const auto& a : st.actors) {
 			teammates += a.teammate ? 1 : 0;
