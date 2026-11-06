@@ -726,7 +726,8 @@ namespace
 				MS("KSIZ", U32v({ static_cast<std::uint32_t>(a_keywords.size()) })), MS("KWDA", kw), MS("DATA", U32v({ a_value, 0 })),
 				MS("CVPA", U32v({ 0x9F0, 2 })), MS("CDIX", { 0 }) }));
 		};
-		// an NPC with Fallout 4 parts: read only for COED owners, never merged
+		// an NPC with Fallout 4 parts: ModA and ModB both change its class, so the winner's stays and there is nothing to merge
+		// (it is also read to know COED owners)
 		auto npc = [&](std::uint32_t a_class) {
 			return f4(MR("NPC_", 0x830, { MS("EDID", { 'N', 0 }), MS("ACBS", std::vector<std::uint8_t>(20, 0)), MS("CNAM", U32v({ a_class })),
 				MS("MWGT", std::vector<std::uint8_t>(12, 0)) }));
@@ -768,7 +769,7 @@ namespace
 		Check(oddSkipped, "merge FO4: a record with an unknown part is not merged, with the reason");
 		bool npcMerged = false;
 		for (const auto& m : r.merged) npcMerged = npcMerged || m.type == "NPC_";
-		Check(!npcMerged && r.merged.size() == 4, "merge FO4: LVLI, CONT, FLST, MISC merged; NPCs are not merged for Fallout 4");
+		Check(!npcMerged && r.merged.size() == 4, "merge FO4: LVLI, CONT, FLST, MISC merged; the NPC both mods changed the same way stays the winner's");
 		Check(r.masters == std::vector<std::string>({ "Fallout4.esm", "DLCRobot.esm", "ModB.esp" }), "merge FO4: masters Fallout4, DLCRobot, ModB");
 		save("Patch.esp", r.file);
 		// the header: TES4 record version 131, HEDR 1.0, INTV then INCC, ESL flag
@@ -876,6 +877,346 @@ namespace
 		Check(r2.ok && !r2.light && r2.file.size() > 12 && (r2.file[8] | (r2.file[9] << 8)) == 0, "merge FO4: --no-esl writes a normal plugin");
 		Check(report.find("Fallout 4 load order") != std::string::npos, "merge FO4: the report says what is merged for Fallout 4");
 		fs::remove_all(top);
+	}
+
+	// Fallout 4's NPCs, armour, weapons, ammunition, books, potions, ingredients, spells and cells (wbDefinitionsFO4 layouts).
+	// Fallout4.esm has each record; ModA.esp (master Fallout4.esm) and ModB.esp (light, master Fallout4.esm, the winner) each
+	// change different parts. ModA adds one of its own forms, so the patch's masters are Fallout4, ModA, ModB: ModB's own forms
+	// (0x01000xxx in ModB) must become 0x02000xxx in the patch, numbers that only look like forms must stay as they are.
+	void TestMergedPatchFO4Types()
+	{
+		namespace fs = std::filesystem;
+		const auto dir = fs::temp_directory_path() / "rs_merge_test_fo4types";
+		fs::remove_all(dir);
+		fs::create_directories(dir);
+		auto save = [&](const char* a_name, const std::vector<std::uint8_t>& a_data) {
+			std::ofstream(dir / a_name, std::ios::binary).write(reinterpret_cast<const char*>(a_data.data()), static_cast<std::streamsize>(a_data.size()));
+		};
+		struct B
+		{
+			std::vector<std::uint8_t> d;
+			B& u8(std::uint8_t v) { d.push_back(v); return *this; }
+			B& u16(std::uint16_t v) { u8(static_cast<std::uint8_t>(v)); return u8(static_cast<std::uint8_t>(v >> 8)); }
+			B& u32(std::uint32_t v) { u16(static_cast<std::uint16_t>(v)); return u16(static_cast<std::uint16_t>(v >> 16)); }
+			B& f32(float v) { std::uint32_t x; std::memcpy(&x, &v, 4); return u32(x); }
+			B& zero(std::size_t n) { d.insert(d.end(), n, 0); return *this; }
+		};
+		auto f4 = [](merge::Record r) {
+			r.version = 131;
+			return r;
+		};
+		auto u32 = [](const std::vector<std::uint8_t>& d, std::size_t o) { std::uint32_t v = 0; if (o + 4 <= d.size()) std::memcpy(&v, d.data() + o, 4); return v; };
+		auto u16 = [](const std::vector<std::uint8_t>& d, std::size_t o) { std::uint16_t v = 0; if (o + 2 <= d.size()) std::memcpy(&v, d.data() + o, 2); return v; };
+		auto kw = [](std::vector<std::uint32_t> a) { std::vector<std::uint8_t> o; for (auto k : a) { auto b = U32v({ k }); o.insert(o.end(), b.begin(), b.end()); } return o; };
+		auto obnd = [] { return MS("OBND", std::vector<std::uint8_t>(12, 0)); };
+		// an object template: one combination with a name and an OBTS with one keyword, one include (an OMOD) and a FormID,Int
+		// property (value type 4, value 1 a form), then STOP
+		auto obte = [&](std::vector<merge::Sub>& subs, std::uint32_t a_keyword, std::uint32_t a_mod, std::uint32_t a_propForm) {
+			subs.push_back(MS("OBTE", U32v({ 1 })));
+			subs.push_back(MS("OBTF", {}));
+			subs.push_back(MS("FULL", { 'T', 'p', 'l', 0 }));
+			B o;
+			o.u32(1).u32(1).u8(1).u8(0).u8(10).u8(0).u16(0xFFFF).u8(1);
+			o.u8(1).u32(a_keyword).u8(0).u8(0);              // keywords (u8 count), min level for ranks, alt levels per tier
+			o.u32(a_mod).u8(2).u8(0).u8(0);                  // include
+			o.u8(4).zero(3).u8(0).zero(3).u16(61).zero(2).u32(a_propForm).u32(3).f32(0);  // property (Ammo, FormID,Int)
+			subs.push_back(MS("OBTS", o.d));
+			subs.push_back(MS("STOP", {}));
+		};
+		// ---- NPC_
+		auto acbs = [](std::uint32_t a_flags, std::uint16_t a_level, std::uint16_t a_tflags) {
+			B b;
+			b.u32(a_flags).u16(0).u16(a_level).u16(1).u16(0).u16(35).u16(a_tflags).u16(0).u16(0);
+			return b.d;
+		};
+		auto aidt = [](std::uint8_t a_aggression, std::uint8_t a_confidence) {
+			B b;
+			b.u8(a_aggression).u8(a_confidence).zero(6).u32(500).u32(1000).u32(2000).u8(0).zero(3);
+			return b.d;
+		};
+		struct NpcSpec
+		{
+			std::vector<std::uint32_t> factions, perks, items, keywords;
+			std::uint32_t              level = 5, head = 0xA10, name = 'N';
+			std::uint8_t               aggression = 0;
+			std::uint32_t              tplt = 0;
+		};
+		auto npc = [&](const NpcSpec& n) {
+			std::vector<merge::Sub> subs{ MS("EDID", { 'N', 'P', 'C', 0 }), obnd(), MS("ACBS", acbs(0, static_cast<std::uint16_t>(n.level), n.tplt ? 1 : 0)) };
+			for (auto f : n.factions) subs.push_back(MS("SNAM", B().u32(f).u8(0).d));
+			if (n.tplt) {
+				subs.push_back(MS("TPLT", U32v({ n.tplt })));
+				subs.push_back(MS("TPTA", kw({ n.tplt, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 })));
+			}
+			subs.push_back(MS("RNAM", U32v({ 0xA00 })));
+			subs.push_back(MS("ATKD", B().f32(1).f32(1).u32(0xA20).u32(0).zero(28).d));
+			subs.push_back(MS("ATKE", { 'a', 0 }));
+			subs.push_back(MS("PRKZ", U32v({ static_cast<std::uint32_t>(n.perks.size()) })));
+			for (auto p : n.perks) subs.push_back(MS("PRKR", B().u32(p).u8(1).d));
+			subs.push_back(MS("PRPS", U32v({ 0xA30, 0x3F800000 })));
+			subs.push_back(MS("COCT", U32v({ static_cast<std::uint32_t>(n.items.size()) })));
+			for (auto i : n.items) subs.push_back(MS("CNTO", U32v({ i, 1 })));
+			subs.push_back(MS("AIDT", aidt(n.aggression, 1)));
+			subs.push_back(MS("PKID", U32v({ 0xA40 })));
+			subs.push_back(MS("KSIZ", U32v({ static_cast<std::uint32_t>(n.keywords.size()) })));
+			subs.push_back(MS("KWDA", kw(n.keywords)));
+			subs.push_back(MS("APPR", U32v({ 0xA50 })));
+			obte(subs, 0xA60, 0xA70, 0xA80);
+			subs.push_back(MS("CNAM", U32v({ 0xA90 })));
+			subs.push_back(MS("FULL", { static_cast<std::uint8_t>(n.name), 0 }));
+			subs.push_back(MS("DATA", {}));
+			subs.push_back(MS("DNAM", B().u16(100).u16(50).u16(0).u8(0).u8(0).d));
+			subs.push_back(MS("PNAM", U32v({ n.head })));
+			subs.push_back(MS("NAM5", { 0xFF, 0 }));
+			subs.push_back(MS("NAM6", B().f32(1).d));
+			subs.push_back(MS("NAM7", B().f32(0).d));
+			subs.push_back(MS("NAM4", B().f32(1).d));
+			subs.push_back(MS("MWGT", B().f32(0.3f).f32(0.3f).f32(0.3f).d));
+			subs.push_back(MS("NAM8", U32v({ 2 })));
+			subs.push_back(MS("QNAM", B().f32(1).f32(1).f32(1).f32(0).d));
+			subs.push_back(MS("TETI", B().u16(1).u16(1185).d));
+			subs.push_back(MS("TEND", { 50, 0, 0, 0, 0, 0xFF, 0xFF }));
+			subs.push_back(MS("FMRI", U32v({ 0x10 })));
+			subs.push_back(MS("FMRS", std::vector<std::uint8_t>(36, 0)));
+			return f4(MR("NPC_", 0x900, std::move(subs)));
+		};
+		// ---- WEAP: DNAM 132 (ammo @0, skill @40, resist @44, flags @48, value @63, sounds @73..@101), FNAM 41, CRDT 12
+		auto weap = [&](std::uint32_t a_ammo, float a_speed, std::uint32_t a_value, std::uint32_t a_sound, std::uint32_t a_flags, std::uint32_t a_crit) {
+			B d;
+			d.u32(a_ammo).f32(a_speed).zero(28).u32(0).u32(0xB10).u32(0xB11).u32(a_flags).u16(8).u8(9).f32(0).f32(10).u32(a_value).u16(20).u32(0);
+			d.u32(a_sound);
+			for (int i = 0; i < 7; ++i) d.u32(0);
+			d.u8(0).f32(0.3f).zero(2).f32(20).f32(0).f32(0).u32(0).zero(4);
+			B fn;
+			fn.f32(0).f32(0.5f).f32(1).f32(0.33f).f32(0).zero(4).f32(0.25f).u8(1).u32(0xB20).u32(0).u32(0);
+			std::vector<merge::Sub> subs{ MS("EDID", { 'W', 0 }), obnd(), MS("FULL", { 'W', 0 }), MS("MODL", { 'w', 0 }), MS("MODT", std::vector<std::uint8_t>(20, 0)),
+				MS("EITM", U32v({ 0xB30 })), MS("EAMT", { 5, 0 }), MS("ETYP", U32v({ 0xB40 })), MS("KSIZ", U32v({ 1 })), MS("KWDA", kw({ 0xB50 })) };
+			obte(subs, 0xB60, 0xB70, a_ammo);
+			subs.push_back(MS("DNAM", d.d));
+			subs.push_back(MS("FNAM", fn.d));
+			subs.push_back(MS("CRDT", B().f32(2).f32(0).u32(a_crit).d));
+			subs.push_back(MS("INAM", U32v({ 0xB80 })));
+			subs.push_back(MS("DAMA", U32v({ 0xB90, 10 })));
+			return f4(MR("WEAP", 0x910, std::move(subs)));
+		};
+		// ---- ARMO: male and female models (MODC in both), armatures, DATA, FNAM armour rating, DAMA
+		auto armo = [&](std::uint16_t a_rating, std::vector<std::uint32_t> a_keywords, std::uint32_t a_arma) {
+			std::vector<merge::Sub> subs{ MS("EDID", { 'A', 0 }), obnd(), MS("FULL", { 'A', 0 }), MS("MOD2", { 'm', 0 }), MS("MO2T", std::vector<std::uint8_t>(20, 0)),
+				MS("MODC", B().f32(1).d), MS("MOD4", { 'f', 0 }), MS("MO4T", std::vector<std::uint8_t>(20, 0)), MS("MODC", B().f32(2).d),
+				MS("BOD2", U32v({ 4 })), MS("RNAM", U32v({ 0xC00 })), MS("KSIZ", U32v({ static_cast<std::uint32_t>(a_keywords.size()) })), MS("KWDA", kw(a_keywords)),
+				MS("DESC", { 'd', 0 }), MS("INDX", { 0, 0 }), MS("MODL", U32v({ a_arma })), MS("DATA", B().u32(10).f32(1).u32(100).d),
+				MS("FNAM", B().u16(a_rating).u16(0).u8(0).zero(3).d), MS("DAMA", U32v({ 0xC10, 5 })) };
+			obte(subs, 0xC20, 0xC30, 0xC40);
+			return f4(MR("ARMO", 0x920, std::move(subs)));
+		};
+		// ---- AMMO, BOOK, ALCH (with an effect and conditions), INGR, SPEL (conditions with numbers that look like forms)
+		auto ammo = [&](std::uint32_t a_proj, float a_damage) {
+			return f4(MR("AMMO", 0x930, { MS("EDID", { 'M', 0 }), obnd(), MS("FULL", { 'M', 0 }), MS("DESC", { 0 }), MS("KSIZ", U32v({ 0 })), MS("KWDA", {}),
+				MS("DATA", B().u32(1).f32(0.1f).d), MS("DNAM", B().u32(a_proj).u8(0).zero(3).f32(a_damage).u32(0).d), MS("ONAM", { 'm', 0 }) }));
+		};
+		auto book = [&](std::uint8_t a_flags, std::uint32_t a_teaches, std::uint32_t a_value) {
+			return f4(MR("BOOK", 0x940, { MS("EDID", { 'K', 0 }), obnd(), MS("FULL", { 'K', 0 }), MS("DESC", { 't', 0 }), MS("DATA", B().u32(a_value).f32(1).d),
+				MS("DNAM", B().u8(a_flags).u32(a_teaches).u32(0).u32(0).d), MS("CNAM", { 0 }), MS("INAM", U32v({ 0xD10 })) }));
+		};
+		// CTDA: type, unused 3, comparison value @4, function @8, unused 2, parameter 1 @12, parameter 2 @16, run on @20,
+		// reference @24, parameter 3 @28
+		auto ctda = [](std::uint8_t a_type, std::uint16_t a_fn, std::uint32_t a_p1, std::uint32_t a_p2, std::uint32_t a_runOn, std::uint32_t a_ref) {
+			return B().u8(a_type).zero(3).f32(1).u16(a_fn).zero(2).u32(a_p1).u32(a_p2).u32(a_runOn).u32(a_ref).u32(0xFFFFFFFF).d;
+		};
+		auto alch = [&](float a_magnitude, std::uint32_t a_flags) {
+			return f4(MR("ALCH", 0x950, { MS("EDID", { 'P', 0 }), obnd(), MS("FULL", { 'P', 0 }), MS("KSIZ", U32v({ 0 })), MS("KWDA", {}), MS("DESC", { 0 }),
+				MS("DATA", B().f32(0.5f).d), MS("ENIT", B().u32(5).u32(a_flags).u32(0xE10).f32(0).u32(0xE20).d), MS("DNAM", { 0 }),
+				MS("EFID", U32v({ 0xE30 })), MS("EFIT", B().f32(a_magnitude).u32(0).u32(10).d), MS("CTDA", ctda(0, 560, 0xE40, 0, 0, 0)) }));
+		};
+		auto ingr = [&](std::uint32_t a_flags, std::uint32_t a_value) {
+			return f4(MR("INGR", 0x960, { MS("EDID", { 'I', 0 }), obnd(), MS("FULL", { 'I', 0 }), MS("DATA", B().u32(a_value).f32(0.1f).d),
+				MS("ENIT", B().u32(1).u32(a_flags).d), MS("EFID", U32v({ 0xE30 })), MS("EFIT", B().f32(1).u32(0).u32(0).d) }));
+		};
+		// the conditions: HasKeyword (560) on ModB's own keyword (a form), GetDistance (1) to an alias (flag 0x02: parameter 1 is
+		// a number), GetIsCurrentPackage (161) run on a quest alias with the alias flag (parameter 1 stays a package)
+		auto spel = [&](std::uint32_t a_cost, std::uint32_t a_kw, std::uint32_t a_pack) {
+			return f4(MR("SPEL", 0x970, { MS("EDID", { 'S', 0 }), obnd(), MS("FULL", { 'S', 0 }), MS("ETYP", U32v({ 0xF00 })), MS("DESC", { 0 }),
+				MS("SPIT", B().u32(a_cost).u32(0).u32(4).f32(0).u32(0).u32(0).f32(0).f32(0).u32(0).d), MS("EFID", U32v({ 0xE30 })),
+				MS("EFIT", B().f32(1).u32(0).u32(0).d), MS("CTDA", ctda(0, 560, a_kw, 0, 0, 0)), MS("CTDA", ctda(0x02, 1, 0x01000005, 0, 0, 0)),
+				MS("CTDA", ctda(0x02, 161, a_pack, 0, 5, 0)) }));
+		};
+		// ---- CELL (interior): lighting (XCLL + LTMP), regions, previs (VISI, RVIS, PCMB, XPRI, XCRI)
+		auto cell = [&](std::uint8_t a_ambient, std::vector<std::uint32_t> a_regions, std::uint32_t a_previsRef, std::uint16_t a_visi) {
+			auto c = f4(MR("CELL", 0x980, { MS("EDID", { 'C', 0 }), MS("DATA", { 1, 0 }), MS("VISI", B().u16(a_visi).d), MS("RVIS", U32v({ 0x980 })),
+				MS("PCMB", B().u16(a_visi).d), MS("XCLL", B().u8(a_ambient).zero(135).d), MS("LTMP", U32v({ 0xF10 })), MS("XCLW", B().f32(0).d),
+				MS("XCLR", kw(a_regions)), MS("XPRI", U32v({ a_previsRef })), MS("XCRI", B().u32(1).u32(2).u32(0x1234).u32(a_previsRef).u32(0x1234).d) }));
+			c.groups = { { 2, 0 }, { 3, 0 } };
+			return c;
+		};
+		// Fallout4.esm
+		NpcSpec n0;
+		n0.factions = { 0xA01 };
+		n0.perks = { 0xA02 };
+		n0.items = { 0xA03 };
+		n0.keywords = { 0xA04 };
+		save("Fallout4.esm", merge::WritePlugin({}, 1, { npc(n0), weap(0xB00, 1.0f, 100, 0xB01, 0, 0), armo(10, { 0xC01 }, 0xC02), ammo(0xD00, 5),
+			book(0, 0, 10), alch(1, 0), ingr(0, 1), spel(10, 0xA04, 0xA40), cell(10, { 0xF20 }, 0x0985, 1) }, "t", {}, 1.0f, 131, true));
+		// ModA: a faction of its own (0x01000900) and a perk, aggression 2, another face (head part 0xA11), a template (both TPLT and
+		// TPTA); weapon speed 2.0; armour rating 20 and another armature; projectile and damage; a book that teaches a perk; the
+		// effect's magnitude; ingredient flag 0x2 (food); spell cost 20; cell lighting (ambient 20), a region, and its own previs
+		NpcSpec na = n0;
+		na.factions = { 0xA01, 0x01000900 };
+		na.perks = { 0xA02, 0xA05 };
+		na.aggression = 2;
+		na.head = 0xA11;
+		na.tplt = 0xA12;
+		save("ModA.esp", merge::WritePlugin({ "Fallout4.esm" }, 0, { npc(na), weap(0xB00, 2.0f, 100, 0xB01, 0, 0), armo(20, { 0xC01 }, 0xC03), ammo(0xD01, 7),
+			book(0x10, 0xD20, 10), alch(3, 0), ingr(0x2, 1), spel(20, 0xA04, 0xA40), cell(20, { 0xF20, 0xF21 }, 0x0986, 2),
+			f4(MR("MISC", 0x01000900, { MS("EDID", { 'X', 0 }) })) }, "t", {}, 1.0f, 131, true));
+		// ModB (light, the winner): an item and a keyword of its own (0x01000801), level 9, its name; ammo, a sound and the crit
+		// effect of its own, value 200, flag 0x8000 (automatic); a keyword; value of the book; potion flag 0x10000 (medicine);
+		// ingredient flag 0x100 and value 5; the spell's keyword condition on its own keyword and its own package; cell unchanged
+		// but its own previs reference
+		NpcSpec nb = n0;
+		nb.items = { 0xA03, 0x01000801 };
+		nb.keywords = { 0xA04, 0x01000801 };
+		nb.level = 9;
+		nb.name = 'B';
+		save("ModB.esp", merge::WritePlugin({ "Fallout4.esm" }, 0x200, { npc(nb), weap(0x01000802, 1.0f, 200, 0x01000803, 0x8000, 0x01000804),
+			armo(10, { 0xC01, 0x01000805 }, 0xC02), ammo(0xD00, 5), book(0, 0, 30), alch(1, 0x10000), ingr(0x100, 5), spel(10, 0x01000806, 0x01000807),
+			cell(10, { 0xF20 }, 0x01000808, 3) }, "t", {}, 1.0f, 131, true));
+		merge::Options o;
+		o.loadOrder = { "Fallout4.esm", "ModA.esp", "ModB.esp" };
+		o.findPlugin = [&](const std::string& n) -> std::optional<fs::path> { return dir / n; };
+		const auto r = merge::Build(o);
+		for (const auto& sk : r.skipped) std::printf("  merge FO4 types: not merged: %s\n", sk.c_str());
+		std::set<std::string> types;
+		for (const auto& m : r.merged) types.insert(m.type);
+		Check(r.ok && r.skipped.empty() && types == std::set<std::string>({ "NPC_", "WEAP", "ARMO", "AMMO", "BOOK", "ALCH", "INGR", "SPEL", "CELL" }),
+			"merge FO4 types: NPC_, WEAP, ARMO, AMMO, BOOK, ALCH, INGR, SPEL, CELL merged, nothing left out");
+		Check(r.masters == std::vector<std::string>({ "Fallout4.esm", "ModA.esp", "ModB.esp" }), "merge FO4 types: masters Fallout4, ModA, ModB");
+		save("Patch.esp", r.file);
+		const auto pf = merge::ReadPlugin(dir / "Patch.esp");
+		auto find = [&](const char* sig) -> const merge::Record* {
+			for (const auto& rec : pf.records) {
+				if (!std::memcmp(rec.sig, sig, 4)) return &rec;
+			}
+			return nullptr;
+		};
+		auto all = [&](const merge::Record* a_r, const char* a_sig) {
+			std::vector<const merge::Sub*> out;
+			for (const auto& sb : a_r->subs) if (!std::memcmp(sb.sig, a_sig, 4)) out.push_back(&sb);
+			return out;
+		};
+		auto one = [&](const merge::Record* a_r, const char* a_sig) -> std::vector<std::uint8_t> {
+			auto v = all(a_r, a_sig);
+			return v.empty() ? std::vector<std::uint8_t>{} : v[0]->data;
+		};
+		auto order = [&](const merge::Record* a_r) {
+			std::string s;
+			for (const auto& sb : a_r->subs) s += std::string(sb.sig, 4) + " ";
+			return s;
+		};
+		if (const auto* n = find("NPC_")) {
+			std::vector<std::uint32_t> fac, perks, items, kws;
+			for (auto* sb : all(n, "SNAM")) fac.push_back(u32(sb->data, 0));
+			for (auto* sb : all(n, "PRKR")) perks.push_back(u32(sb->data, 0));
+			for (auto* sb : all(n, "CNTO")) items.push_back(u32(sb->data, 0));
+			const auto kwda = one(n, "KWDA");
+			for (std::size_t k = 0; k < kwda.size(); k += 4) kws.push_back(u32(kwda, k));
+			Check(fac == std::vector<std::uint32_t>({ 0xA01, 0x01000900 }) && perks == std::vector<std::uint32_t>({ 0xA02, 0xA05 }) &&
+					  u32(one(n, "PRKZ"), 0) == 2 && items == std::vector<std::uint32_t>({ 0xA03, 0x02000801 }) && u32(one(n, "COCT"), 0) == 2 &&
+					  kws == std::vector<std::uint32_t>({ 0xA04, 0x02000801 }) && u32(one(n, "KSIZ"), 0) == 2,
+				"merge FO4 types: NPC factions (ModA's own), perks, items and keywords (ModB's own, renumbered) merged with their counts");
+			const auto ac = one(n, "ACBS");
+			Check(ac.size() == 20 && u16(ac, 6) == 9 && u16(ac, 14) == 1 && u32(one(n, "TPLT"), 0) == 0xA12 && u32(one(n, "TPTA"), 0) == 0xA12,
+				"merge FO4 types: NPC level from ModB (ACBS @6), template flags (@14) with TPLT and TPTA from ModA");
+			Check(one(n, "AIDT").size() == 24 && one(n, "AIDT")[0] == 2 && u32(one(n, "PNAM"), 0) == 0xA11 && all(n, "FULL").back()->data == std::vector<std::uint8_t>({ 'B', 0 }),
+				"merge FO4 types: NPC aggression and face from ModA, name from ModB");
+			// the object template came through whole: its own FULL, the OBTS forms where they were
+			const auto obts = one(n, "OBTS");
+			Check(all(n, "FULL").size() == 2 && obts.size() == 18 + 4 + 7 + 24 && u32(obts, 16) == 0xA60 && u32(obts, 22) == 0xA70 && u32(obts, 29 + 12) == 0xA80,
+				"merge FO4 types: NPC object template (OBTE..STOP) kept whole, with its own name");
+			Check(order(n).find("ACBS SNAM SNAM TPLT TPTA RNAM ATKD ATKE PRKZ PRKR PRKR PRPS COCT CNTO CNTO AIDT PKID KSIZ KWDA APPR OBTE OBTF FULL OBTS STOP CNAM FULL") != std::string::npos,
+				"merge FO4 types: NPC subrecords in Fallout 4's order");
+		} else {
+			Check(false, "merge FO4 types: NPC in the patch");
+		}
+		if (const auto* w = find("WEAP")) {
+			const auto d = one(w, "DNAM");
+			float speed = 0;
+			if (d.size() == 132) std::memcpy(&speed, d.data() + 4, 4);
+			Check(d.size() == 132 && u32(d, 0) == 0x02000802 && speed == 2.0f && u32(d, 63) == 200 && u32(d, 73) == 0x02000803 && u32(d, 48) == 0x8000 &&
+					  u32(d, 40) == 0xB10 && u32(one(w, "CRDT"), 8) == 0x02000804 && u32(one(w, "FNAM"), 29) == 0xB20,
+				"merge FO4 types: weapon DNAM field by field (ModB's ammo, value, sound and flag, ModA's speed), forms renumbered");
+			// ModB's own ammo is the object template property's form too
+			const auto obts = one(w, "OBTS");
+			Check(obts.size() == 53 && u32(obts, 41) == 0x02000802, "merge FO4 types: weapon object template property form renumbered");
+		} else {
+			Check(false, "merge FO4 types: weapon in the patch");
+		}
+		if (const auto* a = find("ARMO")) {
+			const auto kwda = one(a, "KWDA");
+			Check(u16(one(a, "FNAM"), 0) == 20 && u32(one(a, "MODL"), 0) == 0xC03 && kwda.size() == 8 && u32(kwda, 4) == 0x02000805 && all(a, "MODC").size() == 2,
+				"merge FO4 types: armour rating and armature from ModA, ModB's keyword, both world models' MODC kept");
+			Check(order(a) == "EDID OBND FULL MOD2 MO2T MODC MOD4 MO4T MODC BOD2 RNAM KSIZ KWDA DESC INDX MODL DATA FNAM DAMA OBTE OBTF FULL OBTS STOP ",
+				"merge FO4 types: armour subrecords in place");
+		} else {
+			Check(false, "merge FO4 types: armour in the patch");
+		}
+		if (const auto* m = find("AMMO")) {
+			const auto d = one(m, "DNAM");
+			float dmg = 0;
+			if (d.size() == 16) std::memcpy(&dmg, d.data() + 8, 4);
+			Check(u32(d, 0) == 0xD01 && dmg == 7.0f, "merge FO4 types: ammunition projectile and damage from ModA");
+		} else {
+			Check(false, "merge FO4 types: ammunition in the patch");
+		}
+		if (const auto* b = find("BOOK")) {
+			const auto d = one(b, "DNAM");
+			Check(d.size() == 13 && d[0] == 0x10 && u32(d, 1) == 0xD20 && u32(one(b, "DATA"), 0) == 30, "merge FO4 types: book teaches ModA's perk, value from ModB");
+		} else {
+			Check(false, "merge FO4 types: book in the patch");
+		}
+		if (const auto* p = find("ALCH")) {
+			float mag = 0;
+			const auto efit = one(p, "EFIT");
+			if (efit.size() == 12) std::memcpy(&mag, efit.data(), 4);
+			Check(mag == 3.0f && u32(one(p, "ENIT"), 4) == 0x10000 && all(p, "CTDA").size() == 1, "merge FO4 types: potion effects from ModA, flags from ModB");
+		} else {
+			Check(false, "merge FO4 types: potion in the patch");
+		}
+		if (const auto* i = find("INGR")) {
+			Check(u32(one(i, "ENIT"), 4) == 0x102 && u32(one(i, "DATA"), 0) == 5, "merge FO4 types: ingredient flags merged bit by bit, value from ModB");
+		} else {
+			Check(false, "merge FO4 types: ingredient in the patch");
+		}
+		if (const auto* s = find("SPEL")) {
+			const auto c = all(s, "CTDA");
+			Check(u32(one(s, "SPIT"), 0) == 20 && c.size() == 3 && u32(c[0]->data, 12) == 0x02000806 && u32(c[1]->data, 12) == 0x01000005 &&
+					  u32(c[2]->data, 12) == 0x02000807,
+				"merge FO4 types: spell cost from ModA; conditions: ModB's keyword and package renumbered, an alias number kept");
+		} else {
+			Check(false, "merge FO4 types: spell in the patch");
+		}
+		if (const auto* c = find("CELL")) {
+			const auto xclr = one(c, "XCLR");
+			Check(one(c, "XCLL").size() == 136 && one(c, "XCLL")[0] == 20 && xclr.size() == 8 && u32(xclr, 4) == 0xF21,
+				"merge FO4 types: cell lighting and region from ModA");
+			Check(u16(one(c, "VISI"), 0) == 3 && u32(one(c, "XPRI"), 0) == 0x02000808 && u32(one(c, "XCRI"), 12) == 0x02000808,
+				"merge FO4 types: cell previs and precombined data stay the winner's (ModB's), its references renumbered");
+		} else {
+			Check(false, "merge FO4 types: cell in the patch");
+		}
+		// a weapon DNAM of another size than xEdit's 132 bytes: left to the winner, with the reason
+		{
+			auto bad = weap(0xB00, 1.0f, 100, 0xB01, 0, 0);
+			for (auto& sb : bad.subs) if (!std::memcmp(sb.sig, "DNAM", 4)) sb.data.resize(130);
+			auto badB = bad;
+			for (auto& sb : badB.subs) if (!std::memcmp(sb.sig, "EDID", 4)) sb.data = { 'Z', 0 };
+			save("Fallout4.esm", merge::WritePlugin({}, 1, { weap(0xB00, 1.0f, 100, 0xB01, 0, 0) }, "t", {}, 1.0f, 131, true));
+			save("ModA.esp", merge::WritePlugin({ "Fallout4.esm" }, 0, { bad }, "t", {}, 1.0f, 131, true));
+			save("ModB.esp", merge::WritePlugin({ "Fallout4.esm" }, 0x200, { badB }, "t", {}, 1.0f, 131, true));
+			const auto r2 = merge::Build(o);
+			Check(r2.ok && r2.merged.empty() && r2.skipped.size() == 1 && r2.skipped[0].find("DNAM has a size (130 bytes)") != std::string::npos,
+				"merge FO4 types: a weapon DNAM of an unknown size is left to the winner, with the reason");
+		}
+		fs::remove_all(dir);
 	}
 
 	// Real Fallout 4 plugins (RESAVERPP_FO4_PLUGINS="file;file"): every record of the merged types the plugin defines is
@@ -3169,6 +3510,7 @@ int main()
 	TestMergedPatchLE();
 	TestMergedPatchNpcLinks();
 	TestMergedPatchFO4();
+	TestMergedPatchFO4Types();
 	TestMergedPatchFO4Real();
 	TestCrashLog();
 	TestCrashLogFO4();
