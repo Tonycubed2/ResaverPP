@@ -5,4 +5,5 @@ set(sources ${sources}
     src/Server.cpp
     src/Transplant.cpp
     src/Rescue.cpp
+    src/SkyFix.cpp
 )

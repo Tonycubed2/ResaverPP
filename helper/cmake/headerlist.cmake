@@ -6,4 +6,5 @@ set(headers ${headers}
     src/Protocol.h
     src/Transplant.h
     src/Rescue.h
+    src/SkyFix.h
 )
