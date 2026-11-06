@@ -59,15 +59,32 @@ void App::drawMergedPatch()
 	const std::filesystem::path outFile =
 		_mo2 ? _mo2->modsDir / kModFolder / kPatchName : (gameFolder().empty() ? std::filesystem::path() : gameFolder() / "Data" / kPatchName);
 
+	// Fallout 4 setup: its load order, its record layouts and header. A Fallout 4 save made before 1.10 (form version below
+	// 68) has no light plugins: the patch is then a normal plugin.
+	const bool f4 = _game == 2;
+	const bool f4NoLight = f4 && _save && _save->isFO4() && _save->formVersion < 68;
 	ImGui::NewLine();
-	ImGui::TextWrapped("When two mods change the same leveled list, container, NPC, keyword list, form list or outfit, the game only "
-					   "uses the one loaded last, and the other mod's additions are lost. The merged patch reads every plugin in your "
-					   "load order and writes one plugin that keeps both: what each mod added or removed is combined. Every other value "
-					   "stays as the winning mod has it, as the game does without a patch.");
-	ImGui::TextWrapped("On Special Edition and Anniversary Edition the patch is a light (ESL-flagged) plugin, so it takes no load order "
-					   "slot. On Legendary Edition (found automatically) it is a normal plugin in LE's format and needs one slot. It only "
-					   "needs a mod as a master when a patched record comes from that mod or points at one of its forms. Rebuild it after "
-					   "you add, remove or reorder mods.");
+	if (f4) {
+		ImGui::TextWrapped("When two mods change the same leveled list, container, form list, outfit or the keywords of a misc item or "
+						   "key, the game only uses the one loaded last, and the other mod's additions are lost. The merged patch reads "
+						   "every plugin in your Fallout 4 load order and writes one plugin that keeps both: what each mod added or "
+						   "removed is combined. Every other value stays as the winning mod has it, as the game does without a patch.");
+		ImGui::TextWrapped("%s", merge::Fo4NotMerged());
+		ImGui::TextWrapped(f4NoLight ? "Your save is from a Fallout 4 version without light plugins (before 1.10), so the patch is a normal "
+									   "plugin and takes a load order slot. Rebuild it after you add, remove or reorder mods."
+									 : "The patch is a light (ESL-flagged) plugin, so it takes no load order slot. It only needs a mod as a "
+									   "master when a patched record comes from that mod or points at one of its forms. Rebuild it after "
+									   "you add, remove or reorder mods.");
+	} else {
+		ImGui::TextWrapped("When two mods change the same leveled list, container, NPC, keyword list, form list or outfit, the game only "
+						   "uses the one loaded last, and the other mod's additions are lost. The merged patch reads every plugin in your "
+						   "load order and writes one plugin that keeps both: what each mod added or removed is combined. Every other value "
+						   "stays as the winning mod has it, as the game does without a patch.");
+		ImGui::TextWrapped("On Special Edition and Anniversary Edition the patch is a light (ESL-flagged) plugin, so it takes no load order "
+						   "slot. On Legendary Edition (found automatically) it is a normal plugin in LE's format and needs one slot. It only "
+						   "needs a mod as a master when a patched record comes from that mod or points at one of its forms. Rebuild it after "
+						   "you add, remove or reorder mods.");
+	}
 	ImGui::Spacing();
 	ImGui::TextDisabled("Load order: %s", platform::ToUtf8(pluginsTxt).c_str());
 	if (_mo2 && !_profile.empty()) {
@@ -83,14 +100,16 @@ void App::drawMergedPatch()
 	}
 
 	// waiting for the scan of the mods, then the build starts by itself
-	auto start = [this, pluginsTxt] {
+	auto start = [this, pluginsTxt, f4, f4NoLight] {
 		auto opt = std::make_shared<merge::Options>();
 		for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
 			opt->enabled[i] = !_mergeOff[i];
 		}
 		_mergeOptionsChanged = false;
-		opt->loadOrder = merge::ReadLoadOrder(pluginsTxt, gameFolder());
+		opt->loadOrder = merge::ReadLoadOrder(pluginsTxt, gameFolder(), f4 ? 2 : -1);
 		opt->patchName = kPatchName;
+		opt->game = f4 ? 2 : 0;
+		opt->light = !f4NoLight;
 		auto src = std::make_shared<ScriptSources>(_sources);
 		merge::UseSources(*opt, *src);
 		_mergeLoadOrder = opt->loadOrder.size();
@@ -153,6 +172,9 @@ void App::drawMergedPatch()
 			for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
 				const auto cat = static_cast<merge::Category>(i);
 				const int  risk = merge::CategoryRisk(cat);
+				if (!merge::CategoryApplies(cat, f4)) {
+					continue;  // Fallout 4: NPCs, magic effects and cells are not merged
+				}
 				ImGui::PushID(i);
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
@@ -227,6 +249,9 @@ void App::drawMergedPatch()
 	Colored(theme::Good(), Fmt("%zu records merged into the patch, with %zu masters.", r.merged.size(), r.masters.size()));
 	if (r.legendary) {
 		ImGui::TextDisabled("Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes one load order slot.");
+	} else if (r.fo4) {
+		ImGui::TextDisabled(r.light ? "Fallout 4 load order: the patch is a light (ESL-flagged) plugin in Fallout 4's format."
+									: "Fallout 4 load order: the patch is a normal plugin in Fallout 4's format and takes one load order slot.");
 	}
 	if (!r.skipped.empty()) {
 		ImGui::TextDisabled("%zu could not be merged; for those the winning mod's version stays, as without a patch.", r.skipped.size());
@@ -285,8 +310,9 @@ void App::drawMergedPatch()
 		} else {
 			ImGui::TextWrapped("Enable %s in your mod manager or the game's launcher and keep it last in the load order.", kPatchName);
 		}
-		ImGui::TextWrapped(r.legendary ? "Before playing, you can open it in TES5Edit (Check for Errors) to see what it changed."
-									   : "Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed.");
+		ImGui::TextWrapped(r.fo4         ? "Before playing, you can open it in FO4Edit (Check for Errors) to see what it changed."
+						   : r.legendary ? "Before playing, you can open it in TES5Edit (Check for Errors) to see what it changed."
+										 : "Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed.");
 	}
 
 	// details

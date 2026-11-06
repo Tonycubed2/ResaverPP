@@ -14,6 +14,12 @@
 // with their worldspace copied in as the parent).
 // Skyrim SE/AE/VR: the patch is a light (ESL-flagged) plugin. Skyrim Legendary Edition (found from Skyrim.esm's
 // header): a normal plugin in LE's format, since LE has no light plugins.
+// Fallout 4 (Fallout4.esm in the load order): only the record types whose every part is confirmed in xEdit's Fallout 4
+// definitions (wbDefinitionsFO4) are merged: leveled items, NPCs and spells (LVLO + COED entries, LLCT count, LVLM, LVLG,
+// LLKC keyword chances, LVSG epic loot chance, ONAM override name), containers (COCT/CNTO/COED, keywords, PRPS...), form
+// lists, outfits, misc items and keys (keywords, components). The header is written as Fallout 4's (HEDR version and
+// record version copied from Fallout4.esm, 1.0 / 131 if it cannot be read; INTV and INCC), records in Fallout 4's group
+// order, light (ESL, 0x200) unless Options::light is off.
 #pragma once
 
 #include <atomic>
@@ -81,6 +87,11 @@ namespace ess::merge
 	int          CategoryRisk(Category a_cat);
 	const char*  CategoryWhy(Category a_cat);     // what can go wrong, for the menu's hover text
 	const char*  CategoryDetail(Category a_cat);  // everything it covers, record by record
+	// whether a kind of change can happen in a game's merged patch (Fallout 4 merges fewer record types)
+	bool         CategoryApplies(Category a_cat, bool a_fo4);
+	// the record types merged for a game, and (Fallout 4) the ones left out because their layout is not confirmed yet
+	const std::vector<std::string>& MergedTypes(bool a_fo4);
+	const char*  Fo4NotMerged();
 
 	struct Options
 	{
@@ -96,6 +107,14 @@ namespace ess::merge
 		// Skyrim Legendary Edition load order: set by Build itself from Skyrim.esm's header (record version 43).
 		// The patch is then a normal plugin in LE's format (no light plugins there), so it needs a load order slot.
 		bool legendary = false;
+		// 0 Skyrim, 2 Fallout 4, -1: Fallout 4 when Fallout4.esm is in the load order
+		int game = -1;
+		// the patch is flagged light (ESL) and takes no load order slot. Off: a normal plugin (Fallout 4 before 1.10, which has
+		// no light plugins; a save with form version below 68 was made by one). Legendary Edition is never light.
+		bool light = true;
+		// set by Build for Fallout 4 from Fallout4.esm's header: HEDR version and the header's record version
+		float         hedrVersion = 0.0f;
+		std::uint16_t headerRecordVersion = 0;
 	};
 
 	struct MergedRecord
@@ -122,6 +141,8 @@ namespace ess::merge
 		std::vector<std::string>  fixes;     // problems of the load order the patch fixes
 		std::size_t               pluginsRead = 0, recordsRead = 0, conflicts = 0;
 		bool                      legendary = false;  // built for Skyrim Legendary Edition (a normal plugin, not light)
+		bool                      fo4 = false;        // built for Fallout 4
+		bool                      light = true;       // the patch is flagged light (ESL)
 
 		std::string report() const;
 	};
@@ -157,7 +178,8 @@ namespace ess::merge
 	};
 	std::vector<std::uint8_t> WritePlugin(const std::vector<std::string>& a_masters, std::uint32_t a_headerFlags,
 		const std::vector<Record>& a_records, const std::string& a_author = "ReSaver Plus", const std::string& a_desc = {},
-		float a_hedrVersion = 1.7f, std::uint16_t a_headerRecordVersion = 44);
+		float a_hedrVersion = 1.7f, std::uint16_t a_headerRecordVersion = 44, bool a_fo4 = false);
+	// a_fo4: Fallout 4's top group order and header (INTV, then INCC = interior cell count 0)
 	struct PluginFile
 	{
 		std::vector<std::string> masters;
