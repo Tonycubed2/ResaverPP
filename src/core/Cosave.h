@@ -2,7 +2,9 @@
 // Script extender co-saves: the .skse file SKSE (Skyrim LE 1.9.32, SE/AE) writes next to each save and the .f4se
 // file F4SE writes for Fallout 4. Read, shown per plugin, and cleaned of the data of plugins no longer installed.
 //
-// Format (identical in skse/Serialization.cpp (LE, SKSE 1.7.x), skse64/Serialization.cpp and
+// Format (identical in skse/Serialization.cpp (LE, SKSE 1.7.x), skse64/Serialization.cpp, sksevr's
+// skse64/Serialization.cpp (SKSE VR 2.0.12 for Skyrim VR 1.4.15, the copy in ryobg/JContainers dep/sksevr/sksevr.7z: it
+// differs from SKSE64 only in the saves folder and in how a form id's load order index is resolved) and
 // f4se/Serialization.cpp; all little-endian u32):
 //   Header        { signature 'SKSE' / 'F4SE' (file bytes in that order), formatVersion (1), xseVersion,
 //                   runtimeVersion, numPlugins }
