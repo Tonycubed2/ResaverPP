@@ -63,6 +63,10 @@ THE RUNNING GAME (game_command)
   CONTROLS <notify> -> switches the player's controls back on (EnablePlayerControls) (helper 12)
   SAVEGAME <notify> -> saves the game as a new save ReSaverPP_Rescue_<date>_<time>: its name (helper 12)
   RESCUE <notify> -> all three: save, controls, followers (helper 12). Holding Ctrl in the game for 8 seconds does the same.
+  FOLLOWERSET <formid> <notify> -> 1 / 0 <why>: DialogueFollowerScript.SetFollower on the vanilla follower quest (takes a lost or dismissed follower back the vanilla way; refused while someone living is the follower) (helper 13)
+  TEAMMATE <formid> <0|1> <notify> -> 1 / 0 <why>: Actor.SetPlayerTeammate (helper 13)
+  BEASTREVERT <werewolf|vampire> <notify> -> 1 / 0 <why>: the transformation script's own ShiftBack() after its guards are reset: race back, claws / Vampire Lord powers, factions, controls, beast form menus (helper 13)
+  Dismissing the vanilla follower is SETSTAGE 000750BA 400 <notify> "" (DialogueFollower stage 400 runs DismissFollower()). A werewolf whose time ran out is SETSTAGE 0002BA16 100 (the script's ShiftBack); a Vampire Lord without Revert Form: SETSTAGE <DLC1PlayerVampireQuest id> 100.
   <notify> is hud (top-left notification), box (message box), none, or ini (the helper's setting). <message> may be empty ("") for the default text.
 - Form IDs for game_command are the runtime IDs, the same as the save shows. Quests without any script may answer that only the console can do it; then give the user the console command (setstage / stopquest / resetquest <editor id>).
 - When the game is connected, quest fixes in the running game are better than save edits: the game's own scripts run. Tell the user to save in the game afterwards.
@@ -83,6 +87,10 @@ RECIPES
 - Lost follower: with the game running (helper 12), game_command GATHER brings every follower to the player at once, no save needed.
   Otherwise in the save: --npcs <name>, then --move-to-player <formid> -o <new save>.
 - Stuck, cannot move (a scene or mod left the controls off): game_command CONTROLS; RESCUE also saves and gathers the followers.
+- Followers ("you already have a follower", a dismissed follower still following, a follower gone, a dead one still counted): run_cli {save} --followers lists who is in the vanilla follower quest's Follower / Animal alias, the follower factions, the teammate flag, where each is, PlayerFollowerCount, and the problems with their fixes.
+  In the save (verified edits only): --fix-follower-count / --fix-animal-count (the count the alias says), --clear-teammate <ids> (the flag SetPlayerTeammate(false) clears). Everything else in the running game: SETSTAGE 000750BA 400 (dismiss), FOLLOWERSET <id>, TEAMMATE <id> 0|1, GATHER <notify> <id>. Follower mods (NFF, AFT...) keep their own quests: change those with the mod's own menu.
+- Stuck as a werewolf or Vampire Lord, or its claws / powers / factions left on you: run_cli {save} --beast-form says what is wrong and which fix: SETSTAGE <quest> 100 or BEASTREVERT (game only: race, controls and menus are game state; the save is not edited for this).
+- Quests between stages: --stuck-stages lists stage scripts that were still running when the game saved (they carry on when it loads); with the game running, QUEST shows where the quest stands now.
 - Player: --player, --set-gold, --set-skill, --set-level, --set-perks, --set-item, --set-bounty, --clear-crimes.
 - Mod menus (MCM) missing: --fix-mcm. Enchanted items with no charge: --charged, --fix-charges.
 - A form by name: find_form (uses the plugin names the app has read), or run_cli {save} --find <text> --sources <mods folder>.
@@ -200,6 +208,12 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 				{ "--remove-flag", "reads Skyrim's change form layouts" },
 				{ "--remove-extra", "reads Skyrim's change form layouts" },
 				{ "--fix-mcm", "it fixes SkyUI's MCM, a Skyrim mod" },
+				{ "--followers", "Skyrim's follower quest and actor data" },
+				{ "--fix-follower-count", "Skyrim's follower quest" },
+				{ "--fix-animal-count", "Skyrim's follower quest" },
+				{ "--clear-teammate", "reads Skyrim's actor data" },
+				{ "--beast-form", "Skyrim's werewolf and Vampire Lord" },
+				{ "--stuck-stages", "reads Skyrim's quest and Papyrus data" },
 				{ "--path-idles", "a Skyrim crash (path idles)" },
 				{ "--fix-path-idles", "a Skyrim crash (path idles)" },
 				{ "--charged", "Skyrim's enchantment charges" },

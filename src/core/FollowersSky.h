@@ -191,6 +191,8 @@ namespace ess::skyf
 		std::uint32_t quest = 0;
 		int           stage = -1;     // the stage whose fragment is still running (-1 not known)
 		std::string   kind;           // "fragment running" / "shutdown stage done, still running"
+		std::string   topFrame;       // fragment running: the function the thread was in ("utility.Wait")
+		std::uint32_t thread = 0;
 		std::string   text;
 	};
 	// a_shutdownStages(quest) -> its stages flagged shut-down in the plugin (empty: not known)

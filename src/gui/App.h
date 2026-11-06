@@ -145,6 +145,8 @@ public:
 			_showAssets = true;
 		} else if (w == "actors") {
 			_showActors = true;
+		} else if (w == "skyfollowers") {
+			_showSkyFollowers = true;
 		} else if (w == "player") {
 			_showPlayer = true;
 			_pvLoaded = false;
@@ -609,6 +611,16 @@ private:
 	void        goHome();              // "Main menu": close the tools, back to the overview with its shortcuts
 	bool        _homePanel = true;
 	void        drawActors();
+	// Skyrim followers, beast form, quests between stages (AppSkyFollowers.cpp)
+	struct SkyFollowersView;
+	std::shared_ptr<SkyFollowersView> _skyf;
+	bool        _showSkyFollowers = false;
+	void        drawSkyFollowers();
+	void        skyfRefresh();
+	void        skyfCheckItems(std::vector<CheckItem>& a_items);
+	void        skyfInGame(std::uint32_t a_formID, std::function<void(std::uint32_t)> a_then);
+	void        skyfAsk(std::vector<std::string> a_command, const std::string& a_what);
+	void        skyfDismissInGame();
 	// leftover items, save history, Papyrus log, saves folder (AppExtras.cpp)
 	void        drawLeftovers();
 	void        drawMergedPatch();

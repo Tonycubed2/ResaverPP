@@ -10802,6 +10802,420 @@ tr "Во время «%s»: %s"
 en "Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."
 tr "Пожалуйста, сообщите об этом на странице мода, приложив файл ReSaverPP-startup.log (рядом с ReSaverPP.exe или в %TEMP%)."
 
+# ---- Followers and beast form (AppSkyFollowers.cpp) ----
+
+# App.cpp:1332  ImGui::MenuItem(tr("Followers and beast form..."), nullptr, &_showSkyFollowers, !fo4());
+en "Followers and beast form..."
+tr "Спутники и звериный облик..."
+
+# App.cpp:1333  tips::Tip(tr("Your followers (dismissed, lost, \"you already have a follower\"), a werewolf or Vampire Lord form you are stuck in, "
+en "Your followers (dismissed, lost, \"you already have a follower\"), a werewolf or Vampire Lord form you are stuck in, and quests that were between stages, with the fixes."
+tr "Ваши спутники (отпущенные, потерянные, «у вас уже есть спутник»), облик вервольфа или лорда-вампира, в котором вы застряли, и задания, оставшиеся между стадиями, с исправлениями."
+
+# AppSkyFollowers.cpp:109  _skyf->gameNote = Fmt(tr("The game does not know %08X (%s): %s"), a_formID, plugin.c_str(), LiveLink::Error(r).c_str());
+en "The game does not know %08X (%s): %s"
+tr "Игра не знает %08X (%s): %s"
+
+# AppSkyFollowers.cpp:126  note = tr("The game refused: ") + LiveLink::Field(r, 1);
+en "The game refused: "
+tr "Игра отказала: "
+
+# AppSkyFollowers.cpp:128  note = a_what + tr(": the game is still busy with it; look in the game.");
+en ": the game is still busy with it; look in the game."
+tr ": игра ещё этим занята; посмотрите в игре."
+
+# AppSkyFollowers.cpp:130  note = a_what + tr(": done in the game. Check it there, then make a new save and open that one here.");
+en ": done in the game. Check it there, then make a new save and open that one here."
+tr ": сделано в игре. Проверьте там, затем сделайте новое сохранение и откройте его здесь."
+
+# AppSkyFollowers.cpp:142  tr("Dismiss the follower (DialogueFollower stage 400)"));
+en "Dismiss the follower (DialogueFollower stage 400)"
+tr "Отпустить спутника (DialogueFollower, стадия 400)"
+
+# AppSkyFollowers.cpp:148  if (!ImGui::Begin(trId("Followers and beast form"), &_showSkyFollowers, ImGuiWindowFlags_NoCollapse)) {
+en "Followers and beast form"
+tr "Спутники и звериный облик"
+
+# AppSkyFollowers.cpp:162  auto        name = [&](std::uint32_t id) { return id ? formText(id) : std::string(tr("nobody")); };
+en "nobody"
+tr "никто"
+
+# AppSkyFollowers.cpp:164  ImGui::TextWrapped("%s", tr("Your followers and werewolf / Vampire Lord form as this save has them, checked against the game's own scripts "
+en "Your followers and werewolf / Vampire Lord form as this save has them, checked against the game's own scripts (DialogueFollowerScript, PlayerWerewolfChangeScript, DLC1PlayerVampireChangeScript). Fixes marked \"file\" change the loaded save (write it with File > Save As); fixes marked \"game\" are done in the running game by ReSaverHelper, with the game's own scripts."
+tr "Ваши спутники и облик вервольфа / лорда-вампира так, как они записаны в этом сохранении, проверенные по собственным скриптам игры (DialogueFollowerScript, PlayerWerewolfChangeScript, DLC1PlayerVampireChangeScript). Исправления с пометкой «файл» меняют загруженное сохранение (запишите его через Файл > Сохранить как); исправления с пометкой «игра» выполняет ReSaverHelper в запущенной игре собственными скриптами игры."
+
+# AppSkyFollowers.cpp:169  Colored(theme::Caution(), tr("Not connected to the running game: the \"game\" fixes need Skyrim running with ReSaverHelper and this save loaded."));
+en "Not connected to the running game: the \"game\" fixes need Skyrim running with ReSaverHelper and this save loaded."
+tr "Нет связи с запущенной игрой: исправлениям «в игре» нужен запущенный Skyrim с ReSaverHelper и загруженным этим сохранением."
+
+# AppSkyFollowers.cpp:171  Colored(theme::Caution(), tr("The game has ReSaverHelper ") + info.helperVersion +
+en "The game has ReSaverHelper "
+tr "В игре ReSaverHelper "
+
+# AppSkyFollowers.cpp:172  tr(": dismissing and the werewolf time-out fix work; taking a follower back, the teammate switch and "
+en ": dismissing and the werewolf time-out fix work; taking a follower back, the teammate switch and the beast form revert need version 13."
+tr ": отпустить спутника и исправить истёкшее время вервольфа можно; вернуть спутника, переключить флаг напарника и вернуть из звериного облика можно только с версией 13."
+
+# AppSkyFollowers.cpp:189  ImGui::Text(tr("Vanilla follower quest: %s"), f.questRunning ? tr("running") : f.questInSave ? tr("not running") : tr("not in the save"));
+en "Vanilla follower quest: %s"
+tr "Стандартное задание спутников: %s"
+
+# AppSkyFollowers.cpp:189  ImGui::Text(tr("Vanilla follower quest: %s"), f.questRunning ? tr("running") : f.questInSave ? tr("not running") : tr("not in the save"));
+en "not in the save"
+tr "нет в сохранении"
+
+# AppSkyFollowers.cpp:190  ImGui::Text(tr("Follower alias: %s, PlayerFollowerCount %s"), name(fa ? fa->formID : 0).c_str(),
+en "Follower alias: %s, PlayerFollowerCount %s"
+tr "Псевдоним Follower: %s, PlayerFollowerCount %s"
+
+# AppSkyFollowers.cpp:191  f.hasCount ? Fmt("%g", f.followerCount).c_str() : tr("(not saved)"));
+# AppSkyFollowers.cpp:193  f.hasAnimalCount ? Fmt("%g", f.animalCount).c_str() : tr("(not saved)"));
+en "(not saved)"
+tr "(не сохранено)"
+
+# AppSkyFollowers.cpp:192  ImGui::Text(tr("Animal alias: %s, PlayerAnimalCount %s"), name(an ? an->formID : 0).c_str(),
+en "Animal alias: %s, PlayerAnimalCount %s"
+tr "Псевдоним Animal: %s, PlayerAnimalCount %s"
+
+# AppSkyFollowers.cpp:198  Colored(theme::Good(), tr("Nothing wrong with your followers in this save."));
+en "Nothing wrong with your followers in this save."
+tr "Со спутниками в этом сохранении всё в порядке."
+
+# AppSkyFollowers.cpp:204  ImGui::TextUnformatted(p.actor ? formText(p.actor).c_str() : tr("The vanilla follower quest"));
+en "The vanilla follower quest"
+tr "Стандартное задание спутников"
+
+# AppSkyFollowers.cpp:215  if (ImGui::Button(tr("Fix the count (file)"))) {
+en "Fix the count (file)"
+tr "Исправить счётчик (файл)"
+
+# AppSkyFollowers.cpp:223  tips::Tip(tr("Sets the count to what the alias holds, as the follower script itself does: 0 when nobody living is in it, 1 "
+en "Sets the count to what the alias holds, as the follower script itself does: 0 when nobody living is in it, 1 when somebody is. One value in the save, nothing else changes."
+tr "Ставит счётчик по тому, что в псевдониме, как это делает сам скрипт спутников: 0, если там нет никого живого, 1, если есть. Одно значение в сохранении, больше ничего не меняется."
+
+# AppSkyFollowers.cpp:231  if (ImGui::Button(tr("Dismiss in the game"))) {
+en "Dismiss in the game"
+tr "Отпустить в игре"
+
+# AppSkyFollowers.cpp:235  tips::Tip(tr("Sets stage 400 of the vanilla follower quest, which runs DismissFollower(): the follower leaves your service the "
+en "Sets stage 400 of the vanilla follower quest, which runs DismissFollower(): the follower leaves your service the normal way (factions, teammate flag, alias and count)."
+tr "Ставит стадию 400 стандартного задания спутников, которая вызывает DismissFollower(): спутник уходит обычным образом (фракции, флаг напарника, псевдоним и счётчик)."
+
+# AppSkyFollowers.cpp:240  if (ImGui::Button(tr("Bring to me (game)"))) {
+en "Bring to me (game)"
+tr "Ко мне (игра)"
+
+# AppSkyFollowers.cpp:241  skyfInGame(id, [this](std::uint32_t rid) { skyfAsk({ "GATHER", liveNotifyMode(), Fmt("%08X", rid) }, tr("Bring the follower to you")); });
+# AppSkyFollowers.cpp:344  skyfInGame(id, [this](std::uint32_t rid) { skyfAsk({ "GATHER", liveNotifyMode(), Fmt("%08X", rid) }, tr("Bring the follower to you")); });
+en "Bring the follower to you"
+tr "Привести спутника к вам"
+
+# AppSkyFollowers.cpp:244  tips::Tip(tr("ReSaverHelper moves the follower next to you in the running game."));
+en "ReSaverHelper moves the follower next to you in the running game."
+tr "ReSaverHelper перемещает спутника к вам в запущенной игре."
+
+# AppSkyFollowers.cpp:246  if (ImGui::Button(tr("Find NPCs (file)..."))) {
+en "Find NPCs (file)..."
+tr "Поиск NPC (файл)..."
+
+# AppSkyFollowers.cpp:249  tips::Tip(tr("Find NPCs can move it next to you in the save itself (Move to me)."));
+en "Find NPCs can move it next to you in the save itself (Move to me)."
+tr "Поиск NPC может переместить его к вам в самом сохранении («Ко мне»)."
+
+# AppSkyFollowers.cpp:256  if (ImGui::Button(tr("Switch the teammate flag off (file)"))) {
+en "Switch the teammate flag off (file)"
+tr "Снять флаг напарника (файл)"
+
+# AppSkyFollowers.cpp:258  confirm(tr("Teammate flag"), tr("Switch the teammate flag off on ") + nm +
+en "Teammate flag"
+tr "Флаг напарника"
+
+# AppSkyFollowers.cpp:258  confirm(tr("Teammate flag"), tr("Switch the teammate flag off on ") + nm +
+en "Switch the teammate flag off on "
+tr "Снять флаг напарника с "
+
+# AppSkyFollowers.cpp:259  tr("?\n\nThe save gets what SetPlayerTeammate(false) leaves: the flag off (and \"can do favors\" on). The game "
+en "?\n\nThe save gets what SetPlayerTeammate(false) leaves: the flag off (and \"can do favors\" on). The game counts your teammates again when it loads. Keep a copy of the original save."
+tr "?\n\nВ сохранении будет то же, что оставляет SetPlayerTeammate(false): флаг снят (а «может выполнять поручения» включено). Игра заново посчитает ваших напарников при загрузке. Сохраните копию исходного сохранения."
+
+# AppSkyFollowers.cpp:265  markChanged(tr("Teammate flag off: ") + nm);
+en "Teammate flag off: "
+tr "Флаг напарника снят: "
+
+# AppSkyFollowers.cpp:269  tips::Tip(tr("Two bits of this actor's saved data, the ones SetPlayerTeammate(false) changes; checked to read back completely."));
+en "Two bits of this actor's saved data, the ones SetPlayerTeammate(false) changes; checked to read back completely."
+tr "Два бита сохранённых данных этого персонажа, те, что меняет SetPlayerTeammate(false); проверяется, что всё читается обратно полностью."
+
+# AppSkyFollowers.cpp:273  if (ImGui::Button(on ? tr("Make it your teammate (game)") : tr("Teammate off (game)"))) {
+en "Make it your teammate (game)"
+tr "Сделать напарником (игра)"
+
+# AppSkyFollowers.cpp:273  if (ImGui::Button(on ? tr("Make it your teammate (game)") : tr("Teammate off (game)"))) {
+en "Teammate off (game)"
+tr "Снять напарника (игра)"
+
+# AppSkyFollowers.cpp:275  skyfAsk({ "TEAMMATE", Fmt("%08X", rid), on ? "1" : "0", liveNotifyMode() }, on ? tr("Teammate on") : tr("Teammate off"));
+en "Teammate on"
+tr "Напарник включён"
+
+# AppSkyFollowers.cpp:275  skyfAsk({ "TEAMMATE", Fmt("%08X", rid), on ? "1" : "0", liveNotifyMode() }, on ? tr("Teammate on") : tr("Teammate off"));
+en "Teammate off"
+tr "Напарник снят"
+
+# AppSkyFollowers.cpp:279  tips::Tip(tr("Actor.SetPlayerTeammate in the running game (ReSaverHelper 13)."));
+en "Actor.SetPlayerTeammate in the running game (ReSaverHelper 13)."
+tr "Actor.SetPlayerTeammate в запущенной игре (ReSaverHelper 13)."
+
+# AppSkyFollowers.cpp:284  if (ImGui::Button(tr("Take back as your follower (game)"))) {
+en "Take back as your follower (game)"
+tr "Вернуть в спутники (игра)"
+
+# AppSkyFollowers.cpp:285  skyfInGame(id, [this](std::uint32_t rid) { skyfAsk({ "FOLLOWERSET", Fmt("%08X", rid), liveNotifyMode() }, tr("Take the follower back")); });
+en "Take the follower back"
+tr "Вернуть спутника"
+
+# AppSkyFollowers.cpp:288  tips::Tip(fa && !fa->dead() ? tr("Somebody else is your follower now: dismiss them first.")
+en "Somebody else is your follower now: dismiss them first."
+tr "Сейчас ваш спутник кто-то другой: сначала отпустите его."
+
+# AppSkyFollowers.cpp:289  : tr("Runs DialogueFollowerScript.SetFollower on it, as when you hire a follower: out of the dismissed faction, your "
+en "Runs DialogueFollowerScript.SetFollower on it, as when you hire a follower: out of the dismissed faction, your teammate, in the Follower alias, count 1 (ReSaverHelper 13)."
+tr "Вызывает для него DialogueFollowerScript.SetFollower, как при найме спутника: вон из фракции отпущенных, ваш напарник, в псевдониме Follower, счётчик 1 (ReSaverHelper 13)."
+
+# AppSkyFollowers.cpp:300  ImGui::Text(tr("%zu actor(s) with a follower sign"), f.actors.size());
+en "%zu actor(s) with a follower sign"
+tr "Персонажей с признаком спутника: %zu"
+
+# AppSkyFollowers.cpp:318  if (a.inFollowerAlias) add(tr("Follower alias"));
+en "Follower alias"
+tr "псевдоним Follower"
+
+# AppSkyFollowers.cpp:319  if (a.inAnimalAlias) add(tr("Animal alias"));
+en "Animal alias"
+tr "псевдоним Animal"
+
+# AppSkyFollowers.cpp:320  if (a.teammate) add(tr("teammate"));
+en "teammate"
+tr "напарник"
+
+# AppSkyFollowers.cpp:321  if (a.inFaction(skyf::kCurrentFollowerFaction)) add(tr("following (CurrentFollowerFaction)"));
+en "following (CurrentFollowerFaction)"
+tr "следует за вами (CurrentFollowerFaction)"
+
+# AppSkyFollowers.cpp:322  if (a.inFaction(skyf::kDismissedFollowerFaction)) add(tr("dismissed"));
+en "dismissed"
+tr "отпущен"
+
+# AppSkyFollowers.cpp:323  if (a.inFaction(skyf::kCurrentHireling)) add(tr("hired"));
+en "hired"
+tr "нанят"
+
+# AppSkyFollowers.cpp:324  if (a.dead()) add(tr("dead"));
+en "dead"
+tr "мёртв"
+
+# AppSkyFollowers.cpp:325  if (a.disabled) add(tr("disabled"));
+en "disabled"
+tr "отключён"
+
+# AppSkyFollowers.cpp:326  if (!a.aliases.empty()) why += Fmt(tr(", in %zu quest alias(es)"), a.aliases.size());
+en ", in %zu quest alias(es)"
+tr ", в псевдонимах заданий: %zu"
+
+# AppSkyFollowers.cpp:332  ImGui::TextDisabled("%s", tr("where its plugin places it"));
+en "where its plugin places it"
+tr "там, где его ставит плагин"
+
+# AppSkyFollowers.cpp:338  tips::Tip(tr("Open this actor's change form."));
+en "Open this actor's change form."
+tr "Открыть запись изменений (change form) этого персонажа."
+
+# AppSkyFollowers.cpp:343  if (ImGui::SmallButton(tr("bring (game)"))) {
+en "bring (game)"
+tr "ко мне (игра)"
+
+# AppSkyFollowers.cpp:347  tips::Tip(tr("ReSaverHelper moves it next to you in the running game."));
+en "ReSaverHelper moves it next to you in the running game."
+tr "ReSaverHelper перемещает его к вам в запущенной игре."
+
+# AppSkyFollowers.cpp:351  if (ImGui::SmallButton(tr("dismiss (game)"))) {
+en "dismiss (game)"
+tr "отпустить (игра)"
+
+# AppSkyFollowers.cpp:355  tips::Tip(tr("DismissFollower() in the running game (stage 400 of the vanilla follower quest)."));
+en "DismissFollower() in the running game (stage 400 of the vanilla follower quest)."
+tr "DismissFollower() в запущенной игре (стадия 400 стандартного задания спутников)."
+
+# AppSkyFollowers.cpp:366  if (ImGui::BeginTabItem(trId("Beast form"))) {
+en "Beast form"
+tr "Звериный облик"
+
+# AppSkyFollowers.cpp:368  Colored(theme::Good(), tr("You have never been a werewolf or a Vampire Lord in this save."));
+en "You have never been a werewolf or a Vampire Lord in this save."
+tr "В этом сохранении вы ни разу не были вервольфом или лордом-вампиром."
+
+# AppSkyFollowers.cpp:373  ImGui::SeparatorText(b.kind == skyf::Beast::kWerewolf ? tr("Werewolf") : tr("Vampire Lord"));
+en "Werewolf"
+tr "Вервольф"
+
+# AppSkyFollowers.cpp:373  ImGui::SeparatorText(b.kind == skyf::Beast::kWerewolf ? tr("Werewolf") : tr("Vampire Lord"));
+en "Vampire Lord"
+tr "Лорд-вампир"
+
+# AppSkyFollowers.cpp:374  ImGui::Text(tr("%s: %s"), b.questEdid.c_str(), b.questRunning ? tr("running") : b.questInSave ? tr("not running") : tr("never started"));
+en "%s: %s"
+tr "%s: %s"
+
+# AppSkyFollowers.cpp:374  ImGui::Text(tr("%s: %s"), b.questEdid.c_str(), b.questRunning ? tr("running") : b.questInSave ? tr("not running") : tr("never started"));
+en "never started"
+tr "ни разу не запускалось"
+
+# AppSkyFollowers.cpp:375  ImGui::Text(tr("Your race: %s"), b.playerRace ? formText(b.playerRace).c_str() : tr("the plugin's (never changed in game)"));
+en "Your race: %s"
+tr "Ваша раса: %s"
+
+# AppSkyFollowers.cpp:375  ImGui::Text(tr("Your race: %s"), b.playerRace ? formText(b.playerRace).c_str() : tr("the plugin's (never changed in game)"));
+en "the plugin's (never changed in game)"
+tr "из плагина (в игре не менялась)"
+
+# AppSkyFollowers.cpp:376  ImGui::Text(tr("Beast race: %s; race the script turns you back into: %s"), name(b.beastRace).c_str(), name(b.originalRace).c_str());
+en "Beast race: %s; race the script turns you back into: %s"
+tr "Звериная раса: %s; раса, в которую скрипт вас вернёт: %s"
+
+# AppSkyFollowers.cpp:378  ImGui::BulletText(tr("still has %s"), formText(s).c_str());
+en "still has %s"
+tr "всё ещё есть %s"
+
+# AppSkyFollowers.cpp:381  ImGui::BulletText(tr("still in %s"), formText(s).c_str());
+en "still in %s"
+tr "всё ещё во фракции %s"
+
+# AppSkyFollowers.cpp:384  ImGui::BulletText(tr("still carries %s"), formText(s).c_str());
+en "still carries %s"
+tr "всё ещё несёт %s"
+
+# AppSkyFollowers.cpp:388  Colored(theme::Good(), tr("Nothing wrong."));
+en "Nothing wrong."
+tr "Всё в порядке."
+
+# AppSkyFollowers.cpp:396  if (ImGui::Button(tr("Turn me back (game: stage 100)"))) {
+en "Turn me back (game: stage 100)"
+tr "Вернуть мой облик (игра: стадия 100)"
+
+# AppSkyFollowers.cpp:399  tr("Turn you back"));
+# AppSkyFollowers.cpp:408  skyfAsk({ "BEASTREVERT", wolf ? "werewolf" : "vampire", liveNotifyMode() }, tr("Turn you back"));
+# AppSkyFollowers.cpp:554  tr("Turn you back"));
+en "Turn you back"
+tr "Вернуть ваш облик"
+
+# AppSkyFollowers.cpp:403  tips::Tip(tr("Sets stage 100 of the transformation quest in the running game: its script's ShiftBack(), the same as when the "
+en "Sets stage 100 of the transformation quest in the running game: its script's ShiftBack(), the same as when the time runs out or you use Revert Form."
+tr "Ставит стадию 100 задания превращения в запущенной игре: ShiftBack() его скрипта, как когда время истекает или вы используете «Обратное превращение»."
+
+# AppSkyFollowers.cpp:407  if (ImGui::Button(tr("Turn me back (game)"))) {
+en "Turn me back (game)"
+tr "Вернуть мой облик (игра)"
+
+# AppSkyFollowers.cpp:411  tips::Tip(tr("ReSaverHelper 13 resets the script's \"already doing it\" guards and runs its own ShiftBack(): your race back, the "
+en "ReSaverHelper 13 resets the script's \"already doing it\" guards and runs its own ShiftBack(): your race back, the claws or Vampire Lord powers, factions and armor taken off, controls, fast travel and the beast form menus back to normal. The file is not changed: it is a lot of game state (race, controls, menus) that only the game itself can set consistently."
+tr "ReSaverHelper 13 сбрасывает в скрипте флаги «уже выполняется» и запускает его собственный ShiftBack(): ваша раса возвращается, когти или силы лорда-вампира, фракции и броня снимаются, управление, быстрое перемещение и меню звериного облика становятся обычными. Файл не меняется: это большая часть состояния игры (раса, управление, меню), которую согласованно может выставить только сама игра."
+
+# AppSkyFollowers.cpp:422  if (ImGui::BeginTabItem(trId("Quests between stages"))) {
+en "Quests between stages"
+tr "Задания между стадиями"
+
+# AppSkyFollowers.cpp:423  ImGui::TextWrapped("%s", tr("Quests whose stage script was still running when you saved (it carries on when the game loads), and, with "
+en "Quests whose stage script was still running when you saved (it carries on when the game loads), and, with plugin names loaded, quests still running after their shut-down stage."
+tr "Задания, скрипт стадии которых ещё выполнялся при сохранении (он продолжится после загрузки), а при загруженных именах из плагинов — задания, всё ещё идущие после стадии завершения."
+
+# AppSkyFollowers.cpp:426  Colored(theme::Good(), tr("None."));
+en "None."
+tr "Нет."
+
+# AppSkyFollowers.cpp:432  ImGui::Text(tr("%s, stage %d"), formText(s.quest).c_str(), s.stage);
+en "%s, stage %d"
+tr "%s, стадия %d"
+
+# AppSkyFollowers.cpp:434  if (ImGui::Button(tr("Show the quest"))) {
+en "Show the quest"
+tr "Показать задание"
+
+# AppSkyFollowers.cpp:438  tips::Tip(tr("The Quests page, where the quest can be looked at, set to a stage or stopped in the running game."));
+en "The Quests page, where the quest can be looked at, set to a stage or stopped in the running game."
+tr "Страница «Задания», где задание можно посмотреть, перевести на стадию или остановить в запущенной игре."
+
+# AppSkyFollowers.cpp:464  : Fmt(tr("Needs the game running with ReSaverHelper %d or later and this save loaded. "), a_version);
+en "Needs the game running with ReSaverHelper %d or later and this save loaded. "
+tr "Нужна запущенная игра с ReSaverHelper %d или новее и загруженным этим сохранением. "
+
+# AppSkyFollowers.cpp:468  o.label = tr("Open Followers and beast form...");
+en "Open Followers and beast form..."
+tr "Открыть «Спутники и звериный облик»..."
+
+# AppSkyFollowers.cpp:470  o.why = tr("Shows every follower, the beast form state and all fixes.");
+en "Shows every follower, the beast form state and all fixes."
+tr "Показывает всех спутников, состояние звериного облика и все исправления."
+
+# AppSkyFollowers.cpp:488  it.title = Fmt(tr("%zu follower problem(s)"), v.fol.findings.size());
+en "%zu follower problem(s)"
+tr "Проблем со спутниками: %zu"
+
+# AppSkyFollowers.cpp:498  o.label = animal ? tr("Fix PlayerAnimalCount (file)") : tr("Fix PlayerFollowerCount (file)");
+en "Fix PlayerAnimalCount (file)"
+tr "Исправить PlayerAnimalCount (файл)"
+
+# AppSkyFollowers.cpp:498  o.label = animal ? tr("Fix PlayerAnimalCount (file)") : tr("Fix PlayerFollowerCount (file)");
+en "Fix PlayerFollowerCount (file)"
+tr "Исправить PlayerFollowerCount (файл)"
+
+# AppSkyFollowers.cpp:500  o.why = tr("Sets the count to what the vanilla follower quest's alias holds, the value its own script would leave. One value in "
+en "Sets the count to what the vanilla follower quest's alias holds, the value its own script would leave. One value in the save changes. Write the save with File > Save As and load that."
+tr "Ставит счётчик по тому, что в псевдониме стандартного задания спутников, — то значение, которое оставил бы его собственный скрипт. Меняется одно значение в сохранении. Запишите сохранение через Файл > Сохранить как и загрузите его."
+
+# AppSkyFollowers.cpp:515  o.label = tr("Dismiss the vanilla follower in the game");
+en "Dismiss the vanilla follower in the game"
+tr "Отпустить стандартного спутника в игре"
+
+# AppSkyFollowers.cpp:517  o.why = needGame(3) + tr("Stage 400 of the vanilla follower quest runs DismissFollower(): the follower in the Follower alias leaves your service the "
+en "Stage 400 of the vanilla follower quest runs DismissFollower(): the follower in the Follower alias leaves your service the normal way. Only for the vanilla follower, not one a follower mod keeps."
+tr "Стадия 400 стандартного задания спутников вызывает DismissFollower(): спутник из псевдонима Follower уходит обычным образом. Только для стандартного спутника, не для того, которого держит мод спутников."
+
+# AppSkyFollowers.cpp:535  it.title = b.kind == skyf::Beast::kWerewolf ? (b.raceIsBeast ? tr("You are stuck as a werewolf") : tr("Werewolf transformation left things behind"))
+en "You are stuck as a werewolf"
+tr "Вы застряли в облике вервольфа"
+
+# AppSkyFollowers.cpp:535  it.title = b.kind == skyf::Beast::kWerewolf ? (b.raceIsBeast ? tr("You are stuck as a werewolf") : tr("Werewolf transformation left things behind"))
+en "Werewolf transformation left things behind"
+tr "После превращения в вервольфа что-то осталось"
+
+# AppSkyFollowers.cpp:536  : (b.raceIsBeast ? tr("You are stuck as a Vampire Lord") : tr("Vampire Lord transformation left things behind"));
+en "You are stuck as a Vampire Lord"
+tr "Вы застряли в облике лорда-вампира"
+
+# AppSkyFollowers.cpp:536  : (b.raceIsBeast ? tr("You are stuck as a Vampire Lord") : tr("Vampire Lord transformation left things behind"));
+en "Vampire Lord transformation left things behind"
+tr "После превращения в лорда-вампира что-то осталось"
+
+# AppSkyFollowers.cpp:540  o.label = tr("Turn me back in the game");
+en "Turn me back in the game"
+tr "Вернуть мой облик в игре"
+
+# AppSkyFollowers.cpp:544  (stage ? tr("Sets stage 100 of the transformation quest: its script's own ShiftBack(), as when the time runs out or you use Revert Form.")
+en "Sets stage 100 of the transformation quest: its script's own ShiftBack(), as when the time runs out or you use Revert Form."
+tr "Ставит стадию 100 задания превращения: собственный ShiftBack() его скрипта, как когда время истекает или вы используете «Обратное превращение»."
+
+# AppSkyFollowers.cpp:545  : tr("ReSaverHelper resets the script's \"already doing it\" guards and runs its own ShiftBack(). The file is not changed: race, "
+en "ReSaverHelper resets the script's \"already doing it\" guards and runs its own ShiftBack(). The file is not changed: race, controls and menus are game state only the game sets consistently. Make a save afterwards."
+tr "ReSaverHelper сбрасывает в скрипте флаги «уже выполняется» и запускает его собственный ShiftBack(). Файл не меняется: раса, управление и меню — это состояние игры, которое согласованно выставляет только сама игра. Потом сделайте сохранение."
+
+# AppSkyFollowers.cpp:570  it.title = Fmt(tr("%zu quest(s) were between stages when you saved"), v.stages.size());
+en "%zu quest(s) were between stages when you saved"
+tr "Заданий между стадиями при сохранении: %zu"
+
+# AppSkyFollowers.cpp:579  q.why = tr("Only shows information. A stuck quest can be set to a stage or stopped there, in the running game.");
+en "Only shows information. A stuck quest can be set to a stage or stopped there, in the running game."
+tr "Только показывает сведения. Застрявшее задание там можно перевести на стадию или остановить в запущенной игре."
+
 # ---- no longer used by the code (kept for reference; safe to delete) ----
 
 en "Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in ReSaver Plus. Both are read from their files, so the old save never has to load. What a save can hold (level, experience, S.P.E.C.I.A.L., caps, perk ranks) is written into the open save; items, new perks and quest stages are put into the running game by ReSaverHelper %d or newer (the F4SE plugin) once the good save is loaded."

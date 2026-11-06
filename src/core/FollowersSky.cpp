@@ -835,10 +835,15 @@ namespace ess::skyf
 			s.quest = quest;
 			s.stage = stage;
 			s.kind = "fragment running";
-			s.text = Fmt("The save holds a running script for stage %d of this quest: the stage was set but its script had not finished "
-						 "when you saved. If the quest does not move on after loading, that script is stuck (waiting on something that "
-						 "never happens, or in a loop).",
-				stage);
+			s.thread = t.id;
+			if (!t.data->frames.empty()) {
+				const auto& f = t.data->frames.back();  // the innermost call (as --describe shows it)
+				s.topFrame = p->str(f.scriptName) + "." + p->str(f.event);
+			}
+			s.text = Fmt("The save holds a running script for stage %d of this quest (in %s): the stage was set but its script had not "
+						 "finished when you saved, so the quest is between stages. It goes on when the game loads; if the quest still does "
+						 "not move on, that script is stuck (waiting on something that never happens, or in a loop).",
+				stage, s.topFrame.empty() ? "?" : s.topFrame.c_str());
 			out.push_back(s);
 		}
 		if (a_shutdownStages) {
