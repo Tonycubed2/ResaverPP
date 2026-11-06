@@ -3,14 +3,30 @@
 # inside an actor (its limits, see README), the original body is read too and the actor passes when both stop at the same
 # distance from the body's end and every read of the edited body is a read of the original one (the same reads up to the
 # effect list and the same reads, aligned from the body's end, after the removed entries).
+# REFR_ENDS=<refrcheck.sh's .game.txt of the edited dump>: the reference part's end from the game's own
+# TESObjectREFR::LoadGame where dec.py cannot read it (the reference part is the same bytes in both bodies).
 import sys,os,collections
 sys.path.insert(0,'.')
 from achr import *
+import achr
+ends={}
+if os.environ.get('REFR_ENDS'):
+    for l in open(os.environ['REFR_ENDS']):
+        p=l.split()
+        if len(p)>2 and p[2]!='None': ends[int(p[0],16)]=int(p[2])
+py0=achr.pyrefr; cur=[None]
+def py_or_game(*x,**k):
+    try: return py0(*x,**k)
+    except Exception:
+        if cur[0] in ends: return ends[cur[0]]
+        raise
+achr.pyrefr=py_or_game
 fvo,orig=load(sys.argv[1]); fve,edit=load(sys.argv[2])
 oby={x[0]:x for x in orig}
 a=A(fve); st=collections.Counter(); bad=[]
 def run(ref,fl,b):
     global a
+    cur[0]=ref
     for fresh in (False,True):
         if fresh: a=A(fve)
         try:

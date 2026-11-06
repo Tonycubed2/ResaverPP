@@ -1,5 +1,5 @@
-// Edit player for Fallout 4 saves: caps, S.P.E.C.I.A.L. and the active effects (read from the player's ACHR
-// change form; see core/ChangeFormFO4.h).
+// Edit player for Fallout 4 saves: level, experience, caps, S.P.E.C.I.A.L., perks and the active effects (read from
+// the player's ACHR change form; see core/ChangeFormFO4.h).
 #include "App.h"
 #include "Theme.h"
 #include "Tips.h"
@@ -70,6 +70,7 @@ void App::drawPlayerFO4()
 		_f4XP = fo4cf::PlayerXP(*_save);
 		_f4XPEdit = static_cast<float>(_f4XP < 0 ? 0 : _f4XP);
 		_f4PerkEdit.clear();
+		_f4FxSources.clear();
 		for (const auto& k : _f4Actor.perks) {
 			_f4PerkEdit[k.formID] = k.rank;
 		}
@@ -282,40 +283,146 @@ void App::drawPlayerFO4()
 	}
 
 	// ---- active effects ----
+	if (std::getenv("RESAVERPP_TEST_FX")) {  // test: open this section
+		ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+	}
 	const bool hFx = ImGui::CollapsingHeader(Fmt(tr("Active effects (%zu)###fx"), _f4Actor.effects.size()).c_str());
-	tips::Tip(tr("The effects running on the character: chems, food, radiation, perks' and gear's effects. Shown for reading."));
+	tips::Tip(tr("The effects running on the character: chems, food, radiation, perks' and gear's effects. Remove ones that are stuck; the stat they change is put back."));
 	if (hFx) {
+		auto* pcf = [this]() -> ChangeForm* {
+			const auto* pc = fo4cf::FindPlayer(*_save);
+			return pc ? _save->findChangeForm(pc->refID) : nullptr;
+		}();
+		ImGui::TextWrapped("%s", tr("Remove takes an effect off the character, and when it is running and changes a stat, puts the stat back as the "
+						   "game does when the effect ends. An effect from something you still wear, a perk or a mod's script can come back "
+						   "when the game gives it again."));
+		if (!_db) {
+			TextColored(theme::Warn(), tr("Plugin names are not loaded: running effects that change a stat cannot be removed (which stat is in "
+										   "the plugins). Load them (Tools > Read plugin names)."));
+		}
+		if (!_f4Actor.complete) {
+			TextColored(theme::Warn(), tr("The player's saved data does not read completely, so effects cannot be removed: ") + _f4Actor.error);
+		}
+		if (_f4FxSources.size() != _f4Actor.effects.size() || _f4FxSourcesDb != _db.get()) {
+			_f4FxSources = fo4cf::EffectSources(*_save, _f4Actor, _db.get());
+			_f4FxSourcesDb = _db.get();
+		}
 		ImGui::SetNextItemWidth(250);
 		ImGui::InputTextWithHint("##f4fxf", tr("filter (e.g. jet, rad, buffout)"), _pvFxFilter, sizeof(_pvFxFilter));
 		std::string f = _pvFxFilter;
 		std::transform(f.begin(), f.end(), f.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-		if (ImGui::BeginTable("f4fx", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable,
-				ImVec2(0, 300))) {
+		std::vector<std::size_t> remove;
+		std::string              removeWhat;
+		if (ImGui::BeginTable("f4fx", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable,
+				ImVec2(0, 340))) {
 			ImGui::TableSetupScrollFreeze(0, 1);
 			ImGui::TableSetupColumn(tr("From"));
-			ImGui::TableSetupColumn(tr("Form id"));
+			ImGui::TableSetupColumn(tr("Form id"), ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn(tr("Plugin"));
+			ImGui::TableSetupColumn(tr("State"));
+			ImGui::TableSetupColumn(tr("When removed"));
+			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableHeadersRow();
-			for (const auto& e : _f4Actor.effects) {
-				const auto id = _save->formIDOf(e.item);
-				const auto name = nameOf(id);
-				const auto plugin = _save->pluginOf(id);
+			for (std::size_t i = 0; i < _f4Actor.effects.size(); ++i) {
+				const auto& e = _f4Actor.effects[i];
+				const auto  id = _save->formIDOf(e.item);
+				const auto  name = nameOf(id);
+				const auto  plugin = _save->pluginOf(id);
+				const auto& src = _f4FxSources[i];
+				const auto  plan = fo4cf::PlanEffectRemoval(_f4Actor, e, &src);
+				std::string state;
+				if (e.data.size() < 16) {
+					state = tr("not readable");
+				} else if (e.started()) {
+					state = Fmt(tr("running, strength %g"), e.magnitude);
+				} else if (e.flags & 0x20000u) {
+					state = tr("ended (switched off)");
+				} else {
+					state = tr("not started");
+				}
+				std::string when;
+				if (!plan.ok) {
+					when = tr("cannot be removed: ") + plan.why;
+				} else if (plan.modifier && plan.amount != 0) {
+					when = Fmt(tr("%s %+g (modifier %d)"), nameOf(plan.actorValue).c_str(), -plan.amount, plan.slot);
+				} else {
+					when = tr("no stat changes");
+				}
+				const auto effectName = src.mgef ? nameOf(src.mgef) : Fmt(tr("effect %u"), e.effectIndex);
 				if (!f.empty()) {
-					std::string t = name + " " + plugin + Fmt(" %08X", id);
+					std::string t = name + " " + effectName + " " + plugin + Fmt(" %08X ", id) + when;
 					std::transform(t.begin(), t.end(), t.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
 					if (t.find(f) == std::string::npos) {
 						continue;
 					}
 				}
+				ImGui::PushID(static_cast<int>(i));
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
-				ImGui::TextUnformatted(Fmt(tr("%s  (effect %u)"), name.c_str(), e.effectIndex).c_str());
+				ImGui::TextUnformatted(Fmt("%s  (%s)", name.c_str(), effectName.c_str()).c_str());
 				ImGui::TableNextColumn();
 				ImGui::Text("%08X", id);
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(plugin.c_str());
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(state.c_str());
+				ImGui::TableNextColumn();
+				if (plan.ok) {
+					ImGui::TextUnformatted(when.c_str());
+				} else {
+					ImGui::TextDisabled("%s", when.c_str());
+				}
+				ImGui::TableNextColumn();
+				ImGui::BeginDisabled(!plan.ok || !_f4Actor.complete || !pcf);
+				if (ImGui::SmallButton(tr("Remove"))) {
+					remove = { i };
+					removeWhat = name + " (" + effectName + ")";
+				}
+				tips::Tip(tr("Take this effect off the character (asks first)."));
+				ImGui::EndDisabled();
+				const auto same = fo4cf::EffectsFrom(*_save, _f4Actor, id);
+				if (same.size() > 1) {
+					ImGui::SameLine();
+					ImGui::BeginDisabled(!_f4Actor.complete || !pcf);
+					if (ImGui::SmallButton(Fmt(tr("All %zu from this source"), same.size()).c_str())) {
+						remove = same;
+						removeWhat = Fmt(tr("all %zu effects from %s"), same.size(), name.c_str());
+					}
+					tips::Tip(tr("Take every effect this item, spell or enchantment put on the character off it (asks first)."));
+					ImGui::EndDisabled();
+				}
+				ImGui::PopID();
 			}
 			ImGui::EndTable();
+		}
+		if (!remove.empty() && pcf) {
+			std::string stats;
+			for (const auto i : remove) {
+				const auto plan = fo4cf::PlanEffectRemoval(_f4Actor, _f4Actor.effects[i], &_f4FxSources[i]);
+				if (plan.modifier && plan.amount != 0) {
+					stats += Fmt("\n  %s %+g", nameOf(plan.actorValue).c_str(), -plan.amount);
+				}
+			}
+			const auto sources = _f4FxSources;
+			confirm(tr("Remove active effects"),
+				Fmt(tr("Remove %s from the player?"), removeWhat.c_str()) + (stats.empty() ? std::string() : tr("\nStats put back:") + stats),
+				[this, remove, sources, removeWhat, done] {
+					auto* c = [this]() -> ChangeForm* {
+						const auto* pc = fo4cf::FindPlayer(*_save);
+						return pc ? _save->findChangeForm(pc->refID) : nullptr;
+					}();
+					if (!c) {
+						done(tr("the player's saved data is not in this save"), "");
+						return;
+					}
+					std::vector<std::string> changes;
+					const auto               why = fo4cf::RemoveActiveEffects(*_save, *c, remove, sources, &changes);
+					std::string              what = tr("Effects removed: ") + removeWhat;
+					for (std::size_t k = 0; k < changes.size() && k < 6; ++k) {
+						what += (k ? "; " : ": ") + changes[k];
+					}
+					done(why, what);
+				});
 		}
 	}
 

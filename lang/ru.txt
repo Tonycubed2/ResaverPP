@@ -61,6 +61,8 @@ language "Русский"
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
+
+# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 en "Anthropic (Claude)"
 tr "Anthropic (Claude)"
 
@@ -1238,7 +1240,7 @@ tr "Изменённых форм этого плагина: %zu."
 
 # App.cpp:1942  KV(tr("Plugin"), _save->pluginOf(fid));
 # AppMissing.cpp:344  ImGui::TableSetupColumn(tr("Plugin"), 0, 3);
-# AppPlayerFO4.cpp:217  ImGui::TableSetupColumn(tr("Plugin"));
+# AppPlayerFO4.cpp:218  ImGui::TableSetupColumn(tr("Plugin"));
 en "Plugin"
 tr "Плагин"
 
@@ -1407,6 +1409,7 @@ en "Attached to"
 tr "Привязан к"
 
 # App.cpp:2152  KV(tr("State"), p.str(i->data->state).empty() ? tr("(default)") : p.str(i->data->state));
+# AppPlayerFO4.cpp:322  ImGui::TableSetupColumn(tr("State"));
 en "State"
 tr "Состояние"
 
@@ -4388,7 +4391,7 @@ en "Save %u, %s"
 tr "Сохранение %u, %s"
 
 # AppGallery.cpp:434  ImGui::TableSetupColumn(tr("Level"), ImGuiTableColumnFlags_PreferSortDescending, 0.5f);
-# AppPlayerFO4.cpp:106  ImGui::TextUnformatted(tr("Level"));
+# AppPlayerFO4.cpp:107  ImGui::TextUnformatted(tr("Level"));
 # AppTools.cpp:1149  row(tr("Level"));
 en "Level"
 tr "Уровень"
@@ -5898,8 +5901,8 @@ en "Which element of the array the buttons act on (counting from 0)."
 tr "С каким элементом массива работают кнопки (считая с 0)."
 
 # AppMore.cpp:417  if (ImGui::Button(tr("Remove"))) {
-# AppPlayerFO4.cpp:251  if (ImGui::SmallButton(tr("Remove"))) {
-# AppTools.cpp:475  if (ImGui::SmallButton(tr("Remove"))) {
+# AppPlayerFO4.cpp:252  if (ImGui::SmallButton(tr("Remove"))) {
+# AppPlayerFO4.cpp:377  if (ImGui::SmallButton(tr("Remove"))) {
 en "Remove"
 tr "Удалить"
 
@@ -6523,185 +6526,267 @@ tr "сохранённых данных игрока (ACHR 00000014) нет в �
 en "the player's saved data could not be read: "
 tr "не удалось прочитать сохранённые данные игрока: "
 
-# AppPlayerFO4.cpp:78  TextColored(theme::Warn(), tr("Cannot edit the player: ") + _f4Error);
+# AppPlayerFO4.cpp:79  TextColored(theme::Warn(), tr("Cannot edit the player: ") + _f4Error);
 # AppTools.cpp:1096  TextColored(theme::Warn(), tr("Cannot edit the player: ") + _pv.error);
 en "Cannot edit the player: "
 tr "Нельзя изменить персонажа: "
 
-# AppPlayerFO4.cpp:83  ImGui::TextWrapped("%s", tr("Changes are made in the loaded save; nothing is written until you use File > Save or Save As. Keep the original "
+# AppPlayerFO4.cpp:84  ImGui::TextWrapped("%s", tr("Changes are made in the loaded save; nothing is written until you use File > Save or Save As. Keep the original "
 # AppTools.cpp:1101  ImGui::TextWrapped("%s", tr("Changes are made in the loaded save; nothing is written until you use File > Save or Save As. Keep the original "
 en "Changes are made in the loaded save; nothing is written until you use File > Save or Save As. Keep the original save and test the new one before playing on with it."
 tr "Изменения вносятся в загруженное сохранение; на диск ничего не пишется, пока вы не нажмёте «Файл > Сохранить» или «Сохранить как». Сохраните оригинал и проверьте новое сохранение, прежде чем играть на нём дальше."
 
-# AppPlayerFO4.cpp:89  _error = tr("Could not change the player: ") + a_why;
+# AppPlayerFO4.cpp:90  _error = tr("Could not change the player: ") + a_why;
 # AppTools.cpp:1107  _error = tr("Could not change the player: ") + a_why;
 en "Could not change the player: "
 tr "Не удалось изменить персонажа: "
 
-# AppPlayerFO4.cpp:104  tips::Tip(tr("Level, experience and the bottle caps your character carries."));
+# AppPlayerFO4.cpp:105  tips::Tip(tr("Level, experience and the bottle caps your character carries."));
 en "Level, experience and the bottle caps your character carries."
 tr "Уровень, опыт и крышки, которые носит ваш персонаж."
 
-# AppPlayerFO4.cpp:109  ImGui::TextDisabled(tr("%u (this save keeps the game's starting level: it can be changed once the character has levelled up)"),
+# AppPlayerFO4.cpp:110  ImGui::TextDisabled(tr("%u (this save keeps the game's starting level: it can be changed once the character has levelled up)"),
 en "%u (this save keeps the game's starting level: it can be changed once the character has levelled up)"
 tr "%u (это сохранение хранит начальный уровень игры: его можно изменить, когда персонаж получит новый уровень)"
 
-# AppPlayerFO4.cpp:115  tips::Tip(tr("The character level. Type a new level, then press Set. The save's header (the load menu) is changed too."));
+# AppPlayerFO4.cpp:116  tips::Tip(tr("The character level. Type a new level, then press Set. The save's header (the load menu) is changed too."));
 en "The character level. Type a new level, then press Set. The save's header (the load menu) is changed too."
 tr "Уровень персонажа. Введите новый уровень и нажмите «Задать». Заголовок сохранения (меню загрузки) тоже меняется."
 
-# AppPlayerFO4.cpp:118  if (ImGui::SmallButton(tr("Set##level"))) {
-# AppPlayerFO4.cpp:136  if (ImGui::SmallButton(tr("Set##xp"))) {
-# AppPlayerFO4.cpp:154  if (ImGui::SmallButton(tr("Set##caps"))) {
+# AppPlayerFO4.cpp:119  if (ImGui::SmallButton(tr("Set##level"))) {
+# AppPlayerFO4.cpp:137  if (ImGui::SmallButton(tr("Set##xp"))) {
+# AppPlayerFO4.cpp:155  if (ImGui::SmallButton(tr("Set##caps"))) {
 en "Set"
 tr "Задать"
 
-# AppPlayerFO4.cpp:119  done(fo4cf::SetPlayerLevel(*_save, _f4LevelEdit), Fmt(tr("Level set to %d"), _f4LevelEdit));
+# AppPlayerFO4.cpp:120  done(fo4cf::SetPlayerLevel(*_save, _f4LevelEdit), Fmt(tr("Level set to %d"), _f4LevelEdit));
 en "Level set to %d"
 tr "Уровень: %d"
 
-# AppPlayerFO4.cpp:123  ImGui::TextDisabled(tr("now %d"), _f4Level);
-# AppPlayerFO4.cpp:189  ImGui::TextDisabled(tr("now %d"), _f4Special[i]);
+# AppPlayerFO4.cpp:124  ImGui::TextDisabled(tr("now %d"), _f4Level);
+# AppPlayerFO4.cpp:190  ImGui::TextDisabled(tr("now %d"), _f4Special[i]);
 en "now %d"
 tr "сейчас %d"
 
-# AppPlayerFO4.cpp:125  ImGui::TextUnformatted(tr("Experience"));
+# AppPlayerFO4.cpp:126  ImGui::TextUnformatted(tr("Experience"));
 en "Experience"
 tr "Опыт"
 
-# AppPlayerFO4.cpp:128  ImGui::TextDisabled("%s", tr("not saved for this character yet"));
+# AppPlayerFO4.cpp:129  ImGui::TextDisabled("%s", tr("not saved for this character yet"));
 en "not saved for this character yet"
 tr "для этого персонажа ещё не сохранён"
 
-# AppPlayerFO4.cpp:133  tips::Tip(tr("The experience points earned so far. Type a new amount, then press Set."));
+# AppPlayerFO4.cpp:134  tips::Tip(tr("The experience points earned so far. Type a new amount, then press Set."));
 en "The experience points earned so far. Type a new amount, then press Set."
 tr "Заработанные очки опыта. Введите новое значение и нажмите «Задать»."
 
-# AppPlayerFO4.cpp:137  done(fo4cf::SetPlayerXP(*_save, _f4XPEdit), Fmt(tr("Experience set to %.0f"), _f4XPEdit));
+# AppPlayerFO4.cpp:138  done(fo4cf::SetPlayerXP(*_save, _f4XPEdit), Fmt(tr("Experience set to %.0f"), _f4XPEdit));
 en "Experience set to %.0f"
 tr "Опыт: %.0f"
 
-# AppPlayerFO4.cpp:141  ImGui::TextDisabled(tr("now %.0f"), _f4XP);
+# AppPlayerFO4.cpp:142  ImGui::TextDisabled(tr("now %.0f"), _f4XP);
 en "now %.0f"
 tr "сейчас %.0f"
 
-# AppPlayerFO4.cpp:143  ImGui::TextUnformatted(tr("Caps"));
+# AppPlayerFO4.cpp:144  ImGui::TextUnformatted(tr("Caps"));
 en "Caps"
 tr "Крышки"
 
-# AppPlayerFO4.cpp:146  ImGui::TextDisabled("%s", tr("The player carries no caps in this save, so there is no caps entry to change."));
+# AppPlayerFO4.cpp:147  ImGui::TextDisabled("%s", tr("The player carries no caps in this save, so there is no caps entry to change."));
 en "The player carries no caps in this save, so there is no caps entry to change."
 tr "В этом сохранении у игрока нет крышек, поэтому менять нечего."
 
-# AppPlayerFO4.cpp:151  tips::Tip(tr("Type a new amount, then press Set."));
+# AppPlayerFO4.cpp:152  tips::Tip(tr("Type a new amount, then press Set."));
 en "Type a new amount, then press Set."
 tr "Введите новое значение и нажмите «Задать»."
 
-# AppPlayerFO4.cpp:155  done(fo4cf::SetPlayerCaps(*_save, _f4CapsEdit), Fmt(tr("Caps set to %d"), _f4CapsEdit));
+# AppPlayerFO4.cpp:156  done(fo4cf::SetPlayerCaps(*_save, _f4CapsEdit), Fmt(tr("Caps set to %d"), _f4CapsEdit));
 en "Caps set to %d"
 tr "Крышки: %d"
 
-# AppPlayerFO4.cpp:159  ImGui::TextDisabled(tr("now %lld"), static_cast<long long>(_f4Caps));
+# AppPlayerFO4.cpp:160  ImGui::TextDisabled(tr("now %lld"), static_cast<long long>(_f4Caps));
 en "now %lld"
 tr "сейчас %lld"
 
-# AppPlayerFO4.cpp:165  tips::Tip(tr("The character's saved base S.P.E.C.I.A.L. values (gear, chems and food add their bonuses on top while they are active)."));
+# AppPlayerFO4.cpp:166  tips::Tip(tr("The character's saved base S.P.E.C.I.A.L. values (gear, chems and food add their bonuses on top while they are active)."));
 en "The character's saved base S.P.E.C.I.A.L. values (gear, chems and food add their bonuses on top while they are active)."
 tr "Сохранённые базовые значения S.P.E.C.I.A.L. персонажа (снаряжение, препараты и еда добавляют свои бонусы сверху, пока действуют)."
 
-# AppPlayerFO4.cpp:174  ImGui::TextDisabled("%s", tr("not saved"));
+# AppPlayerFO4.cpp:175  ImGui::TextDisabled("%s", tr("not saved"));
 en "not saved"
 tr "не сохранено"
 
-# AppPlayerFO4.cpp:185  Fmt(tr("%s set to %d"), tr(kSpecial[i]), _f4SpecialEdit[i]));
+# AppPlayerFO4.cpp:186  Fmt(tr("%s set to %d"), tr(kSpecial[i]), _f4SpecialEdit[i]));
 en "%s set to %d"
 tr "%s: %d"
 
-# AppPlayerFO4.cpp:193  tips::Tip(tr("The saved base value. The character screen stops at 10 when you level up, but the saved value can be higher (some saves have 11)."));
+# AppPlayerFO4.cpp:194  tips::Tip(tr("The saved base value. The character screen stops at 10 when you level up, but the saved value can be higher (some saves have 11)."));
 en "The saved base value. The character screen stops at 10 when you level up, but the saved value can be higher (some saves have 11)."
 tr "Сохранённое базовое значение. Экран персонажа при повышении уровня останавливается на 10, но сохранённое значение может быть выше (в некоторых сохранениях 11)."
 
-# AppPlayerFO4.cpp:197  const bool hPerks = ImGui::CollapsingHeader(Fmt(tr("Perks (%zu)###perks"), _f4Actor.perks.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+# AppPlayerFO4.cpp:198  const bool hPerks = ImGui::CollapsingHeader(Fmt(tr("Perks (%zu)###perks"), _f4Actor.perks.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen);
 en "Perks (%zu)"
 tr "Перки (%zu)"
 
-# AppPlayerFO4.cpp:198  tips::Tip(tr("The perks the character has taken, with their rank. Change a rank, remove a perk or add one."));
+# AppPlayerFO4.cpp:199  tips::Tip(tr("The perks the character has taken, with their rank. Change a rank, remove a perk or add one."));
 en "The perks the character has taken, with their rank. Change a rank, remove a perk or add one."
 tr "Перки, взятые персонажем, с их рангом. Измените ранг, удалите перк или добавьте новый."
 
-# AppPlayerFO4.cpp:205  ImGui::TextDisabled(tr("The perks could not be read in this save: %s"), _f4Actor.error.empty() ? tr("no perk list") : _f4Actor.error.c_str());
+# AppPlayerFO4.cpp:206  ImGui::TextDisabled(tr("The perks could not be read in this save: %s"), _f4Actor.error.empty() ? tr("no perk list") : _f4Actor.error.c_str());
 en "The perks could not be read in this save: %s"
 tr "Не удалось прочитать перки в этом сохранении: %s"
 
-# AppPlayerFO4.cpp:205  ImGui::TextDisabled(tr("The perks could not be read in this save: %s"), _f4Actor.error.empty() ? tr("no perk list") : _f4Actor.error.c_str());
+# AppPlayerFO4.cpp:206  ImGui::TextDisabled(tr("The perks could not be read in this save: %s"), _f4Actor.error.empty() ? tr("no perk list") : _f4Actor.error.c_str());
 en "no perk list"
 tr "нет списка перков"
 
-# AppPlayerFO4.cpp:208  ImGui::InputTextWithHint("##perkf", tr("filter (e.g. gun nut, local leader)"), _f4PerkFilter, sizeof(_f4PerkFilter));
+# AppPlayerFO4.cpp:209  ImGui::InputTextWithHint("##perkf", tr("filter (e.g. gun nut, local leader)"), _f4PerkFilter, sizeof(_f4PerkFilter));
 en "filter (e.g. gun nut, local leader)"
 tr "фильтр (например, оружейник, местный лидер)"
 
-# AppPlayerFO4.cpp:215  ImGui::TableSetupColumn(tr("Perk"));
+# AppPlayerFO4.cpp:216  ImGui::TableSetupColumn(tr("Perk"));
 en "Perk"
 tr "Перк"
 
-# AppPlayerFO4.cpp:216  ImGui::TableSetupColumn(tr("Form id"), ImGuiTableColumnFlags_WidthFixed);
-# AppPlayerFO4.cpp:296  ImGui::TableSetupColumn(tr("Form id"));
+# AppPlayerFO4.cpp:217  ImGui::TableSetupColumn(tr("Form id"), ImGuiTableColumnFlags_WidthFixed);
+# AppPlayerFO4.cpp:320  ImGui::TableSetupColumn(tr("Form id"), ImGuiTableColumnFlags_WidthFixed);
 en "Form id"
 tr "ID формы"
 
-# AppPlayerFO4.cpp:218  ImGui::TableSetupColumn(tr("Rank"), ImGuiTableColumnFlags_WidthFixed);
+# AppPlayerFO4.cpp:219  ImGui::TableSetupColumn(tr("Rank"), ImGuiTableColumnFlags_WidthFixed);
 en "Rank"
 tr "Ранг"
 
-# AppPlayerFO4.cpp:247  done(fo4cf::SetPerkRank(*_save, *pcf, k.formID, static_cast<std::uint8_t>(r)), Fmt(tr("%s: rank %d"), name.c_str(), r));
+# AppPlayerFO4.cpp:248  done(fo4cf::SetPerkRank(*_save, *pcf, k.formID, static_cast<std::uint8_t>(r)), Fmt(tr("%s: rank %d"), name.c_str(), r));
 en "%s: rank %d"
 tr "%s: ранг %d"
 
-# AppPlayerFO4.cpp:260  done(fo4cf::RemovePerk(*_save, *pcf, removeId), tr("Perk removed: ") + name);
+# AppPlayerFO4.cpp:261  done(fo4cf::RemovePerk(*_save, *pcf, removeId), tr("Perk removed: ") + name);
 en "Perk removed: "
 tr "Перк удалён: "
 
-# AppPlayerFO4.cpp:262  ImGui::TextUnformatted(tr("Add a perk (form id, hex):"));
+# AppPlayerFO4.cpp:263  ImGui::TextUnformatted(tr("Add a perk (form id, hex):"));
 en "Add a perk (form id, hex):"
 tr "Добавить перк (ID формы, hex):"
 
-# AppPlayerFO4.cpp:266  tips::Tip(tr("The perk's form id, as Find form by name (Tools menu) shows it. Only perks this save already refers to can be added."));
+# AppPlayerFO4.cpp:267  tips::Tip(tr("The perk's form id, as Find form by name (Tools menu) shows it. Only perks this save already refers to can be added."));
 en "The perk's form id, as Find form by name (Tools menu) shows it. Only perks this save already refers to can be added."
 tr "ID формы перка, как его показывает «Найти форму по имени» (меню «Инструменты»). Добавить можно только перки, на которые это сохранение уже ссылается."
 
-# AppPlayerFO4.cpp:268  ImGui::TextUnformatted(tr("rank"));
+# AppPlayerFO4.cpp:269  ImGui::TextUnformatted(tr("rank"));
 en "rank"
 tr "ранг"
 
-# AppPlayerFO4.cpp:275  if (ImGui::SmallButton(tr("Add"))) {
+# AppPlayerFO4.cpp:276  if (ImGui::SmallButton(tr("Add"))) {
 en "Add"
 tr "Добавить"
 
-# AppPlayerFO4.cpp:277  done(fo4cf::AddPerk(*_save, *pcf, id, static_cast<std::uint8_t>(_f4AddRank)), Fmt(tr("Perk added: %s, rank %d"), nameOf(id).c_str(), _f4AddRank));
+# AppPlayerFO4.cpp:278  done(fo4cf::AddPerk(*_save, *pcf, id, static_cast<std::uint8_t>(_f4AddRank)), Fmt(tr("Perk added: %s, rank %d"), nameOf(id).c_str(), _f4AddRank));
 en "Perk added: %s, rank %d"
 tr "Перк добавлен: %s, ранг %d"
 
-# AppPlayerFO4.cpp:285  const bool hFx = ImGui::CollapsingHeader(Fmt(tr("Active effects (%zu)###fx"), _f4Actor.effects.size()).c_str());
+# AppPlayerFO4.cpp:289  const bool hFx = ImGui::CollapsingHeader(Fmt(tr("Active effects (%zu)###fx"), _f4Actor.effects.size()).c_str());
 en "Active effects (%zu)"
 tr "Активные эффекты (%zu)"
 
-# AppPlayerFO4.cpp:286  tips::Tip(tr("The effects running on the character: chems, food, radiation, perks' and gear's effects. Shown for reading."));
-en "The effects running on the character: chems, food, radiation, perks' and gear's effects. Shown for reading."
-tr "Эффекты, действующие на персонажа: препараты, еда, радиация, эффекты перков и снаряжения. Только для просмотра."
+# AppPlayerFO4.cpp:290  tips::Tip(tr("The effects running on the character: chems, food, radiation, perks' and gear's effects. Remove ones that are stuck; the stat they chang
+en "The effects running on the character: chems, food, radiation, perks' and gear's effects. Remove ones that are stuck; the stat they change is put back."
+tr "Эффекты, действующие на персонажа: химия, еда, радиация, эффекты перков и снаряжения. Удалите застрявшие; изменённая ими характеристика будет восстановлена."
 
-# AppPlayerFO4.cpp:289  ImGui::InputTextWithHint("##f4fxf", tr("filter (e.g. jet, rad, buffout)"), _pvFxFilter, sizeof(_pvFxFilter));
+# AppPlayerFO4.cpp:296  ImGui::TextWrapped("%s", tr("Remove takes an effect off the character, and when it is running and changes a stat, puts the stat back as the "
+en "Remove takes an effect off the character, and when it is running and changes a stat, puts the stat back as the game does when the effect ends. An effect from something you still wear, a perk or a mod's script can come back when the game gives it again."
+tr "«Удалить» снимает эффект с персонажа, а если эффект действует и меняет характеристику, возвращает её так же, как игра делает при окончании эффекта. Эффект от того, что вы всё ещё носите, от перка или от скрипта мода может вернуться, когда игра наложит его снова."
+
+# AppPlayerFO4.cpp:300  TextColored(theme::Warn(), tr("Plugin names are not loaded: running effects that change a stat cannot be removed (which stat is in "
+en "Plugin names are not loaded: running effects that change a stat cannot be removed (which stat is in the plugins). Load them (Tools > Read plugin names)."
+tr "Имена из плагинов не загружены: действующие эффекты, которые меняют характеристику, нельзя удалить (какую именно, указано в плагинах). Загрузите их (Инструменты > Прочитать имена из плагинов)."
+
+# AppPlayerFO4.cpp:304  TextColored(theme::Warn(), tr("The player's saved data does not read completely, so effects cannot be removed: ") + _f4Actor.error);
+en "The player's saved data does not read completely, so effects cannot be removed: "
+tr "Сохранённые данные игрока читаются не полностью, поэтому эффекты нельзя удалить: "
+
+# AppPlayerFO4.cpp:311  ImGui::InputTextWithHint("##f4fxf", tr("filter (e.g. jet, rad, buffout)"), _pvFxFilter, sizeof(_pvFxFilter));
 en "filter (e.g. jet, rad, buffout)"
 tr "фильтр (например, джет, рад, баффаут)"
 
-# AppPlayerFO4.cpp:295  ImGui::TableSetupColumn(tr("From"));
+# AppPlayerFO4.cpp:319  ImGui::TableSetupColumn(tr("From"));
 # AppTools.cpp:1588  for (const char* h : { "", tr("From"), tr("Effect"), tr("Strength"), tr("Changes"), tr("Time") }) {
 en "From"
 tr "Откуда"
 
-# AppPlayerFO4.cpp:312  ImGui::TextUnformatted(Fmt(tr("%s  (effect %u)"), name.c_str(), e.effectIndex).c_str());
-en "%s  (effect %u)"
-tr "%s  (эффект %u)"
+# AppPlayerFO4.cpp:323  ImGui::TableSetupColumn(tr("When removed"));
+en "When removed"
+tr "При удалении"
+
+# AppPlayerFO4.cpp:335  state = tr("not readable");
+en "not readable"
+tr "не читается"
+
+# AppPlayerFO4.cpp:337  state = Fmt(tr("running, strength %g"), e.magnitude);
+en "running, strength %g"
+tr "действует, сила %g"
+
+# AppPlayerFO4.cpp:339  state = tr("ended (switched off)");
+en "ended (switched off)"
+tr "закончился (выключен)"
+
+# AppPlayerFO4.cpp:341  state = tr("not started");
+en "not started"
+tr "не начался"
+
+# AppPlayerFO4.cpp:345  when = tr("cannot be removed: ") + plan.why;
+en "cannot be removed: "
+tr "нельзя удалить: "
+
+# AppPlayerFO4.cpp:347  when = Fmt(tr("%s %+g (modifier %d)"), nameOf(plan.actorValue).c_str(), -plan.amount, plan.slot);
+en "%s %+g (modifier %d)"
+tr "%s %+g (модификатор %d)"
+
+# AppPlayerFO4.cpp:349  when = tr("no stat changes");
+en "no stat changes"
+tr "характеристики не меняются"
+
+# AppPlayerFO4.cpp:351  const auto effectName = src.mgef ? nameOf(src.mgef) : Fmt(tr("effect %u"), e.effectIndex);
+# AppTools.cpp:1604  const auto  effect = mgef ? nameOf(mgef) : Fmt(tr("effect %u"), e.effectIndex);
+en "effect %u"
+tr "эффект %u"
+
+# AppPlayerFO4.cpp:381  tips::Tip(tr("Take this effect off the character (asks first)."));
+en "Take this effect off the character (asks first)."
+tr "Снять этот эффект с персонажа (сначала спросит)."
+
+# AppPlayerFO4.cpp:387  if (ImGui::SmallButton(Fmt(tr("All %zu from this source"), same.size()).c_str())) {
+en "All %zu from this source"
+tr "Все %zu из этого источника"
+
+# AppPlayerFO4.cpp:389  removeWhat = Fmt(tr("all %zu effects from %s"), same.size(), name.c_str());
+en "all %zu effects from %s"
+tr "все %zu эффектов от %s"
+
+# AppPlayerFO4.cpp:391  tips::Tip(tr("Take every effect this item, spell or enchantment put on the character off it (asks first)."));
+en "Take every effect this item, spell or enchantment put on the character off it (asks first)."
+tr "Снять с персонажа все эффекты, наложенные этим предметом, заклинанием или зачарованием (сначала спросит)."
+
+# AppPlayerFO4.cpp:407  confirm(tr("Remove active effects"),
+# AppTools.cpp:1568  confirm(tr("Remove active effects"), Fmt(tr("Remove %zu active effect(s) from the player, putting back the stats they change?"), rm.size()) + names,
+en "Remove active effects"
+tr "Удаление активных эффектов"
+
+# AppPlayerFO4.cpp:408  Fmt(tr("Remove %s from the player?"), removeWhat.c_str()) + (stats.empty() ? std::string() : tr("\nStats put back:") + stats),
+en "Remove %s from the player?"
+tr "Удалить у игрока: %s?"
+
+# AppPlayerFO4.cpp:408  Fmt(tr("Remove %s from the player?"), removeWhat.c_str()) + (stats.empty() ? std::string() : tr("\nStats put back:") + stats),
+en "\nStats put back:"
+tr "\nВосстанавливаемые характеристики:"
+
+# AppPlayerFO4.cpp:415  done(tr("the player's saved data is not in this save"), "");
+en "the player's saved data is not in this save"
+tr "сохранённых данных игрока нет в этом сохранении"
+
+# AppPlayerFO4.cpp:420  std::string              what = tr("Effects removed: ") + removeWhat;
+en "Effects removed: "
+tr "Удалены эффекты: "
 
 # AppProps.cpp:102  return n == 1 ? std::string(tr("on the one object that has it")) : Fmt(tr("on all %zu objects that have it in this save"), n);
 en "on the one object that has it"
@@ -9030,10 +9115,6 @@ en "\n  ... and %zu more"
 tr "\n  ... и ещё %zu"
 
 # AppTools.cpp:1568  confirm(tr("Remove active effects"), Fmt(tr("Remove %zu active effect(s) from the player, putting back the stats they change?"), rm.size()) + names,
-en "Remove active effects"
-tr "Удаление активных эффектов"
-
-# AppTools.cpp:1568  confirm(tr("Remove active effects"), Fmt(tr("Remove %zu active effect(s) from the player, putting back the stats they change?"), rm.size()) + names,
 en "Remove %zu active effect(s) from the player, putting back the stats they change?"
 tr "Удалить у игрока активные эффекты (%zu), вернув характеристики, которые они меняют?"
 
@@ -9056,10 +9137,6 @@ tr "Меняет"
 # AppTools.cpp:1588  for (const char* h : { "", tr("From"), tr("Effect"), tr("Strength"), tr("Changes"), tr("Time") }) {
 en "Time"
 tr "Время"
-
-# AppTools.cpp:1604  const auto  effect = mgef ? nameOf(mgef) : Fmt(tr("effect %u"), e.effectIndex);
-en "effect %u"
-tr "эффект %u"
 
 # AppTools.cpp:1605  const auto  changes = stat ? Fmt("%s %s", av >= 0 ? cf::ActorValueName(static_cast<std::uint32_t>(av)) : tr("(stat not known)"),
 en "(stat not known)"
@@ -10793,6 +10870,12 @@ en "Please report this on the mod page with the file ReSaverPP-startup.log (next
 tr "Пожалуйста, сообщите об этом на странице мода, приложив файл ReSaverPP-startup.log (рядом с ReSaverPP.exe или в %TEMP%)."
 
 # ---- no longer used by the code (kept for reference; safe to delete) ----
+
+en "The effects running on the character: chems, food, radiation, perks' and gear's effects. Shown for reading."
+tr "Эффекты, действующие на персонажа: препараты, еда, радиация, эффекты перков и снаряжения. Только для просмотра."
+
+en "%s  (effect %u)"
+tr "%s  (эффект %u)"
 
 en "  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's change forms decoded are greyed out)"
 tr "  (работают инструменты очистки, списки скриптов, моды, логи и конфликты файлов; инструменты, которым нужны расшифрованные изменённые формы сохранения, неактивны)"
