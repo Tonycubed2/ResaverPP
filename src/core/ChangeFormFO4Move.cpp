@@ -238,6 +238,37 @@ namespace ess::fo4cf::detail
 			b.f32();
 		}
 
+		// ed5cf0: a Havok object pointer - u64 id; 0 none; an odd id is the object's first appearance (u32 class id,
+		// then the object's own LoadGame, not decoded); an even id refers to one read before
+		void HkPtr(In& b)
+		{
+			b.mark('R');
+			b.r.need(8);
+			const auto lo = b.r.u32();
+			b.r.u32();
+			if (lo & 1u) b.fail("a Havok pathing object (0xed5cf0)");
+		}
+
+		// fe7680: the Havok pathing requests' common part (their LoadGame +0x88, reached through 0xfe74a0 when the
+		// reader is the save game's): the request (1e20970), a form id, 4 x u32 (884260 and three more), a Havok
+		// object, a path (pointer id +0x70), another Havok object
+		void HkRequest(In& b)
+		{
+			Request(b);
+			b.ref();
+			U(b, 4);
+			HkPtr(b);
+			Pid70(b);
+			HkPtr(b);
+		}
+
+		// fe63f0: a pointer id (+0x68) and 5 x u8
+		void HkTail(In& b)
+		{
+			Pid68(b);
+			for (int i = 0; i < 5; ++i) b.u8();
+		}
+
 		// dd93b0: a pathing request by u32 class id, its LoadGame (vtable +0x20)
 		void PathRequest(In& b)
 		{
@@ -322,9 +353,60 @@ namespace ess::fo4cf::detail
 				PathPoint(b);
 				b.f32();
 				return;
+			// the classes below load through 0xfe74a0, which hands the save buffer to their LoadGame (+0x88)
+			case 0xB5AE3E8u:  // fe7680
+				HkRequest(b);
+				return;
+			case 0x3A161216u: case 0xA52656EFu:  // e7af70, edca10
+				HkRequest(b);
+				HkPtr(b);
+				HkTail(b);
+				return;
+			case 0x6C1CDFDEu: case 0x78B59DB4u:  // f62ba0, f32200 (1009c00: 12 bytes, u32)
+				HkRequest(b);
+				b.raw(12);
+				b.u32();
+				HkTail(b);
+				return;
+			case 0x78B25F95u:  // f527c0
+				HkRequest(b);
+				b.raw(12);
+				b.raw(12);
+				b.u32();
+				HkTail(b);
+				return;
+			case 0x2AE22001u:  // 8509b0
+				HkRequest(b);
+				b.raw(12);
+				b.raw(12);
+				b.u32();
+				HkTail(b);
+				b.u32();
+				return;
+			case 0xC4728FFBu:  // f856f0
+				HkRequest(b);
+				b.raw(12);
+				b.u8();
+				HkTail(b);
+				return;
+			case 0xCCFD0C27u:  // f1bc80
+				HkRequest(b);
+				U(b, 2);
+				HkTail(b);
+				return;
+			case 0x984100E6u:  // fad960
+				HkRequest(b);
+				b.ref();  // 22b640
+				b.raw(12);
+				HkTail(b);
+				return;
+			case 0xBA27000Fu:  // fe78c0
+				HkRequest(b);
+				Pid68(b);
+				return;
 			default:
-				// the other registered classes load through 0xfe74a0, which hands the raw save buffer to a
-				// LoadGame of their own (vtable +0x88): not decoded
+				// 0x0221C439, 0x0515204A, 0x4D62DD4A, 0x6B11480F, 0x7210E996, 0x83547F1A, 0x95AC34AF, 0x965E9BAE,
+				// 0xA4CE4D05, 0xEE6B8D42, 0xF3ED1E11 (0xfe74a0 classes with parts of their own) and unknown ids
 				b.fail("pathing request class " + Hex(id));
 			}
 		}
