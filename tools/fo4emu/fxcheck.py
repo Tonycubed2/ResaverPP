@@ -5,7 +5,7 @@
 # effect list and the same reads, aligned from the body's end, after the removed entries).
 # REFR_ENDS=<refrcheck.sh's .game.txt of the edited dump>: the reference part's end from the game's own
 # TESObjectREFR::LoadGame where dec.py cannot read it (the reference part is the same bytes in both bodies).
-import sys,os,collections
+import sys,os,collections,gc
 sys.path.insert(0,'.')
 from achr import *
 import achr
@@ -28,7 +28,8 @@ def run(ref,fl,b):
     global a
     cur[0]=ref
     for fresh in (False,True):
-        if fresh: a=A(fve)
+        if fresh:
+            a=None; gc.collect(); a=A(fve)  # one emulator at a time (each holds the game's image)
         try:
             p=a.parse(ref,fl,b)
             if p==len(b): return True,[(q,n) for q,n,*_ in a.reads]
