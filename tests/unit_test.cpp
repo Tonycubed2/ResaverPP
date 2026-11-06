@@ -875,6 +875,128 @@ namespace
 		fs::remove_all(top);
 	}
 
+	// Real Fallout 4 plugins (RESAVERPP_FO4_PLUGINS="file;file"): every record of the merged types the plugin defines is
+	// overridden by two test plugins (ModA adds a list entry, ModB renames it), so each real record is read with the Fallout 4
+	// layouts and merged; nothing may be left out for an unknown part, and the patch must read back.
+	void TestMergedPatchFO4Real()
+	{
+		const char* env = std::getenv("RESAVERPP_FO4_PLUGINS");
+		if (!env || !*env) {
+			std::printf("(merge FO4: RESAVERPP_FO4_PLUGINS not set, real plugins skipped)\n");
+			return;
+		}
+		namespace fs = std::filesystem;
+		std::string list = env;
+		for (std::size_t a = 0; a <= list.size();) {
+			auto b = list.find(';', a);
+			if (b == std::string::npos) b = list.size();
+			const fs::path file = list.substr(a, b - a);
+			a = b + 1;
+			if (file.empty()) continue;
+			const auto top = fs::temp_directory_path() / "rs_merge_test_fo4real";
+			const auto dir = top / "mods" / "Test";
+			fs::remove_all(top);
+			fs::create_directories(dir);
+			auto save = [&](const std::string& a_name, const std::vector<std::uint8_t>& a_data) {
+				std::ofstream(dir / a_name, std::ios::binary).write(reinterpret_cast<const char*>(a_data.data()), static_cast<std::streamsize>(a_data.size()));
+			};
+			const auto name = file.filename().string();
+			const auto pf = merge::ReadPlugin(file, merge::MergedTypes(true));
+			fs::copy_file(file, dir / name);
+			// its strings files are in its archives ("<plugin> - Main.ba2"...): linked next to it
+			const auto stem = file.stem().string();
+			std::string stemLow = stem;
+			for (auto& c : stemLow) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			{
+				std::error_code ec;
+				for (const auto& e : fs::directory_iterator(file.parent_path(), ec)) {
+					const auto fn = e.path().filename().string();
+					if (fn.rfind(stem + " - ", 0) == 0 && fn.ends_with(".ba2")) fs::create_symlink(e.path(), dir / fn, ec);
+				}
+			}
+			for (const auto& m : pf.masters) {
+				save(m, merge::WritePlugin({}, 1, {}, "t", {}, 1.0f, 131, true));
+			}
+			const auto own = static_cast<std::uint32_t>(pf.masters.size());
+			std::vector<merge::Record> a2, b2;
+			std::size_t lists = 0;
+			for (const auto& r : pf.records) {
+				if ((r.formID >> 24) != own || (r.flags & 0x20)) continue;  // overrides of a master (not loaded here), deleted ones
+				merge::Record ra = r, rb = r;
+				// ModA: one more entry in the list (a copy of the first one, at level 99 for leveled lists)
+				const char* entry = nullptr;
+				for (const char* e : { "LVLO", "CNTO", "LNAM" }) {
+					for (const auto& sb : r.subs) entry = !entry && !std::memcmp(sb.sig, e, 4) ? e : entry;
+				}
+				if (entry) {
+					for (std::size_t i = 0; i < ra.subs.size(); ++i) {
+						if (std::memcmp(ra.subs[i].sig, entry, 4) != 0) continue;
+						auto copy = ra.subs[i];
+						if (!std::strcmp(entry, "LVLO")) {
+							copy.data[0] = 99;
+							copy.data[1] = 0;
+						}
+						ra.subs.insert(ra.subs.begin() + static_cast<std::ptrdiff_t>(i) + 1, copy);
+						break;
+					}
+					for (auto& sb : ra.subs) {
+						if (!std::memcmp(sb.sig, "LLCT", 4)) ++sb.data[0];
+						if (!std::memcmp(sb.sig, "COCT", 4)) ++sb.data[0];
+					}
+					++lists;
+				}
+				for (auto& sb : rb.subs) {
+					if (!std::memcmp(sb.sig, "EDID", 4) && !sb.data.empty()) sb.data.insert(sb.data.end() - 1, 'X');
+				}
+				a2.push_back(std::move(ra));
+				b2.push_back(std::move(rb));
+			}
+			auto masters = pf.masters;
+			masters.push_back(name);
+			// localized like the plugin (its string ids, its strings files)
+			save("ModA.esp", merge::WritePlugin(masters, pf.flags & 0x80, a2, "t", {}, 1.0f, 131, true));
+			save("ModB.esp", merge::WritePlugin(masters, pf.flags & 0x80, b2, "t", {}, 1.0f, 131, true));
+			merge::Options o;
+			o.loadOrder = masters;
+			o.loadOrder.push_back("ModA.esp");
+			o.loadOrder.push_back("ModB.esp");
+			ScriptSources src;
+			src.scan(top / "mods");
+			merge::UseSources(o, src);
+			auto strings = o.readStrings;
+			o.readStrings = [&, strings](const std::string& a_file) {
+				auto f = a_file;
+				if (f.rfind("moda_", 0) == 0 || f.rfind("modb_", 0) == 0) f = stemLow + f.substr(4);
+				return strings(f);
+			};
+			const auto r = merge::Build(o);
+			for (const auto& sk : r.skipped) std::printf("  merge FO4 real %s: not merged: %s\n", name.c_str(), sk.c_str());
+			std::printf("  merge FO4 real %s: %zu records of the merged types, %zu with a list, %zu conflicts, %zu merged, %zu not merged\n",
+				name.c_str(), a2.size(), lists, r.conflicts, r.merged.size(), r.skipped.size());
+			Check(r.ok && r.fo4 && r.skipped.empty() && r.conflicts == a2.size() && r.merged.size() == lists,
+				"merge FO4 real: every record of a real Fallout 4 plugin read with the FO4 layouts, the list ones merged");
+			save("Patch.esp", r.file);
+			const auto back = merge::ReadPlugin(dir / "Patch.esp");
+			bool good = back.records.size() == lists;
+			for (const auto& rec : back.records) {
+				// ModB's edits (the winner) and ModA's added entry, the counts matching
+				std::size_t lvlo = 0, cnto = 0;
+				int llct = -1, coct = -1;
+				bool renamed = false, lvl99 = false;
+				for (const auto& sb : rec.subs) {
+					if (!std::memcmp(sb.sig, "LVLO", 4)) { ++lvlo; lvl99 = lvl99 || sb.data[0] == 99; }
+					if (!std::memcmp(sb.sig, "CNTO", 4)) ++cnto;
+					if (!std::memcmp(sb.sig, "LLCT", 4)) llct = sb.data[0];
+					if (!std::memcmp(sb.sig, "COCT", 4)) coct = static_cast<int>(sb.data[0]);
+					if (!std::memcmp(sb.sig, "EDID", 4)) renamed = sb.data.size() >= 2 && sb.data[sb.data.size() - 2] == 'X';
+				}
+				good = good && renamed && (lvlo == 0 || (static_cast<int>(lvlo) == llct && lvl99)) && (cnto == 0 || static_cast<int>(cnto) == coct);
+			}
+			Check(good, "merge FO4 real: the patch reads back, winner's edits kept, ModA's entries added, counts right");
+			fs::remove_all(top);
+		}
+	}
+
 	// NPC parts that belong together are taken from one plugin (PC level mult + level; template flags + TPLT)
 	void TestMergedPatchNpcLinks()
 	{
@@ -1956,6 +2078,7 @@ int main()
 	TestMergedPatchLE();
 	TestMergedPatchNpcLinks();
 	TestMergedPatchFO4();
+	TestMergedPatchFO4Real();
 	TestCrashLog();
 	TestCrashLogFO4();
 	TestQuestsFO4();
