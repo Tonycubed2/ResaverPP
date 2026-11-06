@@ -62,3 +62,9 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
 - `cellemu.py <dump>`: reset an area check. On every CELL (type 6) it runs the game's initial data type (0xbf6c40), read and parse
   (0xbf7090: the detach time) and TESObjectCELL::LoadGame (0x4d7b30) on a fake cell; counts bodies read to the exact end and prints
   the detach times (ResetInterior's 0xFFFFFFFF after `--fo4-reset-cell`).
+- Active effect removal (branch fx): `fxsources.py <plugins.json> <fxdump.jsonl>` writes each effect's source (MGEF flags,
+  archetype, actor value, item type, spell / cast type) from a JSON of the plugins' MGEF/SPEL/ENCH/ALCH data; `fxremove.cpp <save>
+  <sources> all|first|source <out.fos> <out.bin>` removes effects from every complete actor with fo4cf::RemoveActiveEffects, writes,
+  reads back and checks; `fxcheck.py <original dump> <edited dump>` (REFR_ENDS from refrcheck.sh) runs the game's loaders on the
+  edited actors; `fxdb.cpp <save> <Data folder> <sources> [out.fos]` checks EffectSources from PluginDB against the list and
+  removes with them.

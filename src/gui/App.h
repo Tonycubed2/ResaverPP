@@ -1039,6 +1039,8 @@ private:
 	std::map<std::uint32_t, int> _f4PerkEdit;
 	char                       _f4PerkFilter[64]{}, _f4AddPerk[16]{};
 	int                        _f4AddRank = 1;
+	std::vector<ess::fo4cf::EffectSource> _f4FxSources;  // per active effect, from the plugins
+	const ess::PluginDB*       _f4FxSourcesDb = nullptr;
 	int                        _pvGold = 0;
 	float                      _pvSkills[18]{};
 	std::vector<std::array<int, 2>> _pvBounty;

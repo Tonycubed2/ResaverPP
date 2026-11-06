@@ -30,6 +30,7 @@
 #include <fstream>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -3222,6 +3223,200 @@ void TestFo4Combat()
 	std::printf("(fo4 combat: %zu real saves, %zu actors with a combat controller)\n", tested, combat);
 }
 
+// Fallout 4 active effect removal: the rules of PlanEffectRemoval (what the game's end of each effect undoes, see
+// ChangeFormFO4.h), then with RESAVERPP_FO4_SAVES every actor of every real save: its removable effects removed (with
+// a value modifier's strength taken off its modifier, the four vitals included), written, read back exactly.
+void TestFo4ActiveEffects()
+{
+	namespace f4 = ess::fo4cf;
+	{
+		f4::Actor pc;
+		pc.player = true;
+		f4::Actor npc;
+		f4::ActiveEffect e;
+		e.data = { 0, 40 };
+		e.archetype = 34;
+		e.flags = 0x14200;  // started, magnitude as saved, inactive bit 0x4000 only
+		e.magnitude = 2;
+		f4::EffectSource ab;
+		ab.known = true;
+		ab.mgefFlags = 0xa02;  // recover
+		ab.actorValue = 0x2C2;
+		std::memcpy(ab.itemType, "SPEL", 4);
+		ab.spellType = 4;
+		ab.castType = 0;
+		auto u = f4::PlanEffectRemoval(pc, e, &ab);
+		Check(u.ok && u.modifier && u.slot == 0 && u.amount == 2 && u.actorValue == 0x2C2, "fo4 effects: the player's ability -> modifier slot 0");
+		u = f4::PlanEffectRemoval(npc, e, &ab);
+		Check(u.ok && u.modifier && u.slot == 1, "fo4 effects: an NPC's ability -> slot 1");
+		auto en = ab;
+		std::memcpy(en.itemType, "ENCH", 4);
+		en.spellType = 6;
+		Check(f4::PlanEffectRemoval(pc, e, &en).slot == 0, "fo4 effects: the player's constant effect enchantment -> slot 0");
+		en.castType = 1;
+		Check(f4::PlanEffectRemoval(pc, e, &en).slot == 1, "fo4 effects: the player's fire and forget enchantment -> slot 1");
+		auto al = ab;
+		std::memcpy(al.itemType, "ALCH", 4);
+		al.spellType = 7;
+		al.castType = 1;
+		Check(f4::PlanEffectRemoval(pc, e, &al).slot == 0, "fo4 effects: the player's potion on S.P.E.C.I.A.L. -> slot 0");
+		al.actorValue = 0x2D4;
+		Check(f4::PlanEffectRemoval(pc, e, &al).slot == 0, "fo4 effects: the player's potion on Health -> slot 0");
+		al.actorValue = 0x2D7;
+		Check(f4::PlanEffectRemoval(pc, e, &al).slot == 1, "fo4 effects: the player's potion on another game actor value -> slot 1");
+		al.poison = true;
+		al.actorValue = 0x2C2;
+		Check(f4::PlanEffectRemoval(pc, e, &al).slot == 1, "fo4 effects: a poison -> slot 1");
+		al.poison = false;
+		al.actorValue = 0x01000800;
+		Check(!f4::PlanEffectRemoval(pc, e, &al).ok, "fo4 effects: the player's potion on a plugin's actor value is refused (its type is not known)");
+		auto norec = ab;
+		norec.mgefFlags = 0x800;
+		u = f4::PlanEffectRemoval(pc, e, &norec);
+		Check(u.ok && !u.modifier, "fo4 effects: without recover nothing is undone");
+		Check(!f4::PlanEffectRemoval(pc, e, nullptr).ok, "fo4 effects: a running value modifier with no plugin data is refused");
+		auto off = e;
+		off.flags = 0xc280;  // inactive, never started
+		u = f4::PlanEffectRemoval(pc, off, nullptr);
+		Check(u.ok && !u.modifier, "fo4 effects: an effect not started is removed with nothing to undo");
+		off.flags = 0x3c280;  // started and finished
+		u = f4::PlanEffectRemoval(pc, off, nullptr);
+		Check(u.ok && !u.modifier, "fo4 effects: a finished effect is removed with nothing to undo");
+		auto taper = e;
+		taper.flags = 0x14000;
+		Check(!f4::PlanEffectRemoval(pc, taper, &ab).ok, "fo4 effects: a running value modifier whose strength tapers is refused");
+		auto script = e;
+		script.archetype = 1;
+		Check(f4::PlanEffectRemoval(pc, script, nullptr).ok, "fo4 effects: a running script effect is removed (its Finish changes nothing saved)");
+		auto dual = e;
+		dual.archetype = 5;
+		Check(!f4::PlanEffectRemoval(pc, dual, &ab).ok, "fo4 effects: a running dual value modifier is refused");
+		dual.archetype = 36;
+		Check(f4::PlanEffectRemoval(pc, dual, nullptr).ok, "fo4 effects: archetype 36 (a plain ActiveEffect) is removed");
+	}
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 effects: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	namespace fs = std::filesystem;
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	const auto  tmp = fs::temp_directory_path() / "rs_unit_fo4fx.fos";
+	std::size_t tested = 0, removedAll = 0, statsAll = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		if (!s->isFO4()) continue;
+		struct Want
+		{
+			std::size_t                                  effects = 0;
+			std::map<std::uint32_t, std::array<float, 3>> mods;
+			float                                        vit[4][3]{};
+		};
+		std::map<std::uint32_t, Want> want;
+		std::size_t                   removed = 0, failed = 0, stats = 0;
+		std::string                   firstErr;
+		for (auto& c : s->changeForms) {
+			if (c.typeCode() != 1) continue;
+			const auto a = f4::DecodeActor(*s, c);
+			if (!a.complete || a.effects.empty()) continue;
+			// every started value modifier gets a made-up source: an ability on an actor value the actor has a modifier for
+			// (the player's slot 0, an NPC's slot 1), so the modifier edit is exercised; the others none
+			std::vector<f4::EffectSource> src(a.effects.size());
+			Want                          w;
+			for (const auto& m : a.modifiers) w.mods[m.formID] = { m.mod[0], m.mod[1], m.mod[2] };
+			for (int k = 0; k < 4; ++k)
+				for (int j = 0; j < 3; ++j) w.vit[k][j] = j < static_cast<int>(std::min<std::uint32_t>(a.vitals[k].count, 3)) ? a.vitals[k].mod[j] : 0.0f;
+			std::vector<std::size_t> pick;
+			for (std::size_t i = 0; i < a.effects.size(); ++i) {
+				const auto& e = a.effects[i];
+				if ((e.archetype == 0 || e.archetype == 34) && e.started() && !a.modifiers.empty()) {
+					auto& x = src[i];
+					x.known = true;
+					x.mgefFlags = 0x2;
+					x.actorValue = i % 5 == 4 ? f4::kVitalAV[i % 4] : a.modifiers[i % a.modifiers.size()].formID;
+					std::memcpy(x.itemType, "SPEL", 4);
+					x.spellType = 4;
+					x.castType = 0;
+				}
+				const auto u = f4::PlanEffectRemoval(a, e, &src[i]);
+				if (!u.ok) continue;
+				pick.push_back(i);
+				if (u.modifier && u.amount != 0) {
+					float* v = nullptr;
+					for (int k = 0; k < 4; ++k)
+						if (f4::kVitalAV[k] == u.actorValue) v = &w.vit[k][u.slot];
+					if (!v) v = &w.mods[u.actorValue][u.slot];
+					*v -= u.amount;
+					if (std::fabs(*v) <= 0.0001f) *v = 0;
+					++stats;
+				}
+			}
+			if (pick.empty()) continue;
+			std::vector<std::string> changes;
+			const auto               e = f4::RemoveActiveEffects(*s, c, pick, src, &changes);
+			if (!e.empty()) {
+				++failed;
+				if (firstErr.empty()) firstErr = e;
+				continue;
+			}
+			w.effects = a.effects.size() - pick.size();
+			removed += pick.size();
+			want[c.refID.data] = std::move(w);
+		}
+		{
+			const auto    bytes = s->serialize();
+			std::ofstream out(tmp, std::ios::binary);
+			out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		auto        again = SaveFile::load(tmp);
+		std::size_t ok = 0;
+		for (const auto& c : again->changeForms) {
+			const auto it = want.find(c.refID.data);
+			if (c.typeCode() != 1 || it == want.end()) continue;
+			const auto a = f4::DecodeActor(*again, c);
+			bool       good = a.complete && a.effects.size() == it->second.effects;
+			for (const auto& m : a.modifiers) {
+				const auto& x = it->second.mods[m.formID];
+				good = good && m.mod[0] == x[0] && m.mod[1] == x[1] && m.mod[2] == x[2];
+			}
+			for (int k = 0; k < 4; ++k)
+				for (int j = 0; j < 3; ++j)
+					good = good && (j < static_cast<int>(std::min<std::uint32_t>(a.vitals[k].count, 3)) ? a.vitals[k].mod[j] : 0.0f) == it->second.vit[k][j];
+			ok += good;
+		}
+		Check(failed == 0 && ok == want.size(), ("fo4 effects: " + f.filename().string() + ": " + std::to_string(removed) + " effects removed from " +
+		      std::to_string(want.size()) + " actors (" + std::to_string(stats) + " modifiers put back), " + std::to_string(ok) +
+		      " read back exactly" + (firstErr.empty() ? "" : "; " + firstErr)).c_str());
+		removedAll += removed;
+		statsAll += stats;
+		++tested;
+	}
+	std::error_code ec;
+	fs::remove(tmp, ec);
+	Check(tested == 0 || (removedAll > 0 && statsAll > 0), "fo4 effects: the real saves had effects to remove and modifiers to put back");
+	std::printf("(fo4 effects: %zu real saves, %zu effects removed, %zu modifiers put back)\n", tested, removedAll, statsAll);
+}
+
 // Fallout 4 player: the PlayerCharacter part (PlayerCharacter::LoadGame 0xd65bd0 after Actor::LoadGame) read through
 // fo4cf::detail::PlayerPart on bytes laid out as the game reads them, at form versions that take different branches;
 // then, with RESAVERPP_FO4_SAVES, every real save's player read completely, its Pip-Boy lists, a plugin's items removed
@@ -4153,6 +4348,7 @@ int main()
 	TestFo4Combat();
 	TestSkyFollowers();
 	TestFo4WorldItems();
+	TestFo4ActiveEffects();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

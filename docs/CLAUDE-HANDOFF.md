@@ -220,6 +220,31 @@ project; you do the coding, building, delivering and publishing.
   XP/level edits written, read back complete, and run through the game's loaders in the emulator (tools/fo4emu playerremove.cpp,
   emucheck.py, invcheck.py). The emulator's player object was 0x400 bytes (PlayerCharacter is 0xe08): fixed in harness.py. Extra 0x6c (package data), 0x1b, 0xd3, 0xd5 and 0x5c's per-entry lists are decoded. Coverage: every NPC
   but 1-2% of the big saves (Save10: 11040 of 11073 non-player ACHRs read exactly; 539 -> 1891 of 1892 in nate_cleansave).
+- Fallout 4 active effect removal (2026-11-06, branch fx, not published): `fo4cf::RemoveActiveEffects(save, actorCF, indexes, sources)`,
+  `EffectsFrom` (one magic item) / `EffectsFromPlugin`, `PlanEffectRemoval`, `EffectSources(save, actor, PluginDB*)`; NPCs and the
+  player (Actor::complete required). The list: AIProcess middle-high data, 0xb896c0: vsval count, entries read by 0xb753d0 (ref item,
+  u8 effect index, vsval archetype = MGEF DATA +0x40, checked on 1861 effects, vsval size, data skipped by size whatever happens);
+  `Actor::effectList`. Nothing else in the body refers to an entry (casters 0xb85b10/0xb79840 save forms; the unique id +0x8c is
+  picked again by 0xb76730 at Start). Data starts f32 elapsed, magnitude, duration, u32 flags (0xb74e90). Flags (0xb75b10 Update):
+  0x10000 started, 0x20000 finished (also when it turns inactive 0x8000), 0x200 magnitude as saved. Undo = the game's Finish:
+  archetype 0/34 (Value/PeakValueModifierEffect, the same vfuncs) with an MGEF Recover flag (0x2) take the saved magnitude off the
+  modifier slot Start used (0xba0400: target is the player (singleton 0x31ede50) and the item is an ability (SPIT type 4), a constant
+  effect enchantment (ENIT cast 0, type 6) or a non-poison potion on Health / S.P.E.C.I.A.L. (AV type 1, set only by 0x6fd1e0) ->
+  slot 0 through ActorValueOwner +0x30; else slot 1); |result| <= 0.0001 -> 0 (0xcc9b70), one effect at a time. Health,
+  ActionPoints, UnusedStamina, Rads keep their modifiers in Actor +0x444.. (0xccbe80), saved as the four "u32 n + min(n,3) f32" lists
+  before the actor values (0xced2e0, `Actor::vitals`). Archetypes whose Finish does nothing (1 script, 2, 3, 9, 10, 15, 16, 19, 27-29,
+  33, 35, and 17/26/30/36 which have no class: a plain ActiveEffect) are removed as they are; other started ones are refused, as are
+  started value modifiers whose plugin record is unknown (GUI: load plugin names) or whose strength tapers (no 0x200). Archetype ->
+  class from the registrations (0xb89a80 calls: archetype, creator). Checked: real plugins (tools/fo4emu fxdb.cpp: removing every
+  running effect of Save10's player puts all 21 of its modifiers back to exactly 0), every actor of 12 saves written and read back
+  (fxremove.cpp: effects that stayed byte for byte, the rest of the body unchanged, other change forms unchanged), the game's
+  Actor/PlayerCharacter::LoadGame in the emulator on every edited actor (fxcheck.py; where the emulator stops inside an actor, it stops
+  at the same place in the original). PluginDB reads MGEF/SPEL/ENCH/ALCH for Fallout 4 too (`Form::castType`, `poison`).
+  GUI: Edit player > Active effects: state, "When removed", Remove, "All N from this source" (test hook RESAVERPP_TEST_FX). AI:
+  fo4_player numbers the effects (#n) and says what removing each does; fo4_edit_player `remove_effects` / `remove_effects_from`.
+  rs_unit TestFo4ActiveEffects. Left alone: Papyrus ActiveMagicEffect script instances of a removed effect (what the game does with
+  them on load was not checked), the OnEffectFinish event (not sent), what a script or perk re-applies later, and Finish's clamp that
+  keeps a stat from going below 0 (needs the current value). No CLI option yet.
 - v51 (published 2026-11-02): Edit player > Active magic effects (list, tick, Remove; CLI `--effects`, `--remove-effect 3,7`).
   Save layout: high process ACTIVE EFFECTS = vsval count, each {REF item, u8 effect index, vsval type (= MGEF archetype),
   vsval size, DATA: f32 elapsed, f32 magnitude, f32 duration, u32 flags, ...}. Checked on Tony's Save112: the player's

@@ -5,8 +5,13 @@
 #include "ChangeFormData.h"
 #include "ChangeFormFO4.h"
 #include "ChangeFormFO4In.h"
+#include "PluginDB.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
 #include <cstring>
+#include <map>
 #include <stdexcept>
 
 namespace ess::fo4cf
@@ -59,6 +64,13 @@ namespace ess::fo4cf
 				e.archetype = b.vs();
 				const auto size = b.vs();
 				e.data.begin = b.r.pos();
+				if (size >= 16) {
+					const auto* d = b.r.here();
+					std::memcpy(&e.elapsed, d, 4);
+					std::memcpy(&e.magnitude, d + 4, 4);
+					std::memcpy(&e.duration, d + 8, 4);
+					std::memcpy(&e.flags, d + 12, 4);
+				}
 				b.skip(size);  // ActiveEffect::LoadGame (0xb74e90) or a skip of the same size
 				e.data.end = e.range.end = b.r.pos();
 				if (a_out) {
@@ -214,8 +226,10 @@ namespace ess::fo4cf
 			b.u8(); b.u8(); b.u8(); b.u32();
 			for (auto n = b.vs(); n; --n) b.ref();
 			Package(b);  // +0x60
+			a.hasEffectList = true;
+			a.effectList.begin = b.r.pos();
 			Effects(b, &a.effects);
-			a.effectsRange.end = b.r.pos();
+			a.effectsRange.end = a.effectList.end = b.r.pos();
 			b.ref();
 			Combat(b, b.vs());
 			b.u32(); b.u32(); b.u32();
@@ -248,11 +262,14 @@ namespace ess::fo4cf
 			if (n) b.blob(n);
 		}
 
-		// 0xced2e0: u32 n, then min(n, 3) u32
-		void Three(In& b)
+		// 0xced2e0: u32 n, then min(n, 3) f32 (the modifiers of one of kVitalAV; the others are set to 0)
+		void Three(In& b, VitalMods& a_out)
 		{
+			a_out.range.begin = b.r.pos();
 			const auto n = b.u32();
-			for (std::uint32_t i = 0; i < n && i < 3; ++i) b.u32();
+			a_out.count = n;
+			for (std::uint32_t i = 0; i < n && i < 3; ++i) a_out.mod[i] = b.f32();
+			a_out.range.end = b.r.pos();
 		}
 	}
 
@@ -297,7 +314,7 @@ namespace ess::fo4cf
 				if (casters & (1u << i)) Caster(b);
 			}
 			for (int i = 0; i < 5; ++i) b.ref();
-			for (int i = 0; i < 4; ++i) Three(b);
+			for (int i = 0; i < 4; ++i) Three(b, out.vitals[i]);  // Actor +0x444, +0x450, +0x45c, +0x468 (0xc8b080)
 			// 0xcedc80: the actor values
 			out.valuesRange.begin = r.pos();
 			for (auto n = b.vs(); n; --n) {
@@ -662,5 +679,267 @@ namespace ess::fo4cf
 			return "no player reference (ACHR 0x14) in this save";
 		}
 		return SetActorValueBase(a_save, *p, 0x2C9, a_xp);
+	}
+
+	// ---- removing active effects ----
+	namespace
+	{
+		std::string Fx(const char* a_f, auto... a_args)
+		{
+			char buf[512];
+			std::snprintf(buf, sizeof(buf), a_f, a_args...);
+			return buf;
+		}
+
+		bool InSet(std::uint32_t a_v, std::initializer_list<std::uint32_t> a_set)
+		{
+			return std::find(a_set.begin(), a_set.end(), a_v) != a_set.end();
+		}
+
+		// the actor values Fallout4.exe creates itself (0x6f9400: index 0..205 but 3, 4, 144; form id 0x2BC + index)
+		// and their type (+0x1b0, set only by the constructor 0x6fd1e0): 1 for S.P.E.C.I.A.L., not 1 for the others
+		bool HardcodedAV(std::uint32_t a_av) { return a_av >= 0x2BC && a_av <= 0x2BC + 205 && !InSet(a_av - 0x2BC, { 3, 4, 144 }); }
+		bool SpecialAV(std::uint32_t a_av) { return a_av >= 0x2C2 && a_av <= 0x2C8; }
+
+		std::uint32_t VsLen(std::uint8_t a_b0) { return (a_b0 & 3) == 0 ? 1 : (a_b0 & 3) == 1 ? 2 : 4; }
+	}
+
+	EffectUndo PlanEffectRemoval(const Actor& a_actor, const ActiveEffect& a_effect, const EffectSource* a_source)
+	{
+		EffectUndo u;
+		if (a_effect.data.size() < 16 || !a_effect.started()) {
+			return u;  // its Start never ran, or its Finish already did
+		}
+		const auto arch = a_effect.archetype;
+		if (InSet(arch, { 1, 2, 3, 9, 10, 15, 16, 19, 27, 28, 29, 33, 35, 17, 26, 30, 36 })) {
+			return u;
+		}
+		if (arch != 0 && arch != 34) {
+			u.ok = false;
+			u.why = Fx("a running effect of archetype %u: what the game does when it ends is not modelled, so it is not removed", arch);
+			return u;
+		}
+		if (!a_source || !a_source->known) {
+			u.ok = false;
+			u.why = "a running value-changing effect whose plugin record is not known (load the plugin names first)";
+			return u;
+		}
+		if ((a_source->mgefFlags & 0x2u) == 0 || a_source->actorValue == 0) {
+			return u;  // no recover: its change stays when it ends
+		}
+		if ((a_effect.flags & 0x200u) == 0) {
+			u.ok = false;
+			u.why = "a running value-changing effect whose strength changes over time (taper): not modelled";
+			return u;
+		}
+		int slot = 1;
+		if (a_actor.player) {
+			const auto t = a_source->spellType;
+			const std::string type = a_source->itemType;
+			if (type == "SPEL" && t == 4) {
+				slot = 0;
+			} else if (type == "ENCH" && t == 6 && a_source->castType == 0) {
+				slot = 0;
+			} else if (type == "ALCH" && !a_source->poison) {
+				const auto av = a_source->actorValue;
+				if (av == 0x2D4 || SpecialAV(av)) {
+					slot = 0;
+				} else if (!HardcodedAV(av)) {
+					u.ok = false;
+					u.why = "a running potion effect on an actor value from a plugin: which modifier holds it is not known";
+					return u;
+				}
+			}
+		}
+		u.modifier = true;
+		u.actorValue = a_source->actorValue;
+		u.slot = slot;
+		u.amount = a_effect.magnitude;
+		return u;
+	}
+
+	std::vector<EffectSource> EffectSources(const SaveFile& a_save, const Actor& a_actor, const PluginDB* a_db)
+	{
+		std::vector<EffectSource> out(a_actor.effects.size());
+		if (!a_db) {
+			return out;
+		}
+		for (std::size_t i = 0; i < out.size(); ++i) {
+			const auto& e = a_actor.effects[i];
+			auto&       s = out[i];
+			const auto  item = a_save.formIDOf(e.item);
+			const auto* f = a_db->find(item);
+			const auto* fx = a_db->effects(item);
+			if (!f || !fx || e.effectIndex >= fx->size()) {
+				continue;
+			}
+			std::memcpy(s.itemType, f->type, 4);
+			s.spellType = f->spellType;
+			s.castType = f->castType;
+			s.poison = f->poison;
+			s.mgef = (*fx)[e.effectIndex].effect;
+			if (const auto* m = a_db->magicEffect(s.mgef)) {
+				s.known = true;
+				s.mgefFlags = m->flags;
+				s.archetype = m->archetype;
+				s.actorValue = m->actorValue < 0 ? 0 : static_cast<std::uint32_t>(m->actorValue);
+			}
+		}
+		return out;
+	}
+
+	std::string RemoveActiveEffects(SaveFile& a_save, ChangeForm& a_cf, const std::vector<std::size_t>& a_indexes,
+		const std::vector<EffectSource>& a_sources, std::vector<std::string>* a_changes)
+	{
+		const auto d = DecodeActor(a_save, a_cf);
+		if (!d.complete) {
+			return "the actor's saved data does not read completely (" + d.error + "): nothing changed";
+		}
+		if (!d.hasEffectList) {
+			return "the actor has no active effect list (no middle-high AI process saved): nothing changed";
+		}
+		std::vector<std::size_t> pick(a_indexes);
+		std::sort(pick.begin(), pick.end());
+		pick.erase(std::unique(pick.begin(), pick.end()), pick.end());
+		if (pick.empty()) {
+			return "no effect picked";
+		}
+		if (pick.back() >= d.effects.size()) {
+			return Fx("there is no active effect %zu (the actor has %zu): nothing changed", pick.back(), d.effects.size());
+		}
+		// what each removal undoes; one refusal refuses all
+		std::vector<std::pair<std::pair<std::uint32_t, int>, float>> take;  // (actor value, slot), amount: one per effect, in order
+		std::vector<std::string> changes;
+		for (const auto i : pick) {
+			const auto u = PlanEffectRemoval(d, d.effects[i], a_sources.size() == d.effects.size() ? &a_sources[i] : nullptr);
+			if (!u.ok) {
+				return Fx("effect %zu: ", i) + u.why + ": nothing changed";
+			}
+			if (u.modifier && u.amount != 0) {
+				take.push_back({ { u.actorValue, u.slot }, u.amount });
+			}
+		}
+		auto body = cf::Body(a_cf);
+		auto getF = [&](std::size_t at) { float v; std::memcpy(&v, body.data() + at, 4); return v; };
+		auto putF = [&](std::size_t at, float v) { std::memcpy(body.data() + at, &v, 4); };
+		auto settle = [](float v) { return std::fabs(v) <= 0.0001f ? 0.0f : v; };  // 0xcc9b70
+		static const char* const kSlot[3] = { "slot 0", "slot 1", "slot 2" };
+		// 1. modifiers in the actor value storage (after the vitals): same-size writes. One effect at a time, as each
+		//    Finish takes its own strength off (0xcc9b70 settles the result each time)
+		std::map<int, float> vitalNew[4];
+		std::map<std::pair<std::uint32_t, int>, std::pair<float, float>> seen;  // (av, slot) -> before, after
+		for (const auto& [key, amount] : take) {
+			const auto [av, slot] = key;
+			int vital = -1;
+			for (int k = 0; k < 4; ++k) {
+				if (kVitalAV[k] == av) vital = k;
+			}
+			if (vital >= 0) {
+				const auto& v = d.vitals[vital];
+				if (!vitalNew[vital].contains(slot)) {
+					vitalNew[vital][slot] = slot < static_cast<int>(std::min<std::uint32_t>(v.count, 3)) ? v.mod[slot] : 0.0f;
+					seen[key].first = vitalNew[vital][slot];
+				}
+				vitalNew[vital][slot] = settle(vitalNew[vital][slot] - amount);
+				seen[key].second = vitalNew[vital][slot];
+				continue;
+			}
+			const ActorValueMod* m = nullptr;
+			for (const auto& x : d.modifiers) {
+				if (x.formID == av) m = &x;
+			}
+			if (!m) {
+				changes.push_back(Fx("actor value %08X: no saved modifier to take %g off (left as it is)", av, amount));
+				continue;
+			}
+			const auto  at = m->range.end - 12 + 4 * static_cast<std::size_t>(slot);
+			const float before = getF(at);
+			if (!seen.contains(key)) seen[key].first = before;
+			putF(at, settle(before - amount));
+			seen[key].second = getF(at);
+		}
+		for (const auto& [key, v] : seen) {
+			changes.push_back(Fx("actor value %08X modifier %s: %g -> %g", key.first, kSlot[key.second], v.first, v.second));
+		}
+		// 2. the vitals (before the actor values; a list may grow), last first
+		for (int k = 3; k >= 0; --k) {
+			if (vitalNew[k].empty()) continue;
+			const auto& v = d.vitals[k];
+			std::uint32_t n = std::min<std::uint32_t>(v.count, 3);
+			float         mods[3] = { v.mod[0], v.mod[1], v.mod[2] };
+			for (const auto& [slot, val] : vitalNew[k]) {
+				mods[slot] = val;
+				n = std::max<std::uint32_t>(n, static_cast<std::uint32_t>(slot) + 1);
+			}
+			std::vector<std::uint8_t> enc(4 + 4 * n);
+			const std::uint32_t count = std::max(n, v.count);  // a count above 3 is kept as the game saved it
+			std::memcpy(enc.data(), &count, 4);
+			std::memcpy(enc.data() + 4, mods, 4 * n);
+			body.erase(body.begin() + static_cast<std::ptrdiff_t>(v.range.begin), body.begin() + static_cast<std::ptrdiff_t>(v.range.end));
+			body.insert(body.begin() + static_cast<std::ptrdiff_t>(v.range.begin), enc.begin(), enc.end());
+		}
+		// 3. the entries, last first, then the count in front of them
+		for (auto it = pick.rbegin(); it != pick.rend(); ++it) {
+			const auto& e = d.effects[*it];
+			body.erase(body.begin() + static_cast<std::ptrdiff_t>(e.range.begin), body.begin() + static_cast<std::ptrdiff_t>(e.range.end));
+		}
+		{
+			const auto at = d.effectList.begin;
+			std::vector<std::uint8_t> enc;
+			PutVsval(enc, static_cast<std::uint32_t>(d.effects.size() - pick.size()));
+			body.erase(body.begin() + static_cast<std::ptrdiff_t>(at), body.begin() + static_cast<std::ptrdiff_t>(at + VsLen(body[at])));
+			body.insert(body.begin() + static_cast<std::ptrdiff_t>(at), enc.begin(), enc.end());
+		}
+		// 4. read it back: complete, the same effects but the removed ones, the same bytes before the list and after
+		//    the edited modifiers
+		ChangeForm copy = a_cf;
+		cf::SetBody(copy, body);
+		const auto again = DecodeActor(a_save, copy);
+		bool ok = again.complete && again.effects.size() == d.effects.size() - pick.size() && again.values.size() == d.values.size() &&
+		          again.modifiers.size() == d.modifiers.size() && again.perks.size() == d.perks.size() &&
+		          again.effectList.begin == d.effectList.begin;
+		const auto old = cf::Body(a_cf);
+		ok = ok && std::equal(old.begin(), old.begin() + static_cast<std::ptrdiff_t>(d.effectList.begin), body.begin());
+		for (std::size_t i = 0, j = 0; ok && i < d.effects.size(); ++i) {
+			if (std::binary_search(pick.begin(), pick.end(), i)) continue;
+			const auto& a = d.effects[i];
+			const auto& b = again.effects[j++];
+			ok = a.range.size() == b.range.size() &&
+			     std::equal(old.begin() + static_cast<std::ptrdiff_t>(a.range.begin), old.begin() + static_cast<std::ptrdiff_t>(a.range.end),
+					 body.begin() + static_cast<std::ptrdiff_t>(b.range.begin));
+		}
+		// everything after the actor values is unchanged
+		ok = ok && old.size() - d.valuesRange.end == body.size() - again.valuesRange.end &&
+		     std::equal(old.begin() + static_cast<std::ptrdiff_t>(d.valuesRange.end), old.end(), body.begin() + static_cast<std::ptrdiff_t>(again.valuesRange.end));
+		if (!ok) {
+			return "the edited actor does not read back exactly: nothing changed";
+		}
+		a_cf = std::move(copy);
+		if (a_changes) {
+			*a_changes = std::move(changes);
+		}
+		return {};
+	}
+
+	std::vector<std::size_t> EffectsFrom(const SaveFile& a_save, const Actor& a_actor, std::uint32_t a_item)
+	{
+		std::vector<std::size_t> out;
+		for (std::size_t i = 0; i < a_actor.effects.size(); ++i) {
+			if (a_save.formIDOf(a_actor.effects[i].item) == a_item) out.push_back(i);
+		}
+		return out;
+	}
+
+	std::vector<std::size_t> EffectsFromPlugin(const SaveFile& a_save, const Actor& a_actor, const std::string& a_plugin)
+	{
+		std::vector<std::size_t> out;
+		std::string want = a_plugin;
+		std::transform(want.begin(), want.end(), want.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		for (std::size_t i = 0; i < a_actor.effects.size(); ++i) {
+			auto p = a_save.pluginOf(a_save.formIDOf(a_actor.effects[i].item));
+			std::transform(p.begin(), p.end(), p.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			if (!p.empty() && p == want) out.push_back(i);
+		}
+		return out;
 	}
 }
