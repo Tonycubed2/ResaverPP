@@ -67,6 +67,7 @@ static bool _stricmp_portable(const std::string& a_a, const std::string& a_b)
 }
 
 // resaverpp-cli --merged-patch <out.esp> --sources <mods> [--profile <dir>] [--game <dir>] [--plugins-txt <file>] [--language <lang>]
+//               [--fo4] [--no-esl]
 static int MergedPatchMain(int argc, char** argv)
 {
 	if (argc < 3) {
@@ -77,6 +78,7 @@ static int MergedPatchMain(int argc, char** argv)
 	std::filesystem::path       mods, profile, game, pluginsTxt, overwrite;
 	std::string                 language = "english";
 	int                         maxRisk = 2;
+	bool                        fo4 = false, light = true;
 	for (int i = 3; i < argc; ++i) {
 		const std::string a = argv[i];
 		auto              next = [&]() -> std::string {
@@ -93,6 +95,8 @@ static int MergedPatchMain(int argc, char** argv)
 		else if (a == "--overwrite") overwrite = next();
 		else if (a == "--language") language = next();
 		else if (a == "--only-safe" || a == "--no-risky") maxRisk = a == "--only-safe" ? 0 : 1;
+		else if (a == "--fo4") fo4 = true;
+		else if (a == "--no-esl") light = false;
 		else {
 			std::fprintf(stderr, "unknown option %s\n", a.c_str());
 			return 1;
@@ -107,8 +111,12 @@ static int MergedPatchMain(int argc, char** argv)
 		if (overwrite.empty()) overwrite = mo2->overwriteDir;
 		if (game.empty()) game = mo2->gamePath;
 	}
+	{
+		std::error_code ec;
+		fo4 = fo4 || (!game.empty() && std::filesystem::exists(game / "Fallout4.exe", ec));  // Fallout 4's game folder
+	}
 	if (pluginsTxt.empty()) {
-		pluginsTxt = profile.empty() ? loadorder::GamePluginsTxt() : profile / "plugins.txt";
+		pluginsTxt = profile.empty() ? loadorder::GamePluginsTxt(fo4 ? 2 : 0) : profile / "plugins.txt";
 	}
 	const auto order = profile.empty() ? std::vector<std::string>{} : LoadModList(profile);
 	ScriptSources src;
@@ -116,8 +124,10 @@ static int MergedPatchMain(int argc, char** argv)
 	src.scan(mods, order.empty() ? nullptr : &order, overwrite, game.empty() ? std::filesystem::path{} : game / "Data");
 	std::printf("scanned %zu mod folders, %zu strings files\n", src.modsScanned, src.stringsFiles.size());
 	merge::Options opt;
-	opt.loadOrder = merge::ReadLoadOrder(pluginsTxt, game);
+	opt.loadOrder = merge::ReadLoadOrder(pluginsTxt, game, fo4 ? 2 : -1);
 	opt.language = language;
+	opt.game = fo4 ? 2 : -1;  // -1: Fallout 4 when Fallout4.esm is in the load order
+	opt.light = light;
 	opt.patchName = out.filename().string();
 	for (int c = 0; c < static_cast<int>(merge::Category::kCount); ++c) {
 		opt.enabled[c] = merge::CategoryRisk(static_cast<merge::Category>(c)) <= maxRisk;

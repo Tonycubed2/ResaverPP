@@ -15,6 +15,8 @@ namespace ess
 			"       resaverpp-cli --merged-patch <out.esp> --sources <mods folder> [--profile <folder>] [--game <folder>]\n"
 			"                 build a merged patch of the profile's load order (a report is written next to it);\n"
 			"                 --only-safe merges only the safe kinds of changes, --no-risky leaves out the risky ones\n"
+			"                 Fallout 4 (found from Fallout4.exe in --game or Fallout4.esm in the load order, or --fo4): leveled\n"
+			"                 lists, containers, form lists, outfits, misc items and keys; --no-esl writes a normal plugin\n"
 			"       resaverpp-cli --file-conflicts <report.txt> --sources <mods folder> [--profile <folder>] [--game <folder>]\n"
 			"                 which mods override which mods' loose files and archive (BSA) files\n"
 			"       resaverpp-cli --analyze-logs [<My Games folder>] [--days <n>]  read Skyrim's logs (SKSE, crash logs,\n"

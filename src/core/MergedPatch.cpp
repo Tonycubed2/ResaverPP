@@ -13,6 +13,7 @@
 #include <cctype>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -117,8 +118,27 @@ namespace ess::merge
 			"MATT", "IPCT", "IPDS", "ARMA", "ECZN", "LCTN", "MESG", "RGDL", "DOBJ", "LGTM", "MUSC", "FSTP", "FSTS", "SMBN", "SMQN", "SMEN", "DLBR",
 			"MUST", "DLVW", "WOOP", "SHOU", "EQUP", "RELA", "SCEN", "ASTP", "OTFT", "ARTO", "MATO", "MOVT", "SNDR", "DUAL", "SNCT", "SOPM", "COLL",
 			"CLFM", "REVB" };
-		int GroupRank(const char* sig)
+		// Fallout 4's top group order (xEdit wbDefinitionsFO4, AddGroupOrder)
+		const char* const kGroupOrderFO4[] = { "GMST", "KYWD", "LCRT", "AACT", "TRNS", "CMPO", "TXST", "MICN", "GLOB", "DMGT", "CLAS", "FACT", "HDPT",
+			"EYES", "RACE", "SOUN", "ASPC", "SKIL", "MGEF", "SCPT", "LTEX", "ENCH", "SPEL", "SCRL", "ACTI", "TACT", "ARMO", "BOOK", "CONT", "DOOR",
+			"INGR", "LIGH", "MISC", "STAT", "SCOL", "MSTT", "GRAS", "TREE", "FLOR", "FURN", "WEAP", "AMMO", "NPC_", "PLYR", "LVLN", "KEYM", "ALCH",
+			"IDLM", "NOTE", "PROJ", "HAZD", "BNDS", "SLGM", "TERM", "LVLI", "WTHR", "CLMT", "SPGD", "RFCT", "REGN", "NAVI", "CELL", "REFR", "ACHR",
+			"PMIS", "PARW", "PGRE", "PBEA", "PFLA", "PCON", "PBAR", "PHZD", "WRLD", "LAND", "NAVM", "TLOD", "DIAL", "INFO", "QUST", "IDLE", "PACK",
+			"CSTY", "LSCR", "LVSP", "ANIO", "WATR", "EFSH", "TOFT", "EXPL", "DEBR", "IMGS", "IMAD", "FLST", "PERK", "BPTD", "ADDN", "AVIF", "CAMS",
+			"CPTH", "VTYP", "MATT", "IPCT", "IPDS", "ARMA", "ECZN", "LCTN", "MESG", "RGDL", "DOBJ", "DFOB", "LGTM", "MUSC", "FSTP", "FSTS", "SMBN",
+			"SMQN", "SMEN", "DLBR", "MUST", "DLVW", "WOOP", "SHOU", "EQUP", "RELA", "SCEN", "ASTP", "OTFT", "ARTO", "MATO", "MOVT", "SNDR", "DUAL",
+			"SNCT", "SOPM", "COLL", "CLFM", "REVB", "PKIN", "RFGP", "AMDL", "LAYR", "COBJ", "OMOD", "MSWP", "ZOOM", "INNR", "KSSM", "AECH", "SCCO",
+			"AORU", "SCSN", "STAG", "NOCM", "LENS", "LSPR", "GDRY", "OVIS" };
+		int GroupRank(const char* sig, bool a_fo4 = false)
 		{
+			if (a_fo4) {
+				for (int i = 0; i < static_cast<int>(std::size(kGroupOrderFO4)); ++i) {
+					if (Is(sig, kGroupOrderFO4[i])) {
+						return i;
+					}
+				}
+				return 1000;
+			}
 			for (int i = 0; i < static_cast<int>(std::size(kGroupOrder)); ++i) {
 				if (Is(sig, kGroupOrder[i])) {
 					return i;
@@ -285,7 +305,7 @@ namespace ess::merge
 
 	std::vector<std::uint8_t> WritePlugin(const std::vector<std::string>& a_masters, std::uint32_t a_headerFlags,
 		const std::vector<Record>& a_records, const std::string& a_author, const std::string& a_desc, float a_hedrVersion,
-		std::uint16_t a_headerRecordVersion)
+		std::uint16_t a_headerRecordVersion, bool a_fo4)
 	{
 		// group the records by type, groups in the game's order
 		std::map<int, std::pair<std::string, std::vector<const Record*>>> groups;
@@ -293,18 +313,18 @@ namespace ess::merge
 			// exterior cells live under their worldspace
 			const char* top = Is(r.sig, "CELL") && !r.groups.empty() && r.groups[0].first == 1 ? "WRLD" : r.sig;
 			if (top != r.sig) {
-				auto& g = groups[GroupRank(top) * 10000 + 0];
+				auto& g = groups[GroupRank(top, a_fo4) * 10000 + 0];
 				g.first = "WRLD";
 				g.second.push_back(&r);
 				continue;
 			}
-			auto& g = groups[GroupRank(r.sig) * 10000 + 0];
+			auto& g = groups[GroupRank(r.sig, a_fo4) * 10000 + 0];
 			if (g.first.empty() || g.first == Sig(r.sig)) {
 				g.first = Sig(r.sig);
 				g.second.push_back(&r);
 			} else {
 				// several unknown types share the rank: keep them apart
-				auto& g2 = groups[GroupRank(r.sig) * 10000 + static_cast<int>(std::hash<std::string>{}(Sig(r.sig)) % 9999) + 1];
+				auto& g2 = groups[GroupRank(r.sig, a_fo4) * 10000 + static_cast<int>(std::hash<std::string>{}(Sig(r.sig)) % 9999) + 1];
 				g2.first = Sig(r.sig);
 				g2.second.push_back(&r);
 			}
@@ -427,6 +447,17 @@ namespace ess::merge
 			std::memcpy(intv.sig, "INTV", 4);
 			Put32(intv.data, 1);
 			hs.push_back(std::move(intv));
+			if (a_fo4) {
+				// Fallout 4: the interior cell count (required in its header)
+				std::uint32_t interiors = 0;
+				for (const auto& r : a_records) {
+					interiors += Is(r.sig, "CELL") && (r.groups.empty() || r.groups[0].first != 1) ? 1 : 0;
+				}
+				Sub incc;
+				std::memcpy(incc.sig, "INCC", 4);
+				Put32(incc.data, interiors);
+				hs.push_back(std::move(incc));
+			}
 		}
 		std::vector<std::uint8_t> hd;
 		WriteSubs(hd, hs);
@@ -621,10 +652,90 @@ namespace ess::merge
 			kSpit,      // SPIT: half-cost perk
 			kCtda,      // a condition: form IDs depend on the function
 			kDrop,      // left out of the patch (WRLD's large-reference and offset tables: xEdit never copies them either)
+			kFormPairs, // an array of 8-byte {form ID, u32 or float} entries (Fallout 4: LLKC, CVPA, DAMC, PRPS)
 		};
 
-		Kind Layout(const char* rec, const char* sub)
+		// Fallout 4, from xEdit's wbDefinitionsFO4 (dev-4.1.6). Only the types listed here are merged for Fallout 4; any part
+		// not named here leaves the record to the winning plugin (kUnknown), as for Skyrim.
+		//  - LVLO: level u16, unused 2, form @4, count u16, chance none u8, unused 1 (12 bytes)
+		//  - COED: owner @0, global (owner is an NPC) / rank (faction) / unused @4, item condition float @8
+		//  - CNTO: item @0, count s32; COCT u32; LLCT u8 (at most 255 entries)
+		//  - MODS / DMDS: a material swap form ID (in Skyrim alternate textures); MODT/DMDT texture hashes, MODC/DMDC float,
+		//    MODF flags u8
+		//  - DEST header (no forms), DAMC {damage type, value}, DSTD (explosion @8, debris @12), DSTA name, DSTF end marker
+		//  - PRPS {actor value form, float}, LLKC {keyword, chance}, CVPA {component, count}: kFormPairs
+		Kind LayoutFO4(const char* rec, const char* sub)
 		{
+			const std::string r(rec, 4), s(sub, 4);
+			auto in = [&](std::initializer_list<const char*> a_list) {
+				for (const char* x : a_list) {
+					if (s == x) return true;
+				}
+				return false;
+			};
+			const bool model = in({ "MODL", "MODT", "MODC", "MODF" });
+			const bool destNone = in({ "DEST", "DSTA", "DMDL", "DMDT", "DMDC", "DSTF" });
+			if (r == "LVLI" || r == "LVLN" || r == "LVSP") {
+				if (in({ "EDID", "OBND", "LVLD", "LVLM", "LVLF", "LLCT" })) return Kind::kNone;
+				if (s == "LVLO") return Kind::kLvlo;
+				if (r == "LVSP") return Kind::kUnknown;
+				if (s == "COED") return Kind::kCoed;
+				if (s == "LVLG") return Kind::kForm0;
+				if (s == "LLKC") return Kind::kFormPairs;
+				if (r == "LVLI") {
+					if (s == "LVSG") return Kind::kForm0;
+					if (s == "ONAM") return Kind::kLString;
+				} else {
+					if (model) return Kind::kNone;
+					if (s == "MODS") return Kind::kForm0;
+				}
+				return Kind::kUnknown;
+			}
+			if (r == "CONT") {
+				if (in({ "EDID", "OBND", "COCT", "DATA", "KSIZ" }) || model || destNone) return Kind::kNone;
+				if (in({ "PTRN", "MODS", "CNTO", "DMDS", "FTYP", "NTRM", "SNAM", "QNAM", "TNAM", "ONAM" })) return Kind::kForm0;
+				if (s == "VMAD") return Kind::kVmad;
+				if (s == "FULL") return Kind::kLString;
+				if (s == "COED") return Kind::kCoed;
+				if (s == "DSTD") return Kind::kDstd;
+				if (s == "DAMC" || s == "PRPS") return Kind::kFormPairs;
+				if (s == "KWDA") return Kind::kFormArr;
+				return Kind::kUnknown;
+			}
+			if (r == "FLST") {
+				if (s == "EDID") return Kind::kNone;
+				if (s == "FULL") return Kind::kLString;
+				if (s == "LNAM") return Kind::kForm0;
+				return Kind::kUnknown;
+			}
+			if (r == "OTFT") {
+				if (s == "EDID") return Kind::kNone;
+				if (s == "INAM") return Kind::kFormArr;
+				return Kind::kUnknown;
+			}
+			if (r == "MISC" || r == "KEYM") {
+				if (in({ "EDID", "OBND", "ICON", "MICO", "KSIZ", "DATA" }) || model || destNone) return Kind::kNone;
+				if (in({ "PTRN", "MODS", "DMDS", "YNAM", "ZNAM" })) return Kind::kForm0;
+				if (s == "VMAD") return Kind::kVmad;
+				if (s == "FULL") return Kind::kLString;
+				if (s == "DSTD") return Kind::kDstd;
+				if (s == "DAMC") return Kind::kFormPairs;
+				if (s == "KWDA") return Kind::kFormArr;
+				if (r == "MISC") {
+					if (s == "FIMD") return Kind::kForm0;
+					if (s == "CVPA") return Kind::kFormPairs;
+					if (s == "CDIX") return Kind::kNone;
+				}
+				return Kind::kUnknown;
+			}
+			return Kind::kUnknown;
+		}
+
+		Kind Layout(const char* rec, const char* sub, bool a_fo4)
+		{
+			if (a_fo4) {
+				return LayoutFO4(rec, sub);
+			}
 			const std::string r(rec, 4), s(sub, 4);
 			// type-specific first
 			if (r == "LVLI" || r == "LVLN" || r == "LVSP") {
@@ -715,7 +826,7 @@ namespace ess::merge
 		}
 
 		// form ID offsets inside a script attachment (VMAD) of a record without fragments
-		bool VmadForms(const std::vector<std::uint8_t>& d, std::vector<std::uint32_t>& offs, std::string& err)
+		bool VmadForms(const std::vector<std::uint8_t>& d, std::vector<std::uint32_t>& offs, std::string& err, bool a_fo4)
 		{
 			std::size_t p = 0;
 			auto need = [&](std::size_t n) {
@@ -735,6 +846,47 @@ namespace ess::merge
 					offs.push_back(static_cast<std::uint32_t>(objFormat == 1 ? p : p + 4));
 					p += 8;
 				};
+				// Fallout 4 (VMAD version 6, xEdit wbDefinitionsFO4) adds structs: 7 a struct (u32 member count, each member
+				// {name, type u8, flags u8, value}), 17 an array of structs (u32 count of structs). Types 6 and 16 (variables)
+				// are not read: xEdit gives them no data, which is not confirmed.
+				std::function<void(std::uint8_t, int)> value;
+				auto structValue = [&](int a_depth) {
+					if (a_depth > 8) {
+						throw std::runtime_error("script structs nested too deep");
+					}
+					const auto members = u32();
+					for (std::uint32_t m = 0; m < members; ++m) {
+						wstr();
+						const auto type = u8();
+						u8();  // flags
+						value(type, a_depth + 1);
+					}
+				};
+				value = [&](std::uint8_t type, int a_depth) {
+					switch (type) {
+					case 1: object(); break;
+					case 2: wstr(); break;
+					case 3:
+					case 4: u32(); break;
+					case 5: u8(); break;
+					case 7:
+						if (!a_fo4) throw std::runtime_error("unknown script property type 7");
+						structValue(a_depth);
+						break;
+					case 11: { const auto n = u32(); for (std::uint32_t j = 0; j < n; ++j) object(); break; }
+					case 12: { const auto n = u32(); for (std::uint32_t j = 0; j < n; ++j) wstr(); break; }
+					case 13:
+					case 14: { const auto n = u32(); need(std::size_t(n) * 4); p += std::size_t(n) * 4; break; }
+					case 15: { const auto n = u32(); need(n); p += n; break; }
+					case 17: {
+						if (!a_fo4) throw std::runtime_error("unknown script property type 17");
+						const auto n = u32();
+						for (std::uint32_t j = 0; j < n; ++j) structValue(a_depth);
+						break;
+					}
+					default: throw std::runtime_error("unknown script property type " + std::to_string(type));
+					}
+				};
 				const auto scripts = u16();
 				for (std::uint16_t i = 0; i < scripts; ++i) {
 					wstr();
@@ -748,19 +900,7 @@ namespace ess::merge
 						if (version >= 4) {
 							u8();
 						}
-						switch (type) {
-						case 1: object(); break;
-						case 2: wstr(); break;
-						case 3:
-						case 4: u32(); break;
-						case 5: u8(); break;
-						case 11: { const auto n = u32(); for (std::uint32_t j = 0; j < n; ++j) object(); break; }
-						case 12: { const auto n = u32(); for (std::uint32_t j = 0; j < n; ++j) wstr(); break; }
-						case 13:
-						case 14: { const auto n = u32(); need(std::size_t(n) * 4); p += std::size_t(n) * 4; break; }
-						case 15: { const auto n = u32(); need(n); p += n; break; }
-						default: throw std::runtime_error("unknown script property type " + std::to_string(type));
-						}
+						value(type, 0);
 					}
 				}
 				if (p != d.size()) {
@@ -828,9 +968,21 @@ namespace ess::merge
 			const char* what;      // for the report
 		};
 
-		std::vector<ListSpec> Lists(const char* rec)
+		std::vector<ListSpec> Lists(const char* rec, bool a_fo4)
 		{
 			const std::string r(rec, 4);
+			if (a_fo4) {
+				// Fallout 4 (wbDefinitionsFO4): LLCT u8 with at most 255 entries; LVSP entries have no COED
+				if (r == "LVLI" || r == "LVLN") return { { "LVLO", "COED", "LLCT", 1, false, false, 255, "entries" } };
+				if (r == "LVSP") return { { "LVLO", nullptr, "LLCT", 1, false, false, 255, "entries" } };
+				if (r == "CONT") {
+					return { { "CNTO", "COED", "COCT", 4, true, false, 0, "items" }, { "KWDA", nullptr, "KSIZ", 4, false, true, 0, "keywords" } };
+				}
+				if (r == "FLST") return { { "LNAM", nullptr, nullptr, 0, false, false, 0, "forms" } };
+				if (r == "OTFT") return { { "INAM", nullptr, nullptr, 0, false, true, 0, "items" } };
+				if (r == "MISC" || r == "KEYM") return { { "KWDA", nullptr, "KSIZ", 4, false, true, 0, "keywords" } };
+				return {};
+			}
 			if (r == "LVLI" || r == "LVLN" || r == "LVSP") {
 				return { { "LVLO", "COED", "LLCT", 1, false, false, 255, "entries" } };
 			}
@@ -864,11 +1016,27 @@ namespace ess::merge
 		}
 
 		// subrecord order of each type, to place a list the winning override does not have
-		std::vector<std::string> Order(const char* rec)
+		std::vector<std::string> Order(const char* rec, bool a_fo4)
 		{
 			const std::string r(rec, 4);
 			std::string s;
-			if (r == "LVLI") s = "EDID OBND LVLD LVLF LVLG LLCT LVLO COED";
+			if (a_fo4) {
+				// Fallout 4: the order of xEdit's definitions
+				if (r == "LVLI") s = "EDID OBND LVLD LVLM LVLF LVLG LLCT LVLO COED LLKC LVSG ONAM";
+				else if (r == "LVLN") s = "EDID OBND LVLD LVLM LVLF LVLG LLCT LVLO COED LLKC MODL MODT MODC MODS MODF";
+				else if (r == "LVSP") s = "EDID OBND LVLD LVLM LVLF LLCT LVLO";
+				else if (r == "CONT")
+					s = "EDID VMAD OBND PTRN FULL MODL MODT MODC MODS MODF COCT CNTO COED DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF DATA KSIZ KWDA "
+						"FTYP NTRM PRPS SNAM QNAM TNAM ONAM";
+				else if (r == "FLST") s = "EDID FULL LNAM";
+				else if (r == "OTFT") s = "EDID INAM";
+				else if (r == "MISC")
+					s = "EDID VMAD OBND PTRN FULL MODL MODT MODC MODS MODF ICON MICO DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF YNAM ZNAM KSIZ KWDA "
+						"FIMD DATA CVPA CDIX";
+				else if (r == "KEYM")
+					s = "EDID VMAD OBND PTRN FULL MODL MODT MODC MODS MODF ICON MICO DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF YNAM ZNAM KSIZ KWDA "
+						"DATA";
+			} else if (r == "LVLI") s = "EDID OBND LVLD LVLF LVLG LLCT LVLO COED";
 			else if (r == "LVLN") s = "EDID OBND LVLD LVLF LVLG LLCT LVLO COED MODL MODT MODS";
 			else if (r == "LVSP") s = "EDID OBND LVLD LVLF LLCT LVLO";
 			else if (r == "CONT") s = "EDID VMAD OBND FULL MODL MODT MODS COCT CNTO COED DEST DSTD DMDL DMDT DMDS DSTF DATA SNAM QNAM";
@@ -913,6 +1081,9 @@ namespace ess::merge
 			return out;
 		}
 
+		// Fallout 4: the merged types (see LayoutFO4); NPC_ is read too, only to know which COED owners are NPCs
+		const std::vector<std::string> kTypesFO4 = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "MISC", "KEYM" };
+		const std::vector<std::string> kReadFO4 = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "MISC", "KEYM", "NPC_" };
 		const std::vector<std::string> kTypes = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "NPC_", "ARMO", "WEAP", "AMMO", "MISC", "KEYM",
 			"SLGM", "BOOK", "ALCH", "INGR", "SCRL", "SPEL", "CELL", "WRLD" };
 
@@ -944,9 +1115,17 @@ namespace ess::merge
 			bool          unused = false;  // padding: plugins differ in it without meaning anything, never merged
 		};
 
-		std::vector<std::vector<std::string>> Groups(const char* rec)
+		std::vector<std::vector<std::string>> Groups(const char* rec, bool a_fo4)
 		{
 			const std::string r(rec, 4);
+			if (a_fo4) {
+				// a model with its texture hashes, colour remap, material swap and flags; destruction with its stages; the
+				// components of a misc item with their display indices (xEdit: as many as CVPA has)
+				std::vector<std::vector<std::string>> g = { { "MODL", "MODT", "MODC", "MODS", "MODF" },
+					{ "DEST", "DAMC", "DSTD", "DSTA", "DMDL", "DMDT", "DMDC", "DMDS", "DSTF" }, { "ICON", "MICO" } };
+				if (r == "MISC") g.push_back({ "CVPA", "CDIX" });
+				return g;
+			}
 			std::vector<std::vector<std::string>> g = { { "MOD2", "MO2T", "MO2S" }, { "MOD3", "MO3T", "MO3S" }, { "MOD4", "MO4T", "MO4S" },
 				{ "ICON", "MICO" }, { "ICO2", "MIC2" }, { "DEST", "DSTD", "DMDL", "DMDT", "DMDS", "DSTF" }, { "EITM", "EAMT" }, { "BODT", "BOD2" } };
 			if (r != "ARMO") {
@@ -970,10 +1149,21 @@ namespace ess::merge
 			return g;
 		}
 
-		std::vector<Field> Fields(const char* rec, const char* sub, std::size_t a_size)
+		std::vector<Field> Fields(const char* rec, const char* sub, std::size_t a_size, bool a_fo4)
 		{
 			const std::string k = std::string(rec, 4) + "." + std::string(sub, 4);
 			std::vector<Field> f;
+			if (a_fo4) {
+				// Fallout 4: only the layouts confirmed in wbDefinitionsFO4; everything else is merged as a whole
+				if (k == "LVLI.LVLF" || k == "LVLN.LVLF" || k == "LVSP.LVLF") {
+					if (a_size == 1) f.push_back({ 0, 1, true });
+				} else if (k == "CONT.DATA") {
+					if (a_size == 5) f = { { 0, 1, true }, { 1, 4 } };
+				} else if (k == "MISC.DATA" || k == "KEYM.DATA") {
+					if (a_size == 8) f = { { 0, 4 }, { 4, 4 } };
+				}
+				return f;
+			}
 			auto seq = [&](std::initializer_list<int> sizes, std::initializer_list<int> flagIdx = {}, std::initializer_list<int> unusedIdx = {}) {
 				std::uint32_t o = 0;
 				int           i = 0;
@@ -1042,8 +1232,9 @@ namespace ess::merge
 			}
 			if (r == "NPC_" && has("PNAM")) return Category::kNpcFace;
 			if (has("EFID")) return Category::kEffects;
-			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || (r == "BOOK" && has("CNAM"))) return Category::kNames;
-			if (has("OBND") || has("MODL") || has("MOD2") || has("MOD3") || has("MOD4") || has("ICON") || has("ICO2") || has("DEST") || has("MDOB") ||
+			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || (r == "BOOK" && has("CNAM")) || (r == "LVLI" && has("ONAM")))
+				return Category::kNames;  // (LVLI ONAM: Fallout 4's override name)
+			if (has("OBND") || has("PTRN") || has("MODL") || has("MOD2") || has("MOD3") || has("MOD4") || has("ICON") || has("ICO2") || has("DEST") || has("MDOB") ||
 				has("BODT"))
 				return Category::kModels;
 			if (r == "NPC_") return Category::kNpcValues;
@@ -1061,7 +1252,7 @@ namespace ess::merge
 		{
 		public:
 			Builder(const Options& a_opt, Progress* a_progress, Result& a_res) :
-				_opt(a_opt), _progress(a_progress), _res(a_res) {}
+				_opt(a_opt), _progress(a_progress), _res(a_res), _fo4(a_opt.game == 2) {}
 
 			void run()
 			{
@@ -1140,7 +1331,7 @@ namespace ess::merge
 					}
 					PluginFile pf;
 					try {
-						pf = ReadPlugin(*path, kTypes);
+						pf = ReadPlugin(*path, _fo4 ? kReadFO4 : kTypes);
 					} catch (const std::exception& e) {
 						_res.missing.push_back(p.name + " (" + e.what() + ")");
 						if (_progress) ++_progress->done;
@@ -1175,6 +1366,9 @@ namespace ess::merge
 						}
 						if (Is(r.sig, "NPC_")) {
 							_npcs.insert(k);
+							if (_fo4) {
+								continue;  // Fallout 4's NPCs are not merged (their layout is not confirmed): read for COED owners only
+							}
 						}
 						auto& vs = _versions[k];
 						if (vs.empty()) {
@@ -1194,7 +1388,7 @@ namespace ess::merge
 					p.stringsLoaded = true;
 					auto stem = Lower(std::filesystem::path(p.name).stem().string());
 					for (const char* ext : { ".strings", ".dlstrings", ".ilstrings" }) {
-						for (const auto& lang : { Lower(_opt.language), std::string("english") }) {
+						for (const auto& lang : { Lower(_opt.language), std::string(_fo4 ? "en" : "english") }) {
 							const auto data = _opt.readStrings ? _opt.readStrings(stem + "_" + lang + ext) : std::vector<std::uint8_t>{};
 							if (data.size() < 8) {
 								continue;
@@ -1239,7 +1433,7 @@ namespace ess::merge
 					std::memcpy(cs.sig, s.sig, 4);
 					cs.data = s.data;
 					std::vector<std::uint32_t> offs;
-					switch (Layout(v.rec.sig, s.sig)) {
+					switch (Layout(v.rec.sig, s.sig, _fo4)) {
 					case Kind::kUnknown:
 						err = "has a part (" + Sig(s.sig) + ") ReSaver Plus does not know yet";
 						return std::nullopt;
@@ -1273,6 +1467,15 @@ namespace ess::merge
 						}
 						offs.push_back(0);
 						break;
+					case Kind::kFormPairs:
+						if (s.data.size() % 8) {
+							err = Sig(s.sig) + " has a bad size";
+							return std::nullopt;
+						}
+						for (std::uint32_t o = 0; o < s.data.size(); o += 8) {
+							offs.push_back(o);
+						}
+						break;
 					case Kind::kFormArr:
 						if (s.data.size() % 4) {
 							err = Sig(s.sig) + " has a bad size";
@@ -1283,7 +1486,7 @@ namespace ess::merge
 						}
 						break;
 					case Kind::kVmad:
-						if (!VmadForms(s.data, offs, err)) {
+						if (!VmadForms(s.data, offs, err, _fo4)) {
 							return std::nullopt;
 						}
 						break;
@@ -1537,7 +1740,7 @@ namespace ess::merge
 					kept.push_back(s);
 				}
 				if (pos == SIZE_MAX) {
-					const auto order = Order(c.sig);
+					const auto order = Order(c.sig, _fo4);
 					auto rank = [&](const char* sig) {
 						for (std::size_t i = 0; i < order.size(); ++i) {
 							if (Is(sig, order[i].c_str())) return static_cast<int>(i);
@@ -1555,6 +1758,15 @@ namespace ess::merge
 				}
 				std::vector<CSub> ins;
 				const bool lvl = sp.count && Is(sp.count, "LLCT");
+				std::vector<const Entry*> order;
+				for (const auto& e : es) order.push_back(&e);
+				if (_fo4 && Is(sp.entry, "LVLO")) {
+					// Fallout 4: entries by level, as the Creation Kit and xEdit (a sorted array there) write them
+					std::stable_sort(order.begin(), order.end(), [](const Entry* a, const Entry* b) {
+						auto level = [](const Entry* e) { return e->subs[0].data.size() >= 2 ? U16(e->subs[0].data.data()) : 0; };
+						return level(a) < level(b);
+					});
+				}
 				if (sp.count && (!es.empty() || lvl)) {
 					CSub cnt;
 					std::memcpy(cnt.sig, sp.count, 4);
@@ -1575,8 +1787,8 @@ namespace ess::merge
 						ins.push_back(std::move(arr));
 					}
 				} else {
-					for (const auto& e : es) {
-						ins.insert(ins.end(), e.subs.begin(), e.subs.end());
+					for (const auto* e : order) {
+						ins.insert(ins.end(), e->subs.begin(), e->subs.end());
 					}
 				}
 				kept.insert(kept.begin() + static_cast<std::ptrdiff_t>(pos), ins.begin(), ins.end());
@@ -1659,9 +1871,9 @@ namespace ess::merge
 
 			// puts a block into the record: each subrecord where its type belongs (a unit can be spread over the record,
 			// like an NPC's face: head parts after the skills, tints at the end), keeping the block's own order
-			static void SetBlock(CRec& c, const std::set<std::string>& sigs, const std::vector<CSub>& block)
+			void SetBlock(CRec& c, const std::set<std::string>& sigs, const std::vector<CSub>& block) const
 			{
-				const auto order = Order(c.sig);
+				const auto order = Order(c.sig, _fo4);
 				auto rank = [&](const char* sig) {
 					for (std::size_t i = 0; i < order.size(); ++i) {
 						if (Is(sig, order[i].c_str())) return static_cast<int>(i);
@@ -1717,7 +1929,7 @@ namespace ess::merge
 			{
 				// the list parts are merged entry by entry, not here
 				std::set<std::string> listSigs;
-				for (const auto& sp : Lists(a_patch.sig)) {
+				for (const auto& sp : Lists(a_patch.sig, _fo4)) {
 					listSigs.insert(sp.entry);
 					if (sp.follower) listSigs.insert(sp.follower);
 					if (sp.count) listSigs.insert(sp.count);
@@ -1725,7 +1937,7 @@ namespace ess::merge
 				// the units: the groups, then every other part on its own
 				std::vector<std::set<std::string>> units;
 				std::set<std::string>              grouped;
-				for (const auto& g : Groups(a_patch.sig)) {
+				for (const auto& g : Groups(a_patch.sig, _fo4)) {
 					units.emplace_back(g.begin(), g.end());
 					grouped.insert(g.begin(), g.end());
 				}
@@ -1754,7 +1966,7 @@ namespace ess::merge
 					// one struct in all three: field by field
 					if (u.size() == 1 && b.size() == 1 && o.size() == 1 && p.size() == 1 && b[0].data.size() == o[0].data.size() &&
 						o[0].data.size() == p[0].data.size()) {
-						const auto fields = Fields(a_patch.sig, o[0].sig, o[0].data.size());
+						const auto fields = Fields(a_patch.sig, o[0].sig, o[0].data.size(), _fo4);
 						if (!fields.empty()) {
 							std::size_t n = 0;
 							for (const auto& f : fields) {
@@ -2015,7 +2227,7 @@ namespace ess::merge
 						}
 					}
 					bool failed = false;
-					for (const auto& sp : Lists(win.rec.sig)) {
+					for (const auto& sp : Lists(win.rec.sig, _fo4)) {
 						const auto cat = ListCategory(win.rec.sig, sp);
 						if (!_opt.enabled[static_cast<int>(cat)]) {
 							continue;
@@ -2143,7 +2355,7 @@ namespace ess::merge
 						return 0;
 					}
 					const int p = static_cast<int>(k >> 32) - 1;
-					if ((k & 0xFFFFFF) < 0x800 && Lower(_plugins[p].name) != "skyrim.esm") {
+					if (!_fo4 && (k & 0xFFFFFF) < 0x800 && Lower(_plugins[p].name) != "skyrim.esm") {
 						low = true;
 					}
 					return (idx.at(static_cast<int>(k >> 32) - 1) << 24) | static_cast<std::uint32_t>(k & 0xFFFFFF);
@@ -2174,6 +2386,7 @@ namespace ess::merge
 					recs.push_back(std::move(r));
 				}
 				if (_opt.legendary) {
+					_res.light = false;
 					// Legendary Edition: a normal plugin in its own format (header 0.94, record version 43). It has no
 					// light plugins, so the patch takes a load order slot: the game loads at most 255 plugins.
 					std::size_t used = 0;
@@ -2189,11 +2402,20 @@ namespace ess::merge
 					}
 					_res.file = WritePlugin(_res.masters, 0, recs, "ReSaver Plus",
 						"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.", 0.94f, 43);
+				} else if (_fo4) {
+					// Fallout 4: its header (HEDR and record version as Fallout4.esm has them, INTV, INCC), its group order.
+					// Only overrides, no new forms: flagged light (ESL, 0x200) unless asked not to (Fallout 4 before 1.10).
+					_res.file = WritePlugin(_res.masters, _opt.light ? 0x200u : 0u, recs, "ReSaver Plus",
+						"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.", _opt.hedrVersion > 0 ? _opt.hedrVersion : 1.0f,
+						_opt.headerRecordVersion ? _opt.headerRecordVersion : 131, true);
+					_res.light = _opt.light;
 				} else {
 					// only overrides, no new forms: flagged light (ESL), so it takes no load order slot
-					_res.file = WritePlugin(_res.masters, 0x200, recs, "ReSaver Plus",
+					_res.file = WritePlugin(_res.masters, _opt.light ? 0x200u : 0u, recs, "ReSaver Plus",
 						"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.", low ? 1.71f : 1.7f);
+					_res.light = _opt.light;
 				}
+				_res.fo4 = _fo4;
 				_res.legendary = _opt.legendary;
 				_res.ok = true;
 			}
@@ -2201,6 +2423,7 @@ namespace ess::merge
 			const Options&                                   _opt;
 			Progress*                                        _progress;
 			Result&                                          _res;
+			const bool                                       _fo4;  // a Fallout 4 load order
 			std::vector<PInfo>                               _plugins;
 			std::unordered_map<std::uint64_t, std::vector<Ver>> _versions;
 			std::vector<std::uint64_t>                       _order;  // record keys in the order first seen
@@ -2221,7 +2444,31 @@ namespace ess::merge
 			// Legendary Edition: Skyrim.esm's header has record version 43 (SE/AE 44). The patch is then written in
 			// LE's format, as a normal plugin (LE has no light plugins).
 			Options opt = a_opt;
-			if (opt.findPlugin) {
+			if (opt.game < 0) {
+				opt.game = 0;
+				for (const auto& p : opt.loadOrder) {
+					if (Lower(p) == "fallout4.esm") {
+						opt.game = 2;
+						break;
+					}
+				}
+			}
+			if (opt.game == 2) {
+				// Fallout 4: the patch's header takes Fallout4.esm's HEDR version and record version (1.0 and 131 on the
+				// current game)
+				if (opt.findPlugin) {
+					if (const auto esm = opt.findPlugin("Fallout4.esm")) {
+						std::ifstream f(*esm, std::ios::binary);
+						unsigned char h[34] = {};
+						if (f.read(reinterpret_cast<char*>(h), sizeof(h)) && std::memcmp(h, "TES4", 4) == 0 && std::memcmp(h + 24, "HEDR", 4) == 0) {
+							std::memcpy(&opt.hedrVersion, h + 30, 4);
+							opt.headerRecordVersion = static_cast<std::uint16_t>(h[20] | (h[21] << 8));
+							if (!(opt.hedrVersion > 0.5f && opt.hedrVersion < 2.0f)) opt.hedrVersion = 0.0f;
+						}
+					}
+				}
+				if (Lower(opt.language) == "english") opt.language = "en";  // Fallout4_en.strings
+			} else if (opt.findPlugin) {
 				if (const auto esm = opt.findPlugin("Skyrim.esm")) {
 					std::ifstream f(*esm, std::ios::binary);
 					unsigned char h[24] = {};
@@ -2263,6 +2510,36 @@ namespace ess::merge
 		};
 	}
 
+	const std::vector<std::string>& MergedTypes(bool a_fo4) { return a_fo4 ? kTypesFO4 : kTypes; }
+
+	const char* Fo4NotMerged()
+	{
+		return "Not merged for Fallout 4 yet (their layouts differ from Skyrim's and are not checked yet; the winning plugin's version "
+			   "stays, as without a patch): NPCs, armour, weapons, ammunition, books, potions, ingredients, spells, cells and worldspaces.";
+	}
+
+	bool CategoryApplies(Category a_cat, bool a_fo4)
+	{
+		if (!a_fo4) {
+			return true;
+		}
+		switch (a_cat) {
+		case Category::kLeveledLists:
+		case Category::kContainers:
+		case Category::kOutfits:
+		case Category::kFormLists:
+		case Category::kKeywords:
+		case Category::kItemValues:
+		case Category::kNames:
+		case Category::kModels:
+		case Category::kScripts:
+		case Category::kRenumberFix:
+			return true;
+		default:
+			return false;  // NPCs, magic effects and cells are not merged for Fallout 4
+		}
+	}
+
 	const char* CategoryName(Category a_cat)
 	{
 		switch (a_cat) {
@@ -2285,6 +2562,47 @@ namespace ess::merge
 		case Category::kCellOther: return "Cell location, owner, encounter zone, music, sound, image space, flags and grid";
 		case Category::kRenumberFix: return "Fix references to compacted light (ESL) plugins";
 		default: return "?";
+		}
+	}
+
+	const char* CategoryDetail(Category a_cat, bool a_fo4)
+	{
+		if (!a_fo4) {
+			return CategoryDetail(a_cat);
+		}
+		switch (a_cat) {
+		case Category::kLeveledLists:
+			return "Leveled item, leveled NPC and leveled spell lists: each entry (level, the item, NPC, spell or list it gives, count, "
+				   "chance none, and the entry's owner and item condition) and the entry count. What every mod added or removed is "
+				   "combined, entries sorted by level as the Creation Kit writes them. A list that would grow past 255 entries is left "
+				   "to the winning mod. The list's own settings are under Values and settings.";
+		case Category::kContainers:
+			return "Containers: each item with its count, owner and item condition, and the item count. What every mod added or "
+				   "removed, and count changes, are combined.";
+		case Category::kOutfits:
+			return "Outfits: the armour pieces and leveled items in each outfit. What every mod added or removed is combined.";
+		case Category::kFormLists:
+			return "Form lists (lists of forms that scripts, conditions, workshop menus and crafting read): their entries. What every mod "
+				   "added or removed is combined; added entries go at the end.";
+		case Category::kKeywords:
+			return "Keywords on containers, misc items and keys, with the keyword count. What every mod added or removed is combined.";
+		case Category::kItemValues:
+			return "Each value from the last mod that changed it. Leveled lists: chance none, max count, flags (calculate from all levels, "
+				   "for each item in count, use all), chance-none global, keyword chances, epic loot chance. Containers: flags (respawns, "
+				   "show owner...), weight, properties, forced location ref type, native terminal, open, close and take-all sounds, "
+				   "filter list. Misc items and keys: value, weight, pick-up and put-down sounds, featured item message, components (with "
+				   "their display indices).";
+		case Category::kNames:
+			return "Editor IDs, names and a leveled item's override name, from the last mod that changed each.";
+		case Category::kModels:
+			return "From the last mod that changed each: models with their texture data, colour remapping, material swap and flags, "
+				   "inventory icons, object bounds, preview transform and destruction data (health, resistances, stages, explosion, "
+				   "debris, damaged models).";
+		case Category::kScripts:
+			return "The scripts attached to containers, misc items and keys, with every property value (structs included), taken as one "
+				   "set from the last mod that changed it.";
+		default:
+			return CategoryDetail(a_cat);
 		}
 	}
 
@@ -2456,8 +2774,14 @@ namespace ess::merge
 		o << pluginsRead << " plugins read, " << recordsRead << " records of the merged types.\n";
 		o << conflicts << " records are changed differently by two or more plugins.\n";
 		o << merged.size() << " of them were merged into the patch; " << skipped.size() << " could not be merged (the winning plugin's version stays).\n";
+		if (fo4) {
+			o << "Fallout 4 load order. Merged record types: leveled items, leveled NPCs, leveled spells, containers, form lists, outfits, "
+				 "misc items and keys.\n"
+			  << Fo4NotMerged() << "\n";
+		}
 		o << (legendary ? "Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes a load order slot.\n\n"
-		                : "The patch is a light (ESL-flagged) plugin: it takes no load order slot.\n\n");
+			  : light   ? "The patch is a light (ESL-flagged) plugin: it takes no load order slot.\n\n"
+						: "The patch is a normal plugin (not light): it takes a load order slot.\n\n");
 		if (!fixes.empty()) {
 			o << "Broken references fixed by the patch:\n";
 			for (const auto& w : fixes) o << "  " << w << "\n";
