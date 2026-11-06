@@ -18,6 +18,8 @@ ROOT = os.path.normpath(os.path.join(HERE, '..', '..'))
 SRC = os.path.join(ROOT, 'src', 'gui')
 MARKERS = ('tr', 'trId', 'N_')
 
+USAGE = re.compile(r'#\s+[A-Za-z0-9_]+\.(cpp|h):\d+(\s|$)')  # an entry's "where it is used" comment
+
 ESC = {'n': '\n', 't': '\t', '"': '"', '\\': '\\', "'": "'", 'r': '\r', '0': '\0', '?': '?', 'a': '\a'}
 
 
@@ -135,8 +137,13 @@ def read_catalogue(path):
                 raise SystemExit('%s:%d: tr without en' % (path, n))
             entries[cur] = unquote(t[3:], n, path)
             cur = None
-        elif not seen_entry and (t.startswith('language ') or t.startswith('#') or not t):
-            header.append(s)
+        elif not seen_entry and (t.startswith('language ') or (t.startswith('#') and not USAGE.match(t)) or not t):
+            # the "# File.cpp:N  code" lines above an entry belong to that entry and are written again by --update:
+            # keeping them in the header added one more copy of the first entry's comment on every run
+            if t or not header or header[-1].strip():
+                header.append(s)  # blank lines collapsed to one
+    while header and not header[-1].strip():
+        header.pop()
     return header, entries
 
 
