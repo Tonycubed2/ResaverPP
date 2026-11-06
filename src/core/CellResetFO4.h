@@ -1,4 +1,5 @@
-// ReSaver++ - Fallout 4: reset an area (a cell), the way the game's own console command ResetInterior does it.
+// ReSaver++ - Fallout 4: reset an area (a cell), the way the game's own console command ResetInterior (and Papyrus
+// Cell.Reset()) does it.
 //
 // How the game resets a cell (Fallout4.exe 1.11.240, RVAs):
 //  - ResetInterior (script command 0x1127, 0x5d11d0) calls 0x4c9330(cell, 0xFFFFFFFF, false): the cell's detach time
@@ -20,10 +21,28 @@
 //    a save is loading (0x4d2601: the save manager's flag 2 at +0x360, set by the loader 0xbee99b and cleared at its
 //    end 0xbef454), so a cell attached during the load (the player's cell and the exterior cells around the player)
 //    only resets the next time it attaches. After the reset the detach time becomes the current time (or 0).
+//  - Indoors and outdoors alike: the attach code (0x4d45d0 -> 0x4d2570) has no interior test, and the exterior grid code
+//    calls it (0x2d06f0: grid place = position >> 12, then 0x4d45d0); 0x4c9330 writes bits 29 / 28 only for an exterior.
+//    The Papyrus native Cell.Reset() (0x114b5f0, registered as "Reset" on "Cell" at 0x114bca1) and the encounter zone reset (0x49d830) call
+//    the same 0x4c9330(cell, 0xFFFFFFFF, false) for any cell, outdoor ones included (the console needs an editor id, which
+//    most outdoor cells lack).
+//  - A cell with no detach time (no ExtraDetachTime: the save has no CELL change form for it, or one without bit 30, as a
+//    cell whose only change is its flags): 0x4c9330 returns at once (0x4c934d: time -1, not loading, 0x2850e0 -> 0), so the
+//    console command does nothing to it, and the attach code neither resets nor respawns it (0x4d2601: detach time 0).
+//    The game gives a cell its detach time when the player leaves it (0x4d6e30 -> 0x4d7605: current time, bit 30, and
+//    29 / 28 outdoors; skipped only for FF cells, 0x3129c0). So for such a cell the reset writes what the game writes
+//    after the player has left it once and ResetInterior / Cell.Reset() ran: bit 30 (+ 29 / 28) and 0xFFFFFFFF.
+//  - Same code in 1.10.163 (ResetInterior 0x502b80 -> 0x3b32d0, attach check 0x3bbbae) and 1.10.984 (0x57cf20 -> 0x475190,
+//    0x47e458).
 //
-// So "reset an area" writes exactly what ResetInterior followed by a save would write: the CELL change form with bit 30
-// and a detach time of 0xFFFFFFFF (created when the save has none: interior cells only; an exterior cell needs its
-// coordinates, which only a CELL change form that already has them gives). Everything else in the save stays as it is;
+// So "reset an area" writes exactly what ResetInterior / Cell.Reset() followed by a save would write: the CELL change form
+// with bit 30 and a detach time of 0xFFFFFFFF, the initial data put in front of the cell's other saved data when it had
+// none (0xbf72f0 writes it: {u32} indoors; {u16 worldspace index, i8 x, i8 y, u32} or {u16, i16, i16, u32} outdoors),
+// the form created when the save has none. Whether the cell is indoors comes from the save (initial data) or the plugins
+// (CELL DATA bit 0, PluginDB::CellDef: the save's own bit 1 flags only carry bits 0x2264 back, 0x4d7a73, so they do not
+// say); an outdoor cell's worldspace and grid place from its saved initial data or the plugins (XCLC, the World Children
+// group). A worldspace missing from the save's visited worldspace array is appended (the game's writer 0xbeab40 numbers
+// a new one the same way; the loader 0xbeadb0 numbers the entries 1, 2, ...). Everything else in the save stays as it is;
 // the game itself decides on the next visit what goes back to the plugins' state.
 #pragma once
 #include "Save.h"
