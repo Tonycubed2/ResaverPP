@@ -62,6 +62,14 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
 - `cellemu.py <dump>`: reset an area check. On every CELL (type 6) it runs the game's initial data type (0xbf6c40), read and parse
   (0xbf7090: the detach time) and TESObjectCELL::LoadGame (0x4d7b30) on a fake cell; counts bodies read to the exact end and prints
   the detach times (ResetInterior's 0xFFFFFFFF after `--fo4-reset-cell`).
+- Reset an area with the plugins (branch f4b): `cellall.sh` resets every resettable cell of each test save with the CLI and
+  `--sources <Data>`, dumps it (`dumpcf.cpp`) and runs `cellemu.py` on every CELL (all read exactly, every reset one detach
+  0xFFFFFFFF; paths inside are the scratchpad's). `cellsyn.cpp <out.bin> <Save8.fos>` makes the cases the real saves lack
+  (outdoor change form with seen data + flags and no detach time, i16 coordinates, a worldspace not yet visited) for
+  `cellemu.py`. `esmcells.py <plugin> [ids]` reads CELL DATA / XCLC / worldspace independently of PluginDB.
+  `cellvers.py <exe>` (ResetInterior's handler and the detach time setter: the detach-0 early return and the bit 29 / 28
+  choice) and `cellattach.py <exe> <get detach rva>` (the attach code's 0 / -1 tests) check 1.10.163 / 1.10.984 / 1.11.240
+  (use decrypted exes).
 - Active effect removal (branch fx): `fxsources.py <plugins.json> <fxdump.jsonl>` writes each effect's source (MGEF flags,
   archetype, actor value, item type, spell / cast type) from a JSON of the plugins' MGEF/SPEL/ENCH/ALCH data; `fxremove.cpp <save>
   <sources> all|first|source <out.fos> <out.bin>` removes effects from every complete actor with fo4cf::RemoveActiveEffects, writes,
