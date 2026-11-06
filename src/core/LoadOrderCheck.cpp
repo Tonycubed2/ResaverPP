@@ -58,11 +58,19 @@ namespace ess::locheck
 			l.extendedRangeHedr = 1.0f;  // xEdit wbDefinitionsFO4: HardcodedRangeMinVersion 1.0
 			break;
 		case Game::kSkyrimSE:
+			// checked in SkyrimSE.exe 1.6.1170 (decrypted): TESDataHandler::AddCompiledFile 0x1b8580 puts a light file
+			// (IsLight 0x1c8d50 = TESFile flags +0x438 bit 0x200) in the small list (compile index 0xFE, small index u16 at
+			// +0x47a), any other in the full list (compile index = position as a byte); GetFileForFormID 0x1bdfe0 reads top
+			// byte 0xFE as "light, index = (id >> 12) & 0xFFF", any other top byte as the full list position (0xFF =
+			// created): 254 full (00..FD) + 4096 light. A light file's form ids are FE000000 | index << 12 | (id & 0xFFF)
+			// (0x1c8d70, 0x1c9b91).
 			l.maxFull = 254;
 			l.maxLight = 4096;
 			l.light = true;
-			l.maxHedr = 1.71f;  // xEdit wbDefinitionsTES5: SSE 1.71 (game 1.6.1130+)
-			l.extendedRangeHedr = 1.709f;  // xEdit: HardcodedRangeMinVersion 1.709
+			l.maxHedr = 1.71f;  // 0x1c6220: loaded only when 1.7101 >= HEDR version ("File %s is a higher version"), else the
+			                    // file's active bits (4, 8) are cleared (0x1c6fcf): not loaded
+			l.extendedRangeHedr = 1.709f;  // xEdit wbDefinitionsTES5: HardcodedRangeMinVersion 1.709 (a Creation Kit / xEdit
+			                               // rule: the game's loader takes any 12-bit id of a light file)
 			break;
 		case Game::kSkyrimLE:
 			l.maxFull = 255;  // 0x00..0xFE; 0xFF created
@@ -94,6 +102,8 @@ namespace ess::locheck
 		p.formVersion = U16(h + 20);
 		const auto limits = LimitsFor(a_game);
 		// the game's own reading: the header's master and light flags, plus .esm/.esl (master) and .esl (light)
+		// (Fallout4.exe 0x2f6217..0x2f62ba; SkyrimSE.exe 1.6.1170 0x1c5c4f..0x1c5cf2: header flags & 0x291 kept, then
+		// "esm" or "esl" -> | 1, "esl" -> | 0x200)
 		p.esm = (flags & 1) || low.ends_with(".esm") || p.eslExt;
 		p.eslFlag = (flags & 0x200) != 0;
 		p.light = limits.light && (p.eslFlag || p.eslExt);
@@ -262,8 +272,8 @@ namespace ess::locheck
 					                                  "(0.95 is Fallout 4 VR's). The game does not load it, nor the plugins that need it. It was saved by a "
 					                                  "newer Creation Kit (or another game's); get the version made for your game.");
 				} else if (a_opt.game == Game::kSkyrimSE) {
-					add(Severity::kError, p.name, p.name + " has header version " + Ver(p.hedr) + "; Skyrim Special Edition knows 1.71 at most. It "
-					                                  "was not made for this game.");
+					add(Severity::kError, p.name, p.name + " has header version " + Ver(p.hedr) + "; Skyrim Special Edition loads 1.71 at most. "
+					                                  "The game does not load it, nor the plugins that need it. It was not made for this game.");
 				}
 			} else if (a_opt.game == Game::kSkyrimSE && p.hedr > 1.7f + 1e-4f) {
 				add(Severity::kInfo, p.name, p.name + " has header version 1.71: it needs Skyrim 1.6.1130 or newer (older versions do not load it).");

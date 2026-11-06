@@ -856,9 +856,18 @@ namespace ess::skyf
 				stage, s.topFrame.empty() ? "?" : s.topFrame.c_str());
 			out.push_back(s);
 		}
+		// A shut-down stage (QUST INDX flags 0x04, xEdit wbDefinitionsTES5 "Shut Down Stage"; the game reads INDX as u16 index,
+		// u8 flags into the stage +2, 0x3db0e0) is run by the game only while the quest stops: the stop path (0x5330c9 /
+		// 0x53352f, quest flag 0x80 "stage wait" set first) calls 0x3c9af0, which runs every stage flagged 0x04. Starting a
+		// quest clears every stage's done bit first (start 0x3c9bf0 -> 0x532d20 -> TESQuest::Reset 0x3ca170), and SetStage
+		// (0x3c9d00 -> 0x3da8f0) never stops the quest. So a running quest with its shut-down stage done had that stage set
+		// in this run by a script or the console, and was not stopped afterwards. A quest saved while it starts or stops
+		// (flag 0x80) is left out: the game finishes that after loading. A stage flagged start-up too (0x02) is run by the
+		// start (0x533010 -> 0x3c9a60 runs every stage flagged 0x02): done in every running quest, so not passed here
+		// (ShutdownOnlyStages). Tony's Save132 has six such mod quests (stage 0 flagged both).
 		if (a_shutdownStages) {
 			for (const auto& q : states) {
-				if (!q.running()) {
+				if (!q.running() || (q.flags & 0x80) != 0) {
 					continue;
 				}
 				for (const int st : a_shutdownStages(q.formID)) {
@@ -868,13 +877,27 @@ namespace ess::skyf
 							x.quest = q.formID;
 							x.stage = st;
 							x.kind = "shutdown stage done, still running";
+							x.shutdown = true;
 							x.text = Fmt("Stage %d is the quest's shut-down stage and is done, yet the quest is still running and no script of "
-										 "that stage is running.",
+										 "that stage is running. The game runs a shut-down stage itself only while the quest stops, so a script "
+										 "(or the console) set this stage and the quest was never stopped after it. If the quest should be over, "
+										 "stopping it in the running game does what the game would have done.",
 								st);
 							out.push_back(x);
 						}
 					}
 				}
+			}
+		}
+		return out;
+	}
+
+	std::vector<int> ShutdownOnlyStages(const std::vector<std::pair<std::uint16_t, std::uint8_t>>& a_stages)
+	{
+		std::vector<int> out;
+		for (const auto& [index, flags] : a_stages) {
+			if ((flags & 6) == 4) {
+				out.push_back(index);
 			}
 		}
 		return out;

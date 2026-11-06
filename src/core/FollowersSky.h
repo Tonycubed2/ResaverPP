@@ -196,9 +196,14 @@ namespace ess::skyf
 		std::string   kind;           // "fragment running" / "shutdown stage done, still running"
 		std::string   topFrame;       // fragment running: the function the thread was in ("utility.Wait")
 		std::uint32_t thread = 0;
+		bool          shutdown = false;  // the shut-down stage check (else a fragment still running)
 		std::string   text;
 	};
-	// a_shutdownStages(quest) -> its stages flagged shut-down in the plugin (empty: not known)
+	// a_shutdownStages(quest) -> its stages flagged shut-down in the plugin (QUST INDX flags & 4; empty: not known). Quests
+	// saved while starting or stopping (quest flag 0x80) are left out. See FollowersSky.cpp for what the game does.
 	using StagesOf = std::function<std::vector<int>(std::uint32_t a_quest)>;
 	std::vector<StuckStage> FindStuckStages(const SaveFile& a_save, const StagesOf& a_shutdownStages = {});
+	// The stages of a QUST record (INDX: u16 index, u8 flags) that only the quest's stop runs: flag 0x04 (shut-down) without
+	// 0x02 (start-up: the start runs those, so a running quest has them done). Pass a record's (index, flags) pairs.
+	std::vector<int> ShutdownOnlyStages(const std::vector<std::pair<std::uint16_t, std::uint8_t>>& a_stages);
 }

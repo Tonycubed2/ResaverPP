@@ -12,6 +12,10 @@ SKSE plugin that lets ReSaver++ (ReSaver Plus) act in the running game on **Skyr
   `iRescueHoldSeconds`), which does all three even without ReSaver Plus. On LE the followers are found through the
   quest aliases that hold them (the vanilla follower quest and the follower mods' own systems): LE's game headers
   have no list of every character, so a follower held by no quest at all is not found (SE finds those too).
+- Followers and beast form (version 13): take a follower back the vanilla way (DialogueFollowerScript.SetFollower), switch a
+  character's teammate flag, and turn you back from werewolf / Vampire Lord form with the transformation script's own ShiftBack
+  (its "already busy" guards are reset first, so a revert that stopped half way runs to the end). Version 13 also sets
+  PlayerFollowerCount (0BCC98) when Transplant brings a vanilla follower back (12 looked up 0BCCAE, a perk).
 - Transplant: snapshot of the loaded character and applying another save's progress, like on SE.
   Differences on LE (logged when they matter):
   - no map markers in a snapshot (LE's game headers have no list of all references; a save file still gives them)
@@ -42,6 +46,8 @@ The DLL is `build\Release\ReSaverHelper.dll` (with its .pdb). Nothing is copied 
 
 - `extern\skse`: SKSE 1.7.3 source as himika's libSKSE keeps it (github.com/himika/libSKSE), with its
   additions listed in `extern\skse\WHATS_DIFF.txt`. SKSE's license is in `extern\skse\skse_license.txt`.
+- The script variable access for the beast form fix (the VM's FindBoundObject slot, the variables' place in a
+  script object) was read in TESV.exe 1.9.32.0 itself (decrypted from the Steam copy); see `src\Papyrus.h`.
 - The few functions and offsets SKSE does not have (Actor::HasPerk, HasSpell, GetLevel, the menu pause
   count, the script engine's call functions) are from himika's libSkyrim (github.com/kassent/SkyrimSouls,
   `Skyrim\include`), documented next to each one in `src\LE.h` and `src\Papyrus.h`.

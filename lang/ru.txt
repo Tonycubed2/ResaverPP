@@ -1,78 +1,6 @@
 language "Русский"
 
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
-
-# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 en "Anthropic (Claude)"
 tr "Anthropic (Claude)"
 
@@ -12517,6 +12445,50 @@ tr "ReSaverHelper выполняет FollowersScript.FollowerFollow: компа�
 # AppF4Companions.cpp:492  if (ImGui::Button(tr("Copy command: follow me"))) {
 en "Copy command: follow me"
 tr "Копировать команду: следуй за мной"
+
+# AppCosave.cpp:526  ImGui::TextWrapped(tr("JContainers: %s%s%s. Its object tree could not be broken down: %s"), cosave::SizeText(j->fileSize()).c_str(),
+en "JContainers: %s%s%s. Its object tree could not be broken down: %s"
+tr "JContainers: %s%s%s. Дерево его объектов не удалось разобрать: %s"
+
+# AppCosave.cpp:528  } else if (ImGui::CollapsingHeader(Fmt(tr("JContainers data: %s, %zu object(s)###jcdata"), cosave::SizeText(j->fileSize()).c_str(), b.objects.size()).
+en "JContainers data: %s, %zu object(s)"
+tr "Данные JContainers: %s, объектов: %zu"
+
+# AppCosave.cpp:530  ImGui::TextWrapped(tr("Arrays and maps that mods keep with JContainers (JArray, JMap, JFormMap, JIntMap), as this co-save holds them: "
+en "Arrays and maps that mods keep with JContainers (JArray, JMap, JFormMap, JIntMap), as this co-save holds them: %zu map(s), %zu array(s), %zu form map(s), %zu integer map(s); %zu value(s): %zu text, %zu number(s), %zu form(s), %zu link(s) to other objects, %zu empty. %zu form(s) watched, %zu object(s) waiting to be freed%s."
+tr "Массивы и карты, которые моды хранят в JContainers (JArray, JMap, JFormMap, JIntMap), как они записаны в этом косейве: карт: %zu, массивов: %zu, карт форм: %zu, целочисленных карт: %zu; значений: %zu (текст: %zu, числа: %zu, формы: %zu, ссылки на другие объекты: %zu, пустые: %zu). Отслеживаемых форм: %zu, объектов в очереди на освобождение: %zu%s."
+
+# AppCosave.cpp:534  b.domains.empty() ? "" : Fmt(tr(", %zu separate domain(s)"), b.domains.size()).c_str());
+en ", %zu separate domain(s)"
+tr ", отдельных доменов: %zu"
+
+# AppCosave.cpp:540  ImGui::TextWrapped(tr("Tags (mods usually tag their objects with their name): %s"), t.c_str());
+en "Tags (mods usually tag their objects with their name): %s"
+tr "Метки (моды обычно помечают свои объекты своим именем): %s"
+
+# AppCosave.cpp:542  ImGui::TextUnformatted(tr("Biggest objects (the keys usually tell which mod):"));
+en "Biggest objects (the keys usually tell which mod):"
+tr "Самые большие объекты (по ключам обычно видно, чей это мод):"
+
+# AppCosave.cpp:545  ImGui::TableSetupColumn(tr("Id / tag"), ImGuiTableColumnFlags_WidthFixed, 140);
+en "Id / tag"
+tr "Id / метка"
+
+# AppCosave.cpp:570  ImGui::TextWrapped("%s", tr("Read only: JContainers' data is not edited here (its objects point at each other; a mod's own "
+en "Read only: JContainers' data is not edited here (its objects point at each other; a mod's own menu or JContainers itself clears them)."
+tr "Только для чтения: данные JContainers здесь не изменяются (его объекты ссылаются друг на друга; очищает их меню самого мода или сам JContainers)."
+
+# AppSkyFollowers.cpp:440  if (ImGui::Button(tr("Stop the quest in the game"))) {
+en "Stop the quest in the game"
+tr "Остановить квест в игре"
+
+# AppSkyFollowers.cpp:445  tips::Tip(game && helperAtLeast(11) ? tr("Quest.Stop() in the running game: what the game does when a quest ends (its "
+en "Quest.Stop() in the running game: what the game does when a quest ends (its aliases are cleared, its shut-down stages run). This file is not changed."
+tr "Quest.Stop() в запущенной игре: то, что игра делает, когда квест заканчивается (очищаются его алиасы, выполняются его стадии завершения). Этот файл не изменяется."
+
+# AppSkyFollowers.cpp:447  : tr("Needs Skyrim running with ReSaverHelper 11 or newer and this save loaded."));
+en "Needs Skyrim running with ReSaverHelper 11 or newer and this save loaded."
+tr "Нужен запущенный Skyrim с ReSaverHelper 11 или новее и загруженным этим сохранением."
 
 # ---- no longer used by the code (kept for reference; safe to delete) ----
 

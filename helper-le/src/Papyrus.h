@@ -69,4 +69,20 @@ namespace papyrus
 
 	// a global function: Debug.Notification, Game.TeachWord...
 	bool CallStatic(const char* a_class, const char* a_fn, Args a_args, Done a_done = {});
+
+	// Set a Bool variable of the script a_class bound to a_object (a script's own variable, e.g. "__shiftingBack";
+	// not a property). Checked in TESV.exe 1.9.32.0 (decrypted from Tony's Steam copy, SteamStub 2.1):
+	//   - the script object: VM vtable slot 0x1B (0xC4D5F0) = FindBoundObject(UInt64 handle, const char* class,
+	//     BSScriptObject** out): the class name is made a BSFixedString inside (0xC4C3C3 -> 0x43BA00), the object
+	//     found gets a reference (0xC306A0) that the caller releases (0xC30720, = SKSE's VMIdentifier::DecrementLock;
+	//     at 0 Destroy 0xC30E90 + free, = VMIdentifier::Destroy). SKSE's PackHandle uses it the same way (Unk_1A).
+	//     The VM vtable is 0x0114C1B0 (set by its constructor 0xC54DE0, made by 0xC33360 from SkyrimVM's 0x8D82A4).
+	//   - the variable's index: VMClassInfo::GetVariable 0xC33E30 (BSFixedString* name): searched in the class and
+	//     its parents, index counted over the whole chain (parents' variables first, 0xC335F0 = their total), -1 none.
+	//   - the variables: BSScriptObject + 0x20, 8 bytes each (VMValue), as the VM's own GetVariableValue (vtable
+	//     slot 0x21, 0xC47E90) reads them: only when bit 2 of the object's first word (valid) is set and the index
+	//     is below the chain's total.
+	// Main thread. Returns 1 set (a_was = the old value), 0 the object has no such Bool variable, -1 no such script
+	// on the object.
+	int SetBoolVariable(TESForm* a_object, const char* a_class, const char* a_name, bool a_value, bool* a_was = nullptr);
 }
