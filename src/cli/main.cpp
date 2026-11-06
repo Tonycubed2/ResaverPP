@@ -1266,15 +1266,13 @@ int main(int argc, char** argv)
 			}
 			if (stuckStagesView) {
 				const auto list = skyf::FindStuckStages(*save, [&](std::uint32_t q) {
-					std::vector<int> v;
+					std::vector<std::pair<std::uint16_t, std::uint8_t>> v;
 					if (const auto* d = db ? db->quest(q) : nullptr) {
 						for (const auto& st : d->stages) {
-							if (st.flags & 4) {
-								v.push_back(st.index);
-							}
+							v.emplace_back(st.index, st.flags);
 						}
 					}
-					return v;
+					return skyf::ShutdownOnlyStages(v);
 				});
 				std::printf("%zu quest stage(s) not finished%s\n", list.size(), db ? "" : " (give --sources for the shut-down stage check and names)");
 				for (const auto& x : list) {

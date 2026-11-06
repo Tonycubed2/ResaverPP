@@ -4108,7 +4108,43 @@ void TestSkyFollowers()
 		for (const auto& x : ess::skyf::FindStuckStages(*save)) {
 			Check(x.quest != 0 && !x.topFrame.empty(), (tag + "a running stage script names its quest and where it waits").c_str());
 		}
+		// the shut-down stage check: a running quest (not starting / stopping) with a done stage passed as shut-down-only is found,
+		// with the same stage passed as not done nothing is; a quest saved with flag 0x80 is never reported
+		const ess::quests::QuestState* pick = nullptr;
+		std::int16_t                   doneStage = -1, notDone = -1;
+		for (const auto& q : ess::quests::ReadStates(*save)) {
+			if (!q.running() || (q.flags & 0x80)) {
+				continue;
+			}
+			std::int16_t d = -1, n = -1;
+			for (const auto& [st, done] : q.stages) {
+				(done ? d : n) = st;
+			}
+			if (d >= 0 && n >= 0) {
+				static ess::quests::QuestState keep;
+				keep = q;
+				pick = &keep;
+				doneStage = d;
+				notDone = n;
+				break;
+			}
+		}
+		if (pick) {
+			const auto id = pick->formID;
+			auto shut = [&](std::int16_t a_stage) {
+				return [=](std::uint32_t q) { return q == id ? std::vector<int>{ a_stage } : std::vector<int>{}; };
+			};
+			const auto found = ess::skyf::FindStuckStages(*save, shut(doneStage));
+			Check(std::count_if(found.begin(), found.end(), [&](const ess::skyf::StuckStage& x) { return x.shutdown && x.quest == id && x.stage == doneStage; }) == 1,
+				(tag + "a running quest with its shut-down stage done is reported").c_str());
+			const auto none = ess::skyf::FindStuckStages(*save, shut(notDone));
+			Check(std::none_of(none.begin(), none.end(), [](const ess::skyf::StuckStage& x) { return x.shutdown; }),
+				(tag + "a shut-down stage not done is not reported").c_str());
+		}
 	}
+	// only stages flagged shut-down and not start-up (INDX flags 4 without 2)
+	const auto only = ess::skyf::ShutdownOnlyStages({ { 0, 6 }, { 10, 4 }, { 20, 2 }, { 30, 0 }, { 40, 0x0C } });
+	Check(only == std::vector<int>{ 10, 40 }, "skyf: shut-down stages that only a stop runs (start-up ones left out)");
 }
 
 // Fallout 4 dropped / created items in the world (fo4world) and reset an area (fo4cell): synthetic change forms, then with

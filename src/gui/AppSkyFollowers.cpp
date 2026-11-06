@@ -70,15 +70,13 @@ void App::skyfRefresh()
 	});
 	v.beasts = skyf::ReadBeastForms(*_save);
 	v.stages = skyf::FindStuckStages(*_save, [db](std::uint32_t q) {
-		std::vector<int> out;
+		std::vector<std::pair<std::uint16_t, std::uint8_t>> st;
 		if (const auto* d = db ? db->quest(q) : nullptr) {
 			for (const auto& s : d->stages) {
-				if (s.flags & 4) {
-					out.push_back(s.index);
-				}
+				st.emplace_back(s.index, s.flags);
 			}
 		}
-		return out;
+		return skyf::ShutdownOnlyStages(st);
 	});
 }
 
@@ -436,6 +434,18 @@ void App::drawSkyFollowers()
 					_questSel = s.quest;
 				}
 				tips::Tip(tr("The Quests page, where the quest can be looked at, set to a stage or stopped in the running game."));
+				if (s.shutdown) {
+					ImGui::SameLine();
+					ImGui::BeginDisabled(!(game && helperAtLeast(11)));
+					if (ImGui::Button(tr("Stop the quest in the game"))) {
+						const auto name = formText(s.quest);
+						skyfInGame(s.quest, [this, name](std::uint32_t rid) { liveStop(rid, name); });
+					}
+					ImGui::EndDisabled();
+					tips::Tip(game && helperAtLeast(11) ? tr("Quest.Stop() in the running game: what the game does when a quest ends (its "
+															  "aliases are cleared, its shut-down stages run). This file is not changed.")
+														: tr("Needs Skyrim running with ReSaverHelper 11 or newer and this save loaded."));
+				}
 				ImGui::PopID();
 			}
 			ImGui::EndTabItem();
