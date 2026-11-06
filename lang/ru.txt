@@ -12528,3 +12528,35 @@ tr "%s  (эффект %u)"
 
 en "  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's change forms decoded are greyed out)"
 tr "  (работают инструменты очистки, списки скриптов, моды, логи и конфликты файлов; инструменты, которым нужны расшифрованные изменённые формы сохранения, неактивны)"
+
+# AppF4World.cpp:293
+en "Indoor and outdoor cells alike. Your mods tell indoors from outdoors and where an outdoor cell is, so cells the save says little about can be reset once your mods are scanned. Not done: the player's cell and the cells loaded around the player (the game does not reset a cell while a save loads), a worldspace's persistent cell, and cells made during play. Only what is in the cell when the game resets it is touched: an actor that walked elsewhere is not. Settlements: their workshop objects belong to the settlement; resetting a settlement cell is not recommended."
+tr "Внутренние и наружные ячейки одинаково. Ваши моды говорят, внутренняя ячейка или наружная и где находится наружная, поэтому ячейки, о которых сохранение почти ничего не говорит, можно сбросить после сканирования модов. Не выполняется: для ячейки игрока и ячеек, загруженных вокруг него (игра не сбрасывает ячейку во время загрузки сохранения), для постоянной ячейки пространства мира и для ячеек, созданных во время игры. Затрагивается только то, что находится в ячейке в момент сброса: персонаж, ушедший в другое место, не затрагивается. Поселения: их объекты мастерской принадлежат поселению; сбрасывать ячейку поселения не рекомендуется."
+
+# AppF4World.cpp:303
+en "Reset any cell: name, editor ID or form ID"
+tr "Сбросить любую ячейку: имя, ID редактора или ID формы"
+
+# AppF4World.cpp:306
+en "Needs your mods scanned (the cells come from the plugins)."
+tr "Нужно сканирование модов (ячейки берутся из плагинов)."
+
+# AppF4World.cpp:314
+en "... more: type more of the name"
+tr "... ещё: введите больше символов имени"
+
+# AppF4World.cpp:344
+en "No cell of your mods matches."
+tr "Ни одна ячейка ваших модов не подходит."
+
+# AppF4World.cpp:363
+en "indoors or outdoors?"
+tr "внутри или снаружи?"
+
+# AppF4World.cpp:366
+en "outdoors"
+tr "снаружи"
+
+# AppF4World.cpp:375
+en "The game has not given this cell a detach time (the player has not left it since it was last reset, or never went there): the console's ResetInterior would do nothing to it now. The reset writes what the game writes once the player has left it and ResetInterior ran, so the game resets it the next time it loads it."
+tr "Игра ещё не дала этой ячейке время отсоединения (игрок не покидал её с последнего сброса или никогда в ней не был): консольная команда ResetInterior сейчас ничего бы с ней не сделала. Сброс записывает то, что игра записывает, когда игрок покинул ячейку и выполнилась ResetInterior, поэтому игра сбросит её при следующей загрузке."
