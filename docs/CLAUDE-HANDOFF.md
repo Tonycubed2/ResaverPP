@@ -319,6 +319,33 @@ project; you do the coding, building, delivering and publishing.
   RESAVERPP_TEST_CAT=0 RESAVERPP_TEST_OPEN=f4world|f4cells); Save check finding at 500+ removable items. Checks: rs_unit
   TestFo4WorldItems; tools/fo4emu/cellemu.py (every CELL of Save8/Save14/MainQuest...FarHarbor/nate read exactly by the game's code;
   the edited cells give detach 0xFFFFFFFF). Not tested in the real game.
+- Reset an area with the plugins (2026-11-06, branch f4b, not published, not tested in the real game): `PluginDB::CellDef`
+  (`cell(id)`, `cellAt(ws, x, y)`): every CELL's DATA flags (bit 0 interior; the game keeps DATA in TESObjectCELL +0x40,
+  0x4c28d1), XCLC x / y, the worldspace (label of the World Children group, type 1), persistent (record flag 0x400 in a
+  worldspace), last override wins, a deleted override removes it. `fo4world::CellRecord` + `Lookup::cell / cellAt` and
+  `fo4world::LookupFrom(db)` (GUI and CLI use it). `fo4cell::ListCells` takes indoors / outdoors and an outdoor cell's place
+  from the save's initial data, else the plugins; outdoor cells named only by saved positions (and the 5 x 5 around an
+  outdoor player) are listed through `cellAt`; `ResetCell` works on any cell the save or a plugin knows; `ResetCells`
+  (batch, the cells read once; the CLI uses it). Exe findings (1.11.240; 1.10.163 / 984 the same code, checked on the
+  decrypted copies scratchpad/f4v163, f4v984; the uploaded depot exes are encrypted): ResetInterior and Papyrus Cell.Reset()
+  (0x114b5f0) and the encounter zone reset (0x49d830) all call 0x4c9330(cell, -1, 0), indoor or outdoor (outdoor: bit 29 if
+  x and y fit a byte, else 28); 0x4c9330 does NOTHING when the cell has no detach time (0x4c934d, so the console command is
+  a no-op on a cell with no CELL change form or one without bit 30), and the attach code neither resets nor respawns such a
+  cell (0x4d2601); the player leaving a cell (0x4d6e30 -> 0x4d7605) gives it detach time = now + bit 30 (+29/28), skipped
+  for FF cells. So for those cells the reset writes what the game writes after the player left once and ResetInterior ran:
+  bit 30 (+29/28) and 0xFFFFFFFF, initial data put in front ({u32}, {u16 ws index, i8, i8, u32} or {u16, i16, i16, u32},
+  writer 0xbf72f0); a worldspace not in the visited array is appended (writer 0xbeab40 / loader 0xbeadb0 number them
+  1, 2, ...). The save's own bit 1 cell flags do not carry the interior bit (only 0x2264 bits go back, 0x4d7a73). New refusals:
+  worldspace's persistent cell, FF cells, forms that are not CELLs (the old code listed the WRLDs DiamondCity 0F94,
+  Goodneighbor 54BD5, DLC03FarHarbor, NukaWorld... as "interior cells, can reset": fixed). Per save (with the plugins, can
+  reset before -> after): Tony's Save8 368 -> 897 (the 13 Diamond City flags-only houses now resettable), Save7 368 -> 896,
+  nate 269 -> 813, nora 262 -> 797, MainQuestRailroad 977 -> 1308 (+Automatron 1014 -> 1345, +FarHarbor 1508 -> 1789),
+  fo4full Save8/9/10/12/14 about +4 to +9 each. Every resettable cell of every save reset, dumped and run through the game's
+  CELL loader (tools/fo4emu/cellall.sh + cellemu.py): all read exactly, detach 0xFFFFFFFF; synthetic cases (outdoor change
+  form without detach, i16 coordinates, unvisited worldspace: tools/fo4emu/cellsyn.cpp) too. GUI: Reset an area tab has
+  "Reset any cell" (search the mods' CELLs by name / editor ID / form ID; test hook RESAVERPP_TEST_FINDCELL), "indoors or
+  outdoors?" / "outdoors" places, a tip on cells with no detach time. Tests: rs_unit TestFo4CellReset (needs
+  RESAVERPP_FO4_SAVES with Tony's Save8 for the synthetic part, RESAVERPP_FO4_DATA for the plugins part).
 - Companions through the helper (2026-11-06, branch comp2, not published; needs helper-f4 version 15, which Tony must build in
   VS2022: `helper-f4/src/Transplant.h/.cpp`, `Protocol.h` (kHelperVersion 15), `Rescue.cpp`, README changed): APPLY records
   `companion <ref> <0|1> [script]`, `companionfollow <ref>`, `affinity <ref> <n> [script]` -> `<ref>.cf "<script>.UnsetHasLeftPlayerPermanently"`
