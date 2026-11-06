@@ -464,7 +464,7 @@ namespace ess::fo4ws
 		return {};
 	}
 
-	std::vector<Finding> Check(const SaveFile& a_save)
+	std::vector<Finding> Check(const SaveFile& a_save, std::vector<Settlement>* a_list)
 	{
 		std::vector<Finding> out;
 		const auto*          p = a_save.papyrus();
@@ -547,6 +547,9 @@ namespace ess::fo4ws
 		}
 		for (auto& f : missing) {
 			out.push_back(std::move(f));
+		}
+		if (a_list) {
+			*a_list = list;
 		}
 		if (haveArray) {
 			std::vector<std::pair<std::uint32_t, std::int32_t>> sorted(settlerID.begin(), settlerID.end());

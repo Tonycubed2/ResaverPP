@@ -105,8 +105,7 @@ bool App::settlementsPoll()
 		std::thread([job, snap] {
 			WsState::Result r;
 			try {
-				r.findings = fo4ws::Check(*snap);
-				r.list = fo4ws::List(*snap);
+				r.findings = fo4ws::Check(*snap, &r.list);
 			} catch (const std::exception&) {
 			}
 			std::lock_guard l(job->m);

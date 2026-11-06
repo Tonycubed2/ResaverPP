@@ -129,5 +129,6 @@ namespace ess::fo4ws
 		std::int32_t  id = -1;     // the settler's workshopID
 		std::string   text;        // one line, English
 	};
-	std::vector<Finding> Check(const SaveFile& a_save);
+	// a_list (optional): receives List(a_save), read in the same pass
+	std::vector<Finding> Check(const SaveFile& a_save, std::vector<Settlement>* a_list = nullptr);
 }
