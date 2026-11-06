@@ -52,3 +52,6 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
 - `refrpos.cpp` + `refrnative.py` (+ `refrcheck.sh <save> <dump>`): the reference part's extra type positions and end from
   the decoder and from the game's own TESObjectREFR::LoadGame. `stack1.py` with NATIVE=1 runs that loader instead of dec.py.
 - `xscan.py <type hex>...`: which ExtraDataList::LoadGame handlers reach a vsval read (lists among the "fixed" types).
+- `cellemu.py <dump>`: reset an area check. On every CELL (type 6) it runs the game's initial data type (0xbf6c40), read and parse
+  (0xbf7090: the detach time) and TESObjectCELL::LoadGame (0x4d7b30) on a fake cell; counts bodies read to the exact end and prints
+  the detach times (ResetInterior's 0xFFFFFFFF after `--fo4-reset-cell`).
