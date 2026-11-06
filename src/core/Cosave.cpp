@@ -10,6 +10,8 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <map>
+#include <stdexcept>
 #include <unordered_map>
 
 namespace ess::cosave
@@ -900,21 +902,450 @@ namespace ess::cosave
 
 	namespace jc
 	{
-		std::string Header(const File& a_file)
+		namespace
 		{
-			const auto* p = a_file.fo4 ? nullptr : a_file.find(kUid);
-			if (!p) {
-				return "";
-			}
-			for (const auto& c : p->chunks) {
-				if (c.type == kUid && !c.data.empty() && c.data[0] == '{') {
-					const auto e = std::find(c.data.begin(), c.data.end(), '}');
-					if (e != c.data.end()) {
-						return std::string(c.data.begin(), e + 1);
+			const Chunk* StorageChunk(const File& a_file)
+			{
+				const auto* p = a_file.fo4 ? nullptr : a_file.find(kUid);
+				if (!p) {
+					return nullptr;
+				}
+				for (const auto& c : p->chunks) {
+					if (c.type == kUid) {
+						return &c;
 					}
 				}
+				return nullptr;
 			}
-			return "";
+
+			// the header: its length as decimal text, then that many bytes of JSON (older files: the JSON alone)
+			bool SplitHeader(const std::vector<std::uint8_t>& a_d, std::string& a_json, std::size_t& a_end)
+			{
+				std::size_t i = 0, len = 0;
+				while (i < a_d.size() && i < 10 && a_d[i] >= '0' && a_d[i] <= '9') {
+					len = len * 10 + (a_d[i++] - '0');
+				}
+				if (i > 0 && i + len <= a_d.size() && len > 0 && a_d[i] == '{') {
+					a_json.assign(a_d.begin() + i, a_d.begin() + i + len);
+					a_end = i + len;
+					return true;
+				}
+				if (!a_d.empty() && a_d[0] == '{') {
+					const auto e = std::find(a_d.begin(), a_d.end(), '}');
+					if (e != a_d.end()) {
+						a_json.assign(a_d.begin(), e + 1);
+						a_end = static_cast<std::size_t>(e - a_d.begin()) + 1;
+						return true;
+					}
+				}
+				return false;
+			}
+
+			struct Fail : std::runtime_error
+			{
+				using std::runtime_error::runtime_error;
+			};
+
+			// boost binary_iarchive framing, as boost 1.67 writes it (see Cosave.h)
+			class Archive
+			{
+			public:
+				Archive(const std::vector<std::uint8_t>& a_d, std::size_t a_at) :
+					d(a_d), at(a_at) {}
+
+				const std::vector<std::uint8_t>& d;
+				std::size_t                      at;
+				unsigned                         longSize = 4;
+
+				template <class T>
+				T get()
+				{
+					if (at + sizeof(T) > d.size()) {
+						throw Fail(Fmt("the archive ends early (byte %zu)", at));
+					}
+					T v;
+					std::memcpy(&v, d.data() + at, sizeof(T));
+					at += sizeof(T);
+					return v;
+				}
+				std::string str()
+				{
+					const auto n = get<std::uint64_t>();
+					if (n > d.size() - at) {
+						throw Fail(Fmt("a text of %llu bytes at byte %zu does not fit", static_cast<unsigned long long>(n), at));
+					}
+					std::string s(reinterpret_cast<const char*>(d.data() + at), static_cast<std::size_t>(n));
+					at += static_cast<std::size_t>(n);
+					return s;
+				}
+				std::int64_t getLong() { return longSize == 8 ? get<std::int64_t>() : get<std::int32_t>(); }
+
+				struct Class
+				{
+					int      id = 0;
+					bool     tracked = false;
+					unsigned version = 0;
+				};
+				// a class written as an object: its tracking + version the first time; then its object id when tracked.
+				// Returns false when it is a reference to an object read before (nothing else follows).
+				bool object(const std::string& a_class, unsigned a_maxVersion, unsigned* a_version = nullptr)
+				{
+					auto it = classes.find(a_class);
+					if (it == classes.end()) {
+						Class c;
+						c.id = count++;
+						c.tracked = get<std::uint8_t>() != 0;
+						c.version = get<std::uint32_t>();
+						it = classes.emplace(a_class, c).first;
+						byId[c.id] = a_class;
+					}
+					if (it->second.version > a_maxVersion) {
+						throw Fail(Fmt("%s is version %u (only up to %u is known), byte %zu", a_class.c_str(), it->second.version, a_maxVersion, at));
+					}
+					if (a_version) {
+						*a_version = it->second.version;
+					}
+					if (it->second.tracked) {
+						const auto oid = get<std::uint32_t>();
+						if (oid < objects) {
+							return false;
+						}
+						++objects;
+					}
+					return true;
+				}
+				// a pointer: "" null; else the class read; a_new false when it points at an object read before
+				std::string pointer(const std::string& a_static, bool a_polymorphic, bool& a_new, unsigned& a_version)
+				{
+					a_new = false;
+					const auto cid = get<std::int16_t>();
+					if (cid == -1) {
+						return {};
+					}
+					std::string name;
+					if (auto b = byId.find(cid); b != byId.end()) {
+						name = b->second;
+					} else {
+						if (cid != count) {
+							throw Fail(Fmt("class id %d where %d was expected, byte %zu", cid, count, at));
+						}
+						name = a_polymorphic ? str() : a_static;
+						if (classes.contains(name)) {
+							throw Fail(Fmt("class %s seen twice, byte %zu", name.c_str(), at));
+						}
+						Class c;
+						c.id = count++;
+						c.tracked = get<std::uint8_t>() != 0;
+						c.version = get<std::uint32_t>();
+						classes.emplace(name, c);
+						byId[c.id] = name;
+					}
+					const auto& c = classes[name];
+					a_version = c.version;
+					if (c.tracked) {
+						const auto oid = get<std::uint32_t>();
+						if (oid < objects) {
+							return name;
+						}
+						++objects;
+					}
+					a_new = true;
+					return name;
+				}
+
+			private:
+				std::map<std::string, Class> classes;
+				std::map<int, std::string>   byId;
+				int                          count = 0;
+				std::uint32_t                objects = 0;
+			};
+
+			class Reader
+			{
+			public:
+				Reader(Archive& a_ar, Breakdown& a_b) :
+					ar(a_ar), b(a_b) {}
+
+				void master()
+				{
+					if (!ar.object("master", 0)) {
+						throw Fail("master read as a reference");
+					}
+					context(b.rootId);
+					const auto n = ar.get<std::uint32_t>();
+					if (n > 10000) {
+						throw Fail(Fmt("%u domains, byte %zu", n, ar.at));
+					}
+					for (std::uint32_t i = 0; i < n; ++i) {
+						domain = ar.str();
+						b.domains.push_back(domain);
+						std::uint32_t root = 0;
+						context(root);
+					}
+					domain.clear();
+					// form_observer v3: u32 count, shared_ptr<form_entry> each
+					if (!ar.object("form_observer", 3)) {
+						throw Fail("form_observer read as a reference");
+					}
+					const auto forms = ar.get<std::uint32_t>();
+					for (std::uint32_t i = 0; i < forms; ++i) {
+						formEntry();
+					}
+					b.watchedForms = forms;
+				}
+
+			private:
+				Archive&    ar;
+				Breakdown&  b;
+				std::string domain;
+				int         depth = 0;
+
+				std::uint64_t size()
+				{
+					const auto n = ar.get<std::uint64_t>();
+					if (n > ar.d.size()) {
+						throw Fail(Fmt("a list of %llu entries at byte %zu", static_cast<unsigned long long>(n), ar.at));
+					}
+					return n;
+				}
+
+				void context(std::uint32_t& a_root)
+				{
+					ar.object("tes_context", 2);
+					ar.object("object_context", 0);
+					ar.object("object_registry", 1);
+					// unordered_set<object_base*>: count, bucket count, item version, the pointers
+					ar.object("unordered_set<object_base*>", 0);
+					const auto n = size();
+					ar.get<std::uint64_t>();
+					ar.get<std::uint32_t>();
+					for (std::uint64_t i = 0; i < n; ++i) {
+						objectPointer();
+					}
+					ar.object("id_generator", 1);
+					ar.object("deque<range>", 0);
+					const auto ranges = size();
+					ar.get<std::uint32_t>();
+					for (std::uint64_t i = 0; i < ranges; ++i) {
+						ar.object("range", 0);
+						ar.get<std::uint32_t>();
+						ar.get<std::uint32_t>();
+					}
+					ar.get<std::uint64_t>();  // the current range
+					unsigned v = 0;
+					ar.object("autorelease_queue", 2, &v);
+					if (v != 2) {
+						throw Fail(Fmt("autorelease_queue version %u (only 2 is read), byte %zu", v, ar.at));
+					}
+					ar.get<std::uint32_t>();  // tick counter
+					ar.object("deque<queue_object_ref>", 0);
+					const auto q = size();
+					ar.get<std::uint32_t>();
+					for (std::uint64_t i = 0; i < q; ++i) {
+						ar.object("queue_object_ref", 0);
+						objectPointer();
+					}
+					b.queue += static_cast<std::size_t>(q);
+					a_root = ar.get<std::uint32_t>();
+				}
+
+				// the form id when this entry is written here (0: none, or one read before)
+				std::uint32_t formEntry()
+				{
+					ar.object("shared_ptr<form_entry>", 1);
+					bool     fresh = false;
+					unsigned v = 0;
+					if (!ar.pointer("form_entry", false, fresh, v).empty() && fresh) {
+						const auto id = ar.get<std::uint32_t>();
+						ar.getLong();  // deleted
+						return id;
+					}
+					return 0;
+				}
+
+				void objectPointer()
+				{
+					bool       fresh = false;
+					unsigned   v = 0;
+					const auto start = ar.at;
+					const auto type = ar.pointer("object_base", true, fresh, v);
+					if (type.empty() || !fresh) {
+						return;
+					}
+					if (++depth > 2000) {
+						throw Fail("objects nested too deep");
+					}
+					Object o;
+					o.type = type;
+					o.domain = domain;
+					const bool array = type == "kJArray", map = type == "kJMap", fmap = type == "kJFormMap", imap = type == "kJIntegerMap";
+					if (!array && !map && !fmap && !imap) {
+						throw Fail(Fmt("unknown object class %s, byte %zu", type.c_str(), ar.at));
+					}
+					if (fmap && v != 1) {
+						throw Fail(Fmt("kJFormMap version %u (only 1 is read), byte %zu", v, ar.at));
+					}
+					unsigned bv = 0;
+					if (ar.object("object_base", 2, &bv)) {
+						if (bv != 2) {
+							throw Fail(Fmt("object_base version %u (only 2 is read), byte %zu", bv, ar.at));
+						}
+						ar.get<std::uint32_t>();  // push time
+						o.tesRefs = ar.get<std::int32_t>();
+						o.id = ar.get<std::uint32_t>();
+						o.tag = ar.str();
+					}
+					std::size_t inner = 0;  // bytes of objects first written inside this one
+					const std::string coll = array ? "vector<item>" : map ? "map<string,item>" : fmap ? "map<form_ref,item>" : "map<int,item>";
+					ar.object(coll, 0);
+					const auto n = size();
+					ar.get<std::uint32_t>();
+					o.entries = static_cast<std::size_t>(n);
+					for (std::uint64_t i = 0; i < n; ++i) {
+						if (!array) {
+							ar.object("pair<" + coll.substr(4), 0);
+							if (map) {
+								auto k = ar.str();
+								if (o.keys.size() < 12) {
+									o.keys.push_back(std::move(k));
+								}
+							} else if (imap) {
+								const auto k = ar.get<std::int32_t>();
+								if (o.keys.size() < 12) {
+									o.keys.push_back(std::to_string(k));
+								}
+							} else {
+								ar.object("form_ref", 2);
+								const auto id = formEntry();
+								if (o.keys.size() < 12) {
+									o.keys.push_back(id ? Fmt("%08X", id) : std::string("(form)"));
+								}
+							}
+						}
+						inner += item();
+					}
+					o.bytes = ar.at - start - std::min(inner, ar.at - start);
+					(array ? b.arrays : map ? b.maps : fmap ? b.formMaps : b.intMaps)++;
+					b.objects.push_back(std::move(o));
+					--depth;
+					last = ar.at - start;
+				}
+
+				std::size_t last = 0;
+
+				// one item; returns the bytes of an object first written inside it
+				std::size_t item()
+				{
+					ar.object("item", 3);
+					unsigned v = 0;
+					ar.object("variant", 0, &v);
+					const auto which = ar.get<std::int32_t>();
+					++b.values;
+					switch (which) {
+					case 0:
+						ar.get<std::uint8_t>();  // boost::blank, a primitive of one byte
+						++b.empty;
+						return 0;
+					case 1:
+						ar.get<std::int32_t>();
+						++b.numbers;
+						return 0;
+					case 2:
+						ar.get<float>();
+						++b.numbers;
+						return 0;
+					case 3:
+						ar.object("form_ref", 2);
+						formEntry();
+						++b.forms;
+						return 0;
+					case 4: {
+						ar.object("internal_object_ref", 0);
+						++b.objectRefs;
+						const auto before = b.objects.size();
+						last = 0;
+						objectPointer();
+						return b.objects.size() > before ? last : 0;
+					}
+					case 5:
+						ar.str();
+						++b.strings;
+						return 0;
+					default:
+						throw Fail(Fmt("value type %d, byte %zu", which, ar.at));
+					}
+				}
+			};
+		}
+
+		std::string Header(const File& a_file)
+		{
+			const auto* c = StorageChunk(a_file);
+			std::string json;
+			std::size_t end = 0;
+			return c && SplitHeader(c->data, json, end) ? json : std::string();
+		}
+
+		Breakdown AnalyzeBytes(const std::vector<std::uint8_t>& a_d)
+		{
+			Breakdown b;
+			b.present = true;
+			b.bytes = a_d.size();
+			std::size_t at = 0;
+			if (!SplitHeader(a_d, b.header, at)) {
+				b.error = "no JSON header";
+				return b;
+			}
+			if (b.header.find("\"commonVersion\": 6") == std::string::npos && b.header.find("\"commonVersion\":6") == std::string::npos) {
+				b.error = "the data is in another JContainers format (" + b.header + "); only commonVersion 6 is read";
+				return b;
+			}
+			try {
+				Archive ar(a_d, at);
+				if (ar.str() != "serialization::archive") {
+					throw Fail("not a boost archive");
+				}
+				b.library = ar.get<std::uint16_t>();
+				const auto szInt = ar.get<std::uint8_t>(), szLong = ar.get<std::uint8_t>(), szFloat = ar.get<std::uint8_t>(), szDouble = ar.get<std::uint8_t>();
+				if (ar.get<std::int32_t>() != 1 || szInt != 4 || szFloat != 4 || szDouble != 8 || (szLong != 4 && szLong != 8)) {
+					throw Fail("an archive of another machine type");
+				}
+				if (b.library < 8) {
+					throw Fail(Fmt("boost archive library version %u (8 or newer is read)", b.library));
+				}
+				ar.longSize = szLong;
+				Reader r(ar, b);
+				r.master();
+				if (ar.at != a_d.size()) {
+					throw Fail(Fmt("%zu bytes left after the object tree", a_d.size() - ar.at));
+				}
+				b.ok = true;
+			} catch (const std::exception& e) {
+				b.error = e.what();
+				b.objects.clear();
+				return b;
+			}
+			std::map<std::string, std::size_t> tags;
+			for (const auto& o : b.objects) {
+				if (!o.tag.empty()) {
+					++tags[o.tag];
+				}
+			}
+			b.tags.assign(tags.begin(), tags.end());
+			std::stable_sort(b.tags.begin(), b.tags.end(), [](const auto& x, const auto& y) { return x.second > y.second; });
+			std::stable_sort(b.objects.begin(), b.objects.end(), [](const Object& x, const Object& y) {
+				return x.entries != y.entries ? x.entries > y.entries : x.bytes > y.bytes;
+			});
+			return b;
+		}
+
+		Breakdown Analyze(const File& a_file)
+		{
+			const auto* c = StorageChunk(a_file);
+			if (!c) {
+				return {};
+			}
+			return AnalyzeBytes(c->data);
 		}
 	}
 
@@ -1150,8 +1581,29 @@ namespace ess::cosave
 			}
 		}
 		if (const auto* j = a_file.fo4 ? nullptr : a_file.find(jc::kUid)) {
-			const auto h = jc::Header(a_file);
-			s += Fmt("JContainers: %s%s (a boost archive of its object tree; not broken down)\n", SizeText(j->fileSize()).c_str(), h.empty() ? "" : (", " + h).c_str());
+			const auto b = jc::Analyze(a_file);
+			s += Fmt("JContainers: %s%s\n", SizeText(j->fileSize()).c_str(), b.header.empty() ? "" : (", " + b.header).c_str());
+			if (!b.ok) {
+				s += "  not broken down: " + (b.error.empty() ? std::string("no JSTR chunk") : b.error) + "\n";
+			} else {
+				s += Fmt("  %zu object(s): %zu map(s), %zu array(s), %zu form map(s), %zu integer map(s); %zu value(s): %zu text, %zu number(s), "
+						 "%zu form(s), %zu object reference(s), %zu empty; %zu form(s) watched, %zu object(s) waiting to be freed, JDB root %u%s\n",
+					b.objects.size(), b.maps, b.arrays, b.formMaps, b.intMaps, b.values, b.strings, b.numbers, b.forms, b.objectRefs, b.empty,
+					b.watchedForms, b.queue, b.rootId, b.domains.empty() ? "" : Fmt(", %zu other domain(s)", b.domains.size()).c_str());
+				for (std::size_t i = 0; i < b.tags.size() && i < a_top; ++i) {
+					s += Fmt("  tag %-30s %zu object(s)\n", b.tags[i].first.substr(0, 30).c_str(), b.tags[i].second);
+				}
+				s += "  biggest objects:\n";
+				for (std::size_t i = 0; i < b.objects.size() && i < a_top; ++i) {
+					const auto& o = b.objects[i];
+					std::string keys;
+					for (const auto& k : o.keys) {
+						keys += (keys.empty() ? "" : ", ") + k;
+					}
+					s += Fmt("    %-12s id %-6u %-20s %6zu entries %10s  %s\n", o.type.c_str(), o.id, o.tag.substr(0, 20).c_str(), o.entries,
+						SizeText(o.bytes).c_str(), keys.substr(0, 80).c_str());
+				}
+			}
 		}
 		return s;
 	}

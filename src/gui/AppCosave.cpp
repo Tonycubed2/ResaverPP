@@ -69,6 +69,7 @@ struct App::CosaveView
 	cosave::View                     view;
 	cosave::papu::Breakdown          papu;
 	std::string                      jcHeader;
+	cosave::jc::Breakdown            jc;  // JContainers' object tree
 	// the DLL search: keyed by the folders searched
 	std::string                      dllKey;
 	std::shared_ptr<DllJob>          job;
@@ -109,6 +110,7 @@ App::CosaveView& App::cosaveView()
 				c.ok = true;
 				c.papu = cosave::papu::Analyze(c.file);
 				c.jcHeader = cosave::jc::Header(c.file);
+				c.jc = cosave::jc::Analyze(c.file);
 			} catch (const std::exception& e) {
 				c.error = e.what();
 			}
@@ -519,8 +521,55 @@ void App::drawCosave()
 		}
 	}
 	if (const auto* j = f.fo4 ? nullptr : f.find(cosave::jc::kUid)) {
-		ImGui::TextWrapped(tr("JContainers: %s%s%s. Its object tree is stored as one block and is not broken down here."), cosave::SizeText(j->fileSize()).c_str(),
-			c.jcHeader.empty() ? "" : ", ", c.jcHeader.c_str());
+		const auto& b = c.jc;
+		if (!b.ok) {
+			ImGui::TextWrapped(tr("JContainers: %s%s%s. Its object tree could not be broken down: %s"), cosave::SizeText(j->fileSize()).c_str(),
+				c.jcHeader.empty() ? "" : ", ", c.jcHeader.c_str(), b.error.empty() ? "?" : b.error.c_str());
+		} else if (ImGui::CollapsingHeader(Fmt(tr("JContainers data: %s, %zu object(s)###jcdata"), cosave::SizeText(j->fileSize()).c_str(), b.objects.size()).c_str(),
+					   ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::TextWrapped(tr("Arrays and maps that mods keep with JContainers (JArray, JMap, JFormMap, JIntMap), as this co-save holds them: "
+								  "%zu map(s), %zu array(s), %zu form map(s), %zu integer map(s); %zu value(s): %zu text, %zu number(s), %zu form(s), "
+								  "%zu link(s) to other objects, %zu empty. %zu form(s) watched, %zu object(s) waiting to be freed%s."),
+				b.maps, b.arrays, b.formMaps, b.intMaps, b.values, b.strings, b.numbers, b.forms, b.objectRefs, b.empty, b.watchedForms, b.queue,
+				b.domains.empty() ? "" : Fmt(tr(", %zu separate domain(s)"), b.domains.size()).c_str());
+			if (!b.tags.empty()) {
+				std::string t;
+				for (std::size_t i = 0; i < b.tags.size() && i < 12; ++i) {
+					t += (t.empty() ? "" : ", ") + b.tags[i].first + Fmt(" (%zu)", b.tags[i].second);
+				}
+				ImGui::TextWrapped(tr("Tags (mods usually tag their objects with their name): %s"), t.c_str());
+			}
+			ImGui::TextUnformatted(tr("Biggest objects (the keys usually tell which mod):"));
+			if (ImGui::BeginTable("jcobj", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable)) {
+				ImGui::TableSetupColumn(tr("Kind"), ImGuiTableColumnFlags_WidthFixed, 100);
+				ImGui::TableSetupColumn(tr("Id / tag"), ImGuiTableColumnFlags_WidthFixed, 140);
+				ImGui::TableSetupColumn(tr("Entries"), ImGuiTableColumnFlags_WidthFixed, 70);
+				ImGui::TableSetupColumn(tr("Size"), ImGuiTableColumnFlags_WidthFixed, 90);
+				ImGui::TableSetupColumn(tr("Keys"));
+				ImGui::TableHeadersRow();
+				for (std::size_t i = 0; i < b.objects.size() && i < 30; ++i) {
+					const auto& o = b.objects[i];
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(o.type.c_str());
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted((std::to_string(o.id) + (o.tag.empty() ? "" : " " + o.tag)).c_str());
+					ImGui::TableNextColumn();
+					ImGui::Text("%zu", o.entries);
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(cosave::SizeText(o.bytes).c_str());
+					ImGui::TableNextColumn();
+					std::string keys;
+					for (const auto& k : o.keys) {
+						keys += (keys.empty() ? "" : ", ") + k;
+					}
+					ImGui::TextUnformatted(keys.c_str());
+				}
+				ImGui::EndTable();
+			}
+			ImGui::TextWrapped("%s", tr("Read only: JContainers' data is not edited here (its objects point at each other; a mod's own "
+										"menu or JContainers itself clears them)."));
+		}
 	}
 	ImGui::EndChild();
 	ImGui::End();

@@ -288,6 +288,31 @@ namespace
 		fs::remove_all(dir, ec);
 	}
 
+	// JContainers: an empty object tree as JContainers 4.2.x writes it (Tony's co-save "68.skse"), cut short, and spoiled
+	void TestJContainers()
+	{
+		const char* hex = "32307b22636f6d6d6f6e56657273696f6e223a20367d160000000000000073657269616c697a6174696f6e3a3a617263686976651000040404080100000000000000000002000000000000000000010000000000000000000000000000000000020000000000000000000000010000000000000000010000000000000000000000000000000001000000feffff7f00000000000000000002000000ea32000000000000000000000000000000000000000000000000000000000300000000000000";
+		std::vector<std::uint8_t> d;
+		for (std::size_t i = 0; hex[i] && hex[i + 1]; i += 2) {
+			d.push_back(static_cast<std::uint8_t>(std::stoi(std::string(hex + i, 2), nullptr, 16)));
+		}
+		Check(d.size() == 193, "jc: test data");
+		const auto b = jc::AnalyzeBytes(d);
+		Check(b.ok && b.header == "{\"commonVersion\": 6}" && b.library == 16 && b.objects.empty() && b.watchedForms == 0 && b.queue == 0 &&
+				  b.domains.empty(), ("jc: an empty tree is read to its end " + b.error).c_str());
+		auto cut = d;
+		cut.pop_back();
+		const auto c = jc::AnalyzeBytes(cut);
+		Check(!c.ok && !c.error.empty(), "jc: a cut archive is refused");
+		auto bad = d;
+		bad[0x44] = 9;  // tes_context's version (u32 at 0x44, after its tracking byte): 2 -> 9
+		const auto x = jc::AnalyzeBytes(bad);
+		Check(!x.ok && x.error.find("version") != std::string::npos, ("jc: an unknown class version is refused: " + x.error).c_str());
+		auto old = d;
+		old[20] = '5';
+		Check(!jc::AnalyzeBytes(old).ok, "jc: another commonVersion is refused");
+	}
+
 	void TestReal()
 	{
 		const char* env = std::getenv("RESAVERPP_COSAVES");
@@ -296,7 +321,7 @@ namespace
 			return;
 		}
 		std::string list = env;
-		std::size_t n = 0;
+		std::size_t n = 0, jstr = 0;
 		for (std::size_t a = 0; a <= list.size();) {
 			auto b = list.find(';', a);
 			if (b == std::string::npos) {
@@ -331,13 +356,18 @@ namespace
 					CleanResult r;
 					const auto  out = CleanBytes(d, opt, &r);
 					Check(r.plugins == 1 && out.size() < d.size(), ("real: clean " + e.path().filename().string()).c_str());
+					if (f.find(jc::kUid)) {
+						const auto j = jc::Analyze(f);
+						Check(j.ok, ("real: JContainers read to its end " + e.path().filename().string() + " " + j.error).c_str());
+						++jstr;
+					}
 					++n;
 				} catch (const std::exception& ex) {
 					Check(false, (e.path().filename().string() + ": " + ex.what()).c_str());
 				}
 			}
 		}
-		std::printf("(cosave: %zu real co-saves)\n", n);
+		std::printf("(cosave: %zu real co-saves, %zu with JContainers data)\n", n, jstr);
 	}
 }
 
@@ -349,6 +379,7 @@ int main()
 	TestF4();
 	TestIrregular();
 	TestDlls();
+	TestJContainers();
 	TestReal();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;

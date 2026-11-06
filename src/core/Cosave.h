@@ -222,13 +222,54 @@ namespace ess::cosave
 		Breakdown Analyze(const File& a_file);
 	}
 
-	// ---- JContainers ('JSTR', SilverIce/JContainers src/jcontainers_constants.h) ------------------------------
-	// One 'JSTR' record: a JSON header line ({"commonVersion": N}) then a boost binary archive of the object
-	// tree. Only the size and the header are shown.
+	// ---- JContainers ('JSTR', ryobg/JContainers src/jcontainers_constants.h) ------------------------------
+	// One 'JSTR' record (skse_callbacks.cpp save): the JSON header's length as decimal text (std::ostream <<), the
+	// JSON header ({"commonVersion": 6}), then a boost 1.67 binary_oarchive (library version 16) of domain_master:
+	//   master{ tes_context default; u32 domain count, {std::string name, tes_context}...; form_observer }
+	//   tes_context v2 { object_context { object_registry v1 { unordered_set<object_base*>, id_generator v1 {
+	//       deque<range{u32,u32}>, size_t } }, autorelease_queue v2 { u32 tick, deque<queue ref> } }, u32 root id }
+	//   object_base v2 { u32 aqueue push time, i32 tes refcount, u32 id, std::string tag }, then kJArray
+	//   vector<item>, kJMap map<string,item>, kJFormMap v1 map<form_ref,item>, kJIntegerMap map<i32,item>
+	//   item v3 = variant<blank (1 byte), i32, f32, form_ref v2 (shared_ptr<form_entry{u32 form, long deleted}>),
+	//   object ref (object_base*), std::string>; form_observer v3 { u32 n, shared_ptr<form_entry>... }
+	// boost's own framing: a class's first appearance carries tracking (u8) + version (u32); pointers carry an i16
+	// class id (-1 null; a new polymorphic class adds its export name kJArray/kJMap/...) and, when tracked, a u32
+	// object id (below the count read so far = a reference to an object already read). collection sizes are u64,
+	// item versions u32. Only this format is read (commonVersion 6, the versions above); anything else is refused
+	// with the place where reading stopped.
 	namespace jc
 	{
 		constexpr std::uint32_t kUid = 0x4A535452;  // 'JSTR'
 		std::string Header(const File& a_file);    // the JSON header, "" when none
+
+		struct Object
+		{
+			std::string   type;       // kJArray, kJMap, kJFormMap, kJIntegerMap
+			std::uint32_t id = 0;     // the handle scripts use (0: not public)
+			std::string   tag;
+			std::int32_t  tesRefs = 0;  // references held by Papyrus (JValue.retain)
+			std::size_t   entries = 0;
+			std::size_t   bytes = 0;    // its own bytes in the archive (objects first written inside it not counted)
+			std::string   domain;       // "" default
+			std::vector<std::string> keys;  // the first keys (maps), for showing what it is
+		};
+		struct Breakdown
+		{
+			bool                     present = false, ok = false;
+			std::string              header, error;  // error: why it was not broken down (with the byte offset)
+			std::size_t              bytes = 0;
+			unsigned                 library = 0;    // boost archive library version
+			std::uint32_t            rootId = 0;     // JDB's root object
+			std::size_t              queue = 0;      // objects waiting in the autorelease queue
+			std::size_t              watchedForms = 0;
+			std::vector<std::string> domains;        // besides the default one
+			std::size_t              arrays = 0, maps = 0, formMaps = 0, intMaps = 0;
+			std::size_t              values = 0, strings = 0, numbers = 0, forms = 0, objectRefs = 0, empty = 0;
+			std::vector<Object>      objects;         // biggest first
+			std::vector<std::pair<std::string, std::size_t>> tags;  // object tags (e.g. the mod's name) with their count, most first
+		};
+		Breakdown Analyze(const File& a_file);
+		Breakdown AnalyzeBytes(const std::vector<std::uint8_t>& a_chunk);  // one JSTR chunk's data
 	}
 
 	// ---- cleaning ---------------------------------------------------------------------------------------------
