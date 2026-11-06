@@ -14,6 +14,7 @@
 #include "core/SaveArchive.h"
 #include "core/LoadOrder.h"
 #include "core/PluginEdit.h"
+#include "core/PluginDB.h"
 #include "core/Quests.h"
 #include "core/ChangeFormData.h"
 #include "core/Transplant.h"
@@ -630,6 +631,248 @@ namespace
 		Check(both, "merge LE: both mods' additions are in the patch");
 		Check(v43, "merge LE: records keep LE's record version 43");
 		fs::remove_all(dir);
+	}
+
+	// Fallout 4 load order: record layouts from xEdit's FO4 definitions, Fallout 4's header, light (ESL) masters
+	void TestMergedPatchFO4()
+	{
+		namespace fs = std::filesystem;
+		const auto top = fs::temp_directory_path() / "rs_merge_test_fo4";
+		const auto dir = top / "mods" / "Test";
+		fs::remove_all(top);
+		fs::create_directories(dir);
+		auto save = [&](const char* a_name, const std::vector<std::uint8_t>& a_data) {
+			std::ofstream(dir / a_name, std::ios::binary).write(reinterpret_cast<const char*>(a_data.data()), static_cast<std::streamsize>(a_data.size()));
+		};
+		auto f4 = [](merge::Record r) {
+			r.version = 131;
+			return r;
+		};
+		// FO4 LVLO: level u16, unused 2, form, count u16, chance none u8, unused 1
+		auto lvlo = [](std::uint16_t a_level, std::uint32_t a_form, std::uint8_t a_chanceNone) {
+			auto o = Lvlo(a_level, a_form, 1);
+			o[10] = a_chanceNone;
+			return o;
+		};
+		auto lvli = [&](std::vector<std::pair<std::uint16_t, std::uint32_t>> a_items) {
+			std::vector<merge::Sub> subs{ MS("EDID", { 'L', 'L', 0 }), MS("OBND", std::vector<std::uint8_t>(12, 0)), MS("LVLD", { 0 }), MS("LVLM", { 0 }),
+				MS("LVLF", { 1 }), MS("LLCT", { static_cast<std::uint8_t>(a_items.size()) }) };
+			for (auto [lv, id] : a_items) {
+				subs.push_back(MS("LVLO", lvlo(lv, id, 0)));
+			}
+			subs.push_back(MS("LLKC", U32v({ 0x9A0, 50 })));  // keyword chance: keyword form + u32
+			return f4(MR("LVLI", 0x810, std::move(subs)));
+		};
+		// a container: items with COED (owner NPC 0x830 -> a global follows), keywords, a FO4 script with a struct property
+		auto vmadStruct = [](std::uint32_t a_obj) {
+			std::vector<std::uint8_t> v{ 6, 0, 2, 0, 1, 0 };  // version 6, object format 2, 1 script
+			auto wstr = [&](const char* t) {
+				const auto n = static_cast<std::uint16_t>(std::strlen(t));
+				v.push_back(static_cast<std::uint8_t>(n));
+				v.push_back(0);
+				v.insert(v.end(), t, t + n);
+			};
+			wstr("TestScript");
+			v.push_back(0);           // script flags
+			v.insert(v.end(), { 1, 0 });  // 1 property
+			wstr("Data");
+			v.push_back(7);           // struct
+			v.push_back(1);           // edited
+			v.insert(v.end(), { 2, 0, 0, 0 });  // 2 members
+			wstr("Target");
+			v.push_back(1);
+			v.push_back(1);
+			v.insert(v.end(), { 0, 0, 0xFF, 0xFF });  // object v2: unused, alias -1, form
+			auto f = U32v({ a_obj });
+			v.insert(v.end(), f.begin(), f.end());
+			wstr("Count");
+			v.push_back(3);
+			v.push_back(1);
+			v.insert(v.end(), { 5, 0, 0, 0 });
+			return v;
+		};
+		auto cont = [&](std::vector<std::uint32_t> a_items, std::vector<std::uint32_t> a_keywords, bool a_script, std::uint32_t a_scriptObj = 0x9B0) {
+			std::vector<merge::Sub> subs{ MS("EDID", { 'C', 0 }) };
+			if (a_script) subs.push_back(MS("VMAD", vmadStruct(a_scriptObj)));
+			subs.push_back(MS("OBND", std::vector<std::uint8_t>(12, 0)));
+			subs.push_back(MS("PTRN", U32v({ 0x9C0 })));
+			subs.push_back(MS("COCT", U32v({ static_cast<std::uint32_t>(a_items.size()) })));
+			for (auto id : a_items) {
+				subs.push_back(MS("CNTO", U32v({ id, 1 })));
+				if (id == 0x900) {
+					auto coed = U32v({ 0x830, 0x840 });  // owner NPC, its global
+					coed.insert(coed.end(), { 0, 0, 0x80, 0x3F });
+					subs.push_back(MS("COED", coed));
+				}
+			}
+			subs.push_back(MS("DATA", { 0, 0, 0, 0, 0 }));
+			subs.push_back(MS("KSIZ", U32v({ static_cast<std::uint32_t>(a_keywords.size()) })));
+			subs.push_back(MS("KWDA", [&] { std::vector<std::uint8_t> o; for (auto k : a_keywords) { auto b = U32v({ k }); o.insert(o.end(), b.begin(), b.end()); } return o; }()));
+			subs.push_back(MS("PRPS", U32v({ 0x9D0, 0x3F800000 })));
+			return f4(MR("CONT", 0x820, std::move(subs)));
+		};
+		auto flst = [&](std::vector<std::uint32_t> a_forms) {
+			std::vector<merge::Sub> subs{ MS("EDID", { 'F', 0 }) };
+			for (auto id : a_forms) subs.push_back(MS("LNAM", U32v({ id })));
+			return f4(MR("FLST", 0x850, std::move(subs)));
+		};
+		auto misc = [&](std::vector<std::uint32_t> a_keywords, std::uint32_t a_value) {
+			std::vector<std::uint8_t> kw;
+			for (auto k : a_keywords) { auto b = U32v({ k }); kw.insert(kw.end(), b.begin(), b.end()); }
+			return f4(MR("MISC", 0x870, { MS("EDID", { 'M', 0 }), MS("OBND", std::vector<std::uint8_t>(12, 0)), MS("MODL", { 'm', 0 }), MS("MODS", U32v({ 0x9E0 })),
+				MS("KSIZ", U32v({ static_cast<std::uint32_t>(a_keywords.size()) })), MS("KWDA", kw), MS("DATA", U32v({ a_value, 0 })),
+				MS("CVPA", U32v({ 0x9F0, 2 })), MS("CDIX", { 0 }) }));
+		};
+		// an NPC with Fallout 4 parts: read only for COED owners, never merged
+		auto npc = [&](std::uint32_t a_class) {
+			return f4(MR("NPC_", 0x830, { MS("EDID", { 'N', 0 }), MS("ACBS", std::vector<std::uint8_t>(20, 0)), MS("CNAM", U32v({ a_class })),
+				MS("MWGT", std::vector<std::uint8_t>(12, 0)) }));
+		};
+		// a leveled list with a part ReSaver Plus does not know for Fallout 4: left to the winner, with the reason
+		auto odd = [&](std::uint32_t a_item) {
+			return f4(MR("LVLN", 0x811, { MS("EDID", { 'O', 0 }), MS("LLCT", { 1 }), MS("LVLO", lvlo(1, a_item, 0)), MS("ABCD", { 0 }) }));
+		};
+		auto esm = merge::WritePlugin({}, 1, { lvli({ { 1, 0x900 }, { 5, 0x901 } }), cont({ 0x900 }, { 0x950 }, false), flst({ 0x900 }),
+			misc({ 0x950 }, 10), npc(0x990), odd(0x900) }, "t", {}, 1.0f, 131, true);
+		save("Fallout4.esm", esm);
+		// DLCRobot.esm: a form of its own (0x01000900)
+		save("DLCRobot.esm", merge::WritePlugin({ "Fallout4.esm" }, 1, { f4(MR("MISC", 0x01000900, { MS("EDID", { 'R', 0 }) })) }, "t", {}, 1.0f, 131, true));
+		// ModA.esp (Fallout4, DLCRobot): adds DLCRobot's item at level 3, a container item, a FLST entry, a script on the container
+		save("ModA.esp", merge::WritePlugin({ "Fallout4.esm", "DLCRobot.esm" }, 0, { lvli({ { 1, 0x900 }, { 5, 0x901 }, { 3, 0x01000900 } }),
+			cont({ 0x900, 0x902 }, { 0x950 }, true, 0x01000900), flst({ 0x900, 0x901 }), misc({ 0x950, 0x951 }, 10), npc(0x991), odd(0x901) },
+			"t", {}, 1.0f, 131, true));
+		// ModB.esp (light, Fallout4): removes 0x900 and adds 0x903 at level 10, its own keyword (0x01000801) on the misc item, a
+		// container keyword, value 20
+		save("ModB.esp", merge::WritePlugin({ "Fallout4.esm" }, 0x200, { lvli({ { 5, 0x901 }, { 10, 0x903 } }), cont({ 0x900, 0x903 }, { 0x950, 0x952 }, false),
+			flst({ 0x900, 0x904 }), misc({ 0x950, 0x01000801 }, 20), npc(0x992), odd(0x902),
+			f4(MR("OTFT", 0x860, { MS("EDID", { 'O', 0 }), MS("INAM", U32v({ 0x01000801 })) })) }, "t", {}, 1.0f, 131, true));
+		{
+			std::ofstream(top / "plugins.txt") << "*ModA.esp\r\n*ModB.esp\r\n";
+		}
+		ScriptSources src;
+		src.scan(top / "mods");
+		merge::Options o;
+		o.loadOrder = merge::ReadLoadOrder(top / "plugins.txt", {}, 2);
+		Check(o.loadOrder.size() >= 3 && o.loadOrder[0] == "Fallout4.esm" && o.loadOrder[1] == "DLCRobot.esm" && o.loadOrder.back() == "ModB.esp",
+			"merge FO4: load order starts with Fallout 4's masters");
+		o.loadOrder = { "Fallout4.esm", "DLCRobot.esm", "ModA.esp", "ModB.esp" };
+		merge::UseSources(o, src);
+		const auto r = merge::Build(o);
+		Check(r.ok && r.fo4 && r.light, "merge FO4: built for Fallout 4 (found from Fallout4.esm), light");
+		std::string report = r.report();
+		bool oddSkipped = false;
+		for (const auto& sk : r.skipped) oddSkipped = oddSkipped || (sk.find("LVLN") != std::string::npos && sk.find("ABCD") != std::string::npos);
+		Check(oddSkipped, "merge FO4: a record with an unknown part is not merged, with the reason");
+		bool npcMerged = false;
+		for (const auto& m : r.merged) npcMerged = npcMerged || m.type == "NPC_";
+		Check(!npcMerged && r.merged.size() == 4, "merge FO4: LVLI, CONT, FLST, MISC merged; NPCs are not merged for Fallout 4");
+		Check(r.masters == std::vector<std::string>({ "Fallout4.esm", "DLCRobot.esm", "ModB.esp" }), "merge FO4: masters Fallout4, DLCRobot, ModB");
+		save("Patch.esp", r.file);
+		// the header: TES4 record version 131, HEDR 1.0, INTV then INCC, ESL flag
+		float hedr = 0;
+		std::memcpy(&hedr, r.file.data() + 30, 4);
+		Check((r.file[20] | (r.file[21] << 8)) == 131 && hedr == 1.0f, "merge FO4: header record version 131, HEDR 1.0");
+		const auto hsize = r.file[4] | (r.file[5] << 8);
+		const std::string hdr(reinterpret_cast<const char*>(r.file.data()) + 24, hsize);
+		Check(hdr.find("INTV") != std::string::npos && hdr.find("INCC") == hdr.find("INTV") + 10, "merge FO4: header has INTV then INCC");
+		const auto pf = merge::ReadPlugin(dir / "Patch.esp");
+		Check(pf.flags == 0x200 && pf.masters.size() == 3, "merge FO4: patch read back, light, three masters");
+		// group order: Fallout 4's (CONT, MISC, LVLI, FLST)
+		{
+			std::vector<std::string> groups;
+			std::size_t p = 24 + hsize;
+			while (p + 24 <= r.file.size()) {
+				groups.emplace_back(reinterpret_cast<const char*>(r.file.data()) + p + 8, 4);
+				std::uint32_t gs;
+				std::memcpy(&gs, r.file.data() + p + 4, 4);
+				p += gs;
+			}
+			Check(groups == std::vector<std::string>({ "CONT", "MISC", "LVLI", "FLST" }), "merge FO4: groups in Fallout 4's order");
+		}
+		auto find = [&](const char* sig) -> const merge::Record* {
+			for (const auto& rec : pf.records) {
+				if (std::memcmp(rec.sig, sig, 4) == 0) return &rec;
+			}
+			return nullptr;
+		};
+		auto u32 = [](const std::vector<std::uint8_t>& d, std::size_t o) { std::uint32_t v; std::memcpy(&v, d.data() + o, 4); return v; };
+		if (const auto* l = find("LVLI")) {
+			std::vector<std::pair<int, std::uint32_t>> es;
+			int llct = -1;
+			bool llkc = false;
+			for (const auto& sb : l->subs) {
+				if (!std::memcmp(sb.sig, "LVLO", 4)) es.push_back({ sb.data[0] | (sb.data[1] << 8), u32(sb.data, 4) });
+				if (!std::memcmp(sb.sig, "LLCT", 4)) llct = sb.data[0];
+				if (!std::memcmp(sb.sig, "LLKC", 4)) llkc = sb.data.size() == 8 && u32(sb.data, 0) == 0x9A0;
+			}
+			// 0x900 removed by ModB, DLCRobot's 0x01000900 added by ModA (index 1 in the patch too), 0x903 added by ModB; by level
+			Check(es == std::vector<std::pair<int, std::uint32_t>>({ { 3, 0x01000900 }, { 5, 0x901 }, { 10, 0x903 } }) && llct == 3 && llkc,
+				"merge FO4: leveled list merged, sorted by level, LLCT updated, LLKC kept");
+			Check(l->version == 131, "merge FO4: records keep Fallout 4's record version");
+		} else {
+			Check(false, "merge FO4: leveled list in the patch");
+		}
+		if (const auto* c = find("CONT")) {
+			std::vector<std::uint32_t> items, kw;
+			bool coed = false, vmad = false;
+			std::uint32_t coct = 0;
+			for (std::size_t i = 0; i < c->subs.size(); ++i) {
+				const auto& sb = c->subs[i];
+				if (!std::memcmp(sb.sig, "CNTO", 4)) {
+					items.push_back(u32(sb.data, 0));
+					if (u32(sb.data, 0) == 0x900 && i + 1 < c->subs.size() && !std::memcmp(c->subs[i + 1].sig, "COED", 4)) {
+						coed = u32(c->subs[i + 1].data, 0) == 0x830 && u32(c->subs[i + 1].data, 4) == 0x840;
+					}
+				}
+				if (!std::memcmp(sb.sig, "COCT", 4)) coct = u32(sb.data, 0);
+				if (!std::memcmp(sb.sig, "KWDA", 4)) for (std::size_t k = 0; k < sb.data.size(); k += 4) kw.push_back(u32(sb.data, k));
+				if (!std::memcmp(sb.sig, "VMAD", 4)) {
+					// the struct member's object (DLCRobot's form) is at the same place, its index the patch's (1)
+					const auto want = vmadStruct(0x01000900);
+					vmad = sb.data == want;
+				}
+			}
+			Check(items == std::vector<std::uint32_t>({ 0x900, 0x903, 0x902 }) && coct == 3 && coed, "merge FO4: container items merged, COED with its owner's global kept");
+			Check(kw == std::vector<std::uint32_t>({ 0x950, 0x952 }), "merge FO4: container keywords merged");
+			Check(vmad, "merge FO4: ModA's script with a struct property is taken (struct members read)");
+		} else {
+			Check(false, "merge FO4: container in the patch");
+		}
+		if (const auto* m = find("MISC")) {
+			std::vector<std::uint32_t> kw;
+			std::uint32_t value = 0;
+			for (const auto& sb : m->subs) {
+				if (!std::memcmp(sb.sig, "KWDA", 4)) for (std::size_t k = 0; k < sb.data.size(); k += 4) kw.push_back(u32(sb.data, k));
+				if (!std::memcmp(sb.sig, "DATA", 4)) value = u32(sb.data, 0);
+			}
+			// the winner's (ModB) keywords, its own 0x01000801 as 0x02000801 (ModB is the patch's third master), then ModA's addition
+			Check(kw == std::vector<std::uint32_t>({ 0x950, 0x02000801, 0x951 }) && value == 20, "merge FO4: misc item keywords merged, ModB's light form renumbered");
+		} else {
+			Check(false, "merge FO4: misc item in the patch");
+		}
+		// read back with the app's Fallout 4 plugin reader, the patch as a light plugin after the others
+		{
+			ScriptSources src2;
+			src2.scan(top / "mods");
+			PluginDB db;
+			PluginDB::Input in;
+			in.fo4 = true;
+			in.full = { "Fallout4.esm", "DLCRobot.esm", "ModA.esp" };
+			in.lite = { "ModB.esp", "Patch.esp" };
+			in.sources = src2;
+			PluginDB::Progress prog;
+			db.load(in, prog);
+			const auto* lf = db.find(0x00000810);
+			const auto* kf = db.find(0x00000870);
+			Check(db.missing.empty() && lf && db.pluginName(*lf) == "Patch.esp" && db.edid(*lf) == "LL" && kf && db.pluginName(*kf) == "Patch.esp",
+				"merge FO4: PluginDB (Fallout 4) reads the patch: its records override the masters'");
+		}
+		// a Fallout 4 without light plugins (before 1.10): a normal plugin
+		o.light = false;
+		const auto r2 = merge::Build(o);
+		Check(r2.ok && !r2.light && r2.file.size() > 12 && (r2.file[8] | (r2.file[9] << 8)) == 0, "merge FO4: --no-esl writes a normal plugin");
+		Check(report.find("Fallout 4 load order") != std::string::npos, "merge FO4: the report says what is merged for Fallout 4");
+		fs::remove_all(top);
 	}
 
 	// NPC parts that belong together are taken from one plugin (PC level mult + level; template flags + TPLT)
@@ -1712,6 +1955,7 @@ int main()
 	TestMergedPatch();
 	TestMergedPatchLE();
 	TestMergedPatchNpcLinks();
+	TestMergedPatchFO4();
 	TestCrashLog();
 	TestCrashLogFO4();
 	TestQuestsFO4();
