@@ -478,6 +478,11 @@ std::vector<App::CheckItem> App::checkItems()
 		}
 	}
 
+	// Fallout 4 settlements: over budget, broken workshop links, settlers' workshop data (AppF4Settlements.cpp)
+	if (fo4()) {
+		settlementCheckItems(v);
+	}
+
 	std::stable_sort(v.begin(), v.end(), [](const CheckItem& a, const CheckItem& b) { return static_cast<int>(a.level) > static_cast<int>(b.level); });
 	return v;
 }

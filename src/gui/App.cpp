@@ -1060,6 +1060,10 @@ void App::draw()
 			drawPlayer();
 		}
 	}
+	if (_showSettlements || !_ws) {
+		watchdog::Section("drawSettlementsF4");
+		drawSettlementsF4();
+	}
 	if (_showActors && _save) {
 		watchdog::Section("drawActors");
 		drawActors();
@@ -1332,6 +1336,11 @@ void App::drawMenu()
 		}
 		tips::Tip(tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."));
 		ImGui::MenuItem(tr("Find NPCs (where they are, bring one to you)..."), nullptr, &_showActors, !fo4());
+		if (fo4()) {
+			ImGui::MenuItem(tr("Settlements (build budget)..."), nullptr, &_showSettlements);
+			tips::Tip(tr("Every settlement with its build budget, population and happiness; reset the used budget of a settlement whose "
+			          "build meter is full."));
+		}
 		tips::Tip(tr("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you."));
 		ImGui::Separator();
 		if (ImGui::MenuItem(tr("Save history (growth over time)..."))) {

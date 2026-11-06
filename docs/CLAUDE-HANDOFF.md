@@ -137,6 +137,26 @@ project; you do the coding, building, delivering and publishing.
   entry, OBND bit, or CELL DATA 0x10) and renamed in ModB; all merged, read back with the same subrecords. DLCRobot 1256,
   DLCCoast 18860 (17614 cells), DLCNukaWorld 6597, DLCworkshop01 77, ccBGSFO4115-X02 171 merges, none left out. INGR has no
   real records in those plugins (synthetic only). Not tested in the real game yet; Fallout4.esm itself not run through yet.
+- Fallout 4 settlements (2026-11-06, branch ws, not published): `core/WorkshopFO4.*` (`ess::fo4ws`), GUI `gui/AppF4Settlements.cpp`
+  (Tools > Settlements, Fallout 4 only; Save check items via `App::settlementCheckItems`, read on a thread from a copy of the save;
+  test hook `RESAVERPP_TEST_SETTLEMENTS=1`), CLI `--fo4-settlements`, `--fo4-reset-budget <id|all|over>`, `--fo4-set-budget <id>:<d>:<t>`.
+  A workshop = the reference carrying WorkshopScript (or a script extending it); myLocation / WorkshopID from its instance. Its
+  values are actor values of the REFERENCE in extra 0xC2 (ExtraActorValueStorage, ctor 0x29c750; loader case 0x2980e3 ->
+  ActorValueStorage::LoadGame 0xcedc80: vsval n x {ref, f32 base}, vsval m x {ref, 3 x f32}); GetActorValue (0x507ed0) = base (or
+  the AVIF default) + base object PRPS (0x508010) + the 3 modifiers. Budget AVs are hard-coded: WorkshopCurrentTriangles 0x348,
+  MaxTriangles 0x349, CurrentDraws 0x34A, MaxDraws 0x34B (indices 0x8c..0x8f at 0x6fc62b.., form id 0x2BC + index, default 0; same
+  in 1.10.163 / 1.10.984, tools/fo4emu/wsvers.py). Workshop mode (0x390330) reads them as ints, a max of 0 -> uWorkshopBudgetDrawCount
+  10000 / uWorkshopBudgetTriangleCount 10000000; placing adds the object's counts and writes the bases back (0x390426 -> vfunc 9 ->
+  SetBaseActorValue 0x5080d0, change flag 31), scrapping subtracts, floored at 0 (0x3905e6): the game never recounts. Meter 0x37d6c0
+  = max(draws/max, triangles/max) clamped to 1.0; compared with 1.0 (0xb2e994). Population 0x12723E / happiness 0x129157 sit in the
+  same storage. Links: extra 0x50 ExtraLinkedRef (0x2a5910: vsval n x {keyword, target}) with WorkshopItemKeyword 0x54BA6; settlers'
+  WorkshopNPCScript.workshopID indexes WorkshopParentScript.Workshops (scripts set both together). Checks (all 0 on the test saves
+  except Save14's The Castle 66EB6, 1005094/1000000 triangles): over budget, links to a created workbench not in the save or a
+  plugin the save lacks (null links are UnassignActor's and not reported), settlers whose workshopID names no workshop or another
+  workbench than their link. Tests: rs_unit TestFo4Workshops (synthetic + every real save: reset all, written, read back, only the
+  workbenches changed); tools/fo4emu wsdump.cpp + wsemu.py: the game's TESObjectREFR::LoadGame on every reset workbench of all 12
+  test saves reads to the exact end with the expected values (the fo4full Sanctuary body stops in its inventory in the emulator,
+  edited or not). Not tested in the real game.
 - Versions are whole numbers, +1 per release. **Current published version: v57** (SE, LE and Fallout 4 pages, 2026-11-05; v57 adds the Russian interface, the Leftover items plugin-read fix and Fallout 4 Reset Havok / Purify / Merged patch / AI / NPC+player leftovers; ReSaverHelper F4 13; the Fallout 4 main file is packed as Data/Tools/ReSaverPP/ with mod manager download on: nexus-upload layout=data-tools, mod_manager=true) (v53 was never published on its own). v55: Collect all logs gathers Fallout 4 (F4SE folder, Logs, Fallout4*.ini, AppData Fallout4 plugins.txt, Fallout4.exe version; zip "Fallout 4 logs <date>.zip").
 - Fallout 4 Reset Havok + Purify FormLists (2026-11-05, not published): REFR change flag 2 = initial data + havok blob, read
   by the initial data loader 0xbf77b0 (not LoadGame) through 0xc10b00 blob kind 2: u8 (form version the blob was written

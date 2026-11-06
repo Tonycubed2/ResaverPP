@@ -52,3 +52,10 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
 - `refrpos.cpp` + `refrnative.py` (+ `refrcheck.sh <save> <dump>`): the reference part's extra type positions and end from
   the decoder and from the game's own TESObjectREFR::LoadGame. `stack1.py` with NATIVE=1 runs that loader instead of dec.py.
 - `xscan.py <type hex>...`: which ExtraDataList::LoadGame handlers reach a vsval read (lists among the "fixed" types).
+- Settlements (core/WorkshopFO4): `wsdump.cpp <save> <out.bin> <expected.txt>` resets the used build budget of every workshop
+  that can be edited (fo4ws::SetUsed; a workshop with no CurrentDraws entry gets 5 / 7 so an entry is added; ORIG=1 dumps the
+  bodies unedited) and dumps the edited REFRs with the actor value bases expected; `wsemu.py <out.bin> <expected.txt>` runs
+  the game's TESObjectREFR::LoadGame (0x4f5c50) on each and checks the exact end, that ActorValueStorage::LoadGame (0xcedc80)
+  runs once and that it reads the expected (actor value, f32) pairs. `wsvers.py <exe>`: the extra type bytes of
+  ExtraActorValueStorage (0xC2), ExtraLinkedRef (0x50), Workshop::ExtraData (0xBF) and the budget actor value form ids
+  (0x348..0x34B) in another Fallout4.exe (1.10.163 / 1.10.984 / 1.11.240 agree).

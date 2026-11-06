@@ -1,4 +1,5 @@
 #include <cctype>
+#include <cmath>
 #include <tuple>
 // ReSaver++ command line - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "core/Batch.h"
@@ -29,6 +30,7 @@
 #include "core/TransplantFO4.h"
 #include "core/SaveBloat.h"
 #include "core/LoadOrderCheck.h"
+#include "core/WorkshopFO4.h"
 #include <functional>
 #include <map>
 #include <set>
@@ -502,6 +504,8 @@ int main(int argc, char** argv)
 	std::string   fo4Transplant;  // --fo4-transplant <old save>
 	bool          bloatView = false;  // --bloat
 	std::string   bloatCompare;       // --bloat-compare <older save>
+	bool          fo4Settlements = false;  // --fo4-settlements
+	std::vector<std::tuple<std::string, std::optional<float>, std::optional<float>>> fo4Budgets;  // --fo4-reset-budget / --fo4-set-budget
 	bool          fo4TransplantWrite = false;
 	double        fo4Xp = -1;  // --fo4-set-perk (rank) / --fo4-remove-perk (-1)
 	std::vector<std::pair<std::string, float>> playerSkills;
@@ -569,6 +573,23 @@ int main(int argc, char** argv)
 		} else if (a == "--bloat-compare") {
 			bloatView = true;
 			bloatCompare = next();
+		} else if (a == "--fo4-settlements") {
+			fo4Settlements = true;
+		} else if (a == "--fo4-reset-budget") {
+			fo4Budgets.emplace_back(next(), 0.0f, 0.0f);
+		} else if (a == "--fo4-set-budget") {
+			// <workshop>:<draws>:<triangles>, "-" leaves one alone
+			const auto v = next();
+			const auto c1 = v.find(':'), c2 = c1 == std::string::npos ? c1 : v.find(':', c1 + 1);
+			if (c2 == std::string::npos) {
+				std::fprintf(stderr, "--fo4-set-budget needs <workshop formid>:<draws>:<triangles> (\"-\" leaves one as it is)\n");
+				return 1;
+			}
+			auto num = [](const std::string& t) -> std::optional<float> {
+				if (t == "-") return std::nullopt;
+				return static_cast<float>(std::atof(t.c_str()));
+			};
+			fo4Budgets.emplace_back(v.substr(0, c1), num(v.substr(c1 + 1, c2 - c1 - 1)), num(v.substr(c2 + 1)));
 		} else if (a == "--fo4-transplant-write") {
 			fo4TransplantWrite = true;
 		} else if (a == "--fo4-set-xp") {
@@ -732,7 +753,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -1016,7 +1037,7 @@ int main(int argc, char** argv)
 			return 3;
 		}
 		ScriptSources src;
-		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone || questsView || effectsView || !removeEffects.empty())) {
+		if (!sources.empty() && (modsView || !removeMod.empty() || names || !reportFile.empty() || spawned || spawnedGone || questsView || effectsView || !removeEffects.empty() || fo4Settlements)) {
 			std::filesystem::path profDir = profile, overwrite, gameData;
 			if (auto mo2 = FindMo2Instance(sources)) {
 				if (profDir.empty()) {
@@ -1226,6 +1247,45 @@ int main(int argc, char** argv)
 			}
 			std::printf("report written: %s (%zu lines)\n", reportFile.c_str(), lines.size());
 			return 0;
+		}
+		if (fo4Settlements) {
+			if (!save->isFO4()) {
+				std::fprintf(stderr, "--fo4-settlements needs a Fallout 4 save\n");
+				return 1;
+			}
+			std::unique_ptr<PluginDB> db;
+			if (!src.empty()) {
+				PluginDB::Input in2;
+				PrepareInput(*save, in2);
+				in2.sources = src;
+				in2.fo4 = true;
+				in2.language = "en";  // (Fallout4_en.strings)
+				PluginDB::Progress prog;
+				db = std::make_unique<PluginDB>();
+				db->load(in2, prog);
+			}
+			auto name = [&](std::uint32_t a_id) -> std::string {
+				if (!db || !a_id) return {};
+				const auto* f = db->find(a_id);
+				return f ? (db->name(*f).empty() ? db->edid(*f) : db->name(*f)) : std::string();
+			};
+			const auto list = fo4ws::List(*save);
+			std::printf("%-8s %-8s %-30s %4s %13s %21s %6s %5s %5s %s\n", "workshop", "location", "name", "id", "draws", "triangles", "meter", "pop", "happy", "linked");
+			for (const auto& w : list) {
+				std::printf("%08X %08X %-30.30s %4d %6lld/%-6lld %10lld/%-10lld %5.0f%% %5.0f %5.0f %zu objects, %zu actors%s%s%s\n", w.formID, w.location,
+					name(w.location).c_str(), w.workshopID, static_cast<long long>(w.usedDraws()), static_cast<long long>(w.limitDraws()),
+					static_cast<long long>(w.usedTriangles()), static_cast<long long>(w.limitTriangles()), std::floor(w.meter() * 100.0), w.population, w.happiness,
+					w.linkedObjects, w.linkedActors, w.overBudget() ? "  OVER BUDGET" : "", w.readable ? "" : "  (cannot be edited: ", w.readable ? "" : (w.error + ")").c_str());
+			}
+			std::printf("%zu settlement workshops. The game keeps a running total of what was built (draws, triangles): building adds, scrapping\n"
+			            "or storing subtracts (never below 0); it never counts the objects again. A max of 0 means the game's default\n"
+			            "(%u draws, %u triangles). The meter is the larger of the two shares.\n", list.size(), fo4ws::kDefaultMaxDraws, fo4ws::kDefaultMaxTriangles);
+			for (const auto& f : fo4ws::Check(*save)) {
+				std::printf("check: %s\n", f.text.c_str());
+			}
+			if (fo4Budgets.empty()) {
+				return 0;
+			}
 		}
 		if (questsView) {
 			std::unique_ptr<PluginDB> db;
@@ -1655,6 +1715,32 @@ int main(int argc, char** argv)
 				return 1;
 			}
 			std::printf("removed %s from %08X\n", removeExtraName.c_str(), removeExtraForm);
+		}
+		for (const auto& [which, draws, tris] : fo4Budgets) {
+			if (!save->isFO4()) {
+				std::fprintf(stderr, "--fo4-reset-budget / --fo4-set-budget need a Fallout 4 save\n");
+				return 1;
+			}
+			std::vector<std::uint32_t> targets;
+			for (const auto& w : fo4ws::List(*save)) {
+				if (which == "all" ? w.hasStorage : which == "over" ? (w.hasStorage && w.overBudget()) : w.formID == static_cast<std::uint32_t>(std::stoul(which, nullptr, 16))) {
+					targets.push_back(w.formID);
+				}
+			}
+			if (targets.empty()) {
+				std::fprintf(stderr, "no settlement workshop matches \"%s\" (give a workbench form id, \"all\" or \"over\"; --fo4-settlements lists them)\n", which.c_str());
+				return 1;
+			}
+			for (const auto id : targets) {
+				bool       changed = false;
+				const auto why = fo4ws::SetUsed(*save, id, draws, tris, &changed);
+				if (!why.empty()) {
+					std::fprintf(stderr, "could not change the budget of %08X: %s\n", id, why.c_str());
+					return 1;
+				}
+				auto num = [](const std::optional<float>& v) { return v ? Fmt("%g", *v) : std::string("unchanged"); };
+				std::printf("workshop %08X: used draws %s, triangles %s%s\n", id, num(draws).c_str(), num(tris).c_str(), changed ? "" : " (already so)");
+			}
 		}
 		if (fo4Level >= 0 || fo4Xp >= 0) {
 			if (!save->isFO4()) {
