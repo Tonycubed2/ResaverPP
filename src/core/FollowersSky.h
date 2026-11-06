@@ -185,6 +185,8 @@ namespace ess::skyf
 		bool          leftovers() const { return !spells.empty() || !factions.empty() || !items.empty(); }
 	};
 	std::vector<BeastState> ReadBeastForms(const SaveFile& a_save);
+	// the verdict (fix, problem) from what was read: ReadBeastForms calls it; separate for the tests
+	void                    Judge(BeastState& a_b);
 
 	// ---- quests stuck between stages (only what the save proves) ----
 	struct StuckStage

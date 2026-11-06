@@ -3621,6 +3621,66 @@ void TestSkyFollowers()
 			"skyf: faction rank from the reference, then the base NPC");
 	}
 
+	// the beast form verdicts (PlayerWerewolfChangeScript / DLC1PlayerVampireChangeScript), one per case
+	{
+		using B = ess::skyf::BeastState;
+		auto make = [](ess::skyf::Beast k) {
+			B b;
+			b.kind = k;
+			b.questEdid = k == ess::skyf::Beast::kWerewolf ? "PlayerWerewolfQuest" : "DLC1PlayerVampireQuest";
+			b.questInSave = true;
+			b.beastRace = 0x000CDD84;
+			b.originalRace = 0x00013746;
+			return b;
+		};
+		auto wolf = make(ess::skyf::Beast::kWerewolf);
+		wolf.questRunning = true;
+		wolf.stagesDone = { 0, 1, 10 };
+		wolf.raceIsBeast = true;
+		wolf.hasShiftBackTime = true;
+		wolf.shiftBackTime = 10.0f;
+		wolf.gameDaysPassed = 10.01f;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kNone, "skyf beast: a werewolf whose time is not up is fine");
+		wolf.gameDaysPassed = 10.5f;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kSetStage, "skyf beast: a werewolf past its time: stage 100");
+		wolf.untimed = true;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kNone, "skyf beast: an untimed werewolf (C03Rampage) is left alone");
+		wolf.untimed = false;
+		wolf.stagesDone.push_back(100);
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert, "skyf beast: still a werewolf after stage 100: the script's ShiftBack again");
+		wolf.questRunning = false;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert && wolf.problem.find("not running") != std::string::npos, "skyf beast: a werewolf with the quest stopped");
+		wolf.originalRace = 0;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kCannot, "skyf beast: no race to go back to: the console");
+		wolf.originalRace = 0x00013746;
+		wolf.raceIsBeast = false;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kNone, "skyf beast: human, quest stopped, nothing left: fine");
+		wolf.spells = { 0x0010C6E8 };
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert, "skyf beast: human but the claws are still there");
+		wolf.spells.clear();
+		wolf.questRunning = true;
+		ess::skyf::Judge(wolf);
+		Check(wolf.fix == B::Fix::kGameRevert && wolf.problem.find("Shutdown") != std::string::npos, "skyf beast: human but the quest still runs after stage 100");
+		auto lord = make(ess::skyf::Beast::kVampireLord);
+		lord.questRunning = true;
+		lord.stagesDone = { 0, 1, 10 };
+		lord.raceIsBeast = true;
+		lord.hasRevertPower = true;
+		ess::skyf::Judge(lord);
+		Check(lord.fix == B::Fix::kNone, "skyf beast: a Vampire Lord with Revert Form is fine (no time limit)");
+		lord.hasRevertPower = false;
+		ess::skyf::Judge(lord);
+		Check(lord.fix == B::Fix::kSetStage, "skyf beast: a Vampire Lord without Revert Form: stage 100");
+	}
+
 	const char* env = std::getenv("RESAVERPP_SKY_SAVES");
 	if (!env || !*env) {
 		std::printf("(skyf: RESAVERPP_SKY_SAVES not set, real saves skipped)\n");

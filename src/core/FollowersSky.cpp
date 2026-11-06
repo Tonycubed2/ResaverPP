@@ -598,6 +598,56 @@ namespace ess::skyf
 	}
 
 	// ---------------------------------------------------------------------------------------------
+	void Judge(BeastState& a_b)
+	{
+		a_b.fix = BeastState::Fix::kNone;
+		a_b.problem.clear();
+		const bool ran = !a_b.stagesDone.empty();
+		const bool shiftBackDone = std::find(a_b.stagesDone.begin(), a_b.stagesDone.end(), kShiftBackStage) != a_b.stagesDone.end();
+		const char* form = a_b.kind == Beast::kWerewolf ? "werewolf" : "Vampire Lord";
+		using F = BeastState::Fix;
+		if (a_b.raceIsBeast && !a_b.questRunning) {
+			a_b.fix = F::kGameRevert;
+			a_b.problem = Fmt("You are still a %s (the player's race is the beast race), but the quest that turns you back (%s) is not "
+							"running, so nothing will ever change you back.",
+				form, a_b.questEdid.c_str());
+		} else if (a_b.raceIsBeast && shiftBackDone) {
+			a_b.fix = F::kGameRevert;
+			a_b.problem = Fmt("You are still a %s although the turn-back stage (%d) has already been set: the script's ShiftBack stopped "
+							"half way (it waits for a synced animation to end and for the race change) and will not run again by "
+							"itself, because its \"already doing it\" guards are set.",
+				form, kShiftBackStage);
+		} else if (a_b.raceIsBeast && a_b.kind == Beast::kWerewolf && !a_b.untimed && a_b.hasShiftBackTime && a_b.gameDaysPassed > a_b.shiftBackTime + 0.05f) {
+			a_b.fix = F::kSetStage;
+			a_b.problem = Fmt("Your werewolf time ran out %.1f game hours ago (PlayerWerewolfShiftBackTime %.3f, GameDaysPassed %.3f), but "
+							"you were not turned back. The script's update (every 5 seconds) sets stage %d when the time is up; it "
+							"stopped coming.",
+				(a_b.gameDaysPassed - a_b.shiftBackTime) * 24.0f, a_b.shiftBackTime, a_b.gameDaysPassed, kShiftBackStage);
+		} else if (a_b.raceIsBeast && a_b.kind == Beast::kVampireLord && !a_b.hasRevertPower) {
+			a_b.fix = F::kSetStage;
+			a_b.problem = Fmt("You are a Vampire Lord without the Revert Form power, so you cannot turn back yourself. Revert Form sets "
+							"stage %d of %s; that can be done for you.",
+				kShiftBackStage, a_b.questEdid.c_str());
+		} else if (!a_b.raceIsBeast && a_b.questRunning && shiftBackDone) {
+			a_b.fix = F::kGameRevert;
+			a_b.problem = Fmt("You are back to your own race, but %s is still running after its turn-back stage: its Shutdown never "
+							"finished. While it runs, the next transformation cannot start it again, and what Shutdown resets "
+							"(beast form menus, fast travel, being a ghost) may still be on.",
+				a_b.questEdid.c_str());
+		} else if (!a_b.raceIsBeast && !a_b.questRunning && ran && a_b.leftovers()) {
+			a_b.fix = F::kGameRevert;
+			a_b.problem = Fmt("You are back to your own race, but things the transformation gives and its turn-back takes away are still "
+							"on you: %zu spell(s), %zu faction(s), %zu item(s).",
+				a_b.spells.size(), a_b.factions.size(), a_b.items.size());
+		}
+		if (a_b.fix == F::kGameRevert && a_b.raceIsBeast && !a_b.originalRace) {
+			a_b.fix = F::kCannot;
+			a_b.problem += Fmt(" The script has no race to turn you back into (%s is None in the save), so its own turn-back would leave "
+							 "you as you are; set your race in the game's console (player.setrace <your race>), then use this again.",
+				a_b.kind == Beast::kWerewolf ? "CompanionsHousekeepingScript.PlayerOriginalRace" : "DLC1VampireTrackingQuest.PlayerRace");
+		}
+	}
+
 	std::vector<BeastState> ReadBeastForms(const SaveFile& a_save)
 	{
 		std::vector<BeastState> out;
@@ -756,53 +806,10 @@ namespace ess::skyf
 					b.hasRevertPower = revert && Has(spells, revert);
 				}
 			}
-			const bool ran = !b.stagesDone.empty();
 			if (!b.questInSave && !b.raceIsBeast) {
 				continue;  // never transformed: nothing to show (a lone spell may come from another mod)
 			}
-			const bool shiftBackDone = std::find(b.stagesDone.begin(), b.stagesDone.end(), kShiftBackStage) != b.stagesDone.end();
-			const char* form = k == 0 ? "werewolf" : "Vampire Lord";
-			using F = BeastState::Fix;
-			if (b.raceIsBeast && !b.questRunning) {
-				b.fix = F::kGameRevert;
-				b.problem = Fmt("You are still a %s (the player's race is the beast race), but the quest that turns you back (%s) is not "
-								"running, so nothing will ever change you back.",
-					form, b.questEdid.c_str());
-			} else if (b.raceIsBeast && shiftBackDone) {
-				b.fix = F::kGameRevert;
-				b.problem = Fmt("You are still a %s although the turn-back stage (%d) has already been set: the script's ShiftBack stopped "
-								"half way (it waits for a synced animation to end and for the race change) and will not run again by "
-								"itself, because its \"already doing it\" guards are set.",
-					form, kShiftBackStage);
-			} else if (b.raceIsBeast && k == 0 && !b.untimed && b.hasShiftBackTime && b.gameDaysPassed > b.shiftBackTime + 0.05f) {
-				b.fix = F::kSetStage;
-				b.problem = Fmt("Your werewolf time ran out %.1f game hours ago (PlayerWerewolfShiftBackTime %.3f, GameDaysPassed %.3f), but "
-								"you were not turned back. The script's update (every 5 seconds) sets stage %d when the time is up; it "
-								"stopped coming.",
-					(b.gameDaysPassed - b.shiftBackTime) * 24.0f, b.shiftBackTime, b.gameDaysPassed, kShiftBackStage);
-			} else if (b.raceIsBeast && k == 1 && !b.hasRevertPower) {
-				b.fix = F::kSetStage;
-				b.problem = Fmt("You are a Vampire Lord without the Revert Form power, so you cannot turn back yourself. Revert Form sets "
-								"stage %d of %s; that can be done for you.",
-					kShiftBackStage, b.questEdid.c_str());
-			} else if (!b.raceIsBeast && b.questRunning && shiftBackDone) {
-				b.fix = F::kGameRevert;
-				b.problem = Fmt("You are back to your own race, but %s is still running after its turn-back stage: its Shutdown never "
-								"finished. While it runs, the next transformation cannot start it again, and what Shutdown resets "
-								"(beast form menus, fast travel, being a ghost) may still be on.",
-					b.questEdid.c_str());
-			} else if (!b.raceIsBeast && !b.questRunning && ran && b.leftovers()) {
-				b.fix = F::kGameRevert;
-				b.problem = Fmt("You are back to your own race, but things the transformation gives and its turn-back takes away are still "
-								"on you: %zu spell(s), %zu faction(s), %zu item(s).",
-					b.spells.size(), b.factions.size(), b.items.size());
-			}
-			if (b.fix == F::kGameRevert && b.raceIsBeast && !b.originalRace) {
-				b.fix = F::kCannot;
-				b.problem += Fmt(" The script has no race to turn you back into (%s is None in the save), so its own turn-back would leave "
-								 "you as you are; set your race in the game's console (player.setrace <your race>), then use this again.",
-					k == 0 ? "CompanionsHousekeepingScript.PlayerOriginalRace" : "DLC1VampireTrackingQuest.PlayerRace");
-			}
+			Judge(b);
 			out.push_back(std::move(b));
 		}
 		return out;
