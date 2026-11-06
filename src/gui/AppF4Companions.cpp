@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <map>
 
 using namespace ess;
@@ -83,6 +84,15 @@ void App::appendCheckItemsF4(std::vector<CheckItem>& a_items)
 		return;
 	}
 	auto& st = f4companions();
+	// test hook: RESAVERPP_TEST_COMPANIONS=<ref hex> opens the Companions window on that companion (the Save check opens with the save)
+	if (static bool once = false; !once) {
+		once = true;
+		if (const char* t = std::getenv("RESAVERPP_TEST_COMPANIONS")) {
+			_showCompanionsF4 = true;
+			_showCheck = false;
+			st.selected = static_cast<std::uint32_t>(std::strtoul(t, nullptr, 16));
+		}
+	}
 	for (const auto& f : st.r.findings) {
 		CheckItem it;
 		it.level = f.level == fo4comp::Finding::Level::kInfo ? Risk::kInfo : Risk::kCaution;
@@ -253,7 +263,7 @@ void App::drawCompanionsF4()
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			const auto n = nameOf(c.ref);
-			if (ImGui::Selectable(Fmt("%s##%08X", n.empty() ? "?" : n.c_str(), c.ref).c_str(), st.selected == c.ref, ImGuiSelectableFlags_SpanAllColumns)) {
+			if (ImGui::Selectable(Fmt("%s##%08X", n.empty() ? (c.dogmeat ? "(Dogmeat)" : "-") : n.c_str(), c.ref).c_str(), st.selected == c.ref, ImGuiSelectableFlags_SpanAllColumns)) {
 				st.selected = c.ref;
 			}
 			ImGui::TableNextColumn();
