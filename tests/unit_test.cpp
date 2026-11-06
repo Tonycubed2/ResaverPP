@@ -922,10 +922,24 @@ namespace
 			}
 			const auto own = static_cast<std::uint32_t>(pf.masters.size());
 			std::vector<merge::Record> a2, b2;
-			std::size_t lists = 0;
+			std::size_t lists = 0, forcedRecs = 0, worlds = 0;
+			// what ModA changed in each record: 'L' a list entry added, 'O' object bounds, 'D' a cell flag (DATA bit 0x10, unused)
+			std::map<std::uint32_t, char> forced;
+			std::set<std::uint32_t> parents;  // worldspaces of the plugin's own exterior cells
 			for (const auto& r : pf.records) {
+				if ((r.formID >> 24) != own || (r.flags & 0x20)) continue;
+				if (!std::memcmp(r.sig, "CELL", 4) && !r.groups.empty() && r.groups[0].first == 1) parents.insert(r.groups[0].second);
+			}
+			for (const auto& r : pf.records) {
+				if (!std::memcmp(r.sig, "WRLD", 4) && (r.formID >> 24) != own && parents.contains(r.formID)) {
+					// a master's worldspace holding cells of this plugin: in the test plugins unchanged, as the cells' parent
+					a2.push_back(r);
+					b2.push_back(r);
+					continue;
+				}
 				if ((r.formID >> 24) != own || (r.flags & 0x20)) continue;  // overrides of a master (not loaded here), deleted ones
 				merge::Record ra = r, rb = r;
+				const bool world = !std::memcmp(r.sig, "WRLD", 4);
 				// ModA: one more entry in the list (a copy of the first one, at level 99 for leveled lists)
 				const char* entry = nullptr;
 				for (const char* e : { "LVLO", "CNTO", "LNAM" }) {
@@ -956,7 +970,22 @@ namespace
 						}
 					}
 					++lists;
+					forced[r.formID] = 'L';
+				} else if (!world) {
+					// no list: ModA changes one value, the object bounds (or a cell's unused flag 0x10)
+					for (auto& sb : ra.subs) {
+						if (!std::memcmp(sb.sig, "OBND", 4) && sb.data.size() == 12 && !forced.contains(r.formID)) {
+							sb.data[0] ^= 1;
+							forced[r.formID] = 'O';
+						}
+						if (!std::memcmp(r.sig, "CELL", 4) && !std::memcmp(sb.sig, "DATA", 4) && !sb.data.empty() && !forced.contains(r.formID)) {
+							sb.data[0] ^= 0x10;
+							forced[r.formID] = 'D';
+						}
+					}
 				}
+				forcedRecs += forced.contains(r.formID) ? 1 : 0;
+				worlds += world ? 1 : 0;
 				for (auto& sb : rb.subs) {
 					if (!std::memcmp(sb.sig, "EDID", 4) && !sb.data.empty()) sb.data.insert(sb.data.end() - 1, 'X');
 				}
@@ -983,7 +1012,11 @@ namespace
 				std::set<std::uint32_t> ids;
 				for (const auto& rec : pf.records) {
 					for (const auto& sb : rec.subs) {
-						if (sb.data.size() == 4 && (!std::memcmp(sb.sig, "FULL", 4) || (!std::memcmp(rec.sig, "LVLI", 4) && !std::memcmp(sb.sig, "ONAM", 4)))) {
+						// the localized texts of the merged types (wbDefinitionsFO4 wbLStringKC): FULL, DESC, NPC_ SHRT and ATTX, LVLI
+						// and AMMO ONAM, BOOK CNAM, ALCH DNAM
+						const std::string k = std::string(rec.sig, 4) + "." + std::string(sb.sig, 4);
+						if (sb.data.size() == 4 && (!std::memcmp(sb.sig, "FULL", 4) || !std::memcmp(sb.sig, "DESC", 4) || k == "NPC_.SHRT" ||
+													   k == "NPC_.ATTX" || k == "LVLI.ONAM" || k == "AMMO.ONAM" || k == "BOOK.CNAM" || k == "ALCH.DNAM")) {
 							std::uint32_t id;
 							std::memcpy(&id, sb.data.data(), 4);
 							if (id) ids.insert(id);
@@ -1010,19 +1043,38 @@ namespace
 				return strings(f);
 			};
 			const auto r = merge::Build(o);
-			for (const auto& sk : r.skipped) std::printf("  merge FO4 real %s: not merged: %s\n", name.c_str(), sk.c_str());
-			std::printf("  merge FO4 real %s: %zu records of the merged types, %zu with a list, %zu conflicts, %zu merged, %zu not merged\n",
-				name.c_str(), a2.size(), lists, r.conflicts, r.merged.size(), r.skipped.size());
-			Check(r.ok && r.fo4 && r.skipped.empty() && r.conflicts == a2.size() && r.merged.size() == lists,
-				"merge FO4 real: every record of a real Fallout 4 plugin read with the FO4 layouts, the list ones merged");
+			// a partial form (cells) is left to the game on purpose; anything else not merged is a part the layouts do not know
+			std::size_t partial = 0, unknown = 0;
+			for (const auto& sk : r.skipped) {
+				if (sk.find("partial form") != std::string::npos) {
+					++partial;
+					continue;
+				}
+				++unknown;
+				std::printf("  merge FO4 real %s: not merged: %s\n", name.c_str(), sk.c_str());
+			}
+			std::map<std::string, std::size_t> byType;
+			for (const auto& m : r.merged) ++byType[m.type];
+			std::string types;
+			for (const auto& [t, n] : byType) types += " " + t + " " + std::to_string(n);
+			std::printf("  merge FO4 real %s: %zu records of the merged types (%zu worldspaces), %zu with a list, %zu forced changes, %zu conflicts, "
+						"%zu merged (%s ), %zu not merged (%zu partial cells)\n",
+				name.c_str(), a2.size(), worlds, lists, forcedRecs, r.conflicts, r.merged.size(), types.c_str(), r.skipped.size(), partial);
+			Check(r.ok && r.fo4 && unknown == 0 && r.merged.size() + partial == forcedRecs,
+				"merge FO4 real: every record of a real Fallout 4 plugin read with the FO4 layouts, ModA's change merged into each");
 			save("Patch.esp", r.file);
 			const auto back = merge::ReadPlugin(dir / "Patch.esp");
-			bool good = back.records.size() == lists;
+			std::size_t backRecs = 0;
+			for (const auto& rec : back.records) backRecs += std::memcmp(rec.sig, "WRLD", 4) ? 1 : 0;
+			bool good = backRecs == r.merged.size();
 			if (!good) {
-				std::printf("  merge FO4 real %s: the patch has %zu records, %zu expected\n", name.c_str(), back.records.size(), lists);
+				std::printf("  merge FO4 real %s: the patch has %zu records, %zu expected\n", name.c_str(), backRecs, r.merged.size());
 			}
+			std::map<std::uint32_t, const merge::Record*> orig;
+			for (const auto& rec : pf.records) orig[rec.formID] = &rec;
 			std::size_t bad = 0;
 			for (const auto& rec : back.records) {
+				if (!std::memcmp(rec.sig, "WRLD", 4)) continue;
 				// ModB's edits (the winner) and ModA's added entry, the counts matching
 				std::size_t lvlo = 0, cnto = 0;
 				long long llct = -1, coct = -1;
@@ -1046,6 +1098,27 @@ namespace
 				if (lvlo && static_cast<long long>(lvlo) != llct) why += " LLCT " + std::to_string(llct) + " but " + std::to_string(lvlo) + " LVLO;";
 				if (lvlo && !lvl99) why += " ModA's level-99 entry is missing;";
 				if (cnto && static_cast<long long>(cnto) != coct) why += " COCT " + std::to_string(coct) + " but " + std::to_string(cnto) + " CNTO;";
+				// ModA's value change (its own form IDs are the patch's last-but-one master, so compare by local ID)
+				const auto low = (rec.formID & 0xFFFFFF) | (own << 24);
+				const auto f = forced.find(low);
+				const auto* o0 = orig.contains(low) ? orig[low] : nullptr;
+				if (f != forced.end() && o0 && f->second != 'L') {
+					const char* sig = f->second == 'O' ? "OBND" : "DATA";
+					const std::uint8_t mask = f->second == 'O' ? 1 : 0x10;
+					std::optional<std::uint8_t> was, now;
+					for (const auto& sb : o0->subs) if (!was && !std::memcmp(sb.sig, sig, 4) && !sb.data.empty()) was = sb.data[0];
+					for (const auto& sb : rec.subs) if (!now && !std::memcmp(sb.sig, sig, 4) && !sb.data.empty()) now = sb.data[0];
+					if (!was || !now || *now != (*was ^ mask)) why += std::string(" ModA's ") + sig + " change is missing;";
+				}
+				// the patch must hold the same subrecords as the plugin's record (ModB's editor ID aside), in the same order
+				if (o0) {
+					std::string a, b;
+					for (const auto& sb : o0->subs) a.append(sb.sig, 4);
+					for (const auto& sb : rec.subs) b.append(sb.sig, 4);
+					if (f == forced.end() || f->second != 'L') {
+						if (a != b) why += " its subrecords are not the plugin's: " + a.substr(0, 200) + " / " + b.substr(0, 200) + ";";
+					}
+				}
 				if (!why.empty()) {
 					good = false;
 					if (++bad <= 20) {

@@ -6,6 +6,7 @@
 
 #include "Bsa.h"
 #include "ConditionFunctions.h"
+#include "ConditionFunctionsFO4.h"
 #include "Save.h"  // DecompressZlib
 #include "ScriptSources.h"
 
@@ -652,7 +653,8 @@ namespace ess::merge
 			kSpit,      // SPIT: half-cost perk
 			kCtda,      // a condition: form IDs depend on the function
 			kDrop,      // left out of the patch (WRLD's large-reference and offset tables: xEdit never copies them either)
-			kFormPairs, // an array of 8-byte {form ID, u32 or float} entries (Fallout 4: LLKC, CVPA, DAMC, PRPS)
+			kFormPairs, // an array of 8-byte {form ID, u32 or float} entries (Fallout 4: LLKC, CVPA, DAMC, PRPS, DAMA)
+			kFixed,     // Fallout 4: a struct whose form IDs are found from its size or flags (FixedForms)
 		};
 
 		// Fallout 4, from xEdit's wbDefinitionsFO4 (dev-4.1.6). Only the types listed here are merged for Fallout 4; any part
@@ -726,6 +728,135 @@ namespace ess::merge
 					if (s == "CVPA") return Kind::kFormPairs;
 					if (s == "CDIX") return Kind::kNone;
 				}
+				return Kind::kUnknown;
+			}
+			// parts most items share: editor ID, script, bounds, preview transform, name, keywords, model, destruction, sounds
+			const bool common = in({ "EDID", "OBND", "KSIZ" }) || model || destNone;
+			auto shared = [&](Kind& k) {
+				if (common) { k = Kind::kNone; return true; }
+				if (s == "VMAD") { k = Kind::kVmad; return true; }
+				if (s == "FULL" || s == "DESC") { k = Kind::kLString; return true; }
+				if (in({ "PTRN", "MODS", "DMDS", "YNAM", "ZNAM", "ETYP" })) { k = Kind::kForm0; return true; }
+				if (s == "DSTD") { k = Kind::kDstd; return true; }
+				if (s == "DAMC") { k = Kind::kFormPairs; return true; }
+				if (s == "KWDA") { k = Kind::kFormArr; return true; }
+				return false;
+			};
+			// the effects of potions, ingredients and spells: EFID, EFIT (magnitude, area, duration), conditions
+			auto effects = [&](Kind& k) {
+				if (s == "EFID") { k = Kind::kForm0; return true; }
+				if (in({ "EFIT", "CIS1", "CIS2" })) { k = Kind::kNone; return true; }
+				if (s == "CTDA") { k = Kind::kCtda; return true; }
+				return false;
+			};
+			Kind k = Kind::kUnknown;
+			if (r == "NPC_") {
+				// wbDefinitionsFO4 NPC_. ACBS 20 bytes, SNAM {faction, rank s8} 5, PRKR {perk, rank u8} 5, TPTA 13 template actors,
+				// ATKD 44 (attack spell @8), AIDT 24, DNAM 8, MWGT 12, CS2H..CS2F actor sounds, TETI/TEND tints, FMRI/FMRS face
+				// morphs, MSDK/MSDV morph keys and values, MRSV body morph regions; the object template (OBTE..STOP) is read as one
+				// part (see canon)
+				if (in({ "EDID", "OBND", "ACBS", "SPCT", "PRKZ", "COCT", "AIDT", "KSIZ", "DATA", "DNAM", "NAM5", "NAM6", "NAM7", "NAM4", "MWGT",
+						"NAM8", "CS2H", "CS2E", "CS2F", "QNAM", "MSDK", "MSDV", "TETI", "TEND", "MRSV", "FMRI", "FMRS", "FMIN", "ATKE", "ATKT" }) ||
+					destNone)
+					return Kind::kNone;
+				if (in({ "PTRN", "STCP", "SNAM", "INAM", "VTCK", "TPLT", "LTPT", "LTPC", "RNAM", "SPLO", "WNAM", "ANAM", "ATKR", "ATKW", "ATKS",
+						"SPOR", "OCOR", "GWOR", "ECOR", "FCPL", "RCLR", "PRKR", "FTYP", "NTRM", "CNTO", "PKID", "CNAM", "PNAM", "HCLF", "BCLF",
+						"ZNAM", "GNAM", "CS2K", "CS2D", "CSCR", "PFRN", "DOFT", "SOFT", "DPLT", "CRIF", "FTST", "DMDS" }))
+					return Kind::kForm0;
+				if (in({ "TPTA", "KWDA", "APPR" })) return Kind::kFormArr;
+				if (in({ "PRPS", "DAMC" })) return Kind::kFormPairs;
+				if (in({ "FULL", "SHRT", "ATTX" })) return Kind::kLString;
+				if (s == "VMAD") return Kind::kVmad;
+				if (s == "COED") return Kind::kCoed;
+				if (s == "DSTD") return Kind::kDstd;
+				if (s == "ATKD") return Kind::kAtkd;
+				return Kind::kUnknown;
+			}
+			if (r == "ARMO") {
+				// male and female world models (MOD2/MOD4 with MO2T/MO4T, MODC, MO2S/MO4S), icons, BOD2, armatures (INDX + MODL =
+				// an ARMA form), DATA {value, weight, health}, FNAM {armour rating, base addon index, stagger, unused 3}, DAMA
+				if (in({ "MOD2", "MO2T", "MOD4", "MO4T", "ICON", "MICO", "ICO2", "MIC2", "BOD2", "INDX", "DATA", "FNAM" })) return Kind::kNone;
+				if (in({ "EITM", "MO2S", "MO4S", "BIDS", "BAMT", "RNAM", "INRD", "TNAM" }) || s == "MODL") return Kind::kForm0;
+				if (s == "APPR") return Kind::kFormArr;
+				if (s == "DAMA") return Kind::kFormPairs;
+				if (in({ "MODT", "MODF", "MODS" })) return Kind::kUnknown;  // not in ARMO's definition (its models are MOD2 / MOD4)
+				return shared(k) ? k : Kind::kUnknown;
+			}
+			if (r == "WEAP") {
+				// DNAM 132 bytes, FNAM 41, CRDT 12 (forms found by size: kFixed), the 1st person model (MOD4, MO4T, MO4S, MO4C, MO4F)
+				if (in({ "ICON", "MICO", "EAMT", "MOD4", "MO4T", "MO4C", "MO4F", "FLTR", "MASE" })) return Kind::kNone;
+				if (in({ "STCP", "EITM", "BIDS", "BAMT", "INRD", "NNAM", "MO4S", "INAM", "LNAM", "WAMD", "WZMD", "CNAM" })) return Kind::kForm0;
+				if (in({ "DNAM", "FNAM", "CRDT" })) return Kind::kFixed;
+				if (s == "APPR") return Kind::kFormArr;
+				if (s == "DAMA") return Kind::kFormPairs;
+				return shared(k) ? k : Kind::kUnknown;
+			}
+			if (r == "AMMO") {
+				// DATA {value, weight (optional)}, DNAM {projectile, flags u8, unused 3, damage, health}, ONAM short name, NAM1
+				// casing model with NAM2 texture data
+				if (in({ "DATA", "NAM1", "NAM2" })) return Kind::kNone;
+				if (s == "DNAM") return Kind::kFixed;
+				if (s == "ONAM") return Kind::kLString;
+				if (s == "ETYP") return Kind::kUnknown;
+				return shared(k) ? k : Kind::kUnknown;
+			}
+			if (r == "BOOK") {
+				// DATA {value, weight}, DNAM {flags u8, teaches (actor value / spell / perk by the flags), text offset x, y}
+				if (in({ "ICON", "MICO", "DATA" })) return Kind::kNone;
+				if (in({ "FIMD", "INAM" })) return Kind::kForm0;
+				if (s == "DNAM") return Kind::kFixed;
+				if (s == "CNAM") return Kind::kLString;
+				if (s == "ETYP") return Kind::kUnknown;
+				return shared(k) ? k : Kind::kUnknown;
+			}
+			if (r == "ALCH") {
+				// DATA weight, ENIT {value, flags, addiction, addiction chance, consume sound}, DNAM addiction name, effects
+				if (in({ "ICON", "MICO", "DATA" })) return Kind::kNone;
+				if (s == "CUSD") return Kind::kForm0;
+				if (s == "ENIT") return Kind::kAlchEnit;
+				if (s == "DNAM") return Kind::kLString;
+				if (effects(k)) return k;
+				return shared(k) ? k : Kind::kUnknown;
+			}
+			if (r == "INGR") {
+				// DATA {value, weight}, ENIT {ingredient value, flags}, effects
+				if (in({ "ICON", "MICO", "DATA", "ENIT" })) return Kind::kNone;
+				if (effects(k)) return k;
+				if (s == "DESC") return Kind::kUnknown;
+				return shared(k) ? k : Kind::kUnknown;
+			}
+			if (r == "SPEL") {
+				// EDID OBND FULL KSIZ KWDA ETYP DESC SPIT (36 bytes, casting perk @32) and the effects; nothing else
+				if (in({ "EDID", "OBND", "KSIZ" })) return Kind::kNone;
+				if (s == "FULL" || s == "DESC") return Kind::kLString;
+				if (s == "KWDA") return Kind::kFormArr;
+				if (s == "ETYP") return Kind::kForm0;
+				if (s == "SPIT") return Kind::kSpit;
+				if (effects(k)) return k;
+				return Kind::kUnknown;
+			}
+			if (r == "CELL") {
+				// DATA flags u16, VISI/PCMB timestamps, RVIS previs cell, XCLC grid, XCLL lighting, CNAM/ZNAM precombined levels u8,
+				// TVDT, MHDT, XCLW water height, XCLR regions, XWCN/XWCU currents, XOWN {owner, unused 4, no crime u8, unused 3},
+				// XRNK, XILW {worldspace, offsets}, XWEM, XPRI previs references, XCRI combined references (kFixed)
+				if (in({ "EDID", "DATA", "VISI", "PCMB", "XCLC", "XCLL", "CNAM", "ZNAM", "TVDT", "MHDT", "XCLW", "XWCN", "XWCU", "XRNK", "XWEM" }))
+					return Kind::kNone;
+				if (s == "FULL") return Kind::kLString;
+				if (in({ "RVIS", "LTMP", "XLCN", "XCWT", "XOWN", "XILL", "XILW", "XCCM", "XCAS", "XEZN", "XCMO", "XCIM", "XGDR" })) return Kind::kForm0;
+				if (s == "XCLR" || s == "XPRI") return Kind::kFormArr;
+				if (s == "XCRI") return Kind::kFixed;
+				return Kind::kUnknown;
+			}
+			if (r == "WRLD") {
+				// only copied as the parent of an exterior cell: the large-reference (RNAM) and offset (OFST) tables are left out,
+				// as for Skyrim
+				if (s == "RNAM" || s == "OFST") return Kind::kDrop;
+				if (in({ "EDID", "MHDT", "WCTR", "PNAM", "NAM4", "DNAM", "ICON", "MNAM", "ONAM", "NAMA", "DATA", "NAM0", "NAM9", "NNAM", "XWEM",
+						"TNAM", "UNAM", "WLEV", "CLSZ" }) ||
+					model)
+					return Kind::kNone;
+				if (s == "FULL") return Kind::kLString;
+				if (in({ "LTMP", "XEZN", "XLCN", "WNAM", "CNAM", "NAM2", "NAM3", "ZNAM", "MODS" })) return Kind::kForm0;
 				return Kind::kUnknown;
 			}
 			return Kind::kUnknown;
@@ -931,6 +1062,72 @@ namespace ess::merge
 			}
 			return p == d.size();
 		}
+
+		// Fallout 4 structs whose form IDs depend on their size or flags (wbDefinitionsFO4); false: not this layout
+		bool FixedForms(const char* rec, const char* sub, const std::vector<std::uint8_t>& d, std::vector<std::uint32_t>& offs)
+		{
+			const std::string k = std::string(rec, 4) + "." + std::string(sub, 4);
+			if (k == "WEAP.DNAM") {
+				// ammo @0, skill @40, resist @44, eight sounds @73..@101 (attack, attack 2D, attack loop, attack fail, idle, equip,
+				// unequip, fast equip)
+				if (d.size() != 132) return false;
+				offs = { 0, 40, 44 };
+				for (std::uint32_t o = 73; o <= 101; o += 4) offs.push_back(o);
+				return true;
+			}
+			if (k == "WEAP.FNAM") {  // override projectile @29
+				if (d.size() != 41) return false;
+				offs = { 29 };
+				return true;
+			}
+			if (k == "WEAP.CRDT") {  // crit damage mult, crit charge bonus, crit effect @8
+				if (d.size() != 12) return false;
+				offs = { 8 };
+				return true;
+			}
+			if (k == "AMMO.DNAM") {  // projectile @0, flags u8, unused 3, damage, health
+				if (d.size() != 16) return false;
+				offs = { 0 };
+				return true;
+			}
+			if (k == "BOOK.DNAM") {
+				// flags u8; teaches @1: an actor value (0x01), else a spell (0x04), else a perk (0x10), else unused; text offset x, y
+				if (d.size() != 13) return false;
+				if (d[0] & 0x15) offs = { 1 };
+				return true;
+			}
+			if (k == "CELL.XCRI") {
+				// meshes count u32, references count u32 (twice the entries), meshes (u32 each), entries {reference, mesh u32}
+				if (d.size() < 8) return false;
+				const auto meshes = U32(d.data()), refs = U32(d.data() + 4);
+				if (refs % 2) return false;
+				const std::uint64_t start = 8 + std::uint64_t(meshes) * 4, end = start + std::uint64_t(refs / 2) * 8;
+				if (end != d.size()) return false;
+				for (std::uint64_t o = start; o < end; o += 8) offs.push_back(static_cast<std::uint32_t>(o));
+				return true;
+			}
+			return false;
+		}
+
+		// Fallout 4 OBTS (an object template combination): include count u32, property count u32, level min u8, unused, level
+		// max u8, unused, parent combination index s16, default u8, keywords (u8 count, then form IDs), min level for ranks u8,
+		// alt levels per tier u8, includes (mod form ID, attach point index u8, optional u8, don't use all u8: 7 bytes each),
+		// properties (24 bytes each: value type u8, unused 3, function type u8, unused 3, property u16, unused 2, value 1, value
+		// 2, step; value 1 is a form ID for value types 4 and 6)
+		bool ObtsForms(const std::vector<std::uint8_t>& d, std::vector<std::uint32_t>& offs)
+		{
+			if (d.size() < 18) return false;
+			const std::uint64_t includes = U32(d.data()), props = U32(d.data() + 4), kw = d[15];
+			if (18 + kw * 4 + includes * 7 + props * 24 != d.size()) return false;
+			std::uint32_t p = 16;
+			for (std::uint64_t i = 0; i < kw; ++i, p += 4) offs.push_back(p);
+			p += 2;
+			for (std::uint64_t i = 0; i < includes; ++i, p += 7) offs.push_back(p);
+			for (std::uint64_t i = 0; i < props; ++i, p += 24) {
+				if (d[p] == 4 || d[p] == 6) offs.push_back(p + 12);
+			}
+			return true;
+		}
 	}
 
 	// ======================================================================================
@@ -980,7 +1177,16 @@ namespace ess::merge
 				}
 				if (r == "FLST") return { { "LNAM", nullptr, nullptr, 0, false, false, 0, "forms" } };
 				if (r == "OTFT") return { { "INAM", nullptr, nullptr, 0, false, true, 0, "items" } };
-				if (r == "MISC" || r == "KEYM") return { { "KWDA", nullptr, "KSIZ", 4, false, true, 0, "keywords" } };
+				if (r == "NPC_") {
+					// SNAM {faction, rank}, SPLO with SPCT, PRKR {perk, rank} with PRKZ, CNTO (+ COED) with COCT, keywords
+					return { { "SNAM", nullptr, nullptr, 0, true, false, 0, "factions" }, { "SPLO", nullptr, "SPCT", 4, false, false, 0, "spells" },
+						{ "PRKR", nullptr, "PRKZ", 4, true, false, 0, "perks" }, { "CNTO", "COED", "COCT", 4, true, false, 0, "items" },
+						{ "KWDA", nullptr, "KSIZ", 4, false, true, 0, "keywords" } };
+				}
+				if (r == "CELL") return { { "XCLR", nullptr, nullptr, 0, false, true, 0, "regions" } };
+				// armatures (ARMO INDX + MODL) are not merged as a list, as for Skyrim
+				if (r == "MISC" || r == "KEYM" || r == "ARMO" || r == "WEAP" || r == "AMMO" || r == "BOOK" || r == "ALCH" || r == "INGR" || r == "SPEL")
+					return { { "KWDA", nullptr, "KSIZ", 4, false, true, 0, "keywords" } };
 				return {};
 			}
 			if (r == "LVLI" || r == "LVLN" || r == "LVSP") {
@@ -1036,6 +1242,37 @@ namespace ess::merge
 				else if (r == "KEYM")
 					s = "EDID VMAD OBND PTRN FULL MODL MODT MODC MODS MODF ICON MICO DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF YNAM ZNAM KSIZ KWDA "
 						"DATA";
+				else if (r == "NPC_")
+					s = "EDID VMAD OBND PTRN STCP ACBS SNAM INAM VTCK TPLT LTPT LTPC TPTA RNAM SPCT SPLO DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF "
+						"WNAM ANAM ATKR ATKD ATKE ATKW ATKS ATKT SPOR OCOR GWOR ECOR FCPL RCLR PRKZ PRKR PRPS FTYP NTRM COCT CNTO COED AIDT PKID KSIZ "
+						"KWDA APPR OBTE CNAM FULL SHRT DATA DNAM PNAM HCLF BCLF ZNAM GNAM NAM5 NAM6 NAM7 NAM4 MWGT NAM8 CS2H CS2K CS2D CS2E CS2F CSCR "
+						"PFRN DOFT SOFT DPLT CRIF FTST QNAM MSDK MSDV TETI TEND MRSV FMRI FMRS FMIN ATTX";
+				else if (r == "ARMO")
+					s = "EDID VMAD OBND PTRN FULL EITM MOD2 MO2T MODC MO2S ICON MICO MOD4 MO4T MO4S ICO2 MIC2 BOD2 DEST DAMC DSTD DSTA DMDL DMDT DMDC "
+						"DMDS DSTF YNAM ZNAM ETYP BIDS BAMT RNAM KSIZ KWDA DESC INRD INDX MODL DATA FNAM DAMA TNAM APPR OBTE";
+				else if (r == "WEAP")
+					s = "EDID VMAD OBND PTRN STCP FULL MODL MODT MODC MODS MODF ICON MICO EITM EAMT DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF ETYP "
+						"BIDS BAMT YNAM ZNAM KSIZ KWDA DESC INRD APPR OBTE NNAM MOD4 MO4T MO4S MO4C MO4F DNAM FNAM CRDT INAM LNAM WAMD WZMD CNAM DAMA "
+						"FLTR MASE";
+				else if (r == "AMMO")
+					s = "EDID VMAD OBND PTRN FULL MODL MODT MODC MODS MODF DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF YNAM ZNAM DESC KSIZ KWDA DATA "
+						"DNAM ONAM NAM1 NAM2";
+				else if (r == "BOOK")
+					s = "EDID VMAD OBND PTRN FULL MODL MODT MODC MODS MODF ICON MICO DESC DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF YNAM ZNAM KSIZ "
+						"KWDA FIMD DATA DNAM CNAM INAM";
+				else if (r == "ALCH")
+					s = "EDID VMAD OBND PTRN FULL KSIZ KWDA MODL MODT MODC MODS MODF ICON MICO DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF YNAM ZNAM "
+						"ETYP CUSD DESC DATA ENIT DNAM EFID EFIT CTDA CIS1 CIS2";
+				else if (r == "INGR")
+					s = "EDID VMAD OBND PTRN FULL KSIZ KWDA MODL MODT MODC MODS MODF ICON MICO DEST DAMC DSTD DSTA DMDL DMDT DMDC DMDS DSTF ETYP YNAM "
+						"ZNAM DATA ENIT EFID EFIT CTDA CIS1 CIS2";
+				else if (r == "SPEL") s = "EDID OBND FULL KSIZ KWDA ETYP DESC SPIT EFID EFIT CTDA CIS1 CIS2";
+				else if (r == "CELL")
+					s = "EDID FULL DATA VISI RVIS PCMB XCLC XCLL CNAM ZNAM TVDT MHDT LTMP XCLW XCLR XLCN XWCN XWCU XCWT XOWN XRNK XILL XILW XWEM XCCM "
+						"XCAS XEZN XCMO XCIM XGDR XPRI XCRI";
+				else if (r == "WRLD")
+					s = "EDID RNAM MHDT FULL WCTR LTMP XEZN XLCN WNAM PNAM CNAM NAM2 NAM3 NAM4 DNAM ICON MODL MODT MODC MODS MODF MNAM ONAM NAMA DATA "
+						"NAM0 NAM9 ZNAM NNAM XWEM TNAM UNAM WLEV OFST CLSZ";
 			} else if (r == "LVLI") s = "EDID OBND LVLD LVLF LVLG LLCT LVLO COED";
 			else if (r == "LVLN") s = "EDID OBND LVLD LVLF LVLG LLCT LVLO COED MODL MODT MODS";
 			else if (r == "LVSP") s = "EDID OBND LVLD LVLF LLCT LVLO";
@@ -1081,9 +1318,10 @@ namespace ess::merge
 			return out;
 		}
 
-		// Fallout 4: the merged types (see LayoutFO4); NPC_ is read too, only to know which COED owners are NPCs
-		const std::vector<std::string> kTypesFO4 = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "MISC", "KEYM" };
-		const std::vector<std::string> kReadFO4 = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "MISC", "KEYM", "NPC_" };
+		// Fallout 4: the merged types (see LayoutFO4); WRLD only as the parent of an exterior cell, as for Skyrim
+		const std::vector<std::string> kTypesFO4 = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "MISC", "KEYM", "NPC_", "ARMO", "WEAP",
+			"AMMO", "BOOK", "ALCH", "INGR", "SPEL", "CELL", "WRLD" };
+		const std::vector<std::string>& kReadFO4 = kTypesFO4;
 		const std::vector<std::string> kTypes = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "NPC_", "ARMO", "WEAP", "AMMO", "MISC", "KEYM",
 			"SLGM", "BOOK", "ALCH", "INGR", "SCRL", "SPEL", "CELL", "WRLD" };
 
@@ -1115,15 +1353,48 @@ namespace ess::merge
 			bool          unused = false;  // padding: plugins differ in it without meaning anything, never merged
 		};
 
+		// Fallout 4 cells: the previs and precombined data (timestamps, previs cell, precombined levels, previs references, combined
+		// references) belong to the previs and precombined mesh files the winning mod's cell was made with: never taken from another
+		// plugin, the patch keeps the winner's
+		std::vector<std::string> WinnerOnlyFO4CELL() { return { "VISI", "RVIS", "PCMB", "CNAM", "ZNAM", "XPRI", "XCRI" }; }
+
 		std::vector<std::vector<std::string>> Groups(const char* rec, bool a_fo4)
 		{
 			const std::string r(rec, 4);
 			if (a_fo4) {
 				// a model with its texture hashes, colour remap, material swap and flags; destruction with its stages; the
 				// components of a misc item with their display indices (xEdit: as many as CVPA has)
-				std::vector<std::vector<std::string>> g = { { "MODL", "MODT", "MODC", "MODS", "MODF" },
-					{ "DEST", "DAMC", "DSTD", "DSTA", "DMDL", "DMDT", "DMDC", "DMDS", "DSTF" }, { "ICON", "MICO" } };
+				std::vector<std::vector<std::string>> g = { { "DEST", "DAMC", "DSTD", "DSTA", "DMDL", "DMDT", "DMDC", "DMDS", "DSTF" } };
+				if (r != "ARMO") {
+					// (ARMO: MODL are armatures, MODC belongs to its world models, ICON to the male model: see below)
+					g.push_back({ "MODL", "MODT", "MODC", "MODS", "MODF" });
+					g.push_back({ "ICON", "MICO" });
+				}
 				if (r == "MISC") g.push_back({ "CVPA", "CDIX" });
+				if (r == "NPC_") {
+					// the face (head parts, colours, morphs, tints, body weight: the FaceGen files are made for one set of them) and
+					// the race; an attack; the actor sounds with the NPC they are inherited from
+					g.push_back({ "RNAM", "PNAM", "HCLF", "BCLF", "FTST", "QNAM", "MSDK", "MSDV", "TETI", "TEND", "MRSV", "FMRI", "FMRS", "FMIN", "MWGT" });
+					g.push_back({ "ATKD", "ATKE", "ATKW", "ATKS", "ATKT" });
+					g.push_back({ "CS2H", "CS2K", "CS2D", "CS2E", "CS2F", "CSCR" });
+				}
+				if (r == "ARMO") {
+					// male and female world models with their icons (MODC appears in both); the armatures (addon index + ARMA)
+					g.push_back({ "MOD2", "MO2T", "MODC", "MO2S", "ICON", "MICO", "MOD4", "MO4T", "MO4S", "ICO2", "MIC2" });
+					g.push_back({ "INDX", "MODL" });
+				}
+				if (r == "WEAP") {
+					g.push_back({ "EITM", "EAMT" });
+					g.push_back({ "MOD4", "MO4T", "MO4S", "MO4C", "MO4F" });  // 1st person model
+				}
+				if (r == "AMMO") g.push_back({ "NAM1", "NAM2" });  // casing model
+				if (r == "ALCH" || r == "INGR" || r == "SPEL") g.push_back({ "EFID", "EFIT", "CTDA", "CIS1", "CIS2" });
+				if (r == "CELL") {
+					g.push_back({ "XCLL", "LTMP" });                           // lighting
+					g.push_back({ "XCLW", "XCWT", "XWEM", "XWCN", "XWCU" });  // water
+					g.push_back({ "XOWN", "XRNK" });                           // owner
+					g.push_back(WinnerOnlyFO4CELL());                          // previs and precombined data: the winner's
+				}
 				return g;
 			}
 			std::vector<std::vector<std::string>> g = { { "MOD2", "MO2T", "MO2S" }, { "MOD3", "MO3T", "MO3S" }, { "MOD4", "MO4T", "MO4S" },
@@ -1162,6 +1433,50 @@ namespace ess::merge
 				} else if (k == "MISC.DATA" || k == "KEYM.DATA") {
 					if (a_size == 8) f = { { 0, 4 }, { 4, 4 } };
 				}
+				auto seq4 = [&](std::initializer_list<int> sizes, std::initializer_list<int> flagIdx = {}, std::initializer_list<int> unusedIdx = {}) {
+					std::uint32_t o = 0;
+					int           i = 0;
+					for (int sz : sizes) {
+						bool fl = false, un = false;
+						for (int x : flagIdx) fl = fl || x == i;
+						for (int x : unusedIdx) un = un || x == i;
+						f.push_back({ o, static_cast<std::uint32_t>(sz), fl, un });
+						o += static_cast<std::uint32_t>(sz);
+						++i;
+					}
+					if (o != a_size) f.clear();  // another size than the layout: merged as a whole
+				};
+				// flags u32, XP value offset, level (or level mult), calc min, calc max, disposition, template flags, bleedout, unused
+				if (k == "NPC_.ACBS") seq4({ 4, 2, 2, 2, 2, 2, 2, 2, 2 }, { 0, 6 }, { 8 });
+				// aggression, confidence, energy, morality, mood, assistance, aggro radius behaviour, unknown u8, warn, warn/attack,
+				// attack (u32 each), no slow approach u8, unknown 3 (from form version 29)
+				else if (k == "NPC_.AIDT") {
+					if (a_size == 24) seq4({ 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4, 1, 3 });
+					else seq4({ 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4 });
+				}
+				else if (k == "NPC_.DNAM") seq4({ 2, 2, 2, 1, 1 }, {}, { 4 });  // calculated health, AP, far-away distance, geared-up weapons
+				// ammo, speed, reload, reach, min/max range, attack delay, unused float, out-of-range mult, on hit, skill, resist,
+				// flags u32, capacity u16, animation type u8, secondary damage, weight, value, base damage u16, sound level, 8 sounds,
+				// accuracy bonus u8, attack seconds, unknown 2, AP cost, full power seconds, min power per shot, stagger, unknown 4
+				else if (k == "WEAP.DNAM")
+					seq4({ 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 2, 1, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1, 4, 2, 4, 4, 4, 4, 4 }, { 12 });
+				else if (k == "WEAP.FNAM") seq4({ 4, 4, 4, 4, 4, 4, 4, 1, 4, 4, 4 });
+				else if (k == "WEAP.CRDT") seq4({ 4, 4, 4 });
+				else if (k == "ARMO.DATA") seq4({ 4, 4, 4 });                // value, weight, health
+				else if (k == "ARMO.FNAM") seq4({ 2, 2, 1, 3 }, {}, { 3 });  // armour rating, base addon index, stagger, unused
+				else if (k == "AMMO.DATA") {
+					if (a_size == 8) seq4({ 4, 4 });
+					else seq4({ 4 });
+				}
+				else if (k == "AMMO.DNAM") seq4({ 4, 1, 3, 4, 4 }, { 1 }, { 2 });  // projectile, flags, unused, damage, health
+				else if (k == "BOOK.DATA" || k == "INGR.DATA") seq4({ 4, 4 });
+				// the flags with what the book teaches as one value (which form the bytes are depends on the flags), text offset x, y
+				else if (k == "BOOK.DNAM") seq4({ 5, 4, 4 });
+				else if (k == "ALCH.ENIT") seq4({ 4, 4, 4, 4, 4 }, { 1 });  // value, flags, addiction, addiction chance, sound
+				else if (k == "INGR.ENIT") seq4({ 4, 4 }, { 1 });
+				else if (k == "SPEL.SPIT") seq4({ 4, 4, 4, 4, 4, 4, 4, 4, 4 }, { 1 });
+				else if (k == "CELL.DATA") seq4({ 2 }, { 0 });
+				else if (k == "CELL.XCLC") seq4({ 4, 4, 1, 3 }, { 2 }, { 3 });
 				return f;
 			}
 			auto seq = [&](std::initializer_list<int> sizes, std::initializer_list<int> flagIdx = {}, std::initializer_list<int> unusedIdx = {}) {
@@ -1232,8 +1547,10 @@ namespace ess::merge
 			}
 			if (r == "NPC_" && has("PNAM")) return Category::kNpcFace;
 			if (has("EFID")) return Category::kEffects;
-			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || (r == "BOOK" && has("CNAM")) || (r == "LVLI" && has("ONAM")))
-				return Category::kNames;  // (LVLI ONAM: Fallout 4's override name)
+			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || (r == "BOOK" && has("CNAM")) || (r == "LVLI" && has("ONAM")) ||
+				(r == "AMMO" && has("ONAM")) || has("ATTX"))
+				return Category::kNames;  // (Fallout 4: LVLI ONAM override name, AMMO ONAM short name, NPC_ ATTX activate text)
+			if (r == "AMMO" && has("NAM1")) return Category::kModels;  // (Fallout 4: the casing model)
 			if (has("OBND") || has("PTRN") || has("MODL") || has("MOD2") || has("MOD3") || has("MOD4") || has("ICON") || has("ICO2") || has("DEST") || has("MDOB") ||
 				has("BODT"))
 				return Category::kModels;
@@ -1366,9 +1683,6 @@ namespace ess::merge
 						}
 						if (Is(r.sig, "NPC_")) {
 							_npcs.insert(k);
-							if (_fo4) {
-								continue;  // Fallout 4's NPCs are not merged (their layout is not confirmed): read for COED owners only
-							}
 						}
 						auto& vs = _versions[k];
 						if (vs.empty()) {
@@ -1428,36 +1742,90 @@ namespace ess::merge
 				std::memcpy(c.sig, v.rec.sig, 4);
 				c.flags = v.rec.flags;
 				c.version = v.rec.version;
-				for (const auto& s : v.rec.subs) {
+				// a localized text: the text itself from the plugin's strings files, so versions compare by what they say
+				auto lstring = [&](const Sub& s, std::vector<std::uint8_t>& out) {
+					if (!_plugins[v.plugin].localized) {
+						out = s.data;
+						return true;
+					}
+					if (s.data.size() != 4) {
+						err = "a localized text (" + Sig(s.sig) + ") is not a string id";
+						return false;
+					}
+					const auto  id = U32(s.data.data());
+					std::string text;
+					if (id) {
+						const auto& t = strings(v.plugin);
+						auto        it = t.find(id);
+						if (it == t.end()) {
+							err = "the text of " + Sig(s.sig) + " is not in " + _plugins[v.plugin].name + "'s strings files";
+							return false;
+						}
+						text = it->second;
+					}
+					out.assign(text.begin(), text.end());
+					out.push_back(0);
+					return true;
+				};
+				for (std::size_t si = 0; si < v.rec.subs.size(); ++si) {
+					const auto& s = v.rec.subs[si];
 					CSub cs;
 					std::memcpy(cs.sig, s.sig, 4);
 					cs.data = s.data;
 					std::vector<std::uint32_t> offs;
-					switch (Layout(v.rec.sig, s.sig, _fo4)) {
+					if (_fo4 && Is(s.sig, "OBTE")) {
+						// Fallout 4's object template (wbObjectTemplate): OBTE count, then each combination (OBTF editor-only marker,
+						// FULL name, OBTS), then STOP. Its FULL would mix with the record's own name, so the whole template is kept as
+						// one part here: the subrecords one after the other (signature, u16 size, data), unpacked again in write()
+						cs.data.clear();
+						bool done = false;
+						for (; si < v.rec.subs.size() && !done; ++si) {
+							const auto& in = v.rec.subs[si];
+							std::vector<std::uint8_t> d;
+							std::vector<std::uint32_t> inner;
+							if (Is(in.sig, "OBTE") || Is(in.sig, "OBTF") || Is(in.sig, "STOP")) {
+								d = in.data;
+								done = Is(in.sig, "STOP");
+							} else if (Is(in.sig, "FULL")) {
+								if (!lstring(in, d)) return std::nullopt;
+							} else if (Is(in.sig, "OBTS")) {
+								d = in.data;
+								if (!ObtsForms(d, inner)) {
+									err = "an object template entry (OBTS) could not be read";
+									return std::nullopt;
+								}
+							} else {
+								err = "has a part (" + Sig(in.sig) + ") in its object template that ReSaver Plus does not know yet";
+								return std::nullopt;
+							}
+							if (d.size() > 0xFFFF) {
+								err = "an object template part is too large";
+								return std::nullopt;
+							}
+							const auto base = static_cast<std::uint32_t>(cs.data.size() + 6);
+							PutSig(cs.data, in.sig);
+							Put16(cs.data, static_cast<std::uint16_t>(d.size()));
+							cs.data.insert(cs.data.end(), d.begin(), d.end());
+							for (const auto o : inner) offs.push_back(base + o);
+						}
+						--si;
+						if (!done) {
+							err = "its object template (OBTE) has no end marker (STOP)";
+							return std::nullopt;
+						}
+					} else switch (Layout(v.rec.sig, s.sig, _fo4)) {
 					case Kind::kUnknown:
 						err = "has a part (" + Sig(s.sig) + ") ReSaver Plus does not know yet";
 						return std::nullopt;
 					case Kind::kNone: break;
 					case Kind::kDrop: continue;
 					case Kind::kLString:
-						if (_plugins[v.plugin].localized) {
-							if (s.data.size() != 4) {
-								err = "a localized text (" + Sig(s.sig) + ") is not a string id";
-								return std::nullopt;
-							}
-							const auto id = U32(s.data.data());
-							std::string text;
-							if (id) {
-								const auto& t = strings(v.plugin);
-								auto        it = t.find(id);
-								if (it == t.end()) {
-									err = "the text of " + Sig(s.sig) + " is not in " + _plugins[v.plugin].name + "'s strings files";
-									return std::nullopt;
-								}
-								text = it->second;
-							}
-							cs.data.assign(text.begin(), text.end());
-							cs.data.push_back(0);
+						if (!lstring(s, cs.data)) return std::nullopt;
+						break;
+					case Kind::kFixed:
+						if (!FixedForms(v.rec.sig, s.sig, s.data, offs)) {
+							err = Sig(s.sig) + " has a size (" + std::to_string(s.data.size()) + " bytes) its layout does not have";
+							return std::nullopt;
 						}
 						break;
 					case Kind::kForm0:
@@ -1470,6 +1838,11 @@ namespace ess::merge
 					case Kind::kFormPairs:
 						if (s.data.size() % 8) {
 							err = Sig(s.sig) + " has a bad size";
+							return std::nullopt;
+						}
+						if (Is(s.sig, "DAMA") && v.rec.version >= 152) {
+							// from record version 152 (Fallout 76's) each entry has a curve table too: 12 bytes
+							err = "DAMA of record version " + std::to_string(v.rec.version) + " is not Fallout 4's layout";
 							return std::nullopt;
 						}
 						for (std::uint32_t o = 0; o < s.data.size(); o += 8) {
@@ -1562,6 +1935,32 @@ namespace ess::merge
 							}
 							const auto fn = U16(s.data.data() + 8);
 							const ConditionFunction* cf = nullptr;
+							if (_fo4) {
+								// Fallout 4's own function table (wbDefinitionsFO4). Parameters that are a reference, an actor or a
+								// package (2) are a number when the condition's flags say alias (0x02) or package data (0x08)
+								for (const auto& f : kConditionFunctionsFO4) {
+									if (f.index == fn) {
+										cf = &f;
+										break;
+									}
+								}
+								if (!cf) {
+									err = "a condition uses function " + std::to_string(fn) + ", which is not in Fallout 4's function table";
+									return std::nullopt;
+								}
+								const auto type = s.data[0];
+								const auto runOn = U32(s.data.data() + 20);
+								auto isForm = [&](std::uint8_t a_p, bool a_first) {
+									if (a_p != 2) return a_p == 1;
+									if (type & 0x02) return a_first && fn == 161 && runOn == 5;  // GetIsCurrentPackage on a quest alias
+									return !(type & 0x08);
+								};
+								if (type & 0x04) offs.push_back(4);  // compared with a global variable
+								if (isForm(cf->p1, true)) offs.push_back(12);
+								if (isForm(cf->p2, false)) offs.push_back(16);
+								if (runOn == 2) offs.push_back(24);  // run on a reference
+								break;
+							}
 							for (const auto& f : kConditionFunctions) {
 								if (f.index == fn) {
 									cf = &f;
@@ -1953,6 +2352,9 @@ namespace ess::merge
 				std::map<Category, std::string> taken;
 				auto took = [&](Category c, const std::string& what) { taken[c] += (taken[c].empty() ? "" : ", ") + what; };
 				for (const auto& u : units) {
+					if (_fo4 && Is(a_patch.sig, "CELL") && u.contains("XCRI")) {
+						continue;  // previs and precombined data: always the winner's (WinnerOnlyFO4CELL)
+					}
 					const auto cat = UnitCategory(a_patch.sig, u);
 					if (!_opt.enabled[static_cast<int>(cat)]) {
 						continue;
@@ -2012,35 +2414,42 @@ namespace ess::merge
 			//  - template: the template flags (which parts come from the template) and TPLT (the template NPC).
 			// For each, the last plugin (in load order) that changed it from the version it was made against wins,
 			// and the patch gets that plugin's values as one piece.
+			// Fallout 4 (wbDefinitionsFO4, ACBS 20 bytes): flags @0 (0x80 PC level mult), XP value offset @4, level (or level
+			// multiplier) @6, calc min level @8, calc max level @10, disposition @12, template flags @14, bleedout @16; the
+			// template is TPLT (default template) with TPTA (a template actor for each kind of data).
+			struct NpcAcbs
+			{
+				std::size_t size, level, tflags;
+			};
+			NpcAcbs Acbs() const { return _fo4 ? NpcAcbs{ 20, 6, 14 } : NpcAcbs{ 24, 8, 18 }; }
+			std::set<std::string> TemplateSigs() const { return _fo4 ? std::set<std::string>{ "TPLT", "TPTA" } : std::set<std::string>{ "TPLT" }; }
 			struct NpcLink
 			{
 				bool                      hasAcbs = false;
 				std::uint8_t              pcLevelMult = 0;
-				std::vector<std::uint8_t> level;     // bytes 8..13
-				std::vector<std::uint8_t> tflags;    // bytes 18..19
-				std::optional<CSub>       tplt;
+				std::vector<std::uint8_t> level;     // level, min and max (6 bytes)
+				std::vector<std::uint8_t> tflags;    // template flags (2 bytes)
+				std::vector<CSub>         tplt;      // the template subrecords
 			};
-			static NpcLink ReadNpcLink(const CRec& c)
+			NpcLink ReadNpcLink(const CRec& c) const
 			{
-				NpcLink l;
+				NpcLink    l;
+				const auto a = Acbs();
+				const auto t = TemplateSigs();
 				for (const auto& s : c.subs) {
-					if (Is(s.sig, "ACBS") && s.data.size() >= 24 && !l.hasAcbs) {
+					if (Is(s.sig, "ACBS") && s.data.size() >= a.size && !l.hasAcbs) {
 						l.hasAcbs = true;
 						l.pcLevelMult = s.data[0] & 0x80;
-						l.level.assign(s.data.begin() + 8, s.data.begin() + 14);
-						l.tflags.assign(s.data.begin() + 18, s.data.begin() + 20);
-					} else if (Is(s.sig, "TPLT") && !l.tplt) {
-						l.tplt = s;
+						l.level.assign(s.data.begin() + static_cast<std::ptrdiff_t>(a.level), s.data.begin() + static_cast<std::ptrdiff_t>(a.level + 6));
+						l.tflags.assign(s.data.begin() + static_cast<std::ptrdiff_t>(a.tflags), s.data.begin() + static_cast<std::ptrdiff_t>(a.tflags + 2));
+					} else if (t.contains(Sig(s.sig))) {
+						l.tplt.push_back(s);
 					}
 				}
 				return l;
 			}
 			static bool SameLevel(const NpcLink& a, const NpcLink& b) { return a.pcLevelMult == b.pcLevelMult && a.level == b.level; }
-			static bool SameTemplate(const NpcLink& a, const NpcLink& b)
-			{
-				if (a.tflags != b.tflags || a.tplt.has_value() != b.tplt.has_value()) return false;
-				return !a.tplt || *a.tplt == *b.tplt;
-			}
+			static bool SameTemplate(const NpcLink& a, const NpcLink& b) { return a.tflags == b.tflags && a.tplt == b.tplt; }
 
 			// returns (what, plugin) for each part it had to put back together
 			std::vector<std::pair<std::string, std::string>> linkNpcParts(CRec& a_patch, const std::vector<CRec>& a_cv,
@@ -2065,9 +2474,10 @@ namespace ess::merge
 				}
 				const auto now = ReadNpcLink(a_patch);
 				if (!now.hasAcbs) return out;
+				const auto ac = Acbs();
 				CSub* acbs = nullptr;
 				for (auto& s : a_patch.subs) {
-					if (Is(s.sig, "ACBS") && s.data.size() >= 24) {
+					if (Is(s.sig, "ACBS") && s.data.size() >= ac.size) {
 						acbs = &s;
 						break;
 					}
@@ -2076,20 +2486,18 @@ namespace ess::merge
 				if (lastLevel >= 0 && !SameLevel(now, links[lastLevel])) {
 					const auto& src = links[lastLevel];
 					acbs->data[0] = static_cast<std::uint8_t>((acbs->data[0] & ~0x80) | src.pcLevelMult);
-					std::copy(src.level.begin(), src.level.end(), acbs->data.begin() + 8);
+					std::copy(src.level.begin(), src.level.end(), acbs->data.begin() + static_cast<std::ptrdiff_t>(ac.level));
 					out.push_back({ "PC level multiplier with level and min/max level", _plugins[a_vs[lastLevel].plugin].name });
 				}
 				if (lastTemplate >= 0 && !SameTemplate(ReadNpcLink(a_patch), links[lastTemplate])) {
 					const auto& src = links[lastTemplate];
 					for (auto& s : a_patch.subs) {
-						if (Is(s.sig, "ACBS") && s.data.size() >= 24) {
-							std::copy(src.tflags.begin(), src.tflags.end(), s.data.begin() + 18);
+						if (Is(s.sig, "ACBS") && s.data.size() >= ac.size) {
+							std::copy(src.tflags.begin(), src.tflags.end(), s.data.begin() + static_cast<std::ptrdiff_t>(ac.tflags));
 							break;
 						}
 					}
-					std::vector<CSub> block;
-					if (src.tplt) block.push_back(*src.tplt);
-					SetBlock(a_patch, { "TPLT" }, block);
+					SetBlock(a_patch, TemplateSigs(), src.tplt);
 					out.push_back({ "template with template flags", _plugins[a_vs[lastTemplate].plugin].name });
 				}
 				return out;
@@ -2380,6 +2788,11 @@ namespace ess::merge
 						for (const auto& [off, id] : s.ids) {
 							const auto v = raw(id);
 							std::memcpy(o.data.data() + off, &v, 4);
+						}
+						if (_fo4 && Is(s.sig, "OBTE")) {
+							// an object template kept as one part (see canon): its subrecords again
+							for (auto& in : ParseSubs(o.data.data(), o.data.size())) r.subs.push_back(std::move(in));
+							continue;
 						}
 						r.subs.push_back(std::move(o));
 					}
