@@ -127,6 +127,10 @@ class A:
             g2=e.alloc(0x400)
             u.mem_write(g2+0xc, struct.pack('<I',1)); u.mem_write(g2+0x18, struct.pack('<Q',sentinel)); u.mem_write(g2+0x1a0, struct.pack('<Q',tbl))
             e.stub(0x21c2b0, lambda e2: g2)
+        # class names the procedure states look up as fixed strings, set by functions run on demand in the game
+        # (0x70a700 and others), not by the CRT initializers: Activate, Dialogue, Travel, UseIdleMarker, SitSleep
+        for g,nm in ((0x3218d98,b'Activate'),(0x3218da8,b'Dialogue'),(0x30e6e90,b'Travel'),(0x3218ee0,b'UseIdleMarker'),(0x3218ed8,b'SitSleep')):
+            u.mem_write(BASE+g, struct.pack('<Q', s.intern(nm)))
         s.heapmark=e.heap
         s.snap_data=bytes(u.mem_read(BASE+0x2ed8000, 0xf9e000))
         s.snap_teb=bytes(u.mem_read(TEB, 0x100000))

@@ -2,6 +2,7 @@
 #include "ChangeFormFO4.h"
 
 #include "ChangeFormData.h"
+#include "ChangeFormFO4In.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -88,6 +89,7 @@ namespace ess::fo4cf
 		struct Ctx
 		{
 			std::uint32_t ver = 0;  // form version (65 = 1.10.163, 68 = next-gen)
+			Refr*         refr = nullptr;  // where the pointer ids read in package data go (an ACHR's reference part)
 		};
 
 		void NpcBody(Reader& r, std::uint32_t flags, std::uint32_t ver, std::vector<Part>* parts, std::string* name);
@@ -211,11 +213,33 @@ namespace ess::fo4cf
 				}
 				Skip(r, 4);
 				return;
-			case 0x6c:  // package data: only "none" is decoded (the procedure trees are not)
-				if (r.u8() != 0xFF) {
-					throw Unsupported("extra 0x6c (package data)");
+			case 0x6c:  // package data (0x295f2b): the type byte, then that type's object (0xceaed0) and its LoadGame
+				{
+					const auto type = r.u8();
+					if (type == 0xFF) {
+						return;
+					}
+					// Actor::LoadGame sets up the pointer id tables before the reference part, so an ACHR's ids are
+					// shared with its actor part; a plain REFR has no table of its own (a pointer id stops it)
+					detail::In b{ r, ver };
+					b.noTable = c.refr == nullptr;
+					if (c.refr) {
+						b.ids68 = c.refr->ids68;
+						b.ids70 = c.refr->ids70;
+						b.ids78 = c.refr->ids78;
+					}
+					try {
+						detail::PackageData(b, type);
+					} catch (const detail::Stop& e) {
+						throw Unsupported(std::string("extra 0x6c: ") + e.what());
+					}
+					if (c.refr) {
+						c.refr->ids68 = b.ids68;
+						c.refr->ids70 = b.ids70;
+						c.refr->ids78 = b.ids78;
+					}
+					return;
 				}
-				return;
 			case 0x2d:  // leveled creature: base, 13 refs, template, flags, then the NPC data those flags name
 				{
 					Skip(r, 3 + 13 * 3 + 3);
@@ -336,7 +360,7 @@ namespace ess::fo4cf
 			return out;
 		}
 		const std::uint32_t f = a_cf.changeFlags;
-		Ctx                 c{ a_save.formVersion };
+		Ctx                 c{ a_save.formVersion, out.actor ? &out : nullptr };
 		Reader              r(a_body.data(), a_body.size());
 		auto                part = [&](const char* a_name, auto&& a_read) {
             const auto b = r.pos();

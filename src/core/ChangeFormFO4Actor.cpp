@@ -261,7 +261,7 @@ namespace ess::fo4cf
 		}
 		out.formID = a_save.formIDOf(a_cf.refID);
 		Reader r(body.data(), body.size());
-		In     b{ r, a_save.formVersion, a_trace };
+		In     b{ r, a_save.formVersion, a_trace, refr.ids68, refr.ids70, refr.ids78 };  // the reference part's pointer ids
 		try {
 			// the 8-byte prefix read by Actor::LoadGame before TESObjectREFR::LoadGame
 			std::size_t prefix = 0;

@@ -31,6 +31,7 @@ namespace ess::fo4cf::detail
 	void Pid68(In& b)
 	{
 		const auto id = b.u32();
+		if (id && b.noTable) b.fail("a pointer id outside an actor");
 		if (id && b.ids68.insert(id).second) {
 			PathRequest(b);
 		}
@@ -39,6 +40,7 @@ namespace ess::fo4cf::detail
 	void Pid70(In& b)
 	{
 		const auto id = b.u32();
+		if (id && b.noTable) b.fail("a pointer id outside an actor");
 		if (id && b.ids70.insert(id).second) {
 			if (b.u32() != 0) {
 				Path(b);
@@ -52,6 +54,7 @@ namespace ess::fo4cf::detail
 		void Pid78(In& b)
 		{
 			const auto id = b.u32();
+			if (id && b.noTable) b.fail("a pointer id outside an actor");
 			if (id) b.ids78.insert(id);
 		}
 

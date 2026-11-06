@@ -26,6 +26,7 @@ namespace ess::fo4cf::detail
 		// the movement controller's pointer ids already read in this change form (the game keeps one table per
 		// Actor::LoadGame; an id seen for the first time is followed by the object it stands for)
 		std::set<std::uint32_t> ids68, ids70, ids78;
+		bool                    noTable = false;  // no pointer id table (a REFR's own extra data): an id stops reading
 
 		void          mark(char k) { if (trace) trace->push_back({ static_cast<std::uint32_t>(r.pos()), k }); }
 		void          raw(std::size_t n) { mark('R'); r.need(n); r.seek(r.pos() + n); }

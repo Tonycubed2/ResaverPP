@@ -22,3 +22,8 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
   (ObjectList, Ref, RefOLD, Location, LocationWrapper: the creators hand out the IPackageData base at +8). Created form
   ids (refid type 2) become 0xFFxxxxxx (`emutest.py`) so created packages take the game's created-form path; 0xbedd20
   (new form id) and 0x2383e0 (a form map insert) are stubbed.
+- The fixed class names some procedure states look up (Activate, Dialogue, Travel, UseIdleMarker, SitSleep) are BSFixedStrings
+  set by functions the game runs on demand, not by CRT initializers; `achr.py` sets them after the initializers.
+- `extra6c.cpp <save>` lists the extra 0x6c (package data) entries the C++ decoder finds; `extra6c.py <dump> <list>` runs the
+  game's own handling of each (0xceaed0(type), LoadGame +0x30, with fresh pointer id tables as Actor::LoadGame makes them)
+  and compares the end.

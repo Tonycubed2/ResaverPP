@@ -7,6 +7,7 @@
 #include "Save.h"
 
 #include <cstdint>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -82,6 +83,9 @@ namespace ess::fo4cf
 		bool               hasInventory = false;
 		std::vector<Item>  inventory;
 		Range              refrPart;  // the reference part as a whole (an ACHR's actor part follows it)
+		// an ACHR: the pointer ids (+0x68, +0x70, +0x78 of the pathing reader) read in its reference part's package data;
+		// the game keeps one table per Actor::LoadGame, so the actor part starts from these
+		std::set<std::uint32_t> ids68, ids70, ids78;
 	};
 
 	struct Npc
