@@ -32,4 +32,4 @@ for fn in sys.argv[1:]:
             except Exception: ok=False
         st[ok]+=1
         if not ok: bad.append(hex(ref))
-    print(os.path.basename(fn), 'exact', st[True], 'not', st[False], '(fresh emulator %d)'%st['fresh emulator'], bad[:10], 'reference end from the game\'s loader', used[0], flush=True)
+    print(os.path.basename(fn), 'exact', st[True], 'not', st[False], '(fresh emulator %d)'%st['fresh emulator'], bad[:100], 'reference end from the game\'s loader', used[0], flush=True)
