@@ -6,6 +6,7 @@
 #include "core/Bsa.h"
 #include "core/CrashLog.h"
 #include "core/ChangeFormFO4.h"
+#include "core/ChangeFormFO4In.h"
 #include "core/ScriptSources.h"
 #include "core/MergedPatch.h"
 #include "core/ModRemove.h"
@@ -29,6 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <set>
 #include <string>
 
@@ -2291,6 +2293,192 @@ void TestTransplantFO4()
 
 // Fallout 4 Reset Havok and Purify FormLists: synthetic change forms, then (RESAVERPP_FO4_SAVES) real saves reset, written,
 // read back and decoded again; form lists get null entries put in, purified, written, read back: equal to the original.
+// Fallout 4 ACHR: the package data (procedure trees) and the movement pieces read through fo4cf::detail, on bytes laid
+// out as the game's loaders read them; then, with RESAVERPP_FO4_SAVES, every NPC of real saves and the removal of a
+// plugin's items from NPCs (written, read back, the actor part kept byte for byte).
+void TestFo4ActorPackages()
+{
+	namespace fs = std::filesystem;
+	using B = std::vector<std::uint8_t>;
+	auto u8 = [](B& b, std::uint8_t v) { b.push_back(v); };
+	auto u16 = [](B& b, std::uint16_t v) { b.push_back(static_cast<std::uint8_t>(v)); b.push_back(static_cast<std::uint8_t>(v >> 8)); };
+	auto u32 = [](B& b, std::uint32_t v) { for (int i = 0; i < 4; ++i) b.push_back(static_cast<std::uint8_t>(v >> (8 * i))); };
+	auto ref = [](B& b, std::uint32_t formID) { const std::uint32_t d = formID ? ((1u << 22) | formID) : 0; b.push_back(d >> 16); b.push_back(d >> 8); b.push_back(d); };
+	auto vs = [](B& b, std::uint32_t v) { b.push_back(static_cast<std::uint8_t>(v << 2)); };  // below 64
+	auto ws = [&](B& b, const std::string& t) { u16(b, static_cast<std::uint16_t>(t.size())); b.insert(b.end(), t.begin(), t.end()); };
+	// reads a_b as package data of a_type: "" when it ends exactly at the end, else what happened
+	auto run = [](const B& a_b, std::uint8_t a_type, std::uint32_t a_ver = 68) -> std::string {
+		ess::Reader r(a_b.data(), a_b.size());
+		ess::fo4cf::detail::In in{ r, a_ver };
+		try {
+			ess::fo4cf::detail::PackageData(in, a_type);
+		} catch (const std::exception& e) {
+			return e.what();
+		}
+		return r.pos() == a_b.size() ? std::string() : "stopped at " + std::to_string(r.pos()) + " of " + std::to_string(a_b.size());
+	};
+	{  // a procedure tree (type 18): one data object (an ObjectList with one entry), Sequence > SitSleep
+		B b;
+		u32(b, 3);
+		vs(b, 1);
+		u8(b, 0x17);
+		ws(b, "ObjectList");
+		vs(b, 1);
+		ref(b, 0x33B2); ref(b, 0x100); u32(b, 1); u32(b, 3); u32(b, 0x438A1856); u32(b, 0x42C80000);
+		ws(b, "Sequence");
+		ws(b, "SitSleep");
+		u8(b, 0); u8(b, 0); u8(b, 0); u8(b, 0);  // 3 bytes (form version 0x29 and up) and no Activate child
+		u32(b, 0);                               // Sequence's own u32
+		Check(run(b, 18).empty(), "fo4 package: procedure tree with an ObjectList and Sequence > SitSleep reads exactly");
+		B old(b);
+		old.erase(old.end() - 6);  // the version byte SitSleep reads from form version 0x29 only
+		Check(run(old, 18, 0x28).empty() && !run(old, 18).empty(), "fo4 package: SitSleep's third byte depends on the form version");
+	}
+	{  // Stacked > Travel with a LocRef location; Simultaneous with Wait and an empty name (no object, nothing read)
+		B b;
+		u32(b, 0); vs(b, 0);
+		ws(b, "Stacked");
+		ws(b, "Travel");
+		u8(b, 0); u8(b, 0); u8(b, 0); u8(b, 1);
+		ws(b, "LocRef"); ref(b, 0x1234); u32(b, 0); u32(b, 0); u32(b, 0); u8(b, 0);
+		u8(b, 0);
+		u32(b, 0);  // pointer id 0 (+0x68): nothing follows
+		u8(b, 1);   // form version 0x2d and up
+		u32(b, 7);  // Stacked's u32
+		Check(run(b, 18).empty(), "fo4 package: Stacked > Travel with a LocRef reads exactly");
+		B c;
+		u32(c, 0); vs(c, 0);
+		ws(c, "Simultaneous");
+		vs(c, 2);
+		u32(c, 1); ws(c, "Wait"); u32(c, 5);
+		u32(c, 2); ws(c, "");
+		Check(run(c, 18).empty(), "fo4 package: Simultaneous children, an empty class name reads nothing");
+		B d = c;
+		d.insert(d.end(), { 9, 9 });
+		Check(!run(d, 18).empty(), "fo4 package: bytes left over are not taken as read");
+		B e;
+		u32(e, 0); vs(e, 0); ws(e, "NoSuchState");
+		Check(run(e, 18).find("not decoded") != std::string::npos, "fo4 package: an unknown state class stops the decoder");
+	}
+	{  // types 2, 13, 14 and the types without data
+		B t2; ref(t2, 0x55);
+		Check(run(t2, 2).empty(), "fo4 package: type 2 is a form id");
+		B t13; u32(t13, 1); u32(t13, 2); u32(t13, 3); u8(t13, 0); u8(t13, 1); u32(t13, 4); vs(t13, 2); ref(t13, 0x10); ref(t13, 0x11);
+		Check(run(t13, 13).empty(), "fo4 package: type 13 (u32 x3, u8 x2, u32, form ids)");
+		B t14; u32(t14, 0); u32(t14, 0); u32(t14, 0); ref(t14, 0x20);
+		u8(t14, 1); ws(t14, "Prim"); ref(t14, 0x21); u8(t14, 0);
+		u8(t14, 0); u8(t14, 0); u8(t14, 0);
+		u8(t14, 0); u8(t14, 0);
+		u8(t14, 1); u8(t14, 2); u32(t14, 0); u32(t14, 9);  // a target of kind 2: a u32
+		Check(run(t14, 14).empty(), "fo4 package: type 14 with a Prim location and a target");
+		Check(run({}, 16).empty() && run({}, 36).empty(), "fo4 package: types 16 and 36 read nothing");
+	}
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 actors: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	const auto tmp = fs::temp_directory_path() / "rs_unit_npc.fos";
+	std::size_t tested = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		if (!s->isFO4()) continue;
+		const auto  name = f.filename().string();
+		std::size_t npcs = 0, complete = 0, refrRead = 0;
+		std::map<std::uint32_t, std::size_t> perPlugin;  // items held by NPCs read completely, by top byte
+		for (const auto& c : s->changeForms) {
+			if (c.typeCode() != 1 || s->formIDOf(c.refID) == 0x14) continue;
+			++npcs;
+			const auto r = ess::fo4cf::DecodeRefr(*s, c);
+			if (!r.decoded) continue;
+			++refrRead;
+			const auto a = ess::fo4cf::DecodeActor(*s, c);
+			complete += a.complete;
+			if (a.complete) {
+				for (const auto& it : r.inventory) {
+					if ((it.formID >> 24) != 0) ++perPlugin[it.formID >> 24];
+				}
+			}
+		}
+		// nearly every NPC whose reference part reads must read to the end of its body now (a few actors still stop
+		// in Havok objects or the 0x87c540 block)
+		Check(refrRead > 0 && complete * 100 >= refrRead * 97, ("fo4 actors: 97% of the NPCs read completely in " + name + " (" +
+		      std::to_string(complete) + " of " + std::to_string(refrRead) + ")").c_str());
+		if (perPlugin.empty()) continue;
+		const auto plugin = std::max_element(perPlugin.begin(), perPlugin.end(), [](auto& x, auto& y) { return x.second < y.second; })->first;
+		std::set<std::uint32_t> items;
+		for (const auto& c : s->changeForms) {
+			if (c.typeCode() != 1) continue;
+			for (const auto& it : ess::fo4cf::DecodeRefr(*s, c).inventory) {
+				if ((it.formID >> 24) == plugin) items.insert(it.formID);
+			}
+		}
+		std::map<std::uint32_t, std::vector<std::uint8_t>> actorParts;  // refid -> the actor part before the edit
+		std::size_t removed = 0, refusedPlayer = 0;
+		for (auto& c : s->changeForms) {
+			if (c.typeCode() != 1) continue;
+			const auto r = ess::fo4cf::DecodeRefr(*s, c);
+			const auto body = ess::cf::Body(c);
+			std::size_t n = 0;
+			const auto  e = ess::cf::RemoveInventoryItems(*s, c, items, &n);
+			if (s->formIDOf(c.refID) == 0x14) {
+				refusedPlayer += !e.empty() || n == 0;
+				continue;
+			}
+			if (e.empty() && n) {
+				removed += n;
+				actorParts[c.refID.data] = std::vector<std::uint8_t>(body.begin() + static_cast<std::ptrdiff_t>(r.refrPart.end), body.end());
+			}
+		}
+		{
+			const auto bytes = s->serialize();
+			std::ofstream out(tmp, std::ios::binary);
+			out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		auto        again = SaveFile::load(tmp);
+		std::size_t ok = 0;
+		for (const auto& c : again->changeForms) {
+			const auto at = actorParts.find(c.refID.data);
+			if (c.typeCode() != 1 || at == actorParts.end()) continue;
+			const auto r = ess::fo4cf::DecodeRefr(*again, c);
+			const auto a = ess::fo4cf::DecodeActor(*again, c);
+			const auto body = ess::cf::Body(c);
+			bool clean = r.decoded && a.complete;
+			for (const auto& it : r.inventory) clean = clean && !items.contains(it.formID);
+			clean = clean && std::equal(at->second.begin(), at->second.end(), body.begin() + static_cast<std::ptrdiff_t>(r.refrPart.end), body.end());
+			ok += clean;
+		}
+		Check(removed > 0 && ok == actorParts.size(), ("fo4 actors: a plugin's items removed from " + std::to_string(actorParts.size()) +
+		      " NPCs of " + name + ", written and read back completely, actor parts unchanged").c_str());
+		Check(refusedPlayer == 1, ("fo4 actors: the player is left alone (its own part is not decoded) in " + name).c_str());
+		++tested;
+	}
+	std::error_code ec;
+	fs::remove(tmp, ec);
+	std::printf("(fo4 actors: %zu real saves)\n", tested);
+}
+
 void TestFo4HavokFormLists()
 {
 	namespace fs = std::filesystem;
@@ -2478,6 +2666,7 @@ int main()
 	TestFo4ChangeForms();
 	TestTransplantFO4();
 	TestFo4HavokFormLists();
+	TestFo4ActorPackages();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

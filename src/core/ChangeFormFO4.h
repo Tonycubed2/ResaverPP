@@ -165,9 +165,12 @@ namespace ess::fo4cf
 		std::vector<PerkRef>   perkRefs;      // vsval n x perk
 		std::vector<PerkValue> perkValues;    // vsval n x (perk, u32)
 		std::size_t   tailEnd = 0;            // end of Actor::LoadGame (an NPC's body ends here)
+		bool          complete = false;       // the whole body was read exactly: an NPC whose Actor::LoadGame ends
+		                                      // at the body's end (the player's PlayerCharacter part is not decoded)
 	};
-	// Reads the actor part: the AI process, the actor values, the movement controller and the actor's remaining
-	// fields with the perk lists (Actor::LoadGame). For the player the PlayerCharacter part after it is not decoded.
+	// Reads the actor part: the AI process (with its running packages' data), the actor values, the movement
+	// controller and the actor's remaining fields with the perk lists (Actor::LoadGame). For the player the
+	// PlayerCharacter part after it is not decoded.
 	// a_trace (tests): receives (position, kind) of every read.
 	Actor DecodeActor(const SaveFile& a_save, const ChangeForm& a_cf, std::vector<std::pair<std::uint32_t, char>>* a_trace = nullptr);
 	// Rewrites an actor value's saved base in place; the body is decoded again before the change is kept.
@@ -234,7 +237,7 @@ namespace ess::fo4cf
 
 	struct Coverage
 	{
-		std::size_t refr = 0, refrComplete = 0, achr = 0, achrRefrPart = 0, achrValues = 0, achrTail = 0, npc = 0, npcComplete = 0;
+		std::size_t refr = 0, refrComplete = 0, achr = 0, achrRefrPart = 0, achrValues = 0, achrTail = 0, achrComplete = 0, npc = 0, npcComplete = 0;
 		std::vector<std::pair<std::string, std::size_t>> errors;  // most frequent first
 	};
 	Coverage Stats(const SaveFile& a_save);

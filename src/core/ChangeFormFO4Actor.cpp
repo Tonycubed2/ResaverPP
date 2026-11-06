@@ -374,6 +374,7 @@ namespace ess::fo4cf
 			out.tailEnd = r.pos();
 			out.tail = true;
 			out.stoppedAt = r.pos();
+			out.complete = out.tailEnd == body.size() && out.formID != 0x14;
 		} catch (const std::exception& e) {
 			out.error = e.what();
 			out.stoppedAt = r.pos();

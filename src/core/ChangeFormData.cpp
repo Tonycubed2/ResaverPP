@@ -5075,9 +5075,17 @@ namespace ess::cf
 		std::string RemoveInventoryItemsFO4(const SaveFile& a_save, ChangeForm& a_cf, const std::set<std::uint32_t>& a_items, std::size_t* a_removed)
 		{
 			const auto d = fo4cf::DecodeRefr(a_save, a_cf);
-			if (!d.complete) {
-				return d.actor && d.decoded ? std::string("this actor's saved data is not fully read yet (Fallout 4 actors): nothing changed")
-											: "this change form could not be read completely (" + d.error + "): nothing changed";
+			// an ACHR: the reference part (with the inventory) and the actor part after it must both read exactly;
+			// the actor part is kept byte for byte (nothing in it points into the reference part)
+			fo4cf::Actor act;
+			if (d.actor && d.decoded) {
+				act = fo4cf::DecodeActor(a_save, a_cf);
+				if (!act.complete) {
+					return "this actor's saved data is not fully read yet (" +
+					       (act.formID == 0x14 ? std::string("the player's own part") : act.error) + "): nothing changed";
+				}
+			} else if (!d.complete) {
+				return "this change form could not be read completely (" + d.error + "): nothing changed";
 			}
 			const fo4cf::Part* inv = nullptr;
 			for (const auto& p : d.parts) {
@@ -5090,6 +5098,7 @@ namespace ess::cf
 			}
 			const auto    saved = a_cf;
 			auto          body = Body(a_cf);
+			const std::vector<std::uint8_t> actorPart(body.begin() + static_cast<std::ptrdiff_t>(d.refrPart.end), body.end());
 			std::uint32_t n = 0, removed = 0;
 			std::memcpy(&n, &body[inv->range.begin], 4);  // the item count (u32)
 			for (auto it = d.inventory.rbegin(); it != d.inventory.rend(); ++it) {
@@ -5105,7 +5114,19 @@ namespace ess::cf
 			std::memcpy(&body[inv->range.begin], &n, 4);
 			SetBody(a_cf, body);
 			const auto after = fo4cf::DecodeRefr(a_save, a_cf);
-			if (!after.complete || after.inventory.size() != d.inventory.size() - removed) {
+			bool ok = after.decoded && after.inventory.size() == d.inventory.size() - removed;
+			for (const auto& it : after.inventory) {
+				ok = ok && !a_items.contains(it.formID);
+			}
+			if (ok && d.actor) {
+				const auto a2 = fo4cf::DecodeActor(a_save, a_cf);
+				const auto b2 = Body(a_cf);
+				ok = a2.complete && b2.size() - after.refrPart.end == actorPart.size() &&
+				     std::equal(actorPart.begin(), actorPart.end(), b2.begin() + static_cast<std::ptrdiff_t>(after.refrPart.end));
+			} else if (ok) {
+				ok = after.complete;
+			}
+			if (!ok) {
 				a_cf = saved;
 				return "the inventory did not read back completely (" + after.error + "): nothing changed";
 			}

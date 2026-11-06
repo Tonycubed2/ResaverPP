@@ -654,6 +654,7 @@ namespace ess::fo4cf
 						const auto a = DecodeActor(a_save, cf);
 						c.achrValues += a.decoded;
 						c.achrTail += a.tail;
+						c.achrComplete += a.complete;
 						if (!a.tail) {
 							++err["ACHR actor part: " + trim(a.error)];
 						}
