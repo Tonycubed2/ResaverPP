@@ -241,16 +241,8 @@ namespace ess::fo4cf::detail
 			b.f32();
 		}
 
-		// ed5cf0: a Havok object pointer - u64 id; 0 none; an odd id is the object's first appearance (u32 class id,
-		// then the object's own LoadGame, not decoded); an even id refers to one read before
-		void HkPtr(In& b)
-		{
-			b.mark('R');
-			b.r.need(8);
-			const auto lo = b.r.u32();
-			b.r.u32();
-			if (lo & 1u) b.fail("a Havok pathing object (0xed5cf0)");
-		}
+		// ed5cf0: an object pointer (ChangeFormFO4Combat.cpp)
+		void HkPtr(In& b) { Object(b); }
 
 		// fe7680: the Havok pathing requests' common part (their LoadGame +0x88, reached through 0xfe74a0 when the
 		// reader is the save game's): the request (1e20970), a form id, 4 x u32 (884260 and three more), a Havok

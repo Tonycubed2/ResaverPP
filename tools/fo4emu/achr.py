@@ -83,6 +83,9 @@ class A:
             pkg=struct.unpack('<Q',e2.u.mem_read(e2.r(UC_X86_REG_RBX)+8,8))[0]
             e2.u.mem_write(pkg+0x14, struct.pack('<I', e2.r(UC_X86_REG_RDX)&0xffffffff)); return 0
         e.stub(0xbedd20, newid)
+        # 0xe78b40: registers a loaded cover location (Havok class 0x4f117e2b, 0xe801a0, when its flag bit 12 is set) with the
+        # cover manager singleton (0x330f910, not built here); called with the manager and the object, not the buffer
+        e.stub(0xe78b40, lambda e2: 0)
         e.stub(0x2383e0, lambda e2: 0)  # a hash map insert reached only from created forms' constructors (no reads)
         if s.do_inits:
             import initall
@@ -99,6 +102,12 @@ class A:
                 e.call(0x1024f80, cam, limit=2000000); e.call(0x1025480, cam, 0, limit=2000000)
                 u.mem_write(g, struct.pack('<Q',cam))
             except UcError: s.initerr.append('camera')
+        # the Havok/pathing type registry (0x3271390: 0x40-byte entries {u32 type hash, ..., +0x30 LoadGame}; 0x32713a8 its
+        # count, numbered by CRT initializers): filled by the game's own 0x89ce90, which the game runs from 0xed1b40 (a
+        # pathing world constructor) and not from a CRT initializer; 0x89cb10 looks a saved type hash up in it
+        if not struct.unpack('<Q',u.mem_read(BASE+0x3271390,8))[0]:
+            try: e.call(0x89ce90, limit=50000000)
+            except UcError: s.initerr.append('registry 0x89ce90')
         if s.do_fakes:
             sentinel=e.alloc(0x20)
             def build(names):

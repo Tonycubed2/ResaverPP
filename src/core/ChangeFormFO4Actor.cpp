@@ -331,9 +331,12 @@ namespace ess::fo4cf
 			}
 			out.controllerRange.end = r.pos();
 			b.u32();
-			if (b.u8()) {  // 0xc8b31c: 0x87c540, set in none of the saves seen
-				b.fail("the 0x87c540 block");
+			out.hasCombat = b.u8() != 0;  // 0xc8b31c
+			out.combatRange.begin = r.pos();
+			if (out.hasCombat) {
+				detail::CombatController(b);  // 0x87c540 (ChangeFormFO4Combat.cpp)
 			}
+			out.combatRange.end = r.pos();
 			for (auto n = b.u32(); n; --n) {  // 0xcdf2d0
 				b.ref();
 				b.f32();
