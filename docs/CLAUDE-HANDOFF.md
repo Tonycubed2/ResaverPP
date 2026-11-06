@@ -32,7 +32,7 @@ project; you do the coding, building, delivering and publishing.
   saveFileVersion u16. Change form types renumbered from 28 (no NOTE); change forms are NOT decoded for FO4
   (ChangeFormData::Decode returns an error), quests/journal off. GUI: App::fo4() + SkyrimOnly(Sc) grey out the
   tools that need decoded change forms (Leftovers, MCM, Havok, Purify, Edit player, Find NPCs, Transplant, Quests,
-  merged patch, Open .pex).
+  Open .pex; the merged patch works for Fallout 4 since 2026-11-05, see below).
 - v54 (published 2026-11-05 on SE, LE and Fallout 4): Fallout 4 is a third game setup (`App::_game` 0 SE / 1 VR / 2 FO4, `_setups[3]`,
   ini keys `active_game=`, `*_f4=`; `setGame(int)`; platform::DefaultSavesFolder/SkyrimInstallFolders/MyGamesName and
   loadorder::GamePluginsTxt/Read take the game number). Opening a .fos switches to it and scans its mods folder (Data
@@ -65,6 +65,16 @@ project; you do the coding, building, delivering and publishing.
   = next rank, 0x1039 SetStage, 0x1071 CompleteQuest). CLI `--fo4-transplant <old.fos>` [`--fo4-transplant-write -o`].
   Tests: rs_unit with `RESAVERPP_FO4_SAVES="dir;dir"` reads real saves (Tony's Save7 -> Save8 must list the 9 Pipe Pistols
   00024F55). Test hook `RESAVERPP_TEST_TPOLD=<old.fos>` + `RESAVERPP_TEST_SHORTCUT=12`. Not tested in the real game yet.
+- Fallout 4 merged patch (2026-11-05, not published): `core/MergedPatch.*` with `Options::game` 2 (or Fallout4.esm in the load
+  order). Merged types: LVLI, LVLN, LVSP, CONT, FLST, OTFT, MISC, KEYM, layouts from xEdit's wbDefinitionsFO4 (dev-4.1.6) in
+  `LayoutFO4`/`Lists`/`Order`/`Groups`/`Fields` (a_fo4): LVLO 12 bytes with chance none, LLCT u8, LVLM, LVLG, LLKC/CVPA/DAMC/PRPS
+  as {form, 4 bytes} pairs (kFormPairs), LVSG, LVLI ONAM, MODS/DMDS material swaps, VMAD v6 structs (types 7/17; 6/16 refused).
+  NPC_ is read only to know COED owners. Every unknown part leaves the record to the winner (reported). Leveled entries are
+  written sorted by level for FO4. Header: HEDR/record version copied from Fallout4.esm (1.0/131), INTV + INCC, FO4 group order,
+  ESL 0x200 unless `Options::light` is off (GUI: an open FO4 save with form version < 68; CLI `--no-esl`). CLI `--fo4` (or
+  Fallout4.exe in `--game`). NPCs, armour, weapons, ammo, books, potions, ingredients, spells, cells are NOT merged for FO4 yet.
+  Tests: TestMergedPatchFO4 (synthetic), TestMergedPatchFO4Real with `RESAVERPP_FO4_PLUGINS="file;file"` (DLCworkshop01.esm:
+  35 records, 32 list merges, none skipped). Not tested in the real game yet.
 - Versions are whole numbers, +1 per release. **Current published version: v56 on the Fallout 4 page (2026-11-05, with ReSaverHelper F4 13); SE and LE pages still v55** (v53 was never published on its own). v55: Collect all logs gathers Fallout 4 (F4SE folder, Logs, Fallout4*.ini, AppData Fallout4 plugins.txt, Fallout4.exe version; zip "Fallout 4 logs <date>.zip").
 - v51 (published 2026-11-02): Edit player > Active magic effects (list, tick, Remove; CLI `--effects`, `--remove-effect 3,7`).
   Save layout: high process ACTIVE EFFECTS = vsval count, each {REF item, u8 effect index, vsval type (= MGEF archetype),
