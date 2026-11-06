@@ -2374,6 +2374,34 @@ void TestFo4ActorPackages()
 		Check(run({}, 16).empty() && run({}, 36).empty(), "fo4 package: types 16 and 36 read nothing");
 	}
 
+	{  // extra data 0x5c (each entry has its own list of form id + u32), 0x1b, 0xd3, 0xd5 in a REFR (change flag 10)
+		B e;  // Head has two (form id, u32), SPINE1 none
+		vs(e, 4);
+		u8(e, 0x5c);
+		u16(e, 0); u32(e, 0); u32(e, 0); u8(e, 0);
+		ref(e, 0);
+		vs(e, 2);
+		u32(e, 0x40140800); u8(e, 1); u8(e, 0); u8(e, 0); u8(e, 0); u8(e, 0); ws(e, "Head");
+		vs(e, 2); ref(e, 0x4ED47); u32(e, 0xFFFFFFFF); ref(e, 0xEEB4); u32(e, 0xFFFFFFFF);
+		u32(e, 0x40140800); u8(e, 0); u8(e, 1); u8(e, 1); u8(e, 1); u8(e, 0); ws(e, "SPINE1");
+		vs(e, 0);
+		u8(e, 0x1b); vs(e, 2); ref(e, 0x10); u8(e, 1); ref(e, 0x11); u8(e, 0);
+		u8(e, 0xd3); u32(e, 7);
+		u8(e, 0xd5); ref(e, 0x12);
+		ess::SaveFile save;
+		save.header.magic = "FO4_SAVEGAME";
+		save.formVersion = 68;
+		ess::ChangeForm c;
+		c.refID.data = (1u << 22) | 0xC01;
+		c.typeField = 0;
+		c.changeFlags = 1u << 10;
+		c.data = e;
+		c.length1 = static_cast<std::uint32_t>(e.size());
+		const auto d = ess::fo4cf::DecodeRefr(save, c);
+		Check(d.complete && d.extras.size() == 4 && d.extras[0].type == 0x5c && d.extras[3].type == 0xd5,
+			"fo4 extra data: 0x5c entries with their own lists, 0x1b, 0xd3 and 0xd5 read exactly");
+	}
+
 	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
 	if (!env || !*env) {
 		std::printf("(fo4 actors: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
