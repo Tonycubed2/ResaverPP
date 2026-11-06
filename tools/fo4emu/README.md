@@ -41,3 +41,14 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
 - `invcheck.py <dump>`: runs the game's ExtraDataList::LoadGame (0x294760) and inventory loader (0x34ee00) natively on each
   ACHR's reference part (after the actor prefix) and compares the end with dec.py's (the end achr.py's REFR stub uses), so
   an edited inventory is checked by the game's own code too.
+- Combat (branch npc2): `achr.py` runs the game's 0x89ce90 (the pathing/combat type registry 0x3271390), stubs the cover
+  manager registration 0xe78b40 and the quest entry lookup 0x66e040 (no buffer reads), and builds the package data factory
+  with the game's own creators under the names the game registers (`DATA_CREATORS`; `realfactory.py`, `regnames.py` list
+  the registrations). `classes.py <dump> <fails list>` lists the combat object classes (0xed5cf0 first appearances).
+- `cpptrace.cpp <save> <out> [all|combat]` + `trcmp.py <dump> <out>`: fo4cf::DecodeActor's reads compared with the game's
+  Actor::LoadGame read by read (sized blocks and active effect data compared as blocks; a fresh emulator when one has
+  collected state; where dec.py cannot read the reference part the decoder's end is used; where the emulator stops early the
+  reads so far are compared). `cmpall.sh` (MODE=all) runs every test save.
+- `refrpos.cpp` + `refrnative.py` (+ `refrcheck.sh <save> <dump>`): the reference part's extra type positions and end from
+  the decoder and from the game's own TESObjectREFR::LoadGame. `stack1.py` with NATIVE=1 runs that loader instead of dec.py.
+- `xscan.py <type hex>...`: which ExtraDataList::LoadGame handlers reach a vsval read (lists among the "fixed" types).

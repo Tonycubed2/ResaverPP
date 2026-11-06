@@ -94,9 +94,21 @@ project; you do the coding, building, delivering and publishing.
   0x75e5a0); the movement controller's Havok pathing requests (0xfe74a0 -> +0x88, common part 0xfe7680). `fo4cf::Actor::complete`
   = an NPC whose Actor::LoadGame ends at the body's end; Leftover items (RemoveInventoryItemsFO4) edits those (actor part kept
   byte for byte, decoded again). Checked read for read against the emulator (tools/fo4emu: actcmp, stack1.py, fails.cpp).
-  Still stopping: Havok objects' first appearance (0xed5cf0, odd id: class 0x30290669 0x89cd40 has entries whose loader comes
-  from a runtime registry 0x3271390), the 0x87c540 block (full of Havok objects; the emulator does not read it either), a few
-  rare extra data types (0x3d, 0x9d) and a created package with procedure data (mask bit 2).
+  Branch npc2 (2026-11-05): every ACHR of every test save reads to the end of its body (`core/ChangeFormFO4Combat.cpp`):
+  CombatController::LoadGame 0x87c540 (Actor::LoadGame's byte at 0xc8b31c; `Actor::hasCombat`/`combatRange`) and the
+  combat objects behind the object pointer reader 0xed5cf0/0xed5bd0/0xed5e10 (u64 id: 0 none, even = read before, odd =
+  u32 class id + that class's LoadGame; 19 Combat* classes by RTTI, e.g. CombatAreaHoldPosition, CombatCoverLocation;
+  an odd id seen again loads with its first class). Registry 0x3271390 (0x89cb10 values: u32 hash, u16, u8, fixed size by
+  the FIRST entry with that hash, entry 0 when none) is filled by the game's own 0x89ce90, not a CRT initializer: the
+  emulator now runs it. Named values (0xe75e30) and the tree state (0xeff4d0 -> 0xf04bf0) are sized blocks (writers
+  0xe76300 / 0xf04b90 patch in the bytes written). Extra data 0x32 (form id + active effects), 0x34, 0x44, 0x87 are
+  lists (were fixed sizes, right only when empty: the Save8-14 "reference part misread" and Save14's "extra 0x3d"), 0x9d
+  a form id. Package data class names are the game's registrations (factory 0x32174c0, 0x705b60 calls): SingleRef
+  (0x709870), Ref (RefOLD class, nothing), LocWrapper, Location/LocationSelector, Topic/TargetSelector (nothing); the old
+  names Ref/RefOLD/LocationWrapper were never written by the game. A created package's mask bit 4 = its data object
+  (Follow u32+u8+location, UseItem u8+location, Patrol u8 u8, Custom nothing). Checked: tools/fo4emu trcmp.py (cmpall.sh)
+  read for read on all actors of all saves, refrcheck.sh (reference part vs the game's TESObjectREFR::LoadGame),
+  npcremove.cpp + emucheck.py round trips; rs_unit TestFo4Combat.
 - Fallout 4 player (2026-11-05, branch pc, not published): `core/ChangeFormFO4Player.cpp` (`fo4cf::detail::PlayerPart`) reads
   PlayerCharacter::LoadGame (0xd65bd0) after Actor::LoadGame to its end (0xd68175): fields, the Pip-Boy quest log (0xd6682a) and
   objectives (0xd66961, 0x61e170), PlayerCamera::LoadGame (0x102aac0, 13 camera states from the constructor 0x1024f80), knowledge
