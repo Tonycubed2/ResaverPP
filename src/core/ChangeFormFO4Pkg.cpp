@@ -91,29 +91,33 @@ namespace ess::fo4cf::detail
 			}
 		}
 
-		// a package data object of the procedure tree (0x701db0's list). The factory's creators hand out the
-		// IPackageData base, whose vtable +0x40 is the LoadGame: for the classes with two bases that is the base at
-		// +8 (Location 0x250a5b8, LocationWrapper 0x250a970, ObjectList 0x250aa80, Ref 0x250adb8, RefOLD 0x250a3e0).
+		// a package data object of the procedure tree (0x701db0's list), by the name it was saved under: the type name
+		// its class returns (IPackageData vtable slot 11) and the name the game registers its creator under in the
+		// package data factory (0x32174c0, 0x705b60 calls in the CRT initializers 0x1091fa..0x1097aa, Topic on demand
+		// in 0x709f90). The creators hand out the IPackageData base, whose vtable +0x40 is the LoadGame.
 		void DataObject(In& b, const std::string& a_name)
 		{
-			if (a_name == "Bool") {  // 7034c0
+			if (a_name == "Bool") {  // 0x704b00 -> BGSPackageDataBool 0x7034c0
 				b.u8();
-			} else if (a_name == "Float" || a_name == "Int") {  // 7035c0, 703660
+			} else if (a_name == "Float" || a_name == "Int") {  // 0x704420 / 0x704790 -> 0x7035c0, 0x703660
 				b.u32();
-			} else if (a_name == "RefOLD" || a_name == "Topic" || a_name == "TargetSelector") {  // 705aa0, 704260
-			} else if (a_name == "Ref") {  // 709870
+			} else if (a_name == "Ref" || a_name == "Topic" || a_name == "TargetSelector") {
+				// 0x702f80 BGSPackageDataRefOLD, 0x70a210 BGSPackageDataTopic -> 0x705aa0; 0x702de0
+				// BGSPackageDataTargetSelector -> 0x704260: nothing
+			} else if (a_name == "SingleRef") {  // 0x709a80 -> BGSPackageDataRef 0x709870
 				Target(b);
-			} else if (a_name == "Location") {  // 703ee0
+			} else if (a_name == "Location" || a_name == "LocationSelector") {  // 0x702c20 -> BGSPackageDataLocation 0x703ee0
 				Location(b);
-			} else if (a_name == "LocationWrapper") {  // 704140 -> 21bff0
+			} else if (a_name == "LocWrapper") {  // 0x704eb0 -> BGSPackageDataLocationWrapper 0x704140 -> 21bff0
 				if (b.bln()) Loc(b, b.wstrS());
-			} else if (a_name == "ObjectList") {  // 707d60: vsval n x an entry (vtable 0x250abd0, 706e00)
+			} else if (a_name == "ObjectList") {  // 0x707fa0 -> 0x707d60: vsval n x an entry (vtable 0x250abd0, 706e00)
 				for (auto n = b.vs(); n; --n) {
 					b.ref();
 					b.ref();
 					U(b, 4);
 				}
 			} else {
+				// no other name is registered: the game would call through a null object
 				b.fail("package data class '" + a_name + "'");
 			}
 		}
@@ -426,7 +430,28 @@ namespace ess::fo4cf::detail
 			const auto mask = b.u8();
 			if (mask & 1) Location(b);
 			if (mask & 2) Target(b);
-			if (mask & 4) b.fail("a created package's procedure data");
+			if (mask & 4) {
+				// the package's data object (+0x30, made by 0x758b20 for the package type), its LoadGame (vtable +0x28);
+				// only these types have one (0x758d58, 0x758dae, 0x758e6b, 0x758f1d), any other would be a null call
+				switch (type) {
+				case 1:  // TESFollowPackageData 0x762240
+					b.u32();
+					if (b.u8()) Location(b);  // 0x764980 / 0x767060, as mask bit 0
+					break;
+				case 8:  // TESUseItemPackageData 0x7628e0
+					if (b.u8()) Location(b);
+					break;
+				case 13:  // TESPatrolPackageData 0x762500
+					b.u8();
+					b.u8();
+					break;
+				case 18:
+				case 19:  // TESCustomPackageData 0x760390: nothing
+					break;
+				default:
+					b.fail("a created package of type " + std::to_string(type) + " with package data");
+				}
+			}
 			b.u32();
 		};
 		switch (type) {

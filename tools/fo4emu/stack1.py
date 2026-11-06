@@ -7,6 +7,9 @@ from achr import *
 FB=set(PB)
 def run(dump, refs, start=0, end=10**9):
     fv,cfs=load(f'dump/{dump}.bin'); a=A(fv); e=a.c.e; recs=[]; sh=[]; on=[False]
+    if NATIVE:  # the game's own TESObjectREFR::LoadGame (0x4f5c50) instead of the Python REFR decoder's end
+        del e.stubs[BASE+0x4f5c50]
+        import achr; achr.pyrefr=lambda *x,**k: 0
     def blk(u,addr,size,ud):
         if not on[0]: return
         rsp=u.reg_read(UC_X86_REG_RSP)
@@ -32,8 +35,9 @@ def run(dump, refs, start=0, end=10**9):
         for p_,k,sz,fr in recs:
             if start<=p_<end:
                 fs=[f for f,rt in fr]
-                j=max([q for q,f in enumerate(fs) if f in (0xc8abd0,0xd65bd0)]+[0])
+                j=max([q for q,f in enumerate(fs) if f in (0xc8abd0,0xd65bd0)]+[0]) if not NATIVE else max([q for q,f in enumerate(fs) if f in (0x4f5c50,)]+[0])
                 val=b[p_:p_+min(sz,8)].hex() if k=='R' else b[p_:p_+3].hex() if k=='REF' else ''
                 print(f'{p_:6d} {k:4s} {sz:3d} {val:16s} '+' '.join(f'{f:x}@{rt:x}' for f,rt in fr[j+1:]))
+NATIVE=os.environ.get('NATIVE')=='1'
 if __name__=='__main__':
     run(sys.argv[1], {int(sys.argv[2],16)}, int(sys.argv[3]) if len(sys.argv)>3 else 0, int(sys.argv[4]) if len(sys.argv)>4 else 10**9)

@@ -5,6 +5,10 @@ from dec import refr as pyrefr, npc as pynpc, Unsupported
 from cf import load
 import collections, time
 RDF={0xc0fd90:'R',0xc0fa10:'REF',0xc0fd30:'VS',0xc0fa90:'WS',0xc0fb90:'WS2',0xc0fdd0:'XF',0xc0ffb0:'R12'}
+# the package data factory's registrations (name -> creator), from the game's 0x705b60 calls: CRT initializers
+# 0x1091fa..0x1097aa and 0x709f90 (Topic, on demand). The creators return the IPackageData base (vtable +0x40 LoadGame).
+DATA_CREATORS={'Bool':0x704b00,'Float':0x704420,'Int':0x704790,'Location':0x702c20,'LocationSelector':0x702c20,
+    'LocWrapper':0x704eb0,'Ref':0x702f80,'TargetSelector':0x702de0,'ObjectList':0x707fa0,'SingleRef':0x709a80,'Topic':0x70a210}
 class A:
     def __init__(s, ver, fakeforms=True, inits=True, fakes=True):
         s.do_inits=inits; s.do_fakes=fakes
@@ -119,7 +123,7 @@ class A:
                     u.mem_write(creator, struct.pack('<Q',cvt)); u.mem_write(cvt+8, struct.pack('<Q',code))
                     # package data classes with two bases: the game's own creators (they return the IPackageData
                     # base at +8, whose vtable +0x40 is the LoadGame)
-                    REAL={'ObjectList':0x707fa0,'Ref':0x709a80,'RefOLD':0x702f80,'LocationWrapper':0x704eb0,'Location':0x702c20}
+                    REAL=DATA_CREATORS
                     if nm in REAL:
                         u.mem_write(cvt+8, struct.pack('<Q',BASE+REAL[nm]))
                     else:
@@ -130,7 +134,11 @@ class A:
                     u.mem_write(ents[i], struct.pack('<QQQ', ent, creator, nxt))
                 tbl=e.alloc(0x20); u.mem_write(tbl, bytes(u.mem_read(ents[0],0x18)))
                 return tbl
-            tbl=build(list(s.fmap.items()))
+            # package data classes under the names the game registers them (0x705b60 calls, see DATA_CREATORS), with the
+            # game's own creators; the procedure states keep the fake creators (vtables from factory.pkl)
+            names=[(n,v) for n,v in s.fmap.items() if n not in ('Ref','RefOLD','LocationWrapper','Location','ObjectList','Bool','Float','Int','TargetSelector','Topic')]
+            names+=[(n,0) for n in DATA_CREATORS]
+            tbl=build(names)
             g1=BASE+0x32174c0
             u.mem_write(g1+0xc, struct.pack('<I',1)); u.mem_write(g1+0x18, struct.pack('<Q',sentinel)); u.mem_write(g1+0x1820, struct.pack('<Q',tbl))
             e.stub(0x7106f0, lambda e2: g1)
