@@ -203,7 +203,9 @@ namespace ess
 
 		std::error_code ec;
 		if (!std::filesystem::is_directory(a_root, ec)) {
+			// the game's own Data folder is still read (its plugins, archives and scripts), as with an empty mods folder
 			errors.push_back("not a folder: " + U8(a_root));
+			scanGameData();
 			return;
 		}
 		if (a_progress) {

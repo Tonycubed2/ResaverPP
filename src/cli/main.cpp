@@ -106,6 +106,14 @@ static int MergedPatchMain(int argc, char** argv)
 		std::fprintf(stderr, "--sources <MO2 mods folder or game Data folder> is needed\n");
 		return 1;
 	}
+	if (std::error_code sec; !std::filesystem::is_directory(mods, sec)) {
+		if (game.empty()) {
+			std::fprintf(stderr, "error: the --sources folder does not exist: %s\n", mods.string().c_str());
+			return 1;
+		}
+		std::fprintf(stderr, "warning: the --sources folder does not exist: %s; only the game's Data folder (%s) is read\n",
+			mods.string().c_str(), (game / "Data").string().c_str());
+	}
 	if (auto mo2 = FindMo2Instance(mods)) {
 		if (profile.empty()) profile = mo2->profilesDir / mo2->selectedProfile;
 		if (overwrite.empty()) overwrite = mo2->overwriteDir;

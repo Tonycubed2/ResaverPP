@@ -928,6 +928,9 @@ namespace
 				for (const char* e : { "LVLO", "CNTO", "LNAM" }) {
 					for (const auto& sb : r.subs) entry = !entry && !std::memcmp(sb.sig, e, 4) ? e : entry;
 				}
+				for (const auto& sb : r.subs) {
+					if (entry && !std::memcmp(sb.sig, "LLCT", 4) && !sb.data.empty() && sb.data[0] == 255) entry = nullptr;  // full: no room
+				}
 				if (entry) {
 					for (std::size_t i = 0; i < ra.subs.size(); ++i) {
 						if (std::memcmp(ra.subs[i].sig, entry, 4) != 0) continue;
@@ -941,7 +944,13 @@ namespace
 					}
 					for (auto& sb : ra.subs) {
 						if (!std::memcmp(sb.sig, "LLCT", 4)) ++sb.data[0];
-						if (!std::memcmp(sb.sig, "COCT", 4)) ++sb.data[0];
+						if (!std::memcmp(sb.sig, "COCT", 4) && sb.data.size() == 4) {
+							// a u32: DLCRobot.esm's containers 0x010024/0x010025 hold 320 and 327 items
+							std::uint32_t v;
+							std::memcpy(&v, sb.data.data(), 4);
+							++v;
+							std::memcpy(sb.data.data(), &v, 4);
+						}
 					}
 					++lists;
 				}
@@ -964,9 +973,37 @@ namespace
 			src.scan(top / "mods");
 			merge::UseSources(o, src);
 			auto strings = o.readStrings;
+			// without the plugin's archives (its strings files): a .strings file made up from the string ids its records use,
+			// so the rest of the test still runs ("S<id>" for each)
+			std::vector<std::uint8_t> madeUp;
+			if ((pf.flags & 0x80) && strings(stemLow + "_en.strings").empty()) {
+				std::set<std::uint32_t> ids;
+				for (const auto& rec : pf.records) {
+					for (const auto& sb : rec.subs) {
+						if (sb.data.size() == 4 && (!std::memcmp(sb.sig, "FULL", 4) || (!std::memcmp(rec.sig, "LVLI", 4) && !std::memcmp(sb.sig, "ONAM", 4)))) {
+							std::uint32_t id;
+							std::memcpy(&id, sb.data.data(), 4);
+							if (id) ids.insert(id);
+						}
+					}
+				}
+				std::vector<std::uint8_t> dirs, data;
+				for (const auto id : ids) {
+					auto d = U32v({ id, static_cast<std::uint32_t>(data.size()) });
+					dirs.insert(dirs.end(), d.begin(), d.end());
+					const auto t = "S" + std::to_string(id);
+					data.insert(data.end(), t.begin(), t.end());
+					data.push_back(0);
+				}
+				madeUp = U32v({ static_cast<std::uint32_t>(ids.size()), static_cast<std::uint32_t>(data.size()) });
+				madeUp.insert(madeUp.end(), dirs.begin(), dirs.end());
+				madeUp.insert(madeUp.end(), data.begin(), data.end());
+				std::printf("  merge FO4 real %s: its strings files are not here, %zu made-up names used\n", name.c_str(), ids.size());
+			}
 			o.readStrings = [&, strings](const std::string& a_file) {
 				auto f = a_file;
 				if (f.rfind("moda_", 0) == 0 || f.rfind("modb_", 0) == 0) f = stemLow + f.substr(4);
+				if (!madeUp.empty()) return f == stemLow + "_en.strings" ? madeUp : std::vector<std::uint8_t>{};
 				return strings(f);
 			};
 			const auto r = merge::Build(o);
@@ -978,20 +1015,42 @@ namespace
 			save("Patch.esp", r.file);
 			const auto back = merge::ReadPlugin(dir / "Patch.esp");
 			bool good = back.records.size() == lists;
+			if (!good) {
+				std::printf("  merge FO4 real %s: the patch has %zu records, %zu expected\n", name.c_str(), back.records.size(), lists);
+			}
+			std::size_t bad = 0;
 			for (const auto& rec : back.records) {
 				// ModB's edits (the winner) and ModA's added entry, the counts matching
 				std::size_t lvlo = 0, cnto = 0;
-				int llct = -1, coct = -1;
-				bool renamed = false, lvl99 = false;
+				long long llct = -1, coct = -1;
+				bool hasEdid = false, renamed = false, lvl99 = false;
 				for (const auto& sb : rec.subs) {
 					if (!std::memcmp(sb.sig, "LVLO", 4)) { ++lvlo; lvl99 = lvl99 || sb.data[0] == 99; }
 					if (!std::memcmp(sb.sig, "CNTO", 4)) ++cnto;
 					if (!std::memcmp(sb.sig, "LLCT", 4)) llct = sb.data[0];
-					if (!std::memcmp(sb.sig, "COCT", 4)) coct = static_cast<int>(sb.data[0]);
-					if (!std::memcmp(sb.sig, "EDID", 4)) renamed = sb.data.size() >= 2 && sb.data[sb.data.size() - 2] == 'X';
+					if (!std::memcmp(sb.sig, "COCT", 4) && sb.data.size() == 4) {
+						std::uint32_t v;
+						std::memcpy(&v, sb.data.data(), 4);
+						coct = v;
+					}
+					if (!std::memcmp(sb.sig, "EDID", 4)) {
+						hasEdid = true;
+						renamed = sb.data.size() >= 2 && sb.data[sb.data.size() - 2] == 'X';
+					}
 				}
-				good = good && renamed && (lvlo == 0 || (static_cast<int>(lvlo) == llct && lvl99)) && (cnto == 0 || static_cast<int>(cnto) == coct);
+				std::string why;
+				if (hasEdid && !renamed) why += " ModB's new editor ID is missing;";
+				if (lvlo && static_cast<long long>(lvlo) != llct) why += " LLCT " + std::to_string(llct) + " but " + std::to_string(lvlo) + " LVLO;";
+				if (lvlo && !lvl99) why += " ModA's level-99 entry is missing;";
+				if (cnto && static_cast<long long>(cnto) != coct) why += " COCT " + std::to_string(coct) + " but " + std::to_string(cnto) + " CNTO;";
+				if (!why.empty()) {
+					good = false;
+					if (++bad <= 20) {
+						std::printf("  merge FO4 real %s: %.4s %08X:%s\n", name.c_str(), rec.sig, rec.formID, why.c_str());
+					}
+				}
 			}
+			if (bad > 20) std::printf("  merge FO4 real %s: ... %zu records fail in all\n", name.c_str(), bad);
 			Check(good, "merge FO4 real: the patch reads back, winner's edits kept, ModA's entries added, counts right");
 			fs::remove_all(top);
 		}
