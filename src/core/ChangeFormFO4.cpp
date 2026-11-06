@@ -178,6 +178,16 @@ namespace ess::fo4cf
 					Skip(r, Vs(r));
 				}
 				return;
+			case 0x79:  // 0x297fbc -> 0x2a8d30: two u32
+				Skip(r, 8);
+				return;
+			case 0xa9:  // 0x297b83 -> 0xdbf560: u32 type (0 MountInteraction, 1 PassengerInteraction: their LoadGame
+			            // 0xdbfe20 reads nothing), two form ids, u8
+				Skip(r, 4);
+				Ref(r);
+				Ref(r);
+				Skip(r, 1);
+				return;
 			case 0x9d:  // 0x2977ee: a form id (0x21e390)
 				Ref(r);
 				return;

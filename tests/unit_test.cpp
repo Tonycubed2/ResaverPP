@@ -2618,7 +2618,9 @@ void TestFo4Combat()
 
 	{  // extra data lists: 0x32 (form id + active effects), 0x34, 0x44, 0x87 with entries; 0x9d a form id
 		B e;
-		vs(e, 5);
+		vs(e, 7);
+		u8(e, 0x79); u32(e, 1); u32(e, 2);
+		u8(e, 0xa9); u32(e, 1); ref(e, 0x46); ref(e, 0x47); u8(e, 0);
 		u8(e, 0x32); ref(e, 0x40); vs(e, 1); ref(e, 0x41); u8(e, 0); vs(e, 2); vs(e, 4); u32(e, 0);
 		u8(e, 0x34); vs(e, 2); u32(e, 1); u32(e, 2); u32(e, 3); u32(e, 4);
 		u8(e, 0x44); vs(e, 3); u32(e, 0); u32(e, 0); u32(e, 0);
@@ -2634,9 +2636,10 @@ void TestFo4Combat()
 		c.data = e;
 		c.length1 = static_cast<std::uint32_t>(e.size());
 		const auto d = ess::fo4cf::DecodeRefr(save, c);
-		Check(d.complete && d.extras.size() == 5 && d.extras[1].type == 0x34 && d.extras[4].type == 0x9d &&
-		          d.extras[1].range.size() == 18 && d.extras[3].range.size() == 1 + 12 + 3 + 4 + 1 + 12 + 3 + 12 + 3 + 1,
-			"fo4 extra data: 0x32, 0x34, 0x44 and 0x87 are lists, 0x9d a form id");
+		Check(d.complete && d.extras.size() == 7 && d.extras[0].range.size() == 9 && d.extras[1].range.size() == 12 &&
+		          d.extras[3].type == 0x34 && d.extras[6].type == 0x9d &&
+		          d.extras[3].range.size() == 18 && d.extras[5].range.size() == 1 + 12 + 3 + 4 + 1 + 12 + 3 + 12 + 3 + 1,
+			"fo4 extra data: 0x32, 0x34, 0x44 and 0x87 are lists, 0x9d a form id, 0x79 two u32, 0xa9 u32 + two form ids + u8");
 	}
 	{  // a created package's data object (mask bit 4): Follow, UseItem, Patrol, Custom; none for other types
 		auto pkg = [&](int a_type, const B& a_data) {
