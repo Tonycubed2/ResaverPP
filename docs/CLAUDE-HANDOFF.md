@@ -174,6 +174,38 @@ project; you do the coding, building, delivering and publishing.
   ShiftBack()). Helper 13 also fixes Transplant's follower count global (0BCC98; 10-12 used 0BCCAE, a perk; LE helper too).
   Tests: rs_unit TestSkyFollowers with `RESAVERPP_SKY_SAVES="dir;dir"`. SkyrimIstari's Save89 has the "you already have a follower"
   state (count 1, alias empty). No save in beast form was available: those verdicts are tested on human saves only.
+- Skyrim follow-ups (2026-11-06, branch sky2, not published):
+  - ReSaverHelper LE 13 (`helper-le/src/SkyFix.h/.cpp` new, `Papyrus.h/.cpp` SetBoolVariable, `Server.cpp`, `Protocol.h` = helper's
+    copy, CMakeLists 13.0.0 + SkyFix, README): FOLLOWERSET, TEAMMATE, BEASTREVERT as on SE. Tony must build it in VS2022 (Win32); it was
+    only syntax-checked here (clang i686-w64-mingw32 against a patched copy of the SKSE headers: scratchpad le13/chk.sh). The app needed no
+    change: helperAtLeast(13) counts the LE helper's HELLO version. Addresses read in TESV.exe 1.9.32.0 from Tony's Steam folder
+    (C:\Steam\steamapps\common\Skyrim, SteamStub 2.1 x86: decrypted with scratchpad le13tools/unstub21.py, a port of Steamless'
+    Variant21 x86 steps; tools ledis.py, xref.py, vtbl.py, callers.py there): VM vtable 0x0114C1B0 (ctor 0xC54DE0), slot 0x1B FindBoundObject
+    0xC4D5F0 (handle, const char* class -> BSFixedString inside, out ref'd), 0x21 GetVariableValue 0xC47E90 (variables at object +0x20, 8 bytes,
+    valid bit 2 of +0), VMClassInfo::GetVariable 0xC33E30 (index over the parent chain, 0xC335F0 = chain count), release 0xC30720 = SKSE's
+    DecrementLock, 0x25/0x27 dispatch slots (ret 0x10 / 0x18), TESQuest aliases +0x30/+0x38 and alias id +0x0C (0x56B6F0 behind
+    Quest.GetAlias 0x9152C0). Form ids and alias 0 "Follower" checked in LE Skyrim.esm / Dawnguard.esm; script names, ShiftBack and the three
+    Bool guards in the LE .pex (Skyrim - Misc.bsa, Dawnguard.bsa; Dawnguard's PlayerWerewolfChangeScript replaces Skyrim's). Not run in game.
+  - Load order check: Skyrim SE limits checked in SkyrimSE.exe 1.6.1170 (comments in LoadOrderCheck.cpp): light = header flag 0x200 or ".esl"
+    (0x1c5c4f..0x1c5cf2; "esm"/"esl" also set master), AddCompiledFile 0x1b8580 (compile index byte / FE + small index u16), GetFileForFormID
+    0x1bdfe0 (FE -> (id >> 12) & 0xFFF): 254 full + 4096 light, light ids FE | index << 12 | id & 0xFFF (0x1c8d70); HEDR must be <= 1.7101
+    (0x1c6220, else not loaded). The code already agreed; the 0x800 light floor stays an xEdit/CK rule (the loader takes any 12-bit id).
+  - Quests between stages: shut-down stage check uses PluginDB QUST INDX flags via `skyf::ShutdownOnlyStages` (flag 4 without 2). Exe:
+    INDX read into stage +2 (0x3db0e0); stop runs flag-4 stages (0x3c9af0 from 0x5330c9/0x53352f, quest flag 0x80 set first), start resets
+    done bits (0x3c9bf0 -> 0x532d20 -> Reset 0x3ca170) and runs flag-2 stages (0x3c9a60); SetStage 0x3c9d00/0x3da8f0 never stops a quest.
+    Quests saved with flag 0x80 are left out. Tony's Save132 had 6 mod injector quests with stage 0 flagged start-up + shut-down (false
+    findings before the flag-2 rule); 12 of his saves with his MO2 mods: 0 shut-down findings now. GUI: "Stop the quest in the game" (helper 11).
+  - Co-save JContainers: `cosave::jc::Analyze/AnalyzeBytes` read JSTR (boost 1.67 binary archive, library 16; layout in Cosave.h from
+    ryobg/JContainers' serialize code). All 166 of Tony's JSTR chunks read to the exact end (C++ and the Python prototype scratchpad
+    jctools/jstr.py). His saves only hold kJMap objects with text/number values (FSMP MCM, DBVO voice packs); arrays, form maps, integer maps,
+    forms and domains were checked only on a synthetic archive written with boost 1.83 (jctools/gen/gen.cpp; 1.83 numbers classes one
+    higher at the first polymorphic pointer, so the Python reader has a test-only "tolerant" mode for it). Read only. jc::Header was never
+    found before (the JSON comes after its length as decimal text): fixed.
+  - Skyrim VR co-saves: SKSE VR 2.0.12's Serialization.cpp (ryobg/JContainers dep/sksevr/sksevr.7z) has the same file layout as SKSE64
+    (only the saves folder and the load-order index resolution differ).
+  - tools/i18n/tr_keys.py: an entry's "# File.cpp:N" comments are no longer kept in the header (each --update added a copy of the first
+    entry's comment); lang/ru.txt cleaned (72 lines). A full --update now would also refresh ~1100 line-number comments and move 8 unused
+    keys (no translation changes; checked): not run in this branch, the 11 new entries were added by hand above the unused section.
 - Versions are whole numbers, +1 per release. **Current published version: v57** (SE, LE and Fallout 4 pages, 2026-11-05; v57 adds the Russian interface, the Leftover items plugin-read fix and Fallout 4 Reset Havok / Purify / Merged patch / AI / NPC+player leftovers; ReSaverHelper F4 13; the Fallout 4 main file is packed as Data/Tools/ReSaverPP/ with mod manager download on: nexus-upload layout=data-tools, mod_manager=true) (v53 was never published on its own). v55: Collect all logs gathers Fallout 4 (F4SE folder, Logs, Fallout4*.ini, AppData Fallout4 plugins.txt, Fallout4.exe version; zip "Fallout 4 logs <date>.zip").
 - Fallout 4 Reset Havok + Purify FormLists (2026-11-05, not published): REFR change flag 2 = initial data + havok blob, read
   by the initial data loader 0xbf77b0 (not LoadGame) through 0xc10b00 blob kind 2: u8 (form version the blob was written
@@ -273,7 +305,7 @@ project; you do the coding, building, delivering and publishing.
   only; data handler 0x2e6dc0: light list -> load index 0xFE + light index, full list -> load index = position; form id 0x2f91c0 =
   FE000000 | light << 12 | (id & 0xFFF): 254 full (00..FD) + 4096 light; HEDR > 1.0 not loaded (0x2f67e0, 0x2f7360 clear active bits).
   Light object id floor (0x800, or 0x001 with HEDR >= 1.0 and a master) from xEdit dev-4.1.6 wbDefinitionsFO4 (HardcodedRangeMinVersion);
-  Skyrim limits from xEdit wbDefinitionsTES5 (not checked in SkyrimSE.exe). F4SE whatsnew: light plugin support came with 0.5.0
+  Skyrim SE limits checked in SkyrimSE.exe 1.6.1170 since branch sky2 (the light id floor stays xEdit's). F4SE whatsnew: light plugin support came with 0.5.0
   (after 1.9.4, i.e. 1.10.20), not 1.10.162.
 - Fallout 4 companions + save checks (2026-11-06, branch comp, not published): `core/CompanionsFO4.*` (`ess::fo4comp`): companions
   = actors with a CompanionActorScript (or derived) / DogmeatActorScript instance; FollowersScript's own variables give the follower
@@ -340,10 +372,10 @@ project; you do the coding, building, delivering and publishing.
   Installed or not: `FindIds` searches the mods' SKSE/F4SE\Plugins DLLs for the id as a SetUniqueID immediate (x64 BA / B9 / 41 B8,
   x86 68 push); nothing found at all = wrong folder (`View::plausible`). PapyrusUtil (uid 884715692+227106806, text records
   INTV..FORL, PLGN load order) broken down by plugin/key/object; objects on forms of gone plugins removed by byte ranges (count
-  adjusted). JContainers ('JSTR', boost archive) size only. GUI `gui/AppCosave.cpp` (Tools > SKSE/F4SE co-save, home button,
+  adjusted). JContainers ('JSTR', boost archive) broken down since branch sky2 (see the Skyrim follow-ups above). GUI `gui/AppCosave.cpp` (Tools > SKSE/F4SE co-save, home button,
   Sc::kCosave, Save check line), edits `_save->cosave` + markEdited, written with Save As. CLI `--cosave` (CosaveCli.cpp). Tests
   `rs_cosave_test` (RESAVERPP_COSAVES="dir;dir" for real files). Tony's 167 .skse co-saves: all byte-identical. No .f4se tested
-  (none on Tony's PC). SKSE VR source not reachable: VR not verified.
+  (none on Tony's PC). VR: same layout as SKSE64 (SKSE VR 2.0.12 source, see the Skyrim follow-ups above).
 
 ## 2. Where things are
 
