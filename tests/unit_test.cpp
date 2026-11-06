@@ -21,6 +21,7 @@
 #include "core/ChangeFormData.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
+#include "core/WorkshopFO4.h"
 
 #include <filesystem>
 #include <fstream>
@@ -3421,6 +3422,158 @@ void TestFo4Player()
 	std::printf("(fo4 player: %zu real saves)\n", tested);
 }
 
+// Fallout 4 settlements: the workbench's actor values (extra 0xC2), the build meter, the used budget reset
+void TestFo4Workshops()
+{
+	namespace fs = std::filesystem;
+	namespace ws = ess::fo4ws;
+	using B = std::vector<std::uint8_t>;
+	auto u32 = [](B& b, std::uint32_t v) { for (int i = 0; i < 4; ++i) b.push_back(static_cast<std::uint8_t>(v >> (8 * i))); };
+	auto f32 = [&](B& b, float f) { std::uint32_t v; std::memcpy(&v, &f, 4); u32(b, v); };
+	auto ref = [](B& b, std::uint32_t formID) { const std::uint32_t d = formID ? ((1u << 22) | formID) : 0; b.push_back(d >> 16); b.push_back(d >> 8); b.push_back(d); };
+	{
+		// a REFR with extra data (change flag 31): vsval 2 extras: 0xC2 {bases: MaxDraws 1000, CurrentDraws 900, Happiness 50;
+		// modifiers: CurrentTriangles (0, 0, 10)}, then 0x1f (one byte)
+		B r;
+		r.push_back(2 << 2);
+		r.push_back(0xC2);
+		r.push_back(3 << 2);
+		ref(r, ws::kAvMaxDraws); f32(r, 1000.f);
+		ref(r, ws::kAvCurrentDraws); f32(r, 900.f);
+		ref(r, ws::kAvHappiness); f32(r, 50.f);
+		r.push_back(1 << 2);
+		ref(r, ws::kAvCurrentTriangles); f32(r, 0.f); f32(r, 0.f); f32(r, 10.f);
+		r.push_back(0x1f);
+		r.push_back(7);
+		ess::SaveFile save;
+		save.header.magic = "FO4_SAVEGAME";
+		save.formVersion = 68;
+		ess::ChangeForm c;
+		c.refID.data = (1u << 22) | 0x250FE;
+		c.typeField = 0;
+		c.changeFlags = 1u << 31;
+		c.data = r;
+		c.length1 = static_cast<std::uint32_t>(r.size());
+		save.changeForms.push_back(c);
+		const auto d = ess::fo4cf::DecodeRefr(save, save.changeForms[0]);
+		const auto st = ws::ReadStorage(r, d, save);
+		Check(d.complete && st && st->present && st->bases.size() == 3 && st->mods.size() == 1 && st->value(ws::kAvCurrentDraws) == 900.f &&
+				  st->value(ws::kAvCurrentTriangles) == 10.f && st->value(ws::kAvMaxTriangles) == 0.f,
+			"fo4 workshop: extra 0xC2 read (vsval n x {ref, f32}, vsval m x {ref, 3 x f32}); value = base + modifiers");
+		bool       changed = false;
+		const auto why = ws::SetUsed(save, 0x250FE, 0.f, 0.f, &changed);
+		const auto b2 = ess::cf::Body(save.changeForms[0]);
+		const auto d2 = ess::fo4cf::DecodeRefr(save, save.changeForms[0]);
+		const auto st2 = ws::ReadStorage(b2, d2, save);
+		Check(why.empty() && changed && d2.complete && st2 && st2->value(ws::kAvCurrentDraws) == 0.f && st2->value(ws::kAvCurrentTriangles) == 0.f &&
+				  st2->base(ws::kAvCurrentTriangles) == -10.f && st2->value(ws::kAvMaxDraws) == 1000.f && st2->value(ws::kAvHappiness) == 50.f &&
+				  st2->bases.size() == 4 && b2.size() == r.size() + 7 && b2.back() == 7 && b2[b2.size() - 2] == 0x1f,
+			"fo4 workshop: reset sets the current bases so base + modifiers is 0 (a triangles entry added), the rest kept");
+		changed = true;
+		Check(ws::SetUsed(save, 0x250FE, 0.f, 0.f, &changed).empty() && !changed, "fo4 workshop: resetting again changes nothing");
+		Check(!ws::SetUsed(save, 0x250FE, -1.f, std::nullopt).empty() && !ws::SetUsed(save, 0x12345, 0.f, 0.f).empty(),
+			"fo4 workshop: negative numbers and unknown workshops refused");
+
+		ws::Settlement s;
+		s.currentDraws = 861;
+		s.maxDraws = 1000;
+		s.currentTriangles = 497844;
+		s.maxTriangles = 500000;
+		Check(std::fabs(s.meter() - 497844.0 / 500000.0) < 1e-6 && !s.overBudget(), "fo4 workshop: the meter is the larger share");
+		s.maxDraws = 0;
+		s.maxTriangles = 0;
+		s.currentDraws = 10000;
+		Check(s.limitDraws() == 10000 && s.limitTriangles() == 10000000 && s.overBudget(), "fo4 workshop: max 0 = the game's default; full at 1.0");
+	}
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 workshops: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	const auto tmp = fs::temp_directory_path() / "rs_unit_ws.fos";
+	auto       CheckS = [](bool a_ok, const std::string& a_what) { Check(a_ok, a_what.c_str()); };
+	std::size_t tested = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		const auto name = f.filename().string();
+		const auto list = ws::List(*s);
+		std::size_t sanctuary = 0, edited = 0;
+		for (const auto& w : list) {
+			sanctuary += w.formID == 0x250FE && w.location == 0x1F228;  // SanctuaryHillsLocation
+		}
+		CheckS(list.size() >= 30 && sanctuary == 1, "fo4 workshop: " + name + ": " + std::to_string(list.size()) + " workshops, Sanctuary's at its location");
+		if (name.rfind("Save14_", 0) == 0) {
+			std::size_t over = 0;
+			for (const auto& w : ws::Check(*s)) {
+				over += w.kind == ws::Finding::Kind::kOverBudget && w.form == 0x66EB6;
+			}
+			CheckS(over == 1, "fo4 workshop: Save14: The Castle (66EB6) over budget (1005094 / 1000000 triangles)");
+		}
+		const auto before = s->changeForms;
+		std::set<std::uint32_t> touched;
+		for (const auto& w : list) {
+			if (!w.hasStorage || !w.readable) continue;
+			bool changed = false;
+			const auto why = ws::SetUsed(*s, w.formID, 0.f, 0.f, &changed);
+			CheckS(why.empty(), "fo4 workshop: " + name + ": reset " + why);
+			if (changed) {
+				++edited;
+				touched.insert(w.formID);
+			}
+		}
+		const auto bytes = s->serialize();
+		{
+			std::ofstream out(tmp, std::ios::binary);
+			out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		auto back = SaveFile::load(tmp);
+		bool same = back->changeForms.size() == before.size() && back->serialize() == bytes;
+		std::size_t others = 0;
+		for (std::size_t i = 0; same && i < before.size(); ++i) {
+			const auto id = back->formIDOf(back->changeForms[i].refID);
+			if (!touched.contains(id) || back->changeForms[i].typeCode() != 0) {
+				others += ess::cf::Body(back->changeForms[i]) != ess::cf::Body(before[i]);
+			}
+		}
+		bool zero = true;
+		const auto list2 = ws::List(*back);
+		for (std::size_t i = 0; i < list2.size() && i < list.size(); ++i) {
+			const auto& a = list[i];
+			const auto& b = list2[i];
+			if (a.hasStorage && a.readable) {
+				zero = zero && b.usedDraws() == 0 && b.usedTriangles() == 0 && b.maxDraws == a.maxDraws && b.maxTriangles == a.maxTriangles &&
+				       b.population == a.population && b.happiness == a.happiness && b.readable;
+			}
+		}
+		CheckS(same && others == 0 && zero && list2.size() == list.size(), "fo4 workshop: " + name + ": " + std::to_string(edited) +
+			" workshops reset, written and read back; every other change form unchanged");
+		++tested;
+	}
+	fs::remove(tmp);
+	CheckS(tested > 0, "fo4 workshop: real saves tested (" + std::to_string(tested) + ")");
+}
+
 void TestFo4HavokFormLists()
 {
 	namespace fs = std::filesystem;
@@ -3609,6 +3762,7 @@ int main()
 	TestFo4ChangeForms();
 	TestTransplantFO4();
 	TestFo4HavokFormLists();
+	TestFo4Workshops();
 	TestFo4ActorPackages();
 	TestFo4Player();
 	TestFo4Combat();
