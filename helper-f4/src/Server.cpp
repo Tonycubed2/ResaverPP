@@ -45,7 +45,7 @@ namespace Server
 				return err("no game loaded yet (load a save first)");
 			}
 			if (cmd == "APPLY") {
-				// one Transplant record (version 13): checked and turned into its fixed console command(s)
+				// one Transplant record (version 13, objective from 14): checked and turned into its fixed console command(s)
 				std::vector<std::string> commands;
 				std::string              why;
 				if (!Transplant::Commands(std::vector<std::string>(f.begin() + std::min<std::size_t>(2, f.size()), f.end()), commands, why)) {

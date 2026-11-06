@@ -1,9 +1,10 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 // Transplant page for Fallout 4. The old (broken) save and the good one (the save open in ReSaver Plus) are both
 // read from their files, without the game. What the old save has on top is listed with ticks, like the Skyrim
-// page. What a save can hold (level, experience, S.P.E.C.I.A.L., caps, perk ranks) is written into the open save;
-// the rest (items, new perks, quest stages) is put into the running game by the Fallout 4 ReSaverHelper (13+):
-// the game makes a save first, its load order gives the form ids, then one APPLY record per change.
+// page. What a save can hold (level, experience, S.P.E.C.I.A.L., caps, perk ranks, items with their mods, names
+// and condition) is written into the open save; the rest (new perks, quest stages, quest objectives) is put into
+// the running game by the Fallout 4 ReSaverHelper (13+, objectives 14+): the game makes a save first, its load
+// order gives the form ids, then one APPLY record per change.
 #include "App.h"
 
 #include "Platform.h"
@@ -24,6 +25,7 @@ namespace tf4 = ess::transplant::fo4;
 namespace
 {
 	constexpr int kTransplantHelper = 13;  // the Fallout 4 helper with APPLY
+	constexpr int kObjectiveHelper = 14;   // ... and the objective record
 
 	std::string Fmt(const char* f, auto... args)
 	{
@@ -86,11 +88,12 @@ namespace
 		switch (k) {
 		case tf4::Kind::kPerk: return tr("Perks");
 		case tf4::Kind::kItem: return tr("Items");
-		case tf4::Kind::kQuest: return tr("Quests");
+		case tf4::Kind::kQuest:
+		case tf4::Kind::kObjective: return tr("Quests");
 		default: return tr("Character: level, experience, S.P.E.C.I.A.L., caps");
 		}
 	}
-	int CategoryIndex(tf4::Kind k) { return k == tf4::Kind::kPerk ? 1 : k == tf4::Kind::kItem ? 2 : k == tf4::Kind::kQuest ? 3 : 0; }
+	int CategoryIndex(tf4::Kind k) { return k == tf4::Kind::kPerk ? 1 : k == tf4::Kind::kItem ? 2 : k == tf4::Kind::kQuest || k == tf4::Kind::kObjective ? 3 : 0; }
 }
 
 // the old save, read from its file
@@ -115,9 +118,17 @@ std::string App::transplantF4Name(const tf4::Change& a_c) const
 	if (!_db || !a_c.goodFormID) {
 		return {};
 	}
-	if (a_c.kind == tf4::Kind::kQuest) {
+	if (a_c.kind == tf4::Kind::kQuest || a_c.kind == tf4::Kind::kObjective) {
 		if (const auto* d = _db->quest(a_c.goodFormID)) {
-			return !d->name.empty() ? d->name : d->edid;
+			std::string n = !d->name.empty() ? d->name : d->edid;
+			if (a_c.kind == tf4::Kind::kObjective) {
+				for (const auto& o : d->objectives) {
+					if (o.index == a_c.objective && !o.text.empty()) {
+						n += ": \"" + o.text + "\"";
+					}
+				}
+			}
+			return n;
 		}
 	}
 	const auto* f = _db->find(a_c.goodFormID);
@@ -138,6 +149,9 @@ std::string App::transplantF4Group(const tf4::Change& a_c) const
 				   : t == "CMPO" ? tr("Components") : tr("Other");
 		}
 		return tr("Other");
+	}
+	if (a_c.kind == tf4::Kind::kObjective) {
+		return tr("Quest objectives (after the stages)");
 	}
 	if (a_c.kind == tf4::Kind::kQuest && !a_c.journal) {
 		return tr("~ Background quests (not in the Pip-Boy): normally leave these unticked");
@@ -240,6 +254,12 @@ void App::transplantF4Step()
 	}
 	const auto& ch = _tf4Changes[idx];
 	_status = Fmt(tr("Transplanting %zu of %zu: %s"), _tf4Pos + 1, _tf4Run.size(), ch.label.c_str());
+	if (ch.kind == tf4::Kind::kObjective && !helperAtLeast(kObjectiveHelper)) {
+		_tf4Results[idx] = { false, Fmt(tr("needs ReSaverHelper %d"), kObjectiveHelper) };
+		++_tf4Pos;
+		transplantF4Step();
+		return;
+	}
 	const auto& order = _tf4GameOrder.full.empty() && _save ? _save->plugins : _tf4GameOrder;
 	const auto  id = ch.kind == tf4::Kind::kCaps ? ch.goodFormID : tf4::RuntimeID(order, ch.plugin, ch.local);
 	auto        records = tf4::GameRecords(ch, id, _tf4MarkCompleted);
@@ -295,8 +315,9 @@ void App::drawTransplantF4()
 	ImGui::PushTextWrapPos(ImGui::GetContentRegionMax().x - 140);
 	ImGui::TextWrapped(tr("Bring your character's progress from an old save (one that crashes or will not load) into a good one: the save open in "
 					   "ReSaver Plus. Both are read from their files, so the old save never has to load. What a save can hold (level, "
-					   "experience, S.P.E.C.I.A.L., caps, perk ranks) is written into the open save; items, new perks and quest stages are "
-					   "put into the running game by ReSaverHelper %d or newer (the F4SE plugin) once the good save is loaded."),
+					   "experience, S.P.E.C.I.A.L., caps, perk ranks, items with their mods, names and condition) is written into the open "
+					   "save; new perks, quest stages and objectives are put into the running game by ReSaverHelper %d or newer (the F4SE "
+					   "plugin) once the good save is loaded."),
 		kTransplantHelper);
 	ImGui::PopTextWrapPos();
 
@@ -309,16 +330,25 @@ void App::drawTransplantF4()
 	if (_tf4Dirty && _save && _tf4Old.valid && _tf4Good.valid) {
 		_tf4Changes = tf4::Diff(_tf4Good, _tf4Old, *_save);
 		std::stable_sort(_tf4Changes.begin(), _tf4Changes.end(), [](const tf4::Change& a, const tf4::Change& b) {
-			return CategoryIndex(a.kind) != CategoryIndex(b.kind) ? CategoryIndex(a.kind) < CategoryIndex(b.kind)
-				   : a.kind == tf4::Kind::kQuest && b.kind == tf4::Kind::kQuest ? a.order < b.order : false;
+			// quests in the old save's order, then the objectives (sent after every stage: a stage script sets objectives too)
+			if (CategoryIndex(a.kind) != CategoryIndex(b.kind)) {
+				return CategoryIndex(a.kind) < CategoryIndex(b.kind);
+			}
+			if (CategoryIndex(a.kind) != 3) {
+				return false;
+			}
+			if (a.kind != b.kind) {
+				return a.kind == tf4::Kind::kQuest;
+			}
+			return a.order != b.order ? a.order < b.order : a.objective < b.objective;
 		});
 		for (auto& c : _tf4Changes) {
-			if (const auto n = transplantF4Name(c); !n.empty() && (c.kind == tf4::Kind::kPerk || c.kind == tf4::Kind::kItem || c.kind == tf4::Kind::kQuest)) {
+			if (const auto n = transplantF4Name(c); !n.empty() && (c.kind == tf4::Kind::kPerk || c.kind == tf4::Kind::kItem || c.kind == tf4::Kind::kQuest || c.kind == tf4::Kind::kObjective)) {
 				c.detail = c.label.substr(0, 8) + "  -  " + c.plugin;
 				c.label = n + c.label.substr(8);
 			} else {
 				// no name (the plugins are not read): say what kind of thing it is
-				c.label = (c.kind == tf4::Kind::kPerk ? tr("Perk ") : c.kind == tf4::Kind::kItem ? tr("Item ") : c.kind == tf4::Kind::kQuest ? tr("Quest ") : "") + c.label;
+				c.label = (c.kind == tf4::Kind::kPerk ? tr("Perk ") : c.kind == tf4::Kind::kItem ? tr("Item ") : c.kind == tf4::Kind::kQuest || c.kind == tf4::Kind::kObjective ? tr("Quest ") : "") + c.label;
 			}
 		}
 		_tf4Results.clear();
@@ -550,13 +580,13 @@ void App::drawTransplantF4()
 			fileRun.size());
 	}
 	ImGui::EndDisabled();
-	tips::Tip(tr("Level, experience, S.P.E.C.I.A.L., caps and perk ranks are written into the save open here. Nothing is on disk until you\n"
-			  "use File > Save (a backup of the file is kept). Then load that save in the game for step B."));
+	tips::Tip(tr("Level, experience, S.P.E.C.I.A.L., caps, perk ranks and items (with their mods, names and condition) are written into the\n"
+			  "save open here. Nothing is on disk until you use File > Save (a backup of the file is kept). Then load that save in the game for step B."));
 	ImGui::SameLine(0, 20);
 	ImGui::BeginDisabled(busy || gameRun.empty() || !helperOk);
 	const bool goBtn = ImGui::Button(Fmt(tr("B. Put %zu ticked thing(s) into the running game"), gameRun.size()).c_str());
 	ImGui::EndDisabled();
-	tips::Tip(tr("ReSaverHelper puts the items, perks and quest stages into the game loaded now (the good save, after step A).\n"
+	tips::Tip(tr("ReSaverHelper puts the perks, quest stages and objectives into the game loaded now (the good save, after step A).\n"
 			  "The game saves first (a save to go back to); its load order gives the form ids."));
 	if (goBtn) {
 		confirm(tr("Transplant into the game"),

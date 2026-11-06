@@ -650,7 +650,11 @@ namespace ess::transplant::fo4
 				if (left.contains(0x95) || left.contains(0x88)) {
 					why += " It belonged to a quest (alias) in the old save: it comes over as a normal item.";
 				}
-				auto& c = add_(v, Kind::kItem, Via::kFile, Fmt("%08X x%lld", it.formID, static_cast<long long>(n)), it.plugin, 0, why);
+				auto label = Fmt("%08X x%lld", it.formID, static_cast<long long>(n));
+				if (!what.empty()) {
+					label += "  (" + (what.size() > 160 ? what.substr(0, 157) + "..." : what) + ")";
+				}
+				auto& c = add_(v, Kind::kItem, Via::kFile, label, it.plugin, 0, why);
 				form(c, it.plugin, it.local);
 				c.count = n;
 				c.stacks = std::move(add);
