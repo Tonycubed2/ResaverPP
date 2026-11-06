@@ -52,3 +52,9 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
 - `refrpos.cpp` + `refrnative.py` (+ `refrcheck.sh <save> <dump>`): the reference part's extra type positions and end from
   the decoder and from the game's own TESObjectREFR::LoadGame. `stack1.py` with NATIVE=1 runs that loader instead of dec.py.
 - `xscan.py <type hex>...`: which ExtraDataList::LoadGame handlers reach a vsval read (lists among the "fixed" types).
+- Active effect removal (branch fx): `fxsources.py <plugins.json> <fxdump.jsonl>` writes each effect's source (MGEF flags,
+  archetype, actor value, item type, spell / cast type) from a JSON of the plugins' MGEF/SPEL/ENCH/ALCH data; `fxremove.cpp <save>
+  <sources> all|first|source <out.fos> <out.bin>` removes effects from every complete actor with fo4cf::RemoveActiveEffects, writes,
+  reads back and checks; `fxcheck.py <original dump> <edited dump>` (REFR_ENDS from refrcheck.sh) runs the game's loaders on the
+  edited actors; `fxdb.cpp <save> <Data folder> <sources> [out.fos]` checks EffectSources from PluginDB against the list and
+  removes with them.
