@@ -28,9 +28,9 @@ namespace ess
 			std::unordered_set<std::uint32_t> wantedRefs;  // runtime form IDs of placed references to keep
 			ScriptSources                     sources;     // where the plugin and strings files are
 			std::string                       language = "english";  // Fallout 4: "en" (Fallout4_en.strings)
-			bool                              fo4 = false;  // Fallout 4 plugins: names, editor IDs and quests (QUST in
-			                                                // Fallout 4's layout); not the magic effect and spell data
-			                                                // read for Skyrim (laid out differently)
+			bool                              fo4 = false;  // Fallout 4 plugins: names, editor IDs, quests (QUST in
+			                                                // Fallout 4's layout) and the magic effect / spell data
+			                                                // (MGEF, SPEL, ENCH, ALCH, INGR effects)
 		};
 
 		struct Progress
