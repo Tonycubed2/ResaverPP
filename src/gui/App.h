@@ -267,6 +267,15 @@ private:
 	void                   startLiveRefresh();
 	bool                   _showCheck = false, _checkOnOpen = true;
 
+	// the SKSE / F4SE co-save: each plugin's data, which plugins are no longer installed, PapyrusUtil, cleaning (AppCosave.cpp)
+	struct CosaveView;
+	std::shared_ptr<CosaveView> _cosaveView;
+	bool                        _showCosave = false;
+	CosaveView&                 cosaveView();  // read again when the save or its edits change; the DLL search runs on its own thread
+	void                        drawCosave();
+	void                        cosaveCheck(std::vector<CheckItem>& a_items);  // the Save check line
+	void                        cosaveClean(const std::set<std::uint32_t>& a_uids, bool a_papu);
+
 	// Transplant (AppTransplant.cpp)
 	void                   drawTransplant();
 	void                   transplantSnapshot(bool a_bad);
@@ -597,7 +606,7 @@ private:
 		kPlayer, kActors, kTransplant, kLookup,
 		kMods, kQuests, kCompare, kReport, kAnalysis, kArrays, kOpenPex,
 		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog, kSkyrimLogs, kAskAi, kBsa, kCollectLogs,
-		kLiveGame, kGather
+		kLiveGame, kGather, kCosave
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	// a Fallout 4 save is open: the tools built on Skyrim's data (its change forms, plugins, mods, logs) are off

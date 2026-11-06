@@ -475,6 +475,8 @@ std::vector<App::CheckItem> App::checkItems()
 		}
 	}
 
+	cosaveCheck(v);  // data of SKSE / F4SE plugins no longer installed (AppCosave.cpp)
+
 	std::stable_sort(v.begin(), v.end(), [](const CheckItem& a, const CheckItem& b) { return static_cast<int>(a.level) > static_cast<int>(b.level); });
 	return v;
 }

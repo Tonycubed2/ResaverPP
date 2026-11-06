@@ -70,7 +70,7 @@ bool App::anyToolOpen() const
 {
 	return _showTransplant || _missingOpen || _orphansOpen || _showAnalysis || _purgeOpen || _showLookup || _showActors || _showPlayer ||
 	       _showCompare || _batchOpen || _reportOpen || _showArrays || _showViewer || _removeOpen || _showLeftovers || _showHistory ||
-	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets || _showArchive || _showCrashLog;
+	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets || _showArchive || _showCrashLog || _showCosave;
 }
 
 void App::goHome()
@@ -81,6 +81,7 @@ void App::goHome()
 	_showCheck = false;
 	_showLeftovers = _showHistory = _showPapyrusLog = _showSavesMgr = _showMerge = _showAssets = _showArchive = false;
 	_showCrashLog = false;
+	_showCosave = false;
 	if (_cat != Cat::kOverview) {
 		select(Cat::kOverview, 0);
 	}
@@ -216,6 +217,7 @@ void App::shortcut(Sc a_which)
 		_showSavesMgr = true;
 		_savesLoaded = false;
 		break;
+	case Sc::kCosave: _showCosave = true; break;
 	case Sc::kMerge: _showMerge = true; break;
 	case Sc::kFileConflicts: _showAssets = true; break;
 	case Sc::kOpenPex:
@@ -307,6 +309,10 @@ void App::drawHome()
 					tr("Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one."), HomeRisk::kCaution, -1 },
 				{ Sc::kSavesMgr, tr("Manage saves folder"), tr("delete old saves in bulk"),
 					tr("All saves by character with size and date; delete old ones (with their .skse files) in bulk, keeping the newest."),
+					HomeRisk::kCaution, -1 },
+				{ Sc::kCosave, fo4() ? tr("F4SE co-save") : tr("SKSE co-save"), tr("plugins' data; clean what is no longer installed"),
+					tr("What each script extender plugin keeps in the save's co-save (.skse / .f4se), which of them are no longer "
+					"installed, PapyrusUtil's data by mod and key, and removing the data of plugins that are gone."),
 					HomeRisk::kCaution, -1 },
 				{ Sc::kHistory, tr("Save history"), tr("which mods keep growing"),
 					tr("Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing."),

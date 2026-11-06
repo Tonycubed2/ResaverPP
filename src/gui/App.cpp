@@ -1088,6 +1088,10 @@ void App::draw()
 		watchdog::Section("drawCollectLogs");
 		drawCollectLogs();
 	}
+	if (_showCosave && _save) {
+		watchdog::Section("drawCosave");
+		drawCosave();
+	}
 	if (_showBsa) {
 		watchdog::Section("drawBsa");
 		drawBsa();
@@ -1343,6 +1347,11 @@ void App::drawMenu()
 			shortcut(Sc::kSavesMgr);
 		}
 		tips::Tip(tr("All saves by character with size and date; delete old ones (with their .skse files) in bulk."));
+		if (ImGui::MenuItem(fo4() ? tr("F4SE co-save (.f4se)...") : tr("SKSE co-save (.skse)..."))) {
+			shortcut(Sc::kCosave);
+		}
+		tips::Tip(tr("What each script extender plugin keeps in the save's co-save, which of them are no longer installed, PapyrusUtil's "
+				  "data by mod and key, and removing the data of plugins that are gone."));
 		if (ImGui::MenuItem(tr("Merged patch (combine mod conflicts)..."), nullptr, &_showMerge)) {
 			_homePanel = false;
 		}
