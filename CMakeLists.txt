@@ -83,6 +83,8 @@ if (RESAVERPP_TESTS)
 	add_executable(rs_save_test tests/save_test.cpp)
 	target_link_libraries(rs_save_test PRIVATE rs_core)
 	add_executable(rs_lang_test tests/lang_test.cpp)
+	add_executable(rs_cosave_test tests/cosave_test.cpp)
+	target_link_libraries(rs_cosave_test PRIVATE rs_core)
 	target_link_libraries(rs_lang_test PRIVATE rs_core)
 
 	# ---- CTest ------------------------------------------------------------------------------
@@ -91,6 +93,7 @@ if (RESAVERPP_TESTS)
 	add_test(NAME unit COMMAND rs_unit)
 	# interface translations: lang/*.txt parse and keep the printf conversions of the English
 	add_test(NAME lang COMMAND rs_lang_test)
+	add_test(NAME cosave COMMAND rs_cosave_test)
 	# every text the GUI translates is in lang/ru.txt
 	find_package(Python3 COMPONENTS Interpreter QUIET)
 	if (Python3_FOUND)

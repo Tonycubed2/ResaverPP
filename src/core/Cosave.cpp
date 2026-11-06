@@ -1015,8 +1015,10 @@ namespace ess::cosave
 			}
 			if (a.uid == papu::kUid) {
 				for (const auto& c : b.chunks) {
-					if (papu::IsStorageRecord(c.type) && !papu::ParseRecord(c).ok) {
-						throw std::runtime_error("the cleaned PapyrusUtil record " + FourCC(c.type) + " does not read back");
+					if (papu::IsStorageRecord(c.type)) {
+						if (const auto pr = papu::ParseRecord(c); !pr.ok) {
+							throw std::runtime_error("the cleaned PapyrusUtil record " + FourCC(c.type) + " does not read back (" + pr.error + ")");
+						}
 					}
 				}
 			}
