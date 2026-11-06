@@ -386,6 +386,59 @@ void App::drawCfNode(const cf::Node& n, int a_depth, int a_index)
 	ImGui::PopID();
 }
 
+// Fallout 4: Reset Havok for one reference and Purify for one form list (the Skyrim decoder does not read these)
+void App::detailChangeFormFO4(const ChangeForm& c)
+{
+	if (static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::REFR && (c.changeFlags >> 2) & 1) {
+		const auto r = fo4cf::DecodeRefr(*_save, c);
+		if (r.hasHavok && r.havokSize) {
+			TextColored(theme::Warn(), Fmt("Has saved physics (Havok) state: %u bytes.", r.havokSize));
+			if (r.complete && ImGui::SmallButton("Reset this object's Havok")) {
+				const auto refRaw = c.refID.data;
+				confirm("Reset Havok", "Clear the saved physics state of this object? It is placed at its saved position when the cell loads.",
+					[this, refRaw] {
+						RefID id;
+						id.data = refRaw;
+						if (auto* cfp = _save->findChangeForm(id)) {
+							bool       changed = false;
+							const auto why = fo4cf::ClearHavok(*_save, *cfp, &changed);
+							if (!why.empty()) {
+								_error = "Could not reset Havok: " + why;
+							} else if (changed) {
+								markChanged("Reset Havok of one object");
+							}
+						}
+					});
+			}
+			if (r.complete) {
+				tips::Tip("Clear this object's saved physics state (the game then keeps no Havok data for it, as for an object that was "
+						  "never pushed around); it is placed at its saved position when the cell loads. Fixes objects that fly off, "
+						  "shake or sink through the floor.");
+			}
+		} else if (r.hasHavok) {
+			ImGui::TextDisabled("Saved physics (Havok) state: none (0 bytes).");
+		}
+	}
+	if (c.typeCode() == fo4cf::kFlstType) {
+		const auto l = fo4cf::DecodeFormList(*_save, c);
+		if (l.complete) {
+			const auto nulls = static_cast<std::size_t>(std::count(l.raw.begin(), l.raw.end(), 0u));
+			ImGui::Text("Form list: %zu added entries, %zu null", l.raw.size(), nulls);
+			if (nulls) {
+				TextColored(theme::Warn(), "This list has null entries.");
+				if (ImGui::SmallButton("Cleanse this form list")) {
+					const auto rr = cf::PurifyFormLists(*_save, false, c.refID.data);
+					markChanged(Fmt("Removed %zu null entries from the form list", rr.entries));
+				}
+				tips::Tip("Remove the empty (null) entries from this list. They are left behind when a form it held no longer exists, e.g. "
+						  "after uninstalling a mod; scripts walking the list can trip on them.");
+			}
+		} else {
+			ImGui::TextDisabled("Form list: %s", l.error.c_str());
+		}
+	}
+}
+
 void App::detailChangeFormDecoded(const ChangeForm& c)
 {
 	const auto fid = _save->formIDOf(c.refID);
@@ -403,6 +456,9 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 		};
 	}
 	const auto d = cf::Decode(*_save, c, types);
+	if (_save->isFO4()) {
+		detailChangeFormFO4(c);
+	}
 
 	ImGui::SeparatorText("Change flags");
 	const auto names = cf::FlagNames(c.typeCode(), c.changeFlags);
@@ -605,10 +661,15 @@ void App::resetHavok()
 		return;
 	}
 	confirm("Reset Havok",
-		Fmt("Zero the saved physics (Havok) state of %zu object references?\n\n%zu reference(s) whose data could not be fully decoded "
-			"are left alone (same rule as ReSaver). Objects fall back to their resting positions when the save loads; this helps with "
-			"physics explosions and flying objects on load.",
-			dry.reset, dry.failed),
+		_save->isFO4()
+			? Fmt("Clear the saved physics (Havok) state of %zu object references?\n\nThe game then keeps no Havok data for them, as for "
+				  "objects that were never pushed around; they are placed at their saved positions when their cell loads. %zu reference(s) "
+				  "whose data could not be fully read are left alone. This helps with physics explosions and flying objects on load.",
+				  dry.reset, dry.failed)
+			: Fmt("Zero the saved physics (Havok) state of %zu object references?\n\n%zu reference(s) whose data could not be fully decoded "
+				  "are left alone (same rule as ReSaver). Objects fall back to their resting positions when the save loads; this helps with "
+				  "physics explosions and flying objects on load.",
+				  dry.reset, dry.failed),
 		[this] {
 			cf::TypeLookup types;
 			if (_db) {

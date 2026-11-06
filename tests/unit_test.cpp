@@ -1696,6 +1696,167 @@ void TestTransplantFO4()
 	}
 }
 
+// Fallout 4 Reset Havok and Purify FormLists: synthetic change forms, then (RESAVERPP_FO4_SAVES) real saves reset, written,
+// read back and decoded again; form lists get null entries put in, purified, written, read back: equal to the original.
+void TestFo4HavokFormLists()
+{
+	namespace fs = std::filesystem;
+	using B = std::vector<std::uint8_t>;
+	auto u32 = [](B& b, std::uint32_t v) { for (int i = 0; i < 4; ++i) b.push_back(static_cast<std::uint8_t>(v >> (8 * i))); };
+	auto f32 = [&](B& b, float f) { std::uint32_t v; std::memcpy(&v, &f, 4); u32(b, v); };
+	auto ref = [](B& b, std::uint32_t formID) { const std::uint32_t d = formID ? ((1u << 22) | formID) : 0; b.push_back(d >> 16); b.push_back(d >> 8); b.push_back(d); };
+	auto mk = [](std::uint8_t type, std::uint32_t flags, std::uint32_t id, const B& body) {
+		ess::ChangeForm c;
+		c.refID.data = (1u << 22) | id;
+		c.typeField = type;
+		c.changeFlags = flags;
+		c.data = body;
+		c.length1 = static_cast<std::uint32_t>(body.size());
+		return c;
+	};
+	ess::SaveFile save;
+	save.header.magic = "FO4_SAVEGAME";
+	save.formVersion = 68;
+	{
+		B r;  // havok moved (2) + scale (4): initial data, u8 version, vsval 5, 5 bytes, f32 scale
+		ref(r, 0x3C);
+		for (int i = 0; i < 6; ++i) f32(r, 1.f + i);
+		r.push_back(68);
+		r.push_back(5 << 2);
+		r.insert(r.end(), { 1, 2, 3, 4, 5 });
+		f32(r, 2.5f);
+		save.changeForms.push_back(mk(0, (1u << 2) | (1u << 4), 0xA01, r));
+		B e = r;  // the same with an empty blob (as the game writes it)
+		e.erase(e.begin() + 27 + 1, e.begin() + 27 + 2 + 5);
+		e.insert(e.begin() + 27 + 1, 0);
+		save.changeForms.push_back(mk(0, (1u << 2) | (1u << 4), 0xA02, e));
+		B bad = r;  // left over bytes: not read completely, left alone
+		bad.push_back(0);
+		save.changeForms.push_back(mk(0, (1u << 2) | (1u << 4), 0xA03, bad));
+		B l;  // form list: 0, 0x100, 0, 0x200
+		u32(l, 4);
+		ref(l, 0); ref(l, 0x100); ref(l, 0); ref(l, 0x200);
+		save.changeForms.push_back(mk(ess::fo4cf::kFlstType, 1u << 31, 0xB01, l));
+		save.changeForms.push_back(mk(43, 1u << 31, 0xB02, l));  // 43 is LVLN in Fallout 4: not a form list
+	}
+	const auto before3 = save.changeForms[2].data;
+	const auto d0 = ess::fo4cf::DecodeRefr(save, save.changeForms[0]);
+	Check(d0.complete && d0.hasHavok && d0.havokVersion == 68 && d0.havokSize == 5 && d0.havokRange.size() == 7, "fo4 havok: the blob is read (u8, vsval, bytes)");
+	const auto dry = ess::cf::ResetHavok(save, {}, true);
+	Check(dry.reset == 1 && dry.failed == 1, "fo4 havok: dry run counts the one blob to clear and the reference not read completely");
+	const auto h = ess::cf::ResetHavok(save);
+	const auto d1 = ess::fo4cf::DecodeRefr(save, save.changeForms[0]);
+	Check(h.reset == 1 && h.failed == 1 && d1.complete && d1.havokSize == 0 && d1.havokVersion == 68 && d1.hasScale && d1.scale == 2.5f && d1.pos[2] == 3.f,
+		"fo4 havok: the blob's size becomes 0, the version byte, position and scale stay");
+	Check(ess::cf::Body(save.changeForms[0]) == ess::cf::Body(save.changeForms[1]), "fo4 havok: the reset body is what the game writes for no havok data");
+	Check(save.changeForms[2].data == before3 && save.changeForms[0].changeFlags == ((1u << 2) | (1u << 4)), "fo4 havok: change flags kept, unread reference untouched");
+	Check(ess::cf::ResetHavok(save, {}, true).reset == 0, "fo4 havok: nothing left to reset");
+	const auto pd = ess::cf::PurifyFormLists(save, true);
+	Check(pd.entries == 2 && pd.forms == 1 && ess::cf::NullEntries(save, save.changeForms[3]) == 2 && ess::cf::NullEntries(save, save.changeForms[4]) == 0,
+		"fo4 purify: two null entries in the one form list (type 42; 43 is not a list in Fallout 4)");
+	const auto lvln = save.changeForms[4].data;
+	const auto pr = ess::cf::PurifyFormLists(save);
+	const auto fl = ess::fo4cf::DecodeFormList(save, save.changeForms[3]);
+	Check(pr.entries == 2 && fl.complete && fl.raw.size() == 2 && save.formIDOf(RefID{ fl.raw[0] }) == 0x100 && save.formIDOf(RefID{ fl.raw[1] }) == 0x200 &&
+			  save.changeForms[4].data == lvln,
+		"fo4 purify: nulls removed, order kept, type 43 untouched");
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 havok / purify: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	const auto tmp = fs::temp_directory_path() / "rs_unit_hav.fos";
+	auto       writeBack = [&](ess::SaveFile& s) {
+        const auto bytes = s.serialize();
+        {
+            std::ofstream out(tmp, std::ios::binary);
+            out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        }
+        return SaveFile::load(tmp);
+	};
+	std::size_t tested = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		const auto name = f.filename().string();
+		std::size_t blobs = 0, complete = 0;
+		for (const auto& c : s->changeForms) {
+			if (c.typeCode() != 0 || !((c.changeFlags >> 2) & 1)) continue;
+			const auto d = ess::fo4cf::DecodeRefr(*s, c);
+			complete += d.complete;
+			blobs += d.complete && d.havokSize > 0;
+		}
+		const auto orig = s->changeForms;
+		const auto h2 = ess::cf::ResetHavok(*s);
+		auto       back = writeBack(*s);
+		std::size_t empty = 0, stillComplete = 0, other = 0;
+		for (std::size_t i = 0; i < back->changeForms.size(); ++i) {
+			const auto& c = back->changeForms[i];
+			if (c.typeCode() == 0 && ((c.changeFlags >> 2) & 1)) {
+				const auto d = ess::fo4cf::DecodeRefr(*back, c);
+				stillComplete += d.complete;
+				empty += d.complete && d.havokSize == 0;
+			} else {
+				other += ess::cf::Body(c) == ess::cf::Body(orig[i]) ? 0 : 1;
+			}
+		}
+		const bool ok = h2.reset == blobs && stillComplete == complete && empty == complete && other == 0 && ess::cf::ResetHavok(*back, {}, true).reset == 0;
+		Check(ok, ("fo4 havok: " + name + ": reset, written, read back, every reference read completely has an empty blob, nothing else changed").c_str());
+		std::printf("(fo4 havok: %s: %zu blobs cleared, %zu references with havok read completely)\n", name.c_str(), h2.reset, complete);
+		if (!ok) {
+			std::printf("  reset %zu of %zu blobs, complete %zu -> %zu, empty %zu, other changed %zu\n", h2.reset, blobs, complete, stillComplete, empty, other);
+		}
+		// form lists: two nulls put in each, purified, written, read back: as the original
+		auto        s2 = SaveFile::load(f);
+		std::size_t lists = 0;
+		for (auto& c : s2->changeForms) {
+			if (c.typeCode() != ess::fo4cf::kFlstType || !((c.changeFlags >> 31) & 1)) continue;
+			const auto d = ess::fo4cf::DecodeFormList(*s2, c);
+			if (!d.complete) continue;
+			auto          body = ess::cf::Body(c);
+			std::uint32_t k = static_cast<std::uint32_t>(d.raw.size() + 2);
+			std::memcpy(&body[d.list.begin], &k, 4);
+			body.insert(body.begin() + static_cast<std::ptrdiff_t>(d.list.end), { 0, 0, 0 });
+			body.insert(body.begin() + static_cast<std::ptrdiff_t>(d.list.begin + 4), { 0, 0, 0 });
+			ess::cf::SetBody(c, body);
+			++lists;
+		}
+		auto       withNulls = writeBack(*s2);
+		const auto p2 = ess::cf::PurifyFormLists(*withNulls);
+		auto       pure = writeBack(*withNulls);
+		auto       ref0 = SaveFile::load(f);
+		bool       same = pure->changeForms.size() == ref0->changeForms.size();
+		for (std::size_t i = 0; same && i < pure->changeForms.size(); ++i) {
+			same = ess::cf::Body(pure->changeForms[i]) == ess::cf::Body(ref0->changeForms[i]);
+		}
+		Check(p2.entries == 2 * lists && p2.forms == lists && p2.failed == 0 && same,
+			("fo4 purify: " + name + ": nulls put in every form list, purified, written, read back: as the original").c_str());
+		++tested;
+	}
+	fs::remove(tmp);
+	std::printf("(fo4 havok / purify: %zu real saves)\n", tested);
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -1719,6 +1880,7 @@ int main()
 	TestBa2();
 	TestFo4ChangeForms();
 	TestTransplantFO4();
+	TestFo4HavokFormLists();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

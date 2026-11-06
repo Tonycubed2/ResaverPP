@@ -92,8 +92,6 @@ bool App::SkyrimOnly(Sc a_which)
 	switch (a_which) {
 	// (these read or change the save's change forms, decoded for Skyrim only so far, or Skyrim's plugin records)
 	case Sc::kMcm:
-	case Sc::kHavok:
-	case Sc::kPurify:
 	case Sc::kActors:
 	case Sc::kMerge:
 	case Sc::kOpenPex:
