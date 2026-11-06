@@ -142,14 +142,15 @@ namespace ess::quests
 
 	// The player's journal: every quest objective the journal lists, as saved in the player's record
 	// (ACHR 00000014): a count, then per objective the quest (RefID), the objective index, the quest
-	// instance and the state. The list is found by its shape (the player's record is not decoded field
+	// instance and the state. Skyrim: the list is found by its shape (the player's record is not decoded field
 	// by field); a_found tells whether it was found. Entries of quests that no longer run may still be
 	// listed here: the game drops them when the save is loaded.
 	struct JournalEntry
 	{
 		std::uint32_t quest = 0, index = 0, instance = 0, state = 0;
 	};
-	// Fallout 4: the same list (PlayerCharacter::objectives, the Pip-Boy's objectives) is read where the game reads it:
+	// Fallout 4: the same list (PlayerCharacter::objectives, the Pip-Boy's objectives), from fo4cf::DecodeActor when the
+	// player reads completely (else found by shape) where the game reads it:
 	// right after the player's quest log, both written by PlayerCharacter::LoadGame (Fallout4.exe 1.11.240: the quest
 	// log at RVA 0xD6682A, a vsval count of { quest RefID, stage u16, log entry u8 }; the objectives at 0xD66961, a
 	// vsval count of { quest RefID, objective index u32, instance u32, state u32 }, element reader 0x61E170).

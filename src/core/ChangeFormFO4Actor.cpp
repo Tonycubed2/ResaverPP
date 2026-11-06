@@ -77,9 +77,11 @@ namespace ess::fo4cf
 			}
 		}
 
-		// 0xd2faa0
-		void Knowledge(In& b)
-		{
+	}
+
+	// 0xd2faa0
+	void detail::Knowledge(In& b)
+	{
 			b.ref(); b.u32();  // 0x436f00
 			b.ref(); b.u32();
 			const auto tag = b.u32();
@@ -88,7 +90,11 @@ namespace ess::fo4cf
 			} else if (tag != 0) {
 				b.fail("a knowledge entry");
 			}
-		}
+	}
+
+	namespace
+	{
+		using detail::Knowledge;
 
 		// 0xbae9f0
 		void Dialogue(In& b)
@@ -374,7 +380,17 @@ namespace ess::fo4cf
 			out.tailEnd = r.pos();
 			out.tail = true;
 			out.stoppedAt = r.pos();
-			out.complete = out.tailEnd == body.size() && out.formID != 0x14;
+			out.player = out.formID == 0x14;
+			if (out.player) {
+				detail::PlayerPart(b, a_save, out);  // PlayerCharacter::LoadGame after Actor::LoadGame
+				out.stoppedAt = r.pos();
+				out.complete = out.playerPart && r.pos() == body.size();
+				if (!out.complete) {
+					out.error = "the player's body has " + std::to_string(body.size() - r.pos()) + " bytes after PlayerCharacter::LoadGame's reads";
+				}
+			} else {
+				out.complete = out.tailEnd == body.size();
+			}
 		} catch (const std::exception& e) {
 			out.error = e.what();
 			out.stoppedAt = r.pos();

@@ -95,9 +95,18 @@ project; you do the coding, building, delivering and publishing.
   = an NPC whose Actor::LoadGame ends at the body's end; Leftover items (RemoveInventoryItemsFO4) edits those (actor part kept
   byte for byte, decoded again). Checked read for read against the emulator (tools/fo4emu: actcmp, stack1.py, fails.cpp).
   Still stopping: Havok objects' first appearance (0xed5cf0, odd id: class 0x30290669 0x89cd40 has entries whose loader comes
-  from a runtime registry 0x3271390), the 0x87c540 block (full of Havok objects; the emulator does not read it either), the
-  PlayerCharacter part (player not editable), a few rare extra data types (0x3d, 0x9d) and a created package with procedure
-  data (mask bit 2). Extra 0x6c (package data), 0x1b, 0xd3, 0xd5 and 0x5c's per-entry lists are decoded. Coverage: every NPC
+  from a runtime registry 0x3271390), the 0x87c540 block (full of Havok objects; the emulator does not read it either), a few
+  rare extra data types (0x3d, 0x9d) and a created package with procedure data (mask bit 2).
+- Fallout 4 player (2026-11-05, branch pc, not published): `core/ChangeFormFO4Player.cpp` (`fo4cf::detail::PlayerPart`) reads
+  PlayerCharacter::LoadGame (0xd65bd0) after Actor::LoadGame to its end (0xd68175): fields, the Pip-Boy quest log (0xd6682a) and
+  objectives (0xd66961, 0x61e170), PlayerCamera::LoadGame (0x102aac0, 13 camera states from the constructor 0x1024f80), knowledge
+  (0xd2faa0), the +0xd80 reference's inventory (0x4f6bb0 -> 0x34ee00, empty in every save seen), lists and maps, every form
+  version branch. No read depends on a form lookup (checked at each). `Actor::complete` is true for the player on all 18 test
+  saves (fo4full 8/9/10/12/14, fo4in x3, fo4ng x2, fo4t x6, Tony's Save7/Save8; read for read equal to the emulator); `Actor`
+  exposes `playerParts`, `questLog`/`objectives` (+ ranges), `cameraRange`, `extraInventory`. Quests takes the Pip-Boy lists
+  from it (shape search as fallback). Leftover items (RemoveInventoryItemsFO4) now edits the player: removal + caps/perk/SPECIAL/
+  XP/level edits written, read back complete, and run through the game's loaders in the emulator (tools/fo4emu playerremove.cpp,
+  emucheck.py, invcheck.py). The emulator's player object was 0x400 bytes (PlayerCharacter is 0xe08): fixed in harness.py. Extra 0x6c (package data), 0x1b, 0xd3, 0xd5 and 0x5c's per-entry lists are decoded. Coverage: every NPC
   but 1-2% of the big saves (Save10: 11040 of 11073 non-player ACHRs read exactly; 539 -> 1891 of 1892 in nate_cleansave).
 - v51 (published 2026-11-02): Edit player > Active magic effects (list, tick, Remove; CLI `--effects`, `--remove-effect 3,7`).
   Save layout: high process ACTIVE EFFECTS = vsval count, each {REF item, u8 effect index, vsval type (= MGEF archetype),

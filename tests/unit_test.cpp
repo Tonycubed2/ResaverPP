@@ -2463,16 +2463,16 @@ void TestFo4ActorPackages()
 			}
 		}
 		std::map<std::uint32_t, std::vector<std::uint8_t>> actorParts;  // refid -> the actor part before the edit
-		std::size_t removed = 0, refusedPlayer = 0;
+		std::size_t removed = 0, playerHad = 0, playerRemoved = 0;
 		for (auto& c : s->changeForms) {
 			if (c.typeCode() != 1) continue;
 			const auto r = ess::fo4cf::DecodeRefr(*s, c);
 			const auto body = ess::cf::Body(c);
 			std::size_t n = 0;
 			const auto  e = ess::cf::RemoveInventoryItems(*s, c, items, &n);
-			if (s->formIDOf(c.refID) == 0x14) {
-				refusedPlayer += !e.empty() || n == 0;
-				continue;
+			if (s->formIDOf(c.refID) == 0x14) {  // the player reads completely too now: edited like an NPC
+				for (const auto& it : r.inventory) playerHad += items.contains(it.formID);
+				playerRemoved = e.empty() ? n : 0;
 			}
 			if (e.empty() && n) {
 				removed += n;
@@ -2499,12 +2499,215 @@ void TestFo4ActorPackages()
 		}
 		Check(removed > 0 && ok == actorParts.size(), ("fo4 actors: a plugin's items removed from " + std::to_string(actorParts.size()) +
 		      " NPCs of " + name + ", written and read back completely, actor parts unchanged").c_str());
-		Check(refusedPlayer == 1, ("fo4 actors: the player is left alone (its own part is not decoded) in " + name).c_str());
+		Check(playerRemoved == playerHad, ("fo4 actors: the player's items of that plugin removed too in " + name).c_str());
 		++tested;
 	}
 	std::error_code ec;
 	fs::remove(tmp, ec);
 	std::printf("(fo4 actors: %zu real saves)\n", tested);
+}
+
+// Fallout 4 player: the PlayerCharacter part (PlayerCharacter::LoadGame 0xd65bd0 after Actor::LoadGame) read through
+// fo4cf::detail::PlayerPart on bytes laid out as the game reads them, at form versions that take different branches;
+// then, with RESAVERPP_FO4_SAVES, every real save's player read completely, its Pip-Boy lists, a plugin's items removed
+// from the player (Leftover items) with caps / perk rank / Strength / XP / level edits, written and read back.
+void TestFo4Player()
+{
+	namespace fs = std::filesystem;
+	using B = std::vector<std::uint8_t>;
+	auto u8 = [](B& b, std::uint8_t v) { b.push_back(v); };
+	auto u16 = [](B& b, std::uint16_t v) { b.push_back(static_cast<std::uint8_t>(v)); b.push_back(static_cast<std::uint8_t>(v >> 8)); };
+	auto u32 = [](B& b, std::uint32_t v) { for (int i = 0; i < 4; ++i) b.push_back(static_cast<std::uint8_t>(v >> (8 * i))); };
+	auto ref = [](B& b, std::uint32_t formID) { const std::uint32_t d = formID ? ((1u << 22) | formID) : 0; b.push_back(d >> 16); b.push_back(d >> 8); b.push_back(d); };
+	auto vs = [](B& b, std::uint32_t v) { b.push_back(static_cast<std::uint8_t>(v << 2)); };  // below 64
+	auto raw = [](B& b, std::size_t n) { b.insert(b.end(), n, 0); };
+	auto n32 = [&](B& b, int n) { for (int i = 0; i < n; ++i) u32(b, 0); };
+	// a PlayerCharacter part as PlayerCharacter::LoadGame reads it at form version a_ver
+	auto build = [&](std::uint32_t a_ver) {
+		B b;
+		u8(b, 1); u32(b, 0); u8(b, 0); u8(b, 0); n32(b, 2); u8(b, 0); u32(b, 0); u8(b, 0);
+		n32(b, 1); raw(b, 12); n32(b, 2); u8(b, 0); u8(b, 0); raw(b, 8); u8(b, 0);
+		n32(b, 3); u8(b, 0); n32(b, 8); u8(b, 0); u8(b, 0); n32(b, 1); n32(b, 7); raw(b, 24); n32(b, 1);
+		vs(b, 1); raw(b, 12); u32(b, 0);                                    // list +0x750
+		u8(b, 1); ref(b, 0x10); raw(b, 24); ref(b, 0x11); ref(b, 0x12); n32(b, 1);  // block +0x948 (set)
+		for (int i = 0; i < 8; ++i) ref(b, 0);
+		vs(b, 2); u32(b, 3); u32(b, 0); ref(b, 0x13); u32(b, 15);           // table +0xa64: index 15 reads nothing more
+		vs(b, 1); ref(b, 0x1A); u16(b, 100); u8(b, 2);                      // quest log
+		vs(b, 2); ref(b, 0x1A); u32(b, 1); u32(b, 0); u32(b, 2); ref(b, 0x1B); u32(b, 7); u32(b, 1); u32(b, 3);  // objectives
+		n32(b, 3);
+		// camera
+		u8(b, 0); u8(b, 0); n32(b, 2); ref(b, 0); u32(b, 0);
+		n32(b, 4); raw(b, 3);
+		auto st = [&] { raw(b, 12); u32(b, 0); raw(b, 8); u8(b, 0); u32(b, 0); u16(b, 3); b.insert(b.end(), { 'a', 'b', 'c' }); u8(b, 0); };
+		st(); raw(b, 12 + 8 + 8 + 2 + 2); st(); st(); u8(b, 0); ref(b, 0); u32(b, 0); st(); st(); st();
+		if (a_ver >= 0x26) u32(b, 0);
+		u32(b, 0); u32(b, 2); n32(b, 2); n32(b, 2); u8(b, 0);
+		vs(b, 1); ref(b, 0x20); n32(b, 4);                                  // map +0x640
+		ref(b, 0); u32(b, 0);
+		vs(b, 0);                                                           // map +0x670
+		u8(b, 0); u8(b, 3); u16(b, 9);                                      // not 0xFF: a u16 follows
+		ref(b, 0); raw(b, 12); if (a_ver >= 0x23) raw(b, 12);
+		u32(b, 0); for (int i = 0; i < 6; ++i) ref(b, 0);
+		u32(b, 0); u32(b, 2); for (int i = 0; i < 2; ++i) { u16(b, 0x4AB); u32(b, 0xFFFFFFFF); u32(b, 0x3F800000); }
+		ref(b, 0); u32(b, 0); ref(b, 0);
+		vs(b, 1); ref(b, 0x21); for (int i = 0; i < 4; ++i) u16(b, 0);    // map +0x6d0
+		raw(b, 6);
+		vs(b, 2); n32(b, 2);                                                // 0xb79ad0
+		vs(b, 1); ref(b, 0); u32(b, 0); ref(b, 0); u32(b, 0); u32(b, 0x6241C761u); ref(b, 0); n32(b, 2);  // knowledge
+		u8(b, 0);
+		vs(b, 1); ref(b, 0x22); n32(b, 2);                                  // map +0x828
+		u32(b, 0); raw(b, 6); n32(b, 2); if (a_ver >= 0xa) u32(b, 0);
+		u32(b, 1); ref(b, 0x23);                                            // list +0x9d8
+		ref(b, 0); u8(b, 0); u32(b, 0); u8(b, 0); ref(b, 0); if (a_ver < 0x39) u8(b, 0);
+		u8(b, 0); u32(b, 0); u8(b, 0); for (int i = 0; i < 5; ++i) ref(b, 0);
+		if (a_ver < 0x2e || a_ver >= 0x31) { u32(b, 1); ref(b, 0x24); u32(b, 1); vs(b, 0); u32(b, 5); u16(b, 0); }  // one item
+		u8(b, 0); u32(b, 0); u8(b, 0);
+		if (a_ver < 7) { vs(b, 1); ref(b, 0x25); }
+		vs(b, 0);                                                           // map +0x858
+		u32(b, 1); ref(b, 0x26); if (a_ver < 7) raw(b, 8); else u32(b, 0);  // list +0xdb0
+		ref(b, 0);
+		if (a_ver >= 0x1f) { ref(b, 0); u8(b, 0); u8(b, 0); }
+		if (a_ver >= 0x21) u8(b, 0);
+		if (a_ver >= 0x2f && a_ver < 0x39) u32(b, 0);
+		if (a_ver >= 0x32) { u32(b, 0); u8(b, 0); }
+		if (a_ver >= 0x43) u8(b, 0);
+		return b;
+	};
+	ess::SaveFile save;
+	save.header.magic = "FO4_SAVEGAME";
+	for (const std::uint32_t ver : { 69u, 68u, 65u, 0x30u, 0x22u, 6u }) {
+		save.formVersion = ver;
+		const auto       b = build(ver);
+		ess::Reader      r(b.data(), b.size());
+		ess::fo4cf::detail::In in{ r, ver };
+		ess::fo4cf::Actor a;
+		std::string err;
+		try {
+			ess::fo4cf::detail::PlayerPart(in, save, a);
+		} catch (const std::exception& e) {
+			err = e.what();
+		}
+		const bool inv = ver < 0x2e || ver >= 0x31;
+		Check(err.empty() && a.playerPart && r.pos() == b.size() && a.questLog.size() == 1 && a.questLog[0].stage == 100 &&
+		          a.questLog[0].log == 2 && a.objectives.size() == 2 && a.objectives[1].index == 7 && a.objectives[1].state == 3 &&
+		          a.extraInventory.size() == (inv ? 1u : 0u) && a.questLogRange.end == a.objectivesRange.begin,
+			("fo4 player: the PlayerCharacter part reads exactly at form version " + std::to_string(ver)).c_str());
+		auto shorter = b;
+		shorter.pop_back();
+		ess::Reader r2(shorter.data(), shorter.size());
+		ess::fo4cf::detail::In in2{ r2, ver };
+		bool threw = false;
+		try {
+			ess::fo4cf::detail::PlayerPart(in2, save, a);
+		} catch (const std::exception&) {
+			threw = true;
+		}
+		Check(threw, ("fo4 player: a cut PlayerCharacter part does not read at form version " + std::to_string(ver)).c_str());
+	}
+
+	const char* env = std::getenv("RESAVERPP_FO4_SAVES");
+	if (!env || !*env) {
+		std::printf("(fo4 player: RESAVERPP_FO4_SAVES not set, real saves skipped)\n");
+		return;
+	}
+	std::vector<fs::path> files;
+	std::string           all = env;
+	for (std::size_t p = 0; p <= all.size();) {
+		auto e = all.find(';', p);
+		if (e == std::string::npos) e = all.size();
+		const fs::path dir = all.substr(p, e - p);
+		std::error_code ec;
+		if (!dir.empty() && fs::is_directory(dir, ec)) {
+			for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+				if (f.path().extension() == ".fos") files.push_back(f.path());
+			}
+		}
+		p = e + 1;
+	}
+	std::sort(files.begin(), files.end());
+	const auto  tmp = fs::temp_directory_path() / "rs_unit_player.fos";
+	std::size_t tested = 0;
+	for (const auto& f : files) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;
+		}
+		if (!s->isFO4()) continue;
+		const auto name = f.filename().string();
+		auto*      p = const_cast<ess::ChangeForm*>(ess::fo4cf::FindPlayer(*s));
+		if (!p) continue;
+		const auto a = ess::fo4cf::DecodeActor(*s, *p);
+		const auto body = ess::cf::Body(*p);
+		Check(a.complete && a.player && a.playerRange.begin == a.tailEnd && a.playerRange.end == body.size() && !a.playerParts.empty(),
+			("fo4 player: the player's body reads completely in " + name + (a.error.empty() ? "" : ": " + a.error)).c_str());
+		if (!a.complete) continue;
+		bool found = false;
+		const auto log = ess::quests::ReadQuestLog(*s, &found);
+		const auto journal = ess::quests::ReadJournal(*s);
+		Check(found && log.size() == a.questLog.size() && journal.size() == a.objectives.size(),
+			("fo4 player: the Pip-Boy quest log and objectives are the decoded lists in " + name).c_str());
+		// Leftover items on the player: the plugin with most items (Fallout4.esm when it has nothing else)
+		const auto r = ess::fo4cf::DecodeRefr(*s, *p);
+		std::map<std::uint32_t, std::size_t> per;
+		for (const auto& it : r.inventory) ++per[it.formID >> 24];
+		if (per.empty()) continue;
+		std::uint32_t plugin = 0;
+		std::size_t   most = 0;
+		for (const auto& [k, n] : per) {
+			if (k != 0 && n > most) { plugin = k; most = n; }
+		}
+		std::set<std::uint32_t> items;
+		for (const auto& it : r.inventory) {
+			if ((it.formID >> 24) == plugin) items.insert(it.formID);
+		}
+		std::size_t n = 0;
+		const auto  e = ess::cf::RemoveInventoryItems(*s, *p, items, &n);
+		Check(e.empty() && n == items.size(), ("fo4 player: a plugin's items removed from the player in " + name + (e.empty() ? "" : ": " + e)).c_str());
+		// the other edits on the edited player
+		const auto caps = ess::fo4cf::PlayerCaps(*s);
+		const bool capsSet = caps >= 0 && ess::fo4cf::SetPlayerCaps(*s, static_cast<std::int32_t>(caps + 25)).empty();
+		const auto a1 = ess::fo4cf::DecodeActor(*s, *p);
+		std::uint32_t perk = 0;
+		if (!a1.perks.empty() && ess::fo4cf::SetPerkRank(*s, *p, a1.perks.front().formID, 3).empty()) perk = a1.perks.front().formID;
+		const bool strSet = ess::fo4cf::SetPlayerSpecial(*s, 0, 7).empty();
+		const bool xpSet = ess::fo4cf::SetPlayerXP(*s, 4321).empty();
+		const bool lvlSet = ess::fo4cf::PlayerLevel(*s) >= 0 && ess::fo4cf::SetPlayerLevel(*s, 42).empty();
+		{
+			const auto bytes = s->serialize();
+			std::ofstream out(tmp, std::ios::binary);
+			out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		}
+		auto       again = SaveFile::load(tmp);
+		const auto* p2 = ess::fo4cf::FindPlayer(*again);
+		const auto a2 = ess::fo4cf::DecodeActor(*again, *p2);
+		const auto r2 = ess::fo4cf::DecodeRefr(*again, *p2);
+		const auto b2 = ess::cf::Body(*p2);
+		bool ok = a2.complete && r2.inventory.size() == r.inventory.size() - n;
+		for (const auto& it : r2.inventory) ok = ok && !items.contains(it.formID);
+		ok = ok && std::equal(body.begin() + static_cast<std::ptrdiff_t>(a.playerRange.begin), body.end(),
+		                      b2.begin() + static_cast<std::ptrdiff_t>(a2.playerRange.begin), b2.end());
+		Check(ok, ("fo4 player: written and read back completely without the items, PlayerCharacter part unchanged, in " + name).c_str());
+		bool edits = !capsSet || ess::fo4cf::PlayerCaps(*again) == caps + 25;
+		if (perk) {
+			bool hit = false;
+			for (const auto& x : a2.perks) hit = hit || (x.formID == perk && x.rank == 3);
+			edits = edits && hit;
+		}
+		if (strSet) {
+			bool hit = false;
+			for (const auto& v : a2.values) hit = hit || (v.formID == 0x2C2 && v.base == 7.0f);
+			edits = edits && hit;
+		}
+		edits = edits && (!xpSet || ess::fo4cf::PlayerXP(*again) == 4321.0);
+		edits = edits && (!lvlSet || (ess::fo4cf::PlayerLevel(*again) == 42 && again->header.playerLevel == 42));
+		Check(edits && strSet && xpSet, ("fo4 player: caps, perk rank, Strength, XP and level edits read back in " + name).c_str());
+		++tested;
+	}
+	std::error_code ec;
+	fs::remove(tmp, ec);
+	std::printf("(fo4 player: %zu real saves)\n", tested);
 }
 
 void TestFo4HavokFormLists()
@@ -2695,6 +2898,7 @@ int main()
 	TestTransplantFO4();
 	TestFo4HavokFormLists();
 	TestFo4ActorPackages();
+	TestFo4Player();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

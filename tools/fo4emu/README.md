@@ -30,3 +30,14 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
 - `npcremove.cpp <save> [plugin hex] [out.fos] [out.bin]`: without a plugin, lists the items NPCs hold per plugin index; with
   one, removes that plugin's items from every NPC that reads completely (cf::RemoveInventoryItems), writes the save, reads it
   back and dumps the edited ACHRs; `emucheck.py <file.bin>` then runs the game's Actor::LoadGame on each of them.
+- The player: `achr.py` runs PlayerCharacter::LoadGame (0xd65bd0) for refid 0x14; the fake player object has PlayerCharacter's
+  size (0x1000) with zeroed objects at +0xd00 (0x3ff0f0's list owner) and +0xd80 (the reference whose inventory 0x4f6bb0
+  loads); with the old 0x400-byte object those pointers came from unrelated heap memory. PlayerCharacter::LoadGame reads
+  the same bytes whether its form lookups succeed or not (each lookup checked in the code), so the faked lookups do not
+  change its path. `fo4cf::DecodeActor` reads the player read for read like it on 18 saves.
+- `playerremove.cpp <save> [plugin out.fos out.bin [1]]`: lists the player's items per plugin; with a plugin, removes its
+  items from the player (cf::RemoveInventoryItems, Leftover items), optionally also edits caps / a perk rank / Strength /
+  XP / level, writes and reads back the save and dumps the edited player for `emucheck.py`.
+- `invcheck.py <dump>`: runs the game's ExtraDataList::LoadGame (0x294760) and inventory loader (0x34ee00) natively on each
+  ACHR's reference part (after the actor prefix) and compares the end with dec.py's (the end achr.py's REFR stub uses), so
+  an edited inventory is checked by the game's own code too.

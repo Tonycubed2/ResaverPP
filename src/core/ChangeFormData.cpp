@@ -5081,8 +5081,7 @@ namespace ess::cf
 			if (d.actor && d.decoded) {
 				act = fo4cf::DecodeActor(a_save, a_cf);
 				if (!act.complete) {
-					return "this actor's saved data is not fully read yet (" +
-					       (act.formID == 0x14 ? std::string("the player's own part") : act.error) + "): nothing changed";
+					return "this actor's saved data is not fully read yet (" + act.error + "): nothing changed";
 				}
 			} else if (!d.complete) {
 				return "this change form could not be read completely (" + d.error + "): nothing changed";
