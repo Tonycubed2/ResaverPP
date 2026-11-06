@@ -1759,7 +1759,7 @@ void TestAiGame()
 	Check(f4.find("fo4_player") != std::string::npos && f4.find("fo4_edit_player") != std::string::npos && f4.find("leftover_items") != std::string::npos &&
 			  f4.find("--fo4-transplant") != std::string::npos && f4.find("--quests") != std::string::npos,
 		"ai: the Fallout 4 lesson lists the Fallout 4 tools");
-	Check(f4.find("NOT AVAILABLE FOR FALLOUT 4 SAVES") != std::string::npos && f4.find("--reset-havok") != std::string::npos &&
+	Check(f4.find("NOT AVAILABLE FOR FALLOUT 4 SAVES") != std::string::npos && f4.find("--fix-mcm") != std::string::npos &&
 			  f4.find("CONTROLSRESET") != std::string::npos && f4.find("F4NG") != std::string::npos,
 		"ai: the Fallout 4 lesson says what does not work and the Fallout 4 helper's commands");
 	Check(f4.find("SkyrimSE.exe+0CEC680") == std::string::npos && f4.find("SKSE plugin load errors") == std::string::npos &&
@@ -1778,10 +1778,10 @@ void TestAiGame()
 		"ai: the Skyrim game lines");
 	const auto no = ag::CliRefusal(ag::Game::kFallout4, { "C:\\Saves\\Save1.fos", "--player" });
 	Check(no.rfind("not available for Fallout 4 saves", 0) == 0 && no.find("fo4_player") != std::string::npos, "ai: --player is refused for Fallout 4");
-	Check(ag::CliRefusal(ag::Game::kFallout4, { "x.fos", "--Reset-Havok", "-o", "y.fos" }).find("--Reset-Havok") != std::string::npos,
+	Check(ag::CliRefusal(ag::Game::kFallout4, { "x.fos", "--Fix-MCM", "-o", "y.fos" }).find("--Fix-MCM") != std::string::npos,
 		"ai: an option is refused in any letter case");
 	for (const char* ok : { "--quests", "--journal", "--describe", "--remove-unattached", "--purge-script", "--fo4-set-level", "--fo4-perks",
-			 "--fo4-transplant", "--crash-log", "--mods", "--spawned", "--remove-mod", "--compare", "--delete-form" }) {
+			 "--fo4-transplant", "--crash-log", "--mods", "--spawned", "--remove-mod", "--compare", "--delete-form", "--reset-havok", "--purify-formlists", "--merged-patch" }) {
 		Check(ag::CliRefusal(ag::Game::kFallout4, { "x.fos", ok }).empty(), (std::string("ai: works on Fallout 4: ") + ok).c_str());
 	}
 	Check(ag::CliRefusal(ag::Game::kSkyrimSE, { "x.ess", "--player", "--reset-havok" }).empty(), "ai: nothing is refused for Skyrim");

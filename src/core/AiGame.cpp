@@ -118,12 +118,14 @@ WHAT WORKS ON A FALLOUT 4 SAVE
 - Forms by name: find_form (the plugin names and editor IDs the app read from the Fallout 4 plugins).
 - Crash logs: run_cli {save} --crash-log <Buffout 4 crash log> finds the objects the log names in this save.
 - Transplant (an old save that crashes into a good one): run_cli {save} --fo4-transplant <old.fos> lists level, experience, S.P.E.C.I.A.L., caps, perks, items and quests the old save has, each marked file (--fo4-transplant-write -o <new save> writes those) or game (the app's Tools > Transplant progress page puts them into the running game through ReSaverHelper 13).
+- Reset Havok (--reset-havok -o <new save>: empties the saved physics data of objects, so they settle again; the game itself writes empty physics data) and Purify FormLists (--purify-formlists -o <new save>: removes empty entries from form lists).
+- Merged patch (--merged-patch <out.esp> --sources <mods folder> --game <Fallout 4 folder>, or the app's Merged patch window): merges leveled items, leveled NPCs, leveled spells, containers, form lists, outfits, misc items and keys; NPCs, armour, weapons and the other types are not merged for Fallout 4 yet.
 - Mods: missing plugins, file conflicts and BA2 archives (--bsa-list / --bsa-find / --bsa-extract read .ba2 too, --file-conflicts).
 
 NOT AVAILABLE FOR FALLOUT 4 SAVES (say so plainly instead of trying; offer what works)
 - Skyrim's player options (--player, --set-gold, --set-skill, --set-level, --set-xp, --set-perks, --set-souls, --set-av, --set-item, --remove-item, --remove-spell, --set-legendary, --set-bounty, --clear-crimes, --effects, --remove-effect): use fo4_player / fo4_edit_player.
 - NPCs in the save: --npcs, --move-to-player, --reset-ai, --remove-flag, --remove-extra (the running game's GATHER calls your companion and Dogmeat instead).
-- Reset Havok (--reset-havok), Purify FormLists (--purify-formlists), the MCM fix (--fix-mcm: SkyUI's menu), path idles (--path-idles, --fix-path-idles), enchantment charges (--charged, --fix-charges), --remove-crash-actors, Skyrim's --transplant, --set-property / --plugin-property, --find / --names (use find_form), the merged patch, the command line's --analyze-logs (it reads Skyrim's logs; analyze_logs reads Fallout 4's).
+- The MCM fix (--fix-mcm: SkyUI's menu), path idles (--path-idles, --fix-path-idles), enchantment charges (--charged, --fix-charges), --remove-crash-actors, Skyrim's --transplant, --set-property / --plugin-property, --find / --names (use find_form), the command line's --analyze-logs (it reads Skyrim's logs; analyze_logs reads Fallout 4's).
 - Decompiling Fallout 4 scripts (.pex): the program reads Skyrim's .pex format only.
 - run_cli answers "not available for Fallout 4 saves" for these.
 
@@ -197,8 +199,6 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 				{ "--reset-ai", "reads Skyrim's actor data" },
 				{ "--remove-flag", "reads Skyrim's change form layouts" },
 				{ "--remove-extra", "reads Skyrim's change form layouts" },
-				{ "--reset-havok", "Reset Havok reads Skyrim's change form layouts" },
-				{ "--purify-formlists", "Purify FormLists reads Skyrim's change form layouts" },
 				{ "--fix-mcm", "it fixes SkyUI's MCM, a Skyrim mod" },
 				{ "--path-idles", "a Skyrim crash (path idles)" },
 				{ "--fix-path-idles", "a Skyrim crash (path idles)" },
@@ -210,7 +210,6 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 				{ "--plugin-property", "it edits Skyrim plugins' script data" },
 				{ "--find", "use find_form (the app reads Fallout 4's plugin names)" },
 				{ "--names", "use find_form (the app reads Fallout 4's plugin names)" },
-				{ "--merged-patch", "the merged patch is not made for Fallout 4 yet" },
 				{ "--analyze-logs", "the command line reads Skyrim's logs; use analyze_logs (it reads Fallout 4's)" },
 			};
 			return m;
