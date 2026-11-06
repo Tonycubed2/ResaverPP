@@ -123,6 +123,12 @@ namespace ess::logs
 			return s;
 		}
 
+		// a Fallout 4 log: under My Games\Fallout4* or an F4SE log
+		bool IsFo4(const LogFile& a_f)
+		{
+			return Lower(a_f.game).rfind("fallout4", 0) == 0 || Lower(Name(a_f.path)).rfind("f4se", 0) == 0;
+		}
+
 		struct KnownCrash
 		{
 			const char* where;    // lower case "skyrimse.exe+0cec680"
@@ -139,12 +145,13 @@ namespace ess::logs
 		};
 	}
 
-	const char* KindName(Kind a_kind)
+	const char* KindName(Kind a_kind, bool a_fo4)
 	{
 		switch (a_kind) {
-		case Kind::kSkse: return "SKSE";
+		case Kind::kSkse: return a_fo4 ? "F4SE" : "SKSE";
 		case Kind::kCrash: return "crash log";
 		case Kind::kPapyrus: return "Papyrus log";
+		case Kind::kIni: return "INI file";
 		default: return "plugin log";
 		}
 	}
@@ -153,12 +160,17 @@ namespace ess::logs
 	{
 		const auto n = Lower(Name(a_file));
 		static const std::set<std::string> skse = { "skse64.log", "skse.log", "sksevr.log", "skse64_loader.log", "skse_loader.log",
-			"sksevr_loader.log", "skse64_steam_loader.log", "skse_steam_loader.log" };
+			"sksevr_loader.log", "skse64_steam_loader.log", "skse_steam_loader.log",
+			// F4SE (f4se.cpp, f4se_loader / f4se_steam_loader main.cpp: My Games\<game>\F4SE\...)
+			"f4se.log", "f4se_loader.log", "f4se_steam_loader.log" };
 		if (skse.contains(n)) {
 			return Kind::kSkse;
 		}
 		if (n.rfind("crash", 0) == 0) {
 			return Kind::kCrash;
+		}
+		if (Lower(U8(a_file.extension())) == ".ini") {
+			return Kind::kIni;
 		}
 		if (n.rfind("papyrus.", 0) == 0) {
 			return Kind::kPapyrus;
@@ -166,8 +178,16 @@ namespace ess::logs
 		return Kind::kPlugin;
 	}
 
+	std::vector<const char*> GameFolderNames(bool a_fo4)
+	{
+		if (a_fo4) {
+			return { "Fallout4", "Fallout4 GOG", "Fallout4 EPIC", "Fallout4 MS" };
+		}
+		return { "Skyrim Special Edition", "Skyrim Special Edition GOG", "Skyrim Special Edition EPIC", "Skyrim VR", "Skyrim" };
+	}
+
 	std::vector<std::filesystem::path> Folders(const std::vector<std::filesystem::path>& a_myGames,
-		const std::vector<std::filesystem::path>& a_extra)
+		const std::vector<std::filesystem::path>& a_extra, bool a_fo4)
 	{
 		std::vector<std::filesystem::path> v;
 		auto add = [&](const std::filesystem::path& p) {
@@ -177,9 +197,8 @@ namespace ess::logs
 			}
 		};
 		for (const auto& mg : a_myGames) {
-			for (const char* g : { "Skyrim Special Edition", "Skyrim Special Edition GOG", "Skyrim Special Edition EPIC", "Skyrim VR",
-					 "Skyrim" }) {
-				add(mg / g / "SKSE");
+			for (const char* g : GameFolderNames(a_fo4)) {
+				add(mg / g / (a_fo4 ? "F4SE" : "SKSE"));
 				add(mg / g / "Logs" / "Script");
 			}
 		}
@@ -234,10 +253,42 @@ namespace ess::logs
 		return out;
 	}
 
+	std::vector<LogFile> FindGameLogs(const std::vector<std::filesystem::path>& a_myGames,
+		const std::vector<std::filesystem::path>& a_extra, bool a_fo4)
+	{
+		auto out = Find(Folders(a_myGames, a_extra, a_fo4));
+		if (!a_fo4) {
+			return out;
+		}
+		const auto now = std::filesystem::file_time_type::clock::now();
+		std::set<std::filesystem::path> seen;
+		for (const auto& mg : a_myGames) {
+			for (const char* g : GameFolderNames(true)) {
+				std::error_code ec;
+				for (std::filesystem::directory_iterator it(mg / g, ec), end; !ec && it != end; it.increment(ec)) {
+					if (!it->is_regular_file(ec) || Lower(U8(it->path().extension())) != ".ini" || !seen.insert(it->path()).second) {
+						continue;
+					}
+					LogFile f;
+					f.path = it->path();
+					f.game = g;
+					f.kind = Kind::kIni;
+					f.size = it->file_size(ec);
+					f.time = it->last_write_time(ec);
+					f.ageMinutes = std::chrono::duration_cast<std::chrono::minutes>(now - f.time).count();
+					out.push_back(std::move(f));
+				}
+			}
+		}
+		std::sort(out.begin(), out.end(), [](const LogFile& a, const LogFile& b) { return a.time > b.time; });
+		return out;
+	}
+
 	// ---- SKSE's own log ----------------------------------------------------------------------
 
-	std::vector<Finding> ReadSkseLog(const std::filesystem::path& a_file, const std::string& a_text)
+	std::vector<Finding> ReadSkseLog(const std::filesystem::path& a_file, const std::string& a_text, bool a_fo4)
 	{
+		const std::string se = a_fo4 ? "F4SE" : "SKSE";
 		std::vector<Finding> out;
 		const auto lines = Lines(a_text);
 		std::string version;
@@ -254,19 +305,23 @@ namespace ess::logs
 			const auto dll = DllIn(l);
 			if (low.find("couldn't load plugin") != std::string::npos || low.find("could not load plugin") != std::string::npos ||
 				low.find("couldn't load") != std::string::npos) {
+				// "(Error 126...)" (SKSE, F4SE 0.6) or "couldn't load plugin 126 (handle 0)" (F4SE 0.7: status, then the code)
 				static const std::regex code(R"((?:error|last error)\s*=?\s*(\d+))", std::regex::icase);
+				static const std::regex code2(R"(couldn't load plugin\s+(\d+)\b)", std::regex::icase);
 				std::smatch m;
-				const int   err = std::regex_search(l, m, code) ? std::atoi(m[1].str().c_str()) : 0;
+				const int   err = std::regex_search(l, m, code) || std::regex_search(l, m, code2) ? std::atoi(m[1].str().c_str()) : 0;
 				f.severity = Severity::kBad;
-				f.title = "SKSE could not load " + (dll.empty() ? std::string("a plugin") : dll);
+				f.title = se + " could not load " + (dll.empty() ? std::string("a plugin") : dll);
 				switch (err) {
 				case 126:
 					f.detail = "Windows error 126: a DLL this plugin needs is missing. Usually another mod it depends on, or the "
 					           "Visual C++ redistributable (2015-2022, x64). Check the plugin's requirements on its mod page.";
 					break;
 				case 193:
-					f.detail = "Windows error 193: not a DLL for this game. A Legendary Edition (32-bit) plugin in a Special Edition "
-					           "game or the other way round, or a damaged download. Install the version made for your game.";
+					f.detail = a_fo4 ? "Windows error 193: not a 64-bit DLL for this game, or a damaged download. Install the version made "
+					                   "for Fallout 4."
+					                 : "Windows error 193: not a DLL for this game. A Legendary Edition (32-bit) plugin in a Special Edition "
+					                   "game or the other way round, or a damaged download. Install the version made for your game.";
 					break;
 				case 127:
 					f.detail = "Windows error 127: the plugin needs a function another DLL does not have: a different version of a "
@@ -277,14 +332,20 @@ namespace ess::logs
 				}
 				out.push_back(std::move(f));
 			} else if (low.find("disabled, ") != std::string::npos) {
-				static const std::regex handle(R"(\s*\(handle\s+\d+\)\s*$)", std::regex::icase);
+				// "... disabled, <why> (handle n)"; the script extenders that log the error code too put it before the handle
+				static const std::regex handle(R"((\s+-?\d+)?\s*\(handle\s+\d+\)\s*$)", std::regex::icase);
 				const auto why = std::regex_replace(Trim(l.substr(low.find("disabled, ") + 10)), handle, "");
 				f.severity = Severity::kBad;
 				f.title = (dll.empty() ? std::string("A plugin") : dll) + " was not loaded: " + why;
 				const auto w = Lower(why);
 				if (w.find("address library") != std::string::npos) {
-					f.detail = "Address Library for SKSE Plugins is missing or too old for this game version. Install the Address "
-					           "Library version that matches your game (the All in one package covers every version).";
+					f.detail = a_fo4 ? "Address Library for F4SE Plugins is missing or too old for this game version (F4SE looks for "
+					                   "Data\\F4SE\\Plugins\\version-<game version>.bin). Install the Address Library version that matches "
+					                   "your game version."
+					                 : "Address Library for SKSE Plugins is missing or too old for this game version. Install the Address "
+					                   "Library version that matches your game (the All in one package covers every version).";
+				} else if (w.find("requires newer script extender") != std::string::npos) {
+					f.detail = "The plugin needs a newer " + se + " than the one installed. Update " + se + " for your game version.";
 				} else if (w.find("incompatible") != std::string::npos || w.find("runtime") != std::string::npos) {
 					f.detail = "The plugin was made for another game version. Install the version of the mod for your game version, "
 					           "or downgrade/upgrade the game to what the mod supports.";
@@ -299,14 +360,35 @@ namespace ess::logs
 				f.severity = Severity::kBad;
 				f.title = (dll.empty() ? std::string("A plugin") : dll) + " said it cannot run on this game";
 				f.detail = "The plugin itself refused to load (wrong game version, or something it needs is missing). Its own log "
-				           "(in the same SKSE folder) usually says why.";
+				           "(in the same " + se + " folder) usually says why.";
+				out.push_back(std::move(f));
+			} else if (low.find("32-bit plugins can never work") != std::string::npos) {
+				f.severity = Severity::kBad;
+				f.title = (dll.empty() ? std::string("A plugin") : dll) + " is a 32-bit DLL";
+				f.detail = "A 32-bit DLL cannot run in this 64-bit game: it was made for another game. Remove it and install the version "
+				           "made for your game.";
+				out.push_back(std::move(f));
+			} else if (a_fo4 && low.find(") no version data") != std::string::npos) {
+				// F4SE 0.7 (PluginManager::ScanPlugins): no F4SEPlugin_Version export, so the plugin is not loaded at all
+				f.severity = Severity::kBad;
+				f.title = (dll.empty() ? std::string("A plugin") : dll) + " was not loaded: it has no version data";
+				f.detail = "This F4SE only loads plugins that say which game versions they support (F4SEPlugin_Version). Plugins made "
+				           "only for the old game 1.10.163 (F4SE 0.6) do not: install the plugin's version for your game version, or "
+				           "the game version the plugin was made for.";
+				out.push_back(std::move(f));
+			} else if (low.find("does not appear to be an f4se plugin") != std::string::npos ||
+					   low.find("does not appear to be an skse plugin") != std::string::npos) {
+				f.severity = Severity::kWarn;
+				f.title = (dll.empty() ? std::string("A DLL") : dll) + " in the plugins folder is not a " + se + " plugin";
+				f.detail = se + " skipped it. Often a library another plugin uses (harmless); otherwise a file that was put in the "
+				           "wrong folder.";
 				out.push_back(std::move(f));
 			}
 		}
 		if (!version.empty()) {
 			Finding f;
 			f.severity = Severity::kInfo;
-			f.title = "SKSE: " + version;
+			f.title = se + ": " + version;
 			f.file = a_file;
 			out.push_back(std::move(f));
 		}
@@ -382,9 +464,26 @@ namespace ess::logs
 
 	namespace
 	{
-		std::string ModuleNote(const std::string& a_module)
+		std::string ModuleNote(const std::string& a_module, bool a_fo4)
 		{
 			const auto m = Lower(a_module);
+			if (a_fo4) {
+				// (Fallout 4: only what is the same in both games; the Skyrim mods below are not in a Fallout 4 game)
+				if (m.rfind("f4se", 0) == 0) {
+					return "F4SE itself: usually a plugin calling into it.";
+				}
+				if (m.rfind("nvwgf2um", 0) == 0 || m.rfind("nvd3dum", 0) == 0 || m.rfind("atidxx", 0) == 0 || m.rfind("amdxx", 0) == 0 ||
+					m.rfind("igd", 0) == 0 || m == "d3d11.dll" || m == "dxgi.dll") {
+					return "the graphics driver / Direct3D: often ENB, ReShade, textures or meshes, or the driver itself.";
+				}
+				if (m == "xaudio2_7.dll") {
+					return "game audio: a sound file a mod added, or too many sounds at once.";
+				}
+				if (m == "tbbmalloc.dll") {
+					return "the memory allocator: usually not the cause, the code that called it is.";
+				}
+				return "";
+			}
 			if (m.find("hdtsmp") != std::string::npos) {
 				return "HDT-SMP / FSMP physics (hair, clothing, body physics).";
 			}
@@ -428,7 +527,7 @@ namespace ess::logs
 			if (f.kind != Kind::kSkse || !sksesDone.insert(f.game + "|" + Lower(Name(f.path))).second) {
 				continue;
 			}
-			auto found = ReadSkseLog(f.path, ReadText(f.path));
+			auto found = ReadSkseLog(f.path, ReadText(f.path), IsFo4(f));
 			for (auto& x : found) {
 				if (x.severity == Severity::kInfo) {
 					x.title += " (" + (f.game.empty() ? std::string() : f.game + ", ") + Age(f.ageMinutes) + ")";
@@ -452,6 +551,7 @@ namespace ess::logs
 				}
 				++read;
 				const auto c = ReadCrash(ReadText(f.path, 4u << 20));
+				const bool fo4 = IsFo4(f);
 				if (c.exception.empty() && c.modules.empty()) {
 					continue;
 				}
@@ -485,7 +585,7 @@ namespace ess::logs
 					}
 					d += ".\n";
 					for (std::size_t i = 0; i < c.modules.size() && i < 3; ++i) {
-						if (const auto n = ModuleNote(c.modules[i]); !n.empty()) {
+						if (const auto n = ModuleNote(c.modules[i], fo4); !n.empty()) {
 							d += c.modules[i] + ": " + n + "\n";
 						}
 					}
@@ -669,8 +769,11 @@ namespace ess::logs
 		if (a.files.empty()) {
 			Finding fx;
 			fx.severity = Severity::kInfo;
-			fx.title = a_logs.empty() ? "No Skyrim logs found" : "No logs written in the last " + std::to_string(a_options.days) + " days";
-			fx.detail = a_logs.empty() ? "SKSE writes its logs to Documents\\My Games\\<game>\\SKSE. Start the game through SKSE once."
+			fx.title = a_logs.empty() ? std::string(a_options.fo4 ? "No Fallout 4 logs found" : "No Skyrim logs found")
+			                          : "No logs written in the last " + std::to_string(a_options.days) + " days";
+			fx.detail = a_logs.empty() ? (a_options.fo4 ? "F4SE writes its logs to Documents\\My Games\\Fallout4\\F4SE (Buffout 4 its crash logs "
+			                                              "too). Start the game through F4SE (f4se_loader.exe) once."
+			                                            : "SKSE writes its logs to Documents\\My Games\\<game>\\SKSE. Start the game through SKSE once.")
 			                           : "Include older logs to look at them too.";
 			a.findings.push_back(std::move(fx));
 		}
