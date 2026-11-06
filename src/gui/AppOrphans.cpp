@@ -136,8 +136,8 @@ void App::drawOrphansModal()
 			}
 			tips::Tip(tr("Ticked: remove this mod's script instances that sit on spawned objects that no longer exist."));
 			ImGui::TableNextColumn();
-			const bool open = ImGui::TreeNodeEx("##mod", ImGuiTreeNodeFlags_SpanAvailWidth, tr("%s  (%zu script%s)"), g.mod.c_str(),
-				g.scripts.size(), g.scripts.size() == 1 ? "" : "s");
+			const bool open = ImGui::TreeNodeEx("##mod", ImGuiTreeNodeFlags_SpanAvailWidth, g.scripts.size() == 1 ? tr("%s  (%zu script)") : tr("%s  (%zu scripts)"),
+				g.mod.c_str(), g.scripts.size());
 			tips::Tip(tr("Open to see the scripts of this mod that have instances on missing spawned objects."));
 			ImGui::TableNextColumn();
 			ImGui::PushStyleColor(ImGuiCol_Text, StatusColor(g.status));

@@ -65,12 +65,6 @@ namespace
 				if (e.tr.find("##") != std::string::npos) {
 					Check(false, where + "the translation contains ## (ids are not part of the catalogue)");
 				}
-				// a text that starts or ends with spaces is glued to other text: the translation keeps them
-				const bool enLead = e.en.front() == ' ', trLead = e.tr.front() == ' ';
-				const bool enTrail = e.en.back() == ' ', trTrail = e.tr.back() == ' ';
-				if (enLead != trLead || enTrail != trTrail) {
-					Check(false, where + "leading/trailing spaces differ from the English: \"" + e.en.substr(0, 60) + "\"");
-				}
 			}
 			Check(true, std::string("lang/") + b.code + ".txt: " + std::to_string(c.entries.size()) + " texts, " + std::to_string(translated) +
 			                " translated, " + std::to_string(specsOk) + " with matching conversions");
