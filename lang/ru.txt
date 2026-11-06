@@ -57,6 +57,8 @@ language "Русский"
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 
 # Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
+
+# Ai.cpp:23  { N_("Anthropic (Claude)"), Api::kAnthropic, "https://api.anthropic.com", "claude-sonnet-5-5", true,
 en "Anthropic (Claude)"
 tr "Anthropic (Claude)"
 
@@ -199,7 +201,7 @@ en "Mods"
 tr "Моды"
 
 # App.cpp:38  case App::Cat::kPlugins: return N_("Plugins");
-# App.cpp:2450  KV(tr("Plugins"), _save->plugins.hasLite ? Fmt(tr("%zu full + %zu light"), _save->plugins.full.size(), _save->plugins.lite.size())
+# App.cpp:2449  KV(tr("Plugins"), _save->plugins.hasLite ? Fmt(tr("%zu full + %zu light"), _save->plugins.full.size(), _save->plugins.lite.size())
 en "Plugins"
 tr "Плагины"
 
@@ -208,14 +210,14 @@ en "Change Forms"
 tr "Изменённые формы"
 
 # App.cpp:40  case App::Cat::kStrings: return N_("Strings");
-# App.cpp:2472  KV(tr("Strings"), std::to_string(r.strings));
+# App.cpp:2471  KV(tr("Strings"), std::to_string(r.strings));
 # AppMore.cpp:91  ImGui::SeparatorText(tr("Strings"));
 en "Strings"
 tr "Строки"
 
 # App.cpp:41  case App::Cat::kScripts: return N_("Scripts");
-# App.cpp:2466  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
-# App.cpp:3379  ImGui::TableSetupColumn(tr("Scripts"), ImGuiTableColumnFlags_PreferSortDescending, 70);
+# App.cpp:2465  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
+# App.cpp:3378  ImGui::TableSetupColumn(tr("Scripts"), ImGuiTableColumnFlags_PreferSortDescending, 70);
 en "Scripts"
 tr "Скрипты"
 
@@ -228,7 +230,7 @@ en "References"
 tr "Ссылки"
 
 # App.cpp:44  case App::Cat::kArrays: return N_("Arrays");
-# App.cpp:2470  KV(tr("Arrays"), std::to_string(r.arrays));
+# App.cpp:2469  KV(tr("Arrays"), std::to_string(r.arrays));
 # AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 en "Arrays"
 tr "Массивы"
@@ -485,7 +487,7 @@ en "See the files inside a mod's or the game's BSA archive, unpack them into a f
 tr "Посмотреть файлы в архиве BSA мода или игры, распаковать их в папку, прочитать упакованный скрипт."
 
 # App.cpp:1197  if (ImGui::MenuItem(tr("Save"), "Ctrl+S", false, _save != nullptr)) {
-# App.cpp:2631  if (ImGui::Button(tr("Save"), ImVec2(120, 0))) {
+# App.cpp:2630  if (ImGui::Button(tr("Save"), ImVec2(120, 0))) {
 # AppScripts.cpp:668  if (ImGui::Button(tr("Save")) || (keys && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))) {
 en "Save"
 tr "Сохранить"
@@ -720,7 +722,7 @@ en "Carry your progress (quests, stats, inventory...) from a broken save into a 
 tr "Перенести ваш прогресс (квесты, характеристики, инвентарь...) из сломанного сохранения в исправное более старое."
 
 # App.cpp:1312  ImGui::MenuItem(tr("Analysis"), nullptr, &_showAnalysis);
-# App.cpp:2480  if (!ImGui::Begin(trId("Analysis"), &_showAnalysis, ImGuiWindowFlags_NoCollapse)) {
+# App.cpp:2479  if (!ImGui::Begin(trId("Analysis"), &_showAnalysis, ImGuiWindowFlags_NoCollapse)) {
 # AppHome.cpp:326  { Sc::kAnalysis, tr("Analysis"), tr("what takes the most space and runs the most"),
 en "Analysis"
 tr "Анализ"
@@ -731,7 +733,7 @@ en "A text report of the save: which mods and scripts take the most space and ru
 tr "Текстовый отчёт о сохранении: какие моды и скрипты занимают больше всего места и чаще всего выполняются."
 
 # App.cpp:1314  if (ImGui::MenuItem(tr("Report..."))) {
-# App.cpp:3564  if (ImGui::Button(tr("Report..."))) {
+# App.cpp:3563  if (ImGui::Button(tr("Report..."))) {
 en "Report..."
 tr "Отчёт..."
 
@@ -1312,8 +1314,8 @@ en "(nothing)"
 tr "(ничего)"
 
 # App.cpp:2028  KV(tr("Instances"), std::to_string(n));
-# App.cpp:3380  ImGui::TableSetupColumn(tr("Instances"), ImGuiTableColumnFlags_PreferSortDescending, 80);
-# App.cpp:3590  ImGui::TableSetupColumn(tr("Instances"), ImGuiTableColumnFlags_PreferSortDescending, 75, 1);
+# App.cpp:3379  ImGui::TableSetupColumn(tr("Instances"), ImGuiTableColumnFlags_PreferSortDescending, 80);
+# App.cpp:3589  ImGui::TableSetupColumn(tr("Instances"), ImGuiTableColumnFlags_PreferSortDescending, 75, 1);
 en "Instances"
 tr "Экземпляры"
 
@@ -1570,8 +1572,8 @@ en "Thread"
 tr "Поток"
 
 # App.cpp:2333  KV(tr("Thread"), m.id ? Fmt("%08X", *m.id) : std::string(tr("(none)")));
-# App.cpp:3584  ImGui::TextDisabled("%s", tr("(none)"));
-# App.cpp:3714  ImGui::TextDisabled("%s", tr("(none)"));
+# App.cpp:3583  ImGui::TextDisabled("%s", tr("(none)"));
+# App.cpp:3713  ImGui::TextDisabled("%s", tr("(none)"));
 en "(none)"
 tr "(нет)"
 
@@ -1646,803 +1648,803 @@ tr "Номер сохранения"
 en "Game"
 tr "Игра"
 
-# App.cpp:2445  tr("  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's "
-en "  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's change forms decoded are greyed out)"
-tr "  (работают инструменты очистки, списки скриптов, моды, логи и конфликты файлов; инструменты, которым нужны расшифрованные изменённые формы сохранения, неактивны)"
+# App.cpp:2445  tr("  (the Skyrim-only tools, Find NPCs and the MCM fix, are greyed out)"));
+en "  (the Skyrim-only tools, Find NPCs and the MCM fix, are greyed out)"
+tr "  (инструменты только для Skyrim — поиск NPC и исправление MCM — неактивны)"
 
-# App.cpp:2448  KV(tr("Format"), Fmt(tr("%ssave version %u, form version %u, %s"), h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
+# App.cpp:2447  KV(tr("Format"), Fmt(tr("%ssave version %u, form version %u, %s"), h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
 en "Format"
 tr "Формат"
 
-# App.cpp:2448  KV(tr("Format"), Fmt(tr("%ssave version %u, form version %u, %s"), h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
+# App.cpp:2447  KV(tr("Format"), Fmt(tr("%ssave version %u, form version %u, %s"), h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
 en "%ssave version %u, form version %u, %s"
 tr "%sверсия сохранения %u, версия форм %u, %s"
 
-# App.cpp:2449  h.compression == Compression::kLZ4 ? "LZ4" : h.compression == Compression::kZlib ? "zlib" : tr("uncompressed")));
+# App.cpp:2448  h.compression == Compression::kLZ4 ? "LZ4" : h.compression == Compression::kZlib ? "zlib" : tr("uncompressed")));
 en "uncompressed"
 tr "без сжатия"
 
-# App.cpp:2450  KV(tr("Plugins"), _save->plugins.hasLite ? Fmt(tr("%zu full + %zu light"), _save->plugins.full.size(), _save->plugins.lite.size())
+# App.cpp:2449  KV(tr("Plugins"), _save->plugins.hasLite ? Fmt(tr("%zu full + %zu light"), _save->plugins.full.size(), _save->plugins.lite.size())
 en "%zu full + %zu light"
 tr "%zu полных + %zu лёгких"
 
-# App.cpp:2452  KV(tr("Body size"), Fmt(tr("%.1f MB"), _save->originalBodySize / 1048576.0));
+# App.cpp:2451  KV(tr("Body size"), Fmt(tr("%.1f MB"), _save->originalBodySize / 1048576.0));
 en "Body size"
 tr "Размер тела"
 
-# App.cpp:2452  KV(tr("Body size"), Fmt(tr("%.1f MB"), _save->originalBodySize / 1048576.0));
+# App.cpp:2451  KV(tr("Body size"), Fmt(tr("%.1f MB"), _save->originalBodySize / 1048576.0));
 # AppArchive.cpp:59  std::string MB(std::uintmax_t a_bytes) { return Fmt(tr("%.1f MB"), a_bytes / 1048576.0); }
 # AppBsa.cpp:247  ImGui::Text(e.size >= 1048576 ? tr("%.1f MB") : tr("%.0f KB"), e.size >= 1048576 ? e.size / 1048576.0 : e.size / 1024.0 + 0.5);
 en "%.1f MB"
 tr "%.1f МБ"
 
-# App.cpp:2462  ImGui::SeparatorText(tr("Counts"));
+# App.cpp:2461  ImGui::SeparatorText(tr("Counts"));
 en "Counts"
 tr "Количество"
 
-# App.cpp:2464  KV(tr("Script instances"), Fmt(tr("%zu  (%zu unattached, %zu undefined, %zu on missing spawned objects)"), r.instances, r.unattached,
+# App.cpp:2463  KV(tr("Script instances"), Fmt(tr("%zu  (%zu unattached, %zu undefined, %zu on missing spawned objects)"), r.instances, r.unattached,
 # AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 # AppMore.cpp:84  ImGui::SeparatorText(tr("Script instances"));
 en "Script instances"
 tr "Экземпляры скриптов"
 
-# App.cpp:2464  KV(tr("Script instances"), Fmt(tr("%zu  (%zu unattached, %zu undefined, %zu on missing spawned objects)"), r.instances, r.unattached,
+# App.cpp:2463  KV(tr("Script instances"), Fmt(tr("%zu  (%zu unattached, %zu undefined, %zu on missing spawned objects)"), r.instances, r.unattached,
 en "%zu  (%zu unattached, %zu undefined, %zu on missing spawned objects)"
 tr "%zu  (непривязанных %zu, неопределённых %zu, на исчезнувших созданных объектах %zu)"
 
-# App.cpp:2466  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
+# App.cpp:2465  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
 en "%zu  (%zu undefined)"
 tr "%zu  (неопределённых %zu)"
 
-# App.cpp:2467  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
+# App.cpp:2466  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
 # AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 en "Threads"
 tr "Потоки"
 
-# App.cpp:2467  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
+# App.cpp:2466  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
 en "%zu  (%zu undefined, %zu terminated)"
 tr "%zu  (неопределённых %zu, завершённых %zu)"
 
-# App.cpp:2468  KV(tr("Suspended stacks"), std::to_string(r.suspended));
+# App.cpp:2467  KV(tr("Suspended stacks"), std::to_string(r.suspended));
 en "Suspended stacks"
 tr "Приостановленные стеки"
 
-# App.cpp:2469  KV(tr("Function messages"), std::to_string(r.functionMessages));
+# App.cpp:2468  KV(tr("Function messages"), std::to_string(r.functionMessages));
 en "Function messages"
 tr "Сообщения функций"
 
-# App.cpp:2471  KV(tr("Change forms"), std::to_string(r.changeForms));
+# App.cpp:2470  KV(tr("Change forms"), std::to_string(r.changeForms));
 # AppExtras.cpp:419  for (const char* h : { trc("column", "Save"), tr("Date"), tr("Size"), tr("Script instances"), tr("Threads"), tr("Spawned objects"), tr("Change forms")
 # AppMore.cpp:94  ImGui::SeparatorText(tr("Change forms"));
 en "Change forms"
 tr "Изменённые формы"
 
-# App.cpp:2486  if (ImGui::Button(tr("Copy report to clipboard"))) {
+# App.cpp:2485  if (ImGui::Button(tr("Copy report to clipboard"))) {
 en "Copy report to clipboard"
 tr "Копировать отчёт в буфер обмена"
 
-# App.cpp:2489  tips::Tip(tr("Copy this report so you can paste it into a post or a message."));
+# App.cpp:2488  tips::Tip(tr("Copy this report so you can paste it into a post or a message."));
 en "Copy this report so you can paste it into a post or a message."
 tr "Скопировать этот отчёт, чтобы вставить его в пост или сообщение."
 
-# App.cpp:2503  ImGui::OpenPopup(trId("Script sources folder"));
-# App.cpp:2506  if (ImGui::BeginPopupModal(trId("Script sources folder"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+# App.cpp:2502  ImGui::OpenPopup(trId("Script sources folder"));
+# App.cpp:2505  if (ImGui::BeginPopupModal(trId("Script sources folder"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 en "Script sources folder"
 tr "Папка исходников скриптов"
 
-# App.cpp:2507  ImGui::TextUnformatted(tr("Mod Organizer mods folder (or the game's Data folder):"));
+# App.cpp:2506  ImGui::TextUnformatted(tr("Mod Organizer mods folder (or the game's Data folder):"));
 en "Mod Organizer mods folder (or the game's Data folder):"
 tr "Папка mods в Mod Organizer (или папка Data игры):"
 
-# App.cpp:2510  tips::Tip(tr("Your Mod Organizer 'mods' folder, or the game's Data folder. ReSaver++ reads which mod ships which script from here."));
+# App.cpp:2509  tips::Tip(tr("Your Mod Organizer 'mods' folder, or the game's Data folder. ReSaver++ reads which mod ships which script from here."));
 en "Your Mod Organizer 'mods' folder, or the game's Data folder. ReSaver++ reads which mod ships which script from here."
 tr "Ваша папка «mods» в Mod Organizer или папка Data игры. Отсюда ReSaver++ узнаёт, какой мод поставляет какой скрипт."
 
-# App.cpp:2511  if (ImGui::Button(tr("Scan"), ImVec2(120, 0))) {
+# App.cpp:2510  if (ImGui::Button(tr("Scan"), ImVec2(120, 0))) {
 en "Scan"
 tr "Сканировать"
 
-# App.cpp:2515  tips::Tip(tr("Read every mod in this folder (nothing is changed)."));
+# App.cpp:2514  tips::Tip(tr("Read every mod in this folder (nothing is changed)."));
 en "Read every mod in this folder (nothing is changed)."
 tr "Прочитать все моды в этой папке (ничего не меняется)."
 
-# App.cpp:2517  if (ImGui::Button(tr("Cancel"), ImVec2(120, 0))) {
-# App.cpp:2543  if (ImGui::Button(tr("Cancel"), ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-# App.cpp:2596  if (ImGui::Button(tr("Cancel"), ImVec2(120, 0))) {
+# App.cpp:2516  if (ImGui::Button(tr("Cancel"), ImVec2(120, 0))) {
+# App.cpp:2542  if (ImGui::Button(tr("Cancel"), ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+# App.cpp:2595  if (ImGui::Button(tr("Cancel"), ImVec2(120, 0))) {
 en "Cancel"
 tr "Отмена"
 
-# App.cpp:2520  tips::Tip(tr("Close this without changing anything."));
-# App.cpp:2547  tips::Tip(tr("Close this without changing anything."));
-# App.cpp:2599  tips::Tip(tr("Close this without changing anything."));
+# App.cpp:2519  tips::Tip(tr("Close this without changing anything."));
+# App.cpp:2546  tips::Tip(tr("Close this without changing anything."));
+# App.cpp:2598  tips::Tip(tr("Close this without changing anything."));
 en "Close this without changing anything."
 tr "Закрыть, ничего не меняя."
 
-# App.cpp:2533  if (ImGui::Button(tr("OK"), ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
-# App.cpp:2557  if (ImGui::Button(tr("OK"), ImVec2(120, 0))) {
+# App.cpp:2532  if (ImGui::Button(tr("OK"), ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+# App.cpp:2556  if (ImGui::Button(tr("OK"), ImVec2(120, 0))) {
 # AppCharges.cpp:252  ImGui::TextUnformatted(tr("OK"));
 en "OK"
 tr "OK"
 
-# App.cpp:2541  tips::Tip(tr("Go ahead (Enter). Nothing is written to disk until you save."));
+# App.cpp:2540  tips::Tip(tr("Go ahead (Enter). Nothing is written to disk until you save."));
 en "Go ahead (Enter). Nothing is written to disk until you save."
 tr "Выполнить (Enter). На диск ничего не пишется, пока вы не сохраните."
 
-# App.cpp:2552  ImGui::OpenPopup(tr("Error##err"));
-# App.cpp:2555  if (ImGui::BeginPopupModal(tr("Error##err"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+# App.cpp:2551  ImGui::OpenPopup(tr("Error##err"));
+# App.cpp:2554  if (ImGui::BeginPopupModal(tr("Error##err"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 # AppExtras.cpp:558  ImGui::TableSetupColumn(tr("Error"), ImGuiTableColumnFlags_WidthStretch, 4.0f);
 en "Error"
 tr "Ошибка"
 
-# App.cpp:2561  tips::Tip(tr("Close this message."));
+# App.cpp:2560  tips::Tip(tr("Close this message."));
 en "Close this message."
 tr "Закрыть это сообщение."
 
-# App.cpp:2573  ImGui::OpenPopup(trId("Purge a script"));
-# App.cpp:2577  if (ImGui::BeginPopupModal(trId("Purge a script"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+# App.cpp:2572  ImGui::OpenPopup(trId("Purge a script"));
+# App.cpp:2576  if (ImGui::BeginPopupModal(trId("Purge a script"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 # AppHome.cpp:282  { Sc::kPurge, tr("Purge a script"), tr("remove one script completely"),
 en "Purge a script"
 tr "Вычистить скрипт"
 
-# App.cpp:2578  ImGui::TextWrapped("%s", tr("Removes every thread, suspended stack, function message and instance of the script. The script itself stays defined."));
+# App.cpp:2577  ImGui::TextWrapped("%s", tr("Removes every thread, suspended stack, function message and instance of the script. The script itself stays defined."));
 en "Removes every thread, suspended stack, function message and instance of the script. The script itself stays defined."
 tr "Удаляет все потоки, приостановленные стеки, сообщения функций и экземпляры скрипта. Сам скрипт остаётся определённым."
 
-# App.cpp:2579  ImGui::InputTextWithHint("##pname", tr("script name, e.g. Firefly"), _purgeName, sizeof(_purgeName));
+# App.cpp:2578  ImGui::InputTextWithHint("##pname", tr("script name, e.g. Firefly"), _purgeName, sizeof(_purgeName));
 en "script name, e.g. Firefly"
 tr "имя скрипта, например Firefly"
 
-# App.cpp:2580  tips::Tip(tr("The script's name as shown in the Scripts list, without .pex."));
+# App.cpp:2579  tips::Tip(tr("The script's name as shown in the Scripts list, without .pex."));
 en "The script's name as shown in the Scripts list, without .pex."
 tr "Имя скрипта, как в списке «Скрипты», без .pex."
 
-# App.cpp:2581  ImGui::Checkbox(tr("Only stop its running and queued work; keep its instances and their data"), &_purgeKeep);
+# App.cpp:2580  ImGui::Checkbox(tr("Only stop its running and queued work; keep its instances and their data"), &_purgeKeep);
 en "Only stop its running and queued work; keep its instances and their data"
 tr "Только остановить его выполняющуюся и отложенную работу; оставить экземпляры и их данные"
 
-# App.cpp:2582  tips::Tip(tr("Use this for a mod you keep installed, e.g. a stuck MCM registration (QuickLootIEMCM).\n"
+# App.cpp:2581  tips::Tip(tr("Use this for a mod you keep installed, e.g. a stuck MCM registration (QuickLootIEMCM).\n"
 en "Use this for a mod you keep installed, e.g. a stuck MCM registration (QuickLootIEMCM).\nOther scripts' properties that point at the script stay valid, and its settings are kept."
 tr "Для мода, который остаётся установленным, например при застрявшей регистрации MCM (QuickLootIEMCM).\nСвойства других скриптов, указывающие на этот скрипт, остаются верными, и его настройки сохраняются."
 
-# App.cpp:2585  ImGui::Checkbox(tr("Also delete the spawned (FF......) objects its instances sit on"), &_purgeForms);
+# App.cpp:2584  ImGui::Checkbox(tr("Also delete the spawned (FF......) objects its instances sit on"), &_purgeForms);
 en "Also delete the spawned (FF......) objects its instances sit on"
 tr "Также удалить созданные (FF......) объекты, на которых сидят его экземпляры"
 
-# App.cpp:2587  tips::Tip(tr("Also delete in-game-created objects its instances sit on. Objects from plugins are never deleted."));
+# App.cpp:2586  tips::Tip(tr("Also delete in-game-created objects its instances sit on. Objects from plugins are never deleted."));
 en "Also delete in-game-created objects its instances sit on. Objects from plugins are never deleted."
 tr "Также удалить созданные в игре объекты, на которых сидят его экземпляры. Объекты из плагинов никогда не удаляются."
 
-# App.cpp:2588  if (ImGui::Button(tr("Purge"), ImVec2(120, 0)) && _purgeName[0]) {
+# App.cpp:2587  if (ImGui::Button(tr("Purge"), ImVec2(120, 0)) && _purgeName[0]) {
 en "Purge"
 tr "Вычистить"
 
-# App.cpp:2591  markEdited(Fmt(tr("Purged %s: %zu threads, %zu stacks, %zu messages, %zu instances, %zu spawned objects"), _purgeName, x.threads, x.stacks,
+# App.cpp:2590  markEdited(Fmt(tr("Purged %s: %zu threads, %zu stacks, %zu messages, %zu instances, %zu spawned objects"), _purgeName, x.threads, x.stacks,
 en "Purged %s: %zu threads, %zu stacks, %zu messages, %zu instances, %zu spawned objects"
 tr "Вычищен %s: потоков %zu, стеков %zu, сообщений %zu, экземпляров %zu, созданных объектов %zu"
 
-# App.cpp:2594  tips::Tip(tr("Remove it now. Nothing is written to disk until you save."));
+# App.cpp:2593  tips::Tip(tr("Remove it now. Nothing is written to disk until you save."));
 en "Remove it now. Nothing is written to disk until you save."
 tr "Удалить сейчас. На диск ничего не пишется, пока вы не сохраните."
 
-# App.cpp:2604  ImGui::OpenPopup(trId("Open save"));
-# App.cpp:2607  if (ImGui::BeginPopupModal(trId("Open save"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+# App.cpp:2603  ImGui::OpenPopup(trId("Open save"));
+# App.cpp:2606  if (ImGui::BeginPopupModal(trId("Open save"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 en "Open save"
 tr "Открыть сохранение"
 
-# App.cpp:2610  tips::Tip(tr("Full path of the save file to open."));
+# App.cpp:2609  tips::Tip(tr("Full path of the save file to open."));
 en "Full path of the save file to open."
 tr "Полный путь к открываемому файлу сохранения."
 
-# App.cpp:2611  if (ImGui::Button(tr("Open"), ImVec2(120, 0))) {
+# App.cpp:2610  if (ImGui::Button(tr("Open"), ImVec2(120, 0))) {
 # AppAi.cpp:479  if (ImGui::SmallButton(tr("Open"))) {
 en "Open"
 tr "Открыть"
 
-# App.cpp:2615  tips::Tip(tr("Open this save."));
+# App.cpp:2614  tips::Tip(tr("Open this save."));
 en "Open this save."
 tr "Открыть это сохранение."
 
-# App.cpp:2624  ImGui::OpenPopup(trId("Save as"));
-# App.cpp:2627  if (ImGui::BeginPopupModal(trId("Save as"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+# App.cpp:2623  ImGui::OpenPopup(trId("Save as"));
+# App.cpp:2626  if (ImGui::BeginPopupModal(trId("Save as"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 en "Save as"
 tr "Сохранить как"
 
-# App.cpp:2630  tips::Tip(tr("Full path of the new save file."));
+# App.cpp:2629  tips::Tip(tr("Full path of the new save file."));
 en "Full path of the new save file."
 tr "Полный путь к новому файлу сохранения."
 
-# App.cpp:2635  tips::Tip(tr("Write the save to this path."));
+# App.cpp:2634  tips::Tip(tr("Write the save to this path."));
 en "Write the save to this path."
 tr "Записать сохранение по этому пути."
 
-# App.cpp:2645  ImGui::OpenPopup(trId("About ReSaver++"));
-# App.cpp:2648  if (ImGui::BeginPopupModal(trId("About ReSaver++"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+# App.cpp:2644  ImGui::OpenPopup(trId("About ReSaver++"));
+# App.cpp:2647  if (ImGui::BeginPopupModal(trId("About ReSaver++"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 en "About ReSaver++"
 tr "О ReSaver++"
 
-# App.cpp:2649  ImGui::TextUnformatted(Fmt(tr("ReSaver++ version %s  -  Skyrim SE/AE/VR/LE save editor"), RESAVERPP_VERSION).c_str());
+# App.cpp:2648  ImGui::TextUnformatted(Fmt(tr("ReSaver++ version %s  -  Skyrim SE/AE/VR/LE save editor"), RESAVERPP_VERSION).c_str());
 en "ReSaver++ version %s  -  Skyrim SE/AE/VR/LE save editor"
 tr "ReSaver++ версия %s  -  редактор сохранений Skyrim SE/AE/VR/LE"
 
-# App.cpp:2651  ImGui::TextUnformatted(tr("A C++ port of ReSaver (FallrimTools) by Mark Fairchild."));
+# App.cpp:2650  ImGui::TextUnformatted(tr("A C++ port of ReSaver (FallrimTools) by Mark Fairchild."));
 en "A C++ port of ReSaver (FallrimTools) by Mark Fairchild."
 tr "Порт ReSaver (FallrimTools, автор Mark Fairchild) на C++."
 
-# App.cpp:2652  ImGui::TextUnformatted(tr("Licensed under the Apache License 2.0, like the original."));
+# App.cpp:2651  ImGui::TextUnformatted(tr("Licensed under the Apache License 2.0, like the original."));
 en "Licensed under the Apache License 2.0, like the original."
 tr "Распространяется по лицензии Apache License 2.0, как и оригинал."
 
-# App.cpp:2654  ImGui::TextDisabled("%s", tr("Uses Dear ImGui (MIT), GLFW (zlib), LZ4 (BSD-2), miniz (MIT), ImGuiColorTextEdit (MIT)."));
+# App.cpp:2653  ImGui::TextDisabled("%s", tr("Uses Dear ImGui (MIT), GLFW (zlib), LZ4 (BSD-2), miniz (MIT), ImGuiColorTextEdit (MIT)."));
 en "Uses Dear ImGui (MIT), GLFW (zlib), LZ4 (BSD-2), miniz (MIT), ImGuiColorTextEdit (MIT)."
 tr "Использует Dear ImGui (MIT), GLFW (zlib), LZ4 (BSD-2), miniz (MIT), ImGuiColorTextEdit (MIT)."
 
-# App.cpp:2655  if (ImGui::Button(tr("Close"), ImVec2(120, 0))) {
+# App.cpp:2654  if (ImGui::Button(tr("Close"), ImVec2(120, 0))) {
 # AppCheck.cpp:569  if (ImGui::Button(tr("Close"), ImVec2(120, 0))) {
 # AppCollect.cpp:271  if (ImGui::Button(tr("Close"))) {
 en "Close"
 tr "Закрыть"
 
-# App.cpp:2658  tips::Tip(tr("Close this window."));
+# App.cpp:2657  tips::Tip(tr("Close this window."));
 en "Close this window."
 tr "Закрыть это окно."
 
-# App.cpp:2689  TextColored(theme::Warn(), tr("UNSAVED EDITS"));
+# App.cpp:2688  TextColored(theme::Warn(), tr("UNSAVED EDITS"));
 en "UNSAVED EDITS"
 tr "НЕСОХРАНЁННЫЕ ИЗМЕНЕНИЯ"
 
-# App.cpp:2740  TextColored(theme::Good(), tr("watching saves"));
+# App.cpp:2739  TextColored(theme::Good(), tr("watching saves"));
 en "watching saves"
 tr "слежу за сохранениями"
 
-# App.cpp:2785  ImGui::OpenPopup(trId("Edit value"));
-# App.cpp:2789  if (!ImGui::BeginPopupModal(trId("Edit value"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+# App.cpp:2784  ImGui::OpenPopup(trId("Edit value"));
+# App.cpp:2788  if (!ImGui::BeginPopupModal(trId("Edit value"), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 en "Edit value"
 tr "Изменить значение"
 
-# App.cpp:2816  ImGui::Text(tr("Type: %s"), VTypeName(v->type));
+# App.cpp:2815  ImGui::Text(tr("Type: %s"), VTypeName(v->type));
 en "Type: %s"
 tr "Тип: %s"
 
-# App.cpp:2817  ImGui::TextWrapped(tr("Current: %s"), describeVar(*_editVar).c_str());
+# App.cpp:2816  ImGui::TextWrapped(tr("Current: %s"), describeVar(*_editVar).c_str());
 en "Current: %s"
 tr "Сейчас: %s"
 
-# App.cpp:2819  ImGui::TextDisabled(tr("Set on all %zu objects that have this script"), _editAllTargets.size());
+# App.cpp:2818  ImGui::TextDisabled(tr("Set on all %zu objects that have this script"), _editAllTargets.size());
 en "Set on all %zu objects that have this script"
 tr "Задать для всех объектов с этим скриптом (%zu)"
 
-# App.cpp:2828  tips::Tip(tr("The new whole-number value."));
+# App.cpp:2827  tips::Tip(tr("The new whole-number value."));
 en "The new whole-number value."
 tr "Новое целое значение."
 
-# App.cpp:2829  apply = ImGui::Button(tr("Apply"), ImVec2(120, 0));
-# App.cpp:2838  apply = ImGui::Button(tr("Apply"), ImVec2(120, 0));
-# App.cpp:2849  apply = ImGui::Button(tr("Apply"), ImVec2(120, 0));
+# App.cpp:2828  apply = ImGui::Button(tr("Apply"), ImVec2(120, 0));
+# App.cpp:2837  apply = ImGui::Button(tr("Apply"), ImVec2(120, 0));
+# App.cpp:2848  apply = ImGui::Button(tr("Apply"), ImVec2(120, 0));
 en "Apply"
 tr "Применить"
 
-# App.cpp:2830  tips::Tip(tr("Use this value. Nothing is written to disk until you save."));
-# App.cpp:2839  tips::Tip(tr("Use this value. Nothing is written to disk until you save."));
-# App.cpp:2850  tips::Tip(tr("Use this value. Nothing is written to disk until you save."));
+# App.cpp:2829  tips::Tip(tr("Use this value. Nothing is written to disk until you save."));
+# App.cpp:2838  tips::Tip(tr("Use this value. Nothing is written to disk until you save."));
+# App.cpp:2849  tips::Tip(tr("Use this value. Nothing is written to disk until you save."));
 en "Use this value. Nothing is written to disk until you save."
 tr "Использовать это значение. На диск ничего не пишется, пока вы не сохраните."
 
-# App.cpp:2837  tips::Tip(tr("The new decimal value."));
+# App.cpp:2836  tips::Tip(tr("The new decimal value."));
 en "The new decimal value."
 tr "Новое дробное значение."
 
-# App.cpp:2847  ImGui::Checkbox(tr("True"), &_editBool);
+# App.cpp:2846  ImGui::Checkbox(tr("True"), &_editBool);
 en "True"
 tr "True"
 
-# App.cpp:2848  tips::Tip(tr("Ticked = True, unticked = False."));
+# App.cpp:2847  tips::Tip(tr("Ticked = True, unticked = False."));
 en "Ticked = True, unticked = False."
 tr "Отмечено = True, не отмечено = False."
 
-# App.cpp:2858  tips::Tip(tr("The new text."));
+# App.cpp:2857  tips::Tip(tr("The new text."));
 en "The new text."
 tr "Новый текст."
 
-# App.cpp:2872  ImGui::TextDisabled("%s", tr("This variable holds nothing, and its type is not known here; there is no value to edit."));
+# App.cpp:2871  ImGui::TextDisabled("%s", tr("This variable holds nothing, and its type is not known here; there is no value to edit."));
 en "This variable holds nothing, and its type is not known here; there is no value to edit."
 tr "Эта переменная ничего не содержит, и её тип здесь неизвестен; менять нечего."
 
-# App.cpp:2877  ImGui::TextWrapped("%s", tr("Array and struct links can only be cleared. Clearing makes the script see None here."));
+# App.cpp:2876  ImGui::TextWrapped("%s", tr("Array and struct links can only be cleared. Clearing makes the script see None here."));
 en "Array and struct links can only be cleared. Clearing makes the script see None here."
 tr "Ссылки на массивы и структуры можно только очистить. После очистки скрипт увидит здесь None."
 
-# App.cpp:2878  apply = v->value != 0 && ImGui::Button(tr("Set to None"), ImVec2(160, 0));
+# App.cpp:2877  apply = v->value != 0 && ImGui::Button(tr("Set to None"), ImVec2(160, 0));
 en "Set to None"
 tr "Сделать None"
 
-# App.cpp:2880  tips::Tip(tr("Clear the link: the script will see None here. Scripts not expecting None may log errors."));
+# App.cpp:2879  tips::Tip(tr("Clear the link: the script will see None here. Scripts not expecting None may log errors."));
 en "Clear the link: the script will see None here. Scripts not expecting None may log errors."
 tr "Очистить ссылку: скрипт увидит здесь None. Скрипты, которые не ждут None, могут писать ошибки в лог."
 
-# App.cpp:2895  _editDone = Fmt(tr("%s set on %zu objects"), _propName.c_str(), _editAllTargets.size());
+# App.cpp:2894  _editDone = Fmt(tr("%s set on %zu objects"), _propName.c_str(), _editAllTargets.size());
 en "%s set on %zu objects"
 tr "%s задано для объектов: %zu"
 
-# App.cpp:2899  markChanged(_editDone.empty() ? std::string(tr("Edited a variable")) : _editDone);
+# App.cpp:2898  markChanged(_editDone.empty() ? std::string(tr("Edited a variable")) : _editDone);
 en "Edited a variable"
 tr "Изменена переменная"
 
-# App.cpp:3140  _detectNote = tr("Using Mod Organizer ") + _mo2Ini + tr(", profile \"") + _profile + "\"";
+# App.cpp:3139  _detectNote = tr("Using Mod Organizer ") + _mo2Ini + tr(", profile \"") + _profile + "\"";
 en "Using Mod Organizer "
 tr "Используется Mod Organizer "
 
-# App.cpp:3140  _detectNote = tr("Using Mod Organizer ") + _mo2Ini + tr(", profile \"") + _profile + "\"";
+# App.cpp:3139  _detectNote = tr("Using Mod Organizer ") + _mo2Ini + tr(", profile \"") + _profile + "\"";
 en ", profile \""
 tr ", профиль \""
 
-# App.cpp:3195  _status = tr("Scanning your mods for scripts...");
+# App.cpp:3194  _status = tr("Scanning your mods for scripts...");
 en "Scanning your mods for scripts..."
 tr "Сканирую ваши моды в поисках скриптов..."
 
-# App.cpp:3209  _error = tr("Could not scan ") + platform::ToUtf8(a_root) + ":\n\n" + _scanResult->errors.front();
+# App.cpp:3208  _error = tr("Could not scan ") + platform::ToUtf8(a_root) + ":\n\n" + _scanResult->errors.front();
 en "Could not scan "
 tr "Не удалось просканировать "
 
-# App.cpp:3221  _status = Fmt(tr("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)"), _sources.modsScanned,
+# App.cpp:3220  _status = Fmt(tr("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)"), _sources.modsScanned,
 en "Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)"
 tr "Просканировано модов: %zu%s; найдено скриптов: %zu (прочитано BSA: %zu%s)"
 
-# App.cpp:3222  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
+# App.cpp:3221  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
 en " deployed by Vortex"
 tr " , развёрнутых Vortex"
 
-# App.cpp:3222  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
+# App.cpp:3221  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
 en " in MO2 profile '"
 tr " в порядке профиля MO2 '"
 
-# App.cpp:3222  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
+# App.cpp:3221  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
 en "' order"
 tr "'"
 
-# App.cpp:3223  _sources.errors.empty() ? "" : Fmt(tr(", %zu unreadable"), _sources.errors.size()).c_str());
+# App.cpp:3222  _sources.errors.empty() ? "" : Fmt(tr(", %zu unreadable"), _sources.errors.size()).c_str());
 en ", %zu unreadable"
 tr ", нечитаемых: %zu"
 
-# App.cpp:3261  case mods::Kind::kPlugin: return tr("plugin");
+# App.cpp:3260  case mods::Kind::kPlugin: return tr("plugin");
 en "plugin"
 tr "плагин"
 
-# App.cpp:3262  case mods::Kind::kLight: return tr("light plugin (ESL)");
+# App.cpp:3261  case mods::Kind::kLight: return tr("light plugin (ESL)");
 en "light plugin (ESL)"
 tr "лёгкий плагин (ESL)"
 
-# App.cpp:3263  case mods::Kind::kCreated: return tr("objects spawned during play (FF......)");
+# App.cpp:3262  case mods::Kind::kCreated: return tr("objects spawned during play (FF......)");
 en "objects spawned during play (FF......)"
 tr "объекты, созданные во время игры (FF......)"
 
-# App.cpp:3264  case mods::Kind::kUnattached: return tr("instances attached to nothing");
+# App.cpp:3263  case mods::Kind::kUnattached: return tr("instances attached to nothing");
 en "instances attached to nothing"
 tr "экземпляры, ни к чему не привязанные"
 
-# App.cpp:3265  case mods::Kind::kGlobal: return tr("threads with no object and no known mod");
+# App.cpp:3264  case mods::Kind::kGlobal: return tr("threads with no object and no known mod");
 en "threads with no object and no known mod"
 tr "потоки без объекта и без известного мода"
 
-# App.cpp:3266  case mods::Kind::kFolder: return tr("mod folder without a plugin (scripts only)");
+# App.cpp:3265  case mods::Kind::kFolder: return tr("mod folder without a plugin (scripts only)");
 en "mod folder without a plugin (scripts only)"
 tr "папка мода без плагина (только скрипты)"
 
-# App.cpp:3281  bool changed = ImGui::InputTextWithHint("##modfilter", tr("filter mods"), _filter, sizeof(_filter));
+# App.cpp:3280  bool changed = ImGui::InputTextWithHint("##modfilter", tr("filter mods"), _filter, sizeof(_filter));
 en "filter mods"
 tr "фильтр модов"
 
-# App.cpp:3282  tips::Tip(tr("Show only mods whose name contains this text."));
+# App.cpp:3281  tips::Tip(tr("Show only mods whose name contains this text."));
 en "Show only mods whose name contains this text."
 tr "Показывать только моды, в имени которых есть этот текст."
 
-# App.cpp:3284  changed |= ImGui::Checkbox(tr("only mods with scripts or enchanted items"), &_modsOnlyScripts);
+# App.cpp:3283  changed |= ImGui::Checkbox(tr("only mods with scripts or enchanted items"), &_modsOnlyScripts);
 en "only mods with scripts or enchanted items"
 tr "только моды со скриптами или зачарованными предметами"
 
-# App.cpp:3285  tips::Tip(tr("Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in
+# App.cpp:3284  tips::Tip(tr("Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in
 en "Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in any inventory. Untick to list every plugin in the save."
 tr "Скрыть плагины без скриптов (их нет в этом сохранении и, после сканирования модов, они их не поставляют)\nи без зачарованных или заряженных предметов в инвентарях. Снимите отметку, чтобы видеть все плагины сохранения."
 
-# App.cpp:3286  if (ImGui::Checkbox(tr("hide the game's own plugins (base game, DLC, Creation Club)"), &_hideGameScripts)) {
+# App.cpp:3285  if (ImGui::Checkbox(tr("hide the game's own plugins (base game, DLC, Creation Club)"), &_hideGameScripts)) {
 en "hide the game's own plugins (base game, DLC, Creation Club)"
 tr "скрыть плагины самой игры (базовая игра, DLC, Creation Club)"
 
-# App.cpp:3291  tips::Tip(tr("Hide the base game's, the official DLC's and the Creation Club's plugins, so only your mods are listed. In the script "
+# App.cpp:3290  tips::Tip(tr("Hide the base game's, the official DLC's and the Creation Club's plugins, so only your mods are listed. In the script "
 en "Hide the base game's, the official DLC's and the Creation Club's plugins, so only your mods are listed. In the script lists the game's own scripts are marked * and hidden the same way."
 tr "Скрыть плагины базовой игры, официальных DLC и Creation Club, чтобы видеть только ваши моды. В списках скриптов собственные скрипты игры помечены * и скрываются так же."
 
-# App.cpp:3294  if (ImGui::Button(_sources.empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
+# App.cpp:3293  if (ImGui::Button(_sources.empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
 en "Find script sources (.pex)..."
 tr "Найти исходники скриптов (.pex)..."
 
-# App.cpp:3294  if (ImGui::Button(_sources.empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
+# App.cpp:3293  if (ImGui::Button(_sources.empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
 en "Rescan script sources..."
 tr "Пересканировать исходники скриптов..."
 
-# App.cpp:3296  if (auto p = platform::PickFolderDialog(tr("Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"))) {
+# App.cpp:3295  if (auto p = platform::PickFolderDialog(tr("Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"))) {
 # AppMore.cpp:780  if (auto p = platform::PickFolderDialog(tr("Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"))) {
 en "Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"
 tr "Выберите свою папку «mods» в Mod Organizer (или папку Data игры)"
 
-# App.cpp:3304  tips::Tip(tr("Point ReSaver++ at your mods (Mod Organizer 'mods' folder or Data) so each script is credited to the mod that ships it, and missing mods
+# App.cpp:3303  tips::Tip(tr("Point ReSaver++ at your mods (Mod Organizer 'mods' folder or Data) so each script is credited to the mod that ships it, and missing mods
 en "Point ReSaver++ at your mods (Mod Organizer 'mods' folder or Data) so each script is credited to the mod that ships it, and missing mods are spotted. Nothing is changed."
 tr "Укажите ReSaver++ ваши моды (папку «mods» Mod Organizer или Data), чтобы каждый скрипт засчитывался моду, который его поставляет, а отсутствующие моды были замечены. Ничего не меняется."
 
-# App.cpp:3307  ImGui::TextDisabled("%s", tr("not scanned: scripts are credited to the mod whose object runs them"));
+# App.cpp:3306  ImGui::TextDisabled("%s", tr("not scanned: scripts are credited to the mod whose object runs them"));
 en "not scanned: scripts are credited to the mod whose object runs them"
 tr "не просканировано: скрипты засчитываются моду, чей объект их выполняет"
 
-# App.cpp:3309  ImGui::TextDisabled(tr("%s  (%zu mods, %zu scripts)"), _sourcesPath.c_str(), _sources.modsScanned, _sources.pexFound);
+# App.cpp:3308  ImGui::TextDisabled(tr("%s  (%zu mods, %zu scripts)"), _sourcesPath.c_str(), _sources.modsScanned, _sources.pexFound);
 en "%s  (%zu mods, %zu scripts)"
 tr "%s  (модов: %zu, скриптов: %zu)"
 
-# App.cpp:3311  ImGui::TextDisabled("%s", tr("MO2 profile:"));
+# App.cpp:3310  ImGui::TextDisabled("%s", tr("MO2 profile:"));
 en "MO2 profile:"
 tr "Профиль MO2:"
 
-# App.cpp:3315  tips::Tip(tr("The Mod Organizer profile whose mod order decides which mod gets credit for a script several mods ship."));
+# App.cpp:3314  tips::Tip(tr("The Mod Organizer profile whose mod order decides which mod gets credit for a script several mods ship."));
 en "The Mod Organizer profile whose mod order decides which mod gets credit for a script several mods ship."
 tr "Профиль Mod Organizer, порядок модов которого решает, какому моду засчитать скрипт, если его поставляют несколько модов."
 
-# App.cpp:3318  const std::string label = pr + (pr == _mo2->selectedProfile ? tr("  (active in MO2)") : "");
+# App.cpp:3317  const std::string label = pr + (pr == _mo2->selectedProfile ? tr("  (active in MO2)") : "");
 en "  (active in MO2)"
 tr "  (активен в MO2)"
 
-# App.cpp:3328  ImGui::TextDisabled(tr("Vortex: %zu deployed mods; each script is credited to the mod Vortex deployed it from"), _vortex->mods.size());
+# App.cpp:3327  ImGui::TextDisabled(tr("Vortex: %zu deployed mods; each script is credited to the mod Vortex deployed it from"), _vortex->mods.size());
 en "Vortex: %zu deployed mods; each script is credited to the mod Vortex deployed it from"
 tr "Vortex: развёрнуто модов: %zu; каждый скрипт засчитывается моду, из которого его развернул Vortex"
 
-# App.cpp:3330  ImGui::TextDisabled("%s", tr("no MO2 mod order found: when several mods ship the same script, the credit may go to the wrong one"));
+# App.cpp:3329  ImGui::TextDisabled("%s", tr("no MO2 mod order found: when several mods ship the same script, the credit may go to the wrong one"));
 en "no MO2 mod order found: when several mods ship the same script, the credit may go to the wrong one"
 tr "порядок модов MO2 не найден: если один и тот же скрипт поставляют несколько модов, он может быть засчитан не тому"
 
-# App.cpp:3377  ImGui::TableSetupColumn(tr("Load"), ImGuiTableColumnFlags_DefaultSort, 60);
+# App.cpp:3376  ImGui::TableSetupColumn(tr("Load"), ImGuiTableColumnFlags_DefaultSort, 60);
 en "Load"
 tr "Загр."
 
-# App.cpp:3378  ImGui::TableSetupColumn(tr("Mod"), ImGuiTableColumnFlags_WidthStretch);
+# App.cpp:3377  ImGui::TableSetupColumn(tr("Mod"), ImGuiTableColumnFlags_WidthStretch);
 # AppExtras.cpp:556  ImGui::TableSetupColumn(tr("Mod"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
 en "Mod"
 tr "Мод"
 
-# App.cpp:3381  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_PreferSortDescending, 70);
-# App.cpp:3591  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 65, 2);
+# App.cpp:3380  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_PreferSortDescending, 70);
+# App.cpp:3590  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 65, 2);
 en "Running"
 tr "Выполняется"
 
-# App.cpp:3383  ImGui::TableSetupColumn(tr("Provides"), ImGuiTableColumnFlags_PreferSortDescending, 75);
+# App.cpp:3382  ImGui::TableSetupColumn(tr("Provides"), ImGuiTableColumnFlags_PreferSortDescending, 75);
 en "Provides"
 tr "Поставляет"
 
-# App.cpp:3427  tips::Tip(tr("Click to see this mod's scripts and what they are doing."));
+# App.cpp:3426  tips::Tip(tr("Click to see this mod's scripts and what they are doing."));
 en "Click to see this mod's scripts and what they are doing."
 tr "Нажмите, чтобы увидеть скрипты этого мода и что они делают."
 
-# App.cpp:3435  ImGui::Text(tr("%zu"), r.scriptCount);
-# App.cpp:3437  ImGui::Text(tr("%zu"), r.instanceCount);
-# App.cpp:3442  ImGui::Text(tr("%zu"), r.threadCount);
+# App.cpp:3434  ImGui::Text(tr("%zu"), r.scriptCount);
+# App.cpp:3436  ImGui::Text(tr("%zu"), r.instanceCount);
+# App.cpp:3441  ImGui::Text(tr("%zu"), r.threadCount);
 en "%zu"
 tr "%zu"
 
-# App.cpp:3449  ImGui::TextDisabled(tr("of %zu"), r.shipped.size());
+# App.cpp:3448  ImGui::TextDisabled(tr("of %zu"), r.shipped.size());
 en "of %zu"
 tr "из %zu"
 
-# App.cpp:3450  tips::Tipf(tr("%zu of the %zu scripts this mod ships are in this save."), r.providedInSave, r.shipped.size());
+# App.cpp:3449  tips::Tipf(tr("%zu of the %zu scripts this mod ships are in this save."), r.providedInSave, r.shipped.size());
 en "%zu of the %zu scripts this mod ships are in this save."
 tr "В этом сохранении %zu из %zu скриптов, которые поставляет этот мод."
 
-# App.cpp:3464  confirm(tr("Terminate ") + a_what,
+# App.cpp:3463  confirm(tr("Terminate ") + a_what,
 en "Terminate "
 tr "Завершить: "
 
-# App.cpp:3465  Fmt(tr("Terminate %zu running thread(s) of %s?\n\nTheir code is replaced with no-ops, so each one ends the moment the game resumes it. "
+# App.cpp:3464  Fmt(tr("Terminate %zu running thread(s) of %s?\n\nTheir code is replaced with no-ops, so each one ends the moment the game resumes it. "
 en "Terminate %zu running thread(s) of %s?\n\nTheir code is replaced with no-ops, so each one ends the moment the game resumes it. The scripts stay attached and can start again on their next event."
 tr "Завершить выполняющиеся потоки (%zu): %s?\n\nИх код заменяется пустыми командами, поэтому каждый закончится в тот момент, когда игра его возобновит. Скрипты остаются привязанными и могут запуститься снова при следующем событии."
 
-# App.cpp:3468  [this, a_threads, a_what] { markChanged(Fmt(tr("Terminated %zu threads of %s"), ops::TerminateThreads(*_save->papyrus(), a_threads), a_what.c_str()));
+# App.cpp:3467  [this, a_threads, a_what] { markChanged(Fmt(tr("Terminated %zu threads of %s"), ops::TerminateThreads(*_save->papyrus(), a_threads), a_what.c_str()));
 en "Terminated %zu threads of %s"
 tr "Завершено потоков: %zu (%s)"
 
-# App.cpp:3472  confirm(tr("Stop ") + a_what,
+# App.cpp:3471  confirm(tr("Stop ") + a_what,
 en "Stop "
 tr "Остановить: "
 
-# App.cpp:3473  Fmt(tr("Stop %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n\n"
+# App.cpp:3472  Fmt(tr("Stop %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n\n"
 en "Stop %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n\nThe script instances and their data (settings, properties other scripts point at) are kept, so this is the safe choice for a mod you keep installed, e.g. a stuck MCM registration. The script can run again on its next event.\nWrite the result with File > Save As."
 tr "Остановить %s?\n\n- удалить выполняющиеся потоки (%zu) вместе с их приостановленными стеками и отложенными вызовами\n\nЭкземпляры скриптов и их данные (настройки, свойства, на которые указывают другие скрипты) сохраняются, поэтому это безопасный вариант для мода, который остаётся установленным, например при застрявшей регистрации MCM. Скрипт может снова запуститься при следующем событии.\nЗапишите результат через «Файл > Сохранить как»."
 
-# App.cpp:3480  markChanged(Fmt(tr("Stopped %s: %zu threads deleted"), a_what.c_str(), t));
+# App.cpp:3479  markChanged(Fmt(tr("Stopped %s: %zu threads deleted"), a_what.c_str(), t));
 en "Stopped %s: %zu threads deleted"
 tr "Остановлено %s: удалено потоков: %zu"
 
-# App.cpp:3492  confirm(tr("Kill ") + a_what,
-# App.cpp:3746  confirm(tr("Kill ") + n + tr(" everywhere"),
+# App.cpp:3491  confirm(tr("Kill ") + a_what,
+# App.cpp:3745  confirm(tr("Kill ") + n + tr(" everywhere"),
 en "Kill "
 tr "Убить: "
 
-# App.cpp:3493  Fmt(tr("Kill %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n- delete %zu script instance(s)%s\n\n"
+# App.cpp:3492  Fmt(tr("Kill %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n- delete %zu script instance(s)%s\n\n"
 en "Kill %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n- delete %zu script instance(s)%s\n\nObjects that come from a plugin get a fresh copy of their script (default property values) the next time the game loads the save. Write the result with File > Save As."
 tr "Убить %s?\n\n- удалить выполняющиеся потоки (%zu) вместе с их приостановленными стеками и отложенными вызовами\n- удалить экземпляры скриптов (%zu)%s\n\nОбъекты из плагинов получат свежую копию своего скрипта (значения свойств по умолчанию) при следующей загрузке сохранения игрой. Запишите результат через «Файл > Сохранить как»."
 
-# App.cpp:3497  forms.empty() ? "" : Fmt(tr("\n- delete %zu spawned object(s) they sit on"), forms.size()).c_str()),
+# App.cpp:3496  forms.empty() ? "" : Fmt(tr("\n- delete %zu spawned object(s) they sit on"), forms.size()).c_str()),
 en "\n- delete %zu spawned object(s) they sit on"
 tr "\n- удалить созданные объекты, на которых они сидят (%zu)"
 
-# App.cpp:3503  markChanged(Fmt(tr("Killed %s: %zu threads, %zu instances, %zu spawned objects"), a_what.c_str(), t, i, f));
+# App.cpp:3502  markChanged(Fmt(tr("Killed %s: %zu threads, %zu instances, %zu spawned objects"), a_what.c_str(), t, i, f));
 en "Killed %s: %zu threads, %zu instances, %zu spawned objects"
 tr "Убито %s: потоков %zu, экземпляров %zu, созданных объектов %zu"
 
-# App.cpp:3517  r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() :
+# App.cpp:3516  r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() :
 en ", load index %02X"
 tr ", индекс загрузки %02X"
 
-# App.cpp:3517  r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() :
+# App.cpp:3516  r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() :
 en ", FE:%03X"
 tr ", FE:%03X"
 
-# App.cpp:3521  ImGui::TextDisabled(tr("installed in mod folder: %s"), it->second.c_str());
+# App.cpp:3520  ImGui::TextDisabled(tr("installed in mod folder: %s"), it->second.c_str());
 en "installed in mod folder: %s"
 tr "установлен в папке мода: %s"
 
-# App.cpp:3524  ImGui::Text(tr("%zu scripts on its objects  |  %zu instances  |  %zu running threads"), r.scriptCount, r.instanceCount, r.threadCount);
+# App.cpp:3523  ImGui::Text(tr("%zu scripts on its objects  |  %zu instances  |  %zu running threads"), r.scriptCount, r.instanceCount, r.threadCount);
 en "%zu scripts on its objects  |  %zu instances  |  %zu running threads"
 tr "скриптов на объектах: %zu  |  экземпляров: %zu  |  потоков: %zu"
 
-# App.cpp:3536  if (ImGui::Button(Fmt(tr("Terminate all its running scripts (%zu)"), allThreads.size()).c_str())) {
+# App.cpp:3535  if (ImGui::Button(Fmt(tr("Terminate all its running scripts (%zu)"), allThreads.size()).c_str())) {
 en "Terminate all its running scripts (%zu)"
 tr "Завершить все его потоки (%zu)"
 
-# App.cpp:3537  killThreads(allThreads, {}, tr("all scripts of ") + r.name, true);
-# App.cpp:3551  killThreads(allThreads, allInst, tr("all scripts of ") + r.name, false);
+# App.cpp:3536  killThreads(allThreads, {}, tr("all scripts of ") + r.name, true);
+# App.cpp:3550  killThreads(allThreads, allInst, tr("all scripts of ") + r.name, false);
 en "all scripts of "
 tr "все скрипты мода "
 
-# App.cpp:3540  tips::Tip(tr("End every running script of this mod. They stop the moment the game resumes them; scripts and data stay."));
+# App.cpp:3539  tips::Tip(tr("End every running script of this mod. They stop the moment the game resumes them; scripts and data stay."));
 en "End every running script of this mod. They stop the moment the game resumes them; scripts and data stay."
 tr "Завершить все выполняющиеся скрипты этого мода. Они остановятся в тот момент, когда игра их возобновит; скрипты и данные останутся."
 
-# App.cpp:3543  if (ImGui::Button(Fmt(tr("Stop all (%zu)"), allThreads.size()).c_str())) {
+# App.cpp:3542  if (ImGui::Button(Fmt(tr("Stop all (%zu)"), allThreads.size()).c_str())) {
 en "Stop all (%zu)"
 tr "Остановить все (%zu)"
 
-# App.cpp:3544  killThreads(allThreads, {}, tr("all running scripts of ") + r.name, false);
+# App.cpp:3543  killThreads(allThreads, {}, tr("all running scripts of ") + r.name, false);
 en "all running scripts of "
 tr "все выполняющиеся скрипты мода "
 
-# App.cpp:3547  tips::Tip(tr("Delete this mod's running threads and their queued calls, keeping its scripts and data. Safe for a mod you keep."));
+# App.cpp:3546  tips::Tip(tr("Delete this mod's running threads and their queued calls, keeping its scripts and data. Safe for a mod you keep."));
 en "Delete this mod's running threads and their queued calls, keeping its scripts and data. Safe for a mod you keep."
 tr "Удалить выполняющиеся потоки этого мода и их отложенные вызовы, сохранив его скрипты и данные. Безопасно для мода, который остаётся."
 
-# App.cpp:3550  if (ImGui::Button(Fmt(tr("Kill all its scripts (%zu)"), allInst.size()).c_str())) {
+# App.cpp:3549  if (ImGui::Button(Fmt(tr("Kill all its scripts (%zu)"), allInst.size()).c_str())) {
 en "Kill all its scripts (%zu)"
 tr "Убить его скрипты (%zu)"
 
-# App.cpp:3554  tips::Tip(tr("Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are lef
+# App.cpp:3553  tips::Tip(tr("Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are lef
 en "Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are left alone."
 tr "Удаляет его выполняющиеся потоки и экземпляры его собственных скриптов.\nПривязки игрового движка (Form, Quest, ReferenceAlias, ...) не трогаются."
 
-# App.cpp:3556  if (ImGui::Button(Fmt(tr("Kill all instances (%zu)"), everyInst.size()).c_str())) {
+# App.cpp:3555  if (ImGui::Button(Fmt(tr("Kill all instances (%zu)"), everyInst.size()).c_str())) {
 en "Kill all instances (%zu)"
 tr "Убить все экземпляры (%zu)"
 
-# App.cpp:3557  killThreads(allThreads, everyInst, tr("every script instance on ") + r.name + tr("'s objects (engine bindings included)"), false);
+# App.cpp:3556  killThreads(allThreads, everyInst, tr("every script instance on ") + r.name + tr("'s objects (engine bindings included)"), false);
 en "every script instance on "
 tr "все экземпляры скриптов на объектах мода "
 
-# App.cpp:3557  killThreads(allThreads, everyInst, tr("every script instance on ") + r.name + tr("'s objects (engine bindings included)"), false);
+# App.cpp:3556  killThreads(allThreads, everyInst, tr("every script instance on ") + r.name + tr("'s objects (engine bindings included)"), false);
 en "'s objects (engine bindings included)"
 tr "  (включая привязки движка)"
 
-# App.cpp:3560  tips::Tip(tr("Deletes its running threads and EVERY script instance on its objects, including the game's\n"
+# App.cpp:3559  tips::Tip(tr("Deletes its running threads and EVERY script instance on its objects, including the game's\n"
 en "Deletes its running threads and EVERY script instance on its objects, including the game's\nengine bindings (Form, Quest, ReferenceAlias, ...). The game recreates the bindings of plugin\nobjects on the next load with default values; spawned objects they sit on are deleted."
 tr "Удаляет его выполняющиеся потоки и ВСЕ экземпляры скриптов на его объектах, включая привязки\nдвижка игры (Form, Quest, ReferenceAlias, ...). Игра создаст привязки объектов из плагинов заново\nпри следующей загрузке со значениями по умолчанию; созданные объекты, на которых они сидят, удаляются."
 
-# App.cpp:3567  tips::Tip(tr("Write a report: every mod with its scripts and instances, and the anomalies found (text or PDF)."));
+# App.cpp:3566  tips::Tip(tr("Write a report: every mod with its scripts and instances, and the anomalies found (text or PDF)."));
 en "Write a report: every mod with its scripts and instances, and the anomalies found (text or PDF)."
 tr "Записать отчёт: все моды с их скриптами и экземплярами и найденные аномалии (текст или PDF)."
 
-# App.cpp:3572  if (ImGui::Button(tr("Remove mod from save..."))) {
+# App.cpp:3571  if (ImGui::Button(tr("Remove mod from save..."))) {
 en "Remove mod from save..."
 tr "Удалить мод из сохранения..."
 
-# App.cpp:3578  tips::Tip(tr("Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\n"
+# App.cpp:3577  tips::Tip(tr("Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\n"
 en "Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\nand writes the result to a NEW save file. Your current save is not overwritten."
 tr "Сначала проверка безопасности, затем удаляются его скрипты, потоки, отложенные вызовы и сохранённое состояние его форм,\nа результат записывается в НОВЫЙ файл сохранения. Текущее сохранение не перезаписывается."
 
-# App.cpp:3582  ImGui::SeparatorText(tr("Scripts running on this mod's objects"));
+# App.cpp:3581  ImGui::SeparatorText(tr("Scripts running on this mod's objects"));
 en "Scripts running on this mod's objects"
 tr "Скрипты, выполняющиеся на объектах этого мода"
 
-# App.cpp:3589  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 1.0f, 0);
-# App.cpp:3716  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch);
+# App.cpp:3588  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 1.0f, 0);
+# App.cpp:3715  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch);
 # AppExtras.cpp:555  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
 en "Script"
 tr "Скрипт"
 
-# App.cpp:3593  ImGui::TableSetupColumn(tr(".pex from"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 0.6f, 3);
+# App.cpp:3592  ImGui::TableSetupColumn(tr(".pex from"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 0.6f, 3);
 en ".pex from"
 tr ".pex из"
 
-# App.cpp:3597  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
-# App.cpp:3675  if (ImGui::SmallButton(trc("row", "Terminate"))) {
+# App.cpp:3596  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3674  if (ImGui::SmallButton(trc("row", "Terminate"))) {
 en "row|Terminate"
 tr "Завершить"
 
-# App.cpp:3597  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
-# App.cpp:3682  if (ImGui::SmallButton(trc("row", "Stop"))) {
+# App.cpp:3596  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3681  if (ImGui::SmallButton(trc("row", "Stop"))) {
 en "row|Stop"
 tr "Стоп"
 
-# App.cpp:3597  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
-# App.cpp:3689  if (ImGui::SmallButton(trc("row", "Kill"))) {
+# App.cpp:3596  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3688  if (ImGui::SmallButton(trc("row", "Kill"))) {
 en "row|Kill"
 tr "Убить"
 
-# App.cpp:3597  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
-# App.cpp:3695  if (ImGui::SmallButton(trc("row", "Show"))) {
+# App.cpp:3596  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3694  if (ImGui::SmallButton(trc("row", "Show"))) {
 en "row|Show"
 tr "Список"
 
-# App.cpp:3654  TextColored(theme::Dim(), s->script + tr("  (engine type)"));
+# App.cpp:3653  TextColored(theme::Dim(), s->script + tr("  (engine type)"));
 en "  (engine type)"
 tr "  (тип движка)"
 
-# App.cpp:3655  tips::Tipf(tr("Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill."), s->script.c_str());
+# App.cpp:3654  tips::Tipf(tr("Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill."), s->script.c_str());
 en "Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill."
 tr "Это не скрипт мода: это собственная связь игры между %s и Papyrus.\n«Убить» её не трогает."
 
-# App.cpp:3676  killThreads(s->threads, {}, s->script + tr(" on ") + r.name, true);
-# App.cpp:3683  killThreads(s->threads, {}, s->script + tr(" on ") + r.name, false);
-# App.cpp:3690  killThreads(s->threads, s->engineType ? std::set<EID>{} : s->instances, s->script + tr(" on ") + r.name, false);
+# App.cpp:3675  killThreads(s->threads, {}, s->script + tr(" on ") + r.name, true);
+# App.cpp:3682  killThreads(s->threads, {}, s->script + tr(" on ") + r.name, false);
+# App.cpp:3689  killThreads(s->threads, s->engineType ? std::set<EID>{} : s->instances, s->script + tr(" on ") + r.name, false);
 en " on "
 tr " на "
 
-# App.cpp:3679  tips::Tip(tr("Terminate: its running threads end the moment the game resumes them."));
+# App.cpp:3678  tips::Tip(tr("Terminate: its running threads end the moment the game resumes them."));
 en "Terminate: its running threads end the moment the game resumes them."
 tr "Завершить: его выполняющиеся потоки закончатся в тот момент, когда игра их возобновит."
 
-# App.cpp:3686  tips::Tip(tr("Stop: delete its running threads and their queued calls; keep the script and its data.\nSafe for a mod you keep (e.g. a stuck MCM)."));
+# App.cpp:3685  tips::Tip(tr("Stop: delete its running threads and their queued calls; keep the script and its data.\nSafe for a mod you keep (e.g. a stuck MCM)."));
 en "Stop: delete its running threads and their queued calls; keep the script and its data.\nSafe for a mod you keep (e.g. a stuck MCM)."
 tr "Остановить: удалить его выполняющиеся потоки и их отложенные вызовы; скрипт и его данные остаются.\nБезопасно для мода, который остаётся (например, при застрявшем MCM)."
 
-# App.cpp:3693  tips::Tip(tr("Delete its running threads and its instances (for engine types, only the threads). For a mod you are removing."));
+# App.cpp:3692  tips::Tip(tr("Delete its running threads and its instances (for engine types, only the threads). For a mod you are removing."));
 en "Delete its running threads and its instances (for engine types, only the threads). For a mod you are removing."
 tr "Удалить его выполняющиеся потоки и экземпляры (для типов движка — только потоки). Для мода, который вы удаляете."
 
-# App.cpp:3705  tips::Tip(tr("List its threads (or instances) in the main list."));
+# App.cpp:3704  tips::Tip(tr("List its threads (or instances) in the main list."));
 en "List its threads (or instances) in the main list."
 tr "Показать его потоки (или экземпляры) в основном списке."
 
-# App.cpp:3712  ImGui::SeparatorText(Fmt(tr("Scripts this mod provides (.pex) that are in the save (%zu)"), r.provided.size()).c_str());
+# App.cpp:3711  ImGui::SeparatorText(Fmt(tr("Scripts this mod provides (.pex) that are in the save (%zu)"), r.provided.size()).c_str());
 en "Scripts this mod provides (.pex) that are in the save (%zu)"
 tr "Скрипты этого мода (.pex), которые есть в сохранении (%zu)"
 
-# App.cpp:3717  ImGui::TableSetupColumn(tr("Instances (all mods)"), 0, 140);
+# App.cpp:3716  ImGui::TableSetupColumn(tr("Instances (all mods)"), 0, 140);
 en "Instances (all mods)"
 tr "Экземпляры (все моды)"
 
-# App.cpp:3718  ImGui::TableSetupColumn(tr("Running (all mods)"), 0, 130);
+# App.cpp:3717  ImGui::TableSetupColumn(tr("Running (all mods)"), 0, 130);
 en "Running (all mods)"
 tr "Выполняются (все моды)"
 
-# App.cpp:3736  TextColored(theme::Dim(), tr("(also in: ") + others + ")");
+# App.cpp:3735  TextColored(theme::Dim(), tr("(also in: ") + others + ")");
 en "(also in: "
 tr "(есть также в: "
 
-# App.cpp:3744  if (ImGui::SmallButton(tr("Kill everywhere"))) {
+# App.cpp:3743  if (ImGui::SmallButton(tr("Kill everywhere"))) {
 en "Kill everywhere"
 tr "Убить везде"
 
-# App.cpp:3746  confirm(tr("Kill ") + n + tr(" everywhere"),
+# App.cpp:3745  confirm(tr("Kill ") + n + tr(" everywhere"),
 en " everywhere"
 tr " везде"
 
-# App.cpp:3747  tr("Remove every thread, suspended stack, queued call and instance of '") + n + tr("' in the whole save, plus the spawned objects they sit on?"),
+# App.cpp:3746  tr("Remove every thread, suspended stack, queued call and instance of '") + n + tr("' in the whole save, plus the spawned objects they sit on?"),
 en "Remove every thread, suspended stack, queued call and instance of '"
 tr "Удалить все потоки, приостановленные стеки, отложенные вызовы и экземпляры '"
 
-# App.cpp:3747  tr("Remove every thread, suspended stack, queued call and instance of '") + n + tr("' in the whole save, plus the spawned objects they sit on?"),
+# App.cpp:3746  tr("Remove every thread, suspended stack, queued call and instance of '") + n + tr("' in the whole save, plus the spawned objects they sit on?"),
 en "' in the whole save, plus the spawned objects they sit on?"
 tr "' во всём сохранении, а также созданные объекты, на которых они сидят?"
 
-# App.cpp:3750  markChanged(Fmt(tr("Killed %s everywhere: %zu threads, %zu instances, %zu spawned objects"), n.c_str(), x.threads, x.instances, x.forms));
+# App.cpp:3749  markChanged(Fmt(tr("Killed %s everywhere: %zu threads, %zu instances, %zu spawned objects"), n.c_str(), x.threads, x.instances, x.forms));
 en "Killed %s everywhere: %zu threads, %zu instances, %zu spawned objects"
 tr "%s убит везде: потоков %zu, экземпляров %zu, созданных объектов %zu"
 
-# App.cpp:3755  tips::Tip(tr("Remove every thread, queued call and instance of this script in the whole save, plus the spawned objects they sit on."));
+# App.cpp:3754  tips::Tip(tr("Remove every thread, queued call and instance of this script in the whole save, plus the spawned objects they sit on."));
 en "Remove every thread, queued call and instance of this script in the whole save, plus the spawned objects they sit on."
 tr "Удалить все потоки, отложенные вызовы и экземпляры этого скрипта во всём сохранении, а также созданные объекты, на которых они сидят."
 
-# App.cpp:3773  ImGui::SeparatorText(Fmt(tr("Other scripts this mod ships, not in this save (%zu)"), idle.size()).c_str());
+# App.cpp:3772  ImGui::SeparatorText(Fmt(tr("Other scripts this mod ships, not in this save (%zu)"), idle.size()).c_str());
 en "Other scripts this mod ships, not in this save (%zu)"
 tr "Другие скрипты этого мода, которых нет в этом сохранении (%zu)"
 
-# App.cpp:3777  ImGui::TextDisabled("%s", tr("Not running and with no saved data, e.g. magic effect scripts that only exist while the effect is active.\n"
+# App.cpp:3776  ImGui::TextDisabled("%s", tr("Not running and with no saved data, e.g. magic effect scripts that only exist while the effect is active.\n"
 en "Not running and with no saved data, e.g. magic effect scripts that only exist while the effect is active.\nDouble-click one to view it."
 tr "Не выполняются и не имеют сохранённых данных, например скрипты магических эффектов, существующие только пока эффект активен.\nДважды щёлкните, чтобы посмотреть."
 
-# App.cpp:3797  ImGui::OpenPopup(trId("Remove mod from save"));
-# App.cpp:3801  if (!ImGui::BeginPopupModal(trId("Remove mod from save"))) {
+# App.cpp:3796  ImGui::OpenPopup(trId("Remove mod from save"));
+# App.cpp:3800  if (!ImGui::BeginPopupModal(trId("Remove mod from save"))) {
 en "Remove mod from save"
 tr "Удалить мод из сохранения"
 
-# App.cpp:3811  replan |= ImGui::Checkbox(tr("Also remove its scripts from other mods' objects (scripts only this mod provides)"), &_removeOpt.otherObjects);
+# App.cpp:3810  replan |= ImGui::Checkbox(tr("Also remove its scripts from other mods' objects (scripts only this mod provides)"), &_removeOpt.otherObjects);
 en "Also remove its scripts from other mods' objects (scripts only this mod provides)"
 tr "Также удалить его скрипты с объектов других модов (только скрипты, которые есть лишь в этом моде)"
 
-# App.cpp:3812  tips::Tip(tr("Also remove this mod's scripts where they are attached to objects of other mods (only scripts nothing else provides)."));
+# App.cpp:3811  tips::Tip(tr("Also remove this mod's scripts where they are attached to objects of other mods (only scripts nothing else provides)."));
 en "Also remove this mod's scripts where they are attached to objects of other mods (only scripts nothing else provides)."
 tr "Также удалить скрипты этого мода там, где они привязаны к объектам других модов (только скрипты, которых больше никто не поставляет)."
 
-# App.cpp:3813  replan |= ImGui::Checkbox(tr("Delete spawned objects that only carried its scripts"), &_removeOpt.spawnedObjects);
+# App.cpp:3812  replan |= ImGui::Checkbox(tr("Delete spawned objects that only carried its scripts"), &_removeOpt.spawnedObjects);
 en "Delete spawned objects that only carried its scripts"
 tr "Удалить созданные объекты, которые несли только его скрипты"
 
-# App.cpp:3814  tips::Tip(tr("Delete in-game-created objects whose only purpose was to carry this mod's scripts."));
+# App.cpp:3813  tips::Tip(tr("Delete in-game-created objects whose only purpose was to carry this mod's scripts."));
 en "Delete in-game-created objects whose only purpose was to carry this mod's scripts."
 tr "Удалить созданные в игре объекты, единственное назначение которых — нести скрипты этого мода."
 
-# App.cpp:3821  TextColored(theme::Warn(), tr("Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked."));
+# App.cpp:3820  TextColored(theme::Warn(), tr("Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked."));
 en "Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked."
 tr "Совет: сначала выполните «Найти исходники скриптов (.pex)...», чтобы проверить мастер-файлы, DLL и его скрипты на других объектах."
 
-# App.cpp:3828  ImGui::TextWrapped(tr("CANNOT REMOVE: %s"), b.c_str());
+# App.cpp:3827  ImGui::TextWrapped(tr("CANNOT REMOVE: %s"), b.c_str());
 en "CANNOT REMOVE: %s"
 tr "УДАЛИТЬ НЕЛЬЗЯ: %s"
 
-# App.cpp:3847  ImGui::TextDisabled(tr("New file: %s"), platform::ToUtf8(target.filename()).c_str());
+# App.cpp:3846  ImGui::TextDisabled(tr("New file: %s"), platform::ToUtf8(target.filename()).c_str());
 en "New file: %s"
 tr "Новый файл: %s"
 
-# App.cpp:3849  if (ImGui::Button(tr("Remove and write new save"), ImVec2(240, 0))) {
+# App.cpp:3848  if (ImGui::Button(tr("Remove and write new save"), ImVec2(240, 0))) {
 # AppMissing.cpp:489  if (ImGui::Button(tr("Remove and write new save"), ImVec2(280, 0))) {
 en "Remove and write new save"
 tr "Удалить и записать новое сохранение"
 
-# App.cpp:3854  markEdited(tr("Removed ") + what);
-# App.cpp:3859  _status = tr("Removed ") + what + " (" + res.text() + tr(") and wrote ") + platform::ToUtf8(target.filename());
+# App.cpp:3853  markEdited(tr("Removed ") + what);
+# App.cpp:3858  _status = tr("Removed ") + what + " (" + res.text() + tr(") and wrote ") + platform::ToUtf8(target.filename());
 # AppTools.cpp:488  markEdited(tr("Removed ") + n + tr(" from ") + formText(_save->formIDOf(id)));
 en "Removed "
 tr "Удалено: "
 
-# App.cpp:3859  _status = tr("Removed ") + what + " (" + res.text() + tr(") and wrote ") + platform::ToUtf8(target.filename());
+# App.cpp:3858  _status = tr("Removed ") + what + " (" + res.text() + tr(") and wrote ") + platform::ToUtf8(target.filename());
 en ") and wrote "
 tr "), записан файл "
 
-# App.cpp:3863  tips::Tip(tr("Apply the plan and write a NEW save file (named below). Your current save is not overwritten."));
+# App.cpp:3862  tips::Tip(tr("Apply the plan and write a NEW save file (named below). Your current save is not overwritten."));
 en "Apply the plan and write a NEW save file (named below). Your current save is not overwritten."
 tr "Применить план и записать НОВЫЙ файл сохранения (имя ниже). Текущее сохранение не перезаписывается."
 
-# App.cpp:3880  _status = tr("No SkyUI MCM registration work is in progress in this save; nothing to fix.");
+# App.cpp:3879  _status = tr("No SkyUI MCM registration work is in progress in this save; nothing to fix.");
 en "No SkyUI MCM registration work is in progress in this save; nothing to fix."
 tr "В этом сохранении нет незавершённой регистрации меню SkyUI MCM; исправлять нечего."
 
-# App.cpp:3883  confirm(tr("Fix SkyUI MCM registration jam"),
+# App.cpp:3882  confirm(tr("Fix SkyUI MCM registration jam"),
 en "Fix SkyUI MCM registration jam"
 tr "Исправить зависшую регистрацию SkyUI MCM"
 
-# App.cpp:3884  Fmt(tr("The save was made while SkyUI was registering MCM menus. This removes the stuck registration work:\n\n"
+# App.cpp:3883  Fmt(tr("The save was made while SkyUI was registering MCM menus. This removes the stuck registration work:\n\n"
 en "The save was made while SkyUI was registering MCM menus. This removes the stuck registration work:\n\n- %zu thread(s) registering a menu or running inside SKI_ConfigManager\n- %zu suspended RegisterMod call(s) and %zu queued call(s)\n%s\nThe %zu menus that are already registered stay registered. Every MCM keeps its settings. On the next load SkyUI announces itself again and the remaining menus register normally (give it a minute in game, unpaused, before opening the MCM or saving).\n\nWrite the result with File > Save As."
 tr "Сохранение сделано, пока SkyUI регистрировал меню MCM. Будет удалена застрявшая работа по регистрации:\n\n- потоки, регистрирующие меню или выполняющиеся внутри SKI_ConfigManager: %zu\n- приостановленные вызовы RegisterMod: %zu и отложенные вызовы: %zu\n%s\nУже зарегистрированные меню (%zu) остаются. Все MCM сохраняют свои настройки. При следующей загрузке SkyUI снова заявит о себе, и остальные меню зарегистрируются как обычно (дайте игре минуту без паузы, прежде чем открывать MCM или сохраняться).\n\nЗапишите результат через «Файл > Сохранить как»."
 
-# App.cpp:3892  dry.stateReset ? tr("- SKI_ConfigManager was saved in its BUSY state; it is set back to normal\n") : "", dry.registered),
+# App.cpp:3891  dry.stateReset ? tr("- SKI_ConfigManager was saved in its BUSY state; it is set back to normal\n") : "", dry.registered),
 en "- SKI_ConfigManager was saved in its BUSY state; it is set back to normal\n"
 tr "- SKI_ConfigManager был сохранён в состоянии BUSY; он возвращается в обычное\n"
 
-# App.cpp:3895  markEdited(tr("Fixed MCM jam: ") + r.text());
+# App.cpp:3894  markEdited(tr("Fixed MCM jam: ") + r.text());
 en "Fixed MCM jam: "
 tr "Исправлена зависшая регистрация MCM: "
 
-# App.cpp:3907  what = tr("Scanning your mods");
+# App.cpp:3906  what = tr("Scanning your mods");
 en "Scanning your mods"
 tr "Сканирование модов"
 
-# App.cpp:3915  what = tr("Reading plugin names");
+# App.cpp:3914  what = tr("Reading plugin names");
 en "Reading plugin names"
 tr "Чтение имён из плагинов"
 
-# App.cpp:3920  const std::string label = total ? Fmt(tr("%s: %zu of %zu (%d%%)%s%s"), what.c_str(), done, total, static_cast<int>(f * 100.0f + 0.5f), cur.empty() ? "
+# App.cpp:3919  const std::string label = total ? Fmt(tr("%s: %zu of %zu (%d%%)%s%s"), what.c_str(), done, total, static_cast<int>(f * 100.0f + 0.5f), cur.empty() ? "
 en "%s: %zu of %zu (%d%%)%s%s"
 tr "%s: %zu из %zu (%d%%)%s%s"
 
@@ -4546,13 +4548,17 @@ tr "Прочитать ваш последний лог краша (Crash Logger
 en "Your game"
 tr "Ваша игра"
 
-# AppHome.cpp:295  { Sc::kPlayer, tr("Edit player"), tr("gold, level, skills, stats, items, bounty"),
+# AppHome.cpp:295  { Sc::kPlayer, tr("Edit player"), fo4() ? tr("caps, level, S.P.E.C.I.A.L., perks") : tr("gold, level, skills, stats, items, bounty"),
 # AppPlayerFO4.cpp:38  if (!ImGui::Begin(trId("Edit player"), &_showPlayer, ImGuiWindowFlags_NoCollapse)) {
 # AppTools.cpp:1059  if (!ImGui::Begin(trId("Edit player"), &_showPlayer, ImGuiWindowFlags_NoCollapse)) {
 en "Edit player"
 tr "Изменить персонажа"
 
-# AppHome.cpp:295  { Sc::kPlayer, tr("Edit player"), tr("gold, level, skills, stats, items, bounty"),
+# AppHome.cpp:295  { Sc::kPlayer, tr("Edit player"), fo4() ? tr("caps, level, S.P.E.C.I.A.L., perks") : tr("gold, level, skills, stats, items, bounty"),
+en "caps, level, S.P.E.C.I.A.L., perks"
+tr "крышки, уровень, S.P.E.C.I.A.L., перки"
+
+# AppHome.cpp:295  { Sc::kPlayer, tr("Edit player"), fo4() ? tr("caps, level, S.P.E.C.I.A.L., perks") : tr("gold, level, skills, stats, items, bounty"),
 en "gold, level, skills, stats, items, bounty"
 tr "золото, уровень, навыки, предметы"
 
@@ -10779,3 +10785,8 @@ tr "Во время «%s»: %s"
 # main.cpp:591  ImGui::TextWrapped("%s", tr("Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."));
 en "Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."
 tr "Пожалуйста, сообщите об этом на странице мода, приложив файл ReSaverPP-startup.log (рядом с ReSaverPP.exe или в %TEMP%)."
+
+# ---- no longer used by the code (kept for reference; safe to delete) ----
+
+en "  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's change forms decoded are greyed out)"
+tr "  (работают инструменты очистки, списки скриптов, моды, логи и конфликты файлов; инструменты, которым нужны расшифрованные изменённые формы сохранения, неактивны)"

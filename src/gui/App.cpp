@@ -2442,8 +2442,7 @@ void App::drawOverview()
 		KV(tr("Save number"), std::to_string(h.saveNumber));
 		if (_save->isFO4()) {
 			KV(tr("Game"), "Fallout 4" + (_save->gameVersion.empty() ? std::string() : " " + _save->gameVersion) +
-						   tr("  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's "
-						   "change forms decoded are greyed out)"));
+						   tr("  (the Skyrim-only tools, Find NPCs and the MCM fix, are greyed out)"));
 		}
 		KV(tr("Format"), Fmt(tr("%ssave version %u, form version %u, %s"), h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
 						 h.compression == Compression::kLZ4 ? "LZ4" : h.compression == Compression::kZlib ? "zlib" : tr("uncompressed")));

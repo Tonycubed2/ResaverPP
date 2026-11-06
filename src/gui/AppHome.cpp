@@ -292,7 +292,7 @@ void App::drawHome()
 			} },
 		{ tr("Your game"),
 			{
-				{ Sc::kPlayer, tr("Edit player"), tr("gold, level, skills, stats, items, bounty"),
+				{ Sc::kPlayer, tr("Edit player"), fo4() ? tr("caps, level, S.P.E.C.I.A.L., perks") : tr("gold, level, skills, stats, items, bounty"),
 					tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."), HomeRisk::kCaution, -1 },
 				{ Sc::kActors, tr("Find NPCs"), tr("where they are; bring a lost follower to you"),
 					tr("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you."), HomeRisk::kCaution, -1 },
