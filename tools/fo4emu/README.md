@@ -27,3 +27,6 @@ change-form bodies dumped from saves, to find formats and check the C++ decoders
 - `extra6c.cpp <save>` lists the extra 0x6c (package data) entries the C++ decoder finds; `extra6c.py <dump> <list>` runs the
   game's own handling of each (0xceaed0(type), LoadGame +0x30, with fresh pointer id tables as Actor::LoadGame makes them)
   and compares the end.
+- `npcremove.cpp <save> [plugin hex] [out.fos] [out.bin]`: without a plugin, lists the items NPCs hold per plugin index; with
+  one, removes that plugin's items from every NPC that reads completely (cf::RemoveInventoryItems), writes the save, reads it
+  back and dumps the edited ACHRs; `emucheck.py <file.bin>` then runs the game's Actor::LoadGame on each of them.
