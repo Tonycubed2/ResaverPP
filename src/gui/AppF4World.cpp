@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <map>
 #include <set>
 
@@ -28,6 +29,7 @@ struct F4WorldState
 	bool                            byMod = false, otherObjects = false, onlyRemovable = false, cellsChangedOnly = true;
 	char                            filter[128] = "";
 	char                            cellFilter[128] = "";
+	char                            findCell[128] = "";  // "Reset any cell": name, editor ID or form ID
 };
 
 namespace
@@ -48,23 +50,7 @@ namespace
 		return h.find(n) != std::string::npos;
 	}
 
-	fo4world::Lookup MakeLookup(const PluginDB* a_db)
-	{
-		fo4world::Lookup look;
-		if (a_db && a_db->loaded()) {
-			look.type = [a_db](std::uint32_t id) {
-				const auto* f = a_db->find(id);
-				return f ? a_db->type(*f) : std::string();
-			};
-			look.name = [a_db](std::uint32_t id) {
-				const auto* f = a_db->find(id);
-				if (!f) return std::string();
-				auto n = a_db->name(*f);
-				return n.empty() ? a_db->edid(*f) : n;
-			};
-		}
-		return look;
-	}
+	fo4world::Lookup MakeLookup(const PluginDB* a_db) { return fo4world::LookupFrom(a_db); }
 }
 
 // the listing for the open save as it is now (read again after every edit and when the plugin names arrive)
@@ -121,6 +107,11 @@ void App::drawF4World()
 	const bool wantCells = _f4WorldTab == 1;
 	auto&      s = WorldState(_f4World, *_save, _editGen, _db.get(), wantCells);
 	const auto look = MakeLookup(_db.get());
+	static bool findHook = false;  // test hook: RESAVERPP_TEST_FINDCELL=<text> fills "Reset any cell"
+	if (!findHook) {
+		findHook = true;
+		if (const char* f = std::getenv("RESAVERPP_TEST_FINDCELL")) std::snprintf(s.findCell, sizeof(s.findCell), "%s", f);
+	}
 	if (!s.db) {
 		ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(theme::Warn()), "%s",
 			tr("Your mods are not scanned yet (or are still being scanned): names, kinds and places show as form IDs until then."));
@@ -299,12 +290,59 @@ void App::drawF4World()
 										"deleted (not quest items, not things someone holds), and the objects placed in it by the game and mods "
 										"go through the game's own respawn code, as when a cell respawns after a while."));
 			ImGui::PushStyleColor(ImGuiCol_Text, theme::Dim());
-			ImGui::TextWrapped("%s", tr("Not done: the player's cell and the cells loaded around the player (the game does not reset a cell "
-										 "while a save loads), an outdoor cell the save has no coordinates for, and a cell the save does not say "
-										 "is indoors. Only what is in the cell when the game resets it is touched: an actor that walked elsewhere "
-										 "is not. Settlements: their workshop objects belong to the settlement; resetting a settlement cell is not "
-										 "recommended."));
+			ImGui::TextWrapped("%s", tr("Indoor and outdoor cells alike. Your mods tell indoors from outdoors and where an outdoor cell is, so "
+										 "cells the save says little about can be reset once your mods are scanned. Not done: the player's cell "
+										 "and the cells loaded around the player (the game does not reset a cell while a save loads), a "
+										 "worldspace's persistent cell, and cells made during play. Only what is in the cell when the game "
+										 "resets it is touched: an actor that walked elsewhere is not. Settlements: their workshop objects "
+										 "belong to the settlement; resetting a settlement cell is not recommended."));
 			ImGui::PopStyleColor();
+			// any cell of the plugins, also one the save has nothing about
+			ImGui::BeginDisabled(!s.db);
+			ImGui::SetNextItemWidth(260);
+			ImGui::InputTextWithHint("##findcell", tr("Reset any cell: name, editor ID or form ID"), s.findCell, sizeof(s.findCell));
+			ImGui::EndDisabled();
+			if (!s.db) {
+				tips::Tip(tr("Needs your mods scanned (the cells come from the plugins)."));
+			}
+			if (s.db && *s.findCell) {
+				std::size_t shownFind = 0;
+				for (const auto id : _db->search(s.findCell, 4000)) {
+					const auto* f = _db->find(id);
+					if (!f || _db->type(*f) != "CELL") continue;
+					if (++shownFind > 12) {
+						ImGui::TextDisabled("%s", tr("... more: type more of the name"));
+						break;
+					}
+					const auto* cd = _db->cell(id);
+					std::string where = !cd ? std::string("?") : cd->interior() ? std::string(tr("indoors")) :
+					                        Fmt("%s (%d, %d)", look.name ? look.name(cd->worldspace).c_str() : "", cd->x, cd->y);
+					auto name = look.name ? look.name(id) : std::string();
+					ImGui::PushID(static_cast<int>(id) ^ 0x5A5A0000);
+					ImGui::BeginDisabled(_readOnly);
+					if (ImGui::SmallButton(tr("Reset"))) {
+						const auto label = name.empty() ? Fmt("%08X", id) : name;
+						confirm(tr("Reset an area"),
+							Fmt(tr("Reset %s?\n\nThe game resets this cell the next time you go there: its dropped and spawned items are "
+								   "deleted (not quest items) and what is placed in it goes through the game's own respawn code. This is "
+								   "what the console command ResetInterior does. Keep a copy of the save."),
+								label.c_str()),
+							[this, id, label] {
+								const auto why = fo4cell::ResetCell(*_save, id, MakeLookup(_db.get()));
+								if (why.empty()) {
+									markEdited(Fmt(tr("Reset set for %s: the game resets it the next time it loads it"), label.c_str()));
+								} else {
+									_status = tr("Not reset: ") + why;
+								}
+							});
+					}
+					ImGui::EndDisabled();
+					ImGui::SameLine();
+					ImGui::Text("%08X  %s  -  %s", id, name.c_str(), where.c_str());
+					ImGui::PopID();
+				}
+				if (!shownFind) ImGui::TextDisabled("%s", tr("No cell of your mods matches."));
+			}
 			ImGui::Checkbox(tr("Only cells with saved changes in them"), &s.cellsChangedOnly);
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(220);
@@ -322,8 +360,10 @@ void App::drawF4World()
 				ImGui::TableHeadersRow();
 				for (const auto& c : s.cells) {
 					if (s.cellsChangedOnly && !c.createdItems && !c.placed) continue;
-					const auto where = c.exterior ? Fmt("%s (%d, %d)", (look.name ? look.name(c.worldspace) : std::string()).c_str(), c.x, c.y)
-					                              : std::string(tr("indoors"));
+					const auto where = !c.interiorKnown ? std::string(tr("indoors or outdoors?"))
+					                   : !c.exterior    ? std::string(tr("indoors"))
+					                   : c.hasGrid      ? Fmt("%s (%d, %d)", (look.name ? look.name(c.worldspace) : std::string()).c_str(), c.x, c.y)
+					                                    : std::string(tr("outdoors"));
 					if (*s.cellFilter && !Contains(c.name + " " + where + Fmt(" %08X", c.formID), s.cellFilter)) continue;
 					ImGui::PushID(static_cast<int>(c.formID));
 					ImGui::TableNextRow();
@@ -331,6 +371,12 @@ void App::drawF4World()
 					ImGui::TextUnformatted((c.name.empty() ? Fmt("%08X", c.formID) : c.name).c_str());
 					ImGui::TableSetColumnIndex(1);
 					ImGui::TextUnformatted(where.c_str());
+					if (c.why.empty() && !c.hasDetach) {
+						tips::Tip(tr("The game has not given this cell a detach time (the player has not left it since it was last "
+									 "reset, or never went there): the console's ResetInterior would do nothing to it now. The reset writes "
+									 "what the game writes once the player has left it and ResetInterior ran, so the game resets it the "
+									 "next time it loads it."));
+					}
 					ImGui::TableSetColumnIndex(2);
 					ImGui::Text("%zu", c.createdItems);
 					if (c.createdItems) tips::Tip(Fmt(tr("%zu of them would be deleted by the reset."), c.createdRemovable).c_str());
