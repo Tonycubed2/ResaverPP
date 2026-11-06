@@ -27,6 +27,8 @@
 #include "core/Quests.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
+#include "core/SaveBloat.h"
+#include "core/LoadOrderCheck.h"
 #include <functional>
 #include <map>
 #include <set>
@@ -64,6 +66,73 @@ static bool _stricmp_portable(const std::string& a_a, const std::string& a_b)
 	return a_a.size() == a_b.size() && std::equal(a_a.begin(), a_a.end(), a_b.begin(), [](char x, char y) {
 		return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
 	});
+}
+
+// resaverpp-cli --load-order-check [--sources <mods>] [--profile <dir>] [--game <dir>] [--plugins-txt <file>] [--fo4 | --le]
+static int LoadOrderCheckMain(int argc, char** argv)
+{
+	std::filesystem::path mods, profile, game, pluginsTxt, overwrite;
+	bool                  fo4 = false, le = false;
+	for (int i = 2; i < argc; ++i) {
+		const std::string a = argv[i];
+		auto              next = [&]() -> std::string {
+			if (i + 1 >= argc) {
+				std::fprintf(stderr, "missing value after %s\n", a.c_str());
+				std::exit(1);
+			}
+			return argv[++i];
+		};
+		if (a == "--sources") mods = next();
+		else if (a == "--profile") profile = next();
+		else if (a == "--game") game = next();
+		else if (a == "--plugins-txt") pluginsTxt = next();
+		else if (a == "--fo4") fo4 = true;
+		else if (a == "--le") le = true;
+		else {
+			std::fprintf(stderr, "unknown option %s\n", a.c_str());
+			return 1;
+		}
+	}
+	if (!mods.empty()) {
+		if (auto mo2 = FindMo2Instance(mods)) {
+			if (profile.empty()) profile = mo2->profilesDir / mo2->selectedProfile;
+			overwrite = mo2->overwriteDir;
+			if (game.empty()) game = mo2->gamePath;
+		}
+	}
+	std::error_code ec;
+	fo4 = fo4 || (!game.empty() && std::filesystem::exists(game / "Fallout4.exe", ec));
+	le = le || (!game.empty() && std::filesystem::exists(game / "TESV.exe", ec));
+	if (pluginsTxt.empty()) {
+		pluginsTxt = profile.empty() ? loadorder::GamePluginsTxt(fo4 ? 2 : 0, le) : profile / "plugins.txt";
+	}
+	ScriptSources src;
+	const auto    order = profile.empty() ? std::vector<std::string>{} : LoadModList(profile);
+	if (!mods.empty() || !game.empty()) {
+		src.scan(mods.empty() ? (game / "Data") : mods, order.empty() ? nullptr : &order, overwrite, game.empty() ? std::filesystem::path{} : game / "Data");
+	}
+	locheck::Options opt;
+	opt.game = fo4 ? locheck::Game::kFallout4 : le ? locheck::Game::kSkyrimLE : locheck::Game::kSkyrimSE;
+	opt.loadOrder = merge::ReadLoadOrder(pluginsTxt, game, fo4 ? 2 : -1);
+	opt.findPlugin = [&](const std::string& a_name) -> std::optional<std::filesystem::path> {
+		if (auto p = src.pluginPath(a_name)) {
+			return p;
+		}
+		if (!game.empty()) {
+			const auto f = game / "Data" / a_name;
+			std::error_code e2;
+			if (std::filesystem::exists(f, e2)) {
+				return f;
+			}
+		}
+		return std::nullopt;
+	};
+	std::printf("load order: %zu plugins (%s)\n", opt.loadOrder.size(), pluginsTxt.string().c_str());
+	const auto r = locheck::Check(opt);
+	for (const auto& l : locheck::Describe(r)) {
+		std::printf("%s\n", l.c_str());
+	}
+	return r.hasErrors() ? 2 : 0;
 }
 
 // resaverpp-cli --merged-patch <out.esp> --sources <mods> [--profile <dir>] [--game <dir>] [--plugins-txt <file>] [--language <lang>]
@@ -386,6 +455,9 @@ int main(int argc, char** argv)
 	if (std::string(argv[1]) == "--merged-patch") {
 		return MergedPatchMain(argc, argv);
 	}
+	if (std::string(argv[1]) == "--load-order-check") {
+		return LoadOrderCheckMain(argc, argv);
+	}
 	if (std::string(argv[1]) == "--file-conflicts") {
 		return FileConflictsMain(argc, argv);
 	}
@@ -428,6 +500,8 @@ int main(int argc, char** argv)
 	std::vector<std::pair<std::uint32_t, int>> fo4PerkEdits;
 	int           fo4Level = -1;
 	std::string   fo4Transplant;  // --fo4-transplant <old save>
+	bool          bloatView = false;  // --bloat
+	std::string   bloatCompare;       // --bloat-compare <older save>
 	bool          fo4TransplantWrite = false;
 	double        fo4Xp = -1;  // --fo4-set-perk (rank) / --fo4-remove-perk (-1)
 	std::vector<std::pair<std::string, float>> playerSkills;
@@ -490,6 +564,11 @@ int main(int argc, char** argv)
 			fo4Level = std::atoi(next().c_str());
 		} else if (a == "--fo4-transplant") {
 			fo4Transplant = next();
+		} else if (a == "--bloat") {
+			bloatView = true;
+		} else if (a == "--bloat-compare") {
+			bloatView = true;
+			bloatCompare = next();
 		} else if (a == "--fo4-transplant-write") {
 			fo4TransplantWrite = true;
 		} else if (a == "--fo4-set-xp") {
@@ -699,6 +778,29 @@ int main(int argc, char** argv)
 		} else if (removeCrashActors) {
 			std::fputs("--remove-crash-actors needs --crash-log\n", stderr);
 			return 1;
+		}
+		if (bloatView) {
+			// save bloat by mod (and growth since an older save)
+			const auto rep = bloat::Build(*save);
+			for (const auto& l : bloat::Describe(rep, top)) {
+				std::printf("%s\n", l.c_str());
+			}
+			if (!bloatCompare.empty()) {
+				try {
+					const auto old = SaveFile::load(bloatCompare);
+					const auto g = bloat::Compare(bloat::Build(*old), rep);
+					std::printf("\nGrowth since %s:\n", std::filesystem::path(bloatCompare).filename().string().c_str());
+					for (const auto& l : bloat::DescribeGrowth(g, top)) {
+						std::printf("%s\n", l.c_str());
+					}
+				} catch (const std::exception& e) {
+					std::fprintf(stderr, "could not read %s: %s\n", bloatCompare.c_str(), e.what());
+					return 1;
+				}
+			}
+			if (!edits) {
+				return 0;
+			}
 		}
 		if (!fo4Transplant.empty()) {
 			// Fallout 4 Transplant: what the old save has that this one does not, and where each part goes
