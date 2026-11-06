@@ -64,14 +64,55 @@ namespace ess::fo4cf::detail
 			if (b.u32() == 0) b.ref(); else b.u32();
 		}
 
-		// a package data object from the procedure factory (LoadGame +0x40), 0x701db0's list
+		// 0x7683e0: a target - u8 kind, u32, then by kind a form id (0, 1, 3, 7), a u32 (2, 4, 5, 8) or nothing
+		void Target(In& b)
+		{
+			const auto kind = b.u8();
+			b.u32();
+			switch (kind) {
+			case 0: case 1: case 3: case 7: b.ref(); break;
+			case 2: case 4: case 5: case 8: b.u32(); break;
+			default: break;
+			}
+		}
+
+		// 0x767060: a package location - u8 kind (signed), u32, then by kind a form id (0..4, 13), a u32 (5, 8, 9,
+		// 10), a u8 (11), two u32 (14) or nothing
+		void Location(In& b)
+		{
+			const auto kind = b.u8();
+			b.u32();
+			switch (kind) {
+			case 0: case 1: case 2: case 3: case 4: case 13: b.ref(); break;
+			case 5: case 8: case 9: case 10: b.u32(); break;
+			case 11: b.u8(); break;
+			case 14: b.u32(); b.u32(); break;
+			default: break;
+			}
+		}
+
+		// a package data object of the procedure tree (0x701db0's list). The factory's creators hand out the
+		// IPackageData base, whose vtable +0x40 is the LoadGame: for the classes with two bases that is the base at
+		// +8 (Location 0x250a5b8, LocationWrapper 0x250a970, ObjectList 0x250aa80, Ref 0x250adb8, RefOLD 0x250a3e0).
 		void DataObject(In& b, const std::string& a_name)
 		{
 			if (a_name == "Bool") {  // 7034c0
 				b.u8();
 			} else if (a_name == "Float" || a_name == "Int") {  // 7035c0, 703660
 				b.u32();
-			} else if (a_name == "RefOLD" || a_name == "TargetSelector") {  // 703a20, 704260: nothing
+			} else if (a_name == "RefOLD" || a_name == "Topic" || a_name == "TargetSelector") {  // 705aa0, 704260
+			} else if (a_name == "Ref") {  // 709870
+				Target(b);
+			} else if (a_name == "Location") {  // 703ee0
+				Location(b);
+			} else if (a_name == "LocationWrapper") {  // 704140 -> 21bff0
+				if (b.bln()) Loc(b, b.wstrS());
+			} else if (a_name == "ObjectList") {  // 707d60: vsval n x an entry (vtable 0x250abd0, 706e00)
+				for (auto n = b.vs(); n; --n) {
+					b.ref();
+					b.ref();
+					U(b, 4);
+				}
 			} else {
 				b.fail("package data class '" + a_name + "'");
 			}
@@ -335,18 +376,6 @@ namespace ess::fo4cf::detail
 				Pid68(b);
 			} else {
 				b.fail("procedure state '" + s + "'");
-			}
-		}
-
-		// 0x7683e0: a target - u8 kind, u32, then by kind a form id (0, 1, 3, 7), a u32 (2, 4, 5, 8) or nothing
-		void Target(In& b)
-		{
-			const auto kind = b.u8();
-			b.u32();
-			switch (kind) {
-			case 0: case 1: case 3: case 7: b.ref(); break;
-			case 2: case 4: case 5: case 8: b.u32(); break;
-			default: break;
 			}
 		}
 	}
