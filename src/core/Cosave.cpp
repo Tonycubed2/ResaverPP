@@ -459,18 +459,18 @@ namespace ess::cosave
 			}
 		}
 		if (!a_data.empty() && fs::is_directory(a_data, ec)) {
-			bool modsFolder = true;
+			// a Data folder (it holds plugin files) or a single mod: its own SKSE\Plugins; a mods folder: every mod in it
+			bool dataFolder = Lower(a_data.filename().string()) == "data";
 			for (const auto& e : fs::directory_iterator(a_data, ec)) {
 				const auto n = Lower(e.path().filename().string());
-				if (n == xse || n.ends_with(".esm") || n.ends_with(".esp") || n == "scripts") {
-					modsFolder = false;
+				if (e.is_regular_file(ec) && (n.ends_with(".esm") || n.ends_with(".esp") || n.ends_with(".esl"))) {
+					dataFolder = true;
 				}
 			}
-			if (!modsFolder) {
-				add(a_data, a_data.filename().string(), true);
-			} else {
+			add(a_data, dataFolder ? "" : a_data.filename().string(), true);
+			if (!dataFolder) {
 				for (const auto& m : fs::directory_iterator(a_data, ec)) {
-					if (m.is_directory(ec)) {
+					if (m.is_directory(ec) && Lower(m.path().filename().string()) != xse) {
 						add(m.path(), m.path().filename().string(), true);
 					}
 				}
