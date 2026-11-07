@@ -426,7 +426,18 @@ namespace ess
 				return;
 			}
 		}
-		// Vortex decides conflicts with its own rules: the deployed copy wins
+		// Vortex decides conflicts with its own rules: the deployed copy wins. Plugins too: the staging folder keeps
+		// every installed mod's files, so two mods can ship the same plugin (e.g. a mod and an ESL-flagged
+		// replacement of it); the game loads the one Vortex deployed (vortex.deployment.json's "source").
+		for (const auto& [rel, mod] : v.winner) {
+			if (rel.find('\\') != std::string::npos) {
+				continue;
+			}
+			const auto dot = rel.rfind('.');
+			if (dot != std::string::npos && IsPlugin(rel.substr(dot)) && std::filesystem::is_directory(root / text::PathFrom(mod), ec)) {
+				pluginFolder.insert_or_assign(rel, mod);
+			}
+		}
 		auto modPath = [&](const std::string& mod) { return root / text::PathFrom(mod); };
 		for (auto& [script, list] : _byScript) {
 			auto it = v.winner.find("scripts\\" + script + ".pex");

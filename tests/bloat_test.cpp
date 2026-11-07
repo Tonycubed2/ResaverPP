@@ -8,6 +8,7 @@
 #include "core/MergedPatch.h"
 #include "core/Save.h"
 #include "core/SaveBloat.h"
+#include "core/ScriptSources.h"
 
 #include <algorithm>
 #include <chrono>
@@ -93,6 +94,43 @@ namespace
 		return out;
 	}
 
+	// Vortex keeps every installed mod's files in its staging folder: when two mods ship the same plugin (a mod
+	// and an ESL-flagged replacement of it), the load order check must read the copy Vortex deployed.
+	void TestVortexPluginWinner()
+	{
+		const auto root = fs::temp_directory_path() / "rs_vortex_winner";
+		fs::remove_all(root);
+		const auto staging = root / "staging", data = root / "Data";
+		fs::create_directories(staging / "Original Mod");
+		fs::create_directories(staging / "ESL Replacement");
+		fs::create_directories(data);
+		auto save = [&](const fs::path& p, const std::vector<std::uint8_t>& bytes) {
+			std::ofstream f(p, std::ios::binary);
+			f.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+		};
+		using merge::WritePlugin;
+		save(staging / "Original Mod" / "Foo.esp", WritePlugin({ "Skyrim.esm" }, 0, { Misc(0x01012345) }, "t", {}, 1.71f, 44, true));
+		save(staging / "ESL Replacement" / "Foo.esp", WritePlugin({ "Skyrim.esm" }, 0x200, { Misc(0x01000801) }, "t", {}, 1.71f, 44, true));
+		save(data / "Foo.esp", WritePlugin({ "Skyrim.esm" }, 0x200, { Misc(0x01000801) }, "t", {}, 1.71f, 44, true));
+		VortexDeployment v;
+		v.stagingPath = staging;
+		v.dataPath = data;
+		v.mods = { "Original Mod", "ESL Replacement" };  // the order the manifest lists them in, not the winner's
+		v.winner["foo.esp"] = "ESL Replacement";
+		ScriptSources src;
+		src.scanVortex(v, nullptr);
+		const auto p = src.pluginPath("Foo.esp");
+		Check(p && p->parent_path().filename() == "ESL Replacement", "vortex: the deployed copy of a plugin two mods ship is the one read");
+		locheck::Options o;
+		o.game = locheck::Game::kSkyrimSE;
+		o.loadOrder = { "Foo.esp" };
+		o.findPlugin = [&](const std::string& n) { return src.pluginPath(n); };
+		const auto r = locheck::Check(o);
+		Check(r.light == 1 && r.full == 0 && !Has(r, locheck::Severity::kError, "Foo.esp", "above 0xFFF"),
+			"vortex: the ESL-flagged replacement counts as light, the original's form IDs are not reported");
+		fs::remove_all(root);
+	}
+
 	void TestLoadOrderSynthetic()
 	{
 		const auto dir = fs::temp_directory_path() / "rs_locheck_test";
@@ -131,7 +169,7 @@ namespace
 		for (const auto& l : locheck::Describe(r)) {
 			std::printf("  %s\n", l.c_str());
 		}
-		Check(r.light == 4 && r.full == 6, "locheck: Good/Over (flag), Ext.esl (extension), Both.esm (flag) light; 6 full incl. the missing one");
+		Check(r.light == 4 && r.full == 5 && r.missing == 1, "locheck: Good/Over (flag), Ext.esl (extension), Both.esm (flag) light; 5 full, the missing one takes no slot");
 		Check(!Has(r, locheck::Severity::kError, "Good.esp", "above 0xFFF") && !Has(r, locheck::Severity::kWarning, "Good.esp", "below 0x800"),
 			"locheck: 0x001..0xFFF fine in a light plugin with header 1.0 and a master");
 		Check(Has(r, locheck::Severity::kError, "Over.esp", "numbers 2 of its 3 new forms above 0xFFF"), "locheck: light plugin over 0xFFF");
@@ -155,7 +193,12 @@ namespace
 		for (int i = 0; i < 254; ++i) {
 			big.loadOrder.push_back("Mod" + std::to_string(i) + ".esp");
 		}
-		big.findPlugin = [](const std::string&) -> std::optional<fs::path> { return std::nullopt; };
+		// every name reads the same small plugin file (a missing file takes no slot: the game skips it)
+		save("StubFull.esp", WritePlugin({}, 0, {}, "t", {}, 1.0f, 131, true));
+		save("StubLight.esl", WritePlugin({}, 0, {}, "t", {}, 1.0f, 131, true));
+		big.findPlugin = [&](const std::string& n) -> std::optional<fs::path> {
+			return dir / (n.ends_with(".esl") ? "StubLight.esl" : "StubFull.esp");
+		};
 		Check(!locheck::Check(big).hasErrors(), "locheck: 254 full plugins are within the limit");
 		big.loadOrder.push_back("Mod254.esp");
 		const auto r255 = locheck::Check(big);
@@ -295,6 +338,7 @@ namespace
 int main()
 {
 	TestLoadOrderSynthetic();
+	TestVortexPluginWinner();
 	TestLoadOrderRealFO4();
 	TestBloat();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);

@@ -222,8 +222,13 @@ namespace ess::locheck
 				}
 				p.name = name;
 			}
-			p.slot = static_cast<int>(p.light ? r.light : r.full);
-			(p.light ? r.light : r.full)++;
+			// a plugin whose file is missing is not loaded (the game skips it), so it takes no slot
+			if (p.path.empty()) {
+				p.slot = -1;
+			} else {
+				p.slot = static_cast<int>(p.light ? r.light : r.full);
+				(p.light ? r.light : r.full)++;
+			}
 			r.plugins.push_back(std::move(p));
 		}
 
@@ -328,7 +333,9 @@ namespace ess::locheck
 		for (const auto& p : a_result.plugins) {
 			char b[512];
 			char slot[16];
-			if (p.light) {
+			if (p.slot < 0) {
+				std::snprintf(slot, sizeof(slot), "--");
+			} else if (p.light) {
 				std::snprintf(slot, sizeof(slot), "FE %03X", p.slot);
 			} else {
 				std::snprintf(slot, sizeof(slot), "%02X", p.slot);

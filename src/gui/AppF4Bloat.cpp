@@ -615,7 +615,9 @@ void App::drawLoadOrderCheck()
 			}
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			if (p.light) {
+			if (p.slot < 0) {
+				ImGui::TextDisabled("--");
+			} else if (p.light) {
 				ImGui::Text("FE %03X", p.slot);
 			} else {
 				ImGui::Text("%02X", p.slot);
