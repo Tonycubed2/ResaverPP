@@ -94,6 +94,23 @@ namespace
 		return out;
 	}
 
+	// A Wabbajack list can store Mod Organizer's game folder relative to Mod Organizer's own folder (".\\StockGame");
+	// Mod Organizer reads it from there, so must ReSaver Plus (its Skyrim.ccc lists the Creation Club plugins)
+	void TestMo2RelativeGamePath()
+	{
+		const auto root = fs::temp_directory_path() / "rs_mo2_rel";
+		fs::remove_all(root);
+		fs::create_directories(root / "StockGame");
+		fs::create_directories(root / "profiles" / "Main");
+		{
+			std::ofstream f(root / "ModOrganizer.ini");
+			f << "[General]\ngameName=Skyrim Special Edition\ngamePath=@ByteArray(.\\\\StockGame)\nselected_profile=@ByteArray(Main)\n[Settings]\n";
+		}
+		const auto m = ReadMo2Ini(root / "ModOrganizer.ini");
+		Check(m && m->gamePath.is_absolute() && m->gamePath.string().starts_with(root.string()) && m->gamePath.string().ends_with("StockGame"), "mo2: a relative gamePath (.\\StockGame) is read from Mod Organizer's folder");
+		fs::remove_all(root);
+	}
+
 	// Vortex keeps every installed mod's files in its staging folder: when two mods ship the same plugin (a mod
 	// and an ESL-flagged replacement of it), the load order check must read the copy Vortex deployed.
 	void TestVortexPluginWinner()
@@ -339,6 +356,7 @@ int main()
 {
 	TestLoadOrderSynthetic();
 	TestVortexPluginWinner();
+	TestMo2RelativeGamePath();
 	TestLoadOrderRealFO4();
 	TestBloat();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);

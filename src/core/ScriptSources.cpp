@@ -695,7 +695,12 @@ namespace ess
 			m.profilesDir = resolve(profiles, "profiles");
 			m.overwriteDir = resolve(overwrite, "overwrite");
 			if (!game.empty()) {
-				m.gamePath = text::PathFrom(game);
+				// Wabbajack lists ("Stock Game") can write it relative to Mod Organizer's folder, e.g. ".\\StockGame";
+				// Mod Organizer reads it from its own folder, so the game folder (and its Skyrim.ccc) is there
+				if (auto p = Lower(game).find("%base_dir%"); p != std::string::npos) {
+					game.replace(p, 10, U8(m.base));
+				}
+				m.gamePath = Relative(game) ? (a_ini.parent_path() / text::PathFrom(game)).lexically_normal() : text::PathFrom(game);
 			}
 			std::error_code ec;
 			for (const auto& e : std::filesystem::directory_iterator(m.profilesDir, ec)) {
