@@ -54,6 +54,12 @@ namespace ess
 			std::uint8_t  castType = 0xFF;    // Fallout 4 SPEL (SPIT +0x10) / ENCH (ENIT +8): 0 constant effect, 1 fire
 			                                  // and forget, ...; ALCH 1
 			bool          poison = false;     // Fallout 4 ALCH: ENIT flags (+4) bit 0x20000
+			// ARMO: the biped slots it takes, the first u32 of BOD2 (Skyrim SE and Fallout 4) or BODT (Skyrim LE-format
+			// records; xEdit tes5 / wbDefinitionsFO4 "First Person Flags": bit 0 = slot 30 ...). 0 when not read.
+			std::uint32_t bipedSlots = 0;
+			bool          hasBiped = false;
+			// ARMO / WEAP: its enchantment (EITM, runtime form id; 0 none)
+			std::uint32_t enchantment = 0;
 		};
 
 		// Reads every plugin of the save that can be found. Safe to call on a worker thread.

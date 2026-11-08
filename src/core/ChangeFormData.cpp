@@ -454,8 +454,18 @@ namespace ess::cf
 					p.group("SUB_DATA3", [&] { ExtraDataData(p); });
 				});
 				break;
-			case 22: one("Worn", [] {}); break;
-			case 23: one("WornLeft", [] {}); break;
+			case 22:
+				one("Worn", [] {});
+				if (p.inv) {
+					p.inv->worn = true;
+				}
+				break;
+			case 23:
+				one("WornLeft", [] {});
+				if (p.inv) {
+					p.inv->wornLeft = true;
+				}
+				break;
 			case 24:
 				one("PackageStartLocation", [&] {
 					p.ref("UNK");
@@ -903,6 +913,7 @@ namespace ess::cf
 						if (e.hasEnchant || e.hasCharge) {
 							p.out().charged.push_back(e);
 						}
+						p.out().stacks.push_back(e);
 					}
 				});
 				(void)count;

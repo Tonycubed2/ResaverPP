@@ -387,12 +387,19 @@ namespace ess
 					// enchant / cast type and flags in ENIT (Fallout4.exe 1.11.240: EnchantmentItem +0xd0, AlchemyItem +0x1a8)
 					const bool     isSpell = Is(h, "SPEL");
 					const bool     isMgef = Is(h, "MGEF");
-					const bool     isEnch = a_in.fo4 && Is(h, "ENCH");
+					// Skyrim's SPIT / ENIT have the type fields at the same places (UESP, xEdit tes5: SPIT type +8, cast type +0x10;
+					// ENIT cast type +8, enchant type +0x14), checked on Skyrim.esm (EnchArmorFortifyHealth01: constant effect 0,
+					// enchantment 6; AbVampireFloatBodies: ability 4)
+					const bool     isEnch = Is(h, "ENCH");
 					const bool     isAlch = a_in.fo4 && Is(h, "ALCH");
 					const bool     hasEffects = isSpell || Is(h, "ENCH") || Is(h, "ALCH") || Is(h, "INGR") || Is(h, "SCRL");
 					std::uint8_t   spellType = isAlch ? 7 : 0xFF;
 					std::uint8_t   castType = isAlch ? 1 : 0xFF;
 					bool           poison = false;
+					const bool     isArmo = Is(h, "ARMO");
+					const bool     isWeap = Is(h, "WEAP");
+					std::uint32_t  biped = 0, eitm = 0;
+					bool           gotBiped = false;
 					MagicEffectDef mg;
 					bool           gotMgef = false;
 					std::vector<EffectItem> effs;
@@ -423,9 +430,14 @@ namespace ess
 							}
 						} else if (isSpell && Is(st, "SPIT") && len >= 12) {
 							spellType = static_cast<std::uint8_t>(U32(d + p + 8));
-							if (a_in.fo4 && len >= 0x14) {
+							if (len >= 0x14) {
 								castType = static_cast<std::uint8_t>(U32(d + p + 0x10));
 							}
+						} else if (isArmo && (Is(st, "BOD2") || Is(st, "BODT")) && len >= 4) {
+							biped = U32(d + p);
+							gotBiped = true;
+						} else if ((isArmo || isWeap) && Is(st, "EITM") && len == 4) {
+							toRuntime(U32(d + p), eitm);
 						} else if (isEnch && Is(st, "ENIT") && len >= 0x18) {
 							castType = static_cast<std::uint8_t>(U32(d + p + 8));
 							spellType = static_cast<std::uint8_t>(U32(d + p + 0x14));
@@ -560,6 +572,11 @@ namespace ess
 					}
 					if (gotMgef) {
 						_mgef[id] = mg;
+					}
+					if (isArmo || isWeap) {
+						f.bipedSlots = biped;
+						f.hasBiped = gotBiped;
+						f.enchantment = eitm;
 					}
 					if (hasEffects) {
 						_effects[id] = std::move(effs);

@@ -65,6 +65,8 @@ bool IsFo4CompanionsCommand(int argc, char** argv);  // CompanionsCli.cpp
 int  Fo4CompanionsMain(int argc, char** argv);
 bool IsFo4EffectsCommand(int argc, char** argv);  // EffectsF4Cli.cpp
 int  Fo4EffectsMain(int argc, char** argv);
+bool IsCharEffectsCommand(int argc, char** argv);  // CharEffectsCli.cpp
+int  CharEffectsMain(int argc, char** argv);
 
 static void Usage()
 {
@@ -484,6 +486,9 @@ int main(int argc, char** argv)
 	}
 	if (IsFo4CompanionsCommand(argc, argv)) {
 		return Fo4CompanionsMain(argc, argv);
+	}
+	if (IsCharEffectsCommand(argc, argv)) {
+		return CharEffectsMain(argc, argv);
 	}
 	if (IsFo4EffectsCommand(argc, argv)) {
 		return Fo4EffectsMain(argc, argv);

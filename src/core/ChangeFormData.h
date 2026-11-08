@@ -38,6 +38,9 @@ namespace ess::cf
 		bool          hasCharge = false;
 		float         charge = 0;
 		std::size_t   chargeOffset = 0;
+		// the stack is equipped: extra data 0x16 ExtraWorn (right hand / the only slot) or 0x17 ExtraWornLeft (left
+		// hand), both without data of their own (CommonLibSSE ExtraDataType kWorn 0x16 / kWornLeft 0x17)
+		bool          worn = false, wornLeft = false;
 	};
 
 	struct ExtraEntry
@@ -73,6 +76,8 @@ namespace ess::cf
 
 		// inventory entries with an enchantment or charge (REFR containers, ACHR actors incl. the player)
 		std::vector<InvCharge> charged;
+		// every stack of every inventory entry (one per extra data list), in body order: item, count, worn, enchantment
+		std::vector<InvCharge> stacks;
 
 		// where each change flag's data sits in the uncompressed body: bit -> [start, end) (NPC_, ACHR)
 		std::map<int, std::pair<std::size_t, std::size_t>> sections;
