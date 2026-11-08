@@ -14,6 +14,7 @@
 #include <chrono>
 
 #include <atomic>
+#include <mutex>
 #include "Platform.h"
 #include "Theme.h"
 
@@ -80,12 +81,14 @@ namespace
 	// OpenGL the PC has, and where it crashed. Overwritten at every start.
 	std::filesystem::path g_logPath;
 	std::string           g_step = "starting";
+	std::mutex            g_logMutex;  // (background work writes to the log too)
 
 	void Log(const std::string& a_line)
 	{
 		if (g_logPath.empty()) {
 			return;
 		}
+		std::lock_guard l(g_logMutex);
 		if (FILE* f = _wfopen_compat(g_logPath, "ab")) {
 			std::fprintf(f, "%s\r\n", a_line.c_str());
 			std::fclose(f);
@@ -102,6 +105,24 @@ namespace
 	std::atomic<const char*>   g_section{ "starting" };
 	std::atomic<std::uint64_t> g_frames{ 0 };
 	std::chrono::steady_clock::time_point g_sectionStart = std::chrono::steady_clock::now();  // UI thread only
+	// the named steps inside the section (watchdog::Step), innermost last
+	constexpr int              kMaxSteps = 8;
+	std::atomic<const char*>   g_steps[kMaxSteps]{};
+	std::atomic<int>           g_stepDepth{ 0 };
+	std::atomic<const char*>   g_alive{ nullptr };  // set while the loop runs without drawing (minimized)
+	const bool                 g_timing = std::getenv("RESAVERPP_TIMING") != nullptr;
+
+	// "pollScan > checkMissingPlugins > the installed plugins' files"
+	std::string WherePath(int a_depth)
+	{
+		std::string s = g_section.load();
+		for (int i = 0; i < std::min(a_depth, kMaxSteps); ++i) {
+			if (const char* n = g_steps[i].load()) {
+				s += std::string(" > ") + n;
+			}
+		}
+		return s;
+	}
 
 	void StartWatchdog()
 	{
@@ -129,11 +150,11 @@ namespace
 					continue;
 				}
 				reported = secs;
-				char b[512];
+				char b[1024];
 				std::snprintf(b, sizeof(b),
-					"NOT RESPONDING for %d s, in: %s; mods scan %zu of %zu; plugin names %s; crash-on-load check %zu of %zu (0 of 0: not running)", secs,
-					g_section.load(), watchdog::g_scanDone.load(), watchdog::g_scanTotal.load(),
-					watchdog::g_namesLoading.load() ? "being read" : "not being read", watchdog::g_pathDone.load(),
+					"NOT RESPONDING for %d s, in: %s; mods scan %zu of %zu; plugin names %s; opening a save in the background: %s; crash-on-load check %zu of %zu (0 of 0: not running)", secs,
+					WherePath(g_stepDepth.load()).c_str(), watchdog::g_scanDone.load(), watchdog::g_scanTotal.load(),
+					watchdog::g_namesLoading.load() ? "being read" : "not being read", watchdog::g_opening.load() ? "yes" : "no", watchdog::g_pathDone.load(),
 					watchdog::g_pathTotal.load());
 				Log(b);
 			}
@@ -143,6 +164,8 @@ namespace
 
 namespace watchdog
 {
+	void Log(const std::string& a_line) { ::Log(a_line); }
+
 	void Section(const char* a_name)
 	{
 		const auto now = std::chrono::steady_clock::now();
@@ -152,12 +175,63 @@ namespace watchdog
 		}
 		g_sectionStart = now;
 		g_section = a_name;
+		g_stepDepth = 0;
 	}
 
 	void FrameDone()
 	{
 		Section("between frames");
 		++g_frames;
+		if (g_alive.exchange(nullptr)) {
+			Log("window shown again");
+		}
+	}
+
+	void Alive(const char* a_name)
+	{
+		// the window is minimized: the loop sleeps and draws nothing, which is not a freeze
+		if (!g_alive.exchange(a_name)) {
+			Log(std::string("window ") + a_name);
+		}
+		g_section = a_name;
+		g_sectionStart = std::chrono::steady_clock::now();
+		++g_frames;
+	}
+
+	Step::Step(const char* a_name) :
+		_t0(std::chrono::steady_clock::now()),
+		_depth(g_stepDepth.load())
+	{
+		if (_depth < kMaxSteps) {
+			g_steps[_depth] = a_name;
+		}
+		g_stepDepth = _depth + 1;
+	}
+
+	Step::~Step()
+	{
+		const auto ms = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - _t0).count() / 1000.0;
+		if (ms > 500.0 || (g_timing && ms >= 1.0)) {
+			char b[64];
+			std::snprintf(b, sizeof(b), " took %.0f ms", ms);
+			Log("slow: " + WherePath(_depth + 1) + b);
+		}
+		g_stepDepth = _depth;
+	}
+
+	Timed::Timed(std::string a_name) :
+		_name(std::move(a_name)),
+		_t0(std::chrono::steady_clock::now())
+	{}
+
+	Timed::~Timed()
+	{
+		const auto ms = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - _t0).count() / 1000.0;
+		if (ms > 1000.0 || (g_timing && ms >= 1.0)) {
+			char b[64];
+			std::snprintf(b, sizeof(b), " took %.0f ms", ms);
+			Log("slow (background): " + _name + b);
+		}
 	}
 }
 
@@ -199,6 +273,15 @@ namespace
 		}
 		Log(std::string("ReSaver++ ") + RESAVERPP_VERSION + " starting; Windows " + std::to_string(vi.dwMajorVersion) + "." + std::to_string(vi.dwMinorVersion) +
 			" build " + std::to_string(vi.dwBuildNumber) + "; exe " + platform::ToUtf8(std::filesystem::path(exe)));
+#else
+		// (tests on Linux: RESAVERPP_STARTUP_LOG=<file> writes the same log)
+		if (const char* p = std::getenv("RESAVERPP_STARTUP_LOG")) {
+			if (FILE* f = std::fopen(p, "wb")) {
+				std::fclose(f);
+				g_logPath = p;
+			}
+			Log(std::string("ReSaver++ ") + RESAVERPP_VERSION + " starting (Linux)");
+		}
 #endif
 	}
 
@@ -376,6 +459,8 @@ int RunApp(int argc, char** argv)
 	SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
 	OpenLog();
 	SetUnhandledExceptionFilter(OnCrash);
+#else
+	OpenLog();
 #endif
 	static std::string glfwError;
 	glfwSetErrorCallback([](int a_code, const char* a_text) {
@@ -534,9 +619,13 @@ int RunApp(int argc, char** argv)
 	int titleTheme = -1;  // the theme the title bar was last matched to
 #endif
 	while (!app.wantsQuit()) {
+		// (each part between two frames is named: a freeze report then says which one; moving or resizing the
+		// window with the mouse keeps Windows inside "window messages" until the button is let go)
+		watchdog::Section("window messages (glfwPollEvents)");
 		glfwPollEvents();
 #ifdef _WIN32
 		if (static_cast<int>(theme::Current()) != titleTheme) {
+			watchdog::Section("title bar colours (DwmSetWindowAttribute)");
 			titleTheme = static_cast<int>(theme::Current());
 			MatchTitleBar(window);
 		}
@@ -546,14 +635,17 @@ int RunApp(int argc, char** argv)
 			app.requestQuit();
 		}
 		if (!g_dropped.empty()) {
+			watchdog::Section("opening a file dropped on the window");
 			app.openAny(platform::FromUtf8(g_dropped.back()));
 			g_dropped.clear();
 		}
 		if (glfwGetWindowAttrib(window, GLFW_ICONIFIED)) {
+			watchdog::Alive("minimized (not drawing)");
 			ImGui_ImplGlfw_Sleep(50);
 			continue;
 		}
 
+		watchdog::Section("new frame (ImGui / GLFW)");
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
@@ -568,6 +660,29 @@ int RunApp(int argc, char** argv)
 				if (drawn == 90 && std::getenv("RESAVERPP_TEST_HANG")) {  // test: the freeze detector
 					watchdog::Section("test hang");
 					std::this_thread::sleep_for(std::chrono::seconds(std::atoi(std::getenv("RESAVERPP_TEST_HANG"))));
+				}
+				// test: open saves as a click in File > Open would, while the window runs ("a.ess;b.ess": the second one 5 s
+				// after the first, as a player picking another save)
+				if (const char* later = std::getenv("RESAVERPP_TEST_OPEN_LATER")) {
+					static std::vector<std::string> list = [&] {
+						std::vector<std::string> v;
+						std::string               s = later;
+						for (std::size_t a = 0, b; a <= s.size(); a = b + 1) {
+							b = std::min(s.find(';', a), s.size());
+							if (b > a) {
+								v.push_back(s.substr(a, b - a));
+							}
+						}
+						return v;
+					}();
+					static double nextAt = 3.0;
+					static std::size_t nextIdx = 0;
+					if (nextIdx < list.size() && glfwGetTime() >= nextAt) {
+						watchdog::Section("test: opening a save");
+						Log("test: opening " + list[nextIdx]);
+						app.testOpenFromGallery(platform::FromUtf8(list[nextIdx++]));
+						nextAt = glfwGetTime() + 5.0;
+					}
 				}
 				app.draw();
 				watchdog::Section("drawing the frame (ImGui / OpenGL)");
@@ -595,6 +710,7 @@ int RunApp(int argc, char** argv)
 				ImGui::End();
 			}
 		}
+		watchdog::Section("drawing the frame (ImGui / OpenGL)");
 		ImGui::Render();
 
 		int w, h;
@@ -618,6 +734,7 @@ int RunApp(int argc, char** argv)
 			}
 			break;
 		}
+		watchdog::Section("showing the frame (glfwSwapBuffers)");
 		glfwSwapBuffers(window);
 		watchdog::FrameDone();
 		if (++drawn == 60) {
@@ -636,6 +753,7 @@ int RunApp(int argc, char** argv)
 			if (next < now - 0.25) {
 				next = now;  // far behind (a long frame): do not try to catch up
 			}
+			watchdog::Section("waiting for the next frame (glfwWaitEventsTimeout)");
 			while (now < next) {
 				glfwWaitEventsTimeout(next - now);
 				now = glfwGetTime();

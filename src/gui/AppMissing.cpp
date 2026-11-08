@@ -3,6 +3,7 @@
 // opened, and their leftovers removed after the player confirms (each through the same safety checks
 // as "Remove mod from save"), into a new save file.
 #include "App.h"
+#include "Watchdog.h"
 
 #include "Platform.h"
 #include "Theme.h"
@@ -15,6 +16,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <optional>
 #include <cctype>
 #include <cstdio>
 #include <set>
@@ -83,11 +85,15 @@ bool App::matchProfileToSave()
 	// this setup first, then the other Mod Organizer setups for the same game
 	std::vector<Mo2Instance> setups{ *_mo2 };
 	std::error_code          ec;
-	for (auto& m : FindMo2Instances({ platform::ExeFolder() })) {
-		if (Lower(m.gameName) == Lower(_mo2->gameName) && m.ini != _mo2->ini && std::filesystem::is_directory(m.modsDir, ec)) {
-			setups.push_back(std::move(m));
+	{
+		watchdog::Step st("FindMo2Instances");
+		for (auto& m : FindMo2Instances({ platform::ExeFolder() })) {
+			if (Lower(m.gameName) == Lower(_mo2->gameName) && m.ini != _mo2->ini && std::filesystem::is_directory(m.modsDir, ec)) {
+				setups.push_back(std::move(m));
+			}
 		}
 	}
+	watchdog::Step scoreStep("each profile's plugins.txt");
 	const double current = score(*_mo2, _profile);
 	double       best = current;
 	std::size_t  bestSetup = 0;
@@ -155,7 +161,11 @@ void App::checkMissingPlugins()
 		txt = loadorder::GamePluginsTxt(_game, _save && _save->isLE());
 		_missingSource = _vortex ? tr("your load order (Vortex)") : tr("your load order");
 	}
+	std::optional<watchdog::Step> step;
+	step.emplace("reading the load order");
 	const auto active = loadorder::Read(txt, gameFolder(), _game);
+	step.reset();
+	step.emplace("scripts not installed");
 	// scripts whose compiled file is nowhere: not in any mod (enabled or not) and not in the game's own
 	// archives. Only when the game's Data folder was scanned too, or every vanilla script would count.
 	//  - "missing": the save itself says the game could not load it either (it writes an empty parent
@@ -215,6 +225,8 @@ void App::checkMissingPlugins()
 		_missingSource = tr("your load order");
 		return;  // no load order to compare plugins with (missing scripts can still be listed)
 	}
+	step.reset();
+	step.emplace("the installed plugins' files");
 	_missingFile = active.file;
 	std::vector<std::string> all = _save->plugins.full;
 	all.insert(all.end(), _save->plugins.lite.begin(), _save->plugins.lite.end());
@@ -259,6 +271,8 @@ void App::checkMissingPlugins()
 	if (_missing.empty()) {
 		return;
 	}
+	step.reset();
+	step.emplace("what is left of each missing mod");
 	// what is left of each in the save
 	for (const auto& c : _save->changeForms) {
 		const auto plugin = Lower(_save->pluginOf(_save->formIDOf(c.refID)));
@@ -277,6 +291,8 @@ void App::checkMissingPlugins()
 			}
 		}
 	}
+	step.reset();
+	step.emplace("renamed plugins");
 	// renamed rather than removed (Mod.esp -> Mod.esl, ...): offer to point the save at the new name instead
 	{
 		std::vector<std::string> enabled;

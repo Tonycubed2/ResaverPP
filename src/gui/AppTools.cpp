@@ -2,6 +2,7 @@
 // App features: plugin names, form lookup, decoded change forms, Reset Havok / Purify
 // FormLists, batch clean, compare, reports and the save-folder watcher.
 #include "App.h"
+#include "Watchdog.h"
 
 #include "Platform.h"
 #include "Theme.h"
@@ -166,6 +167,7 @@ void App::startNames(bool a_force)
 		_dbProgress->cancel = true;
 	}
 	if (_dbThread.joinable()) {
+		watchdog::Step st("waiting for the previous plugin names reading to stop");
 		_dbThread.join();
 	}
 	_dbKey = key;
@@ -173,8 +175,11 @@ void App::startNames(bool a_force)
 	_dbProgress = std::make_unique<PluginDB::Progress>();
 	_dbBuilding = std::make_unique<PluginDB>();
 	auto in = std::make_shared<PluginDB::Input>();
-	PrepareInput(*_save, *in);
-	in->sources = _sources;
+	{
+		watchdog::Step st("PrepareInput + copy of the mods list");
+		PrepareInput(*_save, *in);
+		in->sources = _sources;
+	}
 	in->language = gameLanguage();
 	in->fo4 = _save->isFO4();
 	_dbThread = std::thread([this, in] {
@@ -1009,6 +1014,7 @@ void App::pollWatch()
 		return;
 	}
 	_watchNext = now + 1.5;
+	watchdog::Step st("looking for new saves (watch)");
 	std::error_code ec;
 	for (const auto& dir : watchFolders()) {
 		for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {

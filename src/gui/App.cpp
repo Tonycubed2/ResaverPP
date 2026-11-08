@@ -105,7 +105,12 @@ void App::open(const std::filesystem::path& a_path)
 	const auto t0 = std::chrono::steady_clock::now();
 	auto       ms = [&] { return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count(); };
 	try {
-		auto s = SaveFile::load(a_path);
+		watchdog::Step openStep("open");
+		std::unique_ptr<SaveFile> s;
+		{
+			watchdog::Step st("reading the save file");
+			s = SaveFile::load(a_path);
+		}
 		if (!s->papyrus()) {
 			throw std::runtime_error(tr("the save has no Papyrus section"));
 		}
@@ -165,23 +170,38 @@ void App::open(const std::filesystem::path& a_path)
 			_shotW = static_cast<int>(h.shotWidth);
 			_shotH = static_cast<int>(h.shotHeight);
 		}
-		_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
+		{
+			watchdog::Step st("checking the save (ops::Analyze)");
+			_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
+		}
 		_modsDirty = true;
 		_leftoversDirty = true;
-		recordHistory();
+		{
+			watchdog::Step st("save history");
+			recordHistory();
+		}
 		if (!_settingsLoaded) {
 			loadSettings();
 		}
 		// Mod Organizer: use the profile this save was played with (the one remembered may be another)
-		const bool profileSwitched = matchProfileToSave();
+		bool profileSwitched = false;
+		{
+			watchdog::Step st("matchProfileToSave");
+			profileSwitched = matchProfileToSave();
+		}
 		if (!_sourcesPath.empty() && (!_sources.scanned() || profileSwitched)) {
+			watchdog::Step st("scanSources");
 			scanSources(platform::FromUtf8(_sourcesPath));  // checks again for missing mods when done
 		} else if (_autoNames && _sources.scanned()) {
+			watchdog::Step st("startNames");
 			startNames();
 		}
 		// the load order is known now: the banner shows at once (which mods are still installed is
 		// known when the scan of the mods is done; that can take a while inside Mod Organizer)
-		checkMissingPlugins();
+		{
+			watchdog::Step st("checkMissingPlugins");
+			checkMissingPlugins();
+		}
 		_status = tr("Loaded ") + platform::ToUtf8(a_path.filename()) + (_save->isFO4() ? tr("  (Fallout 4 save)") : "");
 		if (profileSwitched) {
 			_status += "  " + _detectNote;
@@ -191,6 +211,7 @@ void App::open(const std::filesystem::path& a_path)
 					   (_sourcesPath.empty() ? std::string("(not set)") : _sourcesPath) + (scanning() ? " (reading it now)" : ""));
 			// what the save is made of: everything for a Fallout 4 save (newer support, more questions), a summary
 			// for Skyrim
+			watchdog::Step st("describing the save for the log");
 			for (const auto& line : DescribeSave(*_save, _save->isFO4())) {
 				startupLog(std::string(_save->isFO4() ? "  fo4 " : "  ") + line);
 			}
@@ -3267,10 +3288,14 @@ void App::scanSources(const std::filesystem::path& a_root)
 	// the game really loads (and disabled mods are ignored).
 	std::vector<std::string> order;
 	std::filesystem::path    overwrite, gameData;
-	_mo2 = FindMo2Instance(a_root, mo2Inis());
+	{
+		watchdog::Step st("FindMo2Instance");
+		_mo2 = FindMo2Instance(a_root, mo2Inis());
+	}
 	_vortex.reset();
 	if (!_mo2) {
 		// Vortex: the staging folder, the game folder or its Data folder all lead to the deployment manifest
+		watchdog::Step st("FindVortexDeployment");
 		_vortex = FindVortexDeployment(a_root);
 		if (_vortex && _gamePath.empty()) {
 			_gamePath = platform::ToUtf8(_vortex->dataPath.parent_path());
@@ -3289,6 +3314,7 @@ void App::scanSources(const std::filesystem::path& a_root)
 	// scan on a worker thread: reading hundreds of mod folders and their BSAs takes a while (much longer
 	// inside Mod Organizer's virtual file system), and the window must keep responding meanwhile
 	if (_scanThread.joinable()) {
+		watchdog::Step st("waiting for the previous mods scan to stop");
 		_scanProgress->cancel = true;
 		_scanThread.join();
 	}
@@ -3320,6 +3346,7 @@ void App::pollScan()
 	if (!_scanThread.joinable() || !_scanDone) {
 		return;
 	}
+	watchdog::Step pollStep("the mods scan is done");
 	_scanThread.join();
 	if (_scanProgress->cancel) {
 		return;
@@ -3332,16 +3359,23 @@ void App::pollScan()
 	_sources = std::move(*_scanResult);
 	_scanResult.reset();
 	_sourcesPath = platform::ToUtf8(a_root);
-	saveSettings();
+	{
+		watchdog::Step st("saveSettings");
+		saveSettings();
+	}
 	_modsDirty = true;
 	_rowsDirty = true;  // (the game's own scripts are marked * now)
 	if (_save && _autoNames) {
+		watchdog::Step st("startNames");
 		startNames(true);
 	}
 	_status = Fmt(tr("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)"), _sources.modsScanned,
 		_sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, _sources.bsasRead,
 		_sources.errors.empty() ? "" : Fmt(tr(", %zu unreadable"), _sources.errors.size()).c_str());
-	checkMissingPlugins();  // the load order and the installed mods are known now
+	{
+		watchdog::Step st("checkMissingPlugins");
+		checkMissingPlugins();  // the load order and the installed mods are known now
+	}
 	if (_pendingView) {
 		const auto v = *_pendingView;
 		_pendingView.reset();
@@ -3359,6 +3393,7 @@ void App::ensureMods()
 		return;
 	}
 	if (_modsDirty || !_mods) {
+		watchdog::Step st("the Mods table (mods::Build)");
 		_mods = std::make_unique<mods::Table>(mods::Build(*_save, _sources.empty() ? nullptr : &_sources));
 		_scriptTotals.clear();
 		for (const auto& r : _mods->rows) {
