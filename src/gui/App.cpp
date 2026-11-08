@@ -1116,6 +1116,10 @@ void App::draw()
 		watchdog::Section("drawCosave");
 		drawCosave();
 	}
+	if (_showCharFx && _save) {
+		watchdog::Section("drawCharEffects");
+		drawCharEffects();
+	}
 	if (_showBsa) {
 		watchdog::Section("drawBsa");
 		drawBsa();
@@ -1389,6 +1393,11 @@ void App::drawMenu()
 			shortcut(Sc::kSavesMgr);
 		}
 		tips::Tip(tr("All saves by character with size and date; delete old ones (with their .skse files) in bulk."));
+		if (ImGui::MenuItem(tr("Character effects (worn items, stuck effects)..."))) {
+			shortcut(Sc::kCharEffects);
+		}
+		tips::Tip(tr("A paper doll of what your character wears, every magic effect grouped by where it comes from, and the effects stuck "
+				  "on you (an enchantment of an item you no longer wear), with a button to remove them."));
 		if (ImGui::MenuItem(fo4() ? tr("F4SE co-save (.f4se)...") : tr("SKSE co-save (.skse)..."))) {
 			shortcut(Sc::kCosave);
 		}

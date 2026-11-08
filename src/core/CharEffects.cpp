@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <stdexcept>
 
 namespace ess::chfx
 {
@@ -59,7 +60,7 @@ namespace ess::chfx
 				return Slot::kUnknown;
 			}
 			if (a_w.type == "WEAP") {
-				return a_w.left ? Slot::kLeftHand : Slot::kRightHand;
+				return a_fo4 ? Slot::kWeapons : a_w.left ? Slot::kLeftHand : Slot::kRightHand;
 			}
 			if (!a_fo4 && a_w.type == "LIGH") {
 				return Slot::kLeftHand;  // a torch
@@ -120,8 +121,93 @@ namespace ess::chfx
 		}
 	}
 
-	const char* GroupName(Group a_group)
+	std::map<std::uint32_t, CreatedItem> CreatedObjects(const SaveFile& a_save)
 	{
+		std::map<std::uint32_t, CreatedItem> out;
+		if (a_save.isFO4()) {
+			return out;
+		}
+		for (const auto& g : a_save.table1) {
+			if (g.type != 4) {
+				continue;
+			}
+			const auto& d = g.raw;
+			std::size_t p = 0;
+			auto        need = [&](std::size_t n) {
+                if (p + n > d.size()) {
+                    throw std::out_of_range("created objects");
+                }
+			};
+			auto u8 = [&]() -> std::uint32_t {
+				need(1);
+				return d[p++];
+			};
+			auto u32 = [&]() {
+				need(4);
+				std::uint32_t v;
+				std::memcpy(&v, d.data() + p, 4);
+				p += 4;
+				return v;
+			};
+			auto vs = [&]() {
+				const auto b0 = u8();
+				std::uint32_t v = b0;
+				if ((b0 & 3) == 1) {
+					v |= u8() << 8;
+				} else if ((b0 & 3) == 2) {
+					v |= u8() << 8;
+					v |= u8() << 16;
+					v |= u8() << 24;
+				}
+				return v >> 2;
+			};
+			auto ref = [&]() {
+				RefID r;
+				r.data = u8() << 16;
+				r.data |= u8() << 8;
+				r.data |= u8();
+				return r.data ? a_save.formIDOf(r) : 0u;
+			};
+			try {
+				for (int t = 0; t < 4; ++t) {
+					const auto n = vs();
+					for (std::uint32_t i = 0; i < n; ++i) {
+						CreatedItem c;
+						c.table = t;
+						const auto id = ref();
+						u32();
+						const auto k = vs();
+						for (std::uint32_t j = 0; j < k; ++j) {
+							c.effects.push_back(ref());
+							const auto m = u32();
+							float      f;
+							std::memcpy(&f, &m, 4);
+							c.magnitudes.push_back(f);
+							u32();
+							u32();
+							u32();
+						}
+						out[id] = std::move(c);
+					}
+				}
+			} catch (const std::exception&) {
+				return {};
+			}
+			if (p != d.size()) {
+				return {};  // not the layout above: nothing is taken from it
+			}
+		}
+		return out;
+	}
+
+	const char* GroupName(Group a_group, bool a_fo4)
+	{
+		if (a_fo4 && a_group == Group::kAbilities) {
+			return "Abilities (race, perks, mods)";
+		}
+		if (a_fo4 && a_group == Group::kConsumables) {
+			return "Chems, food and drink";
+		}
 		switch (a_group) {
 		case Group::kWorn: return "Worn items";
 		case Group::kNotWorn: return "Items not worn";
@@ -155,6 +241,7 @@ namespace ess::chfx
 		case Slot::kRightLeg: return "Right leg";
 		case Slot::kNeck: return "Neck";
 		case Slot::kPipBoy: return "Pip-Boy";
+		case Slot::kWeapons: return "Weapons";
 		case Slot::kOther: return "Other slots";
 		case Slot::kUnknown: return "Slot not known";
 		default: return "";
@@ -166,7 +253,7 @@ namespace ess::chfx
 		static const std::vector<Slot> sky = { Slot::kHead, Slot::kAmulet, Slot::kBody, Slot::kHands, Slot::kRing, Slot::kFeet, Slot::kRightHand,
 			Slot::kLeftHand, Slot::kShield, Slot::kAmmo };
 		static const std::vector<Slot> f4 = { Slot::kHead, Slot::kNeck, Slot::kBody, Slot::kChest, Slot::kLeftArm, Slot::kRightArm, Slot::kHands,
-			Slot::kRing, Slot::kLeftLeg, Slot::kRightLeg, Slot::kRightHand, Slot::kPipBoy };
+			Slot::kRing, Slot::kLeftLeg, Slot::kRightLeg, Slot::kWeapons, Slot::kPipBoy };
 		return a_fo4 ? f4 : sky;
 	}
 
@@ -182,6 +269,10 @@ namespace ess::chfx
 			}
 		}
 		if ((a_id >> 24) == 0xFF) {
+			if (const auto ci = createdItems.find(a_id); ci != createdItems.end()) {
+				static const char* const kinds[4] = { "weapon enchantment", "armor enchantment", "potion", "poison" };
+				return Fmt("%08X (%s made in game)", a_id, kinds[ci->second.table & 3]);
+			}
 			if (const auto it = created.find(a_id); it != created.end()) {
 				return Fmt("%08X (%s made in game)", a_id, it->second.c_str());
 			}
@@ -198,7 +289,7 @@ namespace ess::chfx
 		v.db = a_options.db;
 		v.save = &a_save;
 		const auto* db = a_options.db;
-		std::set<std::uint32_t> inventoryItems;  // everything the player carries
+		auto& inventoryItems = v.carried;
 		for (const auto& c : a_save.changeForms) {
 			if (c.refID.type() == RefID::Type::kCreated) {
 				v.created[a_save.formIDOf(c.refID)] = ChangeFormTypeName(c.typeCode(), v.fo4);
@@ -220,6 +311,7 @@ namespace ess::chfx
 				return v;
 			}
 			const auto d = cf::Decode(a_save, *pc);
+			v.createdItems = CreatedObjects(a_save);
 			std::map<std::pair<std::uint32_t, bool>, std::size_t> wornAt;
 			for (const auto& st : d.stacks) {
 				inventoryItems.insert(st.item);
@@ -252,20 +344,32 @@ namespace ess::chfx
 				x.duration = e.duration;
 				x.flags = e.flags;
 				ReadRefs(a_save, e.data.data(), e.data.size(), x);
-				if (db) {
+				if (const auto ci = v.createdItems.find(e.magicItem); ci != v.createdItems.end()) {
+					if (e.effectIndex < ci->second.effects.size()) {
+						x.mgef = ci->second.effects[e.effectIndex];  // made in game: its effects are in the save
+					}
+				} else if (db) {
 					if (const auto* fx = db->effects(e.magicItem); fx && e.effectIndex < fx->size()) {
 						x.mgef = (*fx)[e.effectIndex].effect;
-						if (const auto* m = db->magicEffect(x.mgef)) {
-							x.actorValue = m->actorValue;
-						}
+					}
+				}
+				if (db && x.mgef) {
+					if (const auto* m = db->magicEffect(x.mgef)) {
+						x.actorValue = m->actorValue;
 					}
 				}
 				const int slot = cf::ActiveEffectModifier(e);
 				x.stat = slot >= 0 && e.magnitude != 0;
 				if (x.stat && x.actorValue < 0) {
 					x.canRemove = false;
-					x.why = "it changes a stat, and which one is in its plugin (" + a_save.pluginOf(e.magicItem) +
-					        (db ? "), which was not read" : "): load the plugin names first");
+					if (!x.mgef) {
+						x.why = (e.magicItem >> 24) == 0xFF ? "it changes a stat, and which one is not known (an item made in game whose effects the save does not list)"
+						                                    : "it changes a stat, and which one is in its plugin (" + a_save.pluginOf(e.magicItem) +
+						                                          (db ? "), which was not read" : "): load the plugin names first");
+					} else {
+						x.why = Fmt("it changes a stat, and which one is in its magic effect %08X (%s)", x.mgef,
+							db ? (a_save.pluginOf(x.mgef) + ", not read").c_str() : "load the plugin names first");
+					}
 				} else if (x.stat) {
 					x.why = Fmt("%s %+g (%s)", cf::ActorValueName(static_cast<std::uint32_t>(x.actorValue)), -e.magnitude, slot ? "temporary" : "permanent");
 				}
@@ -337,9 +441,29 @@ namespace ess::chfx
 			}
 		}
 
+		v.pluginOf = [&a_save](std::uint32_t a_id) { return a_save.pluginOf(a_id); };
+		for (const auto* list : { &a_save.plugins.full, &a_save.plugins.lite }) {
+			v.savePlugins.insert(v.savePlugins.end(), list->begin(), list->end());
+		}
+		Classify(v, a_options);
+		v.pluginOf = nullptr;  // a_save may not outlive the view
+		return v;
+	}
+
+	void Classify(View& v, const Options& a_options)
+	{
+		const auto* db = a_options.db;
+		v.db = db;
+		v.cards.clear();
+		v.stuck.clear();
+		v.loadOrderChecked = false;
+		v.loadOrderOther = false;
+		const auto& inventoryItems = v.carried;
+		auto        pluginOf = [&v](std::uint32_t a_id) { return v.pluginOf ? v.pluginOf(a_id) : std::string(); };
 		// ---- worn items: type, slots, enchantment from the plugins ----
 		std::set<std::uint32_t> wornItems, wornEnch;
 		for (auto& w : v.worn) {
+			w.effects = 0;
 			bool hasBiped = false;
 			if (const auto* f = db ? db->find(w.item) : nullptr) {
 				w.type = db->type(*f);
@@ -365,7 +489,8 @@ namespace ess::chfx
 		for (std::size_t i = 0; i < v.effects.size(); ++i) {
 			const auto& e = v.effects[i];
 			const auto* f = db ? db->find(e.item) : nullptr;
-			const auto  type = f ? db->type(*f) : std::string();
+			const auto  ci = v.createdItems.find(e.item);
+			const auto  type = f ? db->type(*f) : ci != v.createdItems.end() ? std::string(ci->second.table < 2 ? "ENCH" : "ALCH") : std::string();
 			const bool  other = e.caster && e.caster != kPlayer;
 			const bool  ench = e.fromItem() || type == "ENCH";
 			const auto  key = std::make_pair(e.item, ench || other ? e.source : 0u);
@@ -375,14 +500,16 @@ namespace ess::chfx
 				c.item = e.item;
 				c.source = key.second;
 				c.type = type;
-				c.known = f != nullptr;
+				c.known = f != nullptr || ci != v.createdItems.end();
 				c.spellType = f ? f->spellType : 0xFF;
-				c.plugin = a_save.pluginOf(e.item);
+				c.plugin = pluginOf(e.item);
 				c.sourceWorn = c.source && wornItems.contains(c.source);
 				if (other) {
 					c.group = Group::kOthers;
 				} else if (ench) {
 					c.group = c.sourceWorn || wornEnch.contains(e.item) ? Group::kWorn : Group::kNotWorn;
+				} else if (!f && type == "ALCH") {
+					c.group = Group::kConsumables;  // a potion or poison made in game
 				} else if (!f) {
 					c.group = Group::kUnknown;
 				} else if (type == "SPEL") {
@@ -432,6 +559,9 @@ namespace ess::chfx
 			if (ef && db->type(*ef) == "ENCH" && ef->castType != 0xFF && ef->castType != 0) {
 				continue;  // not a constant effect (a weapon's enchantment works on hits)
 			}
+			if (const auto ci = v.createdItems.find(c.item); ci != v.createdItems.end() && ci->second.table == 0) {
+				continue;  // a weapon enchantment made in game (works on hits)
+			}
 			Finding fd;
 			fd.kind = Stuck::kNotWorn;
 			fd.card = ci;
@@ -465,13 +595,12 @@ namespace ess::chfx
 			v.loadOrderNote = "the current load order is not known";
 		} else {
 			std::size_t in = 0, all = 0;
-			for (const auto* list : { &a_save.plugins.full, &a_save.plugins.lite }) {
-				for (const auto& p : *list) {
-					++all;
-					in += a_options.loadOrder->contains(Lower(p));
-				}
+			for (const auto& p : v.savePlugins) {
+				++all;
+				in += a_options.loadOrder->contains(Lower(p));
 			}
 			if (all && in * 2 < all) {
+				v.loadOrderOther = true;
 				v.loadOrderNote = Fmt("the current load order has only %zu of this save's %zu plugins (the save comes from another setup), so gone "
 									  "plugins are not reported",
 					in, all);
@@ -484,7 +613,7 @@ namespace ess::chfx
 						if (!id) {
 							continue;
 						}
-						const auto p = a_save.pluginOf(id);
+						const auto p = pluginOf(id);
 						if (p == "Created") {
 							continue;
 						}
@@ -508,7 +637,6 @@ namespace ess::chfx
 				}
 			}
 		}
-		return v;
 	}
 
 	std::string Remove(SaveFile& a_save, const View& a_view, const std::vector<std::size_t>& a_effects, std::vector<std::string>* a_changes)

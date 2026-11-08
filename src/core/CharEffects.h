@@ -23,6 +23,7 @@
 #include "Save.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -47,7 +48,7 @@ namespace ess::chfx
 		kUnknown,      // the magic item is not in the plugins read (plugin missing, or names not loaded)
 		kCount
 	};
-	const char* GroupName(Group a_group);  // English (the GUI translates)
+	const char* GroupName(Group a_group, bool a_fo4 = false);  // English (the GUI translates)
 
 	struct Effect
 	{
@@ -85,7 +86,7 @@ namespace ess::chfx
 	enum class Slot : std::uint8_t  // the doll's places (both games; each game uses its own)
 	{
 		kHead, kBody, kHands, kFeet, kAmulet, kRing, kShield, kRightHand, kLeftHand, kAmmo,  // Skyrim
-		kChest, kLeftArm, kRightArm, kLeftLeg, kRightLeg, kNeck, kPipBoy,                    // Fallout 4 (+ head, body, hands, ring, right hand)
+		kChest, kLeftArm, kRightArm, kLeftLeg, kRightLeg, kNeck, kPipBoy, kWeapons,          // Fallout 4 (+ head, body, hands, ring)
 		kOther,    // a slot the doll has no place for (tail, mod slots)
 		kUnknown,  // worn, but its slots are not known (plugin not read)
 		kCount
@@ -122,6 +123,19 @@ namespace ess::chfx
 		std::string   text;                // English, for the CLI, the Save check and the AI
 	};
 
+	// Skyrim's made-in-game enchantments, potions and poisons (FF forms): global data type 4 "Created Objects", four tables
+	// (weapon enchantments, armor enchantments, potions, poisons), each vsval n x {RefID, u32 times used, vsval k x {RefID
+	// MGEF, f32 magnitude, u32 duration, u32 area, f32 price}} (UESP's layout; read to the exact end of the block on
+	// trashgod69's save (14843 bytes: 17 + 31 + 211 + 97 items) and Tony's Save88/89/132; FF005BE4's 18 effects match
+	// the 18 active effects it gives, effect index 0..17). Empty when the block does not read exactly.
+	struct CreatedItem
+	{
+		int                        table = 0;  // 0 weapon enchantment, 1 armor enchantment, 2 potion, 3 poison
+		std::vector<std::uint32_t> effects;    // MGEF runtime form ids, by effect index
+		std::vector<float>         magnitudes;
+	};
+	std::map<std::uint32_t, CreatedItem> CreatedObjects(const SaveFile& a_save);
+
 	struct Options
 	{
 		const PluginDB*              db = nullptr;
@@ -138,14 +152,23 @@ namespace ess::chfx
 		std::vector<Worn>    worn;
 		std::vector<Finding> stuck;
 		bool                 loadOrderChecked = false;
+		bool                 loadOrderOther = false;  // not checked: the load order lacks most of the save's plugins
 		std::string          loadOrderNote;  // why the load order part was not checked
 		std::string          name(std::uint32_t a_id) const;  // in-game name, editor id, or the form id (+ "made in game")
 		const PluginDB*      db = nullptr;
 		const SaveFile*      save = nullptr;
 		std::map<std::uint32_t, std::string> created;  // FF forms the save has a change form for: their type ("ARMO")
+		std::set<std::uint32_t>              carried;  // every item in the player's inventory
+		std::map<std::uint32_t, CreatedItem> createdItems;  // Skyrim: CreatedObjects
+		std::vector<std::string>             savePlugins;  // the save's plugin lists (full, then light)
+		std::function<std::string(std::uint32_t)> pluginOf;  // set while classifying (SaveFile::pluginOf)
 	};
 
+	// Reads the player's effects and worn items from the save, then Classify.
 	View Build(const SaveFile& a_save, const Options& a_options);
+	// Groups the effects into cards, finds the worn items' slots and enchantments and the stuck effects, from
+	// View::effects, worn, carried, savePlugins and pluginOf (the unit test fills these by hand).
+	void Classify(View& a_view, const Options& a_options);
 
 	// Removes these effects (View::effects indexes) through the game's verified removal; the player's record is read
 	// again afterwards and must hold exactly that many fewer effects, else the change form is put back. a_changes: what

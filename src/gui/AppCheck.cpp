@@ -508,6 +508,7 @@ std::vector<App::CheckItem> App::checkItems()
 	// Fallout 4: companions, quests whose stage script stopped early (AppF4Companions.cpp)
 	appendCheckItemsF4(v);
 	cosaveCheck(v);  // data of SKSE / F4SE plugins no longer installed (AppCosave.cpp)
+	charFxCheck(v);  // effects stuck on the character (AppCharEffects.cpp)
 
 	std::stable_sort(v.begin(), v.end(), [](const CheckItem& a, const CheckItem& b) { return static_cast<int>(a.level) > static_cast<int>(b.level); });
 	return v;

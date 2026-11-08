@@ -298,6 +298,10 @@ void App::drawPlayerFO4()
 	const bool hFx = ImGui::CollapsingHeader(Fmt(tr("Active effects (%zu)###fx"), _f4Actor.effects.size()).c_str());
 	tips::Tip(tr("The effects running on the character: chems, food, radiation, perks' and gear's effects. Remove ones that are stuck; the stat they change is put back."));
 	if (hFx) {
+		if (ImGui::Button(tr("Open Character effects (worn items, by source, stuck ones)"))) {
+			shortcut(Sc::kCharEffects);
+		}
+		tips::Tip(tr("The same effects grouped by where they come from, with a paper doll of what you wear and the stuck ones at the top."));
 		auto* pcf = [this]() -> ChangeForm* {
 			const auto* pc = fo4cf::FindPlayer(*_save);
 			return pc ? _save->findChangeForm(pc->refID) : nullptr;

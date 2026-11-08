@@ -70,7 +70,7 @@ bool App::anyToolOpen() const
 {
 	return _showTransplant || _missingOpen || _orphansOpen || _showAnalysis || _purgeOpen || _showLookup || _showActors || _showPlayer ||
 	       _showCompare || _batchOpen || _reportOpen || _showArrays || _showViewer || _removeOpen || _showLeftovers || _showHistory ||
-	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets || _showArchive || _showCrashLog || _showBloat || _showLoCheck || _showCosave;
+	       _showPapyrusLog || _showSavesMgr || _showMerge || _showAssets || _showArchive || _showCrashLog || _showBloat || _showLoCheck || _showCosave || _showCharFx;
 }
 
 void App::goHome()
@@ -83,6 +83,7 @@ void App::goHome()
 	_showCrashLog = false;
 	_showBloat = _showLoCheck = false;
 	_showCosave = false;
+	_showCharFx = false;
 	if (_cat != Cat::kOverview) {
 		select(Cat::kOverview, 0);
 	}
@@ -226,6 +227,7 @@ void App::shortcut(Sc a_which)
 		_savesLoaded = false;
 		break;
 	case Sc::kCosave: _showCosave = true; break;
+	case Sc::kCharEffects: _showCharFx = true; break;
 	case Sc::kMerge: _showMerge = true; break;
 	case Sc::kFileConflicts: _showAssets = true; break;
 	case Sc::kOpenPex:
@@ -304,6 +306,10 @@ void App::drawHome()
 			{
 				{ Sc::kPlayer, tr("Edit player"), fo4() ? tr("caps, level, S.P.E.C.I.A.L., perks") : tr("gold, level, skills, stats, items, bounty"),
 					tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."), HomeRisk::kCaution, -1 },
+				{ Sc::kCharEffects, tr("Character effects"), tr("what you wear; effects stuck on you"),
+					tr("A paper doll of what your character wears with the effects each item gives, every effect grouped by where it comes "
+					"from, and the effects stuck on you (an enchantment of an item you no longer wear), with a button that removes them."),
+					HomeRisk::kCaution, -1 },
 				{ Sc::kActors, tr("Find NPCs"), tr("where they are; bring a lost follower to you"),
 					tr("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you."), HomeRisk::kCaution, -1 },
 				{ Sc::kGather, tr("Gather followers (running game)"), tr("all followers next to you, now"),

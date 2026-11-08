@@ -120,7 +120,7 @@ int CharEffectsMain(int argc, char** argv)
 			if (!n) {
 				continue;
 			}
-			std::printf("%s: %zu source(s), %zu effect(s)\n", chfx::GroupName(static_cast<chfx::Group>(g)), n, fx);
+			std::printf("%s: %zu source(s), %zu effect(s)\n", chfx::GroupName(static_cast<chfx::Group>(g), v.fo4), n, fx);
 			if (!all && (static_cast<chfx::Group>(g) != chfx::Group::kWorn && static_cast<chfx::Group>(g) != chfx::Group::kNotWorn)) {
 				continue;
 			}

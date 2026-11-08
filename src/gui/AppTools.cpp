@@ -1504,6 +1504,10 @@ void App::drawPlayer()
 	const bool hFx = ImGui::CollapsingHeader(Fmt(tr("Active magic effects (%zu)"), _pvFx.size()).c_str());
 	tips::Tip(tr("The magic effects on your character right now (enchantments, abilities, potions, diseases, mod effects). Remove ones stuck on you, e.g. from a ring you took off; the stat they changed is put back."));
 	if (hFx) {
+		if (ImGui::Button(tr("Open Character effects (worn items, by source, stuck ones)"))) {
+			shortcut(Sc::kCharEffects);
+		}
+		tips::Tip(tr("The same effects grouped by where they come from, with a paper doll of what you wear and the stuck ones at the top."));
 		ImGui::TextWrapped("%s", tr("What the game shows under Active Effects, and more (mods' hidden effects). Tick the ones to remove, then press "
 						   "Remove: each is taken off your character and the stat it changes is put back as if it had ended (Stats shows "
 						   "the result). For an effect that is stuck, e.g. from a ring or armor you no longer wear. An effect from "

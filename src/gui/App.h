@@ -3,6 +3,7 @@
 
 #include <array>
 #include "core/Lang.h"
+#include "core/CharEffects.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
 #include "core/WorkshopFO4.h"
@@ -283,6 +284,16 @@ private:
 	void                        drawCosave();
 	void                        cosaveCheck(std::vector<CheckItem>& a_items);  // the Save check line
 	void                        cosaveClean(const std::set<std::uint32_t>& a_uids, bool a_papu);
+
+	// Character effects: paper doll, effects by source, stuck effects (AppCharEffects.cpp, core/CharEffects.h)
+	struct CharFxView;
+	std::shared_ptr<CharFxView> _cfx;
+	bool                        _showCharFx = false;
+	CharFxView&                 charFx();  // read again when the save, its edits or the plugin names change
+	void                        drawCharEffects();
+	void                        charFxCheck(std::vector<CheckItem>& a_items);  // the Save check line
+	void                        charFxRemove(const std::vector<std::size_t>& a_effects, const std::string& a_what);
+	static std::string          charFxFindingText(const ess::chfx::View& a_v, const ess::chfx::Finding& a_f);
 
 	// Transplant (AppTransplant.cpp)
 	void                   drawTransplant();
@@ -630,7 +641,8 @@ private:
 		kLeftovers, kHistory, kPapyrusLog, kSavesMgr, kMerge, kFileConflicts, kCrashLog, kSkyrimLogs, kAskAi, kBsa, kCollectLogs,
 		kLiveGame, kGather,
 		kBloat, kLoadOrderCheck,  // AppF4Bloat.cpp
-		kCosave                   // AppCosave.cpp
+		kCosave,                  // AppCosave.cpp
+		kCharEffects              // AppCharEffects.cpp
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	// a Fallout 4 save is open: the tools built on Skyrim's data (its change forms, plugins, mods, logs) are off
