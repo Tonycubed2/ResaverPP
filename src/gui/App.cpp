@@ -3052,6 +3052,8 @@ void App::loadSettings()
 			loadAiSetting(line);
 		} else if (line.rfind("live=", 0) == 0) {
 			_liveEnabled = line.substr(5) != "0";
+		} else if (line.rfind("compile_logs_keep=", 0) == 0) {
+			_compileLogsKeep = std::clamp(std::atoi(line.c_str() + 18), 0, 1000);
 		} else if (line.rfind("live_notify=", 0) == 0) {
 			_liveNotify = std::clamp(std::atoi(line.substr(12).c_str()), 0, 2);
 		} else if (line.rfind("language=", 0) == 0) {
@@ -3166,6 +3168,7 @@ void App::saveSettings()
 	f << "language=" << i18n::Current() << "\n";
 	f << "live=" << (_liveEnabled ? 1 : 0) << "\n";
 	f << "live_notify=" << _liveNotify << "\n";
+	f << "compile_logs_keep=" << _compileLogsKeep << "\n";
 	saveAiSettings(f);
 	f << "gallery_list=" << (_galleryList ? 1 : 0) << "\n";
 	f << "decompile_always=" << (_decompileAlways ? 1 : 0) << "\n";

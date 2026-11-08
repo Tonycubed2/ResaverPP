@@ -555,6 +555,7 @@ private:
 	LiveLink                              _live;
 	bool                                  _liveEnabled = true;
 	int                                   _liveNotify = 0;  // 0 notification, 1 message box, 2 none
+	int                                   _compileLogsKeep = 20;  // compile logs kept in "Compile logs" (0: only PapyrusCompileLog.txt)
 	std::vector<ess::quests::QuestState>  _questStates;
 	std::uint64_t                         _questGen = UINT64_MAX;
 	char                                  _questFilter[128] = "";

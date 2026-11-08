@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <fstream>
 #include <thread>
+#include <cstring>
 #include <ctime>
 #include <unordered_set>
 
@@ -57,6 +58,7 @@ struct ScriptDoc
 	std::string                           summary, commandLine;
 	std::string                           compileLog;  // the whole report of the last compile (PapyrusCompileLog.txt)
 	std::filesystem::path                 compileLogFile;
+	std::filesystem::path                 compileLogKept;  // this compile's own copy in "Compile logs" (empty: none)
 	int                                   threadLine = -1;
 	bool                                  showOutline = true;
 	float                                 zoom = 1.0f;
@@ -104,6 +106,59 @@ namespace
 		ImGui::PopStyleColor();
 	}
 
+
+	// "Compile logs" next to the program: one report per compile, named so they sort by time
+	std::filesystem::path CompileLogsFolder()
+	{
+		return platform::SettingsFile().parent_path() / "Compile logs";
+	}
+
+	// Writes this compile's report as "<date> <time> - <script> - OK|FAILED.txt" and removes the oldest reports beyond a_keep.
+	// Returns the file written (empty if it could not be written).
+	std::filesystem::path WriteKeptCompileLog(const std::filesystem::path& a_dir, const CompileJob& a_job, bool a_ok, const std::string& a_log,
+		std::size_t a_keep)
+	{
+		std::error_code ec;
+		std::filesystem::create_directories(a_dir, ec);
+		char        when[32] = "unknown";
+		std::tm     tm{};
+#ifdef _WIN32
+		localtime_s(&tm, &a_job.started);
+#else
+		localtime_r(&a_job.started, &tm);
+#endif
+		std::strftime(when, sizeof(when), "%Y-%m-%d %H-%M-%S", &tm);
+		std::string script = a_job.script;
+		for (auto& c : script) {
+			if (std::strchr("<>:\"/\\|?*", c) || static_cast<unsigned char>(c) < 32) {
+				c = '_';
+			}
+		}
+		const std::string base = std::string(when) + " - " + script + (a_ok ? " - OK" : " - FAILED");
+		auto file = a_dir / platform::FromUtf8(base + ".txt");
+		for (int n = 2; std::filesystem::exists(file, ec) && n < 1000; ++n) {  // two compiles in the same second
+			file = a_dir / platform::FromUtf8(base + " (" + std::to_string(n) + ").txt");
+		}
+		{
+			std::ofstream f(file, std::ios::binary | std::ios::trunc);
+			f << a_log;
+			if (!f) {
+				return {};
+			}
+		}
+		// keep the newest a_keep: the names start with the date and time, so name order is time order
+		std::vector<std::filesystem::path> logs;
+		for (const auto& e : std::filesystem::directory_iterator(a_dir, ec)) {
+			if (e.is_regular_file(ec) && e.path().extension() == ".txt") {
+				logs.push_back(e.path());
+			}
+		}
+		std::sort(logs.begin(), logs.end());
+		for (std::size_t i = 0; logs.size() > a_keep && i < logs.size() - a_keep; ++i) {
+			std::filesystem::remove(logs[i], ec);
+		}
+		return file;
+	}
 
 	// The whole report of a compile, for PapyrusCompileLog.txt, Copy and Save as
 	std::string BuildCompileLog(const CompileJob& a_job, const papc::Result& a_r, const std::string& a_summary)
@@ -1301,6 +1356,11 @@ void App::pollCompile()
 			d.compileLogFile.clear();
 		}
 	}
+	// and a copy of its own in "Compile logs", so earlier reports are not lost; only the newest _compileLogsKeep are kept
+	d.compileLogKept.clear();
+	if (_compileLogsKeep > 0) {
+		d.compileLogKept = WriteKeptCompileLog(CompileLogsFolder(), *job, r.ok, d.compileLog, static_cast<std::size_t>(_compileLogsKeep));
+	}
 	_status = d.summary;
 }
 
@@ -1356,6 +1416,35 @@ void App::drawCompileResults()
 			tips::Tipf(tr("Every compile also writes its report to\n%s\n(replaced by the next compile)."), platform::ToUtf8(d.compileLogFile).c_str());
 			ImGui::SameLine();
 			ImGui::TextDisabled(tr("also in %s"), platform::ToUtf8(d.compileLogFile.filename()).c_str());
+		}
+		// earlier compiles' reports: a copy of each in "Compile logs", the newest N kept
+		ImGui::SameLine();
+		if (ImGui::SmallButton(tr("Earlier logs"))) {
+			std::error_code ec;
+			std::filesystem::create_directories(CompileLogsFolder(), ec);
+			platform::OpenWithDefaultApp(CompileLogsFolder());
+		}
+		tips::Tipf(tr("Open the \"Compile logs\" folder. Every compile writes its report there too, as its own file named with the date, time, "
+		              "script and result (for example \"2026-11-07 23-10-05 - MyQuestScript - FAILED.txt\"), so a new compile never "
+		              "overwrites an earlier report and you do not have to rename anything.\n\nOnly the newest ones are kept (the number "
+		              "next to this button), so the folder cannot fill your disk: when there are more, the oldest are deleted. Set it to 0 "
+		              "to keep no copies (then only %s is written, replaced by each compile).\n\n%s"),
+			platform::ToUtf8(d.compileLogFile.empty() ? std::filesystem::path("PapyrusCompileLog.txt") : d.compileLogFile.filename()).c_str(),
+			platform::ToUtf8(CompileLogsFolder()).c_str());
+		ImGui::SameLine();
+		ImGui::TextUnformatted(tr("keep"));
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 6.0f);
+		int keep = _compileLogsKeep;
+		if (ImGui::InputInt("##keeplogs", &keep, 5, 20)) {
+			_compileLogsKeep = std::clamp(keep, 0, 1000);
+			saveSettings();
+		}
+		tips::Tip(tr("How many compile reports to keep in the \"Compile logs\" folder (0 to 1000). 0: keep none, only the newest report "
+		             "in PapyrusCompileLog.txt. The oldest are deleted when there are more. A report is a few KB."));
+		if (!d.compileLogKept.empty()) {
+			ImGui::SameLine();
+			ImGui::TextDisabled(tr("this one: %s"), platform::ToUtf8(d.compileLogKept.filename()).c_str());
 		}
 	}
 	// three parts, each with a bar under it to drag: the errors, what the compiler printed, the command line

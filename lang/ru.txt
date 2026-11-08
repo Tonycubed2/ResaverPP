@@ -159,7 +159,7 @@ tr "Строки"
 
 # App.cpp:41  case App::Cat::kScripts: return N_("Scripts");
 # App.cpp:2535  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
-# App.cpp:3448  ImGui::TableSetupColumn(tr("Scripts"), ImGuiTableColumnFlags_PreferSortDescending, 70);
+# App.cpp:3451  ImGui::TableSetupColumn(tr("Scripts"), ImGuiTableColumnFlags_PreferSortDescending, 70);
 en "Scripts"
 tr "Скрипты"
 
@@ -216,7 +216,7 @@ en "  -  READ-ONLY (damaged save: see the Save check)"
 tr "  -  ТОЛЬКО ЧТЕНИЕ (сохранение повреждено: см. проверку сохранения)"
 
 # App.cpp:205  _error = std::string(tr("Could not open ")) + platform::ToUtf8(a_path.filename()) + ":\n\n" + e.what();
-# AppScripts.cpp:447  _error = tr("Could not open ") + a_script + ":\n\n" + e.what();
+# AppScripts.cpp:502  _error = tr("Could not open ") + a_script + ":\n\n" + e.what();
 en "Could not open "
 tr "Не удалось открыть "
 
@@ -430,7 +430,7 @@ tr "Посмотреть файлы в архиве BSA мода или игры
 
 # App.cpp:1229  if (ImGui::MenuItem(tr("Save"), "Ctrl+S", false, _save != nullptr)) {
 # App.cpp:2700  if (ImGui::Button(tr("Save"), ImVec2(120, 0))) {
-# AppScripts.cpp:668  if (ImGui::Button(tr("Save")) || (keys && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))) {
+# AppScripts.cpp:723  if (ImGui::Button(tr("Save")) || (keys && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))) {
 en "Save"
 tr "Сохранить"
 
@@ -686,7 +686,7 @@ en "A text report of the save: which mods and scripts take the most space and ru
 tr "Текстовый отчёт о сохранении: какие моды и скрипты занимают больше всего места и чаще всего выполняются."
 
 # App.cpp:1351  if (ImGui::MenuItem(tr("Report..."))) {
-# App.cpp:3633  if (ImGui::Button(tr("Report..."))) {
+# App.cpp:3636  if (ImGui::Button(tr("Report..."))) {
 en "Report..."
 tr "Отчёт..."
 
@@ -1328,8 +1328,8 @@ en "(nothing)"
 tr "(ничего)"
 
 # App.cpp:2098  KV(tr("Instances"), std::to_string(n));
-# App.cpp:3449  ImGui::TableSetupColumn(tr("Instances"), ImGuiTableColumnFlags_PreferSortDescending, 80);
-# App.cpp:3659  ImGui::TableSetupColumn(tr("Instances"), ImGuiTableColumnFlags_PreferSortDescending, 75, 1);
+# App.cpp:3452  ImGui::TableSetupColumn(tr("Instances"), ImGuiTableColumnFlags_PreferSortDescending, 80);
+# App.cpp:3662  ImGui::TableSetupColumn(tr("Instances"), ImGuiTableColumnFlags_PreferSortDescending, 75, 1);
 en "Instances"
 tr "Экземпляры"
 
@@ -1588,8 +1588,8 @@ en "Thread"
 tr "Поток"
 
 # App.cpp:2403  KV(tr("Thread"), m.id ? Fmt("%08X", *m.id) : std::string(tr("(none)")));
-# App.cpp:3653  ImGui::TextDisabled("%s", tr("(none)"));
-# App.cpp:3783  ImGui::TextDisabled("%s", tr("(none)"));
+# App.cpp:3656  ImGui::TextDisabled("%s", tr("(none)"));
+# App.cpp:3786  ImGui::TextDisabled("%s", tr("(none)"));
 en "(none)"
 tr "(нет)"
 
@@ -1986,484 +1986,484 @@ tr "%s задано для объектов: %zu"
 en "Edited a variable"
 tr "Изменена переменная"
 
-# App.cpp:3209  _detectNote = tr("Using Mod Organizer ") + _mo2Ini + tr(", profile \"") + _profile + "\"";
+# App.cpp:3212  _detectNote = tr("Using Mod Organizer ") + _mo2Ini + tr(", profile \"") + _profile + "\"";
 en "Using Mod Organizer "
 tr "Используется Mod Organizer "
 
-# App.cpp:3209  _detectNote = tr("Using Mod Organizer ") + _mo2Ini + tr(", profile \"") + _profile + "\"";
+# App.cpp:3212  _detectNote = tr("Using Mod Organizer ") + _mo2Ini + tr(", profile \"") + _profile + "\"";
 en ", profile \""
 tr ", профиль \""
 
-# App.cpp:3264  _status = tr("Scanning your mods for scripts...");
+# App.cpp:3267  _status = tr("Scanning your mods for scripts...");
 en "Scanning your mods for scripts..."
 tr "Сканирую ваши моды в поисках скриптов..."
 
-# App.cpp:3278  _error = tr("Could not scan ") + platform::ToUtf8(a_root) + ":\n\n" + _scanResult->errors.front();
+# App.cpp:3281  _error = tr("Could not scan ") + platform::ToUtf8(a_root) + ":\n\n" + _scanResult->errors.front();
 en "Could not scan "
 tr "Не удалось просканировать "
 
-# App.cpp:3290  _status = Fmt(tr("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)"), _sources.modsScanned,
+# App.cpp:3293  _status = Fmt(tr("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)"), _sources.modsScanned,
 en "Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)"
 tr "Просканировано модов: %zu%s; найдено скриптов: %zu (прочитано BSA: %zu%s)"
 
-# App.cpp:3291  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
+# App.cpp:3294  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
 en " deployed by Vortex"
 tr " , развёрнутых Vortex"
 
-# App.cpp:3291  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
+# App.cpp:3294  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
 en " in MO2 profile '"
 tr " в порядке профиля MO2 '"
 
-# App.cpp:3291  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
+# App.cpp:3294  _sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, 
 en "' order"
 tr "'"
 
-# App.cpp:3292  _sources.errors.empty() ? "" : Fmt(tr(", %zu unreadable"), _sources.errors.size()).c_str());
+# App.cpp:3295  _sources.errors.empty() ? "" : Fmt(tr(", %zu unreadable"), _sources.errors.size()).c_str());
 en ", %zu unreadable"
 tr ", нечитаемых: %zu"
 
-# App.cpp:3330  case mods::Kind::kPlugin: return tr("plugin");
+# App.cpp:3333  case mods::Kind::kPlugin: return tr("plugin");
 # AppF4Bloat.cpp:634  std::string kind = p.path.empty() ? tr("not found") : p.light ? (p.esm ? tr("light master") : tr("light")) : p.esm ? tr("master") : tr("plugin");
 en "plugin"
 tr "плагин"
 
-# App.cpp:3331  case mods::Kind::kLight: return tr("light plugin (ESL)");
+# App.cpp:3334  case mods::Kind::kLight: return tr("light plugin (ESL)");
 en "light plugin (ESL)"
 tr "лёгкий плагин (ESL)"
 
-# App.cpp:3332  case mods::Kind::kCreated: return tr("objects spawned during play (FF......)");
+# App.cpp:3335  case mods::Kind::kCreated: return tr("objects spawned during play (FF......)");
 en "objects spawned during play (FF......)"
 tr "объекты, созданные во время игры (FF......)"
 
-# App.cpp:3333  case mods::Kind::kUnattached: return tr("instances attached to nothing");
+# App.cpp:3336  case mods::Kind::kUnattached: return tr("instances attached to nothing");
 en "instances attached to nothing"
 tr "экземпляры, ни к чему не привязанные"
 
-# App.cpp:3334  case mods::Kind::kGlobal: return tr("threads with no object and no known mod");
+# App.cpp:3337  case mods::Kind::kGlobal: return tr("threads with no object and no known mod");
 en "threads with no object and no known mod"
 tr "потоки без объекта и без известного мода"
 
-# App.cpp:3335  case mods::Kind::kFolder: return tr("mod folder without a plugin (scripts only)");
+# App.cpp:3338  case mods::Kind::kFolder: return tr("mod folder without a plugin (scripts only)");
 en "mod folder without a plugin (scripts only)"
 tr "папка мода без плагина (только скрипты)"
 
-# App.cpp:3350  bool changed = ImGui::InputTextWithHint("##modfilter", tr("filter mods"), _filter, sizeof(_filter));
+# App.cpp:3353  bool changed = ImGui::InputTextWithHint("##modfilter", tr("filter mods"), _filter, sizeof(_filter));
 en "filter mods"
 tr "фильтр модов"
 
-# App.cpp:3351  tips::Tip(tr("Show only mods whose name contains this text."));
+# App.cpp:3354  tips::Tip(tr("Show only mods whose name contains this text."));
 en "Show only mods whose name contains this text."
 tr "Показывать только моды, в имени которых есть этот текст."
 
-# App.cpp:3353  changed |= ImGui::Checkbox(tr("only mods with scripts or enchanted items"), &_modsOnlyScripts);
+# App.cpp:3356  changed |= ImGui::Checkbox(tr("only mods with scripts or enchanted items"), &_modsOnlyScripts);
 en "only mods with scripts or enchanted items"
 tr "только моды со скриптами или зачарованными предметами"
 
-# App.cpp:3354  tips::Tip(tr("Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in
+# App.cpp:3357  tips::Tip(tr("Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in
 en "Hide plugins that have no scripts (none in this save, and once your mods are scanned none shipped)\nand no enchanted or charged items in any inventory. Untick to list every plugin in the save."
 tr "Скрыть плагины без скриптов (их нет в этом сохранении и, после сканирования модов, они их не поставляют)\nи без зачарованных или заряженных предметов в инвентарях. Снимите отметку, чтобы видеть все плагины сохранения."
 
-# App.cpp:3355  if (ImGui::Checkbox(tr("hide the game's own plugins (base game, DLC, Creation Club)"), &_hideGameScripts)) {
+# App.cpp:3358  if (ImGui::Checkbox(tr("hide the game's own plugins (base game, DLC, Creation Club)"), &_hideGameScripts)) {
 en "hide the game's own plugins (base game, DLC, Creation Club)"
 tr "скрыть плагины самой игры (базовая игра, DLC, Creation Club)"
 
-# App.cpp:3360  tips::Tip(tr("Hide the base game's, the official DLC's and the Creation Club's plugins, so only your mods are listed. In the script "
+# App.cpp:3363  tips::Tip(tr("Hide the base game's, the official DLC's and the Creation Club's plugins, so only your mods are listed. In the script "
 en "Hide the base game's, the official DLC's and the Creation Club's plugins, so only your mods are listed. In the script lists the game's own scripts are marked * and hidden the same way."
 tr "Скрыть плагины базовой игры, официальных DLC и Creation Club, чтобы видеть только ваши моды. В списках скриптов собственные скрипты игры помечены * и скрываются так же."
 
-# App.cpp:3363  if (ImGui::Button(_sources.empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
+# App.cpp:3366  if (ImGui::Button(_sources.empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
 en "Find script sources (.pex)..."
 tr "Найти исходники скриптов (.pex)..."
 
-# App.cpp:3363  if (ImGui::Button(_sources.empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
+# App.cpp:3366  if (ImGui::Button(_sources.empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
 en "Rescan script sources..."
 tr "Пересканировать исходники скриптов..."
 
-# App.cpp:3365  if (auto p = platform::PickFolderDialog(tr("Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"))) {
+# App.cpp:3368  if (auto p = platform::PickFolderDialog(tr("Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"))) {
 # AppMore.cpp:780  if (auto p = platform::PickFolderDialog(tr("Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"))) {
 en "Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"
 tr "Выберите свою папку «mods» в Mod Organizer (или папку Data игры)"
 
-# App.cpp:3373  tips::Tip(tr("Point ReSaver++ at your mods (Mod Organizer 'mods' folder or Data) so each script is credited to the mod that ships it, and missing mods
+# App.cpp:3376  tips::Tip(tr("Point ReSaver++ at your mods (Mod Organizer 'mods' folder or Data) so each script is credited to the mod that ships it, and missing mods
 en "Point ReSaver++ at your mods (Mod Organizer 'mods' folder or Data) so each script is credited to the mod that ships it, and missing mods are spotted. Nothing is changed."
 tr "Укажите ReSaver++ ваши моды (папку «mods» Mod Organizer или Data), чтобы каждый скрипт засчитывался моду, который его поставляет, а отсутствующие моды были замечены. Ничего не меняется."
 
-# App.cpp:3376  ImGui::TextDisabled("%s", tr("not scanned: scripts are credited to the mod whose object runs them"));
+# App.cpp:3379  ImGui::TextDisabled("%s", tr("not scanned: scripts are credited to the mod whose object runs them"));
 en "not scanned: scripts are credited to the mod whose object runs them"
 tr "не просканировано: скрипты засчитываются моду, чей объект их выполняет"
 
-# App.cpp:3378  ImGui::TextDisabled(tr("%s  (%zu mods, %zu scripts)"), _sourcesPath.c_str(), _sources.modsScanned, _sources.pexFound);
+# App.cpp:3381  ImGui::TextDisabled(tr("%s  (%zu mods, %zu scripts)"), _sourcesPath.c_str(), _sources.modsScanned, _sources.pexFound);
 en "%s  (%zu mods, %zu scripts)"
 tr "%s  (модов: %zu, скриптов: %zu)"
 
-# App.cpp:3380  ImGui::TextDisabled("%s", tr("MO2 profile:"));
+# App.cpp:3383  ImGui::TextDisabled("%s", tr("MO2 profile:"));
 en "MO2 profile:"
 tr "Профиль MO2:"
 
-# App.cpp:3384  tips::Tip(tr("The Mod Organizer profile whose mod order decides which mod gets credit for a script several mods ship."));
+# App.cpp:3387  tips::Tip(tr("The Mod Organizer profile whose mod order decides which mod gets credit for a script several mods ship."));
 en "The Mod Organizer profile whose mod order decides which mod gets credit for a script several mods ship."
 tr "Профиль Mod Organizer, порядок модов которого решает, какому моду засчитать скрипт, если его поставляют несколько модов."
 
-# App.cpp:3387  const std::string label = pr + (pr == _mo2->selectedProfile ? tr("  (active in MO2)") : "");
+# App.cpp:3390  const std::string label = pr + (pr == _mo2->selectedProfile ? tr("  (active in MO2)") : "");
 en "  (active in MO2)"
 tr "  (активен в MO2)"
 
-# App.cpp:3397  ImGui::TextDisabled(tr("Vortex: %zu deployed mods; each script is credited to the mod Vortex deployed it from"), _vortex->mods.size());
+# App.cpp:3400  ImGui::TextDisabled(tr("Vortex: %zu deployed mods; each script is credited to the mod Vortex deployed it from"), _vortex->mods.size());
 en "Vortex: %zu deployed mods; each script is credited to the mod Vortex deployed it from"
 tr "Vortex: развёрнуто модов: %zu; каждый скрипт засчитывается моду, из которого его развернул Vortex"
 
-# App.cpp:3399  ImGui::TextDisabled("%s", tr("no MO2 mod order found: when several mods ship the same script, the credit may go to the wrong one"));
+# App.cpp:3402  ImGui::TextDisabled("%s", tr("no MO2 mod order found: when several mods ship the same script, the credit may go to the wrong one"));
 en "no MO2 mod order found: when several mods ship the same script, the credit may go to the wrong one"
 tr "порядок модов MO2 не найден: если один и тот же скрипт поставляют несколько модов, он может быть засчитан не тому"
 
-# App.cpp:3446  ImGui::TableSetupColumn(tr("Load"), ImGuiTableColumnFlags_DefaultSort, 60);
+# App.cpp:3449  ImGui::TableSetupColumn(tr("Load"), ImGuiTableColumnFlags_DefaultSort, 60);
 en "Load"
 tr "Загр."
 
-# App.cpp:3447  ImGui::TableSetupColumn(tr("Mod"), ImGuiTableColumnFlags_WidthStretch);
+# App.cpp:3450  ImGui::TableSetupColumn(tr("Mod"), ImGuiTableColumnFlags_WidthStretch);
 # AppExtras.cpp:555  ImGui::TableSetupColumn(tr("Mod"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
 # AppF4Bloat.cpp:368  for (const char* h : { tr("Mod"), tr("Change"), tr("Size then -> now"), tr("Script instances"), tr("Created objects"), tr("Threads") }) {
 en "Mod"
 tr "Мод"
 
-# App.cpp:3450  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_PreferSortDescending, 70);
-# App.cpp:3660  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 65, 2);
+# App.cpp:3453  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_PreferSortDescending, 70);
+# App.cpp:3663  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 65, 2);
 en "Running"
 tr "Выполняется"
 
-# App.cpp:3452  ImGui::TableSetupColumn(tr("Provides"), ImGuiTableColumnFlags_PreferSortDescending, 75);
+# App.cpp:3455  ImGui::TableSetupColumn(tr("Provides"), ImGuiTableColumnFlags_PreferSortDescending, 75);
 en "Provides"
 tr "Поставляет"
 
-# App.cpp:3496  tips::Tip(tr("Click to see this mod's scripts and what they are doing."));
+# App.cpp:3499  tips::Tip(tr("Click to see this mod's scripts and what they are doing."));
 en "Click to see this mod's scripts and what they are doing."
 tr "Нажмите, чтобы увидеть скрипты этого мода и что они делают."
 
-# App.cpp:3504  ImGui::Text(tr("%zu"), r.scriptCount);
-# App.cpp:3506  ImGui::Text(tr("%zu"), r.instanceCount);
-# App.cpp:3511  ImGui::Text(tr("%zu"), r.threadCount);
+# App.cpp:3507  ImGui::Text(tr("%zu"), r.scriptCount);
+# App.cpp:3509  ImGui::Text(tr("%zu"), r.instanceCount);
+# App.cpp:3514  ImGui::Text(tr("%zu"), r.threadCount);
 en "%zu"
 tr "%zu"
 
-# App.cpp:3518  ImGui::TextDisabled(tr("of %zu"), r.shipped.size());
+# App.cpp:3521  ImGui::TextDisabled(tr("of %zu"), r.shipped.size());
 en "of %zu"
 tr "из %zu"
 
-# App.cpp:3519  tips::Tipf(tr("%zu of the %zu scripts this mod ships are in this save."), r.providedInSave, r.shipped.size());
+# App.cpp:3522  tips::Tipf(tr("%zu of the %zu scripts this mod ships are in this save."), r.providedInSave, r.shipped.size());
 en "%zu of the %zu scripts this mod ships are in this save."
 tr "В этом сохранении %zu из %zu скриптов, которые поставляет этот мод."
 
-# App.cpp:3533  confirm(tr("Terminate ") + a_what,
+# App.cpp:3536  confirm(tr("Terminate ") + a_what,
 en "Terminate "
 tr "Завершить: "
 
-# App.cpp:3534  Fmt(tr("Terminate %zu running thread(s) of %s?\n\nTheir code is replaced with no-ops, so each one ends the moment the game resumes it. "
+# App.cpp:3537  Fmt(tr("Terminate %zu running thread(s) of %s?\n\nTheir code is replaced with no-ops, so each one ends the moment the game resumes it. "
 en "Terminate %zu running thread(s) of %s?\n\nTheir code is replaced with no-ops, so each one ends the moment the game resumes it. The scripts stay attached and can start again on their next event."
 tr "Завершить выполняющиеся потоки (%zu): %s?\n\nИх код заменяется пустыми командами, поэтому каждый закончится в тот момент, когда игра его возобновит. Скрипты остаются привязанными и могут запуститься снова при следующем событии."
 
-# App.cpp:3537  [this, a_threads, a_what] { markChanged(Fmt(tr("Terminated %zu threads of %s"), ops::TerminateThreads(*_save->papyrus(), a_threads), a_what.c_str()));
+# App.cpp:3540  [this, a_threads, a_what] { markChanged(Fmt(tr("Terminated %zu threads of %s"), ops::TerminateThreads(*_save->papyrus(), a_threads), a_what.c_str()));
 en "Terminated %zu threads of %s"
 tr "Завершено потоков: %zu (%s)"
 
-# App.cpp:3541  confirm(tr("Stop ") + a_what,
+# App.cpp:3544  confirm(tr("Stop ") + a_what,
 en "Stop "
 tr "Остановить: "
 
-# App.cpp:3542  Fmt(tr("Stop %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n\n"
+# App.cpp:3545  Fmt(tr("Stop %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n\n"
 en "Stop %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n\nThe script instances and their data (settings, properties other scripts point at) are kept, so this is the safe choice for a mod you keep installed, e.g. a stuck MCM registration. The script can run again on its next event.\nWrite the result with File > Save As."
 tr "Остановить %s?\n\n- удалить выполняющиеся потоки (%zu) вместе с их приостановленными стеками и отложенными вызовами\n\nЭкземпляры скриптов и их данные (настройки, свойства, на которые указывают другие скрипты) сохраняются, поэтому это безопасный вариант для мода, который остаётся установленным, например при застрявшей регистрации MCM. Скрипт может снова запуститься при следующем событии.\nЗапишите результат через «Файл > Сохранить как»."
 
-# App.cpp:3549  markChanged(Fmt(tr("Stopped %s: %zu threads deleted"), a_what.c_str(), t));
+# App.cpp:3552  markChanged(Fmt(tr("Stopped %s: %zu threads deleted"), a_what.c_str(), t));
 en "Stopped %s: %zu threads deleted"
 tr "Остановлено %s: удалено потоков: %zu"
 
-# App.cpp:3561  confirm(tr("Kill ") + a_what,
-# App.cpp:3815  confirm(tr("Kill ") + n + tr(" everywhere"),
+# App.cpp:3564  confirm(tr("Kill ") + a_what,
+# App.cpp:3818  confirm(tr("Kill ") + n + tr(" everywhere"),
 en "Kill "
 tr "Убить: "
 
-# App.cpp:3562  Fmt(tr("Kill %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n- delete %zu script instance(s)%s\n\n"
+# App.cpp:3565  Fmt(tr("Kill %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n- delete %zu script instance(s)%s\n\n"
 en "Kill %s?\n\n- delete %zu running thread(s) with their suspended stacks and queued calls\n- delete %zu script instance(s)%s\n\nObjects that come from a plugin get a fresh copy of their script (default property values) the next time the game loads the save. Write the result with File > Save As."
 tr "Убить %s?\n\n- удалить выполняющиеся потоки (%zu) вместе с их приостановленными стеками и отложенными вызовами\n- удалить экземпляры скриптов (%zu)%s\n\nОбъекты из плагинов получат свежую копию своего скрипта (значения свойств по умолчанию) при следующей загрузке сохранения игрой. Запишите результат через «Файл > Сохранить как»."
 
-# App.cpp:3566  forms.empty() ? "" : Fmt(tr("\n- delete %zu spawned object(s) they sit on"), forms.size()).c_str()),
+# App.cpp:3569  forms.empty() ? "" : Fmt(tr("\n- delete %zu spawned object(s) they sit on"), forms.size()).c_str()),
 en "\n- delete %zu spawned object(s) they sit on"
 tr "\n- удалить созданные объекты, на которых они сидят (%zu)"
 
-# App.cpp:3572  markChanged(Fmt(tr("Killed %s: %zu threads, %zu instances, %zu spawned objects"), a_what.c_str(), t, i, f));
+# App.cpp:3575  markChanged(Fmt(tr("Killed %s: %zu threads, %zu instances, %zu spawned objects"), a_what.c_str(), t, i, f));
 en "Killed %s: %zu threads, %zu instances, %zu spawned objects"
 tr "Убито %s: потоков %zu, экземпляров %zu, созданных объектов %zu"
 
-# App.cpp:3586  r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() :
+# App.cpp:3589  r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() :
 en ", load index %02X"
 tr ", индекс загрузки %02X"
 
-# App.cpp:3586  r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() :
+# App.cpp:3589  r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() :
 en ", FE:%03X"
 tr ", FE:%03X"
 
-# App.cpp:3590  ImGui::TextDisabled(tr("installed in mod folder: %s"), it->second.c_str());
+# App.cpp:3593  ImGui::TextDisabled(tr("installed in mod folder: %s"), it->second.c_str());
 en "installed in mod folder: %s"
 tr "установлен в папке мода: %s"
 
-# App.cpp:3593  ImGui::Text(tr("%zu scripts on its objects  |  %zu instances  |  %zu running threads"), r.scriptCount, r.instanceCount, r.threadCount);
+# App.cpp:3596  ImGui::Text(tr("%zu scripts on its objects  |  %zu instances  |  %zu running threads"), r.scriptCount, r.instanceCount, r.threadCount);
 en "%zu scripts on its objects  |  %zu instances  |  %zu running threads"
 tr "скриптов на объектах: %zu  |  экземпляров: %zu  |  потоков: %zu"
 
-# App.cpp:3605  if (ImGui::Button(Fmt(tr("Terminate all its running scripts (%zu)"), allThreads.size()).c_str())) {
+# App.cpp:3608  if (ImGui::Button(Fmt(tr("Terminate all its running scripts (%zu)"), allThreads.size()).c_str())) {
 en "Terminate all its running scripts (%zu)"
 tr "Завершить все его потоки (%zu)"
 
-# App.cpp:3606  killThreads(allThreads, {}, tr("all scripts of ") + r.name, true);
-# App.cpp:3620  killThreads(allThreads, allInst, tr("all scripts of ") + r.name, false);
+# App.cpp:3609  killThreads(allThreads, {}, tr("all scripts of ") + r.name, true);
+# App.cpp:3623  killThreads(allThreads, allInst, tr("all scripts of ") + r.name, false);
 en "all scripts of "
 tr "все скрипты мода "
 
-# App.cpp:3609  tips::Tip(tr("End every running script of this mod. They stop the moment the game resumes them; scripts and data stay."));
+# App.cpp:3612  tips::Tip(tr("End every running script of this mod. They stop the moment the game resumes them; scripts and data stay."));
 en "End every running script of this mod. They stop the moment the game resumes them; scripts and data stay."
 tr "Завершить все выполняющиеся скрипты этого мода. Они остановятся в тот момент, когда игра их возобновит; скрипты и данные останутся."
 
-# App.cpp:3612  if (ImGui::Button(Fmt(tr("Stop all (%zu)"), allThreads.size()).c_str())) {
+# App.cpp:3615  if (ImGui::Button(Fmt(tr("Stop all (%zu)"), allThreads.size()).c_str())) {
 en "Stop all (%zu)"
 tr "Остановить все (%zu)"
 
-# App.cpp:3613  killThreads(allThreads, {}, tr("all running scripts of ") + r.name, false);
+# App.cpp:3616  killThreads(allThreads, {}, tr("all running scripts of ") + r.name, false);
 en "all running scripts of "
 tr "все выполняющиеся скрипты мода "
 
-# App.cpp:3616  tips::Tip(tr("Delete this mod's running threads and their queued calls, keeping its scripts and data. Safe for a mod you keep."));
+# App.cpp:3619  tips::Tip(tr("Delete this mod's running threads and their queued calls, keeping its scripts and data. Safe for a mod you keep."));
 en "Delete this mod's running threads and their queued calls, keeping its scripts and data. Safe for a mod you keep."
 tr "Удалить выполняющиеся потоки этого мода и их отложенные вызовы, сохранив его скрипты и данные. Безопасно для мода, который остаётся."
 
-# App.cpp:3619  if (ImGui::Button(Fmt(tr("Kill all its scripts (%zu)"), allInst.size()).c_str())) {
+# App.cpp:3622  if (ImGui::Button(Fmt(tr("Kill all its scripts (%zu)"), allInst.size()).c_str())) {
 en "Kill all its scripts (%zu)"
 tr "Убить его скрипты (%zu)"
 
-# App.cpp:3623  tips::Tip(tr("Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are lef
+# App.cpp:3626  tips::Tip(tr("Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are lef
 en "Deletes its running threads and the instances of its own scripts.\nThe game's engine bindings (Form, Quest, ReferenceAlias, ...) are left alone."
 tr "Удаляет его выполняющиеся потоки и экземпляры его собственных скриптов.\nПривязки игрового движка (Form, Quest, ReferenceAlias, ...) не трогаются."
 
-# App.cpp:3625  if (ImGui::Button(Fmt(tr("Kill all instances (%zu)"), everyInst.size()).c_str())) {
+# App.cpp:3628  if (ImGui::Button(Fmt(tr("Kill all instances (%zu)"), everyInst.size()).c_str())) {
 en "Kill all instances (%zu)"
 tr "Убить все экземпляры (%zu)"
 
-# App.cpp:3626  killThreads(allThreads, everyInst, tr("every script instance on ") + r.name + tr("'s objects (engine bindings included)"), false);
+# App.cpp:3629  killThreads(allThreads, everyInst, tr("every script instance on ") + r.name + tr("'s objects (engine bindings included)"), false);
 en "every script instance on "
 tr "все экземпляры скриптов на объектах мода "
 
-# App.cpp:3626  killThreads(allThreads, everyInst, tr("every script instance on ") + r.name + tr("'s objects (engine bindings included)"), false);
+# App.cpp:3629  killThreads(allThreads, everyInst, tr("every script instance on ") + r.name + tr("'s objects (engine bindings included)"), false);
 en "'s objects (engine bindings included)"
 tr "  (включая привязки движка)"
 
-# App.cpp:3629  tips::Tip(tr("Deletes its running threads and EVERY script instance on its objects, including the game's\n"
+# App.cpp:3632  tips::Tip(tr("Deletes its running threads and EVERY script instance on its objects, including the game's\n"
 en "Deletes its running threads and EVERY script instance on its objects, including the game's\nengine bindings (Form, Quest, ReferenceAlias, ...). The game recreates the bindings of plugin\nobjects on the next load with default values; spawned objects they sit on are deleted."
 tr "Удаляет его выполняющиеся потоки и ВСЕ экземпляры скриптов на его объектах, включая привязки\nдвижка игры (Form, Quest, ReferenceAlias, ...). Игра создаст привязки объектов из плагинов заново\nпри следующей загрузке со значениями по умолчанию; созданные объекты, на которых они сидят, удаляются."
 
-# App.cpp:3636  tips::Tip(tr("Write a report: every mod with its scripts and instances, and the anomalies found (text or PDF)."));
+# App.cpp:3639  tips::Tip(tr("Write a report: every mod with its scripts and instances, and the anomalies found (text or PDF)."));
 en "Write a report: every mod with its scripts and instances, and the anomalies found (text or PDF)."
 tr "Записать отчёт: все моды с их скриптами и экземплярами и найденные аномалии (текст или PDF)."
 
-# App.cpp:3641  if (ImGui::Button(tr("Remove mod from save..."))) {
+# App.cpp:3644  if (ImGui::Button(tr("Remove mod from save..."))) {
 en "Remove mod from save..."
 tr "Удалить мод из сохранения..."
 
-# App.cpp:3647  tips::Tip(tr("Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\n"
+# App.cpp:3650  tips::Tip(tr("Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\n"
 en "Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\nand writes the result to a NEW save file. Your current save is not overwritten."
 tr "Сначала проверка безопасности, затем удаляются его скрипты, потоки, отложенные вызовы и сохранённое состояние его форм,\nа результат записывается в НОВЫЙ файл сохранения. Текущее сохранение не перезаписывается."
 
-# App.cpp:3651  ImGui::SeparatorText(tr("Scripts running on this mod's objects"));
+# App.cpp:3654  ImGui::SeparatorText(tr("Scripts running on this mod's objects"));
 en "Scripts running on this mod's objects"
 tr "Скрипты, выполняющиеся на объектах этого мода"
 
-# App.cpp:3658  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 1.0f, 0);
-# App.cpp:3785  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch);
+# App.cpp:3661  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 1.0f, 0);
+# App.cpp:3788  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch);
 # AppExtras.cpp:554  ImGui::TableSetupColumn(tr("Script"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
 en "Script"
 tr "Скрипт"
 
-# App.cpp:3662  ImGui::TableSetupColumn(tr(".pex from"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 0.6f, 3);
+# App.cpp:3665  ImGui::TableSetupColumn(tr(".pex from"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_PreferSortAscending, 0.6f, 3);
 en ".pex from"
 tr ".pex из"
 
-# App.cpp:3666  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
-# App.cpp:3744  if (ImGui::SmallButton(trc("row", "Terminate"))) {
+# App.cpp:3669  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3747  if (ImGui::SmallButton(trc("row", "Terminate"))) {
 en "row|Terminate"
 tr "Завершить"
 
-# App.cpp:3666  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
-# App.cpp:3751  if (ImGui::SmallButton(trc("row", "Stop"))) {
+# App.cpp:3669  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3754  if (ImGui::SmallButton(trc("row", "Stop"))) {
 en "row|Stop"
 tr "Стоп"
 
-# App.cpp:3666  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
-# App.cpp:3758  if (ImGui::SmallButton(trc("row", "Kill"))) {
+# App.cpp:3669  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3761  if (ImGui::SmallButton(trc("row", "Kill"))) {
 en "row|Kill"
 tr "Убить"
 
-# App.cpp:3666  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
-# App.cpp:3764  if (ImGui::SmallButton(trc("row", "Show"))) {
+# App.cpp:3669  for (const char* l : { trc("row", "Terminate"), trc("row", "Stop"), trc("row", "Kill"), trc("row", "Show") }) {
+# App.cpp:3767  if (ImGui::SmallButton(trc("row", "Show"))) {
 en "row|Show"
 tr "Список"
 
-# App.cpp:3723  TextColored(theme::Dim(), s->script + tr("  (engine type)"));
+# App.cpp:3726  TextColored(theme::Dim(), s->script + tr("  (engine type)"));
 en "  (engine type)"
 tr "  (тип движка)"
 
-# App.cpp:3724  tips::Tipf(tr("Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill."), s->script.c_str());
+# App.cpp:3727  tips::Tipf(tr("Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill."), s->script.c_str());
 en "Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill."
 tr "Это не скрипт мода: это собственная связь игры между %s и Papyrus.\n«Убить» её не трогает."
 
-# App.cpp:3745  killThreads(s->threads, {}, s->script + tr(" on ") + r.name, true);
-# App.cpp:3752  killThreads(s->threads, {}, s->script + tr(" on ") + r.name, false);
-# App.cpp:3759  killThreads(s->threads, s->engineType ? std::set<EID>{} : s->instances, s->script + tr(" on ") + r.name, false);
+# App.cpp:3748  killThreads(s->threads, {}, s->script + tr(" on ") + r.name, true);
+# App.cpp:3755  killThreads(s->threads, {}, s->script + tr(" on ") + r.name, false);
+# App.cpp:3762  killThreads(s->threads, s->engineType ? std::set<EID>{} : s->instances, s->script + tr(" on ") + r.name, false);
 en " on "
 tr " на "
 
-# App.cpp:3748  tips::Tip(tr("Terminate: its running threads end the moment the game resumes them."));
+# App.cpp:3751  tips::Tip(tr("Terminate: its running threads end the moment the game resumes them."));
 en "Terminate: its running threads end the moment the game resumes them."
 tr "Завершить: его выполняющиеся потоки закончатся в тот момент, когда игра их возобновит."
 
-# App.cpp:3755  tips::Tip(tr("Stop: delete its running threads and their queued calls; keep the script and its data.\nSafe for a mod you keep (e.g. a stuck MCM)."));
+# App.cpp:3758  tips::Tip(tr("Stop: delete its running threads and their queued calls; keep the script and its data.\nSafe for a mod you keep (e.g. a stuck MCM)."));
 en "Stop: delete its running threads and their queued calls; keep the script and its data.\nSafe for a mod you keep (e.g. a stuck MCM)."
 tr "Остановить: удалить его выполняющиеся потоки и их отложенные вызовы; скрипт и его данные остаются.\nБезопасно для мода, который остаётся (например, при застрявшем MCM)."
 
-# App.cpp:3762  tips::Tip(tr("Delete its running threads and its instances (for engine types, only the threads). For a mod you are removing."));
+# App.cpp:3765  tips::Tip(tr("Delete its running threads and its instances (for engine types, only the threads). For a mod you are removing."));
 en "Delete its running threads and its instances (for engine types, only the threads). For a mod you are removing."
 tr "Удалить его выполняющиеся потоки и экземпляры (для типов движка — только потоки). Для мода, который вы удаляете."
 
-# App.cpp:3774  tips::Tip(tr("List its threads (or instances) in the main list."));
+# App.cpp:3777  tips::Tip(tr("List its threads (or instances) in the main list."));
 en "List its threads (or instances) in the main list."
 tr "Показать его потоки (или экземпляры) в основном списке."
 
-# App.cpp:3781  ImGui::SeparatorText(Fmt(tr("Scripts this mod provides (.pex) that are in the save (%zu)"), r.provided.size()).c_str());
+# App.cpp:3784  ImGui::SeparatorText(Fmt(tr("Scripts this mod provides (.pex) that are in the save (%zu)"), r.provided.size()).c_str());
 en "Scripts this mod provides (.pex) that are in the save (%zu)"
 tr "Скрипты этого мода (.pex), которые есть в сохранении (%zu)"
 
-# App.cpp:3786  ImGui::TableSetupColumn(tr("Instances (all mods)"), 0, 140);
+# App.cpp:3789  ImGui::TableSetupColumn(tr("Instances (all mods)"), 0, 140);
 en "Instances (all mods)"
 tr "Экземпляры (все моды)"
 
-# App.cpp:3787  ImGui::TableSetupColumn(tr("Running (all mods)"), 0, 130);
+# App.cpp:3790  ImGui::TableSetupColumn(tr("Running (all mods)"), 0, 130);
 en "Running (all mods)"
 tr "Выполняются (все моды)"
 
-# App.cpp:3805  TextColored(theme::Dim(), tr("(also in: ") + others + ")");
+# App.cpp:3808  TextColored(theme::Dim(), tr("(also in: ") + others + ")");
 en "(also in: "
 tr "(есть также в: "
 
-# App.cpp:3813  if (ImGui::SmallButton(tr("Kill everywhere"))) {
+# App.cpp:3816  if (ImGui::SmallButton(tr("Kill everywhere"))) {
 en "Kill everywhere"
 tr "Убить везде"
 
-# App.cpp:3815  confirm(tr("Kill ") + n + tr(" everywhere"),
+# App.cpp:3818  confirm(tr("Kill ") + n + tr(" everywhere"),
 en " everywhere"
 tr " везде"
 
-# App.cpp:3816  tr("Remove every thread, suspended stack, queued call and instance of '") + n + tr("' in the whole save, plus the spawned objects they sit on?"),
+# App.cpp:3819  tr("Remove every thread, suspended stack, queued call and instance of '") + n + tr("' in the whole save, plus the spawned objects they sit on?"),
 en "Remove every thread, suspended stack, queued call and instance of '"
 tr "Удалить все потоки, приостановленные стеки, отложенные вызовы и экземпляры '"
 
-# App.cpp:3816  tr("Remove every thread, suspended stack, queued call and instance of '") + n + tr("' in the whole save, plus the spawned objects they sit on?"),
+# App.cpp:3819  tr("Remove every thread, suspended stack, queued call and instance of '") + n + tr("' in the whole save, plus the spawned objects they sit on?"),
 en "' in the whole save, plus the spawned objects they sit on?"
 tr "' во всём сохранении, а также созданные объекты, на которых они сидят?"
 
-# App.cpp:3819  markChanged(Fmt(tr("Killed %s everywhere: %zu threads, %zu instances, %zu spawned objects"), n.c_str(), x.threads, x.instances, x.forms));
+# App.cpp:3822  markChanged(Fmt(tr("Killed %s everywhere: %zu threads, %zu instances, %zu spawned objects"), n.c_str(), x.threads, x.instances, x.forms));
 en "Killed %s everywhere: %zu threads, %zu instances, %zu spawned objects"
 tr "%s убит везде: потоков %zu, экземпляров %zu, созданных объектов %zu"
 
-# App.cpp:3824  tips::Tip(tr("Remove every thread, queued call and instance of this script in the whole save, plus the spawned objects they sit on."));
+# App.cpp:3827  tips::Tip(tr("Remove every thread, queued call and instance of this script in the whole save, plus the spawned objects they sit on."));
 en "Remove every thread, queued call and instance of this script in the whole save, plus the spawned objects they sit on."
 tr "Удалить все потоки, отложенные вызовы и экземпляры этого скрипта во всём сохранении, а также созданные объекты, на которых они сидят."
 
-# App.cpp:3842  ImGui::SeparatorText(Fmt(tr("Other scripts this mod ships, not in this save (%zu)"), idle.size()).c_str());
+# App.cpp:3845  ImGui::SeparatorText(Fmt(tr("Other scripts this mod ships, not in this save (%zu)"), idle.size()).c_str());
 en "Other scripts this mod ships, not in this save (%zu)"
 tr "Другие скрипты этого мода, которых нет в этом сохранении (%zu)"
 
-# App.cpp:3846  ImGui::TextDisabled("%s", tr("Not running and with no saved data, e.g. magic effect scripts that only exist while the effect is active.\n"
+# App.cpp:3849  ImGui::TextDisabled("%s", tr("Not running and with no saved data, e.g. magic effect scripts that only exist while the effect is active.\n"
 en "Not running and with no saved data, e.g. magic effect scripts that only exist while the effect is active.\nDouble-click one to view it."
 tr "Не выполняются и не имеют сохранённых данных, например скрипты магических эффектов, существующие только пока эффект активен.\nДважды щёлкните, чтобы посмотреть."
 
-# App.cpp:3866  ImGui::OpenPopup(trId("Remove mod from save"));
-# App.cpp:3870  if (!ImGui::BeginPopupModal(trId("Remove mod from save"))) {
+# App.cpp:3869  ImGui::OpenPopup(trId("Remove mod from save"));
+# App.cpp:3873  if (!ImGui::BeginPopupModal(trId("Remove mod from save"))) {
 en "Remove mod from save"
 tr "Удалить мод из сохранения"
 
-# App.cpp:3880  replan |= ImGui::Checkbox(tr("Also remove its scripts from other mods' objects (scripts only this mod provides)"), &_removeOpt.otherObjects);
+# App.cpp:3883  replan |= ImGui::Checkbox(tr("Also remove its scripts from other mods' objects (scripts only this mod provides)"), &_removeOpt.otherObjects);
 en "Also remove its scripts from other mods' objects (scripts only this mod provides)"
 tr "Также удалить его скрипты с объектов других модов (только скрипты, которые есть лишь в этом моде)"
 
-# App.cpp:3881  tips::Tip(tr("Also remove this mod's scripts where they are attached to objects of other mods (only scripts nothing else provides)."));
+# App.cpp:3884  tips::Tip(tr("Also remove this mod's scripts where they are attached to objects of other mods (only scripts nothing else provides)."));
 en "Also remove this mod's scripts where they are attached to objects of other mods (only scripts nothing else provides)."
 tr "Также удалить скрипты этого мода там, где они привязаны к объектам других модов (только скрипты, которых больше никто не поставляет)."
 
-# App.cpp:3882  replan |= ImGui::Checkbox(tr("Delete spawned objects that only carried its scripts"), &_removeOpt.spawnedObjects);
+# App.cpp:3885  replan |= ImGui::Checkbox(tr("Delete spawned objects that only carried its scripts"), &_removeOpt.spawnedObjects);
 en "Delete spawned objects that only carried its scripts"
 tr "Удалить созданные объекты, которые несли только его скрипты"
 
-# App.cpp:3883  tips::Tip(tr("Delete in-game-created objects whose only purpose was to carry this mod's scripts."));
+# App.cpp:3886  tips::Tip(tr("Delete in-game-created objects whose only purpose was to carry this mod's scripts."));
 en "Delete in-game-created objects whose only purpose was to carry this mod's scripts."
 tr "Удалить созданные в игре объекты, единственное назначение которых — нести скрипты этого мода."
 
-# App.cpp:3890  TextColored(theme::Warn(), tr("Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked."));
+# App.cpp:3893  TextColored(theme::Warn(), tr("Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked."));
 en "Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked."
 tr "Совет: сначала выполните «Найти исходники скриптов (.pex)...», чтобы проверить мастер-файлы, DLL и его скрипты на других объектах."
 
-# App.cpp:3897  ImGui::TextWrapped(tr("CANNOT REMOVE: %s"), b.c_str());
+# App.cpp:3900  ImGui::TextWrapped(tr("CANNOT REMOVE: %s"), b.c_str());
 en "CANNOT REMOVE: %s"
 tr "УДАЛИТЬ НЕЛЬЗЯ: %s"
 
-# App.cpp:3916  ImGui::TextDisabled(tr("New file: %s"), platform::ToUtf8(target.filename()).c_str());
+# App.cpp:3919  ImGui::TextDisabled(tr("New file: %s"), platform::ToUtf8(target.filename()).c_str());
 en "New file: %s"
 tr "Новый файл: %s"
 
-# App.cpp:3918  if (ImGui::Button(tr("Remove and write new save"), ImVec2(240, 0))) {
+# App.cpp:3921  if (ImGui::Button(tr("Remove and write new save"), ImVec2(240, 0))) {
 # AppMissing.cpp:489  if (ImGui::Button(tr("Remove and write new save"), ImVec2(280, 0))) {
 en "Remove and write new save"
 tr "Удалить и записать новое сохранение"
 
-# App.cpp:3923  markEdited(tr("Removed ") + what);
-# App.cpp:3928  _status = tr("Removed ") + what + " (" + res.text() + tr(") and wrote ") + platform::ToUtf8(target.filename());
+# App.cpp:3926  markEdited(tr("Removed ") + what);
+# App.cpp:3931  _status = tr("Removed ") + what + " (" + res.text() + tr(") and wrote ") + platform::ToUtf8(target.filename());
 # AppTools.cpp:488  markEdited(tr("Removed ") + n + tr(" from ") + formText(_save->formIDOf(id)));
 en "Removed "
 tr "Удалено: "
 
-# App.cpp:3928  _status = tr("Removed ") + what + " (" + res.text() + tr(") and wrote ") + platform::ToUtf8(target.filename());
+# App.cpp:3931  _status = tr("Removed ") + what + " (" + res.text() + tr(") and wrote ") + platform::ToUtf8(target.filename());
 en ") and wrote "
 tr "), записан файл "
 
-# App.cpp:3932  tips::Tip(tr("Apply the plan and write a NEW save file (named below). Your current save is not overwritten."));
+# App.cpp:3935  tips::Tip(tr("Apply the plan and write a NEW save file (named below). Your current save is not overwritten."));
 en "Apply the plan and write a NEW save file (named below). Your current save is not overwritten."
 tr "Применить план и записать НОВЫЙ файл сохранения (имя ниже). Текущее сохранение не перезаписывается."
 
-# App.cpp:3949  _status = tr("No SkyUI MCM registration work is in progress in this save; nothing to fix.");
+# App.cpp:3952  _status = tr("No SkyUI MCM registration work is in progress in this save; nothing to fix.");
 en "No SkyUI MCM registration work is in progress in this save; nothing to fix."
 tr "В этом сохранении нет незавершённой регистрации меню SkyUI MCM; исправлять нечего."
 
-# App.cpp:3952  confirm(tr("Fix SkyUI MCM registration jam"),
+# App.cpp:3955  confirm(tr("Fix SkyUI MCM registration jam"),
 en "Fix SkyUI MCM registration jam"
 tr "Исправить зависшую регистрацию SkyUI MCM"
 
-# App.cpp:3953  Fmt(tr("The save was made while SkyUI was registering MCM menus. This removes the stuck registration work:\n\n"
+# App.cpp:3956  Fmt(tr("The save was made while SkyUI was registering MCM menus. This removes the stuck registration work:\n\n"
 en "The save was made while SkyUI was registering MCM menus. This removes the stuck registration work:\n\n- %zu thread(s) registering a menu or running inside SKI_ConfigManager\n- %zu suspended RegisterMod call(s) and %zu queued call(s)\n%s\nThe %zu menus that are already registered stay registered. Every MCM keeps its settings. On the next load SkyUI announces itself again and the remaining menus register normally (give it a minute in game, unpaused, before opening the MCM or saving).\n\nWrite the result with File > Save As."
 tr "Сохранение сделано, пока SkyUI регистрировал меню MCM. Будет удалена застрявшая работа по регистрации:\n\n- потоки, регистрирующие меню или выполняющиеся внутри SKI_ConfigManager: %zu\n- приостановленные вызовы RegisterMod: %zu и отложенные вызовы: %zu\n%s\nУже зарегистрированные меню (%zu) остаются. Все MCM сохраняют свои настройки. При следующей загрузке SkyUI снова заявит о себе, и остальные меню зарегистрируются как обычно (дайте игре минуту без паузы, прежде чем открывать MCM или сохраняться).\n\nЗапишите результат через «Файл > Сохранить как»."
 
-# App.cpp:3961  dry.stateReset ? tr("- SKI_ConfigManager was saved in its BUSY state; it is set back to normal\n") : "", dry.registered),
+# App.cpp:3964  dry.stateReset ? tr("- SKI_ConfigManager was saved in its BUSY state; it is set back to normal\n") : "", dry.registered),
 en "- SKI_ConfigManager was saved in its BUSY state; it is set back to normal\n"
 tr "- SKI_ConfigManager был сохранён в состоянии BUSY; он возвращается в обычное\n"
 
-# App.cpp:3964  markEdited(tr("Fixed MCM jam: ") + r.text());
+# App.cpp:3967  markEdited(tr("Fixed MCM jam: ") + r.text());
 en "Fixed MCM jam: "
 tr "Исправлена зависшая регистрация MCM: "
 
-# App.cpp:3976  what = tr("Scanning your mods");
+# App.cpp:3979  what = tr("Scanning your mods");
 en "Scanning your mods"
 tr "Сканирование модов"
 
-# App.cpp:3984  what = tr("Reading plugin names");
+# App.cpp:3987  what = tr("Reading plugin names");
 en "Reading plugin names"
 tr "Чтение имён из плагинов"
 
-# App.cpp:3989  const std::string label = total ? Fmt(tr("%s: %zu of %zu (%d%%)%s%s"), what.c_str(), done, total, static_cast<int>(f * 100.0f + 0.5f), cur.empty() ? "
+# App.cpp:3992  const std::string label = total ? Fmt(tr("%s: %zu of %zu (%d%%)%s%s"), what.c_str(), done, total, static_cast<int>(f * 100.0f + 0.5f), cur.empty() ? "
 en "%s: %zu of %zu (%d%%)%s%s"
 tr "%s: %zu из %zu (%d%%)%s%s"
 
@@ -2471,11 +2471,11 @@ tr "%s: %zu из %zu (%d%%)%s%s"
 en "  |  error: "
 tr "  |  ошибка: "
 
-# App.h:651  static constexpr const char* kSkyrimOnlyTip = N_("Skyrim saves only for now: this tool reads Skyrim's own data.");
+# App.h:652  static constexpr const char* kSkyrimOnlyTip = N_("Skyrim saves only for now: this tool reads Skyrim's own data.");
 en "Skyrim saves only for now: this tool reads Skyrim's own data."
 tr "Пока только для сохранений Skyrim: этот инструмент читает данные самого Skyrim."
 
-# App.h:929  std::string                    _status = N_("Open a Skyrim or Fallout 4 save (File > Open, or drop a .ess or .fos onto this window).");
+# App.h:930  std::string                    _status = N_("Open a Skyrim or Fallout 4 save (File > Open, or drop a .ess or .fos onto this window).");
 en "Open a Skyrim or Fallout 4 save (File > Open, or drop a .ess or .fos onto this window)."
 tr "Откройте сохранение Skyrim или Fallout 4 (Файл > Открыть или перетащите .ess или .fos в это окно)."
 
@@ -2710,7 +2710,7 @@ en "No %s folders found under Documents\\My Games."
 tr "Папки %s в Документы\\My Games не найдены."
 
 # AppAi.cpp:521  if (ImGui::SmallButton(tr("Open the log"))) {
-# AppScripts.cpp:1353  if (ImGui::SmallButton(tr("Open the log"))) {
+# AppScripts.cpp:1413  if (ImGui::SmallButton(tr("Open the log"))) {
 en "Open the log"
 tr "Открыть лог"
 
@@ -2866,7 +2866,7 @@ tr "ИИ"
 
 # AppAi.cpp:1969  if (ImGui::SmallButton(tr("Copy"))) {
 # AppMore.cpp:658  if (ImGui::Button(tr("Copy"))) {
-# AppScripts.cpp:955  if (ImGui::Button(tr("Copy"))) {
+# AppScripts.cpp:1010  if (ImGui::Button(tr("Copy"))) {
 en "Copy"
 tr "Копировать"
 
@@ -4361,8 +4361,8 @@ en "Putting your game logs, load order, INI files and PC details into one zip...
 tr "Складываю логи игры, порядок загрузки, INI-файлы и сведения о ПК в один zip..."
 
 # AppCollect.cpp:238  (std::to_string(j.done.load()) + tr(" of ") + std::to_string(j.items.size()) + tr(" files")).c_str());
-# AppScripts.cpp:560  _status = exact ? tr("The thread is stopped at line ") + std::to_string(line + 1) + tr(" of ") + d.name
-# AppScripts.cpp:561  : tr("The thread is in ") + a_function + tr(" of ") + d.name +
+# AppScripts.cpp:615  _status = exact ? tr("The thread is stopped at line ") + std::to_string(line + 1) + tr(" of ") + d.name
+# AppScripts.cpp:616  : tr("The thread is in ") + a_function + tr(" of ") + d.name +
 en " of "
 tr " из "
 
@@ -7015,8 +7015,8 @@ en "%zu plugins of the load order were not found or could not be read (see the l
 tr "Плагины порядка загрузки, которые не найдены или не прочитаны (см. список ниже): %zu; их изменений в патче нет."
 
 # AppMerge.cpp:274  _error = tr("Could not write ") + platform::ToUtf8(a_file);
-# AppScripts.cpp:1048  _error = tr("Could not write ") + platform::ToUtf8(target);
-# AppScripts.cpp:1347  _status = out ? tr("Saved ") + platform::ToUtf8(f->filename()) : tr("Could not write ") + platform::ToUtf8(*f);
+# AppScripts.cpp:1103  _error = tr("Could not write ") + platform::ToUtf8(target);
+# AppScripts.cpp:1407  _status = out ? tr("Saved ") + platform::ToUtf8(f->filename()) : tr("Could not write ") + platform::ToUtf8(*f);
 en "Could not write "
 tr "Не удалось записать "
 
@@ -7045,8 +7045,8 @@ en "Write %s and a report of what was merged (.txt) to %s"
 tr "Записать %s и отчёт о том, что объединено (.txt), в %s"
 
 # AppMerge.cpp:297  if (ImGui::Button(tr("Save as..."))) {
-# AppScripts.cpp:673  if (ImGui::Button(tr("Save as...")) || (keys && io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))) {
-# AppScripts.cpp:1343  if (ImGui::SmallButton(tr("Save as..."))) {
+# AppScripts.cpp:728  if (ImGui::Button(tr("Save as...")) || (keys && io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))) {
+# AppScripts.cpp:1403  if (ImGui::SmallButton(tr("Save as..."))) {
 en "Save as..."
 tr "Сохранить как..."
 
@@ -9466,594 +9466,614 @@ tr "Цели (%zu)"
 en "Objective"
 tr "Цель"
 
-# AppScripts.cpp:307  return p.bsaEntry.empty() ? p.mod + "  (" + file + ")" : p.mod + tr("  (inside ") + file + ")";
+# AppScripts.cpp:362  return p.bsaEntry.empty() ? p.mod + "  (" + file + ")" : p.mod + tr("  (inside ") + file + ")";
 en "  (inside "
 tr "  (внутри "
 
-# AppScripts.cpp:335  tips::Tipf(tr("Double-click to view %s%s"), a_script.c_str(), a_function.empty() ? "" : tr(" at this point"));
+# AppScripts.cpp:390  tips::Tipf(tr("Double-click to view %s%s"), a_script.c_str(), a_function.empty() ? "" : tr(" at this point"));
 en "Double-click to view %s%s"
 tr "Дважды щёлкните, чтобы посмотреть %s%s"
 
-# AppScripts.cpp:335  tips::Tipf(tr("Double-click to view %s%s"), a_script.c_str(), a_function.empty() ? "" : tr(" at this point"));
+# AppScripts.cpp:390  tips::Tipf(tr("Double-click to view %s%s"), a_script.c_str(), a_function.empty() ? "" : tr(" at this point"));
 en " at this point"
 tr " в этом месте"
 
-# AppScripts.cpp:346  _status = tr("Scanning your mods first: ") + a_script + tr(" opens when it is done...");
+# AppScripts.cpp:401  _status = tr("Scanning your mods first: ") + a_script + tr(" opens when it is done...");
 en "Scanning your mods first: "
 tr "Сначала сканирую моды: "
 
-# AppScripts.cpp:346  _status = tr("Scanning your mods first: ") + a_script + tr(" opens when it is done...");
+# AppScripts.cpp:401  _status = tr("Scanning your mods first: ") + a_script + tr(" opens when it is done...");
 en " opens when it is done..."
 tr " откроется, когда сканирование закончится..."
 
-# AppScripts.cpp:376  _error = tr("ReSaver++ does not know where your mods are yet.\n\nGo to Options > Settings, click \"Choose mods folder...\" and pick your Mod Organizer
+# AppScripts.cpp:431  _error = tr("ReSaver++ does not know where your mods are yet.\n\nGo to Options > Settings, click \"Choose mods folder...\" and pick your Mod Organizer
 en "ReSaver++ does not know where your mods are yet.\n\nGo to Options > Settings, click \"Choose mods folder...\" and pick your Mod Organizer \"mods\" folder (or the game's Data folder), then double-click the script again."
 tr "ReSaver++ пока не знает, где ваши моды.\n\nОткройте «Параметры > Настройки», нажмите «Выбрать папку модов...» и выберите папку «mods» Mod Organizer (или папку Data игры), затем снова дважды щёлкните скрипт."
 
-# AppScripts.cpp:380  _error = tr("Neither ") + a_script + tr(".psc nor ") + a_script +
+# AppScripts.cpp:435  _error = tr("Neither ") + a_script + tr(".psc nor ") + a_script +
 en "Neither "
 tr "Ни "
 
-# AppScripts.cpp:380  _error = tr("Neither ") + a_script + tr(".psc nor ") + a_script +
+# AppScripts.cpp:435  _error = tr("Neither ") + a_script + tr(".psc nor ") + a_script +
 en ".psc nor "
 tr ".psc, ни "
 
-# AppScripts.cpp:381  tr(".pex was found in the scanned mods or the game's Data folder.\n\nThe script is probably no longer installed "
+# AppScripts.cpp:436  tr(".pex was found in the scanned mods or the game's Data folder.\n\nThe script is probably no longer installed "
 en ".pex was found in the scanned mods or the game's Data folder.\n\nThe script is probably no longer installed (it shows as UNDEFINED in the save), so there is nothing to show."
 tr ".pex не найдены в просканированных модах или в папке Data игры.\n\nСкорее всего, скрипт больше не установлен (в сохранении он показан как НЕОПРЕДЕЛЁН), поэтому показывать нечего."
 
-# AppScripts.cpp:427  throw std::runtime_error(tr("the compiled script was not found"));
+# AppScripts.cpp:482  throw std::runtime_error(tr("the compiled script was not found"));
 en "the compiled script was not found"
 tr "скомпилированный скрипт не найден"
 
-# AppScripts.cpp:451  d->note = tr("This source comes from ") + d->sourceMod + tr(", but the game loads the compiled script from ") + d->pex->mod +
+# AppScripts.cpp:506  d->note = tr("This source comes from ") + d->sourceMod + tr(", but the game loads the compiled script from ") + d->pex->mod +
 en "This source comes from "
 tr "Этот исходник взят из "
 
-# AppScripts.cpp:451  d->note = tr("This source comes from ") + d->sourceMod + tr(", but the game loads the compiled script from ") + d->pex->mod +
+# AppScripts.cpp:506  d->note = tr("This source comes from ") + d->sourceMod + tr(", but the game loads the compiled script from ") + d->pex->mod +
 en ", but the game loads the compiled script from "
 tr ", но игра загружает скомпилированный скрипт из "
 
-# AppScripts.cpp:452  tr(". The two may not match.");
+# AppScripts.cpp:507  tr(". The two may not match.");
 en ". The two may not match."
 tr ". Они могут не совпадать."
 
-# AppScripts.cpp:496  _status = tr("Opened ") + d->name + (d->decompiled ? tr(" (decompiled)") : "");
+# AppScripts.cpp:551  _status = tr("Opened ") + d->name + (d->decompiled ? tr(" (decompiled)") : "");
 en "Opened "
 tr "Открыт: "
 
-# AppScripts.cpp:496  _status = tr("Opened ") + d->name + (d->decompiled ? tr(" (decompiled)") : "");
-# AppScripts.cpp:596  const std::string label = d.name + (d.decompiled ? tr(" (decompiled)") : "") + "###doc" + std::to_string(reinterpret_cast<std::uintptr_t>(&d));
+# AppScripts.cpp:551  _status = tr("Opened ") + d->name + (d->decompiled ? tr(" (decompiled)") : "");
+# AppScripts.cpp:651  const std::string label = d.name + (d.decompiled ? tr(" (decompiled)") : "") + "###doc" + std::to_string(reinterpret_cast<std::uintptr_t>(&d));
 en " (decompiled)"
 tr " (декомпилирован)"
 
-# AppScripts.cpp:533  d.note = tr("This source does not match the compiled script the game loads (different version?): the thread's exact "
+# AppScripts.cpp:588  d.note = tr("This source does not match the compiled script the game loads (different version?): the thread's exact "
 en "This source does not match the compiled script the game loads (different version?): the thread's exact line cannot be shown, so its function is."
 tr "Этот исходник не совпадает со скомпилированным скриптом, который загружает игра (другая версия?): точную строку потока показать нельзя, поэтому показана его функция."
 
-# AppScripts.cpp:553  _status = a_function + tr(" was not found in ") + d.name;
+# AppScripts.cpp:608  _status = a_function + tr(" was not found in ") + d.name;
 en " was not found in "
 tr " не найдена в "
 
-# AppScripts.cpp:560  _status = exact ? tr("The thread is stopped at line ") + std::to_string(line + 1) + tr(" of ") + d.name
+# AppScripts.cpp:615  _status = exact ? tr("The thread is stopped at line ") + std::to_string(line + 1) + tr(" of ") + d.name
 en "The thread is stopped at line "
 tr "Поток остановлен на строке "
 
-# AppScripts.cpp:561  : tr("The thread is in ") + a_function + tr(" of ") + d.name +
+# AppScripts.cpp:616  : tr("The thread is in ") + a_function + tr(" of ") + d.name +
 en "The thread is in "
 tr "Поток находится в "
 
-# AppScripts.cpp:562  (d.decompiled ? tr(" (decompiled code has no line numbers: the function is shown)")
+# AppScripts.cpp:617  (d.decompiled ? tr(" (decompiled code has no line numbers: the function is shown)")
 en " (decompiled code has no line numbers: the function is shown)"
 tr " (у декомпилированного кода нет номеров строк: показана функция)"
 
-# AppScripts.cpp:563  : tr(" (the exact line needs the compiled script's debug info: the function is shown)"));
+# AppScripts.cpp:618  : tr(" (the exact line needs the compiled script's debug info: the function is shown)"));
 en " (the exact line needs the compiled script's debug info: the function is shown)"
 tr " (для точной строки нужна отладочная информация скомпилированного скрипта: показана функция)"
 
-# AppScripts.cpp:575  if (!ImGui::Begin(tr("Script viewer###scriptviewer"), &_showViewer, ImGuiWindowFlags_NoCollapse)) {
+# AppScripts.cpp:630  if (!ImGui::Begin(tr("Script viewer###scriptviewer"), &_showViewer, ImGuiWindowFlags_NoCollapse)) {
 en "Script viewer"
 tr "Просмотр скрипта"
 
-# AppScripts.cpp:583  ImGui::TextDisabled("%s", tr("Double-click a script anywhere (Scripts, Script Instances, threads, a mod's script list) to see it here."));
+# AppScripts.cpp:638  ImGui::TextDisabled("%s", tr("Double-click a script anywhere (Scripts, Script Instances, threads, a mod's script list) to see it here."));
 en "Double-click a script anywhere (Scripts, Script Instances, threads, a mod's script list) to see it here."
 tr "Дважды щёлкните скрипт где угодно («Скрипты», «Экземпляры скриптов», потоки, список скриптов мода), чтобы увидеть его здесь."
 
-# AppScripts.cpp:617  confirm(tr("Close ") + doc->name, tr("Close ") + doc->name + tr(" without saving your changes?"), close);
-# AppScripts.cpp:617  confirm(tr("Close ") + doc->name, tr("Close ") + doc->name + tr(" without saving your changes?"), close);
+# AppScripts.cpp:672  confirm(tr("Close ") + doc->name, tr("Close ") + doc->name + tr(" without saving your changes?"), close);
+# AppScripts.cpp:672  confirm(tr("Close ") + doc->name, tr("Close ") + doc->name + tr(" without saving your changes?"), close);
 en "Close "
 tr "Закрыть "
 
-# AppScripts.cpp:617  confirm(tr("Close ") + doc->name, tr("Close ") + doc->name + tr(" without saving your changes?"), close);
+# AppScripts.cpp:672  confirm(tr("Close ") + doc->name, tr("Close ") + doc->name + tr(" without saving your changes?"), close);
 en " without saving your changes?"
 tr " без сохранения изменений?"
 
-# AppScripts.cpp:664  _status = "\"" + std::string(_findBuf) + tr("\" was not found in ") + d.name;
+# AppScripts.cpp:719  _status = "\"" + std::string(_findBuf) + tr("\" was not found in ") + d.name;
 en "\" was not found in "
 tr "\" не найдено в "
 
-# AppScripts.cpp:671  tips::Tip(tr("Save the script source (Ctrl+S). Compile it afterwards so the game uses the change."));
+# AppScripts.cpp:726  tips::Tip(tr("Save the script source (Ctrl+S). Compile it afterwards so the game uses the change."));
 en "Save the script source (Ctrl+S). Compile it afterwards so the game uses the change."
 tr "Сохранить исходник скрипта (Ctrl+S). Затем скомпилируйте его, чтобы игра использовала изменение."
 
-# AppScripts.cpp:676  tips::Tip(tr("Save the source under another name or folder (Ctrl+Shift+S)."));
+# AppScripts.cpp:731  tips::Tip(tr("Save the source under another name or folder (Ctrl+Shift+S)."));
 en "Save the source under another name or folder (Ctrl+Shift+S)."
 tr "Сохранить исходник под другим именем или в другую папку (Ctrl+Shift+S)."
 
-# AppScripts.cpp:682  if (ImGui::Button(busy ? tr("Compiling...") : tr("Compile (F7)")) || (!busy && keys && ImGui::IsKeyPressed(ImGuiKey_F7, false))) {
+# AppScripts.cpp:737  if (ImGui::Button(busy ? tr("Compiling...") : tr("Compile (F7)")) || (!busy && keys && ImGui::IsKeyPressed(ImGuiKey_F7, false))) {
 en "Compiling..."
 tr "Компиляция..."
 
-# AppScripts.cpp:682  if (ImGui::Button(busy ? tr("Compiling...") : tr("Compile (F7)")) || (!busy && keys && ImGui::IsKeyPressed(ImGuiKey_F7, false))) {
+# AppScripts.cpp:737  if (ImGui::Button(busy ? tr("Compiling...") : tr("Compile (F7)")) || (!busy && keys && ImGui::IsKeyPressed(ImGuiKey_F7, false))) {
 en "Compile (F7)"
 tr "Компилировать (F7)"
 
-# AppScripts.cpp:686  tips::Tipf(tr("Compile with the game's Papyrus compiler.\nOutput: %s"), platform::ToUtf8(compileOutputFolder(d)).c_str());
+# AppScripts.cpp:741  tips::Tipf(tr("Compile with the game's Papyrus compiler.\nOutput: %s"), platform::ToUtf8(compileOutputFolder(d)).c_str());
 en "Compile with the game's Papyrus compiler.\nOutput: %s"
 tr "Компилировать компилятором Papyrus из игры.\nРезультат: %s"
 
-# AppScripts.cpp:688  if (ImGui::Button(tr("Compile settings..."))) {
+# AppScripts.cpp:743  if (ImGui::Button(tr("Compile settings..."))) {
 en "Compile settings..."
 tr "Настройки компиляции..."
 
-# AppScripts.cpp:691  tips::Tip(tr("Where the Papyrus compiler is, its flags, import folders and where compiled scripts go."));
+# AppScripts.cpp:746  tips::Tip(tr("Where the Papyrus compiler is, its flags, import folders and where compiled scripts go."));
 en "Where the Papyrus compiler is, its flags, import folders and where compiled scripts go."
 tr "Где компилятор Papyrus, его флаги, папки импорта и куда кладутся скомпилированные скрипты."
 
-# AppScripts.cpp:700  if (ImGui::InputTextWithHint("##find", tr("Find (Ctrl+F)"), _findBuf, sizeof(_findBuf), ImGuiInputTextFlags_EnterReturnsTrue)) {
+# AppScripts.cpp:755  if (ImGui::InputTextWithHint("##find", tr("Find (Ctrl+F)"), _findBuf, sizeof(_findBuf), ImGuiInputTextFlags_EnterReturnsTrue)) {
 en "Find (Ctrl+F)"
 tr "Найти (Ctrl+F)"
 
-# AppScripts.cpp:704  tips::Tip(tr("Find text in the script. Enter finds the next match, Shift+Enter the previous one (F3 / Shift+F3 too)."));
+# AppScripts.cpp:759  tips::Tip(tr("Find text in the script. Enter finds the next match, Shift+Enter the previous one (F3 / Shift+F3 too)."));
 en "Find text in the script. Enter finds the next match, Shift+Enter the previous one (F3 / Shift+F3 too)."
 tr "Найти текст в скрипте. Enter ищет следующее совпадение, Shift+Enter — предыдущее (также F3 / Shift+F3)."
 
-# AppScripts.cpp:709  tips::Tip(tr("Previous match (Shift+F3)."));
+# AppScripts.cpp:764  tips::Tip(tr("Previous match (Shift+F3)."));
 en "Previous match (Shift+F3)."
 tr "Предыдущее совпадение (Shift+F3)."
 
-# AppScripts.cpp:714  tips::Tip(tr("Next match (F3)."));
+# AppScripts.cpp:769  tips::Tip(tr("Next match (F3)."));
 en "Next match (F3)."
 tr "Следующее совпадение (F3)."
 
-# AppScripts.cpp:716  if (ImGui::Button(tr("Go to line")) || (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_G, false))) {
+# AppScripts.cpp:771  if (ImGui::Button(tr("Go to line")) || (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_G, false))) {
 en "Go to line"
 tr "Перейти к строке"
 
-# AppScripts.cpp:721  tips::Tip(tr("Jump to a line number (Ctrl+G)."));
+# AppScripts.cpp:776  tips::Tip(tr("Jump to a line number (Ctrl+G)."));
 en "Jump to a line number (Ctrl+G)."
 tr "Перейти к строке по номеру (Ctrl+G)."
 
-# AppScripts.cpp:728  if (ImGui::InputInt(tr("Line"), &_gotoLine, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue)) {
+# AppScripts.cpp:783  if (ImGui::InputInt(tr("Line"), &_gotoLine, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue)) {
 en "Line"
 tr "Строка"
 
-# AppScripts.cpp:732  tips::Tip(tr("Line number to jump to; press Enter."));
+# AppScripts.cpp:787  tips::Tip(tr("Line number to jump to; press Enter."));
 en "Line number to jump to; press Enter."
 tr "Номер строки для перехода; нажмите Enter."
 
-# AppScripts.cpp:736  if (ImGui::Button(tr("Fold all"))) {
+# AppScripts.cpp:791  if (ImGui::Button(tr("Fold all"))) {
 en "Fold all"
 tr "Свернуть всё"
 
-# AppScripts.cpp:739  tips::Tip(tr("Collapse every function and block so only their first lines show."));
+# AppScripts.cpp:794  tips::Tip(tr("Collapse every function and block so only their first lines show."));
 en "Collapse every function and block so only their first lines show."
 tr "Свернуть все функции и блоки, чтобы видны были только их первые строки."
 
-# AppScripts.cpp:741  if (ImGui::Button(tr("Unfold all"))) {
+# AppScripts.cpp:796  if (ImGui::Button(tr("Unfold all"))) {
 en "Unfold all"
 tr "Развернуть всё"
 
-# AppScripts.cpp:744  tips::Tip(tr("Expand every folded block."));
+# AppScripts.cpp:799  tips::Tip(tr("Expand every folded block."));
 en "Expand every folded block."
 tr "Развернуть все свёрнутые блоки."
 
-# AppScripts.cpp:746  ImGui::Checkbox(tr("Outline"), &d.showOutline);
+# AppScripts.cpp:801  ImGui::Checkbox(tr("Outline"), &d.showOutline);
 en "Outline"
 tr "Структура"
 
-# AppScripts.cpp:747  tips::Tip(tr("Show a list of the script's properties, variables, events and functions beside the code; click one to jump to it."));
+# AppScripts.cpp:802  tips::Tip(tr("Show a list of the script's properties, variables, events and functions beside the code; click one to jump to it."));
 en "Show a list of the script's properties, variables, events and functions beside the code; click one to jump to it."
 tr "Показать рядом с кодом список свойств, переменных, событий и функций скрипта; щёлкните пункт, чтобы перейти к нему."
 
-# AppScripts.cpp:752  ImGui::TextDisabled(tr("Decompiled from %s. Comments and the original layout are not stored in a .pex.%s"), from.c_str(),
+# AppScripts.cpp:807  ImGui::TextDisabled(tr("Decompiled from %s. Comments and the original layout are not stored in a .pex.%s"), from.c_str(),
 en "Decompiled from %s. Comments and the original layout are not stored in a .pex.%s"
 tr "Декомпилирован из %s. Комментарии и исходное оформление в .pex не хранятся.%s"
 
-# AppScripts.cpp:753  d.psc.empty() ? tr(" Save it as a .psc to keep it.") : "");
+# AppScripts.cpp:808  d.psc.empty() ? tr(" Save it as a .psc to keep it.") : "");
 en " Save it as a .psc to keep it."
 tr " Сохраните его как .psc, чтобы оставить."
 
-# AppScripts.cpp:755  TextColored(theme::Warn(), Fmt(tr("%zu part(s) could not be rebuilt cleanly (marked ; in the code)."), d.decompileWarnings.size()));
+# AppScripts.cpp:810  TextColored(theme::Warn(), Fmt(tr("%zu part(s) could not be rebuilt cleanly (marked ; in the code)."), d.decompileWarnings.size()));
 en "%zu part(s) could not be rebuilt cleanly (marked ; in the code)."
 tr "Частей, которые не удалось чисто восстановить (помечены ; в коде): %zu."
 
-# AppScripts.cpp:761  ImGui::TextDisabled(tr("   compiled: %s"), PexWhere(*d.pex).c_str());
+# AppScripts.cpp:816  ImGui::TextDisabled(tr("   compiled: %s"), PexWhere(*d.pex).c_str());
 en "   compiled: %s"
 tr "   скомпилирован: %s"
 
-# AppScripts.cpp:771  TextColored(theme::Good(), tr("Click a property on the left to set its value in this save, ") + target + ".");
+# AppScripts.cpp:826  TextColored(theme::Good(), tr("Click a property on the left to set its value in this save, ") + target + ".");
 en "Click a property on the left to set its value in this save, "
 tr "Щёлкните свойство слева, чтобы задать его значение в этом сохранении, "
 
-# AppScripts.cpp:775  TextColored(theme::Warn(), tr("Blocks: ") + d.analysis.problems.front() + (d.analysis.problems.size() > 1 ? Fmt(tr("  (+%zu more)"), d.analysis.proble
+# AppScripts.cpp:830  TextColored(theme::Warn(), tr("Blocks: ") + d.analysis.problems.front() + (d.analysis.problems.size() > 1 ? Fmt(tr("  (+%zu more)"), d.analysis.proble
 en "Blocks: "
 tr "Блоки: "
 
-# AppScripts.cpp:775  TextColored(theme::Warn(), tr("Blocks: ") + d.analysis.problems.front() + (d.analysis.problems.size() > 1 ? Fmt(tr("  (+%zu more)"), d.analysis.proble
+# AppScripts.cpp:830  TextColored(theme::Warn(), tr("Blocks: ") + d.analysis.problems.front() + (d.analysis.problems.size() > 1 ? Fmt(tr("  (+%zu more)"), d.analysis.proble
 en "  (+%zu more)"
 tr "  (+ещё %zu)"
 
-# AppScripts.cpp:781  if (ImGui::BeginTabItem(trId("Source"))) {
+# AppScripts.cpp:836  if (ImGui::BeginTabItem(trId("Source"))) {
 en "Source"
 tr "Исходник"
 
-# AppScripts.cpp:804  const std::string label = (it.state.empty() || it.type == psc::OutlineItem::Type::kState ? "" : it.state + ".") + it.name + (it.native ? tr("  (native
+# AppScripts.cpp:859  const std::string label = (it.state.empty() || it.type == psc::OutlineItem::Type::kState ? "" : it.state + ".") + it.name + (it.native ? tr("  (native
 en "  (native)"
 tr "  (нативная)"
 
-# AppScripts.cpp:813  tips::Tipf(tr("%s\n\nClick to set this property's value in the open save (pick a form, like in the Creation Kit)."), it.detail.c_str());
+# AppScripts.cpp:868  tips::Tipf(tr("%s\n\nClick to set this property's value in the open save (pick a form, like in the Creation Kit)."), it.detail.c_str());
 en "%s\n\nClick to set this property's value in the open save (pick a form, like in the Creation Kit)."
 tr "%s\n\nЩёлкните, чтобы задать значение этого свойства в открытом сохранении (выбрать форму, как в Creation Kit)."
 
-# AppScripts.cpp:904  _status = word + tr(" is not a known script or a function of ") + d.name;
+# AppScripts.cpp:959  _status = word + tr(" is not a known script or a function of ") + d.name;
 en " is not a known script or a function of "
 tr " не является известным скриптом или функцией "
 
-# AppScripts.cpp:909  ImGui::TextDisabled(tr("Ln %d, Col %d   |   %d lines   |   %s%s   |   Ctrl+double-click a script name to open it, Ctrl+wheel to zoom"), pos.mLine + 1,
+# AppScripts.cpp:964  ImGui::TextDisabled(tr("Ln %d, Col %d   |   %d lines   |   %s%s   |   Ctrl+double-click a script name to open it, Ctrl+wheel to zoom"), pos.mLine + 1,
 en "Ln %d, Col %d   |   %d lines   |   %s%s   |   Ctrl+double-click a script name to open it, Ctrl+wheel to zoom"
 tr "Стр %d, Стлб %d   |   строк: %d   |   %s%s   |   Ctrl+двойной щелчок по имени скрипта — открыть его, Ctrl+колесо — масштаб"
 
-# AppScripts.cpp:910  ed.GetTotalLines(), d.textModified ? tr("modified") : d.psc.empty() ? tr("not saved yet") : tr("saved"), d.compiling ? tr("   |   compiling...") : "")
+# AppScripts.cpp:965  ed.GetTotalLines(), d.textModified ? tr("modified") : d.psc.empty() ? tr("not saved yet") : tr("saved"), d.compiling ? tr("   |   compiling...") : "")
 en "modified"
 tr "изменён"
 
-# AppScripts.cpp:910  ed.GetTotalLines(), d.textModified ? tr("modified") : d.psc.empty() ? tr("not saved yet") : tr("saved"), d.compiling ? tr("   |   compiling...") : "")
+# AppScripts.cpp:965  ed.GetTotalLines(), d.textModified ? tr("modified") : d.psc.empty() ? tr("not saved yet") : tr("saved"), d.compiling ? tr("   |   compiling...") : "")
 en "not saved yet"
 tr "ещё не сохранён"
 
-# AppScripts.cpp:910  ed.GetTotalLines(), d.textModified ? tr("modified") : d.psc.empty() ? tr("not saved yet") : tr("saved"), d.compiling ? tr("   |   compiling...") : "")
+# AppScripts.cpp:965  ed.GetTotalLines(), d.textModified ? tr("modified") : d.psc.empty() ? tr("not saved yet") : tr("saved"), d.compiling ? tr("   |   compiling...") : "")
 en "saved"
 tr "сохранён"
 
-# AppScripts.cpp:910  ed.GetTotalLines(), d.textModified ? tr("modified") : d.psc.empty() ? tr("not saved yet") : tr("saved"), d.compiling ? tr("   |   compiling...") : "")
+# AppScripts.cpp:965  ed.GetTotalLines(), d.textModified ? tr("modified") : d.psc.empty() ? tr("not saved yet") : tr("saved"), d.compiling ? tr("   |   compiling...") : "")
 en "   |   compiling..."
 tr "   |   компиляция..."
 
-# AppScripts.cpp:935  if (canDisasm && ImGui::BeginTabItem(trId("Disassembly"))) {
+# AppScripts.cpp:990  if (canDisasm && ImGui::BeginTabItem(trId("Disassembly"))) {
 en "Disassembly"
 tr "Дизассемблер"
 
-# AppScripts.cpp:962  tips::Tip(tr("Copy the disassembly to the clipboard."));
+# AppScripts.cpp:1017  tips::Tip(tr("Copy the disassembly to the clipboard."));
 en "Copy the disassembly to the clipboard."
 tr "Скопировать дизассемблированный код в буфер обмена."
 
-# AppScripts.cpp:964  ImGui::TextDisabled("%s", tr("The compiled script the game loads, instruction by instruction."));
+# AppScripts.cpp:1019  ImGui::TextDisabled("%s", tr("The compiled script the game loads, instruction by instruction."));
 en "The compiled script the game loads, instruction by instruction."
 tr "Скомпилированный скрипт, который загружает игра, инструкция за инструкцией."
 
-# AppScripts.cpp:1012  auto p = platform::SaveFileDialog(suggested, "psc", tr("Save Papyrus source"));
+# AppScripts.cpp:1067  auto p = platform::SaveFileDialog(suggested, "psc", tr("Save Papyrus source"));
 en "Save Papyrus source"
 tr "Сохранить исходник Papyrus"
 
-# AppScripts.cpp:1055  _status = tr("Saved ") + platform::ToUtf8(target);
-# AppScripts.cpp:1347  _status = out ? tr("Saved ") + platform::ToUtf8(f->filename()) : tr("Could not write ") + platform::ToUtf8(*f);
+# AppScripts.cpp:1110  _status = tr("Saved ") + platform::ToUtf8(target);
+# AppScripts.cpp:1407  _status = out ? tr("Saved ") + platform::ToUtf8(f->filename()) : tr("Could not write ") + platform::ToUtf8(*f);
 en "Saved "
 tr "Сохранено: "
 
-# AppScripts.cpp:1212  d.summary = req.flags + tr(" was not found in any import folder. It is in the game's Data\\Source\\Scripts folder once the Creation Kit's "
+# AppScripts.cpp:1267  d.summary = req.flags + tr(" was not found in any import folder. It is in the game's Data\\Source\\Scripts folder once the Creation Kit's "
 en " was not found in any import folder. It is in the game's Data\\Source\\Scripts folder once the Creation Kit's Scripts.zip is unpacked there (that also gives the compiler the vanilla sources it needs)."
 tr " не найден ни в одной папке импорта. Он появляется в папке Data\\Source\\Scripts игры, когда туда распакован Scripts.zip из Creation Kit (это же даёт компилятору нужные ему ванильные исходники)."
 
-# AppScripts.cpp:1251  d.summary = tr("Compiling ") + script + "...";
-# AppScripts.cpp:1330  ImGui::TextUnformatted((tr("Compiling ") + d.name + "...").c_str());
+# AppScripts.cpp:1306  d.summary = tr("Compiling ") + script + "...";
+# AppScripts.cpp:1390  ImGui::TextUnformatted((tr("Compiling ") + d.name + "...").c_str());
 en "Compiling "
 tr "Компилирую "
 
-# AppScripts.cpp:1275  d.summary = tr("The compiler could not be run: ") + r.error;
+# AppScripts.cpp:1330  d.summary = tr("The compiler could not be run: ") + r.error;
 en "The compiler could not be run: "
 tr "Не удалось запустить компилятор: "
 
-# AppScripts.cpp:1277  d.summary = tr("Compiled ") + job->script + tr(".pex into ") + platform::ToUtf8(job->output) + tr(". The game uses it the next time it starts.");
+# AppScripts.cpp:1332  d.summary = tr("Compiled ") + job->script + tr(".pex into ") + platform::ToUtf8(job->output) + tr(". The game uses it the next time it starts.");
 en "Compiled "
 tr "Скомпилирован "
 
-# AppScripts.cpp:1277  d.summary = tr("Compiled ") + job->script + tr(".pex into ") + platform::ToUtf8(job->output) + tr(". The game uses it the next time it starts.");
+# AppScripts.cpp:1332  d.summary = tr("Compiled ") + job->script + tr(".pex into ") + platform::ToUtf8(job->output) + tr(". The game uses it the next time it starts.");
 en ".pex into "
 tr ".pex в "
 
-# AppScripts.cpp:1277  d.summary = tr("Compiled ") + job->script + tr(".pex into ") + platform::ToUtf8(job->output) + tr(". The game uses it the next time it starts.");
+# AppScripts.cpp:1332  d.summary = tr("Compiled ") + job->script + tr(".pex into ") + platform::ToUtf8(job->output) + tr(". The game uses it the next time it starts.");
 en ". The game uses it the next time it starts."
 tr ". Игра будет использовать его при следующем запуске."
 
-# AppScripts.cpp:1279  d.summary += Fmt(tr(" (%zu import folders were left out: the command line was too long)"), r.importsDropped);
+# AppScripts.cpp:1334  d.summary += Fmt(tr(" (%zu import folders were left out: the command line was too long)"), r.importsDropped);
 en " (%zu import folders were left out: the command line was too long)"
 tr " (папки импорта не вошли: %zu — командная строка получилась слишком длинной)"
 
-# AppScripts.cpp:1285  d.summary = Fmt(tr("%zu error(s): click one to go to it."), r.messages.size());
+# AppScripts.cpp:1340  d.summary = Fmt(tr("%zu error(s): click one to go to it."), r.messages.size());
 en "%zu error(s): click one to go to it."
 tr "Ошибок: %zu — щёлкните, чтобы перейти."
 
-# AppScripts.cpp:1287  d.summary = tr("The script ") + r.error;
+# AppScripts.cpp:1342  d.summary = tr("The script ") + r.error;
 en "The script "
 tr "Скрипт "
 
-# AppScripts.cpp:1289  d.summary = tr("The compiler did not write ") + job->script + tr(".pex (see the compiler output below).");
+# AppScripts.cpp:1344  d.summary = tr("The compiler did not write ") + job->script + tr(".pex (see the compiler output below).");
 en "The compiler did not write "
 tr "Компилятор не записал "
 
-# AppScripts.cpp:1289  d.summary = tr("The compiler did not write ") + job->script + tr(".pex (see the compiler output below).");
+# AppScripts.cpp:1344  d.summary = tr("The compiler did not write ") + job->script + tr(".pex (see the compiler output below).");
 en ".pex (see the compiler output below)."
 tr ".pex (см. вывод компилятора ниже)."
 
-# AppScripts.cpp:1318  const std::string title = tr("Compile results - ") + d.name + "###compileresults";
+# AppScripts.cpp:1378  const std::string title = tr("Compile results - ") + d.name + "###compileresults";
 en "Compile results - "
 tr "Результаты компиляции - "
 
-# AppScripts.cpp:1336  if (ImGui::SmallButton(tr("Copy everything"))) {
-# AppScripts.cpp:1378  if (ImGui::MenuItem(tr("Copy everything"))) {
+# AppScripts.cpp:1396  if (ImGui::SmallButton(tr("Copy everything"))) {
+# AppScripts.cpp:1467  if (ImGui::MenuItem(tr("Copy everything"))) {
 en "Copy everything"
 tr "Копировать всё"
 
-# AppScripts.cpp:1338  _status = tr("The whole compile log is on the clipboard.");
+# AppScripts.cpp:1398  _status = tr("The whole compile log is on the clipboard.");
 en "The whole compile log is on the clipboard."
 tr "Весь лог компиляции скопирован в буфер обмена."
 
-# AppScripts.cpp:1340  tips::Tip(tr("Copy the whole report to the clipboard: the script, every error and warning with its line and column, the counts, the "
+# AppScripts.cpp:1400  tips::Tip(tr("Copy the whole report to the clipboard: the script, every error and warning with its line and column, the counts, the "
 en "Copy the whole report to the clipboard: the script, every error and warning with its line and column, the counts, the import folders, the compiler settings and everything the compiler printed."
 tr "Скопировать весь отчёт в буфер обмена: скрипт, каждую ошибку и предупреждение со строкой и столбцом, итоги, папки импорта, настройки компилятора и всё, что вывел компилятор."
 
-# AppScripts.cpp:1344  if (auto f = platform::SaveFileDialog(Fmt("PapyrusCompileLog - %s.txt", d.name.c_str()), "txt", tr("Compile log"))) {
+# AppScripts.cpp:1404  if (auto f = platform::SaveFileDialog(Fmt("PapyrusCompileLog - %s.txt", d.name.c_str()), "txt", tr("Compile log"))) {
 en "Compile log"
 tr "Лог компиляции"
 
-# AppScripts.cpp:1350  tips::Tip(tr("Save the whole report to a text file."));
+# AppScripts.cpp:1410  tips::Tip(tr("Save the whole report to a text file."));
 en "Save the whole report to a text file."
 tr "Сохранить весь отчёт в текстовый файл."
 
-# AppScripts.cpp:1356  tips::Tipf(tr("Every compile also writes its report to\n%s\n(replaced by the next compile)."), platform::ToUtf8(d.compileLogFile).c_str());
+# AppScripts.cpp:1416  tips::Tipf(tr("Every compile also writes its report to\n%s\n(replaced by the next compile)."), platform::ToUtf8(d.compileLogFile).c_str());
 en "Every compile also writes its report to\n%s\n(replaced by the next compile)."
 tr "Каждая компиляция также пишет свой отчёт в\n%s\n(заменяется следующей компиляцией)."
 
-# AppScripts.cpp:1358  ImGui::TextDisabled(tr("also in %s"), platform::ToUtf8(d.compileLogFile.filename()).c_str());
+# AppScripts.cpp:1418  ImGui::TextDisabled(tr("also in %s"), platform::ToUtf8(d.compileLogFile.filename()).c_str());
 en "also in %s"
 tr "также в %s"
 
-# AppScripts.cpp:1364  ImGui::SeparatorText(Fmt(tr("Errors and warnings (%zu): click one to go to that line, right-click to copy it"), d.messages.size()).c_str());
+# AppScripts.cpp:1422  if (ImGui::SmallButton(tr("Earlier logs"))) {
+en "Earlier logs"
+tr "Прошлые журналы"
+
+# AppScripts.cpp:1427  tips::Tipf(tr("Open the \"Compile logs\" folder. Every compile writes its report there too, as its own file named with the date, time, "
+en "Open the \"Compile logs\" folder. Every compile writes its report there too, as its own file named with the date, time, script and result (for example \"2026-11-07 23-10-05 - MyQuestScript - FAILED.txt\"), so a new compile never overwrites an earlier report and you do not have to rename anything.\n\nOnly the newest ones are kept (the number next to this button), so the folder cannot fill your disk: when there are more, the oldest are deleted. Set it to 0 to keep no copies (then only %s is written, replaced by each compile).\n\n%s"
+tr "Открыть папку «Compile logs». Каждая компиляция записывает туда и свой отчёт, отдельным файлом с датой, временем, именем скрипта и результатом (например «2026-11-07 23-10-05 - MyQuestScript - FAILED.txt»), так что новая компиляция никогда не затирает прежний отчёт и ничего не нужно переименовывать.\n\nХранятся только самые новые (число рядом с этой кнопкой), поэтому папка не заполнит диск: когда их больше, самые старые удаляются. Укажите 0, чтобы не хранить копии (тогда пишется только %s, заменяемый каждой компиляцией).\n\n%s"
+
+# AppScripts.cpp:1435  ImGui::TextUnformatted(tr("keep"));
+en "keep"
+tr "хранить"
+
+# AppScripts.cpp:1443  tips::Tip(tr("How many compile reports to keep in the \"Compile logs\" folder (0 to 1000). 0: keep none, only the newest report "
+en "How many compile reports to keep in the \"Compile logs\" folder (0 to 1000). 0: keep none, only the newest report in PapyrusCompileLog.txt. The oldest are deleted when there are more. A report is a few KB."
+tr "Сколько отчётов компиляции хранить в папке «Compile logs» (от 0 до 1000). 0: не хранить, только последний отчёт в PapyrusCompileLog.txt. Когда их больше, самые старые удаляются. Отчёт занимает несколько КБ."
+
+# AppScripts.cpp:1447  ImGui::TextDisabled(tr("this one: %s"), platform::ToUtf8(d.compileLogKept.filename()).c_str());
+en "this one: %s"
+tr "этот: %s"
+
+# AppScripts.cpp:1453  ImGui::SeparatorText(Fmt(tr("Errors and warnings (%zu): click one to go to that line, right-click to copy it"), d.messages.size()).c_str());
 en "Errors and warnings (%zu): click one to go to that line, right-click to copy it"
 tr "Ошибки и предупреждения (%zu): щёлкните, чтобы перейти к строке, правый щелчок — скопировать"
 
-# AppScripts.cpp:1372  const std::string label = (here ? std::string() : stem + tr(".psc ")) + Fmt(tr("line %d, col %d:  "), m.line, m.column) + m.text;
+# AppScripts.cpp:1461  const std::string label = (here ? std::string() : stem + tr(".psc ")) + Fmt(tr("line %d, col %d:  "), m.line, m.column) + m.text;
 en ".psc "
 tr ".psc "
 
-# AppScripts.cpp:1372  const std::string label = (here ? std::string() : stem + tr(".psc ")) + Fmt(tr("line %d, col %d:  "), m.line, m.column) + m.text;
+# AppScripts.cpp:1461  const std::string label = (here ? std::string() : stem + tr(".psc ")) + Fmt(tr("line %d, col %d:  "), m.line, m.column) + m.text;
 en "line %d, col %d:  "
 tr "строка %d, столбец %d: "
 
-# AppScripts.cpp:1375  if (ImGui::MenuItem(tr("Copy this line"))) {
+# AppScripts.cpp:1464  if (ImGui::MenuItem(tr("Copy this line"))) {
 en "Copy this line"
 tr "Копировать эту строку"
 
-# AppScripts.cpp:1407  ImGui::SeparatorText(tr("Everything the compiler printed"));
+# AppScripts.cpp:1496  ImGui::SeparatorText(tr("Everything the compiler printed"));
 en "Everything the compiler printed"
 tr "Всё, что вывел компилятор"
 
-# AppScripts.cpp:1413  tips::Tip(tr("Drag the bar under this box to make it taller or shorter."));
+# AppScripts.cpp:1502  tips::Tip(tr("Drag the bar under this box to make it taller or shorter."));
 en "Drag the bar under this box to make it taller or shorter."
 tr "Потяните полосу под этим полем, чтобы сделать его выше или ниже."
 
-# AppScripts.cpp:1414  ImGui::SeparatorText(tr("Command line (compiler, flags, import folders)"));
+# AppScripts.cpp:1503  ImGui::SeparatorText(tr("Command line (compiler, flags, import folders)"));
 en "Command line (compiler, flags, import folders)"
 tr "Командная строка (компилятор, флаги, папки импорта)"
 
-# AppScripts.cpp:1432  if (!ImGui::Begin(trId("Compile settings"), &_showCompileSettings, ImGuiWindowFlags_AlwaysAutoResize)) {
+# AppScripts.cpp:1521  if (!ImGui::Begin(trId("Compile settings"), &_showCompileSettings, ImGuiWindowFlags_AlwaysAutoResize)) {
 en "Compile settings"
 tr "Настройки компиляции"
 
-# AppScripts.cpp:1446  ImGui::SeparatorText(tr("Papyrus compiler"));
+# AppScripts.cpp:1535  ImGui::SeparatorText(tr("Papyrus compiler"));
 en "Papyrus compiler"
 tr "Компилятор Papyrus"
 
-# AppScripts.cpp:1448  pathInput("##compiler", _compilerSetting, detected ? platform::ToUtf8(*detected).c_str() : tr("path to PapyrusCompiler.exe"));
+# AppScripts.cpp:1537  pathInput("##compiler", _compilerSetting, detected ? platform::ToUtf8(*detected).c_str() : tr("path to PapyrusCompiler.exe"));
 en "path to PapyrusCompiler.exe"
 tr "путь к PapyrusCompiler.exe"
 
-# AppScripts.cpp:1449  tips::Tip(tr("Path to PapyrusCompiler.exe (comes with the Creation Kit). Leave empty to use the one in the game folder."));
+# AppScripts.cpp:1538  tips::Tip(tr("Path to PapyrusCompiler.exe (comes with the Creation Kit). Leave empty to use the one in the game folder."));
 en "Path to PapyrusCompiler.exe (comes with the Creation Kit). Leave empty to use the one in the game folder."
 tr "Путь к PapyrusCompiler.exe (входит в Creation Kit). Оставьте пустым, чтобы использовать тот, что в папке игры."
 
-# AppScripts.cpp:1451  if (ImGui::Button(tr("Browse...##c")) && platform::HasNativeDialogs()) {
-# AppScripts.cpp:1490  if (ImGui::Button(tr("Browse...##o")) && platform::HasNativeDialogs()) {
+# AppScripts.cpp:1540  if (ImGui::Button(tr("Browse...##c")) && platform::HasNativeDialogs()) {
+# AppScripts.cpp:1579  if (ImGui::Button(tr("Browse...##o")) && platform::HasNativeDialogs()) {
 en "Browse..."
 tr "Обзор..."
 
-# AppScripts.cpp:1457  tips::Tip(tr("Pick PapyrusCompiler.exe."));
+# AppScripts.cpp:1546  tips::Tip(tr("Pick PapyrusCompiler.exe."));
 en "Pick PapyrusCompiler.exe."
 tr "Выбрать PapyrusCompiler.exe."
 
-# AppScripts.cpp:1460  ImGui::TextDisabled("%s", tr("Using the one found in the game folder."));
+# AppScripts.cpp:1549  ImGui::TextDisabled("%s", tr("Using the one found in the game folder."));
 en "Using the one found in the game folder."
 tr "Используется найденный в папке игры."
 
-# AppScripts.cpp:1462  TextColored(theme::Warn(), tr("Not found in the game folder. Install the Creation Kit (Steam), or browse to PapyrusCompiler.exe."));
+# AppScripts.cpp:1551  TextColored(theme::Warn(), tr("Not found in the game folder. Install the Creation Kit (Steam), or browse to PapyrusCompiler.exe."));
 en "Not found in the game folder. Install the Creation Kit (Steam), or browse to PapyrusCompiler.exe."
 tr "В папке игры не найден. Установите Creation Kit (Steam) или укажите путь к PapyrusCompiler.exe."
 
-# AppScripts.cpp:1468  if (ImGui::InputText(tr("Flags file"), flags, sizeof(flags))) {
+# AppScripts.cpp:1557  if (ImGui::InputText(tr("Flags file"), flags, sizeof(flags))) {
 en "Flags file"
 tr "Файл флагов"
 
-# AppScripts.cpp:1472  tips::Tip(tr("The compiler flags file, usually TESV_Papyrus_Flags.flg. It must be in one of the import folders."));
+# AppScripts.cpp:1561  tips::Tip(tr("The compiler flags file, usually TESV_Papyrus_Flags.flg. It must be in one of the import folders."));
 en "The compiler flags file, usually TESV_Papyrus_Flags.flg. It must be in one of the import folders."
 tr "Файл флагов компилятора, обычно TESV_Papyrus_Flags.flg. Он должен быть в одной из папок импорта."
 
-# AppScripts.cpp:1473  changed |= ImGui::Checkbox(tr("Optimize (-op)"), &_compileOptimize);
+# AppScripts.cpp:1562  changed |= ImGui::Checkbox(tr("Optimize (-op)"), &_compileOptimize);
 en "Optimize (-op)"
 tr "Оптимизация (-op)"
 
-# AppScripts.cpp:1474  tips::Tip(tr("Compile with optimizations: smaller, slightly faster scripts. Debug-only lines are dropped."));
+# AppScripts.cpp:1563  tips::Tip(tr("Compile with optimizations: smaller, slightly faster scripts. Debug-only lines are dropped."));
 en "Compile with optimizations: smaller, slightly faster scripts. Debug-only lines are dropped."
 tr "Компилировать с оптимизацией: меньше и чуть быстрее. Строки только для отладки отбрасываются."
 
-# AppScripts.cpp:1476  changed |= ImGui::Checkbox(tr("Anonymize the .pex (blank the source path, user and machine names it stores)"), &_compileAnonymize);
+# AppScripts.cpp:1565  changed |= ImGui::Checkbox(tr("Anonymize the .pex (blank the source path, user and machine names it stores)"), &_compileAnonymize);
 en "Anonymize the .pex (blank the source path, user and machine names it stores)"
 tr "Обезличить .pex (стереть путь к исходнику, имя пользователя и компьютера, которые он хранит)"
 
-# AppScripts.cpp:1477  tips::Tip(tr("Blank the source path, user name and machine name the compiler writes into the .pex, so they are not shared when you publish it."));
+# AppScripts.cpp:1566  tips::Tip(tr("Blank the source path, user name and machine name the compiler writes into the .pex, so they are not shared when you publish it."));
 en "Blank the source path, user name and machine name the compiler writes into the .pex, so they are not shared when you publish it."
 tr "Стереть путь к исходнику, имя пользователя и имя компьютера, которые компилятор пишет в .pex, чтобы они не попали к другим при публикации."
 
-# AppScripts.cpp:1479  ImGui::SeparatorText(tr("Where the compiled .pex goes"));
+# AppScripts.cpp:1568  ImGui::SeparatorText(tr("Where the compiled .pex goes"));
 en "Where the compiled .pex goes"
 tr "Куда кладётся скомпилированный .pex"
 
-# AppScripts.cpp:1480  changed |= ImGui::RadioButton(tr("The script's own mod (<mod>\\Scripts)"), &_compileOutMode, 0);
+# AppScripts.cpp:1569  changed |= ImGui::RadioButton(tr("The script's own mod (<mod>\\Scripts)"), &_compileOutMode, 0);
 en "The script's own mod (<mod>\\Scripts)"
 tr "В мод самого скрипта (<мод>\\Scripts)"
 
-# AppScripts.cpp:1481  tips::Tip(tr("Put the compiled .pex in the Scripts folder of the mod the source came from, replacing its script."));
+# AppScripts.cpp:1570  tips::Tip(tr("Put the compiled .pex in the Scripts folder of the mod the source came from, replacing its script."));
 en "Put the compiled .pex in the Scripts folder of the mod the source came from, replacing its script."
 tr "Положить скомпилированный .pex в папку Scripts мода, откуда взят исходник, заменив его скрипт."
 
-# AppScripts.cpp:1482  changed |= ImGui::RadioButton(tr("Mod Organizer's Overwrite folder (Overwrite\\Scripts)"), &_compileOutMode, 1);
+# AppScripts.cpp:1571  changed |= ImGui::RadioButton(tr("Mod Organizer's Overwrite folder (Overwrite\\Scripts)"), &_compileOutMode, 1);
 en "Mod Organizer's Overwrite folder (Overwrite\\Scripts)"
 tr "В папку Overwrite Mod Organizer (Overwrite\\Scripts)"
 
-# AppScripts.cpp:1483  tips::Tip(tr("Put the compiled .pex in Mod Organizer's Overwrite folder, which wins over every mod. Easy to undo: delete it there."));
+# AppScripts.cpp:1572  tips::Tip(tr("Put the compiled .pex in Mod Organizer's Overwrite folder, which wins over every mod. Easy to undo: delete it there."));
 en "Put the compiled .pex in Mod Organizer's Overwrite folder, which wins over every mod. Easy to undo: delete it there."
 tr "Положить скомпилированный .pex в папку Overwrite Mod Organizer, которая побеждает любой мод. Легко отменить: удалите его там."
 
-# AppScripts.cpp:1484  changed |= ImGui::RadioButton(tr("This folder:"), &_compileOutMode, 2);
+# AppScripts.cpp:1573  changed |= ImGui::RadioButton(tr("This folder:"), &_compileOutMode, 2);
 en "This folder:"
 tr "В эту папку:"
 
-# AppScripts.cpp:1485  tips::Tip(tr("Put the compiled .pex in the folder you choose."));
+# AppScripts.cpp:1574  tips::Tip(tr("Put the compiled .pex in the folder you choose."));
 en "Put the compiled .pex in the folder you choose."
 tr "Положить скомпилированный .pex в выбранную вами папку."
 
-# AppScripts.cpp:1487  pathInput("##outdir", _compileOutDir, tr("folder"));
+# AppScripts.cpp:1576  pathInput("##outdir", _compileOutDir, tr("folder"));
 en "folder"
 tr "папка"
 
-# AppScripts.cpp:1488  tips::Tip(tr("The folder compiled scripts go to when \"This folder\" is chosen."));
+# AppScripts.cpp:1577  tips::Tip(tr("The folder compiled scripts go to when \"This folder\" is chosen."));
 en "The folder compiled scripts go to when \"This folder\" is chosen."
 tr "Папка для скомпилированных скриптов, когда выбрано «В эту папку»."
 
-# AppScripts.cpp:1491  if (auto p = platform::PickFolderDialog(tr("Folder for compiled scripts"))) {
+# AppScripts.cpp:1580  if (auto p = platform::PickFolderDialog(tr("Folder for compiled scripts"))) {
 en "Folder for compiled scripts"
 tr "Папка для скомпилированных скриптов"
 
-# AppScripts.cpp:1497  tips::Tip(tr("Pick the folder for compiled scripts."));
+# AppScripts.cpp:1586  tips::Tip(tr("Pick the folder for compiled scripts."));
 en "Pick the folder for compiled scripts."
 tr "Выбрать папку для скомпилированных скриптов."
 
-# AppScripts.cpp:1498  changed |= ImGui::Checkbox(tr("Keep a .pex.bak of a compiled script before replacing it (once)"), &_compileBackup);
+# AppScripts.cpp:1587  changed |= ImGui::Checkbox(tr("Keep a .pex.bak of a compiled script before replacing it (once)"), &_compileBackup);
 en "Keep a .pex.bak of a compiled script before replacing it (once)"
 tr "Сохранять .pex.bak скомпилированного скрипта перед заменой (один раз)"
 
-# AppScripts.cpp:1499  tips::Tip(tr("Before replacing a compiled script the first time, keep the original as .pex.bak so you can go back."));
+# AppScripts.cpp:1588  tips::Tip(tr("Before replacing a compiled script the first time, keep the original as .pex.bak so you can go back."));
 en "Before replacing a compiled script the first time, keep the original as .pex.bak so you can go back."
 tr "Перед первой заменой скомпилированного скрипта сохранять оригинал как .pex.bak, чтобы можно было вернуться."
 
-# AppScripts.cpp:1501  ImGui::SeparatorText(tr("Extra import folders (searched first; one per line)"));
+# AppScripts.cpp:1590  ImGui::SeparatorText(tr("Extra import folders (searched first; one per line)"));
 en "Extra import folders (searched first; one per line)"
 tr "Дополнительные папки импорта (ищутся первыми; по одной на строку)"
 
-# AppScripts.cpp:1508  tips::Tip(tr("Extra folders with script sources the compiler looks in first (one per line), e.g. SKSE or SkyUI sources."));
+# AppScripts.cpp:1597  tips::Tip(tr("Extra folders with script sources the compiler looks in first (one per line), e.g. SKSE or SkyUI sources."));
 en "Extra folders with script sources the compiler looks in first (one per line), e.g. SKSE or SkyUI sources."
 tr "Дополнительные папки с исходниками скриптов, в которых компилятор ищет первым делом (по одной на строку), например исходники SKSE или SkyUI."
 
-# AppScripts.cpp:1513  ImGui::TextDisabled(tr("Also searched: the script's folder, the source folders of your %zu active mods (in load priority), the game's\n"
+# AppScripts.cpp:1602  ImGui::TextDisabled(tr("Also searched: the script's folder, the source folders of your %zu active mods (in load priority), the game's\n"
 en "Also searched: the script's folder, the source folders of your %zu active mods (in load priority), the game's\nData\\Source\\Scripts, then inactive mods."
 tr "Также ищется: папка скрипта, папки исходников ваших активных модов (%zu, по приоритету загрузки), папка\nData\\Source\\Scripts игры, затем неактивные моды."
 
-# AppScripts.cpp:1525  ImGui::OpenPopup(trId("Decompile script?"));
-# AppScripts.cpp:1529  if (!ImGui::BeginPopupModal(trId("Decompile script?"), nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
+# AppScripts.cpp:1614  ImGui::OpenPopup(trId("Decompile script?"));
+# AppScripts.cpp:1618  if (!ImGui::BeginPopupModal(trId("Decompile script?"), nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
 en "Decompile script?"
 tr "Декомпилировать скрипт?"
 
-# AppScripts.cpp:1532  ImGui::TextWrapped(tr("There is no source (.psc) for %s in your mods or the game's Data folder."), _decompileScript.c_str());
+# AppScripts.cpp:1621  ImGui::TextWrapped(tr("There is no source (.psc) for %s in your mods or the game's Data folder."), _decompileScript.c_str());
 en "There is no source (.psc) for %s in your mods or the game's Data folder."
 tr "Для %s нет исходника (.psc) ни в ваших модах, ни в папке Data игры."
 
-# AppScripts.cpp:1533  ImGui::TextWrapped(tr("The compiled script is in %s."), _decompileWhere.c_str());
+# AppScripts.cpp:1622  ImGui::TextWrapped(tr("The compiled script is in %s."), _decompileWhere.c_str());
 en "The compiled script is in %s."
 tr "Скомпилированный скрипт находится в %s."
 
-# AppScripts.cpp:1535  ImGui::TextWrapped("%s", tr("ReSaver++ can decompile it with its built-in decompiler. The code does what the original does, but comments and the "
+# AppScripts.cpp:1624  ImGui::TextWrapped("%s", tr("ReSaver++ can decompile it with its built-in decompiler. The code does what the original does, but comments and the "
 en "ReSaver++ can decompile it with its built-in decompiler. The code does what the original does, but comments and the original layout are not stored in a .pex."
 tr "ReSaver++ может декомпилировать его встроенным декомпилятором. Код делает то же, что и оригинал, но комментарии и исходное оформление в .pex не хранятся."
 
-# AppScripts.cpp:1538  if (ImGui::Checkbox(tr("Always decompile without asking"), &_decompileAlways)) {
+# AppScripts.cpp:1627  if (ImGui::Checkbox(tr("Always decompile without asking"), &_decompileAlways)) {
 en "Always decompile without asking"
 tr "Всегда декомпилировать без вопроса"
 
-# AppScripts.cpp:1541  tips::Tip(tr("Decompile scripts without a source right away from now on, without this question."));
+# AppScripts.cpp:1630  tips::Tip(tr("Decompile scripts without a source right away from now on, without this question."));
 en "Decompile scripts without a source right away from now on, without this question."
 tr "Впредь сразу декомпилировать скрипты без исходников, не задавая этот вопрос."
 
-# AppScripts.cpp:1543  if (ImGui::Button(tr("Decompile"), ImVec2(140, 0))) {
+# AppScripts.cpp:1632  if (ImGui::Button(tr("Decompile"), ImVec2(140, 0))) {
 en "Decompile"
 tr "Декомпилировать"
 
-# AppScripts.cpp:1547  tips::Tip(tr("Turn the compiled script back into readable source with the built-in decompiler. Comments and original layout are not recoverable."));
+# AppScripts.cpp:1636  tips::Tip(tr("Turn the compiled script back into readable source with the built-in decompiler. Comments and original layout are not recoverable."));
 en "Turn the compiled script back into readable source with the built-in decompiler. Comments and original layout are not recoverable."
 tr "Превратить скомпилированный скрипт обратно в читаемый исходник встроенным декомпилятором. Комментарии и исходное оформление не восстанавливаются."
 
-# AppScripts.cpp:1552  tips::Tip(tr("Close without opening the script."));
+# AppScripts.cpp:1641  tips::Tip(tr("Close without opening the script."));
 en "Close without opening the script."
 tr "Закрыть, не открывая скрипт."
 
-# AppScripts.cpp:1626  _detectNote = tr("Found Vortex: the mods folder is now its staging folder (was ") + _sourcesPath + ")";
+# AppScripts.cpp:1715  _detectNote = tr("Found Vortex: the mods folder is now its staging folder (was ") + _sourcesPath + ")";
 en "Found Vortex: the mods folder is now its staging folder (was "
 tr "Найден Vortex: папкой модов теперь будет его папка staging (было "
 
-# AppScripts.cpp:1671  _detectNote = tr("Found Mod Organizer (") + platform::ToUtf8(m.ini.parent_path()) + tr("), profile \"") + m.selectedProfile + "\"" +
+# AppScripts.cpp:1760  _detectNote = tr("Found Mod Organizer (") + platform::ToUtf8(m.ini.parent_path()) + tr("), profile \"") + m.selectedProfile + "\"" +
 en "Found Mod Organizer ("
 tr "Найден Mod Organizer ("
 
-# AppScripts.cpp:1671  _detectNote = tr("Found Mod Organizer (") + platform::ToUtf8(m.ini.parent_path()) + tr("), profile \"") + m.selectedProfile + "\"" +
+# AppScripts.cpp:1760  _detectNote = tr("Found Mod Organizer (") + platform::ToUtf8(m.ini.parent_path()) + tr("), profile \"") + m.selectedProfile + "\"" +
 en "), profile \""
 tr "), профиль \""
 
-# AppScripts.cpp:1672  (skyrim.size() > 1 ? Fmt(tr(" (%zu Mod Organizer setups for %s found: the most recently used one was picked)"), skyrim.size(), gameName()) : "");
+# AppScripts.cpp:1761  (skyrim.size() > 1 ? Fmt(tr(" (%zu Mod Organizer setups for %s found: the most recently used one was picked)"), skyrim.size(), gameName()) : "");
 en " (%zu Mod Organizer setups for %s found: the most recently used one was picked)"
 tr " (найдено настроек Mod Organizer: %zu для %s — выбрана последняя использованная)"
 
-# AppScripts.cpp:1688  _detectNote = tr("Found Vortex: staging folder ") + _sourcesPath + Fmt(tr(", %zu mods deployed"), vx->mods.size());
+# AppScripts.cpp:1777  _detectNote = tr("Found Vortex: staging folder ") + _sourcesPath + Fmt(tr(", %zu mods deployed"), vx->mods.size());
 en "Found Vortex: staging folder "
 tr "Найден Vortex: папка staging "
 
-# AppScripts.cpp:1688  _detectNote = tr("Found Vortex: staging folder ") + _sourcesPath + Fmt(tr(", %zu mods deployed"), vx->mods.size());
+# AppScripts.cpp:1777  _detectNote = tr("Found Vortex: staging folder ") + _sourcesPath + Fmt(tr(", %zu mods deployed"), vx->mods.size());
 en ", %zu mods deployed"
 tr ", развёрнуто модов: %zu"
 
-# AppScripts.cpp:1692  _detectNote = tr("No Mod Organizer or Vortex found: using the game's Data folder");
+# AppScripts.cpp:1781  _detectNote = tr("No Mod Organizer or Vortex found: using the game's Data folder");
 en "No Mod Organizer or Vortex found: using the game's Data folder"
 tr "Mod Organizer и Vortex не найдены: используется папка Data игры"
 
-# AppScripts.cpp:1694  _detectNote = tr("Neither Mod Organizer nor the game was found: set the folders below.");
+# AppScripts.cpp:1783  _detectNote = tr("Neither Mod Organizer nor the game was found: set the folders below.");
 en "Neither Mod Organizer nor the game was found: set the folders below."
 tr "Не найдены ни Mod Organizer, ни игра: укажите папки ниже."
 
-# AppScripts.cpp:1782  _status = std::string(tr("Using the ")) + gameName() + tr(" setup");
+# AppScripts.cpp:1871  _status = std::string(tr("Using the ")) + gameName() + tr(" setup");
 en "Using the "
 tr "Настройки для игры: "
 
-# AppScripts.cpp:1782  _status = std::string(tr("Using the ")) + gameName() + tr(" setup");
+# AppScripts.cpp:1871  _status = std::string(tr("Using the ")) + gameName() + tr(" setup");
 en " setup"
 tr "."
 
-# AppScripts.cpp:1821  _status = tr("Open the newest save: no save found in ") + (where.empty() ? std::string(tr("(no saves folder found)")) : where) +
+# AppScripts.cpp:1910  _status = tr("Open the newest save: no save found in ") + (where.empty() ? std::string(tr("(no saves folder found)")) : where) +
 en "Open the newest save: no save found in "
 tr "Открыть самое новое сохранение: сохранений не найдено в "
 
-# AppScripts.cpp:1821  _status = tr("Open the newest save: no save found in ") + (where.empty() ? std::string(tr("(no saves folder found)")) : where) +
+# AppScripts.cpp:1910  _status = tr("Open the newest save: no save found in ") + (where.empty() ? std::string(tr("(no saves folder found)")) : where) +
 en "(no saves folder found)"
 tr "(папка сохранений не найдена)"
 
-# AppScripts.cpp:1822  tr(". Set the saves folder in Options > Settings.");
+# AppScripts.cpp:1911  tr(". Set the saves folder in Options > Settings.");
 en ". Set the saves folder in Options > Settings."
 tr ". Укажите папку сохранений в «Параметры > Настройки»."
 
