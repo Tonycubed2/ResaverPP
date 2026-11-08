@@ -429,6 +429,15 @@ namespace
 			const auto plan = locheck::PlanFix(r);
 			Check(plan.ok && plan.moves.size() == 1 && locheck::MoveText(plan.moves[0]) == "Plain.esp: #FE 001 -> before UsesPlain.esp #FE 000",
 				"check: plan from the result, labelled with the check's slots");
+			{
+				std::ofstream pt(dir / "plugins.txt", std::ios::binary);
+				pt << "# This file is used by Skyrim to keep track of your downloaded content.\n*UsesFlagged.esp\nOff.esp\n*UsesPlain.esp\n*Flagged.esp\n*Plain.esp\n";
+			}
+			const auto lines = lofix::EnabledLines(dir / "plugins.txt");
+			Check(lines == std::vector<std::string>{ "UsesFlagged.esp", "UsesPlain.esp", "Flagged.esp", "Plain.esp" }, "check: enabled lines of plugins.txt");
+			const auto plan2 = locheck::PlanFix(r, lines);
+			Check(plan2.ok && plan2.moves.size() == 1 && locheck::MoveText(plan2.moves[0]) == "Plain.esp: #3 -> before UsesPlain.esp #1",
+				"check: moves numbered by their place among plugins.txt's enabled lines (from 0)");
 			// Legendary Edition: the extension does not make a master (TESV.exe IsMaster = header flag)
 			save("Ext.esm", WritePlugin({}, 0, {}, "t", {}, 0.94f, 43, true));
 			Check(!locheck::ReadHeader(dir / "Ext.esm", false, locheck::Game::kSkyrimLE).esm && locheck::ReadHeader(dir / "Ext.esm", false, locheck::Game::kSkyrimSE).esm,

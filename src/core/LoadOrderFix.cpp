@@ -153,6 +153,38 @@ namespace ess::lofix
 		return out;
 	}
 
+	std::vector<std::string> EnabledLines(const fs::path& a_pluginsTxt)
+	{
+		std::string text;
+		std::vector<std::string> marked, all;
+		if (!ReadFile(a_pluginsTxt, text)) {
+			return {};
+		}
+		if (text.size() >= 3 && static_cast<unsigned char>(text[0]) == 0xEF && static_cast<unsigned char>(text[1]) == 0xBB &&
+			static_cast<unsigned char>(text[2]) == 0xBF) {
+			text = text.substr(3);
+		}
+		std::istringstream in(text);
+		for (std::string line; std::getline(in, line);) {
+			while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\t')) {
+				line.pop_back();
+			}
+			std::size_t a = 0;
+			while (a < line.size() && (line[a] == ' ' || line[a] == '\t')) {
+				++a;
+			}
+			line = line.substr(a);
+			if (line.empty() || line[0] == '#') {
+				continue;
+			}
+			if (line[0] == '*') {
+				marked.push_back(line.substr(1));
+			}
+			all.push_back(line);
+		}
+		return marked.empty() ? all : marked;
+	}
+
 	std::vector<Locked> LockedMoved(const std::string& a_lockedOrderText, const std::vector<std::string>& a_oldOrder,
 		const std::vector<std::string>& a_newOrder)
 	{

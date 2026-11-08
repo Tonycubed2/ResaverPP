@@ -536,7 +536,7 @@ void App::drawLoadOrderFix()
 	if (st.loFixAsk && st.lo && st.lo->done) {
 		st.loFixAsk = false;
 		const auto& r = st.lo->result;
-		st.loPlan = locheck::PlanFix(r);
+		st.loPlan = locheck::PlanFix(r, lofix::EnabledLines(st.lo->pluginsTxt));
 		const auto manager = _mo2 && !_profile.empty() ? lofix::Manager::kMo2 : _vortex ? lofix::Manager::kVortex : lofix::Manager::kNone;
 		st.loTargets = lofix::TargetsFor(st.lo->pluginsTxt, manager);
 		st.loOldOrder.clear();
@@ -578,6 +578,7 @@ void App::drawLoadOrderFix()
 			ImGui::BulletText("%s", text::ToUtf8(locheck::MoveText(m)).c_str());
 		}
 		ImGui::EndChild();
+		ImGui::TextDisabled("%s", tr("#n: the plugin's position among the enabled plugins in plugins.txt, counting from 0."));
 		ImGui::Spacing();
 		ImGui::TextUnformatted(tr("Files that change:"));
 		for (const auto& f : st.loTargets.files) {

@@ -30,6 +30,10 @@ namespace ess::lofix
 	// whose plugin or target is not in the file is skipped (listed in a_skipped). Names compare without case.
 	std::string ApplyMoves(const std::string& a_text, const std::vector<locheck::Move>& a_moves, std::vector<std::string>* a_skipped = nullptr);
 
+	// The enabled plugins a plugins.txt lists, in its order ('*' lines; every plugin line when the file has no '*' at all,
+	// as Legendary Edition writes it): the "#n" numbers of the planned moves.
+	std::vector<std::string> EnabledLines(const std::filesystem::path& a_pluginsTxt);
+
 	// MO2's lockedorder.txt ("Plugin.esp|index", '#' comments): the plugins whose load index (position among the
 	// enabled plugins) the new order changes. MO2 would put them back where they are locked, so the fix is refused.
 	struct Locked

@@ -539,15 +539,18 @@ namespace ess::locheck
 		}
 	}
 
-	FixPlan PlanFix(const Result& a_result)
+	FixPlan PlanFix(const Result& a_result, const std::vector<std::string>& a_enabledLines)
 	{
 		std::vector<OrderEntry> entries;
 		std::map<std::string, std::string> label;
+		for (std::size_t i = 0; i < a_enabledLines.size(); ++i) {
+			label.emplace(Lower(a_enabledLines[i]), "#" + std::to_string(i));
+		}
 		for (std::size_t i = 0; i < a_result.plugins.size(); ++i) {
 			const auto& p = a_result.plugins[i];
 			const bool  read = !p.path.empty() && p.error.empty();
 			entries.push_back({ p.name, read && p.esm, read ? p.masters : std::vector<std::string>{} });
-			label.emplace(Lower(p.name), SlotLabel(p, i));
+			label.emplace(Lower(p.name), SlotLabel(p, i));  // kept when plugins.txt numbered it
 		}
 		auto plan = PlanFix(entries);
 		for (auto& m : plan.moves) {

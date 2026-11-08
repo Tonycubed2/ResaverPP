@@ -13158,6 +13158,10 @@ tr "перемещает каждый поздний мастер-файл пр�
 en "Moves each master that loads after a plugin needing it to just before that plugin, in your mod manager's plugins.txt / loadorder.txt. Shows the moves first and asks; the files are backed up next to themselves."
 tr "Перемещает каждый мастер-файл, который загружается после нуждающегося в нём плагина, прямо перед этим плагином — в plugins.txt / loadorder.txt вашего менеджера модов. Сначала показывает перемещения и спрашивает; рядом с файлами сохраняются их резервные копии."
 
+# AppF4Bloat.cpp:581  ImGui::TextDisabled("%s", tr("#n: the plugin's position among the enabled plugins in plugins.txt, counting from 0."));
+en "#n: the plugin's position among the enabled plugins in plugins.txt, counting from 0."
+tr "#n: место плагина среди включённых плагинов в plugins.txt, считая с 0."
+
 # ---- no longer used by the code (kept for reference; safe to delete) ----
 
 en "Not done: the player's cell and the cells loaded around the player (the game does not reset a cell while a save loads), an outdoor cell the save has no coordinates for, and a cell the save does not say is indoors. Only what is in the cell when the game resets it is touched: an actor that walked elsewhere is not. Settlements: their workshop objects belong to the settlement; resetting a settlement cell is not recommended."

@@ -145,7 +145,7 @@ namespace ess::locheck
 		std::size_t from = 0;    // its position in the listed order before this move
 		std::string before;      // it is put just before this plugin (the first one that needs it)
 		std::size_t beforeAt = 0;  // that plugin's position before this move
-		std::string fromLabel, beforeLabel;  // "#99" / "#FE 410": the slots the load order check shows (set by PlanFix(Result))
+		std::string fromLabel, beforeLabel;  // "#99": set by PlanFix(Result)
 	};
 	struct FixPlan
 	{
@@ -159,7 +159,8 @@ namespace ess::locheck
 	// (A needs B, B needs A) is refused. Pure: no files are read.
 	FixPlan PlanFix(const std::vector<OrderEntry>& a_listed);
 	// The same for a load order check's result (plugins whose file was not found or could not be read count as plain
-	// plugins without masters); the moves get the slots shown in the check as labels.
-	FixPlan PlanFix(const Result& a_result);
+	// plugins without masters). The moves are labelled "#n" with n = the plugin's position among a_enabledLines (the
+	// enabled plugins as plugins.txt lists them, counting from 0: lofix::EnabledLines), else with the check's slot.
+	FixPlan PlanFix(const Result& a_result, const std::vector<std::string>& a_enabledLines = {});
 	std::string MoveText(const Move& a_move);  // "MysticismMagic.esp: #99 -> before 360 Ward.esp #87"
 }

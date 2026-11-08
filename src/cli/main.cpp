@@ -160,7 +160,7 @@ static int LoadOrderCheckMain(int argc, char** argv)
 			std::printf("%s: %s\n", locheck::SeverityWord(f.severity), f.text.c_str());
 		}
 	}
-	const auto plan = locheck::PlanFix(r);
+	const auto plan = locheck::PlanFix(r, lofix::EnabledLines(pluginsTxt));
 	if (!plan.ok) {
 		std::printf("%s\n", plan.error.c_str());
 		return 1;
@@ -169,7 +169,8 @@ static int LoadOrderCheckMain(int argc, char** argv)
 		std::printf("No master loads after a plugin that needs it: nothing to fix.\n");
 		return 0;
 	}
-	std::printf("\nPlanned moves (%zu):\n", plan.moves.size());
+	std::printf("\nPlanned moves (%zu; #n = position among the enabled plugins in %s, counting from 0):\n", plan.moves.size(),
+		pluginsTxt.filename().string().c_str());
 	for (const auto& m : plan.moves) {
 		std::printf("  %s\n", locheck::MoveText(m).c_str());
 	}
