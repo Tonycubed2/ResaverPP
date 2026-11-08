@@ -588,6 +588,18 @@ void App::drawCharEffects()
 		}
 		const auto filt = Lower(c.filter);
 		ImGui::TextDisabled(tr("%zu effects from %zu sources."), v.effects.size(), v.cards.size());
+		{
+			std::size_t running = 0, off = 0, ended = 0;
+			for (const auto& e : v.effects) {
+				((e.flags & 0x40000u) != 0 ? ended : e.off() ? off : running)++;
+			}
+			ImGui::PushTextWrapPos(0.0f);
+			ImGui::TextDisabled(tr("%zu running (acting on you now), %zu switched off (their condition is not met right now, so they do "
+			                       "nothing until it is; normal for many mods), %zu ended (over, not yet cleared by the game; they do "
+			                       "nothing). Only running effects change your character. Hover a state for more."),
+				running, off, ended);
+			ImGui::PopTextWrapPos();
+		}
 		for (int g = 0; g < static_cast<int>(chfx::Group::kCount); ++g) {
 			const auto grp = static_cast<chfx::Group>(g);
 			std::vector<std::size_t> rows;
@@ -688,10 +700,31 @@ void App::drawCharEffects()
 								ImGui::TextUnformatted(Fmt(tr("%.0f of %.0f s"), e.elapsed, e.duration).c_str());
 							}
 							ImGui::TableNextColumn();
-							if (e.off()) {
+							if ((e.flags & 0x40000u) != 0) {
+								ImGui::TextDisabled("%s", tr("ended"));
+								tips::Tip(tr("ENDED: this effect is over. Its time ran out or something removed it (a cure, a dispel, a script), and "
+								             "the game has not cleared it from your character's list yet. It does NOT affect your character in any way: "
+								             "no stat, no speed, no damage.\n\nThe game clears these by itself, so there is nothing to fix and no reason "
+								             "to remove it. Removing it does no harm either."));
+							} else if (e.off()) {
 								ImGui::TextDisabled("%s", tr("switched off"));
+								tips::Tip(tr("SWITCHED OFF: this effect is on your character, but it is NOT doing anything right now, because "
+								             "its condition is not met at the moment.\n\n"
+								             "Many mods and abilities add a whole set of effects at once, each with its own condition, and the game only "
+								             "turns on the ones whose condition is true right now. For example a survival mod adds \"Decrease Movement -20 / "
+								             "-40 / -60\" for each stage of tiredness: while you are not tired they are all switched off and do not slow you; "
+								             "a lantern mod adds \"Is Daytime\" and \"Not Daytime\": only one of them is on at a time.\n\n"
+								             "When the condition becomes true (you get tired, night falls, you start sneaking...), the game switches the "
+								             "effect on by itself, and off again when it stops being true.\n\n"
+								             "A switched-off effect does NOT change any stat, speed or damage, so it is not a problem and is not \"stuck\". "
+								             "There is no need to remove it, and removing it would not help: the ability or mod that gave it adds it "
+								             "again. Only effects that say \"running\" act on your character."));
 							} else {
 								ImGui::TextUnformatted(trc("effect", "running"));
+								tips::Tip(tr("RUNNING: this effect is acting on your character right now (its condition, if it has one, is "
+								             "true). Its strength is the number in the middle column; \"constant\" means it lasts for as long as its "
+								             "source is on you (a worn item, an ability, a perk), otherwise the time shows how long it has run and how "
+								             "long it lasts."));
 							}
 							ImGui::TableNextColumn();
 							ImGui::PushID(static_cast<int>(i));
