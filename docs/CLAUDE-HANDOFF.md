@@ -26,7 +26,7 @@ project; you do the coding, building, delivering and publishing.
   (no map markers / jobj in snapshots, no made-in-game potions/enchantments) are listed in its README.
   Released as the optional file "ReSaverHelper LE" (File ID 8276523) on the LE page with the workflow
   `nexus-helper-le.yml` (uploads the zip in `helper-le/release/`, Tony's own build; file_id defaults to 8276523).
-  SE helper: optional file 8222850 on the SE page, updated with `nexus-update-file.yml`. Helper 11 published with v41; helper 12 (both, rescue: GATHER/CONTROLS/SAVEGAME/RESCUE, hold Ctrl 8 s) with v49 (LE untested in game: Tony has no SKSE on LE); fixed as 12.1 (Gather: half circle behind the player, holding-cell helpers skipped, sGatherSkip, save before moving); 12.2 with v50: FOLLOWERS list + GATHER <ids> (pick who to bring in the app), unticked remembered in sGatherSkip as Plugin.esp:localid. 12.2.1 (both, 2026-11-02): packaging only, the DLL was stored read-only (0444, from Tony's file) and Linux users could not overwrite it; when making helper zips, chmod 644 the files first.
+  SE helper: optional file 8222850 on the SE page, updated with `nexus-update-file.yml`. Helper 11 published with v41; helper 12 (both, rescue: GATHER/CONTROLS/SAVEGAME/RESCUE, hold Ctrl 8 s) with v49 (LE untested in game: Tony has no SKSE on LE); fixed as 12.1 (Gather: half circle behind the player, holding-cell helpers skipped, sGatherSkip, save before moving); 12.2 with v50: FOLLOWERS list + GATHER <ids> (pick who to bring in the app), unticked remembered in sGatherSkip as Plugin.esp:localid. 12.2.1 (both, 2026-11-02): packaging only, the DLL was stored read-only (0444, from Tony's file) and Linux users could not overwrite it; when making helper zips, chmod 644 the files first. Helper 14 (diagnostic stages, iDiagnosticStage). Helper 15 (branch f1menu, not built or published yet): the optional in-game page in SKSE Menu Framework (F1), see the entry at the end of section 1.
 - Fallout 4 saves (.fos, "FO4_SAVEGAME", ported from FallrimTools' isFO4 branches): header has no compression field, RGBA
   screenshot; body starts form version + wstring game version; light plugins at form version 68+; table 3 count not
   under-reported; Papyrus: 64-bit ids, 32-bit strings above form version 61, struct defs (count after the script count)
@@ -624,6 +624,59 @@ project; you do the coding, building, delivering and publishing.
   - User's way out: do not play on the new save (no script data). Open the save edited with v62/v63 in the fixed build: the Save
     check offers "Remove the stranded threads"; save, load in game, save again. Worth asking for: both saves, Papyrus.0.log (should show the
     two log lines above), whether saving hung ~30 s.
+- ReSaverHelper 15, in-game "ReSaver Plus" page in SKSE Menu Framework (F1, Nexus 120352, Tony has 3.18) (2026-11-08, branch f1menu,
+  not published, not built: Tony must build it in VS2022; SE/AE). New: `helper/src/MenuPage.h/.cpp` (UI), `LiveInfo.h/.cpp` (main-thread
+  reads and actions), `SKSEMenuFramework.h` (the framework's API header, unchanged, from QTR-Modding/SKSE-Menu-Framework-3-Example aa8effa,
+  MIT: the framework repo itself is GPL-3.0, so do not copy from it); changed: main.cpp (kPostLoad -> MenuPage::Register only when
+  !Diag(5); Settings::SetStartupDiagnosticStage), Settings (iDiagnosticStage read/write: DiagnosticStageInIni, WriteDiagnosticStage),
+  Server (Connected()), Game (CompleteObjective = Quest.SetObjectiveCompleted), Protocol.h 15, CMakeLists 15.0.0 + shell32, cmake lists,
+  README, NOTICE. No protocol change; the app needed no change.
+  - Optional: Register() returns after one log line when GetModuleHandleW(L"SKSEMenuFramework") is null. Registered at kPostLoad because
+    the header caches GetProcAddress results in function statics (a call before the DLL is loaded would cache null for good), and
+    ReSaverHelper.dll loads before SKSEMenuFramework.dll. Every ImGuiMCP / framework function the page calls was checked against the
+    export table of Tony's installed 3.18 DLL (objdump; all present: igBeginTable, igTextWrappedV, igPlotLines_FloatPtr, ...).
+  - Threads (SkyrimSE.exe 1.6.1170): the framework draws from its call hook at 36555+0x371 (0x643c00 is called at 0x646937 from Main
+    update 36564 = 0x645ea0); SKSE 2.2.6 runs its task queue from the same function (0x645ea0+0xB9C); the VM runs its code tasklets
+    on that thread before (0x6463e2 -> SkyrimVM 53927 -> VirtualMachine::UpdateTasklets vfunc 5 0x1444880, one tasklet after another).
+    So render callbacks and SKSE tasks are on the main thread and no Papyrus code runs while a task reads the VM. The page only reads
+    copies; every read and action is an SKSE task (no RunOnMain from the render callback: it would wait on itself).
+  - Effects: MagicTarget vfunc 7 (Character's MagicTarget vtable 0x18a5f80, slot 7 = 0x6c5ac0 = [this+0x58]) via
+    GetActiveEffectList (not VisitActiveEffects: in a VR-enabled build that uses REL::ID(33756), a VR id). ActiveEffect layout as
+    CommonLib and the handoff's save work (+0x34 caster, +0x40 spell, +0x58 source, +0x70/74/78, flags +0x7C: 0x100 enchanting,
+    0x8000 switched off, 0x40000 ended, +0x84 usUniqueID used to find an effect again). Remove one = ActiveEffect::Dispel(false)
+    (34061 = 0x5ac880; ActiveMagicEffect.Dispel's native 0x9e5ca0 is `xor edx,edx; jmp 0x5ac880`; Dispel sets 0x40000 then finishes via
+    34092 0x5ae2b0, except disease/ability/addiction types {1,4,10} with extra conditions, which it only marks). Abilities / diseases:
+    Actor::RemoveSpell (38717 = 0x6c14b0; Papyrus RemoveSpell 0x9e75f0 queues task 0x5d {handle +8, spell +0x10}; the task processor
+    0x656f30 reads those and calls 0x6c14b0). Worn item: ActorEquipManager::UnequipObject(player, item) with CommonLib's defaults = the
+    arguments Actor.UnequipItem's native passes (0x9eb409 -> 0x6ca010 = 38901). Stuck = ReSaver Plus's rule (group "items not worn",
+    constant-effect enchantment, cast by the player, duration 0, not ended); worn = ExtraWorn/ExtraWornLeft on a stack; enchantments a
+    worn stack carries = its ExtraEnchantment or the base EITM.
+  - Quests: TESQuest+0xE8 is ONE inline BSSimpleList<TESQuestStage*> head node (item +0xE8, next +0xF0: SetStage 0x3c9d00 walks it and
+    compares each item's u16 index), not CommonLib's two pointers executedStages / waitingStages; LiveInfo::ReadQuest reads it so.
+    Set stage = Game::SetStage, Complete objective = new Game::CompleteObjective, Stop = Game::Stop, refresh = Game::StartRefresh.
+  - Script health: VM members as CommonLib (= the handoff's offsets): allRunningStacks 0x9320 / waitingLatentReturns 0x9350 under
+    runningStacksLock 0x9318, suspendQueue1/2 numEntries (+0x810) + overflow arrays under suspendQueueLock 0x92F0,
+    uiWaitingFunctionMessages 0x8278 under funcQueueLock 0x200, frozenStacksCount 0x9398 / freezeState 0x939C under frozenStacksLock
+    0x9384 (IsCompletelyFrozen vfunc 7 0x1444a20 takes that lock and tests 0x939C == 2). Stack+0x80 = stackID (0x14546c9 writes
+    VM+0x9380 there); Stack+0x60 top / StackFrame+0x10 owningFunction from CommonLib only, read under __try (unreadable counted).
+    Sampled every 3 s from the first opening of the page (a detached thread queues SampleVM). The overstressed flag (VM+0x827C, written
+    by SetOverstressed vfunc 6 0x1444a10) is NOT shown: who sets it was not found.
+  - Save health: SkyrimVM isFrozen (+0x680, frozenLock +0x678; GetVMRuntimeData) is the freeze REQUEST, set by 0x9c3590, which the save
+    (freeze-and-wait 54015 0x9c9dc9), loading and the console's ToggleScripts (22865 0x36ab80, "Script processing %s") call. Requested
+    and freezeState != 2 for two samples = the bad-save condition (the save's wait never ends). Requested and 2 = scripts paused (ts).
+    Not requested but state != 0 twice = odd. The page tells users to test with `ts` (the same request as a save). A stranded thread is
+    NOT detectable without a freeze request (a live stack outside every queue cannot be told from a running one).
+  - Spawns: EncWolf 00023ABE (WolfRace 1320A), EncDeer 000CF89D (DeerRace CF89B), EncSabreCat 00023AB5 (SabreCatRace 13200), read from
+    Tony's Skyrim.esm (Update.esm does not override them; the Lvl* ones are template NPCs over leveled lists). PlaceAtMe on the player,
+    then MoveTo(player, 300 units ahead), then Kill(None) on demand; "the one I look at" = CrosshairPickData::GetActiveTarget, else the
+    console's selected ref. Beast races for the Followers page: WerewolfBeastRace 000CDD84, Dawnguard DLC1VampireBeastRace local 00283A.
+  - Not in Skyrim: "Give the controls back to the game" (Fallout 4 ResetForceEnabledPlayerControls); Skyrim's ControlMap has only enabled /
+    stored bits, nothing forced to undo, so the Rescue page explains it in the "Get my controls back" tooltip instead of a button.
+  - Syntax check here: scratchpad f1check/chk.sh (clang 18, --target=x86_64-pc-windows-msvc, CommonLibSSE-NG v6.7.0 = Tony's copy (only
+    RTTI.h differs, by line endings), mingw-w64 headers + libstdc++ 13 with shims in f1check/prelude.h, spdlog 1.16.0 / fmt 12.1.0 /
+    xbyak 7.28 / DirectXMath / DirectXTK / openvr headers in f1deps). xwin cannot run here (aka.ms is blocked by the proxy). All helper
+    sources pass; a broken copy shows the checker reports errors. Only verified on 1.6.1170; SE 1.5.97 and VR use CommonLib's ids, not
+    checked in those exes. Nothing was run in the game.
 
 ## 2. Where things are
 
