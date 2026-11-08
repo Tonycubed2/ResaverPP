@@ -12956,6 +12956,74 @@ tr "Открыть «Эффекты персонажа» (надетое, по �
 en "The same effects grouped by where they come from, with a paper doll of what you wear and the stuck ones at the top."
 tr "Те же эффекты по их источникам, с бумажной куклой того, что на вас надето, и застрявшими вверху."
 
+# AppCharEffects.cpp:108  return Fmt(tr("%s %+g (%s)"), a_v.fo4 ? a_v.name(static_cast<std::uint32_t>(a_e.actorValue)).c_str() : a_e.whyText.c_str(), a_e.statAmount,
+en "%s %+g (%s)"
+tr "%s %+g (%s)"
+
+# AppCharEffects.cpp:109  a_v.fo4 ? Fmt(tr("modifier %d"), a_e.statSlot).c_str() : a_e.statSlot ? tr("temporary") : tr("permanent"));
+en "modifier %d"
+tr "модификатор %d"
+
+# AppCharEffects.cpp:109  a_v.fo4 ? Fmt(tr("modifier %d"), a_e.statSlot).c_str() : a_e.statSlot ? tr("temporary") : tr("permanent"));
+en "temporary"
+tr "временный"
+
+# AppCharEffects.cpp:109  a_v.fo4 ? Fmt(tr("modifier %d"), a_e.statSlot).c_str() : a_e.statSlot ? tr("temporary") : tr("permanent"));
+en "permanent"
+tr "постоянный"
+
+# AppCharEffects.cpp:111  return Fmt(tr("it changes a stat, and which one is in its plugin (%s), which was not found here"), a_e.whyText.c_str());
+en "it changes a stat, and which one is in its plugin (%s), which was not found here"
+tr "он меняет характеристику, а какую именно, записано в его плагине (%s), который здесь не найден"
+
+# AppCharEffects.cpp:113  return Fmt(tr("it changes a stat, and which one is in its plugin (%s): load the plugin names first"), a_e.whyText.c_str());
+en "it changes a stat, and which one is in its plugin (%s): load the plugin names first"
+tr "он меняет характеристику, а какую именно, записано в его плагине (%s): сначала загрузите имена из плагинов"
+
+# AppCharEffects.cpp:115  return tr("it changes a stat, and which one is not known (an item made in game whose effects the save does not list)");
+en "it changes a stat, and which one is not known (an item made in game whose effects the save does not list)"
+tr "он меняет характеристику, а какую именно, неизвестно (вещь, созданная в игре, эффектов которой в сохранении нет)"
+
+# AppCharEffects.cpp:117  return Fmt(tr("it changes a stat, and which one is in its magic effect %s (%s), whose plugin was not found here"), a_e.whyText.c_str(),
+en "it changes a stat, and which one is in its magic effect %s (%s), whose plugin was not found here"
+tr "он меняет характеристику, а какую именно, записано в его магическом эффекте %s (%s), плагин которого здесь не найден"
+
+# AppCharEffects.cpp:120  return tr("the player's saved data does not read completely: ") + a_e.whyText;
+en "the player's saved data does not read completely: "
+tr "сохранённые данные игрока читаются не полностью: "
+
+# AppCharEffects.cpp:201  c.view.labels[0] = tr("%08X (%s made in game)");
+en "%08X (%s made in game)"
+tr "%08X (%s, создано в игре)"
+
+# AppCharEffects.cpp:202  c.view.labels[1] = tr("%08X (made in game)");
+en "%08X (made in game)"
+tr "%08X (создано в игре)"
+
+# AppCharEffects.cpp:203  c.view.labels[2] = tr("weapon enchantment");
+en "weapon enchantment"
+tr "зачарование оружия"
+
+# AppCharEffects.cpp:204  c.view.labels[3] = tr("armor enchantment");
+en "armor enchantment"
+tr "зачарование брони"
+
+# AppCharEffects.cpp:205  c.view.labels[4] = tr("potion");
+en "potion"
+tr "зелье"
+
+# AppCharEffects.cpp:206  c.view.labels[5] = tr("poison");
+en "poison"
+tr "яд"
+
+# AppCharEffects.cpp:679  ImGui::TextUnformatted(trc("effect", "constant"));
+en "effect|constant"
+tr "постоянный"
+
+# AppCharEffects.cpp:689  ImGui::TextUnformatted(trc("effect", "running"));
+en "effect|running"
+tr "действует"
+
 # ---- no longer used by the code (kept for reference; safe to delete) ----
 
 en "Not done: the player's cell and the cells loaded around the player (the game does not reset a cell while a save loads), an outdoor cell the save has no coordinates for, and a cell the save does not say is indoors. Only what is in the cell when the game resets it is touched: an actor that walked elsewhere is not. Settlements: their workshop objects belong to the settlement; resetting a settlement cell is not recommended."

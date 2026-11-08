@@ -270,13 +270,12 @@ namespace ess::chfx
 		}
 		if ((a_id >> 24) == 0xFF) {
 			if (const auto ci = createdItems.find(a_id); ci != createdItems.end()) {
-				static const char* const kinds[4] = { "weapon enchantment", "armor enchantment", "potion", "poison" };
-				return Fmt("%08X (%s made in game)", a_id, kinds[ci->second.table & 3]);
+				return Fmt(labels[0], a_id, labels[2 + (ci->second.table & 3)]);
 			}
 			if (const auto it = created.find(a_id); it != created.end()) {
-				return Fmt("%08X (%s made in game)", a_id, it->second.c_str());
+				return Fmt(labels[0], a_id, it->second.c_str());
 			}
-			return Fmt("%08X (made in game)", a_id);
+			return Fmt(labels[1], a_id);
 		}
 		return Fmt("%08X", a_id);
 	}
@@ -363,15 +362,24 @@ namespace ess::chfx
 				if (x.stat && x.actorValue < 0) {
 					x.canRemove = false;
 					if (!x.mgef) {
+						x.whyKind = (e.magicItem >> 24) == 0xFF ? Effect::Why::kMadeInGameUnknown : db ? Effect::Why::kPluginNotRead : Effect::Why::kNamesNotLoaded;
+						x.whyText = a_save.pluginOf(e.magicItem);
 						x.why = (e.magicItem >> 24) == 0xFF ? "it changes a stat, and which one is not known (an item made in game whose effects the save does not list)"
 						                                    : "it changes a stat, and which one is in its plugin (" + a_save.pluginOf(e.magicItem) +
 						                                          (db ? "), which was not read" : "): load the plugin names first");
 					} else {
+						x.whyKind = db ? Effect::Why::kMgefNotRead : Effect::Why::kNamesNotLoaded;
+						x.whyText = Fmt("%08X", x.mgef);
+						x.whyText2 = a_save.pluginOf(x.mgef);
 						x.why = Fmt("it changes a stat, and which one is in its magic effect %08X (%s)", x.mgef,
 							db ? (a_save.pluginOf(x.mgef) + ", not read").c_str() : "load the plugin names first");
 					}
 				} else if (x.stat) {
 					x.why = Fmt("%s %+g (%s)", cf::ActorValueName(static_cast<std::uint32_t>(x.actorValue)), -e.magnitude, slot ? "temporary" : "permanent");
+					x.whyKind = Effect::Why::kStat;
+					x.whyText = cf::ActorValueName(static_cast<std::uint32_t>(x.actorValue));
+					x.statAmount = -e.magnitude;
+					x.statSlot = slot;
 				}
 				v.effects.push_back(std::move(x));
 			}
@@ -431,11 +439,18 @@ namespace ess::chfx
 				if (!plan.ok) {
 					x.canRemove = false;
 					x.why = plan.why;
+					x.whyKind = Effect::Why::kRefused;
 				} else if (!act.complete) {
 					x.canRemove = false;
 					x.why = "the player's saved data does not read completely: " + act.error;
+					x.whyKind = Effect::Why::kIncomplete;
+					x.whyText = act.error;
 				} else if (x.stat) {
 					x.why = Fmt("%08X %+g (modifier %d)", plan.actorValue, -plan.amount, plan.slot);
+					x.whyKind = Effect::Why::kStat;
+					x.whyText = Fmt("%08X", plan.actorValue);
+					x.statAmount = -plan.amount;
+					x.statSlot = plan.slot;
 				}
 				v.effects.push_back(std::move(x));
 			}

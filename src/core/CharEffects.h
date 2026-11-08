@@ -64,7 +64,23 @@ namespace ess::chfx
 		std::int64_t  actorValue = -1;  // Skyrim: actor value index; Fallout 4: AVIF form id; -1 not known / none
 		bool          stat = false;     // removing it changes a saved stat
 		bool          canRemove = true;
-		std::string   why;              // why not, or what removing it changes
+		std::string   why;              // why not, or what removing it changes (English)
+		// the same as parts, for the GUI's own (translated) text
+		enum class Why : std::uint8_t
+		{
+			kNone,
+			kStat,              // removing it changes: whyText (actor value name or AVIF id), statAmount, statSlot
+			kPluginNotRead,     // a stat effect whose item's plugin (whyText) was not read
+			kNamesNotLoaded,    // ... plugin names not loaded at all (whyText: the plugin)
+			kMadeInGameUnknown, // ... an item made in game whose effects the save does not list
+			kMgefNotRead,       // ... its magic effect (whyText "%08X") is in a plugin not read (whyText2)
+			kRefused,           // Fallout 4: the removal plan refused it (why, English, from the core)
+			kIncomplete,        // the player's data does not read completely (whyText: the error)
+		};
+		Why           whyKind = Why::kNone;
+		std::string   whyText, whyText2;
+		float         statAmount = 0;
+		int           statSlot = -1;
 		bool          off() const { return (flags & 0x8000u) != 0 || (flags & 0x40000u) != 0; }  // switched off / dispelled
 		bool          fromItem() const { return (flags & 0x100u) != 0; }
 	};
@@ -155,6 +171,9 @@ namespace ess::chfx
 		bool                 loadOrderOther = false;  // not checked: the load order lacks most of the save's plugins
 		std::string          loadOrderNote;  // why the load order part was not checked
 		std::string          name(std::uint32_t a_id) const;  // in-game name, editor id, or the form id (+ "made in game")
+		// the words name() uses for FF forms: "%08X (%s made in game)", "%08X (made in game)", then the four created kinds
+		// (weapon enchantment, armor enchantment, potion, poison); the GUI puts translations here
+		const char*          labels[6] = { "%08X (%s made in game)", "%08X (made in game)", "weapon enchantment", "armor enchantment", "potion", "poison" };
 		const PluginDB*      db = nullptr;
 		const SaveFile*      save = nullptr;
 		std::map<std::uint32_t, std::string> created;  // FF forms the save has a change form for: their type ("ARMO")

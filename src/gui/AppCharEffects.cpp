@@ -99,6 +99,30 @@ namespace
 		}
 	}
 
+	// why an effect cannot be removed, or what removing it changes, in the interface's language
+	std::string FxWhy(const chfx::View& a_v, const chfx::Effect& a_e)
+	{
+		using W = chfx::Effect::Why;
+		switch (a_e.whyKind) {
+		case W::kStat:
+			return Fmt(tr("%s %+g (%s)"), a_v.fo4 ? a_v.name(static_cast<std::uint32_t>(a_e.actorValue)).c_str() : a_e.whyText.c_str(), a_e.statAmount,
+				a_v.fo4 ? Fmt(tr("modifier %d"), a_e.statSlot).c_str() : a_e.statSlot ? tr("temporary") : tr("permanent"));
+		case W::kPluginNotRead:
+			return Fmt(tr("it changes a stat, and which one is in its plugin (%s), which was not found here"), a_e.whyText.c_str());
+		case W::kNamesNotLoaded:
+			return Fmt(tr("it changes a stat, and which one is in its plugin (%s): load the plugin names first"), a_e.whyText.c_str());
+		case W::kMadeInGameUnknown:
+			return tr("it changes a stat, and which one is not known (an item made in game whose effects the save does not list)");
+		case W::kMgefNotRead:
+			return Fmt(tr("it changes a stat, and which one is in its magic effect %s (%s), whose plugin was not found here"), a_e.whyText.c_str(),
+				a_e.whyText2.c_str());
+		case W::kIncomplete:
+			return tr("the player's saved data does not read completely: ") + a_e.whyText;
+		default:
+			return a_e.why;  // (Fallout 4's removal plan: its own English text)
+		}
+	}
+
 	// where each slot's box sits around the figure (box x: 0 left column, 1 right column; y in canvas units) and the point of
 	// the figure it points at; the figure faces you, so the character's right hand is on your left
 	struct Place
@@ -174,6 +198,12 @@ App::CharFxView& App::charFx()
 			opt.db = _db.get();
 			opt.loadOrder = c.lo.known ? &c.lo.plugins : nullptr;
 			c.view = chfx::Build(*_save, opt);
+			c.view.labels[0] = tr("%08X (%s made in game)");
+			c.view.labels[1] = tr("%08X (made in game)");
+			c.view.labels[2] = tr("weapon enchantment");
+			c.view.labels[3] = tr("armor enchantment");
+			c.view.labels[4] = tr("potion");
+			c.view.labels[5] = tr("poison");
 		}
 	}
 	return c;
@@ -192,7 +222,7 @@ void App::charFxRemove(const std::vector<std::size_t>& a_effects, const std::str
 		if (e.canRemove && c.view.removable) {
 			ok.push_back(i);
 		} else if (refused.size() < 600) {
-			refused += "\n  " + c.view.name(e.item) + Fmt(tr(" (effect %u): "), e.effectIndex) + e.why;
+			refused += "\n  " + c.view.name(e.item) + Fmt(tr(" (effect %u): "), e.effectIndex) + FxWhy(c.view, e);
 		}
 	}
 	if (ok.empty()) {
@@ -201,8 +231,8 @@ void App::charFxRemove(const std::vector<std::size_t>& a_effects, const std::str
 	}
 	std::string stats;
 	for (const auto i : ok) {
-		if (c.view.effects[i].stat && !c.view.effects[i].why.empty() && stats.size() < 600) {
-			stats += "\n  " + c.view.effects[i].why;
+		if (c.view.effects[i].stat && c.view.effects[i].whyKind == chfx::Effect::Why::kStat && stats.size() < 600) {
+			stats += "\n  " + FxWhy(c.view, c.view.effects[i]);
 		}
 	}
 	std::string text = Fmt(tr("Remove %zu effect(s) from the player: %s?"), ok.size(), a_what.c_str());
@@ -304,6 +334,14 @@ void App::drawCharEffects()
 		return true;
 	}();
 	(void)testInit;
+	static bool testRemove = std::getenv("RESAVERPP_TEST_CFXREMOVE") != nullptr;  // screenshots: asks to remove stuck finding n
+	if (testRemove && _db && !c.view.stuck.empty()) {
+		testRemove = false;
+		const auto n = static_cast<std::size_t>(std::atoi(std::getenv("RESAVERPP_TEST_CFXREMOVE")));
+		if (n < c.view.stuck.size()) {
+			charFxRemove(c.view.stuck[n].effects, c.view.name(c.view.cards[c.view.stuck[n].card].item));
+		}
+	}
 
 	ImGui::NewLine();
 	ImGui::TextWrapped("%s", tr("Every magic effect on your character, grouped by where it comes from, and what you wear. An effect stuck on you "
@@ -349,7 +387,7 @@ void App::drawCharEffects()
 				std::string why;
 				for (const auto i : f.effects) {
 					if (!v.effects[i].canRemove) {
-						why = v.effects[i].why;
+						why = FxWhy(v, v.effects[i]);
 						break;
 					}
 				}
@@ -631,14 +669,14 @@ void App::drawCharEffects()
 							ImGui::TableNextRow();
 							ImGui::TableNextColumn();
 							ImGui::TextUnformatted((e.mgef ? v.name(e.mgef) : Fmt(tr("effect %u"), e.effectIndex)).c_str());
-							if (e.stat && !e.why.empty()) {
-								tips::Tip(e.canRemove ? (tr("Removing it: ") + e.why).c_str() : e.why.c_str());
+							if (e.whyKind != chfx::Effect::Why::kNone) {
+								tips::Tip(e.canRemove ? tr("Removing it: ") + FxWhy(v, e) : FxWhy(v, e));
 							}
 							ImGui::TableNextColumn();
 							ImGui::Text("%g", e.magnitude);
 							ImGui::TableNextColumn();
 							if (e.duration == 0) {
-								ImGui::TextUnformatted(tr("constant"));
+								ImGui::TextUnformatted(trc("effect", "constant"));
 							} else if (!v.fo4 && (e.flags & 0x4100u) == 0) {
 								ImGui::TextUnformatted(Fmt(tr("%.0f of %.0f s (%.0f s left)"), e.elapsed, e.duration, std::max(0.0f, e.duration - e.elapsed)).c_str());
 							} else {
@@ -648,7 +686,7 @@ void App::drawCharEffects()
 							if (e.off()) {
 								ImGui::TextDisabled("%s", tr("switched off"));
 							} else {
-								ImGui::TextUnformatted(tr("running"));
+								ImGui::TextUnformatted(trc("effect", "running"));
 							}
 							ImGui::TableNextColumn();
 							ImGui::PushID(static_cast<int>(i));
@@ -657,7 +695,7 @@ void App::drawCharEffects()
 								charFxRemove({ i }, title);
 							}
 							ImGui::EndDisabled();
-							tips::Tip(e.canRemove ? tr("Take this effect off your character (asks first).") : (tr("Cannot be removed: ") + e.why).c_str());
+							tips::Tip(e.canRemove ? tr("Take this effect off your character (asks first).") : (tr("Cannot be removed: ") + FxWhy(v, e)).c_str());
 							ImGui::PopID();
 						}
 						ImGui::EndTable();
