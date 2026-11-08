@@ -53,6 +53,8 @@ namespace ess
 			"  --remove-unattached       Clean > Remove unattached instances\n"
 			"  --remove-undefined        Clean > Remove undefined elements (missing scripts)\n"
 			"  --terminate-undefined     Clean > Terminate threads running missing scripts\n"
+			"  --remove-stranded-threads delete threads nothing will resume (not suspended, no queued call, no latent wait;\n"
+			"                            left by deleting a suspended stack without its thread). Skyrim SE/AE\n"
 			"  --reset-havok             Clean > Reset Havok (zero saved physics state of object references; Fallout 4: empty the havok blob)\n"
 			"  --purify-formlists        Clean > Purify FormLists (remove null entries; Skyrim and Fallout 4)\n"
 			"  --batch <list.txt>        purge every script in a ReSaver batch-clean list (\"@@\" lines are skipped\n"

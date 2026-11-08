@@ -228,6 +228,80 @@ namespace ess::ops
 		       EraseIf(p.suspended2, [&](const SuspendedStack& s) { return a_ids.contains(s.id); });
 	}
 
+	std::vector<ThreadID> StrandedThreads(const Papyrus& p)
+	{
+		std::unordered_set<ThreadID> held;
+		for (const auto* list : { &p.suspended1, &p.suspended2 }) {
+			for (const auto& s : *list) {
+				held.insert(s.id);
+			}
+		}
+		for (const auto& m : p.functionMessages) {
+			if (m.id) {
+				held.insert(*m.id);
+			}
+		}
+		if (p.unk1 != 0 && p.unk2) {
+			held.insert(*p.unk2);
+		}
+		std::vector<ThreadID> out;
+		for (const auto& a : p.activeScripts) {
+			if (a.type == 0 && !held.contains(a.id)) {
+				out.push_back(a.id);
+			}
+		}
+		return out;
+	}
+
+	namespace
+	{
+		ThreadDelete RemoveWhole(Papyrus& p, std::set<ThreadID> a_threads, std::set<std::size_t> a_msgs)
+		{
+			ThreadDelete r;
+			for (std::size_t i = 0; i < p.functionMessages.size(); ++i) {
+				if (const auto& m = p.functionMessages[i]; m.id && a_threads.contains(*m.id)) {
+					a_msgs.insert(i);
+				}
+			}
+			r.messages = DeleteFunctionMessages(p, a_msgs);
+			r.stacks = DeleteSuspendedStacks(p, a_threads);
+			r.threads = DeleteThreads(p, a_threads);
+			// the engine's extra slot: a count (0 or 1) and, when 1, the id of the thread in it (SkyrimSE.exe 1.6.1170: VM
+			// save 0x144a840 writes VM+0x9398 then, if not 0, the id of the stack at VM+0x9390; load 0x144b150 reads them
+			// back). A thread that goes empties the slot.
+			if (p.unk1 != 0 && p.unk2 && a_threads.contains(*p.unk2)) {
+				p.unk1 = 0;
+				p.unk2.reset();
+			}
+			return r;
+		}
+	}
+
+	ThreadDelete RemoveSuspendedStacks(Papyrus& p, const std::set<ThreadID>& a_ids) { return RemoveWhole(p, a_ids, {}); }
+
+	ThreadDelete RemoveFunctionMessages(Papyrus& p, const std::set<std::size_t>& a_indices)
+	{
+		std::set<ThreadID>    threads;
+		std::set<std::size_t> msgs;
+		for (const auto i : a_indices) {
+			if (i < p.functionMessages.size()) {
+				msgs.insert(i);
+				if (const auto& m = p.functionMessages[i]; m.id) {
+					threads.insert(*m.id);
+				}
+			}
+		}
+		return RemoveWhole(p, std::move(threads), std::move(msgs));
+	}
+
+	ThreadDelete RemoveThreads(Papyrus& p, const std::set<ThreadID>& a_ids) { return RemoveWhole(p, a_ids, {}); }
+
+	ThreadDelete RemoveStrandedThreads(Papyrus& p)
+	{
+		const auto v = StrandedThreads(p);
+		return RemoveWhole(p, std::set<ThreadID>(v.begin(), v.end()), {});
+	}
+
 	std::size_t DeleteFunctionMessages(Papyrus& p, const std::set<std::size_t>& a_indices)
 	{
 		std::size_t                  n = 0;
@@ -1056,6 +1130,12 @@ namespace ess::ops
 			return r;
 		}
 		const auto& p = *pp;
+		if (p.invalid) {
+			r.warnings.push_back("The game flagged this save's Papyrus data invalid and wrote none of it: its script engine could not pause when "
+								 "it saved (it gives up after 30 seconds). Loading this save, the game ignores all script data. The usual "
+								 "cause is a thread nothing resumes (see the stranded threads check) in the save loaded before it.");
+			return r;
+		}
 		r.scripts = p.scripts.size();
 		r.instances = p.instances.size();
 		r.references = p.references.size();
@@ -1160,6 +1240,18 @@ namespace ess::ops
 				"(removes the stuck registration work; SkyUI registers the remaining menus again on the next load).",
 				mcmThreads, registerMod, busy ? ", and SKI_ConfigManager was saved in its BUSY state" : "");
 			r.warnings.push_back(buf);
+		}
+		if (!s.isFO4() && !s.isLE()) {
+			r.stranded = StrandedThreads(p).size();
+			if (r.stranded) {
+				std::snprintf(buf, sizeof(buf),
+					"%zu thread(s) are waiting for nothing: not suspended, no queued call, no latent wait. The game never runs or ends them, "
+					"and while one is there it cannot pause its scripts to save: every save of that session is written without script "
+					"data. A save the game made has none; they come from deleting a suspended stack or queued call without its "
+					"thread. Fix: --remove-stranded-threads (GUI: the Save check).",
+					r.stranded);
+				r.warnings.push_back(buf);
+			}
 		}
 		if (r.suspended >= 50) {
 			std::snprintf(buf, sizeof(buf), "%zu suspended stacks are queued (normal is a handful).", r.suspended);

@@ -40,8 +40,33 @@ namespace ess::ops
 	std::size_t TerminateThreads(Papyrus& p, const std::set<ThreadID>& a_ids);
 	// Deletes threads together with their suspended stacks and queued function messages.
 	std::size_t DeleteThreadsFully(Papyrus& p, const std::set<ThreadID>& a_ids);
+	// Only the entries of the two suspended stack tables. Their threads stay: use RemoveSuspendedStacks unless the
+	// caller deletes those threads itself.
 	std::size_t DeleteSuspendedStacks(Papyrus& p, const std::set<ThreadID>& a_ids);
 	std::size_t DeleteFunctionMessages(Papyrus& p, const std::set<std::size_t>& a_indices);
+
+	// ---- threads and what holds them ------------------------------------------------------------
+	// Every thread (stack) a save lists is held by exactly one of: an entry of a suspended stack table (it waits to make
+	// its call), a queued function message with its id (the call it was made for), the latent-wait list (thread type
+	// byte not 0: a latent native such as Utility.Wait), or the script engine's one extra slot (unk1 != 0, unk2 = its
+	// id). Checked on every Skyrim SE and Fallout 4 save we have (31 + 168). SkyrimSE.exe 1.6.1170 counts exactly these
+	// to decide the engine is paused (0x14517c0: suspend queues and their overflow arrays + queued messages + latent
+	// waits + the extra slot >= running threads); a thread held by none of them is never resumed, never finishes, and
+	// keeps the engine from pausing, so every later save of that game session is written with its Papyrus data
+	// flagged invalid (see Papyrus::invalid).
+	// Threads held by none of them.
+	std::vector<ThreadID> StrandedThreads(const Papyrus& p);
+
+	// Deletes that keep every thread held: a suspended stack, a queued call with a thread id, or a thread goes
+	// together with the thread and everything else that names that thread.
+	struct ThreadDelete
+	{
+		std::size_t threads = 0, stacks = 0, messages = 0;
+	};
+	ThreadDelete RemoveSuspendedStacks(Papyrus& p, const std::set<ThreadID>& a_ids);        // by thread id
+	ThreadDelete RemoveFunctionMessages(Papyrus& p, const std::set<std::size_t>& a_indices);  // by index
+	ThreadDelete RemoveThreads(Papyrus& p, const std::set<ThreadID>& a_ids);
+	ThreadDelete RemoveStrandedThreads(Papyrus& p);
 	std::size_t DeleteUnbinds(Papyrus& p, const std::set<EID>& a_ids);
 	std::size_t DeleteScripts(Papyrus& p, const std::set<TStr>& a_names);  // also deletes their instances
 	std::size_t DeleteChangeForms(SaveFile& s, const std::set<std::uint32_t>& a_refIDs);
@@ -165,6 +190,7 @@ namespace ess::ops
 	{
 		std::size_t scripts = 0, instances = 0, references = 0, arrays = 0, threads = 0, functionMessages = 0, suspended = 0, changeForms = 0, strings = 0;
 		std::size_t unattached = 0, undefinedScripts = 0, undefinedInstances = 0, undefinedThreads = 0, terminatedThreads = 0, createdWithoutForm = 0;
+		std::size_t stranded = 0;  // StrandedThreads (Skyrim SE)
 		std::vector<Count> threadsByTopScript;      // script of the event frame (frame 0)
 		std::vector<Count> threadsByCurrentFrame;   // innermost frame: what the thread is waiting in
 		std::vector<Count> suspendedByFunction;

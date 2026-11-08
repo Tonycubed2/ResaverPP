@@ -779,7 +779,11 @@ namespace ess
 			}
 			add("change forms: %zu (%s)", a_save.changeForms.size(), s.c_str());
 		}
-		if (const auto* p = a_save.papyrus()) {
+		if (const auto* p = a_save.papyrus(); p && p->invalid) {
+			add("Papyrus: FLAGGED INVALID by the game (header 0xFFFF, %zu byte(s) after it): its script engine was not paused when it "
+				"saved, so it wrote no script data; loading this save, the game ignores Papyrus entirely",
+				p->tail.size());
+		} else if (p) {
 			add("Papyrus: header %u, strings %zu (%s-bit indices), ids %s-bit, scripts %zu, structs %zu, script instances %zu, references %zu, struct "
 				"instances %zu, arrays %zu, threads %zu, function messages %zu, suspended %zu + %zu, unknown ids %zu, queued unbinds %zu, other data %zu bytes",
 				static_cast<unsigned>(p->header), p->strings.size(), a_save.str16() ? "16" : "32", a_save.isLE() ? "32" : "64", p->scripts.size(),

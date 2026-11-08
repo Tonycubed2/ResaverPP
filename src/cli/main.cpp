@@ -566,7 +566,7 @@ int main(int argc, char** argv)
 		return r;
 	}
 	std::vector<std::string> purge;
-	bool                     fixMcm = false, delForms = false, keepInst = false, unattached = false, undefined = false, termUndef = false, nonexist = false;
+	bool                     fixMcm = false, delForms = false, keepInst = false, unattached = false, undefined = false, termUndef = false, nonexist = false, stranded = false;
 	std::size_t              top = 20;
 	bool                     modsView = false;
 	std::string              sources, profile, removeMod, game, findText;
@@ -635,6 +635,8 @@ int main(int argc, char** argv)
 			undefined = true;
 		} else if (a == "--terminate-undefined") {
 			termUndef = true;
+		} else if (a == "--remove-stranded-threads") {
+			stranded = true;
 		} else if (a == "--remove-nonexistent") {
 			nonexist = true;
 		} else if (a == "--set-property") {
@@ -873,7 +875,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty() || fixFollowerCount || fixAnimalCount || !clearTeammates.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || stranded || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty() || fixFollowerCount || fixAnimalCount || !clearTeammates.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -2191,6 +2193,14 @@ int main(int argc, char** argv)
 		}
 		if (termUndef) {
 			std::printf("terminated undefined threads: %zu\n", ops::TerminateUndefinedThreads(*p));
+		}
+		if (stranded) {
+			if (save->isFO4() || save->isLE()) {
+				std::printf("remove stranded threads: only for Skyrim SE/AE saves (checked in that game only)\n");
+			} else {
+				const auto r = ops::RemoveStrandedThreads(*p);
+				std::printf("removed stranded threads: %zu\n", r.threads);
+			}
 		}
 		if (undefined) {
 			const auto ur = ops::RemoveUndefinedElements(*save);
