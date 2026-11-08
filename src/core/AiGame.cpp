@@ -86,6 +86,7 @@ RECIPES
 - "Check my save": run_cli {save} (no action: the analysis report), then --path-idles, --spawned, --mods as needed. The app's Save check window shows the same kinds of findings.
 - Crash on load: analyze_logs; read the newest crash log; run_cli {save} --crash-log <log>; --path-idles.
 - Script lag, a save that grows: --mods (scripts per mod with instances and running threads), --spawned, --report; then --purge-script <name> or --remove-mod for the mod responsible.
+- Script-call flood (the report's "Script-call flood" warning: one script's event queued over 100 times, e.g. thousands of OnMagicEffectApply on one follower's alias): events are queued faster than the game runs them. run_cli {save} --clear-floods [Script.Event] -o <new save> drops only the queued calls that never started (thread with 0 frames) with their threads, which is the same as those events never having fired; threads already running stay. Tell the user it comes back unless the cause is fixed: for OnMagicEffectApply usually a cloak or aura spell, or a mod applying effects in a loop, on that actor. Checked in SkyrimSE.exe 1.6.1170; for Legendary Edition saves say it was not checked in that game.
 - A mod was removed: --remove-mod <plugin> --dry-run --sources <mods folder>, then the same with -o. Items it left in inventories: leftover_items, then remove_leftover_items.
 - Stuck quest: --quests <name or editor id> for its stage and objectives; with the game connected QUEST, then SETSTAGE / COMPLETE / STOP / RESET.
 - Lost follower: with the game running (helper 12), game_command GATHER brings every follower to the player at once, no save needed.
@@ -181,6 +182,7 @@ RECIPES (Fallout 4)
 - "Check my save": run_cli {save} (the analysis report), then --mods, --spawned, --quests as needed.
 - Crash: analyze_logs; read the newest Buffout 4 crash log; run_cli {save} --crash-log <log>.
 - Script lag, a save that grows: --mods, --spawned, --report; then --purge-script <name> or --remove-mod for the mod responsible.
+- Script-call flood (the report's "Script-call flood" warning: one script's event queued over 100 times): run_cli {save} --clear-floods [Script.Event] -o <new save> drops only the queued calls that never started, with their threads; running threads stay. It comes back unless the cause is fixed. What the game does with such calls was checked in SkyrimSE.exe only (Fallout4.exe: only how it loads them); say so.
 - A mod was removed: --remove-mod <plugin> --dry-run, then the same with -o; leftover_items / remove_leftover_items for its items.
 - Stuck quest: --quests <name or editor id> (with --sources for names and stage texts); in the running game APPLY setstage, or the console command for the user.
 - Companion problems (affinity, won't follow, left, romance): run_cli {save} --fo4-companions, then the commands it prints or --fo4-set-affinity.

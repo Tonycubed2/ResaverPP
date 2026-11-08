@@ -382,6 +382,7 @@ namespace ess
 					std::uint32_t big = 0;
 					const bool     isQuest = Is(h, "QUST");  // (Fallout 4's layout too: xEdit wbDefinitionsFO4, checked on Fallout4.esm)
 					bool           pastObjectives = false;  // Fallout 4: after ANAM (the aliases, then NNAM is the description)
+					std::int64_t   aliasID = -1;  // the alias being read (ALST / ALLS / ALCS id), for its ALID name
 					// MGEF DATA, EFID/EFIT and SPIT have the same places in Fallout 4 (checked on Fallout4.esm: FortifyStrength
 					// archetype 34 / AVIF 0x2C2, AbFortify* spells type 4 constant effect); its ENCH and ALCH keep their
 					// enchant / cast type and flags in ENIT (Fallout4.exe 1.11.240: EnchantmentItem +0xd0, AlchemyItem +0x1a8)
@@ -526,6 +527,12 @@ namespace ess
 										pendingObjs.push_back({ 0, qd.objectives.size() - 1, tid });
 									}
 								}
+							} else if ((Is(st, "ALST") || Is(st, "ALLS") || Is(st, "ALCS")) && len >= 4) {
+								aliasID = U32(d + p);
+							} else if (Is(st, "ALID") && aliasID >= 0) {
+								qd.aliases[static_cast<std::uint32_t>(aliasID)] =
+									GameTextToUtf8(std::string(reinterpret_cast<const char*>(d + p), strnlen(reinterpret_cast<const char*>(d + p), len)));
+								aliasID = -1;
 							} else if (Is(st, "VMAD")) {
 								if (a_in.fo4) {
 									quests::ParseQuestVMADFO4(d + p, len, toRuntime, qd);

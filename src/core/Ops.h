@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Save.h"
+#include "ScriptFlood.h"
 
 #include <set>
 #include <string>
@@ -200,6 +201,7 @@ namespace ess::ops
 		std::vector<std::string> warnings;          // plain-language findings
 		std::vector<std::string> loopingScripts;    // scripts with 20+ threads parked in Utility.Wait
 		bool                     mcmJam = false;    // SkyUI registration was mid-way (FixMcmJam applies)
+		std::vector<flood::Flood> floods;           // script-call floods (flood::Find)
 	};
 	Report Analyze(SaveFile& s);
 	std::string FormatReport(const Report& r, std::size_t a_top = 20);

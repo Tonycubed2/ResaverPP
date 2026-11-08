@@ -68,6 +68,7 @@ namespace ess::quests
 		std::vector<Property>  properties;       // of the fragment script (what its fragments use)
 		std::vector<std::string> scripts;        // every script attached to the quest
 		std::uint16_t          plugin = 0;       // index into PluginDB::plugins() (last override)
+		std::unordered_map<std::uint32_t, std::string> aliases;  // alias id (ALST / ALLS / ALCS) -> name (ALID)
 
 		const Stage*    stage(std::uint16_t a_index) const;
 		const Fragment* fragmentFor(std::uint16_t a_stage) const;

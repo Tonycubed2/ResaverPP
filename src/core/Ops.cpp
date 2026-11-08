@@ -1253,6 +1253,17 @@ namespace ess::ops
 				r.warnings.push_back(buf);
 			}
 		}
+		r.floods = flood::Find(s);
+		for (const auto& f : r.floods) {
+			char fb[1024];
+			std::snprintf(fb, sizeof(fb),
+				"Script-call flood: %zu calls of %s are queued (%zu not started, %zu already running, %zu left for another reason, "
+				"%zu queued messages), on %zu object(s)%s%s. Events are queued faster than the game can run them: script lag. "
+				"Fix: --clear-floods %s (drops only the calls that never started; it comes back unless the cause is fixed).",
+				f.total(), f.key().c_str(), f.notStarted, f.running, f.other, f.messages, f.objects, f.targets.empty() ? "" : ", most on ",
+				f.targets.empty() ? "" : flood::TargetText(f.targets.front()).c_str(), f.key().c_str());
+			r.warnings.push_back(fb);
+		}
 		if (r.suspended >= 50) {
 			std::snprintf(buf, sizeof(buf), "%zu suspended stacks are queued (normal is a handful).", r.suspended);
 			r.warnings.push_back(buf);

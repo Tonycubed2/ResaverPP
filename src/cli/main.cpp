@@ -612,6 +612,8 @@ int main(int argc, char** argv)
 	std::string   removeExtraName;
 	std::string              questFilter;
 	modremove::Options       removeOpt;
+	bool                     clearFloods = false;  // --clear-floods [Script.Event]
+	std::set<std::string>    floodKeys;
 	for (int i = 2; i < argc; ++i) {
 		const std::string a = argv[i];
 		auto              next = [&]() -> std::string {
@@ -637,6 +639,13 @@ int main(int argc, char** argv)
 			termUndef = true;
 		} else if (a == "--remove-stranded-threads") {
 			stranded = true;
+		} else if (a == "--clear-floods") {
+			clearFloods = true;
+			// optional Script.Event (not an option, not a save file)
+			if (i + 1 < argc && argv[i + 1][0] != '-' && std::string(argv[i + 1]).find('.') != std::string::npos &&
+				!std::filesystem::exists(argv[i + 1])) {
+				floodKeys.insert(argv[++i]);
+			}
 		} else if (a == "--remove-nonexistent") {
 			nonexist = true;
 		} else if (a == "--set-property") {
@@ -875,7 +884,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || stranded || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty() || fixFollowerCount || fixAnimalCount || !clearTeammates.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || stranded || clearFloods || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty() || fixFollowerCount || fixAnimalCount || !clearTeammates.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -2202,6 +2211,25 @@ int main(int argc, char** argv)
 				std::printf("removed stranded threads: %zu\n", r.threads);
 			}
 		}
+		if (clearFloods) {
+			if (p->invalid) {
+				std::printf("clear floods: this save's Papyrus data is flagged invalid; there is nothing to clear\n");
+			} else {
+				const auto fr = flood::Clear(*save, floodKeys);
+				if (fr.floods.empty()) {
+					std::printf("clear floods: %s\n", floodKeys.empty() ? "no script-call flood in this save" : "no such flood in this save");
+				}
+				for (const auto& k : fr.floods) {
+					std::printf("flood: %s\n", k.c_str());
+				}
+				std::printf("cleared queued calls that never started: %zu (threads %zu, queued messages %zu); left alone: %zu already running, %zu "
+							"for another reason\n",
+					fr.calls, fr.threads, fr.messages, fr.leftRunning, fr.leftOther);
+				if (save->isFO4() || save->isLE()) {
+					std::printf("note: what the game does with these calls was checked in SkyrimSE.exe 1.6.1170 only\n");
+				}
+			}
+		}
 		if (undefined) {
 			const auto ur = ops::RemoveUndefinedElements(*save);
 			std::printf("removed undefined elements: %zu\n", ur.removed);
@@ -2277,6 +2305,10 @@ int main(int argc, char** argv)
 		auto check = SaveFile::load(out);
 		std::printf("written %s and verified (re-read OK: %zu instances, %zu threads)\n", out.c_str(), check->papyrus()->instances.size(),
 			check->papyrus()->activeScripts.size());
+		if ((clearFloods || stranded) && !check->papyrus()->invalid) {
+			std::printf("re-read: %zu suspended stacks, %zu stranded threads\n", check->papyrus()->suspended1.size() + check->papyrus()->suspended2.size(),
+				ops::StrandedThreads(*check->papyrus()).size());
+		}
 	} catch (const std::exception& e) {
 		std::fprintf(stderr, "error: %s\n", e.what());
 		return 2;
