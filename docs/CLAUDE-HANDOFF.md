@@ -437,6 +437,49 @@ project; you do the coding, building, delivering and publishing.
     12 saves (no threads on them, none kept), Papyrus section reads back clean; one edited save round-trips byte-identical.
 - Linux/Wine is not officially supported.
 
+- Character effects (2026-11-07, branch doll, not published): `core/CharEffects.*` (`ess::chfx`), GUI `gui/AppCharEffects.cpp` (Tools >
+  Character effects, home button "Character effects", a button in Edit player > Active effects of both games, Save check line via
+  `App::charFxCheck`; Sc::kCharEffects = 37), CLI `--char-effects [--sources] [--plugins-txt <file> [--game <dir>]] [--all]` and
+  `--remove-stuck -o` (src/cli/CharEffectsCli.cpp). For trashgod69 (effects stuck from a ring he took off; 1927 effects). Window: a drawn
+  figure with slot boxes (Skyrim: head, amulet, body, hands, ring, feet, right/left hand, shield, ammo; Fallout 4: head, neck, body,
+  chest armor, arms, legs, hands, ring, weapons, Pip-Boy; power armor not shown), "slot not known" / "other slots" rows, the save's own
+  screenshot (`_shotTex`), every worn item, then cards per source (magic item + the item it came from) in groups (worn items, items
+  not worn, spells/powers/shouts, potions/food, abilities, diseases, put on by others, unknown) with Remove per effect and "Remove all
+  from this source"; stuck findings in red at the top with "Remove them" (refusals listed with reasons). Removal = `chfx::Remove` ->
+  cf::RemovePlayerActiveEffects / fo4cf::RemoveActiveEffects, then the player is read again and must hold exactly that many fewer
+  effects (Skyrim: else the change form is put back). Verified readings:
+  - Each active effect's data: f32 elapsed (+0x70), magnitude (+0x78), duration (+0x74), u32 flags, then 3-byte RefIDs caster (handle
+    +0x34), target, +0x68, +0x58 = the item the effect came from ("source"): SkyrimSE.exe 1.6.1170 ActiveEffect vtable 0x187b2f8,
+    SaveGame vfunc 8 0x5acea0 / LoadGame 9 0x5ad0d0 (ref writers 0x626f80 / 0x627000 write 3 bytes); LE TESV.exe 1.9.32.0 0x6568d0 the
+    same order (+0x48/+0x50/+0x4c/+0x54, caster +0x28, target, +0x44, +0x3c; no LE save was available to check it on data). Fallout 4:
+    the 4th ref of the layout in ChangeFormFO4.h (+0x60). Data check: flag 0x100 <=> a source is set, on every effect of every save;
+    Tony's Save88/89/132: every source is a worn item; Fallout 4 (12 saves): all 12 enchantment effects' sources are equipped stacks.
+  - Worn: Skyrim ExtraWorn 0x16 / ExtraWornLeft 0x17 (their vtables' GetType 0x17bfb0 / 0x17c010 in SkyrimSE.exe; ExtraEnchantment 0x9b,
+    ExtraCount 0x24); the decoder now keeps every stack (`Decoded::stacks`, `InvCharge::worn/wornLeft`). Fallout 4 has no worn extra:
+    Actor.IsEquipped (native 0x10f9b30 -> 0x502380 in 1.11.240) = a stack's u16 flags at +0x24 & 7, which is the u16 after the stack's
+    count in the save (rs_unit checks it on every save).
+  - Slots: PluginDB `Form::bipedSlots/hasBiped` (ARMO BOD2 / BODT first u32; xEdit tes5 / wbDefinitionsFO4 bit names), `Form::enchantment`
+    (ARMO/WEAP EITM); Skyrim ENCH ENIT cast/enchant type and SPIT cast type now read for Skyrim too (Skyrim.esm: EnchArmorFortifyHealth01
+    cast 0 / type 6; ArmorBladesHelmet 0x1002).
+  - Made-in-game enchantments/potions (`chfx::CreatedObjects`): global data type 4, four tables {RefID, u32, vsval k x {RefID MGEF, f32,
+    u32, u32, f32}}: reads to the exact end on trashgod69 (14843 bytes) and Tony's 3 saves; FF005BE4's 18 effects = its 18 active
+    effects. Gives the MGEF (and stat) of effects of player-made enchantments, so they can be removed.
+  - Timed effects past their duration are NOT reported: ActiveEffect::Update (0x5ae701..0x5ae7fd) ends an effect itself once elapsed >=
+    duration unless flags & 0x4100 (those never run out by time; Tony's ordinary saves have such "past duration" effects).
+  Stuck rules: (1) group "items not worn" = enchantment effect (flag 0x100 or ENCH) whose source is not a worn item and whose enchantment
+  no worn stack carries (stack's own or base EITM); stuck when caster = player, duration 0, not dispelled (0x40000), not a known
+  non-constant ENCH (weapon) nor a made-in-game weapon enchantment; (2) item / source plugin not in the current load order (or "?"),
+  skipped when the load order holds fewer than half of the save's plugins (another setup). trashgod69: 5 findings, 9 effects: 183DCEC9
+  (LegacyoftheDragonborn.esm, 3), 880063C8 (ZIA_Complete Pack.esp, 2 + 1), 9F000918 (Artifact Patch.esp, 2, one switched off),
+  00049509 EnchArmorFortifyHealth01 (1); their sources are created ARMO forms FF009928 / FF007039 / FF003A1F / FF006F82 / FF008650 that
+  are in no inventory and nowhere else in the save (only in the player's effect list; their own ARMO change forms are 4 bytes; the
+  co-save's 'MYPR' plugin names three of them). Tony's PC lacks his plugins, so the 6 stat effects of the first two need his plugins
+  (on his PC they load); without them 4 are removable here (re-read: 1923 effects, 3 findings left). Tony's saves and all FO4 saves: 0
+  findings. Test: rs_unit TestCharEffects (synthetic view; RESAVERPP_SKY_SAVES, RESAVERPP_TG_SAVE=<a.ess>, RESAVERPP_FO4_SAVES +
+  RESAVERPP_FO4_DATA: an equipped item's stack flags cleared -> its effects found stuck, removed, read back). GUI hooks:
+  RESAVERPP_TEST_SHORTCUT=37, RESAVERPP_TEST_CFXSLOT=<chfx::Slot>, RESAVERPP_TEST_CFXREMOVE=<finding n>. Not done: Fallout 4 made-in-game
+  items (none), the LE layout checked on a real LE save, any test in the real game.
+
 - Co-save viewer/cleaner (2026-11-06, branch cosave, not published): `core/Cosave.*` reads/writes .skse/.f4se byte-exact (format
   identical in skse/Serialization.cpp LE 1.7.x, skse64/Serialization.cpp, f4se/Serialization.cpp: header sig/format 1/xse ver/runtime/
   numPlugins; plugin {uid, numChunks, length}; chunk {type, version, length}; the loader ignores numPlugins and reads while 12 bytes
