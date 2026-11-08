@@ -33,6 +33,7 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include "core/CharEffects.h"
 #include <cstdlib>
 #include <cstring>
 #include <map>
@@ -4564,6 +4565,242 @@ void TestFo4CellReset()
 }
 
 
+// Character effects (core/CharEffects.h): grouping and stuck detection on a hand-made view; real saves with
+// RESAVERPP_SKY_SAVES / RESAVERPP_FO4_SAVES (no stuck effect on Tony's saves), RESAVERPP_TG_SAVE (trashgod69's save: the
+// five enchantments whose item is gone), RESAVERPP_FO4_DATA (plugins: an unequipped legendary item's effects are found
+// and removed).
+void TestCharEffects()
+{
+	namespace fs = std::filesystem;
+	auto CheckS = [](bool a_ok, const std::string& a_what) { Check(a_ok, a_what.c_str()); };
+	{
+		chfx::View v;
+		auto fx = [&](std::uint32_t item, std::uint32_t flags, std::uint32_t caster, std::uint32_t source, float dur = 0) {
+			chfx::Effect e;
+			e.index = v.effects.size();
+			e.item = item;
+			e.flags = flags;
+			e.hasRefs = true;
+			e.caster = caster;
+			e.target = 0x14;
+			e.source = source;
+			e.duration = dur;
+			v.effects.push_back(e);
+		};
+		chfx::Worn ring;
+		ring.item = 0x0100A000;  // worn, carries enchantment 0x0100E004 on its stack
+		ring.enchantment = 0x0100E004;
+		v.worn.push_back(ring);
+		v.carried = { 0x0100A000, 0x0100B000 };
+		fx(0x0100E001, 0x10300, 0x14, 0x0100A000);            // 0: from the worn ring
+		fx(0x0100E002, 0x10300, 0x14, 0x0100B000);            // 1: from a carried, unworn item: stuck
+		fx(0x0100E002, 0x18300, 0x14, 0x0100B000);            // 2: same source, switched off: stuck, not running
+		fx(0x0100E003, 0x10300, 0x14, 0xFF000C00);            // 3: the item is gone: stuck
+		fx(0x0100E004, 0x10300, 0x14, 0x0100D000);            // 4: the worn ring carries this enchantment: worn
+		fx(0x0100E005, 0x10300, 0x00001234, 0x0100C000, 20);  // 5: someone else's weapon: others
+		fx(0x0100E006, 0x10300, 0x14, 0x0100C000, 30);        // 6: timed: not stuck
+		fx(0x0100E007, 0x50300, 0x14, 0x0100C000);            // 7: dispelled: not stuck (the game drops it)
+		fx(0x05000001, 0x14200, 0x14, 0);                     // 8: no plugin read, the plugin is gone
+		fx(0x0100E008, 0x10300, 0x14, 0x0100A000);            // 9: an enchantment a script put on the worn ring: worn
+		v.pluginOf = [](std::uint32_t id) { return std::string(id >> 24 == 5 ? "Gone.esp" : id >> 24 == 0xFF ? "Created" : "Mod.esp"); };
+		v.savePlugins = { "Skyrim.esm", "Mod.esp", "Gone.esp" };
+		std::set<std::string> lo = { "skyrim.esm", "mod.esp" };
+		chfx::Options opt;
+		opt.loadOrder = &lo;
+		chfx::Classify(v, opt);
+		auto cardOf = [&](std::size_t i) -> const chfx::Card* {
+			for (const auto& c : v.cards) {
+				if (std::find(c.effects.begin(), c.effects.end(), i) != c.effects.end()) {
+					return &c;
+				}
+			}
+			return nullptr;
+		};
+		CheckS(cardOf(0)->group == chfx::Group::kWorn && cardOf(4)->group == chfx::Group::kWorn && cardOf(9)->group == chfx::Group::kWorn,
+			"char effects: worn by source, by the stack's enchantment, and a scripted enchantment on a worn item");
+		CheckS(cardOf(1) == cardOf(2) && cardOf(1)->group == chfx::Group::kNotWorn && cardOf(1)->running == 1, "char effects: one card per enchantment + item");
+		CheckS(cardOf(5)->group == chfx::Group::kOthers && cardOf(8)->group == chfx::Group::kUnknown, "char effects: others' effects, unknown items");
+		std::size_t notWorn = 0, gone = 0;
+		std::set<std::size_t> stuckFx;
+		for (const auto& f : v.stuck) {
+			notWorn += f.kind == chfx::Stuck::kNotWorn;
+			gone += f.kind == chfx::Stuck::kPluginGone;
+			stuckFx.insert(f.effects.begin(), f.effects.end());
+		}
+		CheckS(notWorn == 2 && gone == 1 && stuckFx == std::set<std::size_t>{ 1, 2, 3, 8 }, "char effects: stuck = unworn item, gone item, gone plugin; not timed / dispelled / others' / worn");
+		bool carriedText = false, goneText = false;
+		for (const auto& f : v.stuck) {
+			carriedText |= f.text.find("you carry") != std::string::npos;
+			goneText |= f.text.find("not in your inventory any more") != std::string::npos;
+		}
+		CheckS(carriedText && goneText && v.worn[0].effects == 3, "char effects: finding texts; the ring counts its 3 worn effects (source or enchantment)");
+		std::set<std::string> other = { "skyrim.esm" };
+		opt.loadOrder = &other;
+		v.pluginOf = [](std::uint32_t id) { return std::string(id >> 24 == 5 ? "Gone.esp" : "Mod.esp"); };
+		v.savePlugins = { "Skyrim.esm", "Mod.esp", "Gone.esp" };
+		chfx::Classify(v, opt);
+		CheckS(v.loadOrderOther && !v.loadOrderChecked, "char effects: a load order without most of the save's plugins is another setup: gone plugins not reported");
+	}
+
+	auto list = [](const char* a_env, const char* a_ext) {
+		std::vector<fs::path> files;
+		const char*           env = std::getenv(a_env);
+		std::string           all = env ? env : "";
+		for (std::size_t p = 0; p < all.size();) {
+			auto e = all.find(';', p);
+			if (e == std::string::npos) {
+				e = all.size();
+			}
+			const fs::path dir = all.substr(p, e - p);
+			std::error_code ec;
+			if (fs::is_directory(dir, ec)) {
+				for (const auto& f : fs::recursive_directory_iterator(dir, ec)) {
+					if (f.path().extension() == a_ext) {
+						files.push_back(f.path());
+					}
+				}
+			} else if (fs::is_regular_file(dir, ec)) {
+				files.push_back(dir);
+			}
+			p = e + 1;
+		}
+		std::sort(files.begin(), files.end());
+		return files;
+	};
+	for (const auto& f : list("RESAVERPP_SKY_SAVES", ".ess")) {
+		auto       s = SaveFile::load(f);
+		const auto v = chfx::Build(*s, {});
+		std::size_t fromItem = 0, wornSrc = 0;
+		for (const auto& e : v.effects) {
+			fromItem += e.fromItem();
+			for (const auto& w : v.worn) {
+				wornSrc += e.fromItem() && e.source == w.item;
+			}
+		}
+		CheckS(v.error.empty() && v.stuck.empty() && fromItem == wornSrc && !v.worn.empty(),
+			"char effects " + f.filename().string().substr(0, 10) + ": no stuck effect; every item effect's source is worn");
+	}
+	if (const char* tg = std::getenv("RESAVERPP_TG_SAVE"); tg && *tg) {
+		auto       s = SaveFile::load(tg);
+		const auto v = chfx::Build(*s, {});
+		std::set<std::uint32_t> sources;
+		std::size_t             fx = 0;
+		for (const auto& f : v.stuck) {
+			sources.insert(v.cards[f.card].source);
+			fx += f.effects.size();
+		}
+		CheckS(v.effects.size() == 1927 && v.worn.size() == 7 && v.stuck.size() == 5 && fx == 9 &&
+				  sources == std::set<std::uint32_t>{ 0xFF009928, 0xFF007039, 0xFF006F82, 0xFF008650, 0xFF003A1F },
+			"char effects trashgod69: 5 enchantments (9 effects) whose item is in no inventory");
+		std::vector<std::size_t> rm;
+		for (const auto& f : v.stuck) {
+			for (const auto i : f.effects) {
+				if (v.effects[i].canRemove) {
+					rm.push_back(i);
+				}
+			}
+		}
+		std::vector<std::string> changes;
+		const auto               why = chfx::Remove(*s, v, rm, &changes);
+		const auto               tmp = fs::temp_directory_path() / "rs_cfx_tg.ess";
+		s->write(tmp, false);
+		auto       back = SaveFile::load(tmp);
+		const auto v2 = chfx::Build(*back, {});
+		CheckS(why.empty() && rm.size() == 4 && v2.effects.size() == 1923 && v2.stuck.size() == 3,
+			"char effects trashgod69: without plugins the 4 effects that change no saved stat are removed, written, read back: 3 findings left (" + why + ")");
+		fs::remove(tmp);
+		fs::path t2 = tmp;
+		fs::remove(t2.replace_extension(".skse"));
+	}
+	std::unique_ptr<PluginDB> f4db;
+	const char*               data = std::getenv("RESAVERPP_FO4_DATA");
+	ScriptSources             f4src;
+	if (data && *data) {
+		f4src.scan(data);
+	}
+	for (const auto& f : list("RESAVERPP_FO4_SAVES", ".fos")) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;  // (fo4full's Quicksave0 is cut short)
+		}
+		std::unique_ptr<PluginDB> db;
+		if (data && *data) {
+			PluginDB::Input in;
+			PrepareInput(*s, in);
+			in.sources = f4src;
+			in.fo4 = true;
+			in.language = "en";
+			PluginDB::Progress pr;
+			db = std::make_unique<PluginDB>();
+			db->load(in, pr);
+		}
+		chfx::Options opt;
+		opt.db = db.get();
+		const auto v = chfx::Build(*s, opt);
+		const auto tag = "char effects " + f.filename().string().substr(0, 10) + ": ";
+		CheckS(v.error.empty() && v.stuck.empty() && !v.worn.empty(), tag + "no stuck effect, something worn");
+		// take an equipped item with effects off (its stack flags to 0): its effects become stuck
+		// (one whose enchantments no other worn item gives too: an enchantment a worn item carries is not reported)
+		std::uint32_t item = 0;
+		for (const auto& w : v.worn) {
+			bool shared = false;
+			for (const auto& c : v.cards) {
+				for (const auto& c2 : v.cards) {
+					shared |= c.source == w.item && c2.item == c.item && c2.source != w.item && c2.group == chfx::Group::kWorn;
+				}
+			}
+			if (w.effects && !shared) {
+				item = w.item;
+				break;
+			}
+		}
+		if (!item) {
+			continue;
+		}
+		auto* pc = s->findChangeForm(fo4cf::FindPlayer(*s)->refID);
+		auto  body = cf::Body(*pc);
+		const auto refr = fo4cf::DecodeRefr(*s, *pc);
+		bool  flagsAt = true;
+		for (const auto& it : refr.inventory) {
+			if (it.formID != item) {
+				continue;
+			}
+			for (const auto& st : it.stacks) {
+				const auto at = st.countRange.end;
+				flagsAt = flagsAt && at + 2 <= st.range.end && (body[at] | body[at + 1] << 8) == st.flags;
+				body[at] = 0;
+				body[at + 1] = 0;
+			}
+		}
+		CheckS(flagsAt, tag + "the stack flags are the u16 after the count");
+		cf::SetBody(*pc, body);
+		const auto v2 = chfx::Build(*s, opt);
+		std::size_t n = 0;
+		std::vector<std::size_t> rm;
+		for (const auto& fd : v2.stuck) {
+			n += fd.effects.size();
+			for (const auto i : fd.effects) {
+				if (v2.effects[i].canRemove) {
+					rm.push_back(i);
+				}
+			}
+		}
+		std::size_t expect = 0;
+		for (const auto& e : v2.effects) {
+			expect += e.fromItem() && e.source == item && e.duration == 0 && !(e.flags & 0x40000u);
+		}
+		CheckS(n == expect && n > 0, tag + "unequipped an item: its " + std::to_string(expect) + " effect(s) are found stuck");
+		if (db) {
+			const auto why = chfx::Remove(*s, v2, rm);
+			const auto v3 = chfx::Build(*s, opt);
+			CheckS(why.empty() && rm.size() == n && v3.effects.size() + n == v2.effects.size() && v3.stuck.empty(),
+				tag + "with the plugins they are removed and the player reads back without them (" + why + ")");
+		}
+	}
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -4601,6 +4838,7 @@ int main()
 	TestFo4WorldItems();
 	TestFo4CellReset();
 	TestFo4ActiveEffects();
+	TestCharEffects();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }
