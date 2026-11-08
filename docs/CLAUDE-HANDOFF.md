@@ -650,7 +650,7 @@ project; you do the coding, building, delivering and publishing.
     2 valid, 4 lock holder id follows (-> Object+0x18), 8 initialized, 0x10 lock bit; unknown1 = properties left to init (<<3).
     Nothing in an object lists waiting stacks. In Zordrac's save SM_Astrid's alias instance (flag 15) is locked by thread 82453272,
     a running OnMagicEffectApply (1 frame): the 1281 wait on that lock. Alias handle in the save: unknown2bits 0, unknown = alias id
-    (checked against Skyrim.esm VMAD: DA10GhostTrap alias 5, da05huntersscript 46..55), refID = the quest.
+    (checked against Skyrim.esm VMAD in Save132: DA10GhostTrap instance alias 5, VMAD has it on 1,3,5..; da05huntersscript instance alias 55, VMAD 46..57), refID = the quest.
   - Fallout4.exe (scratchpad re/): only the load side checked (suspended loader 0x21302b0: u32 id, lookup, u8, call 0x215ac80,
     queue push, same failure log). Resume path and state values not checked; no Fallout 4 save we have has a suspended stack.
   - Result on Save1086: 14986 calls + 14986 threads removed; 176 threads, 165 suspended stacks (98 ski_favoritesmanager.
