@@ -4974,6 +4974,245 @@ void TestLiveEffectInstances()
 	}
 }
 
+// Suspended stacks report (Nexus, 8 Nov 2026): deleting suspended stacks without their threads left threads nothing
+// resumes; SkyrimSE.exe 1.6.1170 then never finishes pausing its scripts (0x14517c0) and writes every later save's
+// Papyrus block as FF FF FF FF (flagged invalid), which ReSaver Plus could not read ("needed 4 bytes while reading the
+// header"). Synthetic: each delete keeps every thread held; the extra slot (unk1/unk2) holds a thread; the invalid
+// block reads and writes back. Real saves (RESAVERPP_SKY_SAVES, RESAVERPP_TG_SAVE, RESAVERPP_STACK_SAVES="a.ess;b.ess"):
+// no stranded thread in a game-made save, every thread held exactly once; delete suspended stacks, write, read back:
+// consistent; the old delete (entries only) leaves exactly that many stranded; a game-style invalid block on a real
+// save reads, keeps everything else and writes back byte-identical.
+void TestSuspendedStacks()
+{
+	namespace fs = std::filesystem;
+	auto CheckS = [](bool a_ok, const std::string& a_what) { Check(a_ok, a_what.c_str()); };
+	auto heldOnce = [](const Papyrus& p) {
+		std::map<ThreadID, int> held;
+		for (const auto* list : { &p.suspended1, &p.suspended2 }) {
+			for (const auto& x : *list) {
+				held[x.id]++;
+			}
+		}
+		for (const auto& m : p.functionMessages) {
+			if (m.id) {
+				held[*m.id]++;
+			}
+		}
+		if (p.unk1 && p.unk2) {
+			held[*p.unk2]++;
+		}
+		std::size_t bad = 0;
+		for (const auto& a : p.activeScripts) {
+			bad += (held[a.id] + (a.type != 0 ? 1 : 0)) != 1;
+		}
+		std::size_t dangling = 0;
+		for (const auto& [id, n] : held) {
+			dangling += p.findActive(id) == nullptr;
+		}
+		return std::pair{ bad, dangling };
+	};
+	{
+		auto  s = MakeSave();
+		auto& p = *s->papyrus();
+		for (ThreadID t : { 7u, 8u, 9u, 10u, 11u }) {
+			p.activeScripts.push_back(Thread(t, 1, Ref(0)));
+			p.activeDataOrder.push_back(t);
+		}
+		p.activeScripts[2].type = 1;  // 9: latent wait
+		SuspendedStack st;
+		st.id = 7;
+		st.flag = 1;
+		st.data = Call(1, Ref(0));
+		p.suspended1.push_back(st);
+		FunctionMessage m;
+		m.flag = 1;
+		m.id = 8;
+		m.flags = 1;
+		m.data = Call(2, Ref(0));
+		p.functionMessages.push_back(m);
+		m.flag = 3;  // a queued call with no thread
+		m.id.reset();
+		p.functionMessages.push_back(m);
+		st.id = 10;
+		p.suspended1.push_back(st);
+		p.unk1 = 1;  // 11: the engine's extra slot
+		p.unk2 = 11;
+		p.reindex();
+		Check(ops::StrandedThreads(p).empty(), "stacks: suspended, queued, latent and the extra slot each hold a thread");
+
+		auto old = p;
+		old.reindex();
+		ops::DeleteSuspendedStacks(old, { 7 });
+		const auto st1 = ops::StrandedThreads(old);
+		Check(st1.size() == 1 && st1[0] == 7, "stacks: deleting only the suspended entry leaves its thread stranded (the bug)");
+		const auto rs = ops::RemoveStrandedThreads(old);
+		Check(rs.threads == 1 && !old.findActive(7) && ops::StrandedThreads(old).empty(), "stacks: the stranded thread is removed");
+
+		auto r = ops::RemoveSuspendedStacks(p, { 7 });
+		Check(r.stacks == 1 && r.threads == 1 && !p.findActive(7) && ops::StrandedThreads(p).empty(),
+			"stacks: deleting a suspended stack takes its thread with it");
+		r = ops::RemoveFunctionMessages(p, { 0, 1 });
+		Check(r.messages == 2 && r.threads == 1 && !p.findActive(8) && p.functionMessages.empty() && ops::StrandedThreads(p).empty(),
+			"stacks: deleting queued calls takes the thread each was made for (none for a call without one)");
+		r = ops::RemoveThreads(p, { 10, 11 });
+		Check(r.threads == 2 && r.stacks == 1 && p.suspended1.empty() && p.unk1 == 0 && !p.unk2,
+			"stacks: deleting threads takes their suspended stacks and empties the extra slot");
+		Check(p.activeScripts.size() == 1 && p.activeScripts[0].id == 9 && heldOnce(p) == std::pair<std::size_t, std::size_t>{ 0, 0 },
+			"stacks: the latent thread stays, held");
+		Writer w;
+		p.write(w);
+		Papyrus q;
+		Reader rd(w.buf.data(), w.buf.size());
+		q.read(rd);
+		Check(q.activeScripts.size() == 1 && q.unk1 == 0 && !q.unk2 && q.check().empty(), "stacks: the edited section reads back");
+	}
+	// the game's invalid block: VM u16 0xFFFF, SkyrimVM u16 0xFFFF
+	for (int str16 = 0; str16 < 2; ++str16) {
+		const std::vector<std::uint8_t> bytes = { 0xFF, 0xFF, 0xFF, 0xFF };
+		Papyrus p;
+		Reader  r(bytes.data(), bytes.size());
+		r.str16 = str16 != 0;
+		bool ok = true;
+		try {
+			p.read(r);
+		} catch (const std::exception&) {
+			ok = false;
+		}
+		Check(ok && p.invalid && p.header == 0xFFFF && p.tail.size() == 2 && p.check().empty(), "invalid Papyrus block (FF FF FF FF) reads");
+		Writer w;
+		w.str16 = r.str16;
+		p.write(w);
+		Check(w.buf == bytes, "invalid Papyrus block writes back as it was");
+		p.instances.push_back(Instance(10, 1, 1));
+		bool threw = false;
+		try {
+			Writer w2;
+			p.write(w2);
+		} catch (const std::exception&) {
+			threw = true;
+		}
+		Check(threw, "script data put into an invalid Papyrus block is refused, not lost");
+	}
+
+	// real saves
+	std::vector<fs::path> saves;
+	auto add = [&](const char* a_env) {
+		const char* env = std::getenv(a_env);
+		if (!env || !*env) {
+			return;
+		}
+		std::string all = env;
+		for (std::size_t q = 0; q <= all.size();) {
+			auto e = all.find(';', q);
+			if (e == std::string::npos) {
+				e = all.size();
+			}
+			const fs::path x = all.substr(q, e - q);
+			std::error_code ec;
+			if (fs::is_directory(x, ec)) {
+				for (const auto& f : fs::directory_iterator(x, ec)) {
+					if (f.path().extension() == ".ess") {
+						saves.push_back(f.path());
+					}
+				}
+			} else if (fs::is_regular_file(x, ec)) {
+				saves.push_back(x);
+			}
+			q = e + 1;
+		}
+	};
+	add("RESAVERPP_SKY_SAVES");
+	add("RESAVERPP_TG_SAVE");
+	add("RESAVERPP_STACK_SAVES");
+	std::sort(saves.begin(), saves.end());
+	saves.erase(std::unique(saves.begin(), saves.end()), saves.end());
+	if (saves.empty()) {
+		std::printf("(suspended stacks: RESAVERPP_SKY_SAVES not set, real saves skipped)\n");
+	}
+	const auto tmp = fs::temp_directory_path() / "rs_unit_stacks.ess";
+	auto       writeRaw = [&](const SaveFile& a_s) {
+        const auto    b = a_s.serialize();
+        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+        f.write(reinterpret_cast<const char*>(b.data()), static_cast<std::streamsize>(b.size()));
+	};
+	for (const auto& f : saves) {
+		const auto tag = "stacks " + f.filename().string().substr(0, 12) + ": ";
+		auto       s = SaveFile::load(f);
+		if (s->isFO4() || s->isLE()) {
+			continue;
+		}
+		auto*      p = s->papyrus();
+		CheckS(ops::StrandedThreads(*p).empty() && heldOnce(*p) == std::pair<std::size_t, std::size_t>{ 0, 0 },
+			tag + "the game's save holds every thread exactly once, none stranded");
+		const auto threads0 = p->activeScripts.size(), stacks0 = p->suspended1.size() + p->suspended2.size(), cf0 = s->changeForms.size();
+		if (stacks0 == 0) {
+			continue;
+		}
+		// pick several: the first, the last and every 7th (some with a queued call, some without)
+		std::set<ThreadID> pick;
+		for (std::size_t i = 0; i < p->suspended1.size(); ++i) {
+			if (i == 0 || i + 1 == p->suspended1.size() || i % 7 == 3) {
+				pick.insert(p->suspended1[i].id);
+			}
+		}
+		{
+			auto old = SaveFile::load(f);
+			const auto n = ops::DeleteSuspendedStacks(*old->papyrus(), pick);
+			CheckS(n == pick.size() && ops::StrandedThreads(*old->papyrus()).size() == pick.size(),
+				tag + "deleting only the entries strands exactly their threads (what the game cannot pause with)");
+		}
+		const auto r = ops::RemoveSuspendedStacks(*p, pick);
+		CheckS(r.stacks == pick.size() && r.threads == pick.size() && r.messages == 0, tag + "each suspended stack goes with its one thread");
+		writeRaw(*s);
+		auto back = SaveFile::load(tmp);
+		auto* q = back->papyrus();
+		CheckS(back->problems.empty() && q && q->check().empty(), tag + "the edited save reads back with no problems");
+		CheckS(q->activeScripts.size() == threads0 - pick.size() && q->suspended1.size() + q->suspended2.size() == stacks0 - pick.size() &&
+				   back->changeForms.size() == cf0,
+			tag + "read back: only those stacks and threads are gone");
+		CheckS(ops::StrandedThreads(*q).empty() && heldOnce(*q) == std::pair<std::size_t, std::size_t>{ 0, 0 },
+			tag + "read back: every thread held exactly once, nothing names a missing thread");
+		bool none = true;
+		for (const auto id : pick) {
+			none = none && !q->findActive(id) && !ops::IsThreadSuspended(*q, id);
+		}
+		CheckS(none, tag + "read back: the deleted ids are nowhere");
+
+		// the game's invalid block in this save
+		auto inv = SaveFile::load(f);
+		for (auto& g : inv->table3) {
+			if (g.type == 1001) {
+				g.papyrus.reset();
+				g.raw = { 0xFF, 0xFF, 0xFF, 0xFF };
+			}
+		}
+		writeRaw(*inv);
+		std::string err;
+		std::unique_ptr<SaveFile> ib;
+		try {
+			ib = SaveFile::load(tmp);
+		} catch (const std::exception& e) {
+			err = e.what();
+		}
+		CheckS(ib && ib->papyrus() && ib->papyrus()->invalid && ib->problems.empty() && ib->changeForms.size() == cf0,
+			tag + "a save the game wrote with its Papyrus flagged invalid opens (" + err + ")");
+		if (ib) {
+			const auto a = ib->serialize();
+			std::ifstream in(tmp, std::ios::binary);
+			std::vector<std::uint8_t> file((std::istreambuf_iterator<char>(in)), {});
+			CheckS(a == file, tag + "and writes back byte-identical");
+			const auto rep = ops::Analyze(*ib);
+			bool said = false;
+			for (const auto& w : rep.warnings) {
+				said = said || w.find("invalid") != std::string::npos;
+			}
+			CheckS(said, tag + "the report says the game flagged it invalid");
+		}
+	}
+	std::error_code ec;
+	fs::remove(tmp, ec);
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -5013,6 +5252,7 @@ int main()
 	TestFo4ActiveEffects();
 	TestCharEffects();
 	TestLiveEffectInstances();
+	TestSuspendedStacks();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }
