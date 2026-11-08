@@ -320,10 +320,9 @@ std::vector<App::CheckItem> App::checkItems()
 			} else if (!f.targets.empty() && f.targets.front().found && !f.targets.front().plugin.empty()) {
 				it.what += Fmt(tr(" The object it runs on comes from %s."), f.targets.front().plugin.c_str());
 			}
-			it.what += "\n" + Fmt(tr("%zu of these calls have not started (not one line of the event has run); %zu are left alone."),
-								   f.notStarted, f.running + f.other + f.messages);
+			it.what += "\n" + Fmt(tr("%zu of these calls have not started: not one line of the event has run."), f.notStarted);
 			if (f.runningNow) {
-				it.what += Fmt(tr(" %zu copy/copies of this event are running right now; they are left alone too."), f.runningNow);
+				it.what += Fmt(tr(" Right now %zu thread(s) are running this event; they are left alone."), f.runningNow);
 			}
 			it.what += "\n" + std::string(tr("Clearing drops only the events that never ran, which is usually harmless: the game behaves as if they "
 										"had not fired. It comes back unless the cause is fixed."));

@@ -13287,13 +13287,13 @@ tr " Скрипт из мода %s."
 en " The object it runs on comes from %s."
 tr " Объект, на котором он работает, из %s."
 
-# AppCheck.cpp:323  it.what += "\n" + Fmt(tr("%zu of these calls have not started (not one line of the event has run); %zu are left alone."),
-en "%zu of these calls have not started (not one line of the event has run); %zu are left alone."
-tr "%zu из этих вызовов ещё не начались (ни одна строка события не выполнена); %zu остаются как есть."
+# AppCheck.cpp:323  it.what += "\n" + Fmt(tr("%zu of these calls have not started: not one line of the event has run."), f.notStarted);
+en "%zu of these calls have not started: not one line of the event has run."
+tr "%zu из этих вызовов ещё не начались: ни одна строка события не выполнена."
 
-# AppCheck.cpp:326  it.what += Fmt(tr(" %zu copy/copies of this event are running right now; they are left alone too."), f.runningNow);
-en " %zu copy/copies of this event are running right now; they are left alone too."
-tr " Копий этого события, выполняющихся прямо сейчас: %zu; их тоже не трогаем."
+# AppCheck.cpp:325  it.what += Fmt(tr(" Right now %zu thread(s) are running this event; they are left alone."), f.runningNow);
+en " Right now %zu thread(s) are running this event; they are left alone."
+tr " Потоков, выполняющих это событие прямо сейчас: %zu; их не трогаем."
 
 # AppCheck.cpp:328  it.what += "\n" + std::string(tr("Clearing drops only the events that never ran, which is usually harmless: the game behaves as if they "
 en "Clearing drops only the events that never ran, which is usually harmless: the game behaves as if they had not fired. It comes back unless the cause is fixed."
