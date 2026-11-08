@@ -50,3 +50,20 @@ From the Developer Command Prompt for VS 2022, in this folder:
 The DLL is `build\release-msvc\ReSaverHelper.dll`.
 
 Apache License 2.0, like ReSaver++.
+
+## Diagnostic stages (version 14)
+
+To find out whether something in your game changes only because the helper is installed, add one line to
+ReSaverHelper.ini (next to the DLL):
+
+    iDiagnosticStage=0
+
+and test; then 1, 2, 3, 4. Each stage stops the helper after one more step of what it does when the game starts:
+
+- 0: nothing at all: the DLL is loaded and returns at once (it does not even write its log)
+- 1: + SKSE's own setup, the log file and the settings
+- 2: + the SKSE message listener (it ignores every message)
+- 3: + the listener follows game loads and new games (no threads)
+- 4: + the ReSaver Plus connection thread (no Ctrl hotkey thread)
+
+Remove the line (or set 5) to run normally. ReSaver Plus cannot talk to the helper below stage 4.
