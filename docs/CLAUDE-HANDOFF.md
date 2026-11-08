@@ -344,7 +344,8 @@ project; you do the coding, building, delivering and publishing.
     Write (all files read first; backup <file>.<YYYYmmdd-HHMMSS>[-n].resaverpp.bak; temp + rename + read back; undo on failure), Diff.
     GUI `drawLoadOrderFix` (AppF4Bloat.cpp): "Fix the order" under the findings and as a Save check option; popup with the moves,
     files, backups, the manager note; after writing st.lo is reset so the check runs again. Test hook RESAVERPP_TEST_LOFIX=ask|write
-    (with RESAVERPP_TEST_SHORTCUT=35). CLI `--fix-load-order [-n] [--vortex]` (same options as --load-order-check; prints moves and
+    (with RESAVERPP_TEST_SHORTCUT=35). The Load order check window now starts the mods scan itself when no save was opened
+    (ensureSourcesScanned; before, it checked with the Data folder only) and checks again once the scan is done. CLI `--fix-load-order [-n] [--vortex]` (same options as --load-order-check; prints moves and
     diffs, checks again). AI notes in AiGame.cpp (Skyrim and FO4). rs_bloat_test TestFixLoadOrder.
   - Tony's profile (copies only, scratchpad lofix-tony; plugin headers taken with a script on the device into
     C:\dllmaker\ReSaverPP\lofixtest\plugin-headers.tar): exactly "MysticismMagic.esp: #99 -> before 360 Ward.esp #87" and

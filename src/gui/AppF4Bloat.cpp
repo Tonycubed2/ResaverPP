@@ -99,6 +99,7 @@ struct App::BloatState
 	std::filesystem::path          loFile;   // the plugins.txt the last check read
 	std::filesystem::file_time_type loTime{};
 	bool                           loAuto = false;  // started by the Save check
+	bool                           loScanned = false;  // the mods were scanned when the last check started
 	char                           filter[128] = "";
 	bool                           loOnlyProblems = false;
 	// Fix the order: the plan shown for confirmation, then what was written
@@ -542,7 +543,9 @@ void App::drawLoadOrderFix()
 {
 	auto& st = bloatState();
 	const char* id = trId("Fix the load order");
-	if (st.loFixAsk && st.lo && st.lo->done) {
+	// planned from a check that read the scanned mods (one started before the scan is run again first)
+	const bool waitScan = !st.loScanned && (scanning() || (!_sourcesPath.empty() && !_sources.scanned()));
+	if (st.loFixAsk && st.lo && st.lo->done && !waitScan) {
 		st.loFixAsk = false;
 		const auto& r = st.lo->result;
 		st.loPlan = locheck::PlanFix(r, lofix::EnabledLines(st.lo->pluginsTxt));
@@ -591,7 +594,9 @@ void App::drawLoadOrderFix()
 		ImGui::Spacing();
 		ImGui::TextUnformatted(tr("Files that change:"));
 		for (const auto& f : st.loTargets.files) {
-			ImGui::BulletText("%s", platform::ToUtf8(f).c_str());
+			ImGui::Bullet();
+			ImGui::SameLine();
+			ImGui::TextWrapped("%s", platform::ToUtf8(f).c_str());
 		}
 		ImGui::TextDisabled("%s", tr("A copy of each is kept next to it first, as <name>.<date>-<time>.resaverpp.bak."));
 		if (!st.loTargets.lockedOrder.empty()) {
@@ -634,7 +639,9 @@ void App::drawLoadOrderFix()
 		if (!st.loFixBackups.empty()) {
 			ImGui::TextUnformatted(tr("Backups:"));
 			for (const auto& b : st.loFixBackups) {
-				ImGui::BulletText("%s", platform::ToUtf8(b).c_str());
+				ImGui::Bullet();
+				ImGui::SameLine();
+				ImGui::TextWrapped("%s", platform::ToUtf8(b).c_str());
 			}
 			if (ImGui::Button(tr("Show the backups in their folder"))) {
 				platform::ShowInFolder(st.loFixBackups.front());
@@ -687,7 +694,15 @@ void App::drawLoadOrderCheck()
 	}
 	const bool busy = st.lo && !st.lo->done;
 	ImGui::BeginDisabled(busy || scanning());
-	if (ImGui::Button(st.lo ? tr("Check again") : tr("Check the load order")) || (!st.lo && !scanning())) {
+	// the plugin files are found through the scan of the mods: started here when no save was opened yet (opening a save
+	// starts it otherwise)
+	if (!_sourcesPath.empty() && !_sources.scanned() && !scanning()) {
+		ensureSourcesScanned();
+	}
+	// checked again by itself when the check ran before the scan of the mods had started (opened right at startup)
+	const bool rescan = st.lo && st.lo->done && !st.loScanned && _sources.scanned() && !scanning();
+	if (ImGui::Button(st.lo ? tr("Check again") : tr("Check the load order")) || (!st.lo && !scanning()) || rescan) {
+		st.loScanned = _sources.scanned();
 		auto job = std::make_shared<LoJob>();
 		job->pluginsTxt = pluginsTxt;
 		auto src = std::make_shared<ScriptSources>(_sources);
@@ -874,6 +889,7 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 			st.loFile = pluginsTxt;
 			st.loTime = t;
 			st.loAuto = true;
+			st.loScanned = _sources.scanned();
 		}
 		if (st.lo && st.lo->done) {
 			const auto& r = st.lo->result;
