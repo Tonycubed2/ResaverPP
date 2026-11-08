@@ -92,6 +92,7 @@ public:
 	void requestQuit();
 	// test hook: jump to a category, filter, and focus the first matching row
 	void testSelect(int a_cat, const char* a_filter, bool a_analysis);
+	void testFixLoadOrder(bool a_write);  // test hook: Fix the order's confirmation (and its button) once the check is done
 	void testShortcut(int a_which) { shortcut(static_cast<Sc>(a_which)); }  // (tests: a menu entry / shortcut button)
 	void testOpen(const std::string& w)
 	{

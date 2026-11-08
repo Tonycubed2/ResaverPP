@@ -336,7 +336,7 @@ namespace ess::lofix
 			fs::rename(tmp, fr.file, ec);
 			if (ec) {
 				fs::remove(tmp, ec);
-				r.message = "Could not replace " + text::ToUtf8(fr.file.string()) + " (is a program using it?). Nothing was changed.";
+				r.message = "Could not replace " + text::ToUtf8(fr.file.string()) + " (is a program using it, or is it read-only?). Nothing was changed.";
 				undo(k);
 				return r;
 			}

@@ -26,6 +26,7 @@
 #include <cstdio>
 #include <optional>
 #include <thread>
+#include <utility>
 
 using namespace ess;
 
@@ -102,6 +103,7 @@ struct App::BloatState
 	bool                           loOnlyProblems = false;
 	// Fix the order: the plan shown for confirmation, then what was written
 	bool                           loFixAsk = false;  // open the confirmation (the button, or the Save check)
+	bool                           loFixTestWrite = false;  // test hook: press "Fix the order" in the confirmation
 	std::optional<locheck::FixPlan> loPlan;
 	lofix::Targets                 loTargets;
 	std::vector<std::string>       loOldOrder;
@@ -529,6 +531,13 @@ namespace
 	}
 }
 
+void App::testFixLoadOrder(bool a_write)
+{
+	_showLoCheck = true;
+	bloatState().loFixAsk = true;
+	bloatState().loFixTestWrite = a_write;
+}
+
 void App::drawLoadOrderFix()
 {
 	auto& st = bloatState();
@@ -591,7 +600,7 @@ void App::drawLoadOrderFix()
 		ImGui::Spacing();
 		Colored(theme::Caution(), AfterWriteNote(st.loTargets.manager));
 		ImGui::Spacing();
-		if (ImGui::Button(tr("Fix the order"))) {
+		if (ImGui::Button(tr("Fix the order")) || std::exchange(st.loFixTestWrite, false)) {
 			const auto w = lofix::Write(st.loTargets, plan, st.loOldOrder, false);
 			st.loFixDone = true;
 			st.loFixOk = w.ok;

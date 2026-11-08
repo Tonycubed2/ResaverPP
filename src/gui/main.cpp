@@ -503,6 +503,9 @@ int RunApp(int argc, char** argv)
 	if (const char* sc = std::getenv("RESAVERPP_TEST_SHORTCUT")) {  // a tool, by its number in App::Sc
 		app.testShortcut(std::atoi(sc));
 	}
+	if (const char* lf = std::getenv("RESAVERPP_TEST_LOFIX")) {  // "ask": Fix the order's confirmation; "write": and its button
+		app.testFixLoadOrder(std::string(lf) == "write");
+	}
 	if (const char* tp = std::getenv("RESAVERPP_TEST_TPOLD")) {  // Fallout 4 Transplant: the old save to compare with the open one
 		app.testOpen(std::string("transplantf4:") + tp);
 	}
