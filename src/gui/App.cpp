@@ -308,6 +308,26 @@ void App::confirm(const std::string& a_title, const std::string& a_text, std::fu
 	_confirmOpen = true;
 }
 
+std::string App::keptNote(const std::vector<ops::KeptInstance>& a_keptIn)
+{
+	std::vector<ops::KeptInstance> a_kept;  // one entry per instance (two steps of one edit can both keep it)
+	std::set<EID>                  seen;
+	for (const auto& k : a_keptIn) {
+		if (seen.insert(k.id).second) {
+			a_kept.push_back(k);
+		}
+	}
+	if (a_kept.empty()) {
+		return {};
+	}
+	if (startupLog) {
+		startupLog("edit detail: " + ops::KeptText(a_kept));
+	}
+	return Fmt(tr("; kept %zu script instance(s) of magic effects still running on an actor (removing only the script would leave the "
+				  "effect without it)"),
+		a_kept.size());
+}
+
 void App::markEdited(const std::string& a_what)
 {
 	++_editGen;
@@ -1794,9 +1814,11 @@ void App::drawList()
 							tot.forms += r.forms;
 							tot.stacks += r.stacks;
 							tot.messages += r.messages;
+							tot.kept.insert(tot.kept.end(), r.kept.begin(), r.kept.end());
 						}
 						markEdited(Fmt(tr("Purged: %zu threads, %zu stacks, %zu messages, %zu instances, %zu spawned objects"), tot.threads,
-							tot.stacks, tot.messages, tot.instances, tot.forms));
+									   tot.stacks, tot.messages, tot.instances, tot.forms) +
+								   keptNote(tot.kept));
 					});
 			}
 			tips::Tip(tr("Remove every running thread, queued call and instance of the selected scripts. The scripts themselves stay defined."));
@@ -2663,7 +2685,8 @@ void App::drawModals()
 			auto x = ops::PurgeScript(*_save, _purgeName, _purgeForms && !_purgeKeep, _purgeKeep);
 			ImGui::CloseCurrentPopup();
 			markEdited(Fmt(tr("Purged %s: %zu threads, %zu stacks, %zu messages, %zu instances, %zu spawned objects"), _purgeName, x.threads, x.stacks,
-				x.messages, x.instances, x.forms));
+						   x.messages, x.instances, x.forms) +
+					   keptNote(x.kept));
 		}
 		tips::Tip(tr("Remove it now. Nothing is written to disk until you save."));
 		ImGui::SameLine();
@@ -3824,7 +3847,8 @@ void App::detailMod(std::uint64_t k)
 						tr("Remove every thread, suspended stack, queued call and instance of '") + n + tr("' in the whole save, plus the spawned objects they sit on?"),
 						[this, n] {
 							auto x = ops::PurgeScript(*_save, n, true);
-							markChanged(Fmt(tr("Killed %s everywhere: %zu threads, %zu instances, %zu spawned objects"), n.c_str(), x.threads, x.instances, x.forms));
+							markChanged(Fmt(tr("Killed %s everywhere: %zu threads, %zu instances, %zu spawned objects"), n.c_str(), x.threads, x.instances, x.forms) +
+										keptNote(x.kept));
 							_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
 						});
 				}

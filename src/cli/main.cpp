@@ -2156,6 +2156,9 @@ int main(int argc, char** argv)
 			const auto r = ops::PurgeScript(*save, name, delForms, keepInst);
 			std::printf("purge %s: %zu threads, %zu suspended stacks, %zu messages, %zu instances, %zu created forms\n", name.c_str(), r.threads,
 				r.stacks, r.messages, r.instances, r.forms);
+			if (!r.kept.empty()) {
+				std::printf("  %s\n", ops::KeptText(r.kept).c_str());
+			}
 		}
 		if (!batchFile.empty()) {
 			std::ifstream bf(batchFile);
@@ -2171,6 +2174,9 @@ int main(int argc, char** argv)
 			const auto br = batch::Apply(*save, matches);
 			std::printf("batch clean: %zu scripts, %zu threads, %zu stacks, %zu messages, %zu instances\n", br.scripts, br.threads, br.stacks,
 				br.messages, br.instances);
+			if (!br.kept.empty()) {
+				std::printf("  %s\n", ops::KeptText(br.kept).c_str());
+			}
 		}
 		if (havok) {
 			const auto hr = cf::ResetHavok(*save);
@@ -2187,10 +2193,18 @@ int main(int argc, char** argv)
 			std::printf("terminated undefined threads: %zu\n", ops::TerminateUndefinedThreads(*p));
 		}
 		if (undefined) {
-			std::printf("removed undefined elements: %zu\n", ops::RemoveUndefinedElements(*p));
+			const auto ur = ops::RemoveUndefinedElements(*save);
+			std::printf("removed undefined elements: %zu\n", ur.removed);
+			if (!ur.kept.empty()) {
+				std::printf("  %s\n", ops::KeptText(ur.kept).c_str());
+			}
 		}
 		if (unattached) {
-			std::printf("removed unattached instances: %zu\n", ops::RemoveUnattachedInstances(*p));
+			const auto ar = ops::RemoveUnattachedInstances(*save);
+			std::printf("removed unattached instances: %zu\n", ar.removed);
+			if (!ar.kept.empty()) {
+				std::printf("  %s\n", ops::KeptText(ar.kept).c_str());
+			}
 		}
 		if (nonexist) {
 			std::printf("removed instances on non-existent created forms: %zu\n", ops::RemoveNonexistentCreated(*save));

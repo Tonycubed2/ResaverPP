@@ -59,9 +59,49 @@ namespace ess::ops
 	// a_keepInstances: only remove the running/queued work (threads, stacks, messages) and keep
 	// the instances with their data, so properties other scripts hold to them stay valid. Use
 	// this for a mod you keep installed (e.g. a stuck MCM registration).
+	// ---- ActiveMagicEffect instances whose effect is still running -------------------------------
+	// An ActiveMagicEffect script instance is saved under its effect's Papyrus handle: unknown2bits 2, unknown = the
+	// effect's unique id (ActiveEffect +0x84 in SkyrimSE.exe 1.6.1170, read by ActiveEffect::LoadGame 0x5ad0d0 after
+	// 16 bytes, four 3-byte refs, the hit list's vsval count and a u32: effect data offset 33), RefID = the actor
+	// (Fallout 4 the same, see fo4cf::ActiveEffect::uniqueID). Checked on Tony's saves: every such handle names a unique
+	// id the actor's saved effects use or an actor whose effects are not saved, and no handle uses unique id 0.
+	// When the effect is still in the actor's saved active effect list, the cleanups below keep the instance (and its
+	// script definition): removing only the script would hand the game a running effect whose script object is gone,
+	// and taking the effect off the actor as well is the kind of edit that came right before the load crash in Tony's
+	// Save140 (docs/CLAUDE-HANDOFF.md, "Save140"). The game itself wrote the effect and its instance together, so
+	// keeping both changes nothing the game did not already have.
+	struct KeptInstance
+	{
+		EID           id = 0;
+		std::string   script;
+		std::uint32_t actor = 0;     // the actor's form ID
+		std::uint16_t uniqueID = 0;  // the effect's unique id
+		bool          unread = false;  // the actor's effects could not be read to the unique ids: kept to be safe
+	};
+	// The instances of a_candidates that are kept. a_changeFormsGoing: change forms (refID.data) the same edit removes;
+	// an actor among them takes its effects with it, so its instances are not kept.
+	std::vector<KeptInstance> LiveEffectInstances(const SaveFile& s, const std::set<EID>& a_candidates,
+		const std::set<std::uint32_t>* a_changeFormsGoing = nullptr);
+	// The same, and takes them out of a_ids.
+	std::vector<KeptInstance> KeepLiveEffectInstances(const SaveFile& s, std::set<EID>& a_ids, const std::set<std::uint32_t>* a_changeFormsGoing = nullptr);
+	std::string               KeptText(const std::vector<KeptInstance>& a_kept);  // details for the log ("" when none)
+
+	struct CleanResult
+	{
+		std::size_t               removed = 0;
+		std::vector<KeptInstance> kept;
+	};
+	// Remove unattached instances / undefined elements on a save: as the Papyrus versions, but an ActiveMagicEffect
+	// instance whose effect is still running stays (and its script definition with it).
+	CleanResult RemoveUnattachedInstances(SaveFile& s);
+	CleanResult RemoveUndefinedElements(SaveFile& s);
+	// DeleteScripts on a save: a script with a kept instance stays, with that instance.
+	CleanResult DeleteScripts(SaveFile& s, const std::set<TStr>& a_names);
+
 	struct PurgeResult
 	{
-		std::size_t threads = 0, stacks = 0, messages = 0, instances = 0, forms = 0;
+		std::size_t               threads = 0, stacks = 0, messages = 0, instances = 0, forms = 0;
+		std::vector<KeptInstance> kept;  // ActiveMagicEffect instances left because their effect is running
 	};
 	PurgeResult PurgeScript(SaveFile& s, const std::string& a_scriptName, bool a_deleteCreatedForms, bool a_keepInstances = false);
 	// The same for a set of instances: their threads (frames running on them), those threads' suspended stacks and queued
@@ -95,7 +135,8 @@ namespace ess::ops
 		std::set<ThreadID>      threads;
 	};
 	PluginPurge SelectPluginElements(const SaveFile& s, const std::set<std::string>& a_plugins, bool a_changeForms, bool a_instances);
-	void        ApplyPluginPurge(SaveFile& s, const PluginPurge& a_sel);
+	// returns the ActiveMagicEffect instances it left (their effect is running on an actor the purge keeps)
+	std::vector<KeptInstance> ApplyPluginPurge(SaveFile& s, const PluginPurge& a_sel);
 
 	// ---- queries ---------------------------------------------------------------------------
 	struct Referrer

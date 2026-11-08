@@ -628,18 +628,35 @@ namespace ess::modremove
 		stacks.insert(a_plan.threads.begin(), a_plan.threads.end());
 		r.stacks = ops::DeleteSuspendedStacks(*p, stacks);
 		r.threads = ops::DeleteThreads(*p, a_plan.threads);
-		r.instances = ops::DeleteInstances(*p, a_plan.instances);
-		r.arrays = ops::DeleteArrays(*p, a_plan.arrays);
-		r.unbinds = ops::DeleteUnbinds(*p, a_plan.unbinds);
 		std::set<std::uint32_t> forms = a_plan.changeForms;
 		forms.insert(a_plan.spawnedForms.begin(), a_plan.spawnedForms.end());
+		// an ActiveMagicEffect instance whose effect is still running stays, with the arrays it holds and its unbind
+		std::set<EID> insts = a_plan.instances, arrays = a_plan.arrays, unbinds = a_plan.unbinds;
+		r.kept = ops::KeepLiveEffectInstances(a_save, insts, &forms);
+		for (const auto& k : r.kept) {
+			unbinds.erase(k.id);
+			if (const auto* i = p->findInstance(k.id); i && i->data) {
+				for (const auto& v : i->data->vars) {
+					if (IsArrayType(v.type)) {
+						arrays.erase(v.value);
+					}
+				}
+			}
+		}
+		r.instances = ops::DeleteInstances(*p, insts);
+		r.arrays = ops::DeleteArrays(*p, arrays);
+		r.unbinds = ops::DeleteUnbinds(*p, unbinds);
 		r.changeForms = ops::DeleteChangeForms(a_save, forms);
 		return r;
 	}
 
 	std::string Result::text() const
 	{
-		return Fmt("%zu instances, %zu threads, %zu suspended stacks, %zu queued calls, %zu arrays, %zu unbinds, %zu change forms", instances, threads,
+		auto s = Fmt("%zu instances, %zu threads, %zu suspended stacks, %zu queued calls, %zu arrays, %zu unbinds, %zu change forms", instances, threads,
 			stacks, messages, arrays, unbinds, changeForms);
+		if (!kept.empty()) {
+			s += "; " + ops::KeptText(kept);
+		}
+		return s;
 	}
 }

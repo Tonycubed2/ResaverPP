@@ -1,5 +1,7 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Ops.h"
+#include "ChangeFormData.h"
+#include "ChangeFormFO4.h"
 
 #include <algorithm>
 #include <cctype>
@@ -313,6 +315,209 @@ namespace ess::ops
 		return n;
 	}
 
+	// ---- ActiveMagicEffect instances whose effect is still running -------------------------------
+
+	namespace
+	{
+		// the unique ids of the effects in an actor's saved active effect list; false when the list could not be read
+		// (an effect whose unique id cannot be read is reported as 0xFFFFFFFF in a_unread)
+		bool LiveUniqueIDs(const SaveFile& s, const ChangeForm& a_cf, std::set<std::uint16_t>& a_ids, bool& a_someUnread)
+		{
+			a_someUnread = false;
+			if (s.isFO4()) {
+				const auto a = fo4cf::DecodeActor(s, a_cf);
+				if (a.effectsRange.begin == 0 && !a.complete) {
+					return false;  // stopped before its effect list (or it has none: cannot tell)
+				}
+				for (const auto& e : a.effects) {
+					if (!e.uniqueKnown) {
+						a_someUnread = true;
+					} else {
+						a_ids.insert(e.uniqueID);
+					}
+				}
+				return true;
+			}
+			const auto d = cf::Decode(s, a_cf);
+			if (!d.complete && d.activeEffectsCountAt == 0) {
+				return false;
+			}
+			const auto body = cf::Body(a_cf);
+			for (const auto& e : d.activeEffects) {
+				// ActiveEffect::LoadGame (0x5ad0d0): f32 x3 + u32 flags (16), 4 refs (12), the hit list's vsval count (one
+				// 0 byte when empty), u32 (+0x80), u16 unique id (+0x84)
+				const auto at = e.dataAt;
+				if (e.dataSize < 35 || at + 35 > body.size() || body[at + 28] != 0) {
+					a_someUnread = true;
+					continue;
+				}
+				a_ids.insert(static_cast<std::uint16_t>(body[at + 33] | (body[at + 34] << 8)));
+			}
+			return true;
+		}
+	}
+
+	std::vector<KeptInstance> LiveEffectInstances(const SaveFile& s, const std::set<EID>& a_candidates, const std::set<std::uint32_t>* a_changeFormsGoing)
+	{
+		std::vector<KeptInstance> out;
+		const auto*               p = s.papyrus();
+		if (!p || a_candidates.empty()) {
+			return out;
+		}
+		// the candidates that are ActiveMagicEffect handles, by actor
+		std::map<std::uint32_t, std::vector<const ScriptInstance*>> byActor;  // refID.data -> instances
+		for (const auto& i : p->instances) {
+			if (i.unknown2bits == 2 && i.unknown != 0 && !i.refID.isZero() && a_candidates.contains(i.id)) {
+				byActor[i.refID.data].push_back(&i);
+			}
+		}
+		for (const auto& [ref, insts] : byActor) {
+			if (a_changeFormsGoing && a_changeFormsGoing->contains(ref)) {
+				continue;  // the actor goes too, with its effects
+			}
+			RefID r;
+			r.data = ref;
+			const ChangeForm* cf = nullptr;
+			for (const auto& c : s.changeForms) {  // findChangeForm is not const; actors are few here
+				if (c.refID == r && c.typeCode() == static_cast<std::uint8_t>(ChangeFormType::ACHR)) {
+					cf = &c;
+					break;
+				}
+			}
+			if (!cf) {
+				continue;  // no saved actor data: no saved effects
+			}
+			std::set<std::uint16_t> live;
+			bool                    someUnread = false;
+			const bool              read = LiveUniqueIDs(s, *cf, live, someUnread);
+			for (const auto* i : insts) {
+				const bool hit = live.contains(i->unknown);
+				if (hit || !read || someUnread) {
+					KeptInstance k;
+					k.id = i->id;
+					k.script = p->str(i->script);
+					k.actor = s.formIDOf(i->refID);
+					k.uniqueID = i->unknown;
+					k.unread = !hit;
+					out.push_back(std::move(k));
+				}
+			}
+		}
+		return out;
+	}
+
+	std::vector<KeptInstance> KeepLiveEffectInstances(const SaveFile& s, std::set<EID>& a_ids, const std::set<std::uint32_t>* a_changeFormsGoing)
+	{
+		auto kept = LiveEffectInstances(s, a_ids, a_changeFormsGoing);
+		for (const auto& k : kept) {
+			a_ids.erase(k.id);
+		}
+		return kept;
+	}
+
+	std::string KeptText(const std::vector<KeptInstance>& a_kept)
+	{
+		if (a_kept.empty()) {
+			return {};
+		}
+		std::string s = "kept " + std::to_string(a_kept.size()) +
+		                " ActiveMagicEffect script instance(s) whose effect is still running on an actor (removing only the script "
+		                "would leave the effect without it; the game wrote both):";
+		char b[160];
+		for (std::size_t i = 0; i < a_kept.size() && i < 8; ++i) {
+			const auto& k = a_kept[i];
+			std::snprintf(b, sizeof(b), " %s on %08X (effect %u%s)%s", k.script.c_str(), k.actor, k.uniqueID,
+				k.unread ? ", its effects could not be read" : "", i + 1 < a_kept.size() ? ";" : "");
+			s += b;
+		}
+		if (a_kept.size() > 8) {
+			s += " ...";
+		}
+		return s;
+	}
+
+	CleanResult RemoveUnattachedInstances(SaveFile& s)
+	{
+		CleanResult r;
+		auto*       p = s.papyrus();
+		if (!p) {
+			return r;
+		}
+		std::set<EID> ids;
+		for (const auto& i : p->instances) {
+			if (IsUnattached(i)) {
+				ids.insert(i.id);
+			}
+		}
+		r.kept = KeepLiveEffectInstances(s, ids);  // an unattached instance names no actor: none is kept in practice
+		r.removed = DeleteInstances(*p, ids);
+		return r;
+	}
+
+	CleanResult DeleteScripts(SaveFile& s, const std::set<TStr>& a_names)
+	{
+		CleanResult r;
+		auto*       p = s.papyrus();
+		if (!p) {
+			return r;
+		}
+		std::set<EID> insts;
+		for (const auto& i : p->instances) {
+			if (a_names.contains(i.script)) {
+				insts.insert(i.id);
+			}
+		}
+		r.kept = KeepLiveEffectInstances(s, insts);
+		std::set<TStr> names = a_names;
+		for (const auto& k : r.kept) {
+			if (const auto* i = p->findInstance(k.id)) {
+				names.erase(i->script);  // its definition stays with it
+			}
+		}
+		r.removed = DeleteInstances(*p, insts);  // the kept ones are not in insts
+		r.removed += DeleteScripts(*p, names);   // (their own instances are gone already)
+		return r;
+	}
+
+	CleanResult RemoveUndefinedElements(SaveFile& s)
+	{
+		CleanResult r;
+		auto*       p = s.papyrus();
+		if (!p) {
+			return r;
+		}
+		// as RemoveUndefinedElements(Papyrus&), with the kept instances and their scripts left out
+		std::size_t    n = TerminateUndefinedThreads(*p);
+		std::set<TStr> scripts;
+		for (const auto& sc : p->scripts) {
+			if (IsScriptUndefined(*p, sc)) {
+				scripts.insert(sc.name);
+			}
+		}
+		std::set<EID> insts, refs;
+		for (const auto& i : p->instances) {
+			if (IsInstanceUndefined(*p, i.script)) {
+				insts.insert(i.id);
+			}
+		}
+		for (const auto& rf : p->references) {
+			if (IsInstanceUndefined(*p, rf.script)) {
+				refs.insert(rf.id);
+			}
+		}
+		r.kept = KeepLiveEffectInstances(s, insts);
+		for (const auto& k : r.kept) {
+			if (const auto* i = p->findInstance(k.id)) {
+				scripts.erase(i->script);
+			}
+		}
+		n += DeleteInstances(*p, insts);
+		n += DeleteReferences(*p, refs);
+		n += DeleteScripts(*p, scripts);
+		r.removed = n;
+		return r;
+	}
+
 	std::size_t RemoveNonexistentCreated(SaveFile& s)
 	{
 		auto* p = s.papyrus();
@@ -425,12 +630,17 @@ namespace ess::ops
 		if (!p || a_ids.empty()) {
 			return r;
 		}
-		const auto w = PurgeSelect(*p, a_ids, [](TStr) { return false; }, false);
+		std::set<EID> ids = a_ids;
+		r.kept = KeepLiveEffectInstances(s, ids);
+		if (ids.empty()) {
+			return r;
+		}
+		const auto w = PurgeSelect(*p, ids, [](TStr) { return false; }, false);
 		r.messages = DeleteFunctionMessages(*p, w.msgs);
 		r.stacks = DeleteSuspendedStacks(*p, w.threads);
 		r.threads = DeleteThreads(*p, w.threads);
-		r.instances = DeleteInstances(*p, a_ids);
-		DeleteUnbinds(*p, a_ids);
+		r.instances = DeleteInstances(*p, ids);
+		DeleteUnbinds(*p, ids);
 		return r;
 	}
 
@@ -501,6 +711,14 @@ namespace ess::ops
 				insts.insert(i.id);
 				if (a_deleteCreatedForms && i.refID.type() == RefID::Type::kCreated) {
 					forms.insert(i.refID.data);
+				}
+			}
+		}
+		if (!a_keepInstances) {
+			r.kept = KeepLiveEffectInstances(s, insts);  // they stay, so calls passing them stay valid too
+			for (const auto& k : r.kept) {
+				if (const auto* i = p->findInstance(k.id); i && i->refID.type() == RefID::Type::kCreated) {
+					forms.erase(i->refID.data);  // the actor the effect runs on stays
 				}
 			}
 		}
@@ -631,13 +849,17 @@ namespace ess::ops
 		return sel;
 	}
 
-	void ApplyPluginPurge(SaveFile& s, const PluginPurge& a_sel)
+	std::vector<KeptInstance> ApplyPluginPurge(SaveFile& s, const PluginPurge& a_sel)
 	{
+		std::vector<KeptInstance> kept;
 		if (auto* p = s.papyrus()) {
+			std::set<EID> insts = a_sel.instances;
+			kept = KeepLiveEffectInstances(s, insts, &a_sel.changeForms);
 			DeleteThreadsFully(*p, a_sel.threads);
-			DeleteInstances(*p, a_sel.instances);
+			DeleteInstances(*p, insts);
 		}
 		DeleteChangeForms(s, a_sel.changeForms);
+		return kept;
 	}
 
 	// ---- SkyUI MCM registration jam ------------------------------------------------------------

@@ -156,8 +156,8 @@ void App::pluginActions(const std::set<std::string>& a_plugins)
 				both.changeForms.size(), label.c_str()),
 			[this, a_plugins] {
 				const auto s = ops::SelectPluginElements(*_save, a_plugins, true, false);
-				ops::ApplyPluginPurge(*_save, s);
-				markEdited(Fmt(tr("Deleted %zu change forms"), s.changeForms.size()));
+				const auto kept = ops::ApplyPluginPurge(*_save, s);
+				markEdited(Fmt(tr("Deleted %zu change forms"), s.changeForms.size()) + keptNote(kept));
 			});
 	}
 	tips::Tip(tr("Delete the saved state of every form this plugin defines. They go back to how the plugin defines them on the next load."));
@@ -168,8 +168,8 @@ void App::pluginActions(const std::set<std::string>& a_plugins)
 				both.threads.size()),
 			[this, a_plugins] {
 				const auto s = ops::SelectPluginElements(*_save, a_plugins, false, true);
-				ops::ApplyPluginPurge(*_save, s);
-				markEdited(Fmt(tr("Deleted %zu instances and %zu threads"), s.instances.size(), s.threads.size()));
+				const auto kept = ops::ApplyPluginPurge(*_save, s);
+				markEdited(Fmt(tr("Deleted %zu instances and %zu threads"), s.instances.size() - kept.size(), s.threads.size()) + keptNote(kept));
 			});
 	}
 	tips::Tip(tr("Delete the script instances on this plugin's forms and the threads running on them. Its scripts restart fresh if the mod is still installed."));
@@ -180,8 +180,10 @@ void App::pluginActions(const std::set<std::string>& a_plugins)
 				both.changeForms.size(), both.instances.size(), both.threads.size(), label.c_str()),
 			[this, a_plugins] {
 				const auto s = ops::SelectPluginElements(*_save, a_plugins, true, true);
-				ops::ApplyPluginPurge(*_save, s);
-				markEdited(Fmt(tr("Purged %zu change forms, %zu instances, %zu threads"), s.changeForms.size(), s.instances.size(), s.threads.size()));
+				const auto kept = ops::ApplyPluginPurge(*_save, s);
+				markEdited(Fmt(tr("Purged %zu change forms, %zu instances, %zu threads"), s.changeForms.size(), s.instances.size() - kept.size(),
+							   s.threads.size()) +
+						   keptNote(kept));
 			});
 	}
 	tips::Tip(tr("Delete both its change forms and its script instances. For a checked removal of a whole mod use Mods > Remove mod from save."));

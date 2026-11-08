@@ -26,6 +26,18 @@ namespace ess::compare
 		std::vector<Delta>       instancesByScript;  // biggest changes first
 		std::vector<Delta>       threadsByScript;
 		std::vector<Delta>       changeFormsByType;
+		// change forms both saves have (same RefID and type) whose saved data differs: an edit that keeps the count the
+		// same (e.g. an active effect taken off the player) shows only here
+		struct Edited
+		{
+			std::uint32_t formID = 0;
+			std::string   type;
+			std::uint32_t flagsA = 0, flagsB = 0;
+			std::size_t   sizeA = 0, sizeB = 0;  // data as stored
+			std::string   note;                   // what changed inside, when known (e.g. "active effects 165 -> 164")
+		};
+		std::size_t              editedCount = 0;  // all of them; `edited` holds the first a_top by size change
+		std::vector<Edited>      edited;
 		std::vector<std::string> text() const;    // plain-language listing
 	};
 
