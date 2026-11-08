@@ -701,6 +701,23 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
+- SkyrimIstari's "menus crash while ReSaver Plus is connected" report (24-26 Oct 2026, ReSaver Plus v19-v24, helper 4-10,
+  game 1.6.640 under Proton on Linux Mint), checked 2026-11-08 on branch menucrash; no helper change, waiting on his crash logs:
+  - SkyrimSE.exe+0F322A1 on 1.6.640 = Address Library ID 82665 + 0x11 (versionlib-1-6-640-0.bin from Tony's MO2 "Address Library for
+    SKSE Plugins": 82665 starts at 0xF32290, 0x230 bytes; 1.6.1170 0xFBFC90, also 0x230). CommonLibSSE-NG: GFxMovieView::InvokeNoReturn
+    (RELOCATION_ID(80547, 82665)). +0x11 in 1.6.1170 is `mov rcx,[rcx+0x58]`, its first read of `this`: something called Invoke on a null
+    movie (a menu with no uiMovie). Its only game caller (ID 51052) tests the movie for null first; the other callers are inside GFx.
+    The helper never calls GFx / Invoke / any menu code (grep: no GFx, Invoke, uiMovie, IMenu, ControlMap, event sink or hook in helper/src).
+  - Idle with ReSaver Plus connected (helper 10 and 13 alike): ReSaver Plus sends HELLO every 3 s and GETOPTION bRefreshJournalOnLoad once
+    (v24 and v63 Live.cpp/AppQuests.cpp; PROGRESS only during a refresh). Both run on the pipe thread and read only the helper's own data
+    (REL::Module version, an atomic in-game flag, the INI values); nothing is queued to the main thread. At load: SKSE listener (kDataLoaded
+    starts the pipe thread and, from helper 12, the Ctrl hotkey thread: GetForegroundWindow/GetAsyncKeyState only; kPreLoadGame/kNewGame
+    set the atomic; kPostLoadGame does nothing with bRefreshJournalOnLoad=0). No REL::ID/Offset of its own; every CommonLib AE id it can
+    reach exists in versionlib-1-6-640 (only 3 CommonLib ids are missing there: BSScaleformExternalTexture, BSWin32SystemUtility,
+    InventoryChanges::RemoveAllItems, none used). Struct layouts are only used by commands (on the main thread), never while idle.
+  - Asked him for: the crash logs (call stack names the DLL that called Invoke), a test with "Connect to the running game" unticked while
+    ReSaver Plus runs in the same Proton prefix, and one with bListen=0 in ReSaverHelper.ini.
+
 - Released in v48 (2026-10-31): `--bsa-list/--bsa-extract/--bsa-find` (core `ExtractBsa`), BSA window (`gui/AppBsa.cpp`,
   File menu, drop a .bsa; test hook RESAVERPP_TEST_BSA=<file>), Collect all logs (`gui/AppCollect.cpp`, `core/Zip.*` zip
   writer on miniz tdefl, `gui/SysInfo.cpp` PC report via registry/DXGI/version.dll; RESAVERPP_TEST_COLLECT), chat text
