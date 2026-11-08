@@ -624,6 +624,38 @@ project; you do the coding, building, delivering and publishing.
   - User's way out: do not play on the new save (no script data). Open the save edited with v62/v63 in the fixed build: the Save
     check offers "Remove the stranded threads"; save, load in game, save again. Worth asking for: both saves, Papyrus.0.log (should show the
     two log lines above), whether saving hung ~30 s.
+- Script-call floods (2026-11-08, branch flood, not published; Zordrac's Save1086, scratchpad zord/): 15151 suspended stacks, 15162
+  threads; 13303 AX_ValQuestAliasScript.OnMagicEffectApply + 402 .OnHit on alias 0 of quest 0D093567 (AX ValSerano.esp) and 1281
+  SM_AstridQuestAliasScript.OnMagicEffectApply on alias 0 of 20014C19 (SM_Astrid.esp), every one a thread with 0 frames, state 4.
+  His "edited" save is the v62/v63 delete (entries gone, threads stranded) and Save1087 is the result: Papyrus flagged invalid.
+  - New `core/ScriptFlood.*` (`ess::flood`): Find groups suspended entries and function messages by script.event (receiver objects,
+    alias / effect / form, plugin); a flood = more than 100 calls of one script.event (kOver). Clear removes only suspended entries
+    whose thread has 0 frames, type 0, no fragment, no next-stack flag, state 2/4/8, named by nothing else (message, 2nd entry,
+    extra slot, another thread's next stack, an object's lock holder), through ops::RemoveSuspendedStacks (the v64 delete).
+    Function messages are counted, never cleared (their processing was not checked). ReadBack writes + reads the Papyrus block in
+    memory and runs StrandedThreads. Report warning per flood (ops::Report::floods), Save check item per flood with "Clear N queued
+    calls" and "Clear all floods" (gui/AppCheck.cpp, App::clearFloods: SAFE on Skyrim SE/AE, CAUTION on LE / Fallout 4, status line
+    gives the read-back counts), CLI `--clear-floods [Script.Event]` (prints the re-read stranded count), AI lines in AiGame.cpp,
+    quest alias names from QUST ALST/ALLS/ALCS + ALID (QuestDef::aliases, PluginDB.cpp) for the finding text.
+  - Threshold 100: the game's own line. SkyrimVM's StatsEvent sink 0x9c9070 (SkyrimVM+0x198) compares suspendedStacksCount
+    (StatsEvent+4) with 100; above it calls VM vfunc 6 SetOverstressed(true) (VM+0x827C: this answers "who sets overstressed" in the
+    helper 15 note) and, first after 5 s then at most every 60 s, logs "Suspended stack count is over our warning threshold, dumping
+    stacks:". Normal saves (skyf/saves 3, Save89 gallery, tg/a.ess, trash/a.ess, s140 x4, fo4full 5, fo4in 3, fo4ng 2, bloatrun 2):
+    the biggest single script.event is 50 (trash/a.ess, zxShp_DistantShiptBase.OnCellAttach on 50 objects): no finding.
+  - Exe evidence (SkyrimSE.exe 1.6.1170): Stack::Load 0x14337b0 = state (+0x68, <9) = ActiveScriptData::major, freeze state (+0x6c)
+    = minor, return value, flag (bit 0: next stack id -> +0x98), stack type (+0x84). VM update 0x144f8a0 swaps the suspend queues,
+    pops {stack, IFuncCallQuery} (0x14509c0), finds the stack by id, jump table 0x144fec0: states 2/4/8 -> 0x144e370, which calls
+    GetFunctionCallInfo, checks the object (Object+0 bits constructed/initialized/valid) and its lock, pushes the frame and runs;
+    not ready / locked -> back into the suspend queue (0x14507b0) with state 4. Object::Load 0x1422890: saved flag 1 constructed,
+    2 valid, 4 lock holder id follows (-> Object+0x18), 8 initialized, 0x10 lock bit; unknown1 = properties left to init (<<3).
+    Nothing in an object lists waiting stacks. In Zordrac's save SM_Astrid's alias instance (flag 15) is locked by thread 82453272,
+    a running OnMagicEffectApply (1 frame): the 1281 wait on that lock. Alias handle in the save: unknown2bits 0, unknown = alias id
+    (checked against Skyrim.esm VMAD: DA10GhostTrap alias 5, da05huntersscript 46..55), refID = the quest.
+  - Fallout4.exe (scratchpad re/): only the load side checked (suspended loader 0x21302b0: u32 id, lookup, u8, call 0x215ac80,
+    queue push, same failure log). Resume path and state values not checked; no Fallout 4 save we have has a suspended stack.
+  - Result on Save1086: 14986 calls + 14986 threads removed; 176 threads, 165 suspended stacks (98 ski_favoritesmanager.
+    OnFoundInvalidItem stays: under the line), 0 stranded, instances / change forms unchanged, re-reads clean. Tests: rs_unit
+    TestScriptFloods (RESAVERPP_FLOOD_SAVE=<Save1086>, plus the normal-save env vars for "no flood"). Not run in the game.
 - ReSaverHelper 15, in-game "ReSaver Plus" page in SKSE Menu Framework (F1, Nexus 120352, Tony has 3.18) (2026-11-08, branch f1menu,
   not published, not built: Tony must build it in VS2022; SE/AE). New: `helper/src/MenuPage.h/.cpp` (UI), `LiveInfo.h/.cpp` (main-thread
   reads and actions), `SKSEMenuFramework.h` (the framework's API header, unchanged, from QTR-Modding/SKSE-Menu-Framework-3-Example aa8effa,
