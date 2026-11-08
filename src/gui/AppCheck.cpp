@@ -224,7 +224,8 @@ std::vector<App::CheckItem> App::checkItems()
 						tr("', plus the spawned objects they sit on?\n\nOnly the save in memory changes: write it with File > Save As."),
 					[this, name] {
 						auto x = ops::PurgeScript(*_save, name, true);
-						markEdited(Fmt(tr("Purged %s: %zu threads, %zu instances, %zu spawned objects"), name.c_str(), x.threads, x.instances, x.forms));
+						markEdited(Fmt(tr("Purged %s: %zu threads, %zu instances, %zu spawned objects"), name.c_str(), x.threads, x.instances, x.forms) +
+								   keptNote(x.kept));
 					});
 			};
 			it.options.push_back(std::move(o));
@@ -263,7 +264,10 @@ std::vector<App::CheckItem> App::checkItems()
 				confirm(tr("Remove undefined elements"),
 					tr("Delete scripts whose .pex is no longer installed, their instances and references, and terminate threads running them?"
 					"\n\nOnly the save in memory changes: write it with File > Save As."),
-					[this, p] { markEdited(Fmt(tr("Removed/terminated %zu undefined elements"), ops::RemoveUndefinedElements(*p))); });
+					[this] {
+				const auto r = ops::RemoveUndefinedElements(*_save);
+				markEdited(Fmt(tr("Removed/terminated %zu undefined elements"), r.removed) + keptNote(r.kept));
+			});
 			};
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));
@@ -299,7 +303,10 @@ std::vector<App::CheckItem> App::checkItems()
 				confirm(tr("Remove unattached instances"),
 					Fmt(tr("Delete %zu script instances that are attached to nothing?\n\nOnly the save in memory changes: write it with File > Save As."),
 						_report ? _report->unattached : 0),
-					[this, p] { markEdited(Fmt(tr("Removed %zu unattached instances"), ops::RemoveUnattachedInstances(*p))); });
+					[this] {
+				const auto r = ops::RemoveUnattachedInstances(*_save);
+				markEdited(Fmt(tr("Removed %zu unattached instances"), r.removed) + keptNote(r.kept));
+			});
 			};
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));

@@ -570,8 +570,9 @@ void App::drawMissingModal()
 	ImGui::BeginDisabled(ticked == refused && !scriptsToo);
 	if (ImGui::Button(tr("Remove and write new save"), ImVec2(280, 0))) {
 		// one after the other: each plan is made on the save as the previous removal left it
-		std::size_t done = 0;
-		std::string skipped;
+		std::size_t                    done = 0;
+		std::string                    skipped;
+		std::vector<ops::KeptInstance> kept;  // ActiveMagicEffect instances left: their effect is running
 		for (const auto& m : _missing) {
 			if (!m.selected) {
 				continue;
@@ -581,7 +582,8 @@ void App::drawMissingModal()
 				skipped += (skipped.empty() ? "" : ", ") + m.plugin;
 				continue;
 			}
-			modremove::Apply(*_save, plan);
+			const auto ar = modremove::Apply(*_save, plan);
+			kept.insert(kept.end(), ar.kept.begin(), ar.kept.end());
 			++done;
 		}
 		std::size_t scriptsDone = 0;
@@ -590,7 +592,8 @@ void App::drawMissingModal()
 			std::set<TStr> defs;
 			for (const auto& [name, n] : scriptList) {
 				// spawned objects it sat on stay: another (installed) script may be on the same object
-				ops::PurgeScript(*_save, name, false);
+				const auto pr = ops::PurgeScript(*_save, name, false);
+				kept.insert(kept.end(), pr.kept.begin(), pr.kept.end());
 				++scriptsDone;
 				if (const auto t = pap.findString(name); t != UINT32_MAX) {
 					defs.insert(t);
@@ -603,11 +606,13 @@ void App::drawMissingModal()
 					defs.erase(sc.parent);
 				}
 			}
-			ops::DeleteScripts(pap, defs);
+			// a script whose instance stayed (its effect is running) keeps its definition
+			const auto dr = ops::DeleteScripts(*_save, defs);
+			kept.insert(kept.end(), dr.kept.begin(), dr.kept.end());
 		}
 		ImGui::CloseCurrentPopup();
 		if (done || scriptsDone) {
-			markEdited(Fmt(tr("Removed the leftovers of %zu mod(s) and %zu missing script(s)"), done, scriptsDone));
+			markEdited(Fmt(tr("Removed the leftovers of %zu mod(s) and %zu missing script(s)"), done, scriptsDone) + keptNote(kept));
 			_modsDirty = true;
 			doSave(target);
 			_report = std::make_unique<ops::Report>(ops::Analyze(*_save));

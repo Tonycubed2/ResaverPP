@@ -108,6 +108,7 @@ namespace ess::batch
 			r.stacks += x.stacks;
 			r.messages += x.messages;
 			r.instances += x.instances;
+			r.kept.insert(r.kept.end(), x.kept.begin(), x.kept.end());
 		}
 		return r;
 	}

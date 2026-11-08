@@ -34,6 +34,7 @@
 #include <cmath>
 #include <cstdio>
 #include "core/CharEffects.h"
+#include "core/Compare.h"
 #include <cstdlib>
 #include <cstring>
 #include <map>
@@ -4801,6 +4802,178 @@ void TestCharEffects()
 	}
 }
 
+// Cleanups and ActiveMagicEffect instances (Save140 investigation, see the handoff). RESAVERPP_SKY_SAVES / RESAVERPP_TG_SAVE:
+// every AME handle has a unique id; an AME instance whose effect is in its actor's saved list is kept by Remove undefined
+// elements (with its script), the others of that script go, the save writes and reads back; an actor the same edit deletes
+// takes its instances with it; Compare lists an active effect taken off the player. RESAVERPP_S140="old.ess;new.ess":
+// Tony's two saves (the cleanup removes the same 6 elements and keeps none; old + cleanup differs from new only in the player).
+void TestLiveEffectInstances()
+{
+	namespace fs = std::filesystem;
+	auto CheckS = [](bool a_ok, const std::string& a_what) { Check(a_ok, a_what.c_str()); };
+	auto list = [](const char* a_env) {
+		std::vector<fs::path> files;
+		const char*           env = std::getenv(a_env);
+		if (!env || !*env) {
+			return files;
+		}
+		std::string all = env;
+		for (std::size_t p = 0; p <= all.size();) {
+			auto e = all.find(';', p);
+			if (e == std::string::npos) {
+				e = all.size();
+			}
+			const fs::path dir = all.substr(p, e - p);
+			std::error_code ec;
+			if (fs::is_directory(dir, ec)) {
+				for (const auto& f : fs::directory_iterator(dir, ec)) {
+					if (f.path().extension() == ".ess") {
+						files.push_back(f.path());
+					}
+				}
+			} else if (fs::is_regular_file(dir, ec)) {
+				files.push_back(dir);
+			}
+			p = e + 1;
+		}
+		std::sort(files.begin(), files.end());
+		return files;
+	};
+	auto saves = list("RESAVERPP_SKY_SAVES");
+	if (const char* tg = std::getenv("RESAVERPP_TG_SAVE"); tg && *tg) {
+		saves.emplace_back(tg);
+	}
+	if (saves.empty()) {
+		std::printf("(live effect instances: RESAVERPP_SKY_SAVES not set, real saves skipped)\n");
+	}
+	for (const auto& f : saves) {
+		const auto tag = "live fx " + f.filename().string().substr(0, 10) + ": ";
+		auto       s = SaveFile::load(f);
+		auto*      p = s->papyrus();
+		std::set<EID> ame;
+		bool          noZero = true;
+		for (const auto& i : p->instances) {
+			if (i.unknown2bits == 2) {
+				ame.insert(i.id);
+				noZero = noZero && i.unknown != 0;
+			}
+		}
+		CheckS(!ame.empty() && noZero, tag + "every ActiveMagicEffect handle has a unique id (" + std::to_string(ame.size()) + ")");
+		const auto live = ops::LiveEffectInstances(*s, ame);
+		std::size_t read = 0;
+		for (const auto& k : live) {
+			read += !k.unread;
+		}
+		CheckS(read > 0, tag + std::to_string(read) + " AME instance(s) whose effect is in the actor's saved list");
+		// one script with a running effect's instance: make it undefined as the game writes it (no parent), clean
+		const ops::KeptInstance* pick = nullptr;
+		for (const auto& k : live) {
+			if (!k.unread) {
+				pick = &k;
+				break;
+			}
+		}
+		if (!pick) {
+			continue;
+		}
+		const auto* inst = p->findInstance(pick->id);
+		const TStr  script = inst->script;
+		const auto  empty = p->internString("");
+		std::set<EID> ofScript, liveOfScript;
+		for (const auto& i : p->instances) {
+			if (i.script == script) {
+				ofScript.insert(i.id);
+			}
+		}
+		for (const auto& k : live) {
+			if (!k.unread && ofScript.contains(k.id)) {
+				liveOfScript.insert(k.id);
+			}
+		}
+		for (auto& sc : p->scripts) {
+			if (sc.name == script) {
+				sc.parent = empty;
+			}
+		}
+		const auto r = ops::RemoveUndefinedElements(*s);
+		std::set<EID> kept;
+		for (const auto& k : r.kept) {
+			kept.insert(k.id);
+		}
+		std::size_t left = 0;
+		for (const auto& i : p->instances) {
+			left += i.script == script;
+		}
+		CheckS(kept == liveOfScript && left == liveOfScript.size() && p->findScript(script) != nullptr,
+			tag + "Remove undefined elements keeps the " + std::to_string(liveOfScript.size()) + " running one(s) of " + std::to_string(ofScript.size()) +
+				" " + p->str(script) + " instance(s) and the script");
+		std::printf("(%s%zu AME instances, %zu with their effect in the saved list; %s: kept %zu of %zu, removed %zu)\n", tag.c_str(), ame.size(),
+			read, p->str(script).c_str(), kept.size(), ofScript.size(), ofScript.size() - kept.size());
+		const auto tmp = fs::temp_directory_path() / "rs_unit_livefx.ess";
+		s->save(tmp);
+		auto back = SaveFile::load(tmp);
+		std::size_t backLeft = 0;
+		for (const auto& i : back->papyrus()->instances) {
+			backLeft += back->papyrus()->str(i.script) == p->str(script);
+		}
+		CheckS(back->papyrus()->check().empty() && back->problems.empty() && backLeft == liveOfScript.size(), tag + "written and read back clean");
+		fs::remove(tmp);
+		fs::remove(fs::path(tmp).replace_extension(".skse"));
+		// the same instances when the edit also deletes the actor: they go
+		auto s2 = SaveFile::load(f);
+		std::set<std::uint32_t> going;
+		for (const auto& i : s2->papyrus()->instances) {
+			if (liveOfScript.contains(i.id)) {
+				going.insert(i.refID.data);
+			}
+		}
+		CheckS(ops::LiveEffectInstances(*s2, liveOfScript, &going).empty(), tag + "an actor deleted by the same edit takes its instances with it");
+		// Compare: an effect taken off the player shows as the player's ACHR edited in place
+		std::string err;
+		const auto  fx = cf::ReadPlayerActiveEffects(*s2, err);
+		std::size_t at = fx.size();
+		for (std::size_t i = 0; i < fx.size(); ++i) {
+			if (cf::ActiveEffectModifier(fx[i]) < 0) {
+				at = i;
+				break;
+			}
+		}
+		if (at < fx.size()) {
+			auto s3 = SaveFile::load(f);
+			const auto why = cf::RemovePlayerActiveEffects(*s3, { cf::EffectRemoval{ at, -1 } });
+			const auto c = compare::Compare(*s2, *s3);
+			char wantBuf[64];
+			std::snprintf(wantBuf, sizeof(wantBuf), "active effects %zu -> %zu", fx.size(), fx.size() - 1);
+			const std::string want = wantBuf;
+			CheckS(why.empty() && c.editedCount == 1 && !c.edited.empty() && c.edited[0].formID == 0x14 && c.edited[0].note == want,
+				tag + "Compare lists the player's ACHR with " + want);
+		}
+	}
+	// Tony's Save140
+	std::vector<fs::path> s140;  // in the order given: old, new
+	if (const char* e = std::getenv("RESAVERPP_S140"); e && *e) {
+		const std::string v = e;
+		if (const auto semi = v.find(';'); semi != std::string::npos) {
+			s140 = { v.substr(0, semi), v.substr(semi + 1) };
+		}
+	}
+	if (s140.size() == 2) {
+		auto oldS = SaveFile::load(s140[0]);
+		auto newS = SaveFile::load(s140[1]);
+		const auto c = compare::Compare(*oldS, *newS);
+		CheckS(c.editedCount == 1 && c.edited[0].formID == 0x14 && c.edited[0].note == "active effects 165 -> 164",
+			"Save140: new.ess = old.ess with Papyrus cleaned AND one player effect removed (Compare shows it)");
+		const auto r = ops::RemoveUndefinedElements(*oldS);
+		const auto c2 = compare::Compare(*oldS, *newS);
+		CheckS(r.removed == 6 && r.kept.empty() && c2.editedCount == 1 && c2.instancesByScript.empty(),
+			"Save140: the cleanup removes the same 6 undefined elements (none is an AME), leaving only the player's effect as the difference");
+		std::printf("(Save140: Compare old -> new edited %zu: %s; cleanup removed %zu, kept %zu)\n", c.editedCount, c.edited.empty() ? "" : c.edited[0].note.c_str(),
+			r.removed, r.kept.size());
+	} else {
+		std::printf("(Save140: RESAVERPP_S140=\"old.ess;new.ess\" not set, skipped)\n");
+	}
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -4839,6 +5012,7 @@ int main()
 	TestFo4CellReset();
 	TestFo4ActiveEffects();
 	TestCharEffects();
+	TestLiveEffectInstances();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

@@ -415,6 +415,8 @@ private:
 	// helpers
 	void        rebuildRows();
 	void        markEdited(const std::string& a_what);
+	// "; kept N ..." for an edit that left ActiveMagicEffect instances because their effect is running (details to the log)
+	std::string keptNote(const std::vector<ess::ops::KeptInstance>& a_kept);
 	void        select(Cat a_cat, std::uint64_t a_key);
 	std::string describeVar(const ess::Variable& v) const;
 	void        varValueWidget(const ess::Variable& v, const char* a_id);

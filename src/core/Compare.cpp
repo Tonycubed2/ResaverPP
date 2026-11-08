@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Compare.h"
+#include "ChangeFormData.h"
 #include "Text.h"
 
 #include <algorithm>
@@ -131,6 +132,66 @@ namespace ess::compare
 			cb[ChangeFormTypeName(c.typeCode(), a_b.isFO4())]++;
 		}
 		r.changeFormsByType = Diff(ca, cb, a_top);
+
+		std::map<std::pair<std::uint32_t, std::uint8_t>, const ChangeForm*> inB;
+		for (const auto& c : a_b.changeForms) {
+			inB.emplace(std::make_pair(c.refID.data, c.typeCode()), &c);
+		}
+		for (const auto& c : a_a.changeForms) {
+			const auto it = inB.find({ c.refID.data, c.typeCode() });
+			if (it == inB.end()) {
+				continue;
+			}
+			const auto& d = *it->second;
+			if (c.changeFlags == d.changeFlags && c.version == d.version && c.length2 == d.length2 && c.data == d.data) {
+				continue;
+			}
+			++r.editedCount;
+			Result::Edited e;
+			e.formID = a_a.formIDOf(c.refID);
+			e.type = ChangeFormTypeName(c.typeCode(), a_a.isFO4());
+			e.flagsA = c.changeFlags;
+			e.flagsB = d.changeFlags;
+			e.sizeA = c.length2 ? c.length2 : c.data.size();
+			e.sizeB = d.length2 ? d.length2 : d.data.size();
+			r.edited.push_back(std::move(e));
+		}
+		std::sort(r.edited.begin(), r.edited.end(), [](const Result::Edited& x, const Result::Edited& y) {
+			const auto dx = std::llabs(static_cast<long long>(x.sizeB) - static_cast<long long>(x.sizeA));
+			const auto dy = std::llabs(static_cast<long long>(y.sizeB) - static_cast<long long>(y.sizeA));
+			return dx != dy ? dx > dy : x.formID < y.formID;
+		});
+		if (r.edited.size() > a_top) {
+			r.edited.resize(a_top);
+		}
+		// Skyrim actors: say when their active effect list changed (the list is decoded; Fallout 4's is not read here)
+		if (!a_a.isFO4() && !a_b.isFO4()) {
+			for (auto& e : r.edited) {
+				if (e.type != "ACHR") {
+					continue;
+				}
+				const ChangeForm *ca2 = nullptr, *cb2 = nullptr;
+				for (const auto& c : a_a.changeForms) {
+					if (c.typeCode() == 1 && a_a.formIDOf(c.refID) == e.formID) {
+						ca2 = &c;
+						break;
+					}
+				}
+				for (const auto& c : a_b.changeForms) {
+					if (c.typeCode() == 1 && a_b.formIDOf(c.refID) == e.formID) {
+						cb2 = &c;
+						break;
+					}
+				}
+				if (!ca2 || !cb2) {
+					continue;
+				}
+				const auto da = cf::Decode(a_a, *ca2), db = cf::Decode(a_b, *cb2);
+				if (da.activeEffectsCountAt && db.activeEffectsCountAt && da.activeEffects.size() != db.activeEffects.size()) {
+					e.note = Fmt("active effects %zu -> %zu", da.activeEffects.size(), db.activeEffects.size());
+				}
+			}
+		}
 		return r;
 	}
 
@@ -167,6 +228,16 @@ namespace ess::compare
 		deltas("Running threads by script (biggest changes):", threadsByScript, false);
 		deltas("Script instances by script (biggest changes):", instancesByScript, false);
 		deltas("Change forms by type:", changeFormsByType, false);
+		L.push_back(Fmt("Change forms changed in place (in both saves, different data): %zu", editedCount));
+		for (const auto& e : edited) {
+			L.push_back(Fmt("  %s %08X%s: %zu -> %zu bytes%s%s", e.type.c_str(), e.formID, e.formID == 0x14 ? " (player)" : "", e.sizeA, e.sizeB,
+				e.flagsA != e.flagsB ? Fmt(", change flags %08X -> %08X", e.flagsA, e.flagsB).c_str() : "",
+				e.note.empty() ? "" : (", " + e.note).c_str()));
+		}
+		if (editedCount > edited.size()) {
+			L.push_back(Fmt("  ... and %zu more", editedCount - edited.size()));
+		}
+		L.push_back("");
 		return L;
 	}
 }

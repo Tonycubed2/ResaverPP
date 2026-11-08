@@ -3,6 +3,7 @@
 // with a safety check first. The plan is computed without touching the save; Apply() performs it.
 #pragma once
 
+#include "Ops.h"
 #include "Save.h"
 #include "ScriptSources.h"
 
@@ -66,6 +67,7 @@ namespace ess::modremove
 	struct Result
 	{
 		std::size_t threads = 0, stacks = 0, messages = 0, instances = 0, arrays = 0, unbinds = 0, changeForms = 0;
+		std::vector<ops::KeptInstance> kept;  // ActiveMagicEffect instances left: their effect is running (ops.h)
 		std::string text() const;
 	};
 	// The save must be unchanged since MakePlan.

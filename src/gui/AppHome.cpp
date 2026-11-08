@@ -156,12 +156,18 @@ void App::shortcut(Sc a_which)
 	switch (a_which) {
 	case Sc::kRemoveUnattached:
 		confirm(tr("Remove unattached instances"), Fmt(tr("Delete %zu script instances that are attached to nothing?"), _report ? _report->unattached : 0),
-			[this, p] { markEdited(Fmt(tr("Removed %zu unattached instances"), ops::RemoveUnattachedInstances(*p))); });
+			[this] {
+				const auto r = ops::RemoveUnattachedInstances(*_save);
+				markEdited(Fmt(tr("Removed %zu unattached instances"), r.removed) + keptNote(r.kept));
+			});
 		break;
 	case Sc::kRemoveUndefined:
 		confirm(tr("Remove undefined elements"),
 			tr("Delete scripts whose .pex is no longer installed, their instances and references, and terminate threads running them?"),
-			[this, p] { markEdited(Fmt(tr("Removed/terminated %zu undefined elements"), ops::RemoveUndefinedElements(*p))); });
+			[this] {
+				const auto r = ops::RemoveUndefinedElements(*_save);
+				markEdited(Fmt(tr("Removed/terminated %zu undefined elements"), r.removed) + keptNote(r.kept));
+			});
 		break;
 	case Sc::kTerminateUndefined:
 		confirm(tr("Terminate undefined threads"), tr("Terminate every thread that runs a script that is no longer installed?"),

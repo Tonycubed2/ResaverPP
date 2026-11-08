@@ -742,7 +742,8 @@ void App::drawBatchModal()
 			const auto r = batch::Apply(*_save, _batchMatches);
 			ImGui::CloseCurrentPopup();
 			markEdited(Fmt(tr("Batch clean: %zu scripts purged (%zu threads, %zu stacks, %zu queued calls, %zu instances)"), r.scripts, r.threads,
-				r.stacks, r.messages, r.instances));
+						   r.stacks, r.messages, r.instances) +
+					   keptNote(r.kept));
 		}
 		ImGui::EndDisabled();
 		tips::Tip(tr("Delete everything the ticked scripts left in the save: threads, suspended stacks, queued calls and instances. Only for "

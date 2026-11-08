@@ -8,6 +8,7 @@
 //     ; comment / # comment ignored
 #pragma once
 
+#include "Ops.h"
 #include "Save.h"
 
 #include <string>
@@ -28,7 +29,8 @@ namespace ess::batch
 
 	struct Result
 	{
-		std::size_t scripts = 0, threads = 0, stacks = 0, messages = 0, instances = 0;
+		std::size_t                    scripts = 0, threads = 0, stacks = 0, messages = 0, instances = 0;
+		std::vector<ops::KeptInstance> kept;  // ActiveMagicEffect instances left: their effect is running (ops.h)
 	};
 	// Purges every selected match (threads, suspended stacks, queued calls, instances).
 	Result Apply(SaveFile& a_save, const std::vector<Match>& a_matches);
