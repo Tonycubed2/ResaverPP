@@ -13194,3 +13194,59 @@ tr "%s  (эффект %u)"
 
 en "  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's change forms decoded are greyed out)"
 tr "  (работают инструменты очистки, списки скриптов, моды, логи и конфликты файлов; инструменты, которым нужны расшифрованные изменённые формы сохранения, неактивны)"
+
+# App.cpp:1948  markEdited(Fmt(tr("Deleted %zu threads (with %zu suspended stacks and %zu queued calls of theirs)"), r.threads, r.stacks, r.messages));
+en "Deleted %zu threads (with %zu suspended stacks and %zu queued calls of theirs)"
+tr "Удалено потоков: %zu (вместе с их приостановленными стеками: %zu и вызовами в очереди: %zu)"
+
+# App.cpp:1950  extra = tr("\n\nTheir suspended stacks and queued calls are deleted with them.");
+en "\n\nTheir suspended stacks and queued calls are deleted with them."
+tr "\n\nИх приостановленные стеки и вызовы в очереди удаляются вместе с ними."
+
+# App.cpp:1959  markEdited(Fmt(tr("Deleted %zu function messages and the %zu threads waiting on them"), r.messages, r.threads));
+en "Deleted %zu function messages and the %zu threads waiting on them"
+tr "Удалено сообщений функций: %zu и ожидавших их потоков: %zu"
+
+# App.cpp:1961  extra = tr("\n\nThe thread each call was made for is deleted with it. Left alone, such a thread would never run or end, "
+en "\n\nThe thread each call was made for is deleted with it. Left alone, such a thread would never run or end, and the game could no longer pause its scripts to save: every later save would lose all its script data."
+tr "\n\nПоток, для которого был сделан каждый вызов, удаляется вместе с ним. Оставленный, такой поток никогда бы не выполнился и не завершился, и игра больше не смогла бы приостановить скрипты для сохранения: каждое следующее сохранение теряло бы все данные скриптов."
+
+# App.cpp:1975  markEdited(Fmt(tr("Deleted %zu suspended stacks and the %zu threads waiting in them"), r.stacks, r.threads));
+en "Deleted %zu suspended stacks and the %zu threads waiting in them"
+tr "Удалено приостановленных стеков: %zu и ожидавших в них потоков: %zu"
+
+# App.cpp:1977  extra = tr("\n\nThe thread each one belongs to is deleted with it. Left alone, such a thread would never be resumed, "
+en "\n\nThe thread each one belongs to is deleted with it. Left alone, such a thread would never be resumed, and the game could no longer pause its scripts to save: every later save would lose all its script data."
+tr "\n\nПоток, которому принадлежит каждый из них, удаляется вместе с ним. Оставленный, такой поток никогда бы не возобновился, и игра больше не смогла бы приостановить скрипты для сохранения: каждое следующее сохранение теряло бы все данные скриптов."
+
+# AppCheck.cpp:114  it.title = tr("The game saved this file WITHOUT its script data");
+en "The game saved this file WITHOUT its script data"
+tr "Игра записала это сохранение БЕЗ данных скриптов"
+
+# AppCheck.cpp:115  it.what = tr("When it made this save, the game could not pause its script engine (it gives up after 30 seconds), so it marked "
+en "When it made this save, the game could not pause its script engine (it gives up after 30 seconds), so it marked the script data as invalid and wrote none of it. Loading this save, the game ignores scripts' saved state entirely: quests and mods lose what their scripts were doing and holding.\nThe usual cause is a script thread that nothing will ever resume, often left by deleting a suspended stack or a queued call without its thread (older ReSaver Plus versions and the old ReSaver did that). Every save made in that game session is affected.\nDo not play on from this save. Open the save you loaded before it in ReSaver Plus: the Save check offers to remove such threads. Then load that one in the game and save again."
+tr "Когда игра делала это сохранение, она не смогла приостановить движок скриптов (она сдаётся через 30 секунд), поэтому пометила данные скриптов как недействительные и не записала их совсем. При загрузке этого сохранения игра полностью игнорирует сохранённое состояние скриптов: квесты и моды теряют то, что делали и хранили их скрипты.\nОбычная причина — поток скрипта, который ничто никогда не возобновит; часто он остаётся после удаления приостановленного стека или вызова в очереди без его потока (так делали старые версии ReSaver Plus и старый ReSaver). Затронуто каждое сохранение, сделанное в этом игровом сеансе.\nНе продолжайте игру с этого сохранения. Откройте в ReSaver Plus сохранение, которое вы загрузили перед ним: проверка сохранения предложит удалить такие потоки. Затем загрузите его в игре и сохранитесь снова."
+
+# AppCheck.cpp:131  it.title = Fmt(tr("%zu script thread(s) are waiting for nothing"), stranded.size());
+en "%zu script thread(s) are waiting for nothing"
+tr "Потоков скриптов, которые ничего не ждут: %zu"
+
+# AppCheck.cpp:132  it.what = tr("These threads are not suspended, have no queued call and are not waiting on a timer, so the game will never run "
+en "These threads are not suspended, have no queued call and are not waiting on a timer, so the game will never run or end them. Worse, while one is there the game cannot pause its scripts when you save: each save takes 30 seconds longer and is written WITHOUT any script data. A save the game made has none of these; they are left by deleting a suspended stack or a queued call without its thread."
+tr "Эти потоки не приостановлены, не имеют вызова в очереди и не ждут таймера, поэтому игра никогда их не выполнит и не завершит. Хуже того, пока такой поток есть, игра не может приостановить скрипты при сохранении: каждое сохранение длится на 30 секунд дольше и записывается БЕЗ данных скриптов. В сохранении, сделанном игрой, таких нет; они остаются после удаления приостановленного стека или вызова в очереди без его потока."
+
+# AppCheck.cpp:137  o.label = tr("Remove the stranded threads");
+en "Remove the stranded threads"
+tr "Удалить брошенные потоки"
+
+# AppCheck.cpp:139  o.why = tr("They can never run again, so removing them changes nothing the game would do, and it can pause its scripts to save again.");
+en "They can never run again, so removing them changes nothing the game would do, and it can pause its scripts to save again."
+tr "Они уже никогда не выполнятся, поэтому их удаление ничего не меняет в том, что сделала бы игра, и она снова сможет приостанавливать скрипты для сохранения."
+
+# AppCheck.cpp:142  Fmt(tr("Delete %zu script thread(s) that nothing will ever resume?\n\nOnly the save in memory changes: write it with "
+en "Delete %zu script thread(s) that nothing will ever resume?\n\nOnly the save in memory changes: write it with File > Save As."
+tr "Удалить потоки скриптов, которые ничто никогда не возобновит (%zu)?\n\nМеняется только сохранение в памяти: запишите его через Файл > Сохранить как."
+
+# AppCheck.cpp:147  markEdited(Fmt(tr("Removed %zu stranded threads"), r.threads));
+en "Removed %zu stranded threads"
+tr "Удалено брошенных потоков: %zu"
