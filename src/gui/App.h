@@ -481,6 +481,7 @@ private:
 	void drawRemoveModModal();
 	// mods still in the save but no longer in the load order (AppMissing.cpp)
 	void checkMissingPlugins();
+	bool matchProfileToSave();  // MO2: switch to the profile whose enabled plugins match the open save (true if it switched)
 	void drawMissingBanner();
 	void drawMissingModal();
 	struct MissingMod

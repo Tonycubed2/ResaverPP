@@ -172,7 +172,9 @@ void App::open(const std::filesystem::path& a_path)
 		if (!_settingsLoaded) {
 			loadSettings();
 		}
-		if (!_sourcesPath.empty() && !_sources.scanned()) {
+		// Mod Organizer: use the profile this save was played with (the one remembered may be another)
+		const bool profileSwitched = matchProfileToSave();
+		if (!_sourcesPath.empty() && (!_sources.scanned() || profileSwitched)) {
 			scanSources(platform::FromUtf8(_sourcesPath));  // checks again for missing mods when done
 		} else if (_autoNames && _sources.scanned()) {
 			startNames();
@@ -181,6 +183,9 @@ void App::open(const std::filesystem::path& a_path)
 		// known when the scan of the mods is done; that can take a while inside Mod Organizer)
 		checkMissingPlugins();
 		_status = tr("Loaded ") + platform::ToUtf8(a_path.filename()) + (_save->isFO4() ? tr("  (Fallout 4 save)") : "");
+		if (profileSwitched) {
+			_status += "  " + _detectNote;
+		}
 		if (startupLog) {
 			startupLog("opened " + platform::ToUtf8(a_path) + " in " + std::to_string(ms()) + " ms; mods folder: " +
 					   (_sourcesPath.empty() ? std::string("(not set)") : _sourcesPath) + (scanning() ? " (reading it now)" : ""));

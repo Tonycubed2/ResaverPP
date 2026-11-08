@@ -49,6 +49,88 @@ namespace
 	}
 }
 
+// Mod Organizer: the profile ReSaver Plus remembers is not always the one the player uses now (another profile was
+// picked in Mod Organizer since, or another Mod Organizer setup for the same game). Read with the wrong profile,
+// half of the mods a save uses look "not enabled" and every check floods with false findings. So when a save opens,
+// every profile of every Mod Organizer setup for this game is compared with the plugins the save was made with, and
+// when another one clearly matches it better, it is used instead (and the user is told).
+bool App::matchProfileToSave()
+{
+	if (!_save || !_mo2) {
+		return false;
+	}
+	std::vector<std::string> savePlugins;
+	for (const auto& p : _save->plugins.full) {
+		savePlugins.push_back(Lower(p));
+	}
+	for (const auto& p : _save->plugins.lite) {
+		savePlugins.push_back(Lower(p));
+	}
+	if (savePlugins.size() < 10) {
+		return false;  // too few to tell profiles apart
+	}
+	auto score = [&](const Mo2Instance& m, const std::string& profile) {
+		const auto active = loadorder::Read(m.profilesDir / platform::FromUtf8(profile) / "plugins.txt", !m.gamePath.empty() ? m.gamePath : gameFolder(), _game);
+		if (!active.known) {
+			return -1.0;
+		}
+		std::size_t in = 0;
+		for (const auto& p : savePlugins) {
+			in += active.plugins.contains(p);
+		}
+		return static_cast<double>(in) / static_cast<double>(savePlugins.size());
+	};
+	// this setup first, then the other Mod Organizer setups for the same game
+	std::vector<Mo2Instance> setups{ *_mo2 };
+	std::error_code          ec;
+	for (auto& m : FindMo2Instances({ platform::ExeFolder() })) {
+		if (Lower(m.gameName) == Lower(_mo2->gameName) && m.ini != _mo2->ini && std::filesystem::is_directory(m.modsDir, ec)) {
+			setups.push_back(std::move(m));
+		}
+	}
+	const double current = score(*_mo2, _profile);
+	double       best = current;
+	std::size_t  bestSetup = 0;
+	std::string  bestProfile = _profile;
+	std::string  table;
+	for (std::size_t i = 0; i < setups.size(); ++i) {
+		for (const auto& pr : setups[i].profiles) {
+			const double sc = score(setups[i], pr);
+			table += Fmt("\n    %s%s: %.0f%%", i ? (platform::ToUtf8(setups[i].ini.parent_path()) + " / ").c_str() : "", pr.c_str(), sc * 100.0);
+			if (sc > best + 1e-9) {
+				best = sc;
+				bestSetup = i;
+				bestProfile = pr;
+			}
+		}
+	}
+	if (startupLog) {
+		startupLog(Fmt("MO2 profiles against this save's %zu plugins (share of them enabled in each):", savePlugins.size()) + table);
+	}
+	// only a clear winner: the current one misses more than a tenth of the save and the other has at least nine tenths
+	if ((bestSetup == 0 && bestProfile == _profile) || best < 0.9 || best - current < 0.1) {
+		return false;
+	}
+	const std::string was = _profile;
+	if (bestSetup != 0) {
+		_mo2 = setups[bestSetup];
+		_sourcesPath = platform::ToUtf8(_mo2->modsDir);
+		if (!_mo2->gamePath.empty()) {
+			_gamePath = platform::ToUtf8(_mo2->gamePath);
+		}
+	}
+	_profile = bestProfile;
+	_detectNote = Fmt(tr("Switched to the Mod Organizer profile \"%s\"%s: %.0f%% of this save's plugins are enabled in it, only %.0f%% in \"%s\". "
+	                     "(Options > Settings to pick another.)"),
+		_profile.c_str(), bestSetup ? (" (" + platform::ToUtf8(_mo2->ini.parent_path()) + ")").c_str() : "", best * 100.0, std::max(0.0, current) * 100.0,
+		was.c_str());
+	if (startupLog) {
+		startupLog("switched to MO2 profile " + _profile + (bestSetup ? " of " + platform::ToUtf8(_mo2->ini) : std::string()));
+	}
+	saveSettings();
+	return true;
+}
+
 void App::checkMissingPlugins()
 {
 	_missing.clear();
