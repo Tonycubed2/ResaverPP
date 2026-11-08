@@ -593,6 +593,37 @@ project; you do the coding, building, delivering and publishing.
   Sc::kCosave, Save check line), edits `_save->cosave` + markEdited, written with Save As. CLI `--cosave` (CosaveCli.cpp). Tests
   `rs_cosave_test` (RESAVERPP_COSAVES="dir;dir" for real files). Tony's 167 .skse co-saves: all byte-identical. No .f4se tested
   (none on Tony's PC). VR: same layout as SKSE64 (SKSE VR 2.0.12 source, see the Skyrim follow-ups above).
+- Suspended stacks report (2026-11-08, Nexus, Skyrim, v62/v63; branch stacks, not published; user's saves asked for, not received).
+  User deleted several Suspended Stacks entries, saved, the game loaded it, then the NEXT game save failed in ReSaver Plus with
+  "Papyrus section: unexpected end of data (needed 4 bytes) while reading the header". Verified in SkyrimSE.exe 1.6.1170 (scratchpad
+  skyf/exe, tools skyf/xdis.py, xref.py, fn.py (pdata function starts), vt.py (all vtables of a class), fld.py (field accesses)):
+  - Every saved thread is held by exactly one of: a suspended stack table entry, a function message with its id, the latent-wait list
+    (thread type byte != 0, inserted into VM+0x9350 by the stack table loader 0x1454140), or the extra slot (Papyrus `unk1` = VM+0x9398,
+    `unk2` = id of the stack at VM+0x9390; VM SaveGame 0x144a840 / LoadGame 0x144b150 are on the IVMSaveLoadInterface subobject at
+    VM+0x18, so their offsets read 0x18 lower). Checked on 31 Skyrim SE + 168 Fallout 4 saves: no exception (tool scratchpad stk/part.cpp).
+  - The VM counts paused when suspend queues (0x9308, 0x92f8, +0x810) + overflow arrays (0x9310, 0x9300, +0x10) + queued messages
+    (0x8278, ++ per loaded message in 0x1455860) + latent waits (0x935c-0x9360) + 0x9398 >= running stacks (0x932c-0x9330): 0x14517c0,
+    called from VM Update 0x1444210 which then sets freeze state VM+0x939c = 2. A thread whose suspended entry was deleted is in none
+    of them and nothing resumes it, so this never holds again in that session.
+  - SkyrimVM freeze-and-wait 0x9c9db0 gives up after 30000 ms (QPF/1000 ticks, 0xcca200) with "error: VM timed out while waiting to
+    freeze! Save will be bad."; SkyrimVM::SaveGame 0x9c9ef0 then logs "Someone tried to save without freezing the Papyrus VM first",
+    calls MarkSaveInvalid 0x144bc70 (u16 0xFFFF) and writes its own u16 0xFFFF (0x9a3a30): the Papyrus block is FF FF FF FF. ReSaver
+    Plus read header 0xFFFF then a u32 string count with 2 bytes left: exactly the user's error. Loading such a save the game ignores
+    Papyrus (VM 0x144b150 "VM tried to load save flagged as invalid", SkyrimVM 0x9cdbd0 "Papyrus attempted to load a save flagged as invalid").
+  - Java ReSaver's delete (Papyrus.removeElements, SuspendedStack branch) also removes only the table entry, so it writes the same thing;
+    the user's "Java did it without problems" cannot be reconciled with the exe (maybe they never reopened the next save in Java).
+  - Load side for leftovers: a suspended entry or message naming a missing thread is dropped with "Failed to read suspended stack from
+    save game" (0x1455fd0) and the load reports errors (logging only).
+  - Changes: Papyrus::invalid (header 0xFFFF: tail kept, written back as is, script changes into it refused); ops::StrandedThreads /
+    RemoveStrandedThreads (Save check item "N script thread(s) are waiting for nothing", report warning, CLI --remove-stranded-threads;
+    Skyrim SE/AE only: FO4 / LE exes not checked); ops::RemoveSuspendedStacks / RemoveFunctionMessages / RemoveThreads used by the GUI
+    list deletes (a stack, a queued call with a thread id, or a thread goes with the thread and everything naming it; the extra slot is
+    emptied when its thread goes). Purge / mod removal / MCM fix already removed threads with their stacks. Save check item for an invalid
+    Papyrus block; --describe says FLAGGED INVALID. Tests: rs_unit TestSuspendedStacks (RESAVERPP_SKY_SAVES, RESAVERPP_TG_SAVE,
+    RESAVERPP_STACK_SAVES="a.ess;b.ess", e.g. scratchpad trash/a.ess with 261 stacks).
+  - User's way out: do not play on the new save (no script data). Open the save edited with v62/v63 in the fixed build: the Save
+    check offers "Remove the stranded threads"; save, load in game, save again. Worth asking for: both saves, Papyrus.0.log (should show the
+    two log lines above), whether saving hung ~30 s.
 
 ## 2. Where things are
 

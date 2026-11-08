@@ -502,6 +502,13 @@ namespace ess
 		header = r.u16();
 
 		fo4 = r.fo4;
+		invalid = header == kInvalidHeader;
+		if (invalid) {
+			// flagged invalid by the game (see Papyrus.h): no script data follows, only the SkyrimVM part's own
+			// marker (0xFFFF); the game reads nothing more of it either
+			tail = r.bytes(r.remaining());
+			return;
+		}
 		std::uint32_t strCount;
 		if (r.str16) {
 			strCount = r.u16();
@@ -914,6 +921,19 @@ namespace ess
 
 	void Papyrus::write(Writer& w) const
 	{
+		if (invalid) {
+			// the game's "flagged invalid" block goes back as it was; script data put into it would be ignored by
+			// the game, so it is refused instead of being lost without a word
+			if (!strings.empty() || !scripts.empty() || !structs.empty() || !instances.empty() || !references.empty() ||
+				!structInstances.empty() || !arrays.empty() || !activeScripts.empty() || !functionMessages.empty() ||
+				!suspended1.empty() || !suspended2.empty() || !unknownIDs.empty() || !unbinds.empty()) {
+				throw std::runtime_error("the game flagged this save's Papyrus data invalid (the script engine was not paused when it "
+										 "saved): script changes cannot be written into it");
+			}
+			w.u16(header);
+			w.bytes(tail);
+			return;
+		}
 		w.u16(header);
 		if (w.str16) {
 			if (strings.size() <= 0xFFF0) {

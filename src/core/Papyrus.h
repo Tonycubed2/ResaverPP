@@ -285,6 +285,16 @@ namespace ess
 		std::vector<std::string> check() const;
 
 		std::uint16_t                header = 0;
+		// The game flagged this Papyrus data invalid when it saved: header 0xFFFF and nothing else of the script
+		// engine's data, then the SkyrimVM part's own 0xFFFF (4 bytes in all, kept in tail). SkyrimSE.exe 1.6.1170
+		// writes it when its script engine is not frozen at save time (SkyrimVM::SaveGame 0x9c9ef0: "Someone tried to
+		// save without freezing the Papyrus VM first", MarkSaveInvalid 0x144bc70 writes u16 0xFFFF, then 0x9a3a30
+		// writes u16 0xFFFF); the freeze gives up after 30 seconds (0x9c9db0, "VM timed out while waiting to freeze!
+		// Save will be bad."). Loading it, the game ignores all of it (VM load 0x144b150 "VM tried to load save
+		// flagged as invalid", SkyrimVM load 0x9cdbd0 "Papyrus attempted to load a save flagged as invalid").
+		// Every list below stays empty; write() writes the block back as it was.
+		bool                         invalid = false;
+		static constexpr std::uint16_t kInvalidHeader = 0xFFFF;
 		std::vector<std::string>     strings;
 		std::vector<Script>          scripts;
 		std::vector<StructDef>       structs;          // Fallout 4

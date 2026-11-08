@@ -1900,6 +1900,7 @@ void App::deleteSelected()
 	auto&      p = *_save->papyrus();
 	const auto n = _selected.size();
 	std::function<void()> act;
+	std::string           extra;  // what else goes with the selection
 	switch (_cat) {
 	case Cat::kChangeForms:
 		{
@@ -1940,13 +1941,25 @@ void App::deleteSelected()
 			for (auto k : _selected) {
 				ids.insert(static_cast<ThreadID>(k));
 			}
-			act = [this, ids] { markEdited(Fmt(tr("Deleted %zu threads"), ops::DeleteThreads(*_save->papyrus(), ids))); };
+			// with their suspended stacks and queued calls: an entry left naming a deleted thread is dropped by the game
+			// with a load error
+			act = [this, ids] {
+				const auto r = ops::RemoveThreads(*_save->papyrus(), ids);
+				markEdited(Fmt(tr("Deleted %zu threads (with %zu suspended stacks and %zu queued calls of theirs)"), r.threads, r.stacks, r.messages));
+			};
+			extra = tr("\n\nTheir suspended stacks and queued calls are deleted with them.");
 			break;
 		}
 	case Cat::kMessages:
 		{
 			std::set<std::size_t> ids(_selected.begin(), _selected.end());
-			act = [this, ids] { markEdited(Fmt(tr("Deleted %zu function messages"), ops::DeleteFunctionMessages(*_save->papyrus(), ids))); };
+			// a queued call made for a thread goes with that thread: nothing else would ever run or end it
+			act = [this, ids] {
+				const auto r = ops::RemoveFunctionMessages(*_save->papyrus(), ids);
+				markEdited(Fmt(tr("Deleted %zu function messages and the %zu threads waiting on them"), r.messages, r.threads));
+			};
+			extra = tr("\n\nThe thread each call was made for is deleted with it. Left alone, such a thread would never run or end, "
+					   "and the game could no longer pause its scripts to save: every later save would lose all its script data.");
 			break;
 		}
 	case Cat::kSuspended:
@@ -1955,7 +1968,14 @@ void App::deleteSelected()
 			for (auto k : _selected) {
 				ids.insert(static_cast<ThreadID>(k & 0xFFFFFFFF));
 			}
-			act = [this, ids] { markEdited(Fmt(tr("Deleted %zu suspended stacks"), ops::DeleteSuspendedStacks(*_save->papyrus(), ids))); };
+			// a suspended stack goes with its thread (and anything else naming that thread): a thread left without it is
+			// never resumed, and the game can then never pause its scripts to save (see ops::StrandedThreads)
+			act = [this, ids] {
+				const auto r = ops::RemoveSuspendedStacks(*_save->papyrus(), ids);
+				markEdited(Fmt(tr("Deleted %zu suspended stacks and the %zu threads waiting in them"), r.stacks, r.threads));
+			};
+			extra = tr("\n\nThe thread each one belongs to is deleted with it. Left alone, such a thread would never be resumed, "
+					   "and the game could no longer pause its scripts to save: every later save would lose all its script data.");
 			break;
 		}
 	case Cat::kUnbinds:
@@ -1967,7 +1987,7 @@ void App::deleteSelected()
 		return;
 	}
 	(void)p;
-	confirm(tr("Delete"), Fmt(tr("Delete %zu selected %s?"), n, tr(CatName(_cat))), act);
+	confirm(tr("Delete"), Fmt(tr("Delete %zu selected %s?"), n, tr(CatName(_cat))) + extra, act);
 }
 
 // ==========================================================================================

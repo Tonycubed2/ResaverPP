@@ -107,6 +107,51 @@ std::vector<App::CheckItem> App::checkItems()
 		v.push_back(std::move(it));
 	}
 
+	// the game wrote this save without its script data (Papyrus::invalid)
+	if (p && p->invalid) {
+		CheckItem it;
+		it.level = Risk::kRisky;
+		it.title = tr("The game saved this file WITHOUT its script data");
+		it.what = tr("When it made this save, the game could not pause its script engine (it gives up after 30 seconds), so it marked "
+				  "the script data as invalid and wrote none of it. Loading this save, the game ignores scripts' saved state entirely: "
+				  "quests and mods lose what their scripts were doing and holding.\n"
+				  "The usual cause is a script thread that nothing will ever resume, often left by deleting a suspended stack or a "
+				  "queued call without its thread (older ReSaver Plus versions and the old ReSaver did that). Every save made in that "
+				  "game session is affected.\n"
+				  "Do not play on from this save. Open the save you loaded before it in ReSaver Plus: the Save check offers to remove "
+				  "such threads. Then load that one in the game and save again.");
+		v.push_back(std::move(it));
+	}
+
+	// threads nothing will resume (ops::StrandedThreads): verified in SkyrimSE.exe 1.6.1170 only
+	if (p && !p->invalid && !_save->isFO4() && !_save->isLE()) {
+		if (const auto stranded = ops::StrandedThreads(*p); !stranded.empty()) {
+			CheckItem it;
+			it.level = Risk::kRisky;
+			it.title = Fmt(tr("%zu script thread(s) are waiting for nothing"), stranded.size());
+			it.what = tr("These threads are not suspended, have no queued call and are not waiting on a timer, so the game will never run "
+					  "or end them. Worse, while one is there the game cannot pause its scripts when you save: each save takes 30 seconds "
+					  "longer and is written WITHOUT any script data. A save the game made has none of these; they are left by deleting "
+					  "a suspended stack or a queued call without its thread.");
+			CheckOption o;
+			o.label = tr("Remove the stranded threads");
+			o.risk = Risk::kSafe;
+			o.why = tr("They can never run again, so removing them changes nothing the game would do, and it can pause its scripts to save again.");
+			o.act = [this, n = stranded.size()] {
+				confirm(tr("Remove the stranded threads"),
+					Fmt(tr("Delete %zu script thread(s) that nothing will ever resume?\n\nOnly the save in memory changes: write it with "
+						   "File > Save As."),
+						n),
+					[this] {
+						const auto r = ops::RemoveStrandedThreads(*_save->papyrus());
+						markEdited(Fmt(tr("Removed %zu stranded threads"), r.threads));
+					});
+			};
+			it.options.push_back(std::move(o));
+			v.push_back(std::move(it));
+		}
+	}
+
 	// the newest crash log came after this save and names one of its spawned or leveled actors
 	if (const auto& cc = crashCheck(); !cc.suspects.empty()) {
 		CheckItem it;
