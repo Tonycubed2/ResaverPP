@@ -250,6 +250,10 @@ tr "Несохранённые изменения"
 en "The edited save has not been written. Quit anyway?"
 tr "Изменённое сохранение не записано. Всё равно выйти?"
 
+# App.cpp:326  return Fmt(tr("; kept %zu script instance(s) of magic effects still running on an actor (removing only the script would leave the "
+en "; kept %zu script instance(s) of magic effects still running on an actor (removing only the script would leave the effect without it)"
+tr "; оставлено экземпляров скриптов магических эффектов, которые ещё действуют на персонажа: %zu (если убрать только скрипт, эффект останется без него)"
+
 # App.cpp:321  _status = a_what + tr("  (not saved yet: File > Save As)");
 # App.cpp:337  _status = a_what + tr("  (not saved yet: File > Save As)");
 en "  (not saved yet: File > Save As)"
