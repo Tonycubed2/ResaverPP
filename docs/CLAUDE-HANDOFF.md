@@ -525,6 +525,59 @@ project; you do the coding, building, delivering and publishing.
   RESAVERPP_TEST_SHORTCUT=37, RESAVERPP_TEST_CFXSLOT=<chfx::Slot>, RESAVERPP_TEST_CFXREMOVE=<finding n>. Not done: Fallout 4 made-in-game
   items (none), the LE layout checked on a real LE save, any test in the real game.
 
+- Save140 load crash (2026-11-08, branch crash, not published). Tony's Save140 edited with v62 crashed on load twice
+  (crash-2026-11-08-07-55-34.log, -07-58-56.log); the original loads. Copies: scratchpad s140/old.ess, new.ess.
+  - What v62 changed (ReSaverPP-startup.log on his PC, C:\dllmaker\ReSaverPP\prebuilt): TWO edits. "Removed/terminated 6
+    undefined elements" AND "Removed 1 effect(s): Enter Witch's House" (Character effects window). The old `--compare` only
+    counted change forms by type, so it showed Papyrus only; the player's ACHR (#42501 of 72482) had lost one active effect
+    entry (49 bytes, vsval count 165 -> 164, nothing else). Compare now lists change forms edited in place.
+  - The 6 undefined elements: 2 scripts with no parent (ReanimateDelivery, OnCombatExit) and 4 instances. ReanimateDelivery
+    `extends ReferenceAlias` (ReAnimate.bsa, ReAnimate.esp not in the save's plugin list): handle u2b 0 / unknown 0 / RefID 0 =
+    alias 0 of a quest whose form is gone. OnCombatExit: 3 plain form handles (u2b 0, unknown FFFF) on E2001CBF, E2002343,
+    E2001D67 (SOTFull.esp ids; no record with those ids in the current SOTFull.esp, and the script is in no BSA/loose file of
+    the mods folder or ReAnimate). None is an ActiveMagicEffect.
+  - Handles (Skyrim SE, from the save data): u2b 0 + unknown FFFF = form; u2b 0 + other = alias (quest RefID, alias id); u2b 1 =
+    inventory item; u2b 2 = ActiveMagicEffect (RefID actor, unknown = effect unique id = ActiveEffect +0x84, effect data offset
+    33). Matched on the player (0x14 ccBGSSSE013..., 0x1D DSerEnchantQuiverFX); no AME handle uses unique id 0 (0 of 21,341 in
+    5 saves). ActiveEffect::LoadGame 0x5ad0d0: f32 +0x70, +0x78, +0x74, u32 flags +0x7C, refs caster(+0x34 handle), target
+    (+0x50), +0x68, +0x58, vsval hit list (types 9/10), u32 +0x80 (-1 when no conditions), u16 +0x84, vfunc 0x110 on +8, u32
+    +0x88. List loader 0x5ad8b0 (from the middle-high process loader at 0x6e7436, list at middle-high +0x1A0): ref item, u8
+    index, vsval archetype (checked against MGEF +0xC0), vsval size, creates (0x5c20d0) and loads, then skips by size.
+    ScriptEffect vtable 0x18803e0 (LoadGame 0x5ceaf0 = base + u8 "has object").
+  - The removed effect: ksws03_quest.esp (Quest - Baba Yaga and the Labyrinth) SPEL 0x94C ksws03_house_util_spell "Enter
+    Witch's House" (ability, in the player's added spells), effect #0 MGEF 0x94B ksws03_house_perk_mgef, archetype 1 Script,
+    no VMAD, Perk to Apply 0x94A ksws03_house_perk (activate entries for the walking house actor 0x94E). Unique id 0 (no
+    script object). Effects #1/#2 of the same spell stayed.
+  - Load order (SkyrimSE.exe 1.6.1170, Address Library versionlib-1-6-1170-0.bin decoded with scratchpad crashtools/addrlib.py;
+    the crash log's ids are Address Library ids): 0x605f90 (35600) seeks the form id array, loads global table 1, pass 1 over
+    the change forms (create), table 2, pass 2 (0x6066f0..: 0x60e5e0 initial data, then form->LoadGame vfunc 0x78), and only
+    then table 3 (0x60692d, Papyrus is type 1001 there). Both crashes are in pass 2 at change form #56850 (FF003307) and #57114
+    (FF003D2A); the loop index is on the stack in both logs (0xDE12, 0xDF1A). So the game had not read the Papyrus section
+    when it crashed: the removed instances cannot be the cause. The only data read differently before the crash is the player's
+    change form without that effect.
+  - Crash sites: 07:58 Actor::LoadGame 0x686de0 -> 0x6760d0 (process level from the save, 2) -> vfunc 0x798 = 0x682f20 ->
+    0x6c3720 (adds base / race abilities; [actor+0x1F8] = race copied from base+0x158) with the actor's base (actor+0x40)
+    garbage (FormID 0, type 69). 07:55: initial data 0x60e630 -> 0x1b6c10 -> 0x1d74a0 with TESNPC FF001CEE's +0x1A0 garbage
+    (0xF0F). Both victims are created leveled actors whose created base NPC is not in the save; a different one each run.
+    NOT established: how one fewer ScriptEffect on the player leads to freed / overwritten created NPC bases (a real cause, or a
+    changed heap layout exposing another bug). The game itself saves abilities with missing effect indexes routinely (43 to 74
+    such spells per save; 4 in Save89), so the edited list is not an invalid shape. There is no Skyrim emulator; nothing was run.
+  - Test saves for Tony (in game, both from old.ess): s140/fixed.ess = old + Remove undefined elements with the fixed code
+    (Papyrus bytes identical to new.ess, change forms identical to old.ess); s140/effect-only.ess = old + only the effect
+    removal (`--remove-effect 56`; change forms identical to new.ess, Papyrus = old). Expected if the analysis is right:
+    fixed.ess loads, effect-only.ess crashes. Not tried yet.
+  - Code (this branch): `ops::LiveEffectInstances / KeepLiveEffectInstances / KeptText`, `ops::RemoveUnattachedInstances(SaveFile&)`,
+    `RemoveUndefinedElements(SaveFile&)`, `DeleteScripts(SaveFile&, names)` (CleanResult {removed, kept}); PurgeScript,
+    PurgeInstances, ApplyPluginPurge, modremove::Apply (kept arrays/unbinds stay), batch::Apply carry `kept`. Rule: an AME
+    instance whose effect is still in its actor's saved list is kept with its script definition (an actor the same edit deletes
+    takes them with it; an actor whose effect list cannot be read keeps them). GUI `App::keptNote` (one tr() string, details to
+    the log), CLI prints KeptText. On the 5 test saves no cleanup ever hit such an instance (no undefined or unattached AME
+    instance exists in them); rs_unit TestLiveEffectInstances makes one script undefined in each real save and checks the kept
+    set, the write and read back. `compare::Result::edited/editedCount` (Skyrim ACHR notes "active effects a -> b").
+  - Side finding, not fixed: `--char-effects --plugins-txt <MO2 plugins.txt>` reports Creation Club effects (ccbgssse038 ...)
+    as "no longer in your load order": MO2's plugins.txt does not list CC plugins (they are in loadorder.txt / Skyrim.ccc).
+    The GUI path was not checked.
+
 - Co-save viewer/cleaner (2026-11-06, branch cosave, not published): `core/Cosave.*` reads/writes .skse/.f4se byte-exact (format
   identical in skse/Serialization.cpp LE 1.7.x, skse64/Serialization.cpp, f4se/Serialization.cpp: header sig/format 1/xse ver/runtime/
   numPlugins; plugin {uid, numChunks, length}; chunk {type, version, length}; the loader ignores numPlugins and reads while 12 bytes
