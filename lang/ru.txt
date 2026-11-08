@@ -12528,6 +12528,434 @@ tr "Во время «%s»: %s"
 en "Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."
 tr "Пожалуйста, сообщите об этом на странице мода, приложив файл ReSaverPP-startup.log (рядом с ReSaverPP.exe или в %TEMP%)."
 
+# App.cpp:1396  if (ImGui::MenuItem(tr("Character effects (worn items, stuck effects)..."))) {
+en "Character effects (worn items, stuck effects)..."
+tr "Эффекты персонажа (надетые вещи, застрявшие эффекты)..."
+
+# App.cpp:1399  tips::Tip(tr("A paper doll of what your character wears, every magic effect grouped by where it comes from, and the effects stuck "
+en "A paper doll of what your character wears, every magic effect grouped by where it comes from, and the effects stuck on you (an enchantment of an item you no longer wear), with a button to remove them."
+tr "Бумажная кукла с тем, что надето на персонажа, все магические эффекты по их источникам и эффекты, застрявшие на вас (зачарование вещи, которую вы уже не носите), с кнопкой, которая их удаляет."
+
+# AppCharEffects.cpp:50  case chfx::Group::kWorn: return tr("Worn items");
+en "Worn items"
+tr "Надетые вещи"
+
+# AppCharEffects.cpp:51  case chfx::Group::kNotWorn: return tr("Items not worn");
+en "Items not worn"
+tr "Вещи, которые не надеты"
+
+# AppCharEffects.cpp:52  case chfx::Group::kSpells: return tr("Spells, powers and shouts");
+en "Spells, powers and shouts"
+tr "Заклинания, способности и крики"
+
+# AppCharEffects.cpp:53  case chfx::Group::kConsumables: return a_fo4 ? tr("Chems, food and drink") : tr("Potions, food and ingredients");
+en "Chems, food and drink"
+tr "Химия, еда и напитки"
+
+# AppCharEffects.cpp:53  case chfx::Group::kConsumables: return a_fo4 ? tr("Chems, food and drink") : tr("Potions, food and ingredients");
+en "Potions, food and ingredients"
+tr "Зелья, еда и ингредиенты"
+
+# AppCharEffects.cpp:54  case chfx::Group::kAbilities: return a_fo4 ? tr("Abilities (race, perks, mods)") : tr("Abilities (race, standing stone, perks, mods)");
+en "Abilities (race, perks, mods)"
+tr "Способности (раса, перки, моды)"
+
+# AppCharEffects.cpp:54  case chfx::Group::kAbilities: return a_fo4 ? tr("Abilities (race, perks, mods)") : tr("Abilities (race, standing stone, perks, mods)");
+en "Abilities (race, standing stone, perks, mods)"
+tr "Способности (раса, камень-хранитель, перки, моды)"
+
+# AppCharEffects.cpp:55  case chfx::Group::kDiseases: return tr("Diseases and addictions");
+en "Diseases and addictions"
+tr "Болезни и зависимости"
+
+# AppCharEffects.cpp:56  case chfx::Group::kOthers: return tr("Put on you by others");
+en "Put on you by others"
+tr "Наложено на вас другими"
+
+# AppCharEffects.cpp:57  case chfx::Group::kUnknown: return tr("Unknown (plugin missing or not read)");
+en "Unknown (plugin missing or not read)"
+tr "Неизвестно (плагин отсутствует или не прочитан)"
+
+# AppCharEffects.cpp:64  case chfx::Group::kWorn: return tr("Enchantments of the things you wear. They come back when you put the item on again, so they are not stuck.");
+en "Enchantments of the things you wear. They come back when you put the item on again, so they are not stuck."
+tr "Зачарования того, что на вас надето. Они возвращаются, когда вы снова надеваете вещь, поэтому они не застряли."
+
+# AppCharEffects.cpp:65  case chfx::Group::kNotWorn: return tr("Enchantments of items you do not wear. Those marked at the top as stuck are the ones to remove.");
+en "Enchantments of items you do not wear. Those marked at the top as stuck are the ones to remove."
+tr "Зачарования вещей, которые вы не носите. Те, что вверху отмечены как застрявшие, и нужно удалить."
+
+# AppCharEffects.cpp:66  case chfx::Group::kSpells: return tr("Spells, powers, shouts and scrolls you cast on yourself.");
+en "Spells, powers, shouts and scrolls you cast on yourself."
+tr "Заклинания, способности, крики и свитки, которые вы применили к себе."
+
+# AppCharEffects.cpp:67  case chfx::Group::kConsumables: return tr("What you drank or ate. These usually run out by themselves.");
+en "What you drank or ate. These usually run out by themselves."
+tr "То, что вы выпили или съели. Обычно это проходит само."
+
+# AppCharEffects.cpp:68  case chfx::Group::kAbilities: return tr("Constant effects of your race, standing stone, perks and mods. A mod gives them again if they are removed whi
+en "Constant effects of your race, standing stone, perks and mods. A mod gives them again if they are removed while it is installed."
+tr "Постоянные эффекты вашей расы, камня-хранителя, перков и модов. Мод снова даёт их, если их удалить, пока он установлен."
+
+# AppCharEffects.cpp:69  case chfx::Group::kDiseases: return tr("Diseases and addictions.");
+en "Diseases and addictions."
+tr "Болезни и зависимости."
+
+# AppCharEffects.cpp:70  case chfx::Group::kOthers: return tr("Effects someone else put on you: hits, spells, enchanted weapons. They run out by themselves.");
+en "Effects someone else put on you: hits, spells, enchanted weapons. They run out by themselves."
+tr "Эффекты, наложенные на вас кем-то другим: удары, заклинания, зачарованное оружие. Они проходят сами."
+
+# AppCharEffects.cpp:71  case chfx::Group::kUnknown: return tr("The plugin of these is not found or plugin names are not loaded, so what they are is not known. The form ID and
+en "The plugin of these is not found or plugin names are not loaded, so what they are is not known. The form ID and plugin are shown."
+tr "Плагин этих эффектов не найден или имена из плагинов не загружены, поэтому неизвестно, что это. Показаны ID формы и плагин."
+
+# AppCharEffects.cpp:78  case chfx::Slot::kHead: return tr("Head");
+en "Head"
+tr "Голова"
+
+# AppCharEffects.cpp:79  case chfx::Slot::kBody: return tr("Body");
+en "Body"
+tr "Тело"
+
+# AppCharEffects.cpp:80  case chfx::Slot::kHands: return tr("Hands");
+en "Hands"
+tr "Руки"
+
+# AppCharEffects.cpp:81  case chfx::Slot::kFeet: return tr("Feet");
+en "Feet"
+tr "Ступни"
+
+# AppCharEffects.cpp:82  case chfx::Slot::kAmulet: return tr("Amulet");
+en "Amulet"
+tr "Амулет"
+
+# AppCharEffects.cpp:83  case chfx::Slot::kRing: return tr("Ring");
+en "Ring"
+tr "Кольцо"
+
+# AppCharEffects.cpp:84  case chfx::Slot::kShield: return tr("Shield");
+en "Shield"
+tr "Щит"
+
+# AppCharEffects.cpp:85  case chfx::Slot::kRightHand: return tr("Right hand");
+en "Right hand"
+tr "В правой руке"
+
+# AppCharEffects.cpp:86  case chfx::Slot::kLeftHand: return tr("Left hand");
+en "Left hand"
+tr "В левой руке"
+
+# AppCharEffects.cpp:87  case chfx::Slot::kAmmo: return tr("Ammo");
+en "Ammo"
+tr "Боеприпасы"
+
+# AppCharEffects.cpp:88  case chfx::Slot::kChest: return tr("Chest armor");
+en "Chest armor"
+tr "Нагрудная броня"
+
+# AppCharEffects.cpp:89  case chfx::Slot::kLeftArm: return tr("Left arm");
+en "Left arm"
+tr "Левая рука"
+
+# AppCharEffects.cpp:90  case chfx::Slot::kRightArm: return tr("Right arm");
+en "Right arm"
+tr "Правая рука"
+
+# AppCharEffects.cpp:91  case chfx::Slot::kLeftLeg: return tr("Left leg");
+en "Left leg"
+tr "Левая нога"
+
+# AppCharEffects.cpp:92  case chfx::Slot::kRightLeg: return tr("Right leg");
+en "Right leg"
+tr "Правая нога"
+
+# AppCharEffects.cpp:93  case chfx::Slot::kNeck: return tr("Neck");
+en "Neck"
+tr "Шея"
+
+# AppCharEffects.cpp:94  case chfx::Slot::kPipBoy: return tr("Pip-Boy");
+en "Pip-Boy"
+tr "Пип-Бой"
+
+# AppCharEffects.cpp:96  case chfx::Slot::kOther: return tr("Other slots");
+en "Other slots"
+tr "Другие слоты"
+
+# AppCharEffects.cpp:97  case chfx::Slot::kUnknown: return tr("Slot not known");
+en "Slot not known"
+tr "Слот неизвестен"
+
+# AppCharEffects.cpp:195  refused += "\n  " + c.view.name(e.item) + Fmt(tr(" (effect %u): "), e.effectIndex) + e.why;
+en " (effect %u): "
+tr " (эффект %u): "
+
+# AppCharEffects.cpp:199  _error = tr("None of these effects can be removed:") + refused;
+en "None of these effects can be removed:"
+tr "Ни один из этих эффектов нельзя удалить:"
+
+# AppCharEffects.cpp:208  std::string text = Fmt(tr("Remove %zu effect(s) from the player: %s?"), ok.size(), a_what.c_str());
+en "Remove %zu effect(s) from the player: %s?"
+tr "Удалить с игрока эффекты (%zu): %s?"
+
+# AppCharEffects.cpp:213  text += tr("\nThese stay (they cannot be removed):") + refused;
+en "\nThese stay (they cannot be removed):"
+tr "\nЭти останутся (их нельзя удалить):"
+
+# AppCharEffects.cpp:220  _error = tr("Could not remove the effects: ") + why;
+en "Could not remove the effects: "
+tr "Не удалось удалить эффекты: "
+
+# AppCharEffects.cpp:223  std::string what = Fmt(tr("Removed %zu effect(s): %s"), ok.size(), a_what.c_str());
+en "Removed %zu effect(s): %s"
+tr "Удалено эффектов: %zu: %s"
+
+# AppCharEffects.cpp:236  return Fmt(tr("%s (%08X): %zu effect(s) from %s, which is no longer in your load order"), a_v.name(c.item).c_str(), c.item, a_f.effects.size(),
+en "%s (%08X): %zu effect(s) from %s, which is no longer in your load order"
+tr "%s (%08X): эффектов: %zu, из %s, которого больше нет в вашем порядке загрузки"
+
+# AppCharEffects.cpp:237  a_f.plugin == "?" ? tr("a plugin not in the save's own list") : a_f.plugin.c_str());
+en "a plugin not in the save's own list"
+tr "плагин, которого нет в собственном списке сохранения"
+
+# AppCharEffects.cpp:241  where = tr("no item is named as its source and no worn item carries this enchantment");
+en "no item is named as its source and no worn item carries this enchantment"
+tr "ни одна вещь не указана как его источник, и ни одна надетая вещь не несёт это зачарование"
+
+# AppCharEffects.cpp:243  where = Fmt(tr("you carry %s but do not wear it, and no worn item carries this enchantment"), a_v.name(c.source).c_str());
+en "you carry %s but do not wear it, and no worn item carries this enchantment"
+tr "у вас есть %s, но вы его не носите, и ни одна надетая вещь не несёт это зачарование"
+
+# AppCharEffects.cpp:245  where = Fmt(tr("%s is not in your inventory any more, and no worn item carries this enchantment"), a_v.name(c.source).c_str());
+en "%s is not in your inventory any more, and no worn item carries this enchantment"
+tr "%s больше нет в вашем инвентаре, и ни одна надетая вещь не несёт это зачарование"
+
+# AppCharEffects.cpp:247  return Fmt(tr("%s (%s, %08X): %zu effect(s) still on you (%zu running): "), a_v.name(c.item).c_str(), c.plugin.c_str(), c.item, a_f.effects.size(),
+en "%s (%s, %08X): %zu effect(s) still on you (%zu running): "
+tr "%s (%s, %08X): эффектов на вас: %zu (действуют: %zu): "
+
+# AppCharEffects.cpp:272  it.title = Fmt(tr("%zu effect(s) stuck on your character (%zu source(s))"), fx, c.view.stuck.size());
+en "%zu effect(s) stuck on your character (%zu source(s))"
+tr "Эффектов, застрявших на персонаже: %zu (источников: %zu)"
+
+# AppCharEffects.cpp:273  it.what = tr("Effects that keep running although nothing you wear gives them, or whose mod is gone:") + list;
+en "Effects that keep running although nothing you wear gives them, or whose mod is gone:"
+tr "Эффекты, которые продолжают действовать, хотя ничего из надетого их не даёт, или чей мод удалён:"
+
+# AppCharEffects.cpp:275  o.label = tr("Open Character effects");
+en "Open Character effects"
+tr "Открыть «Эффекты персонажа»"
+
+# AppCharEffects.cpp:277  o.why = tr("Shows them with what you wear; nothing is removed until you press Remove there.");
+en "Shows them with what you wear; nothing is removed until you press Remove there."
+tr "Показывает их вместе с тем, что на вас надето; ничего не удаляется, пока вы не нажмёте там «Удалить»."
+
+# AppCharEffects.cpp:293  if (!ImGui::Begin(trId("Character effects"), &_showCharFx, ImGuiWindowFlags_NoCollapse)) {
+en "Character effects"
+tr "Эффекты персонажа"
+
+# AppCharEffects.cpp:309  ImGui::TextWrapped("%s", tr("Every magic effect on your character, grouped by where it comes from, and what you wear. An effect stuck on you "
+en "Every magic effect on your character, grouped by where it comes from, and what you wear. An effect stuck on you (for example from a ring you took off, which console commands do not remove) is listed in red at the top with a button that removes it. Changes are made in the loaded save; File > Save or Save As writes them."
+tr "Все магические эффекты на вашем персонаже по их источникам и то, что на вас надето. Эффект, застрявший на вас (например, от снятого кольца, который консольные команды не убирают), показан красным вверху с кнопкой, которая его удаляет. Изменения делаются в загруженном сохранении; записывает их «Файл > Сохранить» или «Сохранить как»."
+
+# AppCharEffects.cpp:313  TextColored(theme::Warn(), tr("Cannot read the character's effects: ") + v.error);
+en "Cannot read the character's effects: "
+tr "Не удалось прочитать эффекты персонажа: "
+
+# AppCharEffects.cpp:318  TextColored(theme::Warn(), tr("Plugin names are not loaded: items show as form IDs, slots are not known and effects that change a stat cannot be "
+en "Plugin names are not loaded: items show as form IDs, slots are not known and effects that change a stat cannot be removed (which stat is in the plugins). Load them (Tools > Read plugin names)."
+tr "Имена из плагинов не загружены: вещи показаны как ID форм, слоты неизвестны, а эффекты, меняющие характеристику, нельзя удалить (какую именно, записано в плагинах). Загрузите их (Инструменты > Прочитать имена из плагинов)."
+
+# AppCharEffects.cpp:321  ImGui::TextDisabled(tr("%zu of this save's plugins were not found here: their items show as form ID and plugin, and their effects that change a stat c
+en "%zu of this save's plugins were not found here: their items show as form ID and plugin, and their effects that change a stat cannot be removed."
+tr "Плагинов этого сохранения не найдено здесь: %zu. Их вещи показаны как ID формы и плагин, а их эффекты, меняющие характеристику, нельзя удалить."
+
+# AppCharEffects.cpp:325  TextColored(theme::Warn(), tr("The player's saved data does not read completely here, so nothing can be removed."));
+en "The player's saved data does not read completely here, so nothing can be removed."
+tr "Сохранённые данные игрока здесь читаются не полностью, поэтому ничего нельзя удалить."
+
+# AppCharEffects.cpp:331  ImGui::SeparatorText(Fmt(tr("Stuck on your character (%zu)"), v.stuck.size()).c_str());
+en "Stuck on your character (%zu)"
+tr "Застряло на персонаже (%zu)"
+
+# AppCharEffects.cpp:341  const std::string label = can == f.effects.size() ? std::string(tr("Remove them"))
+en "Remove them"
+tr "Удалить их"
+
+# AppCharEffects.cpp:342  : can == 0              ? std::string(tr("Cannot be removed here"))
+en "Cannot be removed here"
+tr "Здесь удалить нельзя"
+
+# AppCharEffects.cpp:343  : Fmt(tr("Remove the %zu that can be"), can);
+en "Remove the %zu that can be"
+tr "Удалить те, что можно (%zu)"
+
+# AppCharEffects.cpp:356  tips::Tip((Fmt(tr("%zu of these cannot be removed: "), f.effects.size() - can) + why).c_str());
+en "%zu of these cannot be removed: "
+tr "Из них нельзя удалить: %zu: "
+
+# AppCharEffects.cpp:358  tips::Tip(tr("Take these effects off your character (asks first); a stat they change is put back as when the effect ends."));
+en "Take these effects off your character (asks first); a stat they change is put back as when the effect ends."
+tr "Удалить эти эффекты с персонажа (сначала спросит); характеристика, которую они меняют, возвращается, как при окончании эффекта."
+
+# AppCharEffects.cpp:365  TextColored(theme::Good(), tr("Nothing stuck found: every item enchantment on you comes from something you wear."));
+en "Nothing stuck found: every item enchantment on you comes from something you wear."
+tr "Застрявшего не найдено: каждое зачарование вещи на вас идёт от того, что на вас надето."
+
+# AppCharEffects.cpp:368  ImGui::TextDisabled("%s", (std::string(tr("Gone plugins not checked: ")) + (v.loadOrderOther
+en "Gone plugins not checked: "
+tr "Удалённые плагины не проверены: "
+
+# AppCharEffects.cpp:369  ? tr("your load order lacks most of this save's plugins (the save comes from another setup)")
+en "your load order lacks most of this save's plugins (the save comes from another setup)"
+tr "в вашем порядке загрузки нет большинства плагинов этого сохранения (сохранение с другой сборки)"
+
+# AppCharEffects.cpp:370  : tr("your load order is not known (Options > Settings)")))
+en "your load order is not known (Options > Settings)"
+tr "ваш порядок загрузки неизвестен (Параметры > Настройки)"
+
+# AppCharEffects.cpp:439  line1 += Fmt(tr(" +%zu more"), items.size() - 1);
+en " +%zu more"
+tr " и ещё %zu"
+
+# AppCharEffects.cpp:444  Fmt(tr("%zu effect(s)"), fx).c_str());
+en "%zu effect(s)"
+tr "эффектов: %zu"
+
+# AppCharEffects.cpp:452  ImGui::SetTooltip("%s", (t + "\n" + tr("Click to show only the effects of this slot.")).c_str());
+en "Click to show only the effects of this slot."
+tr "Нажмите, чтобы показать только эффекты этого слота."
+
+# AppCharEffects.cpp:460  tips::Tip(tr("The picture the game took when it made this save."));
+en "The picture the game took when it made this save."
+tr "Снимок, который игра сделала при создании этого сохранения."
+
+# AppCharEffects.cpp:463  ImGui::TextDisabled("%s", Fmt(tr("%s, level %u, %s"), _save->header.playerName.c_str(), _save->header.playerLevel, _save->header.location.c_str()).c_s
+en "%s, level %u, %s"
+tr "%s, уровень %u, %s"
+
+# AppCharEffects.cpp:481  if (ImGui::Selectable(Fmt(tr("%s: %zu worn item(s), %zu effect(s)"), SlotText(s), n, fx).c_str(), sel, 0, ImVec2(W, 0))) {
+en "%s: %zu worn item(s), %zu effect(s)"
+tr "%s: надетых вещей: %zu, эффектов: %zu"
+
+# AppCharEffects.cpp:486  tips::Tip(s == chfx::Slot::kUnknown ? tr("Worn items whose plugin was not read here, so which slot they take is not known. Click to show their effects
+en "Worn items whose plugin was not read here, so which slot they take is not known. Click to show their effects."
+tr "Надетые вещи, плагин которых здесь не прочитан, поэтому неизвестно, какой слот они занимают. Нажмите, чтобы показать их эффекты."
+
+# AppCharEffects.cpp:487  : tr("Worn items in slots the doll has no place for (tail, mod slots). Click to show their effects."));
+en "Worn items in slots the doll has no place for (tail, mod slots). Click to show their effects."
+tr "Надетые вещи в слотах, для которых у куклы нет места (хвост, слоты модов). Нажмите, чтобы показать их эффекты."
+
+# AppCharEffects.cpp:491  ImGui::TextDisabled("%s", tr("Power armor is not shown: its pieces are in the frame's inventory, not the character's."));
+en "Power armor is not shown: its pieces are in the frame's inventory, not the character's."
+tr "Силовая броня не показана: её части лежат в инвентаре каркаса, а не персонажа."
+
+# AppCharEffects.cpp:494  ImGui::SeparatorText(Fmt(tr("Worn (%zu)"), v.worn.size()).c_str());
+en "Worn (%zu)"
+tr "Надето (%zu)"
+
+# AppCharEffects.cpp:498  ImGui::TableSetupColumn(tr("Effects"), ImGuiTableColumnFlags_WidthFixed);
+en "Effects"
+tr "Эффекты"
+
+# AppCharEffects.cpp:510  tips::Tip(w.type.empty() ? tr("Its plugin was not read, so its slot is not known.")
+en "Its plugin was not read, so its slot is not known."
+tr "Её плагин не прочитан, поэтому её слот неизвестен."
+
+# AppCharEffects.cpp:511  : Fmt(tr("Record %s, biped slots %08X"), w.type.c_str(), w.biped).c_str());
+en "Record %s, biped slots %08X"
+tr "Запись %s, слоты тела %08X"
+
+# AppCharEffects.cpp:513  ImGui::TextUnformatted((v.name(w.item) + Fmt("  (%s, %08X)", _save->pluginOf(w.item).c_str(), w.item) + (w.left ? tr(", left hand") : "")).c_str());
+en ", left hand"
+tr ", левая рука"
+
+# AppCharEffects.cpp:520  ImGui::TextDisabled("%s", tr("The save has nothing worn for this character."));
+en "The save has nothing worn for this character."
+tr "В сохранении на этом персонаже ничего не надето."
+
+# AppCharEffects.cpp:530  ImGui::InputTextWithHint("##cfxf", tr("filter (name, plugin, form ID)"), c.filter, sizeof(c.filter));
+en "filter (name, plugin, form ID)"
+tr "фильтр (имя, плагин, ID формы)"
+
+# AppCharEffects.cpp:531  tips::Tip(tr("Show only sources whose name, effect, plugin or form ID contains this text."));
+en "Show only sources whose name, effect, plugin or form ID contains this text."
+tr "Показывать только источники, в имени, эффекте, плагине или ID формы которых есть этот текст."
+
+# AppCharEffects.cpp:535  ImGui::Checkbox(Fmt(tr("Only %s"), c.item ? v.name(c.item).c_str() : SlotText(static_cast<chfx::Slot>(c.slot))).c_str(), &c.onlySel);
+en "Only %s"
+tr "Только %s"
+
+# AppCharEffects.cpp:536  tips::Tip(tr("Show only the effects of what is selected on the doll. Click it again on the doll to show everything."));
+en "Show only the effects of what is selected on the doll. Click it again on the doll to show everything."
+tr "Показывать только эффекты того, что выбрано на кукле. Нажмите на кукле ещё раз, чтобы показать всё."
+
+# AppCharEffects.cpp:547  ImGui::TextDisabled(tr("%zu effects from %zu sources."), v.effects.size(), v.cards.size());
+en "%zu effects from %zu sources."
+tr "Эффектов: %zu, источников: %zu."
+
+# AppCharEffects.cpp:581  const bool open = ImGui::CollapsingHeader(Fmt(tr("%s: %zu source(s), %zu effect(s)"), GroupText(grp, v.fo4), rows.size(), nfx).c_str());
+en "%s: %zu source(s), %zu effect(s)"
+tr "%s: источников: %zu, эффектов: %zu"
+
+# AppCharEffects.cpp:588  ImGui::TextDisabled(tr("... and %zu more sources (use the filter)"), rows.size() - 200);
+en "... and %zu more sources (use the filter)"
+tr "... и ещё источников: %zu (используйте фильтр)"
+
+# AppCharEffects.cpp:610  (cd.sourceWorn ? tr(": worn") : tr(": not worn")))
+en ": worn"
+tr ": надето"
+
+# AppCharEffects.cpp:610  (cd.sourceWorn ? tr(": worn") : tr(": not worn")))
+en ": not worn"
+tr ": не надето"
+
+# AppCharEffects.cpp:614  TextColored(theme::Bad(), tr("Stuck: see the top of the window."));
+en "Stuck: see the top of the window."
+tr "Застряло: см. верх окна."
+
+# AppCharEffects.cpp:617  if (ImGui::SmallButton(Fmt(tr("Remove all %zu from this source"), cd.effects.size()).c_str())) {
+en "Remove all %zu from this source"
+tr "Удалить все (%zu) от этого источника"
+
+# AppCharEffects.cpp:621  tips::Tip(cd.removable ? tr("Take every effect of this source off your character (asks first).")
+en "Take every effect of this source off your character (asks first)."
+tr "Удалить с персонажа все эффекты этого источника (сначала спросит)."
+
+# AppCharEffects.cpp:622  : tr("One of these effects cannot be removed (see its Remove button)."));
+en "One of these effects cannot be removed (see its Remove button)."
+tr "Один из этих эффектов нельзя удалить (см. его кнопку «Удалить»)."
+
+# AppCharEffects.cpp:635  tips::Tip(e.canRemove ? (tr("Removing it: ") + e.why).c_str() : e.why.c_str());
+en "Removing it: "
+tr "Если удалить: "
+
+# AppCharEffects.cpp:643  ImGui::TextUnformatted(Fmt(tr("%.0f of %.0f s (%.0f s left)"), e.elapsed, e.duration, std::max(0.0f, e.duration - e.elapsed)).c_str());
+en "%.0f of %.0f s (%.0f s left)"
+tr "%.0f из %.0f с (осталось %.0f с)"
+
+# AppCharEffects.cpp:660  tips::Tip(e.canRemove ? tr("Take this effect off your character (asks first).") : (tr("Cannot be removed: ") + e.why).c_str());
+en "Take this effect off your character (asks first)."
+tr "Удалить этот эффект с персонажа (сначала спросит)."
+
+# AppCharEffects.cpp:660  tips::Tip(e.canRemove ? tr("Take this effect off your character (asks first).") : (tr("Cannot be removed: ") + e.why).c_str());
+en "Cannot be removed: "
+tr "Нельзя удалить: "
+
+# AppHome.cpp:309  { Sc::kCharEffects, tr("Character effects"), tr("what you wear; effects stuck on you"),
+en "what you wear; effects stuck on you"
+tr "что на вас надето; застрявшие эффекты"
+
+# AppHome.cpp:310  tr("A paper doll of what your character wears with the effects each item gives, every effect grouped by where it comes "
+en "A paper doll of what your character wears with the effects each item gives, every effect grouped by where it comes from, and the effects stuck on you (an enchantment of an item you no longer wear), with a button that removes them."
+tr "Бумажная кукла с тем, что надето на персонажа, и эффектами каждой вещи, все эффекты по их источникам и эффекты, застрявшие на вас (зачарование вещи, которую вы уже не носите), с кнопкой, которая их удаляет."
+
+# AppPlayerFO4.cpp:301  if (ImGui::Button(tr("Open Character effects (worn items, by source, stuck ones)"))) {
+en "Open Character effects (worn items, by source, stuck ones)"
+tr "Открыть «Эффекты персонажа» (надетое, по источникам, застрявшие)"
+
+# AppPlayerFO4.cpp:304  tips::Tip(tr("The same effects grouped by where they come from, with a paper doll of what you wear and the stuck ones at the top."));
+en "The same effects grouped by where they come from, with a paper doll of what you wear and the stuck ones at the top."
+tr "Те же эффекты по их источникам, с бумажной куклой того, что на вас надето, и застрявшими вверху."
+
 # ---- no longer used by the code (kept for reference; safe to delete) ----
 
 en "Not done: the player's cell and the cells loaded around the player (the game does not reset a cell while a save loads), an outdoor cell the save has no coordinates for, and a cell the save does not say is indoors. Only what is in the cell when the game resets it is touched: an actor that walked elsewhere is not. Settlements: their workshop objects belong to the settlement; resetting a settlement cell is not recommended."
