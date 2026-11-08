@@ -30,6 +30,11 @@ refresh the quest journal (brings back quests and objectives the journal stopped
 - Optional: refresh the journal automatically after every save load (`bRefreshJournalOnLoad=1`).
 - SE 1.5.97, AE 1.6.x / 1.7.x and VR 1.4.15 from one DLL (CommonLibSSE-NG).
 - Log: Documents\My Games\Skyrim Special Edition\SKSE\ReSaverHelper.log
+- What it does not do: it patches no game code (no hooks, no trampoline writes; the DLL does not even import
+  VirtualProtect), listens to no game events (no death, combat, hit or animation event sinks) and touches no
+  physics, ragdoll, Havok or animation graph. On its own it only waits on the pipe and, from version 12, checks
+  every 0.1 s whether Ctrl is held (the rescue hotkey). Everything else happens only when you ask in ReSaver Plus,
+  when Ctrl is held for 8 seconds, or after a load with `bRefreshJournalOnLoad=1`, and is written to the log.
 
 ## Install
 

@@ -13,6 +13,10 @@ project; you do the coding, building, delivering and publishing.
   - Skyrim LE mod **122557** ("ReSaverPP LE"). File id 8246049, unique mod id 472446525117.
 - Main file is manual download only. **ReSaverHelper** (SKSE DLL, `helper/`, project `C:\dllmaker\ReSaverHelper`)
   is an optional file on the SE page so the app can act in the running game.
+  Report checked 2026-11-08 (brianadragon, Nexus bugs, 1 Nov: dead animals' legs twist with helper 11-12.2 installed):
+  the helper has no hooks, no game event sinks, no Havok / ragdoll / animation graph calls in any version (source history
+  and the released DLLs 11, 12.2, 13: no VirtualProtect import, no BSTEventSink RTTI). Unprompted it only runs the pipe
+  thread and (12+) the Ctrl poll. Not the helper's code; asked the user for logs and an A/B test (branch ragdoll).
 - **ReSaverHelper LE** (`helper-le/`, project `C:\dllmaker\ReSaverHelperLE`): the Legendary Edition helper, 32-bit,
   SKSE 1.7.3, TESV.exe 1.9.32.0, built with VS2022 for Win32 (`cmake --preset vs2022-win32`,
   `cmake --build build --config Release`). Same pipe and protocol as `helper/` (HELLO reports "LE"). SKSE source
