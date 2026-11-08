@@ -527,6 +527,13 @@ namespace LiveInfo
 			s.frozen = vm->frozenStacksCount;
 			s.freezeState = vm->freezeState.underlying();
 		}
+		if (auto* svm = RE::SkyrimVM::GetSingleton()) {
+			// the freeze request: 0x9c3590 writes it under frozenLock (+0x678); the save (0x9c9dc9), loading and the
+			// console's ToggleScripts (0x36abac, "Script processing %s") call it
+			auto&               data = svm->GetVMRuntimeData();
+			RE::BSSpinLockGuard guard(data.frozenLock);
+			s.freezeAsked = data.isFrozen;
+		}
 		s.topScripts.assign(byScript.begin(), byScript.end());
 		std::ranges::sort(s.topScripts, [](const auto& a, const auto& b) { return a.second != b.second ? a.second > b.second : a.first < b.first; });
 		if (s.topScripts.size() > 12) {

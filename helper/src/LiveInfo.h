@@ -121,7 +121,9 @@ namespace LiveInfo
 		std::uint32_t suspended = 0;      // waiting their turn (both suspend queues and their overflow arrays)
 		std::uint32_t queuedCalls = 0;    // function calls queued, not started yet (uiWaitingFunctionMessages)
 		std::uint32_t frozen = 0;         // frozenStacksCount
-		std::uint32_t freezeState = 0;    // 0 not frozen, 1 freezing, 2 frozen (the VM freezes only while saving / loading)
+		std::uint32_t freezeState = 0;    // VM+0x939C: 0 not frozen, 1 freezing, 2 frozen
+		std::uint32_t freezeAsked = 0;    // SkyrimVM isFrozen (+0x680): a freeze was asked for, by a save, a load, the game
+		                                  // shutting down or the console's ToggleScripts ("ts"); all use 0x9c3590
 		std::uint32_t unreadable = 0;     // stacks whose current function could not be read
 		std::vector<std::pair<std::string, std::uint32_t>> topScripts;  // "Script.Function" of the current frame, most stacks first
 	};

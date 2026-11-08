@@ -869,7 +869,9 @@ namespace MenuPage
 		void __stdcall RenderHealth()
 		{
 			StatusLine();
-			StartSampler();
+			if (!g_samplerStarted) {
+				StartSampler();  // the first time this page is opened; after that only the button starts it again
+			}
 			std::deque<LiveInfo::VMSample> s;
 			{
 				std::scoped_lock l(g.lock);
@@ -912,28 +914,44 @@ namespace MenuPage
 				im::TreePop();
 			}
 			Tip("The script and function each thread is in right now. One script with hundreds of threads is usually the one lagging.");
-			im::BeginDisabled(!g_sampling);
-			if (im::SmallButton("Stop reading")) {
-				g_sampling = false;
+			if (g_sampling) {
+				if (im::SmallButton("Stop reading")) {
+					g_sampling = false;
+				}
+			} else if (im::SmallButton("Read again")) {
+				StartSampler();
 			}
-			im::EndDisabled();
-			Tip("Reading starts when you first open this page and goes on every 3 seconds until you quit the game (a short read on the "
-				"game's main thread). Stop it here; opening this page again starts it again.");
+			Tip("Reading starts when you first open this page and goes on every 3 seconds, also while you play, until you quit the "
+				"game or stop it here (a short read on the game's main thread).");
 
 			im::Spacing();
 			im::SeparatorText("Save health");
-			const bool stuckFreeze = s.size() >= 2 && s[s.size() - 1].freezeState != 0 && s[s.size() - 2].freezeState != 0;
-			if (stuckFreeze) {
-				Colored(kRed, "The script engine is stuck in a freeze. A save now will be bad (no script data).");
-				Tip("The script engine freezes only while the game saves or loads. Here it has stayed frozen across two readings, outside "
-					"any save. Do not save over a good save: quit, and check your last save in ReSaver Plus.");
+			// two readings in a row, 3 s apart (a save or a load never shows here: SKSE runs no task while the game saves)
+			const auto* prev = s.size() >= 2 ? &s[s.size() - 2] : nullptr;
+			const bool  cannotPause = prev && last.freezeAsked && prev->freezeAsked && last.freezeState != 2 && prev->freezeState != 2;
+			const bool  paused = last.freezeAsked && last.freezeState == 2;
+			const bool  oddFreeze = prev && !last.freezeAsked && !prev->freezeAsked && last.freezeState != 0 && prev->freezeState != 0;
+			if (cannotPause) {
+				Colored(kRed, "Scripts were asked to pause and cannot. A save now will be bad (no script data).");
+				Tip("Saving pauses the script engine first and waits for it. Here it was asked to pause and has not managed for two "
+					"readings. A save waits 30 seconds, then is written WITHOUT script data. A script thread waiting for nothing does this "
+					"(for example after suspended stacks were deleted from a save). Do not save over a good save: quit and check your last "
+					"save with ReSaver Plus's Save check.");
+			} else if (paused) {
+				Colored(kYellow, "Scripts are paused (the console's ToggleScripts, \"ts\", or the game is closing).");
+				Tip("Type ts in the console again to switch scripts back on.");
+			} else if (oddFreeze) {
+				Colored(kYellow, std::format("The script engine reports a freeze (state {}) that nothing asked for.", last.freezeState));
+				Tip("Not seen in a normal game. Write a report and send it with ReSaverHelper.log.");
 			} else {
-				Colored(kGreen, "Normal: the script engine is not stuck in a freeze.");
-				Tip("Read from the script engine's own freeze state (0 = normal).");
+				Colored(kGreen, "Normal: scripts are running and can pause for a save.");
+				Tip("Read from the script engine's own freeze request and freeze state.");
 			}
-			Wrapped("A script thread left waiting for nothing (after suspended stacks were deleted in a save) cannot be seen here: the "
-					"game only finds it when it saves, waits 30 seconds and writes the save without script data. ReSaver Plus's Save check "
-					"finds it in the save file (\"script threads are waiting for nothing\").");
+			Wrapped("To check the next save before you make it: close this menu, open the console, type ts (scripts pause), wait a few "
+					"seconds, then come back here. \"Scripts are paused\" means a save would be fine. \"cannot pause\" means it would be "
+					"bad. Type ts again afterwards.");
+			Tip("ToggleScripts asks the script engine to pause exactly as saving does (the same function in the game), so it shows the "
+				"same result without making a save.");
 			DrawAsk();
 		}
 

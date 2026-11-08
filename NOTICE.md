@@ -12,5 +12,8 @@ Third-party code in `third_party/`:
 - miniz - MIT License (Rich Geldreich, Tenacious Software)
 - ImGuiColorTextEdit - MIT License (BalazsJako), modified for the script viewer
 
+`helper/src/SKSEMenuFramework.h` (ReSaverHelper's in-game page): the SKSE Menu Framework API header, unchanged, from
+https://github.com/QTR-Modding/SKSE-Menu-Framework-3-Example - MIT License, Copyright (c) 2024 Thiago Kaique.
+
 The script viewer's colours and keyword classes follow the npp-papyrus Notepad++ plugin
 (https://github.com/blu3mania/npp-papyrus); no code from it is included.
