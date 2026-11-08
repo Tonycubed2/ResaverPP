@@ -272,6 +272,7 @@ private:
 	std::vector<CheckItem> checkItems();
 	Risk                   checkWorst();
 	void                   drawSaveCheck();
+	void                   clearFloods(const std::set<std::string>& a_keys, std::size_t a_calls);  // Save check: script-call floods
 	void                   drawCheckSummary();
 	static void            TextWrappedAt(std::uint32_t a_col, const std::string& a_text, float a_x);
 	void                   startLiveRefresh();

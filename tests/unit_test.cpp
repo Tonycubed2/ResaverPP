@@ -11,6 +11,7 @@
 #include "core/MergedPatch.h"
 #include "core/ModRemove.h"
 #include "core/Ops.h"
+#include "core/ScriptFlood.h"
 #include "core/Pex.h"
 #include "core/Save.h"
 #include "core/SaveArchive.h"
@@ -5213,6 +5214,205 @@ void TestSuspendedStacks()
 	fs::remove(tmp, ec);
 }
 
+// Script-call floods (core/ScriptFlood.h): grouping by script.event, the threshold, the safe clear (only calls whose thread has
+// not started, each with its thread; running threads, latent waits, lock holders and threads named elsewhere stay), and real
+// saves: RESAVERPP_FLOOD_SAVE = Zordrac's Save1086 (13303 + 1281 + 402 queued event calls), RESAVERPP_SKY_SAVES /
+// RESAVERPP_TG_SAVE / RESAVERPP_STACK_SAVES / RESAVERPP_S140 (Skyrim) and RESAVERPP_FO4_SAVES (Fallout 4) for no false finding.
+void TestScriptFloods()
+{
+	namespace fs = std::filesystem;
+	auto CheckS = [](bool a_ok, const std::string& a_what) { Check(a_ok, a_what.c_str()); };
+	auto heldOnce = [](const Papyrus& p) {
+		std::map<ThreadID, int> held;
+		for (const auto* list : { &p.suspended1, &p.suspended2 }) {
+			for (const auto& x : *list) {
+				held[x.id]++;
+			}
+		}
+		for (const auto& m : p.functionMessages) {
+			if (m.id) {
+				held[*m.id]++;
+			}
+		}
+		if (p.unk1 && p.unk2) {
+			held[*p.unk2]++;
+		}
+		std::size_t bad = 0, dangling = 0;
+		for (const auto& a : p.activeScripts) {
+			bad += (held[a.id] + (a.type != 0 ? 1 : 0)) != 1;
+		}
+		for (const auto& [id, n] : held) {
+			dangling += p.findActive(id) == nullptr;
+		}
+		return bad + dangling;
+	};
+	{
+		auto  s = MakeSave();
+		auto& p = *s->papyrus();
+		p.instances.push_back(Instance(10, 1, 1));  // ScriptA on a ModA form
+		p.instances.push_back(Instance(11, 2, 2));
+		p.instanceDataOrder = { 10, 11 };
+		ThreadID next = 100;
+		auto queued = [&](TStr a_script, EID a_obj, bool a_started, std::int8_t a_state = 4) {
+			ActiveScript a = Thread(next, a_script, Ref(a_obj));
+			if (!a_started) {
+				a.data->frames.clear();
+			} else {
+				a.data->unknown5 = 0;  // the byte after a running thread's frames
+			}
+			a.data->major = a_state;
+			a.data->minor = 1;
+			p.activeScripts.push_back(a);
+			p.activeDataOrder.push_back(next);
+			SuspendedStack st;
+			st.id = next;
+			st.flag = 1;  // has its call
+			st.data = Call(a_script, Ref(a_obj));
+			p.suspended1.push_back(st);
+			return next++;
+		};
+		for (int i = 0; i < 140; ++i) {
+			queued(1, 10, false);
+		}
+		const auto running = queued(1, 10, true, 5);  // made by a thread that runs (frames > 0)
+		const auto latent = queued(1, 10, false);
+		p.activeScripts.back().type = 1;
+		const auto byMsg = queued(1, 10, false);  // a queued message names it too
+		FunctionMessage m;
+		m.flag = 1;
+		m.id = byMsg;
+		m.flags = 1;
+		m.data = Call(1, Ref(10));
+		p.functionMessages.push_back(m);
+		const auto locker = queued(1, 10, false);  // holds an object's lock
+		p.instances[1].data->flag = 4;
+		p.instances[1].data->unknown2 = locker;
+		const auto running0 = queued(1, 10, false, 0);  // state 0: not a call the resume path makes
+		for (int i = 0; i < 50; ++i) {
+			queued(2, 11, false);  // under the line
+		}
+		p.reindex();
+		auto f = flood::Find(*s);
+		CheckS(f.size() == 1 && f[0].script == "ScriptA" && f[0].event == "OnUpdate" && f[0].suspended == 145 && f[0].messages == 1 &&
+				   f[0].notStarted == 140 && f[0].running == 1 && f[0].other == 4 && f[0].objects == 1 && f[0].targets.size() == 1 &&
+				   f[0].targets[0].object == 10 && f[0].targets[0].calls == 146 && f[0].targets[0].form == 0x01000800,
+			"floods: one script.event over 100 calls, split into not started / running / left for another reason");
+		CheckS(flood::Find(*s, 200).empty(), "floods: nothing over a higher line");
+		auto none = flood::Clear(*s, { "ScriptB.OnUpdate" });
+		CheckS(none.calls == 0 && none.floods.empty() && p.activeScripts.size() == 195, "floods: a script.event under the line is not cleared");
+		const auto r = flood::Clear(*s, { "scripta.onupdate" });
+		CheckS(r.calls == 140 && r.threads == 140 && r.messages == 0 && r.leftRunning == 1 && r.leftOther == 4 && r.floods.size() == 1,
+			"floods: only the 140 calls that never started are cleared, with their threads");
+		bool kept = p.findActive(running) && p.findActive(latent) && p.findActive(byMsg) && p.findActive(locker) && p.findActive(running0);
+		CheckS(kept && p.activeScripts.size() == 55 && p.suspended1.size() == 55 && p.functionMessages.size() == 1 && p.instances.size() == 2,
+			"floods: running, latent, message-held, lock-holding and state-0 threads stay, and the instances");
+		CheckS(ops::StrandedThreads(p).empty(), "floods: no stranded thread after the clear");
+		const auto back = flood::ReadBack(*s);
+		CheckS(back.ok && back.threads == 55 && back.suspended == 55 && back.stranded == 0, "floods: the cleared section reads back (" + back.error + ")");
+	}
+
+	// real saves
+	auto list = [](const char* a_env, const char* a_ext) {
+		std::vector<fs::path> out;
+		const char*           env = std::getenv(a_env);
+		if (!env || !*env) {
+			return out;
+		}
+		std::string all = env;
+		for (std::size_t q = 0; q <= all.size();) {
+			auto e = all.find(';', q);
+			if (e == std::string::npos) {
+				e = all.size();
+			}
+			const fs::path  x = all.substr(q, e - q);
+			std::error_code ec;
+			if (fs::is_directory(x, ec)) {
+				for (const auto& f : fs::recursive_directory_iterator(x, ec)) {
+					if (f.path().extension() == a_ext) {
+						out.push_back(f.path());
+					}
+				}
+			} else if (fs::is_regular_file(x, ec)) {
+				out.push_back(x);
+			}
+			q = e + 1;
+		}
+		return out;
+	};
+	std::vector<fs::path> normal;
+	for (const char* e : { "RESAVERPP_SKY_SAVES", "RESAVERPP_TG_SAVE", "RESAVERPP_STACK_SAVES", "RESAVERPP_S140" }) {
+		for (auto& f : list(e, ".ess")) {
+			normal.push_back(f);
+		}
+	}
+	for (auto& f : list("RESAVERPP_FO4_SAVES", ".fos")) {
+		normal.push_back(f);
+	}
+	std::sort(normal.begin(), normal.end());
+	normal.erase(std::unique(normal.begin(), normal.end()), normal.end());
+	std::size_t checked = 0;
+	for (const auto& f : normal) {
+		std::unique_ptr<SaveFile> s;
+		try {
+			s = SaveFile::load(f);
+		} catch (const std::exception&) {
+			continue;  // a save that does not open is another test's business
+		}
+		++checked;
+		CheckS(flood::Find(*s).empty(), "floods " + f.filename().string().substr(0, 16) + ": a normal save has no flood");
+	}
+	if (normal.empty()) {
+		std::printf("(floods: RESAVERPP_SKY_SAVES / RESAVERPP_FO4_SAVES not set, normal saves skipped)\n");
+	}
+
+	const char* zord = std::getenv("RESAVERPP_FLOOD_SAVE");
+	if (!zord || !*zord) {
+		std::printf("(floods: RESAVERPP_FLOOD_SAVE not set, Zordrac's save skipped)\n");
+		return;
+	}
+	auto  s = SaveFile::load(zord);
+	auto* p = s->papyrus();
+	const auto cf0 = s->changeForms.size(), inst0 = p->instances.size();
+	CheckS(p->activeScripts.size() == 15162 && p->suspended1.size() == 15151 && p->suspended2.empty() && ops::StrandedThreads(*p).empty() &&
+			   heldOnce(*p) == 0,
+		"floods zordrac: 15162 threads, 15151 suspended stacks, every thread held once");
+	const auto f = flood::Find(*s);
+	CheckS(f.size() == 3 && f[0].key() == "AX_ValQuestAliasScript.OnMagicEffectApply" && f[0].total() == 13303 && f[0].notStarted == 13303 &&
+			   f[1].key() == "SM_AstridQuestAliasScript.OnMagicEffectApply" && f[1].total() == 1281 && f[1].notStarted == 1281 &&
+			   f[2].key() == "AX_ValQuestAliasScript.OnHit" && f[2].total() == 402 && f[2].notStarted == 402,
+		"floods zordrac: the three floods, every call not started");
+	CheckS(f.size() == 3 && f[0].objects == 1 && f[0].targets[0].alias && f[0].targets[0].aliasID == 0 && f[0].targets[0].form == 0x0D093567 &&
+			   f[0].targets[0].plugin == "AX ValSerano.esp" && f[1].targets[0].alias && f[1].targets[0].form == 0x20014C19 &&
+			   f[1].targets[0].plugin == "SM_Astrid.esp" && f[1].runningNow == 1,
+		"floods zordrac: alias 0 of Val Serano's quest and of Astrid's quest (one copy of Astrid's event is running)");
+	{
+		auto one = SaveFile::load(zord);
+		const auto r = flood::Clear(*one, { "AX_ValQuestAliasScript.OnHit" });
+		CheckS(r.calls == 402 && r.threads == 402 && one->papyrus()->activeScripts.size() == 15162 - 402 && flood::Find(*one).size() == 2,
+			"floods zordrac: clearing one flood removes only its 402 calls");
+	}
+	const auto r = flood::Clear(*s);
+	CheckS(r.calls == 14986 && r.threads == 14986 && r.messages == 0 && r.leftRunning == 0 && r.leftOther == 0 && r.floods.size() == 3,
+		"floods zordrac: all floods: 14986 calls with their threads");
+	const auto tmp = fs::temp_directory_path() / "rs_unit_floods.ess";
+	{
+		const auto    b = s->serialize();
+		std::ofstream o(tmp, std::ios::binary | std::ios::trunc);
+		o.write(reinterpret_cast<const char*>(b.data()), static_cast<std::streamsize>(b.size()));
+	}
+	auto  back = SaveFile::load(tmp);
+	auto* q = back->papyrus();
+	CheckS(back->problems.empty() && q && q->check().empty(), "floods zordrac: the cleared save reads back with no problems");
+	CheckS(q->activeScripts.size() == 176 && q->suspended1.size() + q->suspended2.size() == 165 && q->functionMessages.size() == 2 &&
+			   q->instances.size() == inst0 && back->changeForms.size() == cf0,
+		"floods zordrac: read back: 176 threads, 165 suspended stacks, instances and change forms unchanged");
+	CheckS(ops::StrandedThreads(*q).empty() && heldOnce(*q) == 0, "floods zordrac: read back: no stranded thread, every thread held once");
+	CheckS(flood::Find(*back).empty(), "floods zordrac: read back: no flood left");
+	std::error_code ec;
+	fs::remove(tmp, ec);
+	std::printf("(floods: %zu normal saves checked)\n", checked);
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -5253,6 +5453,7 @@ int main()
 	TestCharEffects();
 	TestLiveEffectInstances();
 	TestSuspendedStacks();
+	TestScriptFloods();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

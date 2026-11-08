@@ -13250,3 +13250,119 @@ tr "Удалить потоки скриптов, которые ничто ни
 # AppCheck.cpp:147  markEdited(Fmt(tr("Removed %zu stranded threads"), r.threads));
 en "Removed %zu stranded threads"
 tr "Удалено брошенных потоков: %zu"
+
+# AppCheck.cpp:61  return Fmt(tr("an object that is no longer in the save (%llX)"), static_cast<unsigned long long>(t.object));
+en "an object that is no longer in the save (%llX)"
+tr "объект, которого больше нет в сохранении (%llX)"
+
+# AppCheck.cpp:72  return Fmt(tr("the alias%s (alias %u) of quest %s"), alias.c_str(), t.aliasID, formText.c_str());
+en "the alias%s (alias %u) of quest %s"
+tr "псевдоним%s (псевдоним %u) квеста %s"
+
+# AppCheck.cpp:75  return Fmt(tr("a magic effect on actor %s"), formText.c_str());
+en "a magic effect on actor %s"
+tr "магический эффект на персонаже %s"
+
+# AppCheck.cpp:307  it.title = Fmt(tr("Script lag: %zu calls of %s are waiting in the queue"), f.total(), f.key().c_str());
+en "Script lag: %zu calls of %s are waiting in the queue"
+tr "Задержка скриптов: в очереди ждут %zu вызовов %s"
+
+# AppCheck.cpp:312  on += Fmt(tr(" (%zu of them; %zu objects in all)"), f.targets.front().calls, f.objects);
+en " (%zu of them; %zu objects in all)"
+tr " (%zu из них; всего объектов: %zu)"
+
+# AppCheck.cpp:315  it.what = Fmt(tr("Events are queued faster than the game can run them: script lag. The event %s of the script %s was "
+en "Events are queued faster than the game can run them: script lag. The event %s of the script %s was queued %zu times%s%s."
+tr "События ставятся в очередь быстрее, чем игра успевает их выполнять: это задержка скриптов (script lag). Событие %s скрипта %s поставлено в очередь %zu раз%s%s."
+
+# AppCheck.cpp:317  f.event.c_str(), f.script.c_str(), f.total(), on.empty() ? "" : tr(", made on "), on.c_str());
+en ", made on "
+tr ", вызовы для: "
+
+# AppCheck.cpp:319  it.what += Fmt(tr(" The script comes from %s."), prov->front().mod.c_str());
+en " The script comes from %s."
+tr " Скрипт из мода %s."
+
+# AppCheck.cpp:321  it.what += Fmt(tr(" The object it runs on comes from %s."), f.targets.front().plugin.c_str());
+en " The object it runs on comes from %s."
+tr " Объект, на котором он работает, из %s."
+
+# AppCheck.cpp:323  it.what += "\n" + Fmt(tr("%zu of these calls have not started (not one line of the event has run); %zu are left alone."),
+en "%zu of these calls have not started (not one line of the event has run); %zu are left alone."
+tr "%zu из этих вызовов ещё не начались (ни одна строка события не выполнена); %zu остаются как есть."
+
+# AppCheck.cpp:326  it.what += Fmt(tr(" %zu copy/copies of this event are running right now; they are left alone too."), f.runningNow);
+en " %zu copy/copies of this event are running right now; they are left alone too."
+tr " Копий этого события, выполняющихся прямо сейчас: %zu; их тоже не трогаем."
+
+# AppCheck.cpp:328  it.what += "\n" + std::string(tr("Clearing drops only the events that never ran, which is usually harmless: the game behaves as if they "
+en "Clearing drops only the events that never ran, which is usually harmless: the game behaves as if they had not fired. It comes back unless the cause is fixed."
+tr "Очистка убирает только события, которые так и не выполнились, обычно это безвредно: игра ведёт себя так, будто их не было. Если не устранить причину, это повторится."
+
+# AppCheck.cpp:331  it.what += " " + std::string(tr("The usual cause of an OnMagicEffectApply flood is a cloak or aura spell, or a mod applying effects "
+en "The usual cause of an OnMagicEffectApply flood is a cloak or aura spell, or a mod applying effects in a loop, on that actor: each effect applied fires the event once more."
+tr "Обычная причина потока OnMagicEffectApply: заклинание-плащ или аура либо мод, который накладывает эффекты в цикле, на этом персонаже: каждый наложенный эффект вызывает событие ещё раз."
+
+# AppCheck.cpp:334  it.what += " " + std::string(tr("OnHit fires for every hit, also from spells, cloaks and auras that hit again and again."));
+en "OnHit fires for every hit, also from spells, cloaks and auras that hit again and again."
+tr "OnHit срабатывает при каждом попадании, в том числе от заклинаний, плащей и аур, которые бьют снова и снова."
+
+# AppCheck.cpp:336  it.what += " " + std::string(tr("Look for a mod that makes this event happen over and over."));
+en "Look for a mod that makes this event happen over and over."
+tr "Ищите мод, из-за которого это событие происходит снова и снова."
+
+# AppCheck.cpp:339  it.what += "\n" + Fmt(tr("Left alone: %zu call(s) whose thread already runs, %zu that something else in the save still names, "
+en "Left alone: %zu call(s) whose thread already runs, %zu that something else in the save still names, %zu queued message(s)."
+tr "Не трогаем: вызовов, чей поток уже выполняется: %zu; вызовов, на которые ещё что-то в сохранении ссылается: %zu; сообщений в очереди: %zu."
+
+# AppCheck.cpp:345  o.label = Fmt(tr("Clear %zu queued calls"), f.notStarted);
+en "Clear %zu queued calls"
+tr "Очистить вызовы в очереди: %zu"
+
+# AppCheck.cpp:347  o.why = verified ? tr("Removes only calls that never started, each with its thread (nothing else names them). Checked in SkyrimSE.exe: "
+en "Removes only calls that never started, each with its thread (nothing else names them). Checked in SkyrimSE.exe: a call that has not started has run nothing, so the game is left as if the event had not fired."
+tr "Удаляет только вызовы, которые не начались, каждый вместе с его потоком (больше ничто на них не ссылается). Проверено в SkyrimSE.exe: не начавшийся вызов ничего не выполнил, поэтому игра остаётся такой, будто события не было."
+
+# AppCheck.cpp:349  : tr("Removes only calls that never started, each with its thread. What the game does with such calls was checked "
+en "Removes only calls that never started, each with its thread. What the game does with such calls was checked in Skyrim Special Edition only, not in this game."
+tr "Удаляет только вызовы, которые не начались, каждый вместе с его потоком. Что игра делает с такими вызовами, проверено только в Skyrim Special Edition, не в этой игре."
+
+# AppCheck.cpp:361  a.label = Fmt(tr("Clear all floods (%zu queued calls)"), all);
+en "Clear all floods (%zu queued calls)"
+tr "Очистить все потоки вызовов (вызовов в очереди: %zu)"
+
+# AppCheck.cpp:363  a.why = tr("The same for every flood in this list.");
+en "The same for every flood in this list."
+tr "То же для всех потоков вызовов в этом списке."
+
+# AppCheck.cpp:470  : tr("Most of it is the script lag above. The Mods page shows which mod runs the most scripts.");
+en "Most of it is the script lag above. The Mods page shows which mod runs the most scripts."
+tr "Большая часть этого - задержка скриптов выше. Страница «Моды» показывает, какой мод запускает больше всего скриптов."
+
+# AppCheck.cpp:676  confirm(tr("Clear queued calls"),
+en "Clear queued calls"
+tr "Очистить вызовы в очереди"
+
+# AppCheck.cpp:677  Fmt(tr("Remove %zu queued event call(s) that never started, each with its thread?\n\nThreads that already run are left alone. %s"
+en "Remove %zu queued event call(s) that never started, each with its thread?\n\nThreads that already run are left alone. %s\n\nOnly the save in memory changes: write it with File > Save As."
+tr "Удалить вызовы событий в очереди, которые не начались (%zu), каждый вместе с его потоком?\n\nУже выполняющиеся потоки не трогаются. %s\n\nМеняется только сохранение в памяти: запишите его через Файл > Сохранить как."
+
+# AppCheck.cpp:680  verified ? "" : tr("What the game does with such calls was checked in Skyrim Special Edition only.")),
+en "What the game does with such calls was checked in Skyrim Special Edition only."
+tr "Что игра делает с такими вызовами, проверено только в Skyrim Special Edition."
+
+# AppCheck.cpp:686  check = Fmt(tr("; reading it back FAILED: %s"), back.error.c_str());
+en "; reading it back FAILED: %s"
+tr "; повторное чтение НЕ УДАЛОСЬ: %s"
+
+# AppCheck.cpp:688  check = Fmt(tr("; read back: %zu threads, %zu suspended stacks, %zu stranded threads"), back.threads, back.suspended, back.stranded);
+en "; read back: %zu threads, %zu suspended stacks, %zu stranded threads"
+tr "; прочитано снова: потоков %zu, приостановленных стеков %zu, брошенных потоков %zu"
+
+# AppCheck.cpp:690  check = Fmt(tr("; read back: %zu threads, %zu suspended stacks"), back.threads, back.suspended);
+en "; read back: %zu threads, %zu suspended stacks"
+tr "; прочитано снова: потоков %zu, приостановленных стеков %zu"
+
+# AppCheck.cpp:692  markEdited(Fmt(tr("Cleared %zu queued calls that never started (%zu threads); left alone %zu"), r.calls, r.threads,
+en "Cleared %zu queued calls that never started (%zu threads); left alone %zu"
+tr "Очищено не начавшихся вызовов в очереди: %zu (потоков: %zu); не тронуто: %zu"

@@ -54,6 +54,29 @@ namespace
 		}
 	}
 
+	// the object a flood's calls are made on, with what the plugins say about it
+	std::string FloodTarget(const flood::Target& t, const PluginDB* db)
+	{
+		if (!t.found) {
+			return Fmt(tr("an object that is no longer in the save (%llX)"), static_cast<unsigned long long>(t.object));
+		}
+		const std::string form = (db ? db->describe(t.form) : std::string());
+		const std::string formText = Fmt("%08X", t.form) + (form.empty() ? "" : " " + form) + " (" + t.plugin + ")";
+		if (t.alias) {
+			std::string alias;
+			if (const auto* q = db ? db->quest(t.form) : nullptr) {
+				if (const auto it = q->aliases.find(t.aliasID); it != q->aliases.end() && !it->second.empty()) {
+					alias = " '" + it->second + "'";
+				}
+			}
+			return Fmt(tr("the alias%s (alias %u) of quest %s"), alias.c_str(), t.aliasID, formText.c_str());
+		}
+		if (t.effect) {
+			return Fmt(tr("a magic effect on actor %s"), formText.c_str());
+		}
+		return formText;
+	}
+
 	// a filled dot in the risk colour, on the current line
 	void Dot(App::Risk r)
 	{
@@ -277,6 +300,74 @@ std::vector<App::CheckItem> App::checkItems()
 			v.push_back(std::move(it));
 		}
 
+		// script-call floods: one script's event queued over and over (flood::Find)
+		for (const auto& f : r.floods) {
+			CheckItem it;
+			it.level = Risk::kCaution;
+			it.title = Fmt(tr("Script lag: %zu calls of %s are waiting in the queue"), f.total(), f.key().c_str());
+			std::string on;
+			if (!f.targets.empty()) {
+				on = FloodTarget(f.targets.front(), _db.get());
+				if (f.objects > 1) {
+					on += Fmt(tr(" (%zu of them; %zu objects in all)"), f.targets.front().calls, f.objects);
+				}
+			}
+			it.what = Fmt(tr("Events are queued faster than the game can run them: script lag. The event %s of the script %s was "
+						  "queued %zu times%s%s."),
+				f.event.c_str(), f.script.c_str(), f.total(), on.empty() ? "" : tr(", made on "), on.c_str());
+			if (const auto* prov = _sources.providers(f.script); prov && !prov->empty()) {
+				it.what += Fmt(tr(" The script comes from %s."), prov->front().mod.c_str());
+			} else if (!f.targets.empty() && f.targets.front().found && !f.targets.front().plugin.empty()) {
+				it.what += Fmt(tr(" The object it runs on comes from %s."), f.targets.front().plugin.c_str());
+			}
+			it.what += "\n" + Fmt(tr("%zu of these calls have not started (not one line of the event has run); %zu are left alone."),
+								   f.notStarted, f.running + f.other + f.messages);
+			if (f.runningNow) {
+				it.what += Fmt(tr(" %zu copy/copies of this event are running right now; they are left alone too."), f.runningNow);
+			}
+			it.what += "\n" + std::string(tr("Clearing drops only the events that never ran, which is usually harmless: the game behaves as if they "
+										"had not fired. It comes back unless the cause is fixed."));
+			if (EqualsNoCase(f.event, "OnMagicEffectApply") || EqualsNoCase(f.event, "OnMagicEffectApplyEx")) {
+				it.what += " " + std::string(tr("The usual cause of an OnMagicEffectApply flood is a cloak or aura spell, or a mod applying effects "
+											  "in a loop, on that actor: each effect applied fires the event once more."));
+			} else if (EqualsNoCase(f.event, "OnHit")) {
+				it.what += " " + std::string(tr("OnHit fires for every hit, also from spells, cloaks and auras that hit again and again."));
+			} else {
+				it.what += " " + std::string(tr("Look for a mod that makes this event happen over and over."));
+			}
+			if (f.running + f.other + f.messages) {
+				it.what += "\n" + Fmt(tr("Left alone: %zu call(s) whose thread already runs, %zu that something else in the save still names, "
+										"%zu queued message(s)."),
+								   f.running, f.other, f.messages);
+			}
+			const bool verified = !fo4() && !_save->isLE();
+			CheckOption o;
+			o.label = Fmt(tr("Clear %zu queued calls"), f.notStarted);
+			o.risk = verified ? Risk::kSafe : Risk::kCaution;
+			o.why = verified ? tr("Removes only calls that never started, each with its thread (nothing else names them). Checked in SkyrimSE.exe: "
+								 "a call that has not started has run nothing, so the game is left as if the event had not fired.")
+							 : tr("Removes only calls that never started, each with its thread. What the game does with such calls was checked "
+								 "in Skyrim Special Edition only, not in this game.");
+			o.enabled = f.notStarted > 0;
+			const std::string key = f.key();
+			o.act = [this, key, n = f.notStarted] { clearFloods({ key }, n); };
+			it.options.push_back(std::move(o));
+			if (&f == &r.floods.front() && r.floods.size() > 1) {
+				std::size_t all = 0;
+				for (const auto& g : r.floods) {
+					all += g.notStarted;
+				}
+				CheckOption a;
+				a.label = Fmt(tr("Clear all floods (%zu queued calls)"), all);
+				a.risk = verified ? Risk::kSafe : Risk::kCaution;
+				a.why = tr("The same for every flood in this list.");
+				a.enabled = all > 0;
+				a.act = [this, all] { clearFloods({}, all); };
+				it.options.push_back(std::move(a));
+			}
+			v.push_back(std::move(it));
+		}
+
 		// SkyUI MCM registration jam
 		if (r.mcmJam) {
 			CheckItem it;
@@ -375,7 +466,8 @@ std::vector<App::CheckItem> App::checkItems()
 			for (const auto& h : heavy) {
 				it.what += "- " + h + "\n";
 			}
-			it.what += tr("No single cause was found. The Mods page shows which mod runs the most scripts.");
+			it.what += r.floods.empty() ? tr("No single cause was found. The Mods page shows which mod runs the most scripts.")
+										: tr("Most of it is the script lag above. The Mods page shows which mod runs the most scripts.");
 			CheckOption o;
 			o.label = tr("Show the Mods page");
 			o.risk = Risk::kSafe;
@@ -575,6 +667,32 @@ App::Risk App::checkWorst()
 		}
 	}
 	return worst;
+}
+
+// clear the not-started calls of some floods (empty: all), then read the result back and check every thread is held
+void App::clearFloods(const std::set<std::string>& a_keys, std::size_t a_calls)
+{
+	const bool verified = !fo4() && !_save->isLE();
+	confirm(tr("Clear queued calls"),
+		Fmt(tr("Remove %zu queued event call(s) that never started, each with its thread?\n\nThreads that already run are left alone. %s"
+			   "\n\nOnly the save in memory changes: write it with File > Save As."),
+			a_calls,
+			verified ? "" : tr("What the game does with such calls was checked in Skyrim Special Edition only.")),
+		[this, a_keys] {
+			const auto r = flood::Clear(*_save, a_keys);
+			const auto back = flood::ReadBack(*_save);
+			std::string check;
+			if (!back.ok) {
+				check = Fmt(tr("; reading it back FAILED: %s"), back.error.c_str());
+			} else if (!fo4() && !_save->isLE()) {
+				check = Fmt(tr("; read back: %zu threads, %zu suspended stacks, %zu stranded threads"), back.threads, back.suspended, back.stranded);
+			} else {
+				check = Fmt(tr("; read back: %zu threads, %zu suspended stacks"), back.threads, back.suspended);
+			}
+			markEdited(Fmt(tr("Cleared %zu queued calls that never started (%zu threads); left alone %zu"), r.calls, r.threads,
+						   r.leftRunning + r.leftOther) +
+					   check);
+		});
 }
 
 // ---- the window ----------------------------------------------------------------------------------
