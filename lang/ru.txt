@@ -13052,3 +13052,7 @@ tr "%s  (эффект %u)"
 
 en "  (the Clean tools, the script lists, mods, logs and file conflicts work; the tools that need the save's change forms decoded are greyed out)"
 tr "  (работают инструменты очистки, списки скриптов, моды, логи и конфликты файлов; инструменты, которым нужны расшифрованные изменённые формы сохранения, неактивны)"
+
+# AppCharEffects.cpp
+en "(not known)"
+tr "(неизвестно)"

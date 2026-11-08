@@ -445,6 +445,11 @@ void App::drawCharEffects()
 		for (const auto& f : v.stuck) {
 			stuckSources.insert(v.cards[f.card].source);
 		}
+		// worn items whose plugin was not read have no known slot: then an empty box means "not known", not "nothing worn"
+		std::size_t unknownWorn = 0;
+		for (const auto& w : v.worn) {
+			unknownWorn += w.slot == chfx::Slot::kUnknown;
+		}
 		for (const auto& pl : places) {
 			const float bx = pl.column == 0 ? 0.0f : W - boxW, by = pl.y;
 			std::vector<const chfx::Worn*> items;
@@ -472,7 +477,7 @@ void App::drawCharEffects()
 			dl->AddRect(a, b, fx ? theme::Good() : ImGui::GetColorU32(ImGuiCol_Border), 5.0f, 0, fx ? 2.0f : 1.0f);
 			dl->PushClipRect(a, b, true);
 			dl->AddText(ImVec2(a.x + 6, a.y + 3), ImGui::GetColorU32(ImGuiCol_TextDisabled), SlotText(pl.slot));
-			std::string line1 = items.empty() ? tr("(nothing)") : v.name(items[0]->item);
+			std::string line1 = !items.empty() ? v.name(items[0]->item) : unknownWorn ? tr("(not known)") : tr("(nothing)");
 			if (items.size() > 1) {
 				line1 += Fmt(tr(" +%zu more"), items.size() - 1);
 			}
