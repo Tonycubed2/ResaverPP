@@ -823,3 +823,5 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 - Ideas not started: an options page for choosing what the merged patch merges (partly exists as categories).
 - "Clean Reload" (separate SKSE mod idea: restart the game and auto-load after death to avoid stale reload
   state) is only a proposal (Docs artifact "Clean Reload: mod proposal"); Tony has not said to build it.
+
+- Decision (Tony, 2026-11-08): the helpers' rescue hotkey stays Ctrl held 8 s (bRescueHotkey/iRescueHoldSeconds). Do not propose changing it.
