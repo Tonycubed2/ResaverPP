@@ -23,4 +23,12 @@ namespace Settings
 	// option by its INI key; false if the name or value is not valid
 	bool        SetOption(const std::string& a_name, const std::string& a_value);
 	std::string GetOption(const std::string& a_name);
+
+	// iDiagnosticStage (version 14): the stage this game session started with (main.cpp reads it before anything
+	// else runs; -1 = normal), the value written in ReSaverHelper.ini now (-1 = no line, i.e. normal), and writing it
+	// (version 15, the F1 page): 0-4 sets the line, -1 removes it. It takes effect the next time the game starts.
+	int  StartupDiagnosticStage();
+	void SetStartupDiagnosticStage(int a_stage);
+	int  DiagnosticStageInIni();
+	bool WriteDiagnosticStage(int a_stage);
 }

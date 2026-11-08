@@ -195,4 +195,80 @@ namespace Settings
 		}
 		return static_cast<bool>(f);
 	}
+
+	namespace
+	{
+		int g_startupStage = -1;
+
+		// the line holds iDiagnosticStage (the same test as main.cpp's ReadDiagnosticStage: a commented line has ';' in its key)
+		bool IsStageLine(const std::string& a_line)
+		{
+			const auto eq = a_line.find('=');
+			if (eq == std::string::npos) {
+				return false;
+			}
+			std::string key = a_line.substr(0, eq);
+			std::erase_if(key, [](unsigned char c) { return std::isspace(c) != 0; });
+			return Lower(key) == "idiagnosticstage";
+		}
+	}
+
+	int  StartupDiagnosticStage() { return g_startupStage; }
+	void SetStartupDiagnosticStage(int a_stage) { g_startupStage = a_stage; }
+
+	int DiagnosticStageInIni()
+	{
+		std::ifstream f(IniPath());
+		for (std::string line; std::getline(f, line);) {
+			if (IsStageLine(line)) {
+				try {
+					const int v = std::stoi(line.substr(line.find('=') + 1));
+					return v >= 0 && v < 5 ? v : -1;
+				} catch (...) {
+					return -1;
+				}
+			}
+		}
+		return -1;
+	}
+
+	bool WriteDiagnosticStage(int a_stage)
+	{
+		const auto               path = IniPath();
+		std::vector<std::string> lines;
+		{
+			std::ifstream f(path);
+			for (std::string line; std::getline(f, line);) {
+				lines.push_back(line);
+			}
+		}
+		if (lines.empty()) {  // no INI (deleted while the game runs): start from the default one, as Save() does
+			const std::string d = kDefaultIni;
+			for (std::size_t a = 0, b; a < d.size(); a = b + 1) {
+				b = d.find('\n', a);
+				if (b == std::string::npos) {
+					b = d.size();
+				}
+				lines.push_back(d.substr(a, b - a));
+			}
+		}
+		std::erase_if(lines, IsStageLine);  // every iDiagnosticStage line goes; at most one comes back
+		if (a_stage >= 0 && a_stage < 5) {
+			const auto line = "iDiagnosticStage=" + std::to_string(a_stage);
+			auto       general = std::ranges::find_if(lines, [](const std::string& l) { return Lower(Trim(l)) == "[general]"; });
+			if (general != lines.end()) {
+				lines.insert(general + 1, line);
+			} else {
+				lines.push_back(line);
+			}
+		}
+		std::ofstream f(path, std::ios::trunc);
+		for (const auto& l : lines) {
+			f << l << "\n";
+		}
+		const bool ok = static_cast<bool>(f);
+		spdlog::info("Settings: iDiagnosticStage {} in {} ({})", a_stage >= 0 && a_stage < 5 ? std::to_string(a_stage) : std::string("removed"), path.string(),
+			ok ? "written" : "could not write");
+		return ok;
+	}
 }

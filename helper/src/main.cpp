@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include "Game.h"
+#include "MenuPage.h"
 #include "Protocol.h"
 #include "Rescue.h"
 #include "Server.h"
@@ -65,6 +66,13 @@ namespace
 			return;
 		}
 		switch (a_msg->type) {
+		case SKSE::MessagingInterface::kPostLoad:
+			// version 15: the in-game page in SKSE Menu Framework (F1), only at the normal stage. Every SKSE plugin is loaded by
+			// now, so SKSEMenuFramework.dll is found if it is installed; without it nothing more happens.
+			if (!Diag(5)) {
+				MenuPage::Register();
+			}
+			break;
 		case SKSE::MessagingInterface::kDataLoaded:
 			if (!Diag(4)) {
 				Server::Start();
@@ -103,6 +111,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 		spdlog::info("Diagnostic stage {}: the helper stops after step {} (see the README)", g_diag, g_diag);
 	}
 	Settings::Load();
+	Settings::SetStartupDiagnosticStage(g_diag >= 0 && g_diag < 5 ? g_diag : -1);
 	if (Diag(2)) {
 		return true;
 	}

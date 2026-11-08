@@ -11,6 +11,8 @@ namespace Server
 {
 	namespace
 	{
+		std::atomic<bool> g_connected{ false };  // ReSaver Plus has the pipe open (version 15: shown on the F1 page)
+
 		std::string RuntimeName()
 		{
 			if (REL::Module::IsVR()) {
@@ -414,6 +416,7 @@ namespace Server
 				}
 				const bool connected = ConnectNamedPipe(pipe, nullptr) ? true : (GetLastError() == ERROR_PIPE_CONNECTED);
 				if (connected) {
+					g_connected = true;
 					spdlog::info("Server: ReSaver++ connected");
 					std::string pending;
 					char        buf[4096];
@@ -446,6 +449,7 @@ namespace Server
 							break;  // not a ReSaver++ client
 						}
 					}
+					g_connected = false;
 					spdlog::info("Server: ReSaver++ disconnected");
 				}
 				DisconnectNamedPipe(pipe);
@@ -458,4 +462,6 @@ namespace Server
 	{
 		std::thread(Serve).detach();
 	}
+
+	bool Connected() { return g_connected.load(); }
 }

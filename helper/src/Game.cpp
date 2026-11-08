@@ -384,6 +384,33 @@ namespace Game
 		a_done(!quest->IsCompleted());
 	}
 
+	void CompleteObjective(std::uint32_t a_formID, std::uint16_t a_index, std::function<void(bool)> a_done)
+	{
+		auto* quest = RE::TESForm::LookupByID<RE::TESQuest>(a_formID);
+		auto* vm = VM::GetSingleton();
+		const auto handle = HandleOf(quest);
+		auto       cb = MakeCallback([a_formID, a_index, a_done](const RE::BSScript::Variable&) {
+            bool  done = false;
+            if (auto* q = RE::TESForm::LookupByID<RE::TESQuest>(a_formID)) {
+                for (auto* o : q->objectives) {
+                    if (o && o->index == a_index) {
+                        const auto st = static_cast<std::uint8_t>(o->state.underlying());
+                        done = st == 2 || st == 3;  // completed (hidden or shown)
+                    }
+                }
+            }
+            spdlog::info("CompleteObjective {:08X} objective {}: {}", a_formID, a_index, done ? "completed" : "not completed");
+            a_done(done);
+        });
+		if (!quest || !vm || !handle ||
+			!vm->DispatchMethodCall(handle, "Quest", "SetObjectiveCompleted", RE::MakeFunctionArguments(static_cast<std::int32_t>(a_index), true), cb)) {
+			spdlog::info("CompleteObjective {:08X} objective {}: the quest has no script object", a_formID, a_index);
+			a_done(false);
+			return;
+		}
+		spdlog::info("CompleteObjective {:08X} ({}) objective {} dispatched", a_formID, quest->GetFormEditorID(), a_index);
+	}
+
 	std::size_t StartRefresh(const std::string& a_notify)
 	{
 		if (g_refreshing) {

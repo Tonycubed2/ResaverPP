@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 # DLL name: ReSaverHelper.dll - the live-game companion of ReSaver++ (ReSaver Plus)
-project(ReSaverHelper VERSION 14.0.0 LANGUAGES CXX)
+project(ReSaverHelper VERSION 15.0.0 LANGUAGES CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
@@ -46,5 +46,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
 target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/Z7>)
 target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
 
-# named pipe security (owner-only access): advapi32
-target_link_libraries(${PROJECT_NAME} PRIVATE advapi32)
+# named pipe security (owner-only access): advapi32; "Open it" for the report on the F1 page (ShellExecuteW): shell32.
+# SKSE Menu Framework is NOT linked: src/SKSEMenuFramework.h finds SKSEMenuFramework.dll at run time, so the helper
+# loads and works the same without it.
+target_link_libraries(${PROJECT_NAME} PRIVATE advapi32 shell32)

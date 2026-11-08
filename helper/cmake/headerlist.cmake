@@ -7,4 +7,7 @@ set(headers ${headers}
     src/Transplant.h
     src/Rescue.h
     src/SkyFix.h
+    src/LiveInfo.h
+    src/MenuPage.h
+    src/SKSEMenuFramework.h
 )

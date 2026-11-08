@@ -5,4 +5,7 @@
 namespace Server
 {
 	void Start();
+
+	// ReSaver Plus is connected right now (version 15)
+	bool Connected();
 }

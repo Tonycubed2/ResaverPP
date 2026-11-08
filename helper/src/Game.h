@@ -48,6 +48,10 @@ namespace Game
 	// ResetQuest when the quest has no script object. a_done gets whether it is now not completed. (version 11)
 	void Reset(std::uint32_t a_formID, std::function<void(bool)> a_done);
 
+	// Quest.SetObjectiveCompleted(a_index, true) (main thread; version 15, the F1 page's stuck quest tool). a_done gets
+	// whether the objective is completed afterwards (false at once when the quest has no script object).
+	void CompleteObjective(std::uint32_t a_formID, std::uint16_t a_index, std::function<void(bool)> a_done);
+
 	// Journal refresh: for every running quest, every objective the journal shows is hidden and shown
 	// again (its completed / failed state put back), so the game rebuilds its list of shown objectives.
 	// Returns how many objectives will be refreshed; 0 if nothing to do or one is already running.
