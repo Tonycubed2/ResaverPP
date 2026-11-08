@@ -7,6 +7,7 @@
 #	include <shlobj.h>
 #	include <shellapi.h>
 #	include <commdlg.h>
+#	include <tlhelp32.h>
 #endif
 
 #include <cstdlib>
@@ -141,6 +142,22 @@ namespace platform
 	bool HasNativeDialogs() { return true; }
 
 	bool RunningUnderMO2() { return GetModuleHandleW(L"usvfs_x64.dll") != nullptr || GetModuleHandleW(L"usvfs_x86.dll") != nullptr; }
+
+	std::optional<bool> Mo2ProcessRunning()
+	{
+		const HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		if (snap == INVALID_HANDLE_VALUE) {
+			return std::nullopt;
+		}
+		PROCESSENTRY32W e{};
+		e.dwSize = sizeof(e);
+		bool found = false;
+		for (BOOL ok = Process32FirstW(snap, &e); ok && !found; ok = Process32NextW(snap, &e)) {
+			found = _wcsicmp(e.szExeFile, L"ModOrganizer.exe") == 0;
+		}
+		CloseHandle(snap);
+		return found;
+	}
 
 	std::filesystem::path DefaultSavesFolder(int a_game)
 	{
@@ -324,6 +341,7 @@ namespace platform
 	}
 	std::filesystem::path ExeFolder() { return std::filesystem::current_path(); }
 	bool                  RunningUnderMO2() { return std::getenv("RESAVERPP_TEST_MO2") != nullptr; }
+	std::optional<bool>   Mo2ProcessRunning() { return std::nullopt; }
 #endif
 
 	bool MoveToRecycleBin(const std::vector<std::filesystem::path>& a_files)

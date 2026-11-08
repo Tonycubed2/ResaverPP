@@ -5,6 +5,7 @@
 //    by ';'): every byte of the Papyrus block and of the change forms is either in a row or counted as shared Papyrus
 //    data, every instance/thread/array/struct is in exactly one row; growth between consecutive saves of a folder.
 #include "core/LoadOrderCheck.h"
+#include "core/LoadOrderFix.h"
 #include "core/MergedPatch.h"
 #include "core/Save.h"
 #include "core/SaveBloat.h"
@@ -202,7 +203,8 @@ namespace
 			}
 			return nullptr;
 		}();
-		Check(both && both->light && both->esm && both->slot == 3, "locheck: ESL-flagged ESM is light, light index 3");
+		// light indexes follow the order the game loads: the masters Ext.esl (extension) and Both.esm first, then Good, Over
+		Check(both && both->light && both->esm && both->slot == 1, "locheck: ESL-flagged ESM is light, light index 1 (masters load first)");
 
 		// 254 full plugins fit, 255 do not
 		locheck::Options big;
@@ -242,6 +244,197 @@ namespace
 				  Has(rle, locheck::Severity::kWarning, "Ext.esl", "no light plugins"),
 			"locheck: Legendary Edition");
 		fs::remove_all(dir);
+	}
+
+	std::vector<std::string> Names(const std::vector<locheck::OrderEntry>& a_e, const std::vector<std::size_t>& a_order)
+	{
+		std::vector<std::string> v;
+		for (const auto i : a_order) {
+			v.push_back(a_e[i].name);
+		}
+		return v;
+	}
+
+	// the order the game loads (SkyrimSE.exe 0x1ba4d0 + 0x1b8f50), late masters and Fix the order
+	void TestFixLoadOrder()
+	{
+		using E = locheck::OrderEntry;
+		using V = std::vector<std::string>;
+		// masters before plain plugins, each group in the listed order
+		{
+			const std::vector<E> e = { { "Skyrim.esm", true, {} }, { "A.esp", false, { "Skyrim.esm" } }, { "M.esm", true, { "Skyrim.esm" } },
+				{ "B.esp", false, { "M.esm" } } };
+			Check(Names(e, locheck::GameOrder(e)) == V{ "Skyrim.esm", "M.esm", "A.esp", "B.esp" }, "order: masters load before plain plugins");
+			Check(locheck::LateMasters(e).empty(), "order: an ESM-flagged master listed after its plugin is not late");
+		}
+		// a master's master further down is moved just before it, also a plain plugin, and the moved one's own masters
+		{
+			const std::vector<E> e = { { "Skyrim.esm", true, {} }, { "X.esm", true, { "Skyrim.esm", "P.esp" } }, { "Q.esm", true, {} },
+				{ "P.esp", false, { "Skyrim.esm" } }, { "R.esp", false, {} } };
+			Check(Names(e, locheck::GameOrder(e)) == V{ "Skyrim.esm", "P.esp", "X.esm", "Q.esm", "R.esp" }, "order: a master's plain master is hoisted before it");
+			const std::vector<E> e2 = { { "X.esm", true, { "Y.esm", "Z.esm" } }, { "Y.esm", true, { "W.esm" } }, { "Z.esm", true, {} }, { "W.esm", true, {} } };
+			// X: Y moved before X, then Z before Y; the walk stays on Z (nothing), then Y: W before Y
+			Check(Names(e2, locheck::GameOrder(e2)) == V{ "Z.esm", "W.esm", "Y.esm", "X.esm" }, "order: hoisting as the game walks it");
+			Check(locheck::LateMasters(e2).empty(), "order: hoisted masters are not late");
+		}
+		// plain plugin needs a plain plugin listed after it: late, and the fix moves it (and its own late master) up
+		{
+			const std::vector<E> e = { { "Skyrim.esm", true, {} }, { "A.esp", false, {} }, { "Ward.esp", false, { "Skyrim.esm", "Myst.esp" } },
+				{ "Tweak.esp", false, { "Ward.esp" } }, { "B.esp", false, {} }, { "Myst.esp", false, { "Skyrim.esm", "Lib.esp" } }, { "C.esp", false, {} },
+				{ "Lib.esp", false, {} }, { "Myst2.esp", false, { "Myst.esp" } } };
+			const auto late = locheck::LateMasters(e);
+			Check(late.size() == 2, "fix: Ward needs Myst, Myst needs Lib: two late masters");
+			const auto plan = locheck::PlanFix(e);
+			Check(plan.ok && plan.moves.size() == 2, "fix: two moves");
+			Check(plan.order == V{ "Skyrim.esm", "A.esp", "Lib.esp", "Myst.esp", "Ward.esp", "Tweak.esp", "B.esp", "C.esp", "Myst2.esp" },
+				"fix: Myst just before Ward, then Lib just before Myst; the rest keeps its order");
+			Check(plan.moves.size() == 2 && locheck::MoveText(plan.moves[0]) == "Myst.esp: #6 -> before Ward.esp #3", "fix: move text");
+			std::vector<E> after;
+			for (const auto& n : plan.order) {
+				for (const auto& x : e) {
+					if (x.name == n) after.push_back(x);
+				}
+			}
+			Check(locheck::LateMasters(after).empty(), "fix: nothing late afterwards");
+		}
+		// a master needed by two plugins goes before the first of them
+		{
+			const std::vector<E> e = { { "P1.esp", false, { "M.esp" } }, { "X.esp", false, {} }, { "P2.esp", false, { "M.esp" } }, { "M.esp", false, {} } };
+			const auto plan = locheck::PlanFix(e);
+			Check(plan.ok && plan.order == V{ "M.esp", "P1.esp", "X.esp", "P2.esp" } && plan.moves.size() == 1, "fix: before the first plugin that needs it");
+		}
+		// a cycle is refused
+		{
+			const std::vector<E> e = { { "A.esp", false, { "B.esp" } }, { "B.esp", false, { "C.esp" } }, { "C.esp", false, { "A.esp" } } };
+			const auto plan = locheck::PlanFix(e);
+			Check(!plan.ok && plan.moves.empty() && plan.error.find("need each other") != std::string::npos &&
+					  plan.error.find("A.esp needs B.esp needs C.esp needs A.esp") != std::string::npos,
+				"fix: a cycle of masters is refused, naming it");
+		}
+		// a master's master the game hoists itself, whose own plain master is listed before it: no listed order helps
+		{
+			const std::vector<E> e = { { "N.esp", false, {} }, { "X.esm", true, { "H.esp" } }, { "H.esp", false, { "N.esp" } } };
+			// game order: H (hoisted before X), X, N: H loads before its master N whatever the list says
+			Check(locheck::LateMasters(e).size() == 1, "fix: hoisted plain master with a plain master is late");
+			const auto plan = locheck::PlanFix(e);
+			Check(!plan.ok && plan.error.find("wherever it is listed") != std::string::npos, "fix: refused when no listed order helps");
+		}
+		// nothing late: an empty plan that is ok
+		{
+			const std::vector<E> e = { { "A.esp", false, {} }, { "B.esp", false, { "A.esp" } } };
+			const auto plan = locheck::PlanFix(e);
+			Check(plan.ok && plan.moves.empty() && plan.order == V{ "A.esp", "B.esp" }, "fix: nothing to do");
+		}
+
+		// the files: every other line, the '*' marks, comments, CRLF / LF, a byte order mark and a missing last newline stay
+		{
+			locheck::Move mv;
+			mv.plugin = "MysticismMagic.esp";
+			mv.before = "360 Ward.esp";
+			const std::string mo2 = "# This file was automatically generated by Mod Organizer.\r\n*SkyUI_SE.esp\r\nDisabled.esp\r\n*360 Ward.esp\r\n"
+			                        "*360WardTweaksSOT.esp\r\n*mysticismmagic.esp\r\n*Last.esp\r\n";
+			const auto out = lofix::ApplyMoves(mo2, { mv });
+			Check(out == "# This file was automatically generated by Mod Organizer.\r\n*SkyUI_SE.esp\r\nDisabled.esp\r\n*mysticismmagic.esp\r\n"
+			             "*360 Ward.esp\r\n*360WardTweaksSOT.esp\r\n*Last.esp\r\n",
+				"files: MO2 plugins.txt (CRLF, '*', a disabled line, name case kept)");
+			const std::string game = "\xEF\xBB\xBF# This file is used by Skyrim to keep track of your downloaded content.\n# Please do not modify this file.\n"
+			                         "*360 Ward.esp\nOther.esp\n*MysticismMagic.esp";
+			Check(lofix::ApplyMoves(game, { mv }) == "\xEF\xBB\xBF# This file is used by Skyrim to keep track of your downloaded content.\n# Please do not "
+			                                          "modify this file.\n*MysticismMagic.esp\n*360 Ward.esp\nOther.esp",
+				"files: game plugins.txt (LF, BOM, no newline at the end: the new last line has none either)");
+			const std::string le = "360 Ward.esp\r\nMysticismMagic.esp\r\n";
+			Check(lofix::ApplyMoves(le, { mv }) == "MysticismMagic.esp\r\n360 Ward.esp\r\n", "files: Legendary Edition plugins.txt (no marks)");
+			std::vector<std::string> skipped;
+			Check(lofix::ApplyMoves("*A.esp\n", { mv }, &skipped) == "*A.esp\n" && skipped.size() == 1, "files: a move not in the file is skipped");
+			Check(lofix::ApplyMoves("MysticismMagic.esp\n360 Ward.esp\n", { mv }) == "MysticismMagic.esp\n360 Ward.esp\n", "files: already in order");
+		}
+		// MO2 lockedorder.txt: a locked plugin whose load index changes refuses the fix
+		{
+			const V oldO = { "Skyrim.esm", "W.esp", "T.esp", "M.esp" }, newO = { "Skyrim.esm", "M.esp", "W.esp", "T.esp" };
+			Check(lofix::LockedMoved("# This file was automatically generated by Mod Organizer.\r\n", oldO, newO).empty(), "locked: header only");
+			const auto l = lofix::LockedMoved("# x\r\nT.esp|2\r\nSkyrim.esm|0\r\nbad line\r\n", oldO, newO);
+			Check(l.size() == 1 && l[0].plugin == "T.esp" && l[0].index == 2 && l[0].newIndex == 3, "locked: T.esp locked at 2 would move to 3");
+		}
+		// writing: backups next to the files, the change read back, a dry run writes nothing, locked plugins refuse
+		{
+			const auto dir = fs::temp_directory_path() / "rs_lofix_test";
+			fs::remove_all(dir);
+			fs::create_directories(dir);
+			auto put = [&](const char* n, const std::string& t) {
+				std::ofstream f(dir / n, std::ios::binary);
+				f << t;
+			};
+			auto get = [&](const fs::path& p) {
+				std::ifstream f(p, std::ios::binary);
+				return std::string(std::istreambuf_iterator<char>(f), {});
+			};
+			const std::string pl = "# MO2\r\n*W.esp\r\n*T.esp\r\nOff.esp\r\n*M.esp\r\n", lo = "# MO2\r\nSkyrim.esm\r\nW.esp\r\nT.esp\r\nOff.esp\r\nM.esp\r\n";
+			put("plugins.txt", pl);
+			put("loadorder.txt", lo);
+			put("lockedorder.txt", "# MO2\r\n");
+			const std::vector<E> e = { { "Skyrim.esm", true, {} }, { "W.esp", false, { "M.esp" } }, { "T.esp", false, {} }, { "M.esp", false, {} } };
+			const auto plan = locheck::PlanFix(e);
+			const auto t = lofix::TargetsFor(dir / "plugins.txt", lofix::Manager::kMo2);
+			Check(t.files.size() == 2 && t.files[1].filename() == "loadorder.txt" && t.lockedOrder.filename() == "lockedorder.txt", "write: MO2 targets");
+			const V oldO = { "Skyrim.esm", "W.esp", "T.esp", "M.esp" };
+			const auto dry = lofix::Write(t, plan, oldO, true);
+			Check(dry.ok && get(dir / "plugins.txt") == pl && dry.files.size() == 2 && dry.files[0].changed && dry.files[0].backup.empty(),
+				"write: dry run shows the change, writes nothing");
+			const auto w = lofix::Write(t, plan, oldO, false);
+			Check(w.ok && get(dir / "plugins.txt") == "# MO2\r\n*M.esp\r\n*W.esp\r\n*T.esp\r\nOff.esp\r\n" &&
+					  get(dir / "loadorder.txt") == "# MO2\r\nSkyrim.esm\r\nM.esp\r\nW.esp\r\nT.esp\r\nOff.esp\r\n",
+				"write: both files changed");
+			Check(w.files.size() == 2 && fs::exists(w.files[0].backup) && get(w.files[0].backup) == pl && get(w.files[1].backup) == lo &&
+					  w.files[0].backup.parent_path() == dir && w.files[0].backup.filename().string().ends_with(".resaverpp.bak") &&
+					  w.message.find(w.files[0].backup.filename().string()) != std::string::npos,
+				"write: originals kept next to them, named in the message");
+			Check(lofix::Diff(pl, get(dir / "plugins.txt"), "plugins.txt").find("+*M.esp") != std::string::npos, "write: diff");
+			put("plugins.txt", pl);
+			put("loadorder.txt", lo);
+			put("lockedorder.txt", "# MO2\r\nT.esp|2\r\n");
+			const auto locked = lofix::Write(t, plan, oldO, false);
+			Check(!locked.ok && locked.message.find("T.esp") != std::string::npos && get(dir / "plugins.txt") == pl, "write: a locked plugin refuses, nothing written");
+			fs::remove_all(dir);
+		}
+		// the check: an ESM-flagged master after its plugin is not reported, a plain one is (with lateMaster set)
+		{
+			const auto dir = fs::temp_directory_path() / "rs_lofix_check";
+			fs::remove_all(dir);
+			fs::create_directories(dir);
+			auto save = [&](const std::string& name, const std::vector<std::uint8_t>& bytes) {
+				std::ofstream f(dir / name, std::ios::binary);
+				f.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+			};
+			using merge::WritePlugin;
+			save("Skyrim.esm", WritePlugin({}, 1, {}, "t", {}, 1.71f, 44, true));
+			save("UsesFlagged.esp", WritePlugin({ "Skyrim.esm", "Flagged.esp" }, 0, {}, "t", {}, 1.71f, 44, true));
+			save("UsesPlain.esp", WritePlugin({ "Skyrim.esm", "Plain.esp" }, 0x200, {}, "t", {}, 1.71f, 44, true));
+			save("Flagged.esp", WritePlugin({ "Skyrim.esm" }, 1, {}, "t", {}, 1.71f, 44, true));
+			save("Plain.esp", WritePlugin({ "Skyrim.esm" }, 0x200, {}, "t", {}, 1.71f, 44, true));
+			locheck::Options o;
+			o.game = locheck::Game::kSkyrimSE;
+			o.loadOrder = { "Skyrim.esm", "UsesFlagged.esp", "UsesPlain.esp", "Flagged.esp", "Plain.esp" };
+			o.findPlugin = [&](const std::string& n) -> std::optional<fs::path> { return dir / n; };
+			const auto r = locheck::Check(o);
+			std::size_t late = 0;
+			for (const auto& f : r.findings) {
+				late += f.lateMaster.empty() ? 0 : 1;
+			}
+			Check(late == 1 && Has(r, locheck::Severity::kError, "UsesPlain.esp", "Plain.esp loads after it") &&
+					  !Has(r, locheck::Severity::kError, "UsesFlagged.esp", "loads after it") &&
+					  Has(r, locheck::Severity::kInfo, "UsesFlagged.esp", "masters load before plain plugins"),
+				"check: ESM-flagged master listed late is fine (info), a plain one is an error");
+			const auto* fl = &r.plugins[3];
+			Check(fl->name == "Flagged.esp" && fl->slot == 1 && fl->loadPos == 1 && r.plugins[1].slot == 2, "check: slots in the order the game loads");
+			const auto plan = locheck::PlanFix(r);
+			Check(plan.ok && plan.moves.size() == 1 && locheck::MoveText(plan.moves[0]) == "Plain.esp: #FE 001 -> before UsesPlain.esp #FE 000",
+				"check: plan from the result, labelled with the check's slots");
+			// Legendary Edition: the extension does not make a master (TESV.exe IsMaster = header flag)
+			save("Ext.esm", WritePlugin({}, 0, {}, "t", {}, 0.94f, 43, true));
+			Check(!locheck::ReadHeader(dir / "Ext.esm", false, locheck::Game::kSkyrimLE).esm && locheck::ReadHeader(dir / "Ext.esm", false, locheck::Game::kSkyrimSE).esm,
+				"check: .esm without the flag is a master in SE, not in LE");
+			fs::remove_all(dir);
+		}
 	}
 
 	void TestLoadOrderRealFO4()
@@ -355,6 +548,7 @@ namespace
 int main()
 {
 	TestLoadOrderSynthetic();
+	TestFixLoadOrder();
 	TestVortexPluginWinner();
 	TestMo2RelativeGamePath();
 	TestLoadOrderRealFO4();

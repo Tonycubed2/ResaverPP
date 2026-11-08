@@ -12,6 +12,7 @@
 #include "core/Extras.h"
 #include "core/LoadOrder.h"
 #include "core/LoadOrderCheck.h"
+#include "core/LoadOrderFix.h"
 #include "core/MergedPatch.h"
 #include "core/SaveBloat.h"
 #include "core/Text.h"
@@ -23,6 +24,7 @@
 #include <chrono>
 #include <cctype>
 #include <cstdio>
+#include <optional>
 #include <thread>
 
 using namespace ess;
@@ -98,6 +100,14 @@ struct App::BloatState
 	bool                           loAuto = false;  // started by the Save check
 	char                           filter[128] = "";
 	bool                           loOnlyProblems = false;
+	// Fix the order: the plan shown for confirmation, then what was written
+	bool                           loFixAsk = false;  // open the confirmation (the button, or the Save check)
+	std::optional<locheck::FixPlan> loPlan;
+	lofix::Targets                 loTargets;
+	std::vector<std::string>       loOldOrder;
+	bool                           loFixDone = false, loFixOk = false;
+	std::string                    loFixMessage;
+	std::vector<std::filesystem::path> loFixBackups;
 };
 
 App::BloatState& App::bloatState()
@@ -486,6 +496,147 @@ void App::drawBloat()
 namespace
 {
 	locheck::Game GameOf(int a_game, bool a_le) { return a_game == 2 ? locheck::Game::kFallout4 : a_le ? locheck::Game::kSkyrimLE : locheck::Game::kSkyrimSE; }
+
+	bool HasLateMasters(const locheck::Result& a_r)
+	{
+		return std::any_of(a_r.findings.begin(), a_r.findings.end(), [](const locheck::Finding& f) { return !f.lateMaster.empty(); });
+	}
+
+	// what happens after the files are written, for the mod manager in use (MO2 / Vortex sources: LoadOrderFix.h)
+	std::string AfterWriteNote(lofix::Manager a_manager)
+	{
+		switch (a_manager) {
+		case lofix::Manager::kMo2:
+			if (platform::RunningUnderMO2()) {
+				return tr("ReSaver Plus was started from Mod Organizer: Mod Organizer reads the new order when ReSaver Plus closes (it refreshes after "
+				          "a program it started ends). Close ReSaver Plus before you change anything in Mod Organizer or start the game. If you "
+				          "pressed Unlock in Mod Organizer while ReSaver Plus was running, press Refresh (F5) in Mod Organizer after closing "
+				          "ReSaver Plus.");
+			}
+			if (platform::Mo2ProcessRunning().value_or(false)) {
+				return tr("Mod Organizer is open: press Refresh (F5) in it right after this, before you change anything there or close it. "
+				          "Otherwise it writes its old order back (it saves its own list when something changes and when it closes).");
+			}
+			return tr("Mod Organizer reads the new order when it starts. (If it is open, press Refresh (F5) in it right after this, before "
+			          "you change anything there or close it, or it writes its old order back.)");
+		case lofix::Manager::kVortex:
+			return tr("Vortex keeps its load order in this plugins.txt and reads it again when another program changes it (if Vortex is open, "
+			          "it shows the new order within a second). When Vortex sorts the plugins with LOOT (automatic sorting), a later sort can "
+			          "move plugins again; LOOT also keeps every master before the plugins that need it.");
+		default:
+			return tr("The game reads plugins.txt when it starts.");
+		}
+	}
+}
+
+void App::drawLoadOrderFix()
+{
+	auto& st = bloatState();
+	const char* id = trId("Fix the load order");
+	if (st.loFixAsk && st.lo && st.lo->done) {
+		st.loFixAsk = false;
+		const auto& r = st.lo->result;
+		st.loPlan = locheck::PlanFix(r);
+		const auto manager = _mo2 && !_profile.empty() ? lofix::Manager::kMo2 : _vortex ? lofix::Manager::kVortex : lofix::Manager::kNone;
+		st.loTargets = lofix::TargetsFor(st.lo->pluginsTxt, manager);
+		st.loOldOrder.clear();
+		for (const auto& p : r.plugins) {
+			st.loOldOrder.push_back(p.name);
+		}
+		st.loFixDone = false;
+		ImGui::OpenPopup(id);
+	}
+	ImGui::SetNextWindowSizeConstraints(ImVec2(ImGui::GetFontSize() * 30, 0), ImVec2(ImGui::GetFontSize() * 60, ImGui::GetIO().DisplaySize.y * 0.9f));
+	if (!ImGui::BeginPopupModal(id, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		return;
+	}
+	const float wrap = ImGui::GetFontSize() * 45;
+	ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
+	if (!st.loPlan) {
+		ImGui::CloseCurrentPopup();
+	} else if (!st.loPlan->ok) {
+		Colored(theme::Bad(), text::ToUtf8(st.loPlan->error));
+		if (ImGui::Button(tr("Close"))) {
+			ImGui::CloseCurrentPopup();
+		}
+	} else if (st.loPlan->moves.empty()) {
+		Colored(theme::Good(), tr("No master loads after a plugin that needs it: nothing to fix."));
+		if (ImGui::Button(tr("Close"))) {
+			ImGui::CloseCurrentPopup();
+		}
+	} else if (!st.loFixDone) {
+		const auto& plan = *st.loPlan;
+		ImGui::TextWrapped(tr("These masters move up, each to just before the first plugin that needs it (and a master's own masters before "
+		                      "it). Every other plugin keeps its order:"));
+		std::string list;
+		for (const auto& m : plan.moves) {
+			list += text::ToUtf8(locheck::MoveText(m)) + "\n";
+		}
+		ImGui::BeginChild("moves", ImVec2(wrap, ImGui::GetTextLineHeightWithSpacing() * static_cast<float>(std::min<std::size_t>(plan.moves.size(), 12) + 1)),
+			ImGuiChildFlags_Borders);
+		for (const auto& m : plan.moves) {
+			ImGui::BulletText("%s", text::ToUtf8(locheck::MoveText(m)).c_str());
+		}
+		ImGui::EndChild();
+		ImGui::Spacing();
+		ImGui::TextUnformatted(tr("Files that change:"));
+		for (const auto& f : st.loTargets.files) {
+			ImGui::BulletText("%s", platform::ToUtf8(f).c_str());
+		}
+		ImGui::TextDisabled("%s", tr("A copy of each is kept next to it first, as <name>.<date>-<time>.resaverpp.bak."));
+		if (!st.loTargets.lockedOrder.empty()) {
+			ImGui::TextDisabled(tr("Mod Organizer's locked positions (%s) are checked first."), platform::ToUtf8(st.loTargets.lockedOrder.filename()).c_str());
+		}
+		ImGui::Spacing();
+		Colored(theme::Caution(), AfterWriteNote(st.loTargets.manager));
+		ImGui::Spacing();
+		if (ImGui::Button(tr("Fix the order"))) {
+			const auto w = lofix::Write(st.loTargets, plan, st.loOldOrder, false);
+			st.loFixDone = true;
+			st.loFixOk = w.ok;
+			st.loFixMessage = w.message;
+			st.loFixBackups.clear();
+			for (const auto& f : w.files) {
+				if (!f.backup.empty()) {
+					st.loFixBackups.push_back(f.backup);
+				}
+			}
+			if (w.ok) {
+				st.lo.reset();  // check again from the written files (the window starts the check when there is none)
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(tr("Copy the list"))) {
+			ImGui::SetClipboardText(list.c_str());
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(tr("Cancel"))) {
+			ImGui::CloseCurrentPopup();
+		}
+	} else {
+		if (st.loFixOk) {
+			Colored(theme::Good(), tr("The load order was fixed."));
+			Colored(theme::Caution(), AfterWriteNote(st.loTargets.manager));
+		} else {
+			Colored(theme::Bad(), tr("Nothing was changed."));
+		}
+		ImGui::TextWrapped("%s", text::ToUtf8(st.loFixMessage).c_str());
+		if (!st.loFixBackups.empty()) {
+			ImGui::TextUnformatted(tr("Backups:"));
+			for (const auto& b : st.loFixBackups) {
+				ImGui::BulletText("%s", platform::ToUtf8(b).c_str());
+			}
+			if (ImGui::Button(tr("Show the backups in their folder"))) {
+				platform::ShowInFolder(st.loFixBackups.front());
+			}
+			ImGui::SameLine();
+		}
+		if (ImGui::Button(tr("Close"))) {
+			ImGui::CloseCurrentPopup();
+		}
+	}
+	ImGui::PopTextWrapPos();
+	ImGui::EndPopup();
 }
 
 void App::drawLoadOrderCheck()
@@ -564,10 +715,12 @@ void App::drawLoadOrderCheck()
 	if (busy) {
 		ImGui::SameLine();
 		ImGui::TextDisabled(tr("reading %zu plugins..."), st.lo->plugins);
+		drawLoadOrderFix();  // the result of Fix the order stays on screen while the check runs again
 		ImGui::End();
 		return;
 	}
 	if (!st.lo) {
+		drawLoadOrderFix();
 		ImGui::End();
 		return;
 	}
@@ -594,6 +747,15 @@ void App::drawLoadOrderCheck()
 		ImGui::SameLine();
 		Colored(col, text::ToUtf8(f.text));
 	}
+	if (HasLateMasters(r)) {
+		ImGui::Spacing();
+		if (ImGui::Button(tr("Fix the order"))) {
+			st.loFixAsk = true;
+		}
+		ImGui::SameLine();
+		ImGui::TextDisabled("%s", tr("moves each late master to just before the first plugin that needs it; shows the moves first"));
+	}
+	drawLoadOrderFix();
 	ImGui::Spacing();
 	ImGui::Checkbox(tr("Only plugins with a problem"), &st.loOnlyProblems);
 	if (ImGui::BeginTable("lo", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY)) {
@@ -733,6 +895,19 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 					_showCheck = false;
 				};
 				it.options.push_back(std::move(o));
+				if (HasLateMasters(r)) {
+					CheckOption fx;
+					fx.label = tr("Fix the order");
+					fx.risk = Risk::kCaution;
+					fx.why = tr("Moves each master that loads after a plugin needing it to just before that plugin, in your mod manager's "
+					            "plugins.txt / loadorder.txt. Shows the moves first and asks; the files are backed up next to themselves.");
+					fx.act = [this] {
+						_showLoCheck = true;
+						_showCheck = false;
+						bloatState().loFixAsk = true;
+					};
+					it.options.push_back(std::move(fx));
+				}
 				a_items.push_back(std::move(it));
 			}
 		}

@@ -27,6 +27,8 @@ namespace platform
 	std::vector<std::filesystem::path>   SkyrimInstallFolders(int a_game = 0);  // Skyrim VR's (1), Fallout 4's (2)
 	std::filesystem::path                ExeFolder();  // folder of ReSaverPP.exe
 	bool                                 RunningUnderMO2();  // started from Mod Organizer (its virtual file system is loaded)
+	// a Mod Organizer (ModOrganizer.exe) is running; nullopt where it cannot be told (not Windows)
+	std::optional<bool>                  Mo2ProcessRunning();
 	std::filesystem::path                FromUtf8(const std::string& a_utf8);
 	std::filesystem::path                DesktopFolder();
 	std::filesystem::path                LocalAppDataFolder();  // %LOCALAPPDATA% (plugins.txt lives under it)

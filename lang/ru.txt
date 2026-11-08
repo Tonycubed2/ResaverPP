@@ -13088,6 +13088,76 @@ tr "Во время «%s»: %s"
 en "Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."
 tr "Пожалуйста, сообщите об этом на странице мода, приложив файл ReSaverPP-startup.log (рядом с ReSaverPP.exe или в %TEMP%)."
 
+# AppF4Bloat.cpp:511  return tr("ReSaver Plus was started from Mod Organizer: Mod Organizer reads the new order when ReSaver Plus closes (it refreshes after "
+en "ReSaver Plus was started from Mod Organizer: Mod Organizer reads the new order when ReSaver Plus closes (it refreshes after a program it started ends). Close ReSaver Plus before you change anything in Mod Organizer or start the game. If you pressed Unlock in Mod Organizer while ReSaver Plus was running, press Refresh (F5) in Mod Organizer after closing ReSaver Plus."
+tr "ReSaver Plus запущен из Mod Organizer: Mod Organizer прочитает новый порядок, когда ReSaver Plus закроется (он обновляется после завершения программы, которую сам запустил). Закройте ReSaver Plus, прежде чем что-либо менять в Mod Organizer или запускать игру. Если вы нажали «Unlock» в Mod Organizer, пока ReSaver Plus работал, после закрытия ReSaver Plus нажмите в Mod Organizer «Refresh» (F5)."
+
+# AppF4Bloat.cpp:517  return tr("Mod Organizer is open: press Refresh (F5) in it right after this, before you change anything there or close it. "
+en "Mod Organizer is open: press Refresh (F5) in it right after this, before you change anything there or close it. Otherwise it writes its old order back (it saves its own list when something changes and when it closes)."
+tr "Mod Organizer открыт: сразу после этого нажмите в нём «Refresh» (F5), прежде чем что-либо там менять или закрывать его. Иначе он запишет обратно свой старый порядок (он сохраняет свой список при любом изменении и при закрытии)."
+
+# AppF4Bloat.cpp:520  return tr("Mod Organizer reads the new order when it starts. (If it is open, press Refresh (F5) in it right after this, before "
+en "Mod Organizer reads the new order when it starts. (If it is open, press Refresh (F5) in it right after this, before you change anything there or close it, or it writes its old order back.)"
+tr "Mod Organizer прочитает новый порядок при запуске. (Если он открыт, сразу после этого нажмите в нём «Refresh» (F5), прежде чем что-либо там менять или закрывать его, иначе он запишет обратно свой старый порядок.)"
+
+# AppF4Bloat.cpp:523  return tr("Vortex keeps its load order in this plugins.txt and reads it again when another program changes it (if Vortex is open, "
+en "Vortex keeps its load order in this plugins.txt and reads it again when another program changes it (if Vortex is open, it shows the new order within a second). When Vortex sorts the plugins with LOOT (automatic sorting), a later sort can move plugins again; LOOT also keeps every master before the plugins that need it."
+tr "Vortex хранит свой порядок загрузки в этом plugins.txt и перечитывает его, когда файл меняет другая программа (если Vortex открыт, новый порядок появится в нём через секунду). Если Vortex сортирует плагины с помощью LOOT (автоматическая сортировка), следующая сортировка может снова переставить плагины; LOOT тоже всегда ставит мастер-файл перед плагинами, которым он нужен."
+
+# AppF4Bloat.cpp:527  return tr("The game reads plugins.txt when it starts.");
+en "The game reads plugins.txt when it starts."
+tr "Игра читает plugins.txt при запуске."
+
+# AppF4Bloat.cpp:535  const char* id = trId("Fix the load order");
+en "Fix the load order"
+tr "Исправить порядок загрузки"
+
+# AppF4Bloat.cpp:563  Colored(theme::Good(), tr("No master loads after a plugin that needs it: nothing to fix."));
+en "No master loads after a plugin that needs it: nothing to fix."
+tr "Ни один мастер-файл не загружается после плагина, которому он нужен: исправлять нечего."
+
+# AppF4Bloat.cpp:569  ImGui::TextWrapped(tr("These masters move up, each to just before the first plugin that needs it (and a master's own masters before "
+en "These masters move up, each to just before the first plugin that needs it (and a master's own masters before it). Every other plugin keeps its order:"
+tr "Эти мастер-файлы переместятся выше, каждый — прямо перед первым плагином, которому он нужен (а мастер-файлы самого мастер-файла — перед ним). Все остальные плагины сохранят свой порядок:"
+
+# AppF4Bloat.cpp:582  ImGui::TextUnformatted(tr("Files that change:"));
+en "Files that change:"
+tr "Изменяемые файлы:"
+
+# AppF4Bloat.cpp:586  ImGui::TextDisabled("%s", tr("A copy of each is kept next to it first, as <name>.<date>-<time>.resaverpp.bak."));
+en "A copy of each is kept next to it first, as <name>.<date>-<time>.resaverpp.bak."
+tr "Сначала рядом с каждым сохраняется его копия: <имя>.<дата>-<время>.resaverpp.bak."
+
+# AppF4Bloat.cpp:588  ImGui::TextDisabled(tr("Mod Organizer's locked positions (%s) are checked first."), platform::ToUtf8(st.loTargets.lockedOrder.filename()).c_str());
+en "Mod Organizer's locked positions (%s) are checked first."
+tr "Сначала проверяются закреплённые позиции Mod Organizer (%s)."
+
+# AppF4Bloat.cpp:593  if (ImGui::Button(tr("Fix the order"))) {
+# AppF4Bloat.cpp:752  if (ImGui::Button(tr("Fix the order"))) {
+# AppF4Bloat.cpp:900  fx.label = tr("Fix the order");
+en "Fix the order"
+tr "Исправить порядок"
+
+# AppF4Bloat.cpp:618  Colored(theme::Good(), tr("The load order was fixed."));
+en "The load order was fixed."
+tr "Порядок загрузки исправлен."
+
+# AppF4Bloat.cpp:625  ImGui::TextUnformatted(tr("Backups:"));
+en "Backups:"
+tr "Резервные копии:"
+
+# AppF4Bloat.cpp:629  if (ImGui::Button(tr("Show the backups in their folder"))) {
+en "Show the backups in their folder"
+tr "Показать резервные копии в папке"
+
+# AppF4Bloat.cpp:756  ImGui::TextDisabled("%s", tr("moves each late master to just before the first plugin that needs it; shows the moves first"));
+en "moves each late master to just before the first plugin that needs it; shows the moves first"
+tr "перемещает каждый поздний мастер-файл прямо перед первым плагином, которому он нужен; сначала показывает перемещения"
+
+# AppF4Bloat.cpp:902  fx.why = tr("Moves each master that loads after a plugin needing it to just before that plugin, in your mod manager's "
+en "Moves each master that loads after a plugin needing it to just before that plugin, in your mod manager's plugins.txt / loadorder.txt. Shows the moves first and asks; the files are backed up next to themselves."
+tr "Перемещает каждый мастер-файл, который загружается после нуждающегося в нём плагина, прямо перед этим плагином — в plugins.txt / loadorder.txt вашего менеджера модов. Сначала показывает перемещения и спрашивает; рядом с файлами сохраняются их резервные копии."
+
 # ---- no longer used by the code (kept for reference; safe to delete) ----
 
 en "Not done: the player's cell and the cells loaded around the player (the game does not reset a cell while a save loads), an outdoor cell the save has no coordinates for, and a cell the save does not say is indoors. Only what is in the cell when the game resets it is touched: an actor that walked elsewhere is not. Settlements: their workshop objects belong to the settlement; resetting a settlement cell is not recommended."

@@ -6,7 +6,9 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <map>
+#include <set>
 #include <stdexcept>
 
 namespace ess::locheck
@@ -104,7 +106,9 @@ namespace ess::locheck
 		// the game's own reading: the header's master and light flags, plus .esm/.esl (master) and .esl (light)
 		// (Fallout4.exe 0x2f6217..0x2f62ba; SkyrimSE.exe 1.6.1170 0x1c5c4f..0x1c5cf2: header flags & 0x291 kept, then
 		// "esm" or "esl" -> | 1, "esl" -> | 0x200)
-		p.esm = (flags & 1) || low.ends_with(".esm") || p.eslExt;
+		// Legendary Edition: the header flag alone (TESV.exe 1.9.32.0 IsMaster 0x4446d0 = flags & 1; its file opener does not
+		// look at the extension)
+		p.esm = (flags & 1) || (a_game != Game::kSkyrimLE && (low.ends_with(".esm") || p.eslExt));
 		p.eslFlag = (flags & 0x200) != 0;
 		p.light = limits.light && (p.eslFlag || p.eslExt);
 		std::vector<std::uint8_t> d(U32(h + 4));
@@ -222,6 +226,19 @@ namespace ess::locheck
 				}
 				p.name = name;
 			}
+			r.plugins.push_back(std::move(p));
+		}
+
+		// slots in the order the game loads (masters first, a master's masters moved up before it): GameOrder
+		std::vector<OrderEntry> entries;
+		entries.reserve(r.plugins.size());
+		for (const auto& p : r.plugins) {
+			entries.push_back({ p.name, !p.path.empty() && p.error.empty() && p.esm, p.masters });
+		}
+		const auto order = GameOrder(entries);
+		for (std::size_t k = 0; k < order.size(); ++k) {
+			auto& p = r.plugins[order[k]];
+			p.loadPos = static_cast<int>(k);
 			// a plugin whose file is missing is not loaded (the game skips it), so it takes no slot
 			if (p.path.empty()) {
 				p.slot = -1;
@@ -229,7 +246,6 @@ namespace ess::locheck
 				p.slot = static_cast<int>(p.light ? r.light : r.full);
 				(p.light ? r.light : r.full)++;
 			}
-			r.plugins.push_back(std::move(p));
 		}
 
 		// limits
@@ -265,9 +281,17 @@ namespace ess::locheck
 				if (it == pos.end()) {
 					add(Severity::kError, p.name, p.name + " needs " + m + ", which is not in the load order. The game cannot load " + p.name +
 					                                  (fo4 ? " (Fallout 4 leaves it out, or stops at the loading screen)." : " (Skyrim crashes at the start)."));
+				} else if (r.plugins[it->second].loadPos > p.loadPos) {
+					r.findings.push_back({ Severity::kError, p.name,
+						p.name + " needs " + m + ", but " + m + " loads after it. A master must load before the plugins that use it: move " + m +
+							" up (or " + p.name + " down).",
+						r.plugins[it->second].name });
 				} else if (it->second > i) {
-					add(Severity::kError, p.name, p.name + " needs " + m + ", but " + m + " loads after it. A master must load before the plugins "
-					                                  "that use it: move " + m + " up (or " + p.name + " down).");
+					// listed after it, but the game loads it first anyway (a master, or a master's master moved up)
+					add(Severity::kInfo, p.name, p.name + " needs " + m + ", which is listed after it, but the game loads " + m + " first (" +
+					                                 (r.plugins[it->second].esm ? "it is a master: masters load before plain plugins"
+					                                                            : std::string("it is a master of the master ") + p.name) +
+					                                 "). Nothing to fix.");
 				}
 			}
 			// header version
@@ -320,6 +344,224 @@ namespace ess::locheck
 		add(Severity::kInfo, "", sum);
 		std::stable_sort(r.findings.begin(), r.findings.end(), [](const Finding& a, const Finding& b) { return a.severity > b.severity; });
 		return r;
+	}
+
+	std::vector<std::size_t> GameOrder(const std::vector<OrderEntry>& a_listed)
+	{
+		const auto n = a_listed.size();
+		std::map<std::string, std::size_t> byName;
+		for (std::size_t i = 0; i < n; ++i) {
+			byName.emplace(Lower(a_listed[i].name), i);
+		}
+		// masters first, plain plugins after, each in the listed order (SkyrimSE.exe 0x1ba8fc / 0x1baa7a)
+		std::vector<std::size_t> L;
+		L.reserve(n);
+		for (std::size_t i = 0; i < n; ++i) {
+			if (a_listed[i].master) L.push_back(i);
+		}
+		for (std::size_t i = 0; i < n; ++i) {
+			if (!a_listed[i].master) L.push_back(i);
+		}
+		// each master's masters found further down are moved just before it (SkyrimSE.exe 0x1b8f50): the search starts at
+		// the current node; a moved master is inserted at the current node, the next one of the same file before it, and
+		// the walk stays on the node (now the last moved file) until a pass moves nothing
+		std::size_t guard = n * n + 16;  // the game itself would never finish on a cycle of masters
+		for (std::size_t i = 0; i < L.size() && guard; --guard) {
+			const auto f = L[i];
+			bool       moved = false;
+			if (a_listed[f].master) {
+				for (const auto& m : a_listed[f].masters) {
+					const auto it = byName.find(Lower(m));
+					if (it == byName.end()) {
+						continue;
+					}
+					const auto j = std::find(L.begin() + static_cast<std::ptrdiff_t>(i), L.end(), it->second);
+					if (j == L.end() || j == L.begin() + static_cast<std::ptrdiff_t>(i)) {
+						continue;
+					}
+					const auto v = *j;
+					L.erase(j);
+					L.insert(L.begin() + static_cast<std::ptrdiff_t>(i), v);
+					moved = true;
+				}
+			}
+			if (!moved) {
+				++i;
+			}
+		}
+		return L;
+	}
+
+	std::vector<std::pair<std::size_t, std::size_t>> LateMasters(const std::vector<OrderEntry>& a_listed)
+	{
+		const auto order = GameOrder(a_listed);
+		std::vector<std::size_t> pos(a_listed.size());
+		for (std::size_t k = 0; k < order.size(); ++k) {
+			pos[order[k]] = k;
+		}
+		std::map<std::string, std::size_t> byName;
+		for (std::size_t i = 0; i < a_listed.size(); ++i) {
+			byName.emplace(Lower(a_listed[i].name), i);
+		}
+		std::vector<std::pair<std::size_t, std::size_t>> out;
+		for (std::size_t i = 0; i < a_listed.size(); ++i) {
+			for (const auto& m : a_listed[i].masters) {
+				const auto it = byName.find(Lower(m));
+				if (it != byName.end() && it->second != i && pos[it->second] > pos[i]) {
+					out.emplace_back(i, it->second);
+				}
+			}
+		}
+		return out;
+	}
+
+	FixPlan PlanFix(const std::vector<OrderEntry>& a_listed)
+	{
+		FixPlan    plan;
+		const auto n = a_listed.size();
+		std::map<std::string, std::size_t> byName;
+		for (std::size_t i = 0; i < n; ++i) {
+			byName.emplace(Lower(a_listed[i].name), i);
+		}
+		// a cycle of masters (A needs B, B needs A): no order can load each before the other
+		{
+			std::vector<int>         state(n, 0);  // 0 new, 1 on the path, 2 done
+			std::vector<std::size_t> path;
+			std::string              cycle;
+			std::function<bool(std::size_t)> dfs = [&](std::size_t a_i) -> bool {
+				state[a_i] = 1;
+				path.push_back(a_i);
+				for (const auto& m : a_listed[a_i].masters) {
+					const auto it = byName.find(Lower(m));
+					if (it == byName.end() || it->second == a_i) {
+						continue;
+					}
+					if (state[it->second] == 1) {
+						const auto from = std::find(path.begin(), path.end(), it->second);
+						for (auto k = from; k != path.end(); ++k) {
+							cycle += a_listed[*k].name + " needs ";
+						}
+						cycle += a_listed[it->second].name;
+						return true;
+					}
+					if (state[it->second] == 0 && dfs(it->second)) {
+						return true;
+					}
+				}
+				path.pop_back();
+				state[a_i] = 2;
+				return false;
+			};
+			for (std::size_t i = 0; i < n && cycle.empty(); ++i) {
+				if (state[i] == 0) {
+					dfs(i);
+				}
+			}
+			if (!cycle.empty()) {
+				plan.error = "These plugins need each other (" + cycle + "), so no order loads each master first. Nothing was changed: one "
+				             "of them has to be fixed (or removed) in xEdit or by its author.";
+				return plan;
+			}
+		}
+
+		std::vector<std::size_t> L(n);  // listed order, as indices into a_listed
+		for (std::size_t i = 0; i < n; ++i) {
+			L[i] = i;
+		}
+		auto entriesOf = [&]() {
+			std::vector<OrderEntry> e;
+			e.reserve(n);
+			for (const auto i : L) {
+				e.push_back(a_listed[i]);
+			}
+			return e;
+		};
+		std::set<std::pair<std::size_t, std::size_t>> done;  // (master, plugin) pairs already moved for
+		for (std::size_t guard = n * n + 16; guard; --guard) {
+			const auto late = LateMasters(entriesOf());  // indices into L
+			if (late.empty()) {
+				plan.ok = true;
+				break;
+			}
+			// the first plugin (listed order) with a late master; its master goes before the first plugin that needs it late
+			std::size_t first = n, master = n;
+			for (const auto& [p, m] : late) {
+				if (p < first) {
+					first = p;
+					master = m;
+				}
+			}
+			std::size_t target = first;
+			for (const auto& [p, m] : late) {
+				if (m == master && p < target) {
+					target = p;
+				}
+			}
+			const auto mi = L[master], ti = L[target];
+			if (!done.insert({ mi, ti }).second) {
+				plan.error = a_listed[ti].name + " needs " + a_listed[mi].name + ", and the game still loads it after " + a_listed[ti].name +
+				             " wherever it is listed (a master's master the game moves up itself). Nothing was changed.";
+				return plan;
+			}
+			Move mv;
+			mv.plugin = a_listed[mi].name;
+			mv.from = master;
+			mv.before = a_listed[ti].name;
+			mv.beforeAt = target;
+			plan.moves.push_back(mv);
+			L.erase(L.begin() + static_cast<std::ptrdiff_t>(master));
+			L.insert(L.begin() + static_cast<std::ptrdiff_t>(target < master ? target : target - 1), mi);
+		}
+		if (!plan.ok) {
+			plan.error = "The masters could not be put in order (too many moves). Nothing was changed.";
+			plan.moves.clear();
+			return plan;
+		}
+		for (const auto i : L) {
+			plan.order.push_back(a_listed[i].name);
+		}
+		return plan;
+	}
+
+	namespace
+	{
+		std::string SlotLabel(const PluginInfo& p, std::size_t a_listed)
+		{
+			char b[32];
+			if (p.slot < 0) {
+				std::snprintf(b, sizeof(b), "#%zu", a_listed + 1);
+			} else if (p.light) {
+				std::snprintf(b, sizeof(b), "#FE %03X", p.slot);
+			} else {
+				std::snprintf(b, sizeof(b), "#%02X", p.slot);
+			}
+			return b;
+		}
+	}
+
+	FixPlan PlanFix(const Result& a_result)
+	{
+		std::vector<OrderEntry> entries;
+		std::map<std::string, std::string> label;
+		for (std::size_t i = 0; i < a_result.plugins.size(); ++i) {
+			const auto& p = a_result.plugins[i];
+			const bool  read = !p.path.empty() && p.error.empty();
+			entries.push_back({ p.name, read && p.esm, read ? p.masters : std::vector<std::string>{} });
+			label.emplace(Lower(p.name), SlotLabel(p, i));
+		}
+		auto plan = PlanFix(entries);
+		for (auto& m : plan.moves) {
+			m.fromLabel = label[Lower(m.plugin)];
+			m.beforeLabel = label[Lower(m.before)];
+		}
+		return plan;
+	}
+
+	std::string MoveText(const Move& a_move)
+	{
+		const auto from = a_move.fromLabel.empty() ? "#" + std::to_string(a_move.from + 1) : a_move.fromLabel;
+		const auto at = a_move.beforeLabel.empty() ? "#" + std::to_string(a_move.beforeAt + 1) : a_move.beforeLabel;
+		return a_move.plugin + ": " + from + " -> before " + a_move.before + " " + at;
 	}
 
 	std::vector<std::string> Describe(const Result& a_result)

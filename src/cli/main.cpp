@@ -31,6 +31,7 @@
 #include "core/TransplantFO4.h"
 #include "core/SaveBloat.h"
 #include "core/LoadOrderCheck.h"
+#include "core/LoadOrderFix.h"
 #include "core/WorkshopFO4.h"
 #include <functional>
 #include <map>
@@ -81,10 +82,13 @@ static bool _stricmp_portable(const std::string& a_a, const std::string& a_b)
 }
 
 // resaverpp-cli --load-order-check [--sources <mods>] [--profile <dir>] [--game <dir>] [--plugins-txt <file>] [--fo4 | --le]
+// resaverpp-cli --fix-load-order [-n] (same options) [--vortex]: moves late masters up (locheck::PlanFix) and writes
+//               plugins.txt / loadorder.txt with backups; -n only shows the plan and the changes
 static int LoadOrderCheckMain(int argc, char** argv)
 {
 	std::filesystem::path mods, profile, game, pluginsTxt, overwrite;
-	bool                  fo4 = false, le = false;
+	bool                  fo4 = false, le = false, dryRun = false, vortex = false;
+	const bool            fix = std::string(argv[1]) == "--fix-load-order";
 	for (int i = 2; i < argc; ++i) {
 		const std::string a = argv[i];
 		auto              next = [&]() -> std::string {
@@ -100,13 +104,17 @@ static int LoadOrderCheckMain(int argc, char** argv)
 		else if (a == "--plugins-txt") pluginsTxt = next();
 		else if (a == "--fo4") fo4 = true;
 		else if (a == "--le") le = true;
+		else if (fix && (a == "-n" || a == "--dry-run")) dryRun = true;
+		else if (fix && a == "--vortex") vortex = true;
 		else {
 			std::fprintf(stderr, "unknown option %s\n", a.c_str());
 			return 1;
 		}
 	}
+	bool mo2Found = false;
 	if (!mods.empty()) {
 		if (auto mo2 = FindMo2Instance(mods)) {
+			mo2Found = true;
 			if (profile.empty()) profile = mo2->profilesDir / mo2->selectedProfile;
 			overwrite = mo2->overwriteDir;
 			if (game.empty()) game = mo2->gamePath;
@@ -141,10 +149,70 @@ static int LoadOrderCheckMain(int argc, char** argv)
 	};
 	std::printf("load order: %zu plugins (%s)\n", opt.loadOrder.size(), pluginsTxt.string().c_str());
 	const auto r = locheck::Check(opt);
-	for (const auto& l : locheck::Describe(r)) {
-		std::printf("%s\n", l.c_str());
+	if (!fix) {
+		for (const auto& l : locheck::Describe(r)) {
+			std::printf("%s\n", l.c_str());
+		}
+		return r.hasErrors() ? 2 : 0;
 	}
-	return r.hasErrors() ? 2 : 0;
+	for (const auto& f : r.findings) {
+		if (!f.lateMaster.empty()) {
+			std::printf("%s: %s\n", locheck::SeverityWord(f.severity), f.text.c_str());
+		}
+	}
+	const auto plan = locheck::PlanFix(r);
+	if (!plan.ok) {
+		std::printf("%s\n", plan.error.c_str());
+		return 1;
+	}
+	if (plan.moves.empty()) {
+		std::printf("No master loads after a plugin that needs it: nothing to fix.\n");
+		return 0;
+	}
+	std::printf("\nPlanned moves (%zu):\n", plan.moves.size());
+	for (const auto& m : plan.moves) {
+		std::printf("  %s\n", locheck::MoveText(m).c_str());
+	}
+	// which mod manager reads these files: a Mod Organizer profile, Vortex (the game's own plugins.txt is its load order)
+	// or none
+	const auto manager = (!profile.empty() || mo2Found) ? lofix::Manager::kMo2
+	                     : (vortex || (!game.empty() && FindVortexDeployment(game))) ? lofix::Manager::kVortex
+	                                                                                  : lofix::Manager::kNone;
+	const auto targets = lofix::TargetsFor(pluginsTxt, manager);
+	std::vector<std::string> oldOrder;
+	for (const auto& p : r.plugins) {
+		oldOrder.push_back(p.name);
+	}
+	const auto w = lofix::Write(targets, plan, oldOrder, dryRun);
+	std::printf("\n");
+	for (const auto& f : w.files) {
+		if (f.changed) {
+			std::printf("%s", lofix::Diff(f.before, f.after, f.file.string()).c_str());
+		} else {
+			std::printf("%s: no change\n", f.file.string().c_str());
+		}
+		for (const auto& sk : f.skipped) {
+			std::printf("  (skipped in %s: %s)\n", f.file.filename().string().c_str(), sk.c_str());
+		}
+		if (!f.backup.empty()) {
+			std::printf("  backup: %s\n", f.backup.string().c_str());
+		}
+	}
+	std::printf("\n%s\n", w.message.c_str());
+	if (w.ok && !dryRun) {
+		std::printf("%s\n", lofix::AfterWriteNote(manager, false, true).c_str());
+		// check again from the written files
+		locheck::Options again = opt;
+		again.loadOrder = merge::ReadLoadOrder(pluginsTxt, game, fo4 ? 2 : -1);
+		const auto r2 = locheck::Check(again);
+		std::size_t late = 0;
+		for (const auto& f : r2.findings) {
+			late += f.lateMaster.empty() ? 0 : 1;
+		}
+		std::printf("Checked again: %zu master(s) loading after a plugin that needs them.\n", late);
+		return late ? 2 : 0;
+	}
+	return w.ok ? 0 : 1;
 }
 
 // resaverpp-cli --merged-patch <out.esp> --sources <mods> [--profile <dir>] [--game <dir>] [--plugins-txt <file>] [--language <lang>]
@@ -469,7 +537,7 @@ int main(int argc, char** argv)
 	if (std::string(argv[1]) == "--merged-patch") {
 		return MergedPatchMain(argc, argv);
 	}
-	if (std::string(argv[1]) == "--load-order-check") {
+	if (std::string(argv[1]) == "--load-order-check" || std::string(argv[1]) == "--fix-load-order") {
 		return LoadOrderCheckMain(argc, argv);
 	}
 	if (std::string(argv[1]) == "--file-conflicts") {

@@ -963,6 +963,7 @@ private:
 	bool                        _showBloat = false, _showLoCheck = false;
 	void                        drawBloat();
 	void                        drawLoadOrderCheck();
+	void                        drawLoadOrderFix();  // Fix the order: plan, confirmation, result (AppF4Bloat.cpp)
 	void                        bloatCheckItems(std::vector<CheckItem>& a_items);  // the Save check's findings of both
 	bool _showAbout = false;
 
