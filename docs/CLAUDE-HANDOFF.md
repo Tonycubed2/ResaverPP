@@ -399,6 +399,10 @@ project; you do the coding, building, delivering and publishing.
   UTF-8/GBK/Big5/Shift-JIS/949/1251/1252 detection, decoding, round trips, no '?', automatic, PDF). Screenshots
   (scratchpad cjkshots/): before.png (old build: the player name/location as fallback glyphs), after.png, gbk936.png,
   gbkauto.png (Linux, no hint: 1252 mojibake, as expected), zhui.png (15-string test zh-Hans.txt, not committed).
+  Windows build (scratchpad bld-cjk-win) under Wine 9 + Xvfb (LANG=C.UTF-8, scratchpad cjkwin): a save named
+  "存档 铁匠.fos" opens from the command line, the window shows the name/location/file name with Noto Sans CJK from
+  Z:\usr\share\fonts (cjkshots/wine.png); resaverpp-cli opens it (v66's CLI: "cannot open ...\?? ??.fos");
+  rs_text_test built with MinGW passes under Wine (ACP 1252 and zh_CN = 936).
   Open: the Chinese translation itself (volunteer player4771); FO4 "cn" taken as 936 for non-UTF-8 fallback is a choice
   (no Chinese install to check whether cn is Simplified or Traditional; the Windows ACP comes first anyway); the PDF
   Cyrillic now goes through the GB1 font (full-width); text reports (.txt) stay UTF-8 without BOM.
