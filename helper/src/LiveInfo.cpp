@@ -125,7 +125,7 @@ namespace LiveInfo
 		std::vector<Raw> ReadRaw(RE::PlayerCharacter* a_player)
 		{
 			std::vector<Raw> out;
-			auto*            list = static_cast<RE::MagicTarget*>(a_player)->GetActiveEffectList();
+			auto*            list = a_player->AsMagicTarget()->GetActiveEffectList();
 			if (!list) {
 				return out;
 			}
@@ -182,7 +182,7 @@ namespace LiveInfo
 
 		RE::ActiveEffect* FindByUid(RE::PlayerCharacter* a_player, std::uint16_t a_uid)
 		{
-			auto* list = static_cast<RE::MagicTarget*>(a_player)->GetActiveEffectList();
+			auto* list = a_player->AsMagicTarget()->GetActiveEffectList();
 			if (!list) {
 				return nullptr;
 			}
