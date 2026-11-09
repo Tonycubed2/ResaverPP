@@ -100,6 +100,13 @@ struct App::BloatState
 	std::filesystem::file_time_type loTime{};
 	bool                           loAuto = false;  // started by the Save check
 	bool                           loScanned = false;  // the mods were scanned when the last check started
+	// the Save check's look at plugins.txt (bloatCheckItems), at most every 2 s
+	double                          loLookNext = 0;
+	int                             loLookGame = -1;
+	bool                            loLookLe = false, loLookOk = false;
+	std::string                     loLookProfile;
+	std::filesystem::path           loLookFile;
+	std::filesystem::file_time_type loLookTime{};
 	char                           filter[128] = "";
 	bool                           loOnlyProblems = false;
 	// Fix the order: the plan shown for confirmation, then what was written
@@ -880,11 +887,23 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 	// the load order: checked once in the background when the mods are known (again when plugins.txt changes)
 	{
 		const bool le = _save->isLE();
-		const std::filesystem::path pluginsTxt =
-			_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_game, le);
-		std::error_code ec;
-		const auto      t = std::filesystem::last_write_time(pluginsTxt, ec);
-		const bool      known = !ec && (_sources->scanned() || !gameFolder().empty()) && !scanning();
+		// which plugins.txt and when it was written: looked up again every 2 seconds only (each file call is slow under
+		// Wine, and the Save check is worked out twice a second)
+		const double now = ImGui::GetTime();
+		if (now >= st.loLookNext || st.loLookGame != _game || st.loLookLe != le || st.loLookProfile != _profile) {
+			st.loLookNext = now + 2.0;
+			st.loLookGame = _game;
+			st.loLookLe = le;
+			st.loLookProfile = _profile;
+			st.loLookFile =
+				_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_game, le);
+			std::error_code e;
+			st.loLookTime = std::filesystem::last_write_time(st.loLookFile, e);
+			st.loLookOk = !e;
+		}
+		const std::filesystem::path pluginsTxt = st.loLookFile;
+		const auto                  t = st.loLookTime;
+		const bool                  known = st.loLookOk && (_sources->scanned() || !gameFolder().empty()) && !scanning();
 		if (known && (!st.lo || (st.lo->done && (st.loFile != pluginsTxt || st.loTime != t)))) {
 			auto job = std::make_shared<LoJob>();
 			job->pluginsTxt = pluginsTxt;

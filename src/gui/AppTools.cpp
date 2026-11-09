@@ -205,8 +205,8 @@ void App::pollNames()
 			_db = std::move(_dbBuilding);
 			_rowsDirty = true;
 			invalidateCheck();
-			if (_save && !_save->isFO4()) {
-				startAnalysis(kAnSkyf);  // the followers view uses the names: worked out again on a worker
+			if (_save) {
+				startAnalysis(kAnFx | (_save->isFO4() ? 0u : kAnSkyf));  // these use the names: worked out again on a worker
 			}
 			_status = Fmt(tr("Read %zu of %zu plugins: %zu named forms%s"), _db->pluginsRead, _db->plugins().size(), _db->size(),
 				_db->missing.empty() ? "" : Fmt(tr(" (%zu plugins not found)"), _db->missing.size()).c_str());

@@ -4,6 +4,7 @@
 // order). Skyrim and Fallout 4; the reading and the rules are in core/CharEffects.h, removal goes through the game's
 // verified removal code (cf::RemovePlayerActiveEffects / fo4cf::RemoveActiveEffects).
 #include "App.h"
+#include "Watchdog.h"
 
 #include "Theme.h"
 #include "Tips.h"
@@ -183,7 +184,17 @@ App::CharFxView& App::charFx()
 		_cfx = std::make_shared<CharFxView>();
 	}
 	auto& c = *_cfx;
+	if ((c.save != _save.get() || c.gen != _editGen || c.db != _db.get()) && analysisWillProvide(kAnFx)) {
+		// worked out in the background (AppBackground.cpp): until then nothing, never the save shown before
+		if (c.save != _save.get() || c.gen != _editGen) {
+			c.view = {};
+			c.view.error = tr("Still reading the save...");
+			c.save = nullptr;
+		}
+		return c;
+	}
 	if (c.save != _save.get() || c.gen != _editGen || c.db != _db.get()) {
+		watchdog::Step st("Character effects (chfx::Build)");
 		if (c.save != _save.get()) {
 			c.slot = -1;
 			c.item = 0;
@@ -207,6 +218,38 @@ App::CharFxView& App::charFx()
 		}
 	}
 	return c;
+}
+
+std::string App::charFxSummary()
+{
+	const auto& c = charFx();
+	return "charfx: " + std::to_string(c.view.effects.size()) + " effects, " + std::to_string(c.view.cards.size()) + " cards, " +
+	       std::to_string(c.view.stuck.size()) + " stuck, " + std::to_string(c.view.worn.size()) + " worn" + (c.view.error.empty() ? "" : ", " + c.view.error);
+}
+
+void App::adoptCharFx(chfx::View&& a_view, loadorder::Active&& a_lo)
+{
+	if (!_cfx) {
+		_cfx = std::make_shared<CharFxView>();
+	}
+	auto& c = *_cfx;
+	if (c.save != _save.get()) {
+		c.slot = -1;
+		c.item = 0;
+	}
+	c.save = _save.get();
+	c.gen = _editGen;
+	c.db = _db.get();
+	c.lo = std::move(a_lo);
+	c.view = std::move(a_view);
+	c.view.save = _save.get();  // (it was made from the worker's copy of the same file)
+	c.view.db = _db.get();
+	c.view.labels[0] = tr("%08X (%s made in game)");
+	c.view.labels[1] = tr("%08X (made in game)");
+	c.view.labels[2] = tr("weapon enchantment");
+	c.view.labels[3] = tr("armor enchantment");
+	c.view.labels[4] = tr("potion");
+	c.view.labels[5] = tr("poison");
 }
 
 void App::charFxRemove(const std::vector<std::size_t>& a_effects, const std::string& a_what)

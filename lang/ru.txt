@@ -13354,3 +13354,11 @@ tr "Чтение картинок сохранений"
 # AppSkyFollowers.cpp
 en "Reading the save..."
 tr "Чтение сохранения..."
+
+# AppBackground.cpp
+en "character effects"
+tr "эффекты персонажа"
+
+# AppCharEffects.cpp
+en "Still reading the save..."
+tr "Сохранение ещё читается..."

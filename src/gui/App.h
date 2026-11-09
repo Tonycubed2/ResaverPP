@@ -1107,7 +1107,8 @@ private:
 		kAnMods = 1,     // the Mods table with the scanned mods
 		kAnMissing = 2,  // mods no longer in the load order, scripts no longer installed
 		kAnSkyf = 4,     // followers, beast form, quests between stages (with the plugin names)
-		kAnFirst = 8     // enchanted items and the quests (right after opening)
+		kAnFirst = 8,    // enchanted items and the quests (right after opening)
+		kAnFx = 16       // Character effects (with the plugin names)
 	};
 	bool analysisWillProvide(unsigned a_what) const;
 	bool startAnalysis(unsigned a_what);  // false: cannot (edited, file changed): the window works it out itself
@@ -1122,7 +1123,9 @@ private:
 	static std::shared_ptr<SkyFollowersView> ComputeSkyf(const ess::SaveFile& a_save, const ess::PluginDB* a_db);
 	std::string skyfGameNote() const;
 	std::string skyfSummary() const;  // (tests)
+	std::string charFxSummary();      // (tests)
 	void        adoptSkyf(std::shared_ptr<SkyFollowersView> a_view);  // made by a worker for the open save
+	void        adoptCharFx(ess::chfx::View&& a_view, ess::loadorder::Active&& a_lo);  // the same for Character effects
 	static void PrepareParts(Prepared& a_out, ess::SaveFile& a_save, unsigned a_what, const std::shared_ptr<ess::ScriptSources>& a_sources,
 		const std::shared_ptr<ess::PluginDB>& a_db, const std::function<void(const char*)>& a_step, const std::function<bool()>& a_cancelled);
 	void        setSkyfGameNote(const std::string& a_note);

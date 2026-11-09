@@ -72,6 +72,10 @@ struct App::Prepared
 	std::vector<quests::QuestState>       quests;
 	std::shared_ptr<SkyFollowersView>     skyf;
 	std::shared_ptr<PluginDB>             skyfDb;  // the names it was made with
+	bool                                  hasFx = false;
+	chfx::View                            fx;
+	loadorder::Active                     fxLoadOrder;
+	std::shared_ptr<PluginDB>             fxDb;
 	bool                                  hasMissing = false;
 	MissingResult                         missing;
 	std::shared_ptr<const ScriptSources>  missingSources;
@@ -356,7 +360,7 @@ void App::finishOpen(OpenJob& a_job)
 		// the Mods table, the missing mods, the enchanted items, the quests and the followers view: worked out on a worker
 		// from the file (the window shows the save meanwhile, with their progress)
 		(void)sameSetup;
-		if (startAnalysis(kAnMods | kAnMissing | kAnFirst | (_save->isFO4() ? 0u : kAnSkyf))) {
+		if (startAnalysis(kAnMods | kAnMissing | kAnFirst | kAnFx | (_save->isFO4() ? 0u : kAnSkyf))) {
 			setMods(std::make_unique<mods::Table>());  // (empty until then: never the save shown before)
 			_modsDirty = true;
 		}
@@ -452,6 +456,9 @@ void App::installPrepared(Prepared& a_p)
 	if (a_p.skyf && a_p.skyfDb == _db) {
 		adoptSkyf(std::move(a_p.skyf));
 	}
+	if (a_p.hasFx && a_p.fxDb == _db) {
+		adoptCharFx(std::move(a_p.fx), std::move(a_p.fxLoadOrder));
+	}
 	if (a_p.hasMissing && a_p.missingSources == _sources) {
 		applyMissing(std::move(a_p.missing));
 	}
@@ -515,7 +522,7 @@ bool App::startAnalysis(unsigned a_what)
 	job->sources = _sources;
 	job->db = _db;
 	job->missingIn = missingInputs();
-	job->steps = 1 + ((a_what & kAnMods) ? 1 : 0) + ((a_what & kAnMissing) ? 1 : 0) + ((a_what & kAnSkyf) ? 1 : 0) + ((a_what & kAnFirst) ? 1 : 0);
+	job->steps = 1 + ((a_what & kAnMods) ? 1 : 0) + ((a_what & kAnMissing) ? 1 : 0) + ((a_what & kAnSkyf) ? 1 : 0) + ((a_what & kAnFirst) ? 1 : 0) + ((a_what & kAnFx) ? 1 : 0);
 	_analysisJob = job;
 	std::thread([job] {
 		watchdog::Timed t("analysing the save again");
@@ -532,6 +539,18 @@ bool App::startAnalysis(unsigned a_what)
 			tm.reset();
 			PrepareParts(job->out, *s, job->what & (kAnMods | kAnSkyf | kAnFirst), job->sources, job->db, [&](const char* a_what) { job->setCurrent(a_what); },
 				[&] { return job->cancel.load(); });
+			if ((job->what & kAnFx) && !job->cancel) {
+				job->setCurrent(N_("character effects"));
+				watchdog::Timed t("background: character effects");
+				job->out.fxLoadOrder = loadorder::Read(job->missingIn.pluginsTxt, job->missingIn.gameFolder, job->missingIn.game);
+				chfx::Options opt;
+				opt.db = job->db.get();
+				opt.loadOrder = job->out.fxLoadOrder.known ? &job->out.fxLoadOrder.plugins : nullptr;
+				job->out.fx = chfx::Build(*s, opt);
+				job->out.fx.save = nullptr;  // (the copy goes away; adoptCharFx points it at the open save)
+				job->out.fxDb = job->db;
+				job->out.hasFx = true;
+			}
 			if ((job->what & kAnMissing) && !job->cancel) {
 				job->setCurrent(N_("mods no longer in your load order"));
 				const mods::Table* table = job->out.mods.get();
@@ -796,6 +815,7 @@ std::vector<std::string> App::testDumpState()
 	out.push_back(Fmt("charged %zu, quests %zu", chargedItems().size(), questStates().size()));
 	skyfRefresh();
 	out.push_back(skyfSummary());
+	out.push_back(charFxSummary());
 	_checkNext = 0;
 	for (const auto& it : checkItems()) {
 		out.push_back("check: " + it.title);
