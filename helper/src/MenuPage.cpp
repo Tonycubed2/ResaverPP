@@ -7,6 +7,7 @@
 #include "Protocol.h"
 #include "Rescue.h"
 #include "Server.h"
+#include "SaveDialog.h"
 #include "Settings.h"
 #include "SkyFix.h"
 
@@ -14,9 +15,11 @@
 
 #include <shellapi.h>
 
+#include <cctype>
 #include <cfloat>
 #include <cstdarg>
 #include <cstdio>
+#include <ctime>
 #include <deque>
 
 // Everything below runs on the game's main thread: SKSE Menu Framework calls the render functions from its hook in the
@@ -44,7 +47,8 @@ namespace MenuPage
 			RE::FormID            questSel = 0;
 
 			std::deque<LiveInfo::VMSample> samples;  // the last 60 (3 minutes)
-			std::filesystem::path         report;
+			std::filesystem::path         report;  // where the last report was saved
+			std::filesystem::path         sent;    // where the last "What to send" file was saved
 			RE::FormID                    spawned = 0;
 			std::string                   spawnedName;
 			int                           iniStage = -1;
@@ -182,6 +186,114 @@ namespace MenuPage
 			return true;
 		}
 
+		// ------------------------------------------------------------------ sorting and searching (every list on the page)
+		// case-insensitive A-Z comparison without copying the strings (the lists are sorted again every frame)
+		int CompareI(std::string_view a, std::string_view b)
+		{
+			const auto n = std::min(a.size(), b.size());
+			for (std::size_t i = 0; i < n; ++i) {
+				const int x = std::tolower(static_cast<unsigned char>(a[i])), y = std::tolower(static_cast<unsigned char>(b[i]));
+				if (x != y) {
+					return x < y ? -1 : 1;
+				}
+			}
+			return a.size() == b.size() ? 0 : a.size() < b.size() ? -1 : 1;
+		}
+		template <class T>
+		int Compare3(const T& a, const T& b)
+		{
+			return a < b ? -1 : b < a ? 1 : 0;
+		}
+
+		std::string Lower(std::string s)
+		{
+			std::ranges::transform(s, s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			return s;
+		}
+		// a_lowNeedle already lower case
+		bool ContainsI(std::string_view a_text, const std::string& a_lowNeedle)
+		{
+			if (a_lowNeedle.empty()) {
+				return true;
+			}
+			if (a_lowNeedle.size() > a_text.size()) {
+				return false;
+			}
+			for (std::size_t i = 0; i + a_lowNeedle.size() <= a_text.size(); ++i) {
+				std::size_t k = 0;
+				while (k < a_lowNeedle.size() && std::tolower(static_cast<unsigned char>(a_text[i + k])) == static_cast<unsigned char>(a_lowNeedle[k])) {
+					++k;
+				}
+				if (k == a_lowNeedle.size()) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		// the search box above a list; returns the search text in lower case
+		std::string SearchBox(const char* a_id, char* a_buf, std::size_t a_size, const char* a_hint)
+		{
+			im::SetNextItemWidth(im::GetFontSize() * 18.0f);
+			im::InputTextWithHint(a_id, a_hint, a_buf, a_size);
+			Tip("Shows only the rows that contain this text (upper / lower case does not matter).");
+			if (a_buf[0]) {
+				im::SameLine();
+				im::PushID(a_id);
+				if (im::SmallButton("Clear")) {
+					a_buf[0] = '\0';
+				}
+				im::PopID();
+			}
+			return Lower(a_buf);
+		}
+
+		// The sortable tables: click a column's header to sort by it, again to reverse. ImGui keeps the choice (and the
+		// column widths) for each table. Read right after the table's columns are set up.
+		struct Sort
+		{
+			int  column = 0;
+			bool descending = false;
+		};
+		Sort ReadSort()
+		{
+			Sort s;
+			if (auto* specs = im::TableGetSortSpecs(); specs && specs->Specs && specs->SpecsCount > 0) {
+				s.column = specs->Specs[0].ColumnIndex;
+				// ImGui keeps the direction in ONE byte (ImGuiSortDirection : ImU8, or a ": 8" bit field in older versions); the
+				// header declares a 4-byte enum, so only its low byte is read (the other three are padding in the DLL's struct)
+				s.descending = static_cast<std::uint8_t>(static_cast<unsigned>(specs->Specs[0].SortDirection) & 0xFFu) ==
+				               static_cast<std::uint8_t>(im::ImGuiSortDirection_Descending);
+				specs->SpecsDirty = false;  // sorted again every frame anyway: the lists change while the page is open
+			}
+			return s;
+		}
+
+		// sorts a_rows (indices into the list) with a_cmp(a, b) -> -1 / 0 / 1 for the ascending order; ties keep the list's order
+		template <class Cmp>
+		void Order(std::vector<std::size_t>& a_rows, const Sort& a_sort, Cmp a_cmp)
+		{
+			std::stable_sort(a_rows.begin(), a_rows.end(), [&](std::size_t a, std::size_t b) {
+				const int c = a_cmp(a, b);
+				return a_sort.descending ? c > 0 : c < 0;
+			});
+		}
+
+		constexpr int kListTable = im::ImGuiTableFlags_Sortable | im::ImGuiTableFlags_RowBg | im::ImGuiTableFlags_BordersInnerH |
+		                           im::ImGuiTableFlags_BordersOuter | im::ImGuiTableFlags_Resizable | im::ImGuiTableFlags_SizingStretchProp;
+		constexpr int kNameColumn = im::ImGuiTableColumnFlags_WidthStretch | im::ImGuiTableColumnFlags_DefaultSort |
+		                            im::ImGuiTableColumnFlags_PreferSortAscending;
+		constexpr int kTextColumn = im::ImGuiTableColumnFlags_WidthStretch | im::ImGuiTableColumnFlags_PreferSortAscending;
+		constexpr int kCountColumn = im::ImGuiTableColumnFlags_WidthStretch | im::ImGuiTableColumnFlags_PreferSortDescending;
+		constexpr int kButtonColumn = im::ImGuiTableColumnFlags_WidthStretch | im::ImGuiTableColumnFlags_NoSort;
+
+		// the height of a scrolling table with a_rows rows (header included), at most a_max rows high
+		im::ImVec2 TableHeight(std::size_t a_rows, std::size_t a_max)
+		{
+			const float row = im::GetFrameHeightWithSpacing();
+			return im::ImVec2{ 0.0f, row * static_cast<float>(std::clamp<std::size_t>(a_rows, 2, a_max)) + row * 0.5f };
+		}
+
 		// ------------------------------------------------------------------ 1. Rescue
 		void __stdcall RenderRescue()
 		{
@@ -292,82 +404,131 @@ namespace MenuPage
 			});
 		}
 
-		void DrawSource(const LiveInfo::Source& s)
+		// the source the player clicked in the table (its effects and buttons are shown below the table)
+		struct SourceKey
 		{
-			const auto id = Hex(s.spell) + Hex(s.item) + (s.fromOther ? "o" : "");  // stable while the list changes
-			im::PushID(id.c_str());
-			std::string label = s.spellName;
-			if (!s.itemName.empty()) {
-				label += "  (" + s.itemName + (s.itemWorn ? ", worn" : "") + ")";
+			RE::FormID spell = 0, item = 0;
+			bool       other = false, set = false;
+			bool       Is(const LiveInfo::Source& s) const { return set && s.spell == spell && s.item == item && s.fromOther == other; }
+		};
+		SourceKey g_fxSel;
+		char      g_fxFilter[128] = "";
+		bool      g_fxGroups = true;
+
+		std::string SourceTitle(const LiveInfo::Source& s)
+		{
+			return s.spellName + (s.itemName.empty() ? "" : "  (" + s.itemName + (s.itemWorn ? ", worn" : "") + ")");
+		}
+
+		bool SourceMatches(const LiveInfo::Source& s, const std::string& a_low)
+		{
+			if (a_low.empty() || ContainsI(s.spellName, a_low) || ContainsI(s.itemName, a_low) || ContainsI(s.plugin, a_low) ||
+				ContainsI(s.itemPlugin, a_low) || ContainsI(s.kind, a_low) || ContainsI(Hex(s.spell), a_low)) {
+				return true;
 			}
-			label += std::format("  -  {} effect(s), {} running###src", s.effects.size(), s.running);
-			const bool open = im::TreeNode(label.c_str());
-			Tip(std::format("Magic item {}{}{}", Hex(s.spell), s.item ? ", from the item " + Hex(s.item) : std::string(),
+			return std::ranges::any_of(s.effects, [&](const LiveInfo::Effect& e) { return ContainsI(e.name, a_low); });
+		}
+
+		// order of the state column: running, switched off, ended
+		int StateRank(const LiveInfo::Effect& e) { return e.ended() ? 2 : e.off() ? 1 : 0; }
+		float TimeLeft(const LiveInfo::Effect& e) { return e.duration <= 0.0f ? FLT_MAX : std::max(0.0f, e.duration - e.elapsed); }
+
+		// the clicked source: its buttons and its effects (a sortable table too)
+		void DrawSourceDetail(const LiveInfo::Source& s)
+		{
+			const auto id = Hex(s.spell) + Hex(s.item) + (s.fromOther ? "o" : "");
+			im::PushID(id.c_str());
+			im::SeparatorText(SourceTitle(s).c_str());
+			Dim(std::format("{}  -  {}  -  magic item {}{}{}", s.kind, s.plugin.empty() ? std::string("(no plugin)") : s.plugin, Hex(s.spell),
+				s.item ? ", from the item " + Hex(s.item) + (s.itemPlugin.empty() || s.itemPlugin == s.plugin ? "" : " (" + s.itemPlugin + ")") : std::string(),
 				s.fromOther ? ", put on you by someone else" : ""));
-			if (open) {
-				const char* whole = s.group == LiveInfo::Group::kWorn && s.itemWorn ? "Take it off" :
-				                    (s.group == LiveInfo::Group::kAbilities || s.group == LiveInfo::Group::kDiseases) ? "Remove it" : "Remove all";
-				if (im::SmallButton(whole)) {
-					RemoveSourceAsk(s, false);
+			const bool  worn = s.group == LiveInfo::Group::kWorn && s.itemWorn;
+			const bool  ability = s.group == LiveInfo::Group::kAbilities || s.group == LiveInfo::Group::kDiseases;
+			const char* whole = worn ? "Take it off" : ability ? "Remove it" : "Remove all";
+			if (im::SmallButton(whole)) {
+				RemoveSourceAsk(s, false);
+			}
+			Tip(worn ? "Takes the item off (as Actor.UnequipItem): its enchantment ends with it." :
+			    ability ? "Removes the ability or disease itself (Actor.RemoveSpell), so its effects go and do not come back." :
+			              "Dispels every effect of this source (asks first).");
+			if (s.stuckCount) {
+				im::SameLine();
+				if (im::SmallButton("Remove the stuck ones")) {
+					RemoveSourceAsk(s, true);
 				}
-				Tip(s.group == LiveInfo::Group::kWorn && s.itemWorn ? "Takes the item off (as Actor.UnequipItem): its enchantment ends with it." :
-				    (s.group == LiveInfo::Group::kAbilities || s.group == LiveInfo::Group::kDiseases) ?
-				                                                       "Removes the ability or disease itself (Actor.RemoveSpell), so its effects go and do not come back." :
-				                                                       "Dispels every effect of this source (asks first).");
-				const bool perEffect = !(s.group == LiveInfo::Group::kAbilities || s.group == LiveInfo::Group::kDiseases);
-				if (im::BeginTable("fx", 5, im::ImGuiTableFlags_RowBg | im::ImGuiTableFlags_BordersInnerH | im::ImGuiTableFlags_SizingStretchProp)) {
-					im::TableSetupColumn("Effect", im::ImGuiTableColumnFlags_WidthStretch, 3.0f);
-					im::TableSetupColumn("Strength", im::ImGuiTableColumnFlags_WidthStretch, 1.0f);
-					im::TableSetupColumn("Time left", im::ImGuiTableColumnFlags_WidthStretch, 1.0f);
-					im::TableSetupColumn("State", im::ImGuiTableColumnFlags_WidthStretch, 1.2f);
-					im::TableSetupColumn("", im::ImGuiTableColumnFlags_WidthStretch, 1.0f);
-					im::TableHeadersRow();
-					for (std::size_t k = 0; k < s.effects.size(); ++k) {
-						const auto& e = s.effects[k];
-						im::PushID(static_cast<int>(k));
-						im::TableNextRow();
-						im::TableNextColumn();
-						if (e.stuck) {
-							Colored(kRed, e.name + "  (stuck)");
-							Tip("STUCK: " + s.stuckWhy + ".");
-						} else {
-							Line(e.name);
-						}
-						im::TableNextColumn();
-						Line(std::format("{:.1f}", e.magnitude));
-						im::TableNextColumn();
-						Line(TimeText(e));
-						im::TableNextColumn();
-						if (e.ended()) {
-							Dim("ended");
-							Tip(kEndedTip);
-						} else if (e.off()) {
-							Dim("switched off");
-							Tip(kOffTip);
-						} else {
-							Line("running");
-							Tip(kRunningTip);
-						}
-						im::TableNextColumn();
-						const bool canRemove = perEffect && !(s.group == LiveInfo::Group::kWorn && s.itemWorn && !e.stuck);
-						im::BeginDisabled(!canRemove);
-						if (im::SmallButton("Remove")) {
-							AskFirst("Remove " + e.name + " from your character?\n\nIt is dispelled, as a script's Dispel() does.", [uid = e.uid] {
-								Queue([uid] {
-									SetStatus(LiveInfo::RemoveEffect(uid));
-									g_effectsAt = {};
-								});
-							});
-						}
-						im::EndDisabled();
-						Tip(canRemove ? "Dispels this one effect (asks first)." :
-						    perEffect ? "It comes from something you wear: take the item off instead (button above)." :
-						                "An ability's effects come back while you have the ability: remove the ability itself (button above).");
-						im::PopID();
+				Tip("Dispels only the stuck effects of this source (asks first). STUCK: " + s.stuckWhy + ".");
+			}
+			const bool perEffect = !ability;
+			const auto flags = kListTable | (s.effects.size() > 12 ? im::ImGuiTableFlags_ScrollY : 0);
+			if (im::BeginTable("fx", 5, flags, s.effects.size() > 12 ? TableHeight(13, 13) : im::ImVec2{ 0.0f, 0.0f })) {
+				im::TableSetupScrollFreeze(0, 1);
+				im::TableSetupColumn("Effect", kNameColumn, 3.0f);
+				im::TableSetupColumn("Strength", kCountColumn, 1.0f);
+				im::TableSetupColumn("Time left", kCountColumn, 1.0f);
+				im::TableSetupColumn("State", kTextColumn, 1.2f);
+				im::TableSetupColumn("", kButtonColumn, 1.0f);
+				const auto sort = ReadSort();
+				im::TableHeadersRow();
+				std::vector<std::size_t> rows(s.effects.size());
+				for (std::size_t k = 0; k < rows.size(); ++k) {
+					rows[k] = k;
+				}
+				Order(rows, sort, [&](std::size_t a, std::size_t b) {
+					const auto& x = s.effects[a];
+					const auto& y = s.effects[b];
+					int c = 0;
+					switch (sort.column) {
+					case 1: c = Compare3(x.magnitude, y.magnitude); break;
+					case 2: c = Compare3(TimeLeft(x), TimeLeft(y)); break;
+					case 3: c = Compare3(StateRank(x), StateRank(y)); break;
+					default: break;
 					}
-					im::EndTable();
+					return c ? c : CompareI(x.name, y.name);
+				});
+				for (const auto k : rows) {
+					const auto& e = s.effects[k];
+					im::PushID(static_cast<int>(e.uid));
+					im::TableNextRow();
+					im::TableNextColumn();
+					if (e.stuck) {
+						Colored(kRed, e.name + "  (stuck)");
+						Tip("STUCK: " + s.stuckWhy + ".");
+					} else {
+						Line(e.name);
+					}
+					im::TableNextColumn();
+					Line(std::format("{:.1f}", e.magnitude));
+					im::TableNextColumn();
+					Line(TimeText(e));
+					im::TableNextColumn();
+					if (e.ended()) {
+						Dim("ended");
+						Tip(kEndedTip);
+					} else if (e.off()) {
+						Dim("switched off");
+						Tip(kOffTip);
+					} else {
+						Line("running");
+						Tip(kRunningTip);
+					}
+					im::TableNextColumn();
+					const bool canRemove = perEffect && !(worn && !e.stuck);
+					im::BeginDisabled(!canRemove);
+					if (im::SmallButton("Remove")) {
+						AskFirst("Remove " + e.name + " from your character?\n\nIt is dispelled, as a script's Dispel() does.", [uid = e.uid] {
+							Queue([uid] {
+								SetStatus(LiveInfo::RemoveEffect(uid));
+								g_effectsAt = {};
+							});
+						});
+					}
+					im::EndDisabled();
+					Tip(canRemove ? "Dispels this one effect (asks first)." :
+					    perEffect ? "It comes from something you wear: take the item off instead (button above)." :
+					                "An ability's effects come back while you have the ability: remove the ability itself (button above).");
+					im::PopID();
 				}
-				im::TreePop();
+				im::EndTable();
 			}
 			im::PopID();
 		}
@@ -391,18 +552,22 @@ namespace MenuPage
 				DrawAsk();
 				return;
 			}
-			Line(std::format("{} effects: {} running, {} switched off, {} ended.", v.total, v.running, v.off, v.ended));
+			Line(std::format("{} effects from {} sources: {} running, {} switched off, {} ended.", v.total, v.sources.size(), v.running, v.off, v.ended));
 			Tip("Running: acting on you now. Switched off: their condition is not met right now, so they do nothing until it is "
 				"(normal for many mods). Ended: over, not yet cleared by the game. Hover a state below for more.");
 			im::Spacing();
-			// stuck first
+			// stuck first, A-Z
 			if (v.stuck) {
 				im::SeparatorText(std::format("Stuck on your character ({})", v.stuck).c_str());
+				std::vector<std::size_t> stuck;
 				for (std::size_t i = 0; i < v.sources.size(); ++i) {
-					const auto& s = v.sources[i];
-					if (!s.stuckCount) {
-						continue;
+					if (v.sources[i].stuckCount) {
+						stuck.push_back(i);
 					}
+				}
+				Order(stuck, Sort{}, [&](std::size_t a, std::size_t b) { return CompareI(v.sources[a].spellName, v.sources[b].spellName); });
+				for (const auto i : stuck) {
+					const auto& s = v.sources[i];
 					im::PushID(static_cast<int>(100000 + i));
 					Colored(kRed, std::format("{}: {} effect(s)", s.spellName, s.stuckCount));
 					Tip("An item's enchantment that never runs out is still on you, but " + s.stuckWhy +
@@ -417,21 +582,114 @@ namespace MenuPage
 			} else {
 				Colored(kGreen, "Nothing stuck: every item enchantment on you comes from something you wear.");
 			}
-			for (int grp = 0; grp < static_cast<int>(LiveInfo::Group::kCount); ++grp) {
-				const auto group = static_cast<LiveInfo::Group>(grp);
-				std::size_t n = 0;
+			im::Spacing();
+			const auto low = SearchBox("##fxsearch", g_fxFilter, sizeof(g_fxFilter), "search: name, item, type, plugin, effect");
+			im::SameLine();
+			im::Checkbox("Group by kind", &g_fxGroups);
+			Tip("On: worn items, items not worn, spells, potions, abilities, diseases, put on you by others, each sorted the way you "
+				"chose. Off: one list, sorted only the way you chose.");
+			std::vector<std::size_t> rows;
+			for (std::size_t i = 0; i < v.sources.size(); ++i) {
+				if (SourceMatches(v.sources[i], low)) {
+					rows.push_back(i);
+				}
+			}
+			if (!low.empty()) {
+				Dim(std::format("{} of {} sources match.", rows.size(), v.sources.size()));
+			}
+			const LiveInfo::Source* selected = nullptr;
+			std::size_t             groups = 0;
+			if (g_fxGroups) {
+				bool seen[static_cast<int>(LiveInfo::Group::kCount)]{};
+				for (const auto i : rows) {
+					auto& b = seen[static_cast<int>(v.sources[i].group)];
+					groups += !b;
+					b = true;
+				}
+			}
+			if (im::BeginTable("sources", 5, kListTable | im::ImGuiTableFlags_ScrollY, TableHeight(rows.size() + groups + 1, 18))) {
+				im::TableSetupScrollFreeze(0, 1);
+				im::TableSetupColumn("Name", kNameColumn, 3.2f);
+				im::TableSetupColumn("Type", kTextColumn, 1.2f);
+				im::TableSetupColumn("Plugin", kTextColumn, 1.8f);
+				im::TableSetupColumn("Effects", kCountColumn, 0.7f);
+				im::TableSetupColumn("Running", kCountColumn, 0.7f);
+				const auto sort = ReadSort();
+				im::TableHeadersRow();
+				Order(rows, sort, [&](std::size_t a, std::size_t b) {
+					const auto& x = v.sources[a];
+					const auto& y = v.sources[b];
+					int         c = 0;
+					switch (sort.column) {
+					case 1: c = CompareI(x.kind, y.kind); break;
+					case 2: c = CompareI(x.plugin, y.plugin); break;
+					case 3: c = Compare3(x.effects.size(), y.effects.size()); break;
+					case 4: c = Compare3(x.running, y.running); break;
+					default: break;
+					}
+					if (!c) {
+						c = CompareI(x.spellName, y.spellName);
+					}
+					return c ? c : CompareI(x.itemName, y.itemName);
+				});
+				if (g_fxGroups) {  // groups in their fixed order, the player's sort inside each
+					std::stable_sort(rows.begin(), rows.end(), [&](std::size_t a, std::size_t b) { return v.sources[a].group < v.sources[b].group; });
+				}
+				int group = -1;
+				for (const auto i : rows) {
+					const auto& s = v.sources[i];
+					if (g_fxGroups && static_cast<int>(s.group) != group) {
+						group = static_cast<int>(s.group);
+						const auto n = std::ranges::count_if(rows, [&](std::size_t k) { return v.sources[k].group == s.group; });
+						im::TableNextRow();
+						im::TableNextColumn();
+						Colored(kYellow, std::format("{} ({})", LiveInfo::GroupName(s.group), n));
+					}
+					const auto id = Hex(s.spell) + Hex(s.item) + (s.fromOther ? "o" : "");  // stable while the list changes
+					im::TableNextRow();
+					im::TableNextColumn();
+					const bool sel = g_fxSel.Is(s);
+					if (sel) {
+						selected = &s;
+					}
+					if (s.stuckCount) {
+						im::PushStyleColor(im::ImGuiCol_Text, kRed);
+					}
+					if (im::Selectable((SourceTitle(s) + "##" + id).c_str(), sel, im::ImGuiSelectableFlags_SpanAllColumns)) {
+						g_fxSel = { s.spell, s.item, s.fromOther, true };
+						selected = &s;
+					}
+					if (s.stuckCount) {
+						im::PopStyleColor();
+					}
+					if (im::IsItemHovered(im::ImGuiHoveredFlags_AllowWhenDisabled)) {  // the text only for the row under the mouse
+						Tip(std::format("Click to see its effects and the buttons to remove them (below the list).\n\nMagic item {} ({}){}{}{}",
+						Hex(s.spell), s.plugin.empty() ? std::string("no plugin") : s.plugin,
+						s.item ? "\nFrom the item " + Hex(s.item) + (s.itemPlugin.empty() ? "" : " (" + s.itemPlugin + ")") : std::string(),
+						s.fromOther ? "\nPut on you by someone else" : "", s.stuckCount ? std::format("\n{} stuck effect(s)", s.stuckCount) : std::string()));
+					}
+					im::TableNextColumn();
+					Line(s.kind);
+					im::TableNextColumn();
+					Line(s.plugin);
+					im::TableNextColumn();
+					Line(std::to_string(s.effects.size()));
+					im::TableNextColumn();
+					Line(std::to_string(s.running));
+				}
+				im::EndTable();
+			}
+			if (!selected && g_fxSel.set) {
 				for (const auto& s : v.sources) {
-					n += s.group == group;
-				}
-				if (!n) {
-					continue;
-				}
-				im::SeparatorText(std::format("{} ({})", LiveInfo::GroupName(group), n).c_str());
-				for (std::size_t i = 0; i < v.sources.size(); ++i) {
-					if (v.sources[i].group == group) {
-						DrawSource(v.sources[i]);
+					if (g_fxSel.Is(s)) {
+						selected = &s;  // hidden by the search, still shown below
 					}
 				}
+			}
+			if (selected) {
+				DrawSourceDetail(*selected);
+			} else {
+				Dim(g_fxSel.set ? "That source is not on you any more." : "Click a row to see its effects and the buttons to remove them.");
 			}
 			DrawAsk();
 		}
@@ -476,15 +734,26 @@ namespace MenuPage
 			}
 			if (f.list.empty()) {
 				Line("Nobody is following you right now.");
-			} else if (im::BeginTable("followers", 4, im::ImGuiTableFlags_RowBg | im::ImGuiTableFlags_BordersInnerH | im::ImGuiTableFlags_SizingStretchProp)) {
-				im::TableSetupColumn("Name", im::ImGuiTableColumnFlags_WidthStretch, 1.4f);
-				im::TableSetupColumn("Where", im::ImGuiTableColumnFlags_WidthStretch, 1.6f);
-				im::TableSetupColumn("Why", im::ImGuiTableColumnFlags_WidthStretch, 1.0f);
-				im::TableSetupColumn("", im::ImGuiTableColumnFlags_WidthStretch, 2.6f);
+			} else if (im::BeginTable("followers", 4, kListTable)) {
+				im::TableSetupColumn("Name", kNameColumn, 1.4f);
+				im::TableSetupColumn("Where", kTextColumn, 1.6f);
+				im::TableSetupColumn("Why", kTextColumn, 1.0f);
+				im::TableSetupColumn("", kButtonColumn, 2.6f);
+				const auto sort = ReadSort();
 				im::TableHeadersRow();
-				for (std::size_t i = 0; i < f.list.size(); ++i) {
+				std::vector<std::size_t> rows(f.list.size());
+				for (std::size_t i = 0; i < rows.size(); ++i) {
+					rows[i] = i;
+				}
+				Order(rows, sort, [&](std::size_t a, std::size_t b) {
+					const auto& x = f.list[a];
+					const auto& y = f.list[b];
+					const int   c = sort.column == 1 ? CompareI(x.where, y.where) : sort.column == 2 ? CompareI(x.why, y.why) : 0;
+					return c ? c : CompareI(x.name, y.name);
+				});
+				for (const auto i : rows) {
 					const auto& fl = f.list[i];
-					im::PushID(static_cast<int>(i));
+					im::PushID(static_cast<int>(fl.id));
 					im::TableNextRow();
 					im::TableNextColumn();
 					Line(fl.name);
@@ -617,12 +886,6 @@ namespace MenuPage
 			});
 		}
 
-		std::string Lower(std::string s)
-		{
-			std::ranges::transform(s, s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-			return s;
-		}
-
 		const char* ObjectiveState(std::uint8_t a_state)
 		{
 			switch (a_state) {
@@ -670,19 +933,48 @@ namespace MenuPage
 				sel = g.questSel;
 				d = g.quest;
 			}
-			const auto& rows = *rowsp;
-			im::SetNextItemWidth(im::GetFontSize() * 16.0f);
-			im::InputTextWithHint("##questfilter", "search: name or editor ID", g_questFilter, sizeof(g_questFilter));
+			const auto& all = *rowsp;
+			const auto  filter = SearchBox("##questfilter", g_questFilter, sizeof(g_questFilter), "search: name, editor ID, plugin, form ID");
+			std::vector<std::size_t> rows;
+			for (std::size_t i = 0; i < all.size(); ++i) {
+				const auto& r = all[i];
+				if (filter.empty() || ContainsI(r.name, filter) || ContainsI(r.editorID, filter) || ContainsI(r.plugin, filter) || ContainsI(Hex(r.id), filter)) {
+					rows.push_back(i);
+				}
+			}
 			im::SameLine();
-			Dim(std::format("{} running quests", rows.size()));
-			const auto filter = Lower(g_questFilter);
-			if (im::BeginChild("questlist", im::ImVec2{ 0.0f, im::GetFontSize() * 8.0f }, im::ImGuiChildFlags_Border)) {
-				for (const auto& r : rows) {
-					const auto text = (r.name.empty() ? std::string("(no name)") : r.name) + "  [" + r.editorID + "]  stage " + std::to_string(r.stage);
-					if (!filter.empty() && Lower(text).find(filter) == std::string::npos) {
-						continue;
+			Dim(filter.empty() ? std::format("{} running quests", all.size()) : std::format("{} of {} running quests", rows.size(), all.size()));
+			if (im::BeginTable("quests", 4, kListTable | im::ImGuiTableFlags_ScrollY, TableHeight(rows.size() + 1, 12))) {
+				im::TableSetupScrollFreeze(0, 1);
+				im::TableSetupColumn("Name", kNameColumn, 2.4f);
+				im::TableSetupColumn("Editor ID", kTextColumn, 2.0f);
+				im::TableSetupColumn("Plugin", kTextColumn, 1.6f);
+				im::TableSetupColumn("Stage", kCountColumn, 0.6f);
+				const auto sort = ReadSort();
+				im::TableHeadersRow();
+				Order(rows, sort, [&](std::size_t a, std::size_t b) {
+					const auto& x = all[a];
+					const auto& y = all[b];
+					int         c = 0;
+					switch (sort.column) {
+					case 1: c = CompareI(x.editorID, y.editorID); break;
+					case 2: c = CompareI(x.plugin, y.plugin); break;
+					case 3: c = Compare3(x.stage, y.stage); break;
+					default:
+						if (x.name.empty() != y.name.empty()) {
+							return (x.name.empty() ? 1 : -1) * (sort.descending ? -1 : 1);  // quests with no name last, both ways
+						}
+						c = CompareI(x.name, y.name);
+						break;
 					}
-					if (im::Selectable((text + "##" + Hex(r.id)).c_str(), r.id == sel)) {
+					return c ? c : CompareI(x.editorID, y.editorID);
+				});
+				for (const auto i : rows) {
+					const auto& r = all[i];
+					im::TableNextRow();
+					im::TableNextColumn();
+					const auto label = (r.name.empty() ? std::string("(no name)") : r.name) + "##" + Hex(r.id);
+					if (im::Selectable(label.c_str(), r.id == sel, im::ImGuiSelectableFlags_SpanAllColumns)) {
 						{
 							std::scoped_lock l(g.lock);
 							g.questSel = r.id;
@@ -690,9 +982,18 @@ namespace MenuPage
 						}
 						RequestQuest(r.id, true);
 					}
+					if (im::IsItemHovered(im::ImGuiHoveredFlags_AllowWhenDisabled)) {
+						Tip(std::format("{} ({}, {}). Click to see its stages and objectives below.", r.editorID, Hex(r.id), r.plugin.empty() ? std::string("no plugin") : r.plugin));
+					}
+					im::TableNextColumn();
+					Line(r.editorID);
+					im::TableNextColumn();
+					Line(r.plugin);
+					im::TableNextColumn();
+					Line(std::to_string(r.stage));
 				}
+				im::EndTable();
 			}
-			im::EndChild();
 			if (!sel) {
 				Dim("Pick a quest above.");
 				DrawAsk();
@@ -816,6 +1117,9 @@ namespace MenuPage
 							return;
 						}
 						std::scoped_lock l(g.lock);
+						if (!g.samples.empty()) {
+							g.samples.back().topScripts.clear();  // only the newest sample's list is shown (the page copies the samples every frame)
+						}
 						g.samples.push_back(std::move(s));
 						while (g.samples.size() > 60) {
 							g.samples.pop_front();
@@ -867,6 +1171,8 @@ namespace MenuPage
 			return t;
 		}
 
+		char g_scriptFilter[128] = "";
+
 		void __stdcall RenderHealth()
 		{
 			StatusLine();
@@ -906,15 +1212,48 @@ namespace MenuPage
 			im::PlotLines("##stacks", plot.data(), static_cast<int>(plot.size()), 0, "script threads, last 3 minutes", FLT_MAX, FLT_MAX,
 				im::ImVec2{ 0.0f, im::GetFontSize() * 3.0f });
 			if (!last.topScripts.empty() && im::TreeNodeEx("Scripts with the most threads##top", im::ImGuiTreeNodeFlags_DefaultOpen)) {
-				for (const auto& [name, n] : last.topScripts) {
-					Line(std::format("{:>6}  {}", n, name));
+				Tip("The script and function each thread is in right now. One script with hundreds of threads is usually the one lagging.");
+				const auto filter = SearchBox("##scriptsearch", g_scriptFilter, sizeof(g_scriptFilter), "search: script or function");
+				std::vector<std::size_t> rows;
+				for (std::size_t i = 0; i < last.topScripts.size(); ++i) {
+					if (ContainsI(last.topScripts[i].first, filter)) {
+						rows.push_back(i);
+					}
+				}
+				im::SameLine();
+				Dim(std::format("the {} busiest", last.topScripts.size()));
+				Tip(std::format("Up to {} script functions, the ones with the most threads. Click Threads or Script to sort by it.", LiveInfo::kTopScripts));
+				if (im::BeginTable("topscripts", 2, kListTable | im::ImGuiTableFlags_ScrollY, TableHeight(rows.size() + 1, 14))) {
+					im::TableSetupScrollFreeze(0, 1);
+					// the count is what this list is for, so it is the column sorted by first (most first); Script sorts A-Z
+					im::TableSetupColumn("Threads", im::ImGuiTableColumnFlags_WidthStretch | im::ImGuiTableColumnFlags_DefaultSort |
+														im::ImGuiTableColumnFlags_PreferSortDescending,
+						0.6f);
+					im::TableSetupColumn("Script.Function", kTextColumn, 4.0f);
+					const auto sort = ReadSort();
+					im::TableHeadersRow();
+					Order(rows, sort, [&](std::size_t a, std::size_t b) {
+						const auto& x = last.topScripts[a];
+						const auto& y = last.topScripts[b];
+						const int   c = sort.column == 0 ? Compare3(x.second, y.second) : 0;
+						return c ? c : CompareI(x.first, y.first);
+					});
+					for (const auto i : rows) {
+						im::TableNextRow();
+						im::TableNextColumn();
+						Line(std::to_string(last.topScripts[i].second));
+						im::TableNextColumn();
+						Line(last.topScripts[i].first);
+					}
+					im::EndTable();
 				}
 				if (last.unreadable) {
 					Dim(std::format("{} thread(s) could not be read", last.unreadable));
 				}
 				im::TreePop();
+			} else {
+				Tip("The script and function each thread is in right now. One script with hundreds of threads is usually the one lagging.");
 			}
-			Tip("The script and function each thread is in right now. One script with hundreds of threads is usually the one lagging.");
 			if (g_sampling) {
 				if (im::SmallButton("Stop reading")) {
 					g_sampling = false;
@@ -964,45 +1303,108 @@ namespace MenuPage
 			return r;
 		}
 
+		std::string Today()
+		{
+			const auto now = std::time(nullptr);
+			std::tm    tm{};
+			localtime_s(&tm, &now);
+			char buf[32];
+			std::strftime(buf, sizeof(buf), "%Y-%m-%d", &tm);
+			return buf;
+		}
+
+		// "Open it": the file in the player's text editor (its own thread: ShellExecute can take a moment)
+		void OpenButton(const std::filesystem::path& a_file)
+		{
+			if (im::SmallButton("Open it")) {
+				std::thread([a_file] { ShellExecuteW(nullptr, L"open", a_file.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL); }).detach();
+			}
+			Tip("Opens it in your text editor (the game may lose focus).");
+		}
+
+		std::string SendText(bool a_reportBelow);
+
+		// Builds the report on the main thread (an SKSE task), then asks where to save it: the Windows Save As dialog on
+		// its own thread (SaveDialog.h). a_send: the "What to send" file (the list of files to attach, then the report),
+		// proposed on the Desktop as ReSaverHelper-report-<date>.txt; else the report alone, proposed where it always went
+		// (the SKSE log folder, ReSaverHelper-report.txt).
+		void SaveReport(bool a_send)
+		{
+			if (SaveDialog::Busy()) {
+				SetStatus("A Save As dialog is already open (if you do not see it, it may be behind the game: press Alt+Tab).");
+				return;
+			}
+			LiveInfo::VMSample last;
+			{
+				std::scoped_lock l(g.lock);
+				if (!g.samples.empty()) {
+					last = g.samples.back();
+				}
+			}
+			const auto extra = ExtraReportLines();
+			SetStatus("Writing the report: choose where to save it in the Save As dialog.");
+			Queue([last, extra, a_send] {
+				auto                  text = LiveInfo::ReportText(last, extra);
+				std::filesystem::path folder, name;
+				if (a_send) {
+					text = SendText(true) + "\n==================== the report ====================\n\n" + text;
+					folder = SaveDialog::Desktop();
+					name = "ReSaverHelper-report-" + Today() + ".txt";
+				} else {
+					const auto def = LiveInfo::DefaultReportPath();
+					folder = def.parent_path();
+					name = def.empty() ? std::filesystem::path("ReSaverHelper-report.txt") : def.filename();
+				}
+				if (folder.empty()) {
+					folder = a_send ? LiveInfo::LogFolder() : SaveDialog::Desktop();
+				}
+				const bool started = SaveDialog::SaveText(folder, name, std::move(text), a_send ? "what to send" : "the report",
+					[a_send](const SaveDialog::Result& a_r) {
+						if (!a_r.path.empty()) {
+							std::scoped_lock l(g.lock);
+							(a_send ? g.sent : g.report) = a_r.path;
+						}
+						SetStatus(a_r.message);
+					});
+				if (!started) {
+					SetStatus("A Save As dialog is already open (if you do not see it, it may be behind the game: press Alt+Tab).");
+				}
+			});
+		}
+
+		void DialogNote()
+		{
+			if (SaveDialog::Busy()) {
+				Colored(kYellow, "The Save As dialog is open. If you do not see it, it may be behind the game: press Alt+Tab.");
+			}
+		}
+
 		void __stdcall RenderReport()
 		{
 			StatusLine();
 			Wrapped("Writes a text file with what is useful to send when asking for help: game and helper versions, where you are, "
 					"characters around you with problems, your followers, script health, plugin counts.");
-			if (im::Button("Write the report")) {
-				LiveInfo::VMSample last;
-				{
-					std::scoped_lock l(g.lock);
-					if (!g.samples.empty()) {
-						last = g.samples.back();
-					}
-				}
-				const auto extra = ExtraReportLines();
-				Queue([last, extra] {
-					std::string err;
-					const auto  path = LiveInfo::WriteReport(last, extra, err);
-					{
-						std::scoped_lock l(g.lock);
-						g.report = path;
-					}
-					SetStatus(path.empty() ? "Could not write the report: " + err : "Report written: " + path.string());
-				});
+			const auto def = LiveInfo::DefaultReportPath();
+			im::BeginDisabled(SaveDialog::Busy());
+			if (im::Button("Write the report...")) {
+				SaveReport(false);
 			}
-			Tip("Open Troubleshooting > Script health first if you want script numbers in it.");
+			im::EndDisabled();
+			Tip("Asks where to save it (the Windows Save As dialog), starting in the SKSE log folder as ReSaverHelper-report.txt. "
+				"Open Troubleshooting > Script health first if you want script numbers in it.");
+			DialogNote();
 			std::filesystem::path report;
 			{
 				std::scoped_lock l(g.lock);
 				report = g.report;
 			}
 			if (!report.empty()) {
-				Line("File: " + report.string());
-				if (im::SmallButton("Open it")) {
-					std::thread([report] { ShellExecuteW(nullptr, L"open", report.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL); }).detach();
-				}
-				Tip("Opens it in your text editor (the game may lose focus).");
+				Line("File: " + SaveDialog::PathText(report));
+				OpenButton(report);
 			} else {
-				Dim("File: " + (LiveInfo::LogFolder() / "ReSaverHelper-report.txt").string());
+				Dim("Proposed: " + SaveDialog::PathText(def));
 			}
+			Dim("In exclusive fullscreen no dialog can be shown: the report then goes to the proposed place, and this page says so.");
 			DrawAsk();
 		}
 
@@ -1056,21 +1458,46 @@ namespace MenuPage
 					r.tick = false;
 				}
 			}
-			for (auto& r : g_ghosts) {
-				im::PushID(static_cast<int>(r.id));
-				const bool created = (r.id >> 24) == 0xFF;
-				im::BeginDisabled(!created);
-				im::Checkbox(Hex(r.id).c_str(), &r.tick);
-				im::EndDisabled();
-				if (!created) {
-					r.tick = false;
-					im::SameLine();
-					Dim("not a created (FF) id: left alone");
-				} else if (!r.result.empty()) {
-					im::SameLine();
-					Colored(r.result == "done" ? kGreen : kYellow, r.result);
+			if (im::BeginTable("ghosts", 3, kListTable | im::ImGuiTableFlags_ScrollY, TableHeight(g_ghosts.size() + 1, 14))) {
+				im::TableSetupScrollFreeze(0, 1);
+				im::TableSetupColumn("Remove", im::ImGuiTableColumnFlags_WidthStretch | im::ImGuiTableColumnFlags_NoSort, 0.7f);
+				im::TableSetupColumn("Form ID", kNameColumn, 1.2f);
+				im::TableSetupColumn("Result", kTextColumn, 3.0f);
+				const auto sort = ReadSort();
+				im::TableHeadersRow();
+				std::vector<std::size_t> rows(g_ghosts.size());
+				for (std::size_t i = 0; i < rows.size(); ++i) {
+					rows[i] = i;
 				}
-				im::PopID();
+				Order(rows, sort, [&](std::size_t a, std::size_t b) {
+					const auto& x = g_ghosts[a];
+					const auto& y = g_ghosts[b];
+					const int   c = sort.column == 2 ? CompareI(x.result, y.result) : 0;
+					return c ? c : Compare3(x.id, y.id);
+				});
+				for (const auto i : rows) {
+					auto& r = g_ghosts[i];
+					im::PushID(static_cast<int>(r.id));
+					im::TableNextRow();
+					im::TableNextColumn();
+					const bool created = (r.id >> 24) == 0xFF;
+					im::BeginDisabled(!created);
+					im::Checkbox("##tick", &r.tick);
+					im::EndDisabled();
+					im::TableNextColumn();
+					Line(Hex(r.id));
+					im::TableNextColumn();
+					if (!created) {
+						r.tick = false;
+						Dim("not a created (FF) id: left alone");
+					} else if (!r.result.empty()) {
+						Colored(r.result == "done" ? kGreen : kYellow, r.result);
+					} else {
+						Dim(r.tick ? "to remove" : "left alone");
+					}
+					im::PopID();
+				}
+				im::EndTable();
 			}
 			im::Spacing();
 			Colored(kRed, "Risk: touching a broken character can crash the game.");
@@ -1272,16 +1699,26 @@ namespace MenuPage
 			DrawAsk();
 		}
 
-		std::string SendText()
+		// a_reportBelow: for the saved file, which has the report after the list
+		std::string SendText(bool a_reportBelow)
 		{
-			const auto dir = LiveInfo::LogFolder();
+			const auto            dir = LiveInfo::LogFolder();
+			std::filesystem::path report;
+			{
+				std::scoped_lock l(g.lock);
+				report = g.report;
+			}
+			if (report.empty()) {
+				report = LiveInfo::DefaultReportPath();
+			}
 			std::string t;
 			t += "Please attach these files:\n";
-			t += "- " + (dir / "ReSaverHelper.log").string() + "\n";
-			t += "- " + (dir / "ReSaverHelper-report.txt").string() + " (Troubleshooting > Write a report)\n";
-			t += "- " + (dir / "skse64.log").string() + "\n";
-			t += "- " + LiveInfo::PapyrusLog().string() + " (if there is one)\n";
-			t += "- the newest crash log, if the game crashed (in " + dir.string() + ", or wherever your crash logger writes)\n";
+			t += "- " + SaveDialog::PathText(dir / "ReSaverHelper.log") + "\n";
+			t += a_reportBelow ? std::string("- the report: it is in this file, below the list\n") :
+			                     "- " + SaveDialog::PathText(report) + " (Troubleshooting > Write a report), or save this list with the report: Save...\n";
+			t += "- " + SaveDialog::PathText(dir / "skse64.log") + "\n";
+			t += "- " + SaveDialog::PathText(LiveInfo::PapyrusLog()) + " (if there is one)\n";
+			t += "- the newest crash log, if the game crashed (in " + SaveDialog::PathText(dir) + ", or wherever your crash logger writes)\n";
 			t += "- the save where it happens (.ess and its .skse file)\n";
 			t += std::format("ReSaverHelper {}, Skyrim {} {}\n", proto::kHelperVersion, REL::Module::IsVR() ? "VR" : REL::Module::IsAE() ? "AE" : "SE",
 				REL::Module::get().version().string());
@@ -1291,13 +1728,33 @@ namespace MenuPage
 		void __stdcall RenderSend()
 		{
 			StatusLine();
-			const auto t = SendText();
+			const auto t = SendText(false);
 			Wrapped(t);
 			if (im::Button("Copy")) {
 				im::SetClipboardText(t.c_str());
 				SetStatus("Copied: paste it in your message.");
 			}
 			Tip("Copies the list above, with the full paths, to the clipboard.");
+			im::SameLine();
+			im::BeginDisabled(SaveDialog::Busy());
+			if (im::Button("Save...")) {
+				SaveReport(true);
+			}
+			im::EndDisabled();
+			Tip("Saves one text file with this list and the report (as Troubleshooting > Write a report makes it). Asks where "
+				"(the Windows Save As dialog), starting on your Desktop as ReSaverHelper-report-<date>.txt. Attach that file and "
+				"the logs listed above.");
+			DialogNote();
+			std::filesystem::path sent;
+			{
+				std::scoped_lock l(g.lock);
+				sent = g.sent;
+			}
+			if (!sent.empty()) {
+				Line("File: " + SaveDialog::PathText(sent));
+				OpenButton(sent);
+			}
+			Dim("In exclusive fullscreen no dialog can be shown: the file then goes to your Desktop, and this page says so.");
 			DrawAsk();
 		}
 

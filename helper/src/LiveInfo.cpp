@@ -5,6 +5,7 @@
 #include "Rescue.h"
 #include "Settings.h"
 
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <ctime>
@@ -194,6 +195,30 @@ namespace LiveInfo
 			return nullptr;
 		}
 
+		// the plugin a form comes from (its first file); "(made in game)" for a created (FF) form
+		std::string PluginOf(const RE::TESForm* a_form)
+		{
+			if (!a_form) {
+				return {};
+			}
+			if (const auto* file = a_form->GetFile(0)) {
+				return std::string(file->GetFilename());
+			}
+			return (a_form->GetFormID() >> 24) == 0xFF ? std::string("(made in game)") : std::string();
+		}
+
+		int CompareI(std::string_view a, std::string_view b)
+		{
+			const auto n = std::min(a.size(), b.size());
+			for (std::size_t i = 0; i < n; ++i) {
+				const int x = std::tolower(static_cast<unsigned char>(a[i])), y = std::tolower(static_cast<unsigned char>(b[i]));
+				if (x != y) {
+					return x < y ? -1 : 1;
+				}
+			}
+			return a.size() == b.size() ? 0 : a.size() < b.size() ? -1 : 1;
+		}
+
 		std::string EffectName(const RE::ActiveEffect* a_ae)
 		{
 			const auto* base = a_ae->GetBaseObject();
@@ -241,6 +266,27 @@ namespace LiveInfo
 		}
 	}
 
+	const char* KindName(Group a_group, int a_spellType)
+	{
+		switch (a_group) {
+		case Group::kWorn: return "worn item";
+		case Group::kNotWorn: return "item not worn";
+		case Group::kSpells:
+			switch (a_spellType) {
+			case 2: return "power";
+			case 3: return "lesser power";
+			case 11: return "shout";
+			case 13: return "scroll";
+			default: return "spell";
+			}
+		case Group::kConsumables: return a_spellType == kPoison ? "poison" : a_spellType == kIngredient ? "ingredient" : "potion / food";
+		case Group::kAbilities: return "ability";
+		case Group::kDiseases: return a_spellType == kAddiction ? "addiction" : "disease";
+		case Group::kOthers: return "from someone else";
+		default: return "unknown";
+		}
+	}
+
 	Effects ReadEffects()
 	{
 		Effects v;
@@ -263,6 +309,9 @@ namespace LiveInfo
 				s.spellType = r.type;
 				s.spellName = r.ae->spell ? NameOf(r.ae->spell) : std::string("(no magic item)");
 				s.itemName = r.key.item ? NameOf(r.ae->source) : std::string();
+				s.plugin = r.ae->spell ? PluginOf(r.ae->spell) : std::string();
+				s.itemPlugin = r.key.item ? PluginOf(r.ae->source) : std::string();
+				s.kind = KindName(s.group, s.spellType);
 				s.itemWorn = r.key.item && worn.items.contains(r.key.item);
 				s.itemCarried = r.key.item && worn.carried.contains(r.key.item);
 				it = at.emplace(r.key, v.sources.size()).first;
@@ -300,7 +349,7 @@ namespace LiveInfo
 			if (a.group != b.group) {
 				return a.group < b.group;
 			}
-			return a.effects.size() > b.effects.size();
+			return CompareI(a.spellName, b.spellName) < 0;
 		});
 		return v;
 	}
@@ -436,6 +485,7 @@ namespace LiveInfo
 			r.id = q->GetFormID();
 			r.editorID = q->GetFormEditorID() ? q->GetFormEditorID() : "";
 			r.name = q->GetName() ? q->GetName() : "";
+			r.plugin = PluginOf(q);
 			r.stage = q->GetCurrentStageID();
 			out.push_back(std::move(r));
 		}
@@ -536,8 +586,8 @@ namespace LiveInfo
 		}
 		s.topScripts.assign(byScript.begin(), byScript.end());
 		std::ranges::sort(s.topScripts, [](const auto& a, const auto& b) { return a.second != b.second ? a.second > b.second : a.first < b.first; });
-		if (s.topScripts.size() > 12) {
-			s.topScripts.resize(12);
+		if (s.topScripts.size() > kTopScripts) {
+			s.topScripts.resize(kTopScripts);
 		}
 		return s;
 	}
@@ -639,14 +689,14 @@ namespace LiveInfo
 		return dir.empty() ? dir : dir.parent_path() / "Logs" / "Script" / "Papyrus.0.log";
 	}
 
-	std::filesystem::path WriteReport(const VMSample& a_vm, const std::string& a_extra, std::string& a_error)
+	std::filesystem::path DefaultReportPath()
 	{
 		const auto dir = LogFolder();
-		if (dir.empty()) {
-			a_error = "the SKSE log folder is not known";
-			return {};
-		}
-		const auto path = dir / "ReSaverHelper-report.txt";
+		return dir.empty() ? dir : dir / "ReSaverHelper-report.txt";
+	}
+
+	std::string ReportText(const VMSample& a_vm, const std::string& a_extra)
+	{
 		std::string r;
 		auto        line = [&r](const std::string& a_text) { r += a_text + "\n"; };
 		const auto  now = std::time(nullptr);
@@ -728,19 +778,17 @@ namespace LiveInfo
 				a_vm.stacks, a_vm.latent, a_vm.suspended, a_vm.queuedCalls));
 			line(std::format("  freeze state: {} (0 = normal)  frozen stacks: {}  unreadable stacks: {}", a_vm.freezeState, a_vm.frozen, a_vm.unreadable));
 			line("  most threads in:");
+			std::size_t shown = 0;
 			for (const auto& [name, n] : a_vm.topScripts) {
+				if (++shown > 30) {
+					line(std::format("    ... and {} more", a_vm.topScripts.size() - 30));
+					break;
+				}
 				line(std::format("    {:6}  {}", n, name));
 			}
 		} else {
 			line("Script health: not sampled (open Troubleshooting > Script health first)");
 		}
-		std::ofstream out(path, std::ios::binary | std::ios::trunc);
-		out << r;
-		if (!out) {
-			a_error = "could not write " + path.string();
-			return {};
-		}
-		spdlog::info("F1 page: report written to {}", path.string());
-		return path;
+		return r;
 	}
 }

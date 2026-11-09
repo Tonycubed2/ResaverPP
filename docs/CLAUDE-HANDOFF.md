@@ -847,6 +847,34 @@ project; you do the coding, building, delivering and publishing.
     xbyak 7.28 / DirectXMath / DirectXTK / openvr headers in f1deps). xwin cannot run here (aka.ms is blocked by the proxy). All helper
     sources pass; a broken copy shows the checker reports errors. Only verified on 1.6.1170; SE 1.5.97 and VR use CommonLib's ids, not
     checked in those exes. Nothing was run in the game.
+  - Sorting, search and Save As (2026-11-08, branch f1sort, after Tony's first in-game test: no crash, but the My character
+    list was long and in no useful order). Every list is an ImGui table with ImGuiTableFlags_Sortable, A-Z by name at first
+    (kNameColumn = DefaultSort + PreferSortAscending; counts PreferSortDescending; the busiest scripts start by Threads, most
+    first). `ReadSort()` reads TableGetSortSpecs()->Specs[0] every frame (the lists change while the page is open) and only the
+    LOW BYTE of SortDirection: the DLL has Dear ImGui 1.90.8 (string in SKSEMenuFramework.dll), where it is a ": 8" bit field,
+    the header declares a 4-byte enum. `Order()` = stable_sort of row indices. My character: one table (Name, Type =
+    LiveInfo::KindName, Plugin = TESForm::GetFile(0) of the magic item, Effects, Running; ScrollY), "Group by kind" (default
+    on: group header rows, the sort inside each group), search box (name, item, type, plugin, form id, effect names); click a row
+    -> `DrawSourceDetail` below (buttons + sortable effects table). Quests: table (Name, Editor ID, Plugin, Stage; unnamed last
+    both ways) with search. Followers, ghost actors (tick, Form ID, Result), script health (topScripts now up to
+    LiveInfo::kTopScripts = 100, only the newest sample keeps its list; the report prints 30) are tables too. Stages and
+    objectives stay in index order. New framework exports used: igTableGetSortSpecs, igTableSetupScrollFreeze,
+    igSelectable_Bool, igPushStyleColor_Vec4, igPopStyleColor, igGetFrameHeightWithSpacing, igSetNextItemWidth, igCheckbox (all
+    in Tony's 3.18 export table, checked with objdump on his PC, md5 447a37122209b97e3c21bfc3c3b2a86d).
+  - Save As: new `helper/src/SaveDialog.h/.cpp` (cmake lists; links ole32 uuid). IFileSaveDialog on a detached thread with
+    CoInitializeEx(STA), NO owner window (a cross-thread owner attaches the threads' input queues: focus and the cursor's
+    show count, which the game hides), topmost + SetForegroundWindow from IFileDialogEvents::OnFolderChange (first call,
+    via IOleWindow), FOS_NOCHANGEDIR (the game's working directory), SetFolder (not SetDefaultFolder), the game window
+    (largest visible unowned top-level window of the process) brought back to the front afterwards. Exclusive fullscreen =
+    SHQueryUserNotificationState == QUNS_RUNNING_D3D_FULL_SCREEN: no dialog, written to the default place, the status says
+    where. Write a report: `LiveInfo::ReportText` (main-thread task) -> dialog, default = DefaultReportPath() (SKSE log
+    folder, ReSaverHelper-report.txt). What to send > Save...: SendText(true) + the report, default Desktop
+    (SHGetKnownFolderPath FOLDERID_Desktop), ReSaverHelper-report-<date>.txt. LiveInfo::WriteReport is gone. Tested here
+    only under wine 9 + Xvfb (scratchpad f1sort-wine: stub PCH, fake game window with a 16 ms timer): the dialog opened
+    over the fake game window in the Desktop with the default name, Enter saved, Escape cancelled, the fake game's message
+    loop kept ticking (~60/s) and the working directory did not change. Real Windows / Skyrim (borderless, exclusive,
+    the cursor) not tried. Syntax check: f1check/chk-uuid.sh (chk.sh plus -D__uuidof(x)=..., only because mingw's COM
+    headers have no uuid declarations in MSVC mode; SaveDialog.cpp itself uses the named IIDs, not __uuidof).
 
 ## 2. Where things are
 

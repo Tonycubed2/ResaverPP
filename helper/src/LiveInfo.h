@@ -19,6 +19,9 @@ namespace LiveInfo
 		kCount
 	};
 	const char* GroupName(Group a_group);
+	// the short "Type" column text: worn item, item not worn, spell, power, lesser power, shout, scroll, potion / food,
+	// poison, ingredient, ability, disease, addiction, from someone else, unknown
+	const char* KindName(Group a_group, int a_spellType);
 
 	struct Effect
 	{
@@ -38,7 +41,10 @@ namespace LiveInfo
 		RE::FormID           item = 0;   // the object it came from (ActiveEffect::source), 0 if none
 		bool                 fromOther = false;
 		std::string          spellName, itemName;
+		std::string          plugin;      // the plugin that adds the magic item (TESForm::GetFile(0)), "(made in game)" for FF ids
+		std::string          itemPlugin;  // the same for the item it came from ("" if none)
 		int                  spellType = -1;  // MagicSystem::SpellType
+		std::string          kind;            // KindName(group, spellType)
 		bool                 itemWorn = false, itemCarried = false;
 		std::string          stuckWhy;  // set when effects of this source are stuck
 		std::vector<Effect>  effects;
@@ -48,7 +54,7 @@ namespace LiveInfo
 	struct Effects
 	{
 		bool                valid = false;  // a game is loaded
-		std::vector<Source> sources;        // sorted by group
+		std::vector<Source> sources;        // by group, then by name A-Z (the page sorts them as the player asks)
 		std::size_t         total = 0, running = 0, off = 0, ended = 0, stuck = 0;
 	};
 	Effects ReadEffects();
@@ -85,6 +91,7 @@ namespace LiveInfo
 	{
 		RE::FormID    id = 0;
 		std::string   editorID, name;
+		std::string   plugin;  // the plugin that adds the quest (TESForm::GetFile(0))
 		std::uint16_t stage = 0;
 	};
 	std::vector<QuestRow> ReadRunningQuests();  // every running quest (Game::Running), by name
@@ -126,8 +133,10 @@ namespace LiveInfo
 		                                  // shutting down or the console's ToggleScripts ("ts"); all use 0x9c3590
 		std::uint32_t unreadable = 0;     // stacks whose current function could not be read
 		std::vector<std::pair<std::string, std::uint32_t>> topScripts;  // "Script.Function" of the current frame, most stacks first
+		                                                                // (the first kTopScripts)
 	};
-	VMSample SampleVM(double a_time);
+	inline constexpr std::size_t kTopScripts = 100;
+	VMSample                     SampleVM(double a_time);
 
 	// ---------------------------------------------------------------- tests
 	// Spawns a creature (Skyrim.esm base NPC: 0 wolf EncWolf 00023ABE, 1 deer EncDeer 000CF89D, 2 sabre cat EncSabreCat
@@ -140,10 +149,12 @@ namespace LiveInfo
 	RE::FormID TargetActor(std::string& a_name);
 
 	// ---------------------------------------------------------------- report
-	// Writes <SKSE log folder>\ReSaverHelper-report.txt (game and helper versions, the cell, nearby characters with
-	// problems, script health, plugin counts; a_extra: lines the page adds, e.g. the menu framework's version).
-	// Returns the file, or "" (a_error says why).
-	std::filesystem::path WriteReport(const VMSample& a_vm, const std::string& a_extra, std::string& a_error);
+	// The report's text (game and helper versions, the cell, nearby characters with problems, followers, script health,
+	// plugin counts, settings; a_extra: lines the page adds, e.g. the menu framework's version). Main thread. The page
+	// writes it where the player chooses (SaveDialog), by default to DefaultReportPath().
+	std::string ReportText(const VMSample& a_vm, const std::string& a_extra);
+	// <SKSE log folder>\ReSaverHelper-report.txt ("" when the folder is not known)
+	std::filesystem::path DefaultReportPath();
 
 	// folders: SKSE log folder (Documents\My Games\<game>\SKSE) and the Papyrus log (...\Logs\Script\Papyrus.0.log)
 	std::filesystem::path LogFolder();

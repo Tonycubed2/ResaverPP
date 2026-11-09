@@ -86,21 +86,31 @@ Press F1 (SKSE Menu Framework's key) and open "ReSaver Plus". The page is not ad
 (iDiagnosticStage 0 to 4). Buttons that change the game ask first; most of what they do happens when you close the
 menu. Everything is written to ReSaverHelper.log. Hover any button or line for details.
 
+Every list on the page is a table sorted A to Z by name when it opens. Click a column's header to sort by that
+column, click it again to reverse the order; the page remembers the choice. The long lists (effects, quests, scripts)
+have a search box above them: only the rows containing that text are shown.
+
 - **Rescue**
   - Save now: saves as a new save, ReSaverPP_Rescue_<date>_<time>.
   - Get my controls back: EnablePlayerControls. (Skyrim has nothing to give back afterwards: "Give the controls back
     to the game" in ReSaver Plus is for Fallout 4 only.)
   - Bring my followers: every follower (vanilla, DLC, follower mods, teammates) next to you; sGatherSkip is respected.
   - All three: the same as holding Ctrl for 8 seconds (the save first).
-- **My character**: every magic effect on you, grouped by where it comes from (worn items, items not worn, spells,
-  potions, abilities, diseases, put on you by others), with strength, time left and state (running, switched off
-  = its condition is not met, ended). Stuck effects (an item's never-ending enchantment while nothing you wear
-  carries it, or the item is gone) are listed first, in red.
+- **My character**: every source of magic effects on you (a spell, an ability, an item's enchantment...) in one table:
+  Name, Type (worn item, item not worn, spell, power, shout, scroll, potion / food, poison, ability, disease,
+  addiction, from someone else), Plugin (the plugin that adds it), Effects (how many) and Running (how many act on
+  you right now). Sort by any column (for example Effects, most first) and search by name, item, type, plugin or
+  effect name. "Group by kind" (on by default) keeps the groups (worn items, items not worn, spells, potions,
+  abilities, diseases, put on you by others) with your sort inside each; switch it off for one flat list. Click a
+  row to see its effects below the table (a sortable table too: effect, strength, time left, state = running,
+  switched off = its condition is not met, or ended) and the buttons. Stuck effects (an item's never-ending
+  enchantment while nothing you wear carries it, or the item is gone) are listed first, in red, A to Z.
   - Remove (one effect): dispels it, as a script's Dispel() does.
   - Take it off (a worn item): unequips the item, as Actor.UnequipItem does.
   - Remove it (an ability or disease): Actor.RemoveSpell.
   - Remove all / Remove them (stuck): dispels each effect of that source.
-- **Followers**: your followers and teammates, where they are and why they count as followers.
+- **Followers**: your followers and teammates, where they are and why they count as followers (sortable by name,
+  where, why).
   - Bring: just that one, next to you.
   - Teammate on / off: Actor.SetPlayerTeammate.
   - Dismiss (the vanilla follower): the follower quest's own dismissal (DialogueFollower stage 400).
@@ -108,19 +118,22 @@ menu. Everything is written to ReSaverHelper.log. Hover any button or line for d
   - Get out of werewolf / Vampire Lord form: the transformation script's own ShiftBack().
 - **Quests**
   - Refresh the journal: brings back quests and objectives the journal stopped showing.
-  - Fix a stuck quest: search the running quests (name or editor ID), pick one, see its stage, its stages and its
+  - Fix a stuck quest: the running quests in a table (Name, Editor ID, Plugin, Stage; quests with no name at the end),
+    with a search box (name, editor ID, plugin or form ID). Click one to see its stage, its stages and its
     objectives. Set (a stage the quest has: Quest.SetStage, its script runs), Complete (an objective:
     Quest.SetObjectiveCompleted), Stop quest (Quest.Stop).
 - **Troubleshooting**
   - Script health: script threads (Papyrus stacks), how many wait on a timer, wait their turn (suspended), or are
     calls not started yet, read every 3 seconds, with a trend ("growing" for minutes = script lag), a graph and the
-    scripts with the most threads. Save health: warns when the script engine was asked to pause (as a save does)
+    scripts with the most threads (the 100 busiest script functions, sorted by threads, most first, or by name;
+    with a search box). Save health: warns when the script engine was asked to pause (as a save does)
     and cannot, which makes the next save bad; how to test it with the console's `ts`.
-  - Write a report: ReSaverHelper-report.txt in the SKSE log folder (game and helper versions, cell, characters
-    around you with problems, followers, script health, plugin counts, settings). Open it opens it in your editor.
+  - Write a report: game and helper versions, cell, characters around you with problems, followers, script health,
+    plugin counts, settings. "Write the report..." asks where to save it with the Windows Save As dialog, starting
+    where it always went: ReSaverHelper-report.txt in the SKSE log folder. Open it opens it in your editor.
   - Ghost actors: paste or type the ids ReSaver Plus's Save check lists (spawned characters whose base NPC is a
     temporary copy the save does not contain; Ultimate Deadly Encounters' clone spawns make them), tick the ones to
-    remove, tick "I understand the risk" and remove them: for each, the console's `disable` then `markfordelete`,
+    remove (a table sortable by form ID or result), tick "I understand the risk" and remove them: for each, the console's `disable` then `markfordelete`,
     one at a time, each step written to ReSaverHelper.log first. Touching a broken character can crash the game: make
     a save first; afterwards save as a new save and open it in ReSaver Plus to check. The live game cannot tell which
     characters are ghosts, so the list always comes from ReSaver Plus.
@@ -132,7 +145,13 @@ menu. Everything is written to ReSaverHelper.log. Hover any button or line for d
     selected reference).
   - Helper and connection: helper, game and menu framework versions, whether ReSaver Plus is connected, bListen,
     bRescueHotkey, and where the logs are.
-  - What to send: the list of files to attach, with their full paths, and a Copy button.
+  - What to send: the list of files to attach, with their full paths, a Copy button, and Save...: one text file
+    with the list and the report, saved where you choose (the Windows Save As dialog, starting on your Desktop as
+    ReSaverHelper-report-<date>.txt).
+  - The Save As dialog opens over the game; the game keeps running while it is open, and comes back to the front when
+    it closes. If you do not see it, press Alt+Tab. In exclusive fullscreen Windows cannot show a dialog over the
+    game: the file is then saved to the proposed place (the SKSE log folder for the report, the Desktop for What to
+    send) and the page says where.
 - **About**: the helper version and the ReSaver Plus Nexus page.
 
 Build note: `src/SKSEMenuFramework.h` is the framework's official API header (from its MIT-licensed example

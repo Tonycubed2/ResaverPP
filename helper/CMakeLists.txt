@@ -46,7 +46,8 @@ target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
 target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/Z7>)
 target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
 
-# named pipe security (owner-only access): advapi32; "Open it" for the report on the F1 page (ShellExecuteW): shell32.
+# named pipe security (owner-only access): advapi32; "Open it" for the report on the F1 page (ShellExecuteW): shell32;
+# the F1 page's Save As dialog (SaveDialog.cpp: IFileSaveDialog, SHGetKnownFolderPath FOLDERID_Desktop): ole32, uuid.
 # SKSE Menu Framework is NOT linked: src/SKSEMenuFramework.h finds SKSEMenuFramework.dll at run time, so the helper
 # loads and works the same without it.
-target_link_libraries(${PROJECT_NAME} PRIVATE advapi32 shell32)
+target_link_libraries(${PROJECT_NAME} PRIVATE advapi32 shell32 ole32 uuid)
