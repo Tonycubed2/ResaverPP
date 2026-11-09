@@ -1040,6 +1040,46 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
+- SkyrimIstari's journal refresh crash + "quests not closed out properly" (9 Nov 2026, 1.6.640 Proton, v65, helper 14;
+  branch ist2, not published). Files: scratchpad/ist2/cRASHED (Save103, crash-2026-11-08-23-19-51.log, Collect-logs folder).
+  - The crash (23:19:51, 3 min after the refresh ended at 23:16:44): 82665+0x11 GFxMovieView::InvokeNoReturn, rcx=0, from
+    82640 (0xfbe900 in 1.6.1170, GFxMovie::Invoke) <- 53315+0x361 = JournalMenu::ProcessMessage (JournalMenu vtable 0x190ad38 slot 4
+    = 0x994580 in 1.6.1170; +0x35c `Invoke(this->uiMovie /*+0x10*/, "RestoreSavedSettings")` on message 1 = kShow, then
+    "UIJournalOpen") <- 82082+0x6BD UI::ProcessMessages (`call [menu vtbl+0x20]`) <- 39042 (per-frame UI step: 82082 then 82083
+    AdvanceMenus) <- 69378/69380/69344 (main loop update) <- 68445. So: the Journal was being opened and its own movie was null.
+    The JournalMenu ctor (0x994260) gives uiMovie only when BSScaleformManager::LoadMovie (82325, 0xfb0110) of "Quest_Journal"
+    succeeds; LoadMovie fails when neither Interface/Quest_Journal.swf nor Interface/Exported/Quest_Journal.gfx is found, when the
+    GFx loader cannot create the movie or when CreateInstance fails. Nothing there depends on quests or the HUD. The game does
+    not test uiMovie before RestoreSavedSettings, so a failed load crashes on kShow. QUI.dll (Qudix: PluginExplorer + main menu
+    tweaks, no journal) is only a stale stack-scan return address; the old "journal UI mods such as QUI" text was wrong and is
+    gone. InfinityUI 2.0.3 logs every movie load (Quest_Journal loaded at 22:40:39 and 22:42:46); there is no line for the
+    23:19 opening, so the load failed before or inside its hook (cannot be told from here). Helper not on the stack; it never
+    touches GFx / menus. Same signature as his October report and helper 3's.
+  - What the refresh did wrong (fixed, helper 15): every SetObjectiveDisplayed(true) queues a HUD objective message: native
+    0xa46d70 -> 23933 (0x394440) -> 51646 (0x9201c0, HUDData type 0x11), and it is a no-op for completed quests (flag 0x2) and for
+    quests neither running nor stage-wait. Helper 4-14 re-showed all 286 shown objectives in 2 s -> 286 banners ("visit this
+    house...") queued for many minutes. The Journal reads only PlayerCharacter's objective list (+0x588 on AE 1.6.629+, = CommonLib
+    GetPlayerRuntimeData().objectives; written by 40510 0x737cd0, which finds-or-adds and trims the oldest quest's entries past
+    iMaxQuestObjectives = 3000, setting at 0x20140f8). Helper 15's REFRESH now hides/shows only objectives (state 1/3/5) that list
+    does not hold for the quest's currentInstanceID with that state (Game.cpp Listed()); already-listed ones get no call and no
+    banner. No new REL ids (only CommonLib members; his 1.6.640 snapshots' 2997 "jobj" lines = the save's 2997 entries).
+  - Journal rule (1.6.1170 quest list 0x989f90 + entry 0x98b270): an entry is listed when its state is 1/3/5 (Misc, type 6:
+    1 only); "completed" (Completed section) = quest flag completed OR entry instance != quest currentInstanceID. Save:
+    CHANGE_QUEST_INSTANCES (flag 27) starts with currentInstanceID (TESQuest::SaveGame 0x3cadec writes +0x50 first); without it
+    the game keeps 0. PlayerCharacter::LoadGame (0x73c6ca) keeps entries of stopped quests (drops only unresolvable ones).
+  - Save check / Quests page: the old finding counted every shown objective of completed or stopped quests (Save103: 1528
+    objectives in 318 quests, incl. SDA "A Date at the Bannered Mare", completed). Now quests::JournalLeftovers: stopped, not
+    completed, current-run entries shown (89 objectives in 48 quests; with Skyrim/Update/Dawnguard/SDA plugins 34 quests /
+    64 objectives that do not repeat). QuestRepeats = ENAM Story Manager event (PluginDB now reads QUST ENAM), DNAM 0x8, or an
+    earlier run in the journal; those are listed apart as normal. Quest detail and the Complete / Mark completed / Stop
+    dialogs warn on repeating quests. New Info finding when the journal list holds >= 2950 of 3000 entries (Save103: 2997).
+    The refresh option was removed from the leftovers finding (the refresh only touches running quests).
+  - Serana's "get a drink" quest: SDA_DrinkingBuddiesTriggerNew (SeranaDialogAddon.esp 0588E922, ENAM CLOC, objective 4
+    "Find an inn or tavern to relax at with Serana", running in Save103, not shown) - not flagged by either rule; the quest he
+    saw flagged is most likely SDA_SeranaRomance11 (completed), flagged only by the old rule.
+  - Tests: TestJournalLeftovers (RESAVERPP_IST2_SAVE=Save103). Helper files copied to C:\dllmaker\ReSaverHelper (md5 matched
+    main first): src/Game.cpp, src/MenuPage.cpp, README.md. Not built (Tony builds), not tested in game.
+
 - SkyrimIstari's "menus crash while ReSaver Plus is connected" report (24-26 Oct 2026, ReSaver Plus v19-v24, helper 4-10,
   game 1.6.640 under Proton on Linux Mint), checked 2026-11-08 on branch menucrash; no helper change, waiting on his crash logs:
   - SkyrimSE.exe+0F322A1 on 1.6.640 = Address Library ID 82665 + 0x11 (versionlib-1-6-640-0.bin from Tony's MO2 "Address Library for
