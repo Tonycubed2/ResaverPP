@@ -158,6 +158,8 @@ namespace ess
 			"  --set-item <formid> <n> / --remove-item <formid> / --remove-spell <formid> / --set-legendary <skill> <n>\n"
 			"  --clear-crimes <faction formid>  bounty and crime totals with that faction to 0. Needs -o.\n"
 			"  --npcs [formid text]      list every actor with where the save has it (cell or worldspace and position)\n"
+			"  --ghost-actors            list spawned actors whose base NPC is a created form the save does not have (a\n"
+			"                            copy of another actor's temporary leveled base): they can crash some loads\n"
 			"  --crash-log <file>        read a crash log (Crash Logger, Trainwreck, .NET Script Framework) and find the\n"
 			"                            forms it names in this save, including leveled actors whose base NPC the game\n"
 			"                            rebuilds at every load (that base is not in the save; the actor is)\n"

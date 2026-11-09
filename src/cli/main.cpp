@@ -585,6 +585,7 @@ int main(int argc, char** argv)
 	std::vector<std::tuple<std::string, std::string, std::string>> setProps;
 	std::vector<std::uint32_t> moveToPlayer;
 	bool          npcsView = false;
+	bool          ghostView = false;  // --ghost-actors
 	std::string   crashLogFile;
 	bool          removeCrashActors = false;
 	std::vector<std::uint32_t> deleteForms;
@@ -743,6 +744,8 @@ int main(int argc, char** argv)
 			removeCrashActors = true;
 		} else if (a == "--delete-form") {
 			deleteForms.push_back(static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)));
+		} else if (a == "--ghost-actors") {
+			ghostView = true;
 		} else if (a == "--npcs") {
 			npcsView = true;
 			if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -1011,6 +1014,16 @@ int main(int argc, char** argv)
 			} else if (!edits) {
 				return 0;
 			}
+		}
+		if (ghostView) {
+			// spawned actors whose created base NPC is not in the save (core/GhostActors.h)
+			const auto g = ghost::Find(*save);
+			for (const auto& a : g) {
+				std::printf("%s; %zu script instance(s) on it\n", ghost::Describe(*save, a).c_str(), a.scripts);
+			}
+			std::printf("%zu spawned actor(s) name a created base NPC the save does not have%s\n", g.size(),
+				g.empty() ? "" : " (made from another actor's temporary leveled base: PlaceAtMe of GetLeveledActorBase)");
+			return 0;
 		}
 		if (npcsView) {
 			std::size_t shown = 0, total = 0, placed = 0;

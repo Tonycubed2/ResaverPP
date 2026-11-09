@@ -1124,6 +1124,26 @@ namespace ess::ops
 		}
 		r.changeFormsByType = Sorted(cfTypes);
 
+		// spawned actors whose created base is not in the save (change forms only: checked even without script data)
+		r.ghosts = ghost::Find(s);
+		if (!r.ghosts.empty()) {
+			std::string list;
+			for (std::size_t i = 0; i < r.ghosts.size() && i < 8; ++i) {
+				list += (i ? "; " : "") + ghost::Describe(s, r.ghosts[i]);
+			}
+			if (r.ghosts.size() > 8) {
+				list += "; and " + std::to_string(r.ghosts.size() - 8) + " more";
+			}
+			r.warnings.push_back(std::to_string(r.ghosts.size()) +
+				" spawned actor(s) name a base NPC the save does not have: " + list +
+				". Each was placed from another actor's temporary leveled base (a script's PlaceAtMe of "
+				"Actor.GetLeveledActorBase()), which the game never saves and deletes with its owner. On load that id is free "
+				"(the actor has no base) or another created NPC's (it loads as that NPC and can delete that NPC's base): crashes "
+				"in Actor::LoadGame, SPID, or a script error naming the actor, on some loads and not others. Fix the script that "
+				"spawns them (GetActorBase instead of GetLeveledActorBase); ReSaver Plus does not remove them (the player's record "
+				"and scripts still name them).");
+		}
+
 		const auto* pp = s.papyrus();
 		if (!pp) {
 			r.warnings.push_back("This save has no Papyrus section.");

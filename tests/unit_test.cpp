@@ -12,6 +12,7 @@
 #include "core/ModRemove.h"
 #include "core/Ops.h"
 #include "core/ScriptFlood.h"
+#include "core/GhostActors.h"
 #include "core/Pex.h"
 #include "core/Save.h"
 #include "core/SaveArchive.h"
@@ -5420,6 +5421,96 @@ void TestScriptFloods()
 // - ScriptSources::pluginPath from the names noted while scanning = the file found on disk, any case
 // - PluginDB::Input::wantedShared is read like wantedRefs
 // With RESAVERPP_SKY_SAVES the rename check also runs on the real saves' plugin lists.
+// Spawned actors whose base is another actor's temporary leveled base (core/GhostActors.h). Real saves:
+// RESAVERPP_GHOST_SAVES="file=count[:id,id...];..." (Tony's Save88=13, Save132=2:FF003D2A,FF0040DF,
+// Save140=4:FF003307,FF0033C7,FF003D2A,FF0040DF); RESAVERPP_TG_SAVE (trashgod69's a.ess: none).
+void TestGhostActors()
+{
+	auto CheckS = [](bool a_ok, const std::string& a_what) { Check(a_ok, a_what.c_str()); };
+	auto verify = [&](const std::string& a_file, std::size_t a_want, const std::vector<std::uint32_t>& a_ids) {
+		auto       s = SaveFile::load(a_file);
+		const auto g = ghost::Find(*s);
+		const auto name = std::filesystem::path(a_file).filename().string().substr(0, 10);
+		CheckS(g.size() == a_want, "ghost actors " + name + ": " + std::to_string(g.size()) + " found, " + std::to_string(a_want) + " expected");
+		std::set<std::uint32_t> npcs, created;
+		for (const auto& c : s->changeForms) {
+			if (c.refID.type() == RefID::Type::kCreated) {
+				created.insert(s->formIDOf(c.refID));
+				if (static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::NPC_) {
+					npcs.insert(s->formIDOf(c.refID));
+				}
+			}
+		}
+		bool ok = true;
+		for (const auto& a : g) {
+			ok = ok && (a.formID >> 24) == 0xFF && created.contains(a.formID) && (a.missing() >> 24) == 0xFF && !npcs.contains(a.missing());
+			ok = ok && !ghost::Describe(*s, a).empty();
+		}
+		CheckS(ok, "ghost actors " + name + ": each is a created actor naming a created base with no NPC change form");
+		if (!a_ids.empty()) {
+			std::set<std::uint32_t> got;
+			for (const auto& a : g) {
+				got.insert(a.formID);
+			}
+			CheckS(got == std::set<std::uint32_t>(a_ids.begin(), a_ids.end()), "ghost actors " + name + ": the expected actors");
+		}
+		// the analysis report carries them (the Save check and the CLI report read it)
+		const auto r = ops::Analyze(*s);
+		bool warned = false;
+		for (const auto& w : r.warnings) {
+			warned = warned || w.find("name a base NPC the save does not have") != std::string::npos;
+		}
+		CheckS(r.ghosts.size() == g.size() && warned == !g.empty(), "ghost actors " + name + ": in ops::Analyze and its warnings");
+		// every other created leveled actor names a plugin's original base (what the game saves for them)
+		std::size_t leveled = 0, pluginBase = 0;
+		for (const auto& c : s->changeForms) {
+			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::ACHR || c.refID.type() != RefID::Type::kCreated) {
+				continue;
+			}
+			const auto d = cf::Decode(*s, c, {}, true);
+			if (d.leveledBase) {
+				++leveled;
+				pluginBase += (d.leveledBase >> 24) != 0xFF;
+			}
+		}
+		CheckS(leveled > 0 && pluginBase + g.size() >= leveled, "ghost actors " + name + ": the other leveled actors' original base is a plugin's NPC");
+	};
+	const char* env = std::getenv("RESAVERPP_GHOST_SAVES");
+	if (!env || !*env) {
+		std::printf("(ghost actors: RESAVERPP_GHOST_SAVES not set, real saves skipped)\n");
+	} else {
+		std::string all = env;
+		std::size_t p = 0;
+		while (p <= all.size()) {
+			auto e = all.find(';', p);
+			if (e == std::string::npos) {
+				e = all.size();
+			}
+			const auto item = all.substr(p, e - p);
+			p = e + 1;
+			const auto eq = item.rfind('=');
+			if (item.empty() || eq == std::string::npos) {
+				continue;
+			}
+			const auto file = item.substr(0, eq);
+			auto       rest = item.substr(eq + 1);
+			std::vector<std::uint32_t> ids;
+			if (const auto colon = rest.find(':'); colon != std::string::npos) {
+				std::stringstream ss(rest.substr(colon + 1));
+				std::string       id;
+				while (std::getline(ss, id, ',')) {
+					ids.push_back(static_cast<std::uint32_t>(std::stoul(id, nullptr, 16)));
+				}
+				rest = rest.substr(0, colon);
+			}
+			verify(file, static_cast<std::size_t>(std::stoul(rest)), ids);
+		}
+	}
+	if (const char* tg = std::getenv("RESAVERPP_TG_SAVE"); tg && *tg) {
+		verify(tg, 0, {});
+	}
+}
+
 void TestFreezeFix()
 {
 	auto check = [](const SaveFile& a_save, const std::vector<std::string>& a_installed, const std::vector<std::string>& a_missing) {
@@ -5544,6 +5635,7 @@ int main()
 	TestSuspendedStacks();
 	TestScriptFloods();
 	TestFreezeFix();
+	TestGhostActors();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

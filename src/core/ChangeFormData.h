@@ -60,8 +60,8 @@ namespace ess::cf
 		bool          hasHavok = false;
 		std::size_t   havokOffset = 0, havokSize = 0;  // in the uncompressed body
 		std::uint32_t baseObject = 0;                  // runtime form ID, when the body names one
-		// an actor made from a leveled list or template (ACHR "LeveledCreature" extra data): its base NPC, a created
-		// FF form the game rebuilds every time the save loads (never stored as a change form), and the template
+		// an actor made from a leveled list or template (ACHR "LeveledCreature" extra data): the original base it was
+		// placed from (normally a plugin's NPC; a created FF one is a ghost base, see GhostActors.h) and the template
 		std::uint32_t leveledBase = 0, leveledTemplate = 0;
 
 		// ReSaver filter facts
@@ -304,14 +304,16 @@ namespace ess::cf
 	bool        CanResetAI(const ChangeForm& a_cf, const Decoded& a_decoded);
 	std::string ResetAI(const SaveFile& a_save, ChangeForm& a_cf);
 
-	// Actors made from a leveled list or a template (random bandits, militia, spawned encounters...). Their base NPC is
-	// a created FF form that the game builds again from the template every time the save loads, so it is never in
-	// the save: a crash log that names it (an "NPC" FF000998) means the actor that uses it (an ACHR FF0040DF).
+	// Actors made from a leveled list or a template (random bandits, militia, spawned encounters...). The game builds
+	// their real base NPC (a created FF copy, never in the save) again from the original base and the template at
+	// every load. `base` is the ORIGINAL base the save stores: normally a plugin's NPC. When it is a created FF form
+	// (an "NPC" FF000998 of actor FF0040DF), the actor was copied from another actor's temporary base and the save
+	// does not have it (GhostActors.h): a crash log naming that id means that actor.
 	struct LeveledActor
 	{
 		std::uint32_t refRaw = 0;    // the actor's change form RefID (raw)
 		std::uint32_t formID = 0;    // the actor reference's form ID
-		std::uint32_t base = 0;      // its rebuilt base NPC (FF...)
+		std::uint32_t base = 0;      // the original base it was placed from (ExtraLeveledCreature +0x10)
 		std::uint32_t templ = 0;     // the template it is built from (a plugin's NPC or leveled list)
 	};
 	std::vector<LeveledActor> ListLeveledActors(const SaveFile& a_save);

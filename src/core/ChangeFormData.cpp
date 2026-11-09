@@ -536,8 +536,10 @@ namespace ess::cf
 			case 44: one("MapMarker", [&] { p.u8("UNK"); }); break;
 			case 45:
 				one("LeveledCreature", [&] {
-					// the actor's base NPC, which the game builds from the template every time the save loads (so it
-					// is a created FF form that is never stored in the save), and the template it is built from
+					// ExtraLeveledCreature: the ORIGINAL base the actor was placed from (normally a plugin's NPC; the game
+					// builds the actor's real base, a created FF copy that is never stored in the save, from it and the
+					// template at every load) and the template. A created FF form here is another actor's temporary
+					// copy the save does not have (see GhostActors.h).
 					const auto base = p.refResolved("LEVELED_BASE");
 					const auto tmpl = p.refResolved("LEVELED_TEMPLATE");
 					if (p.nested == 0 && !p.out().leveledBase) {

@@ -506,6 +506,44 @@ std::vector<App::CheckItem> App::computeCheckItems()
 		}
 	}
 
+	// spawned actors whose base is another actor's temporary leveled base, which the save does not have (ghost::Find)
+	if (_report && !_report->ghosts.empty()) {
+		const auto& g = _report->ghosts;
+		CheckItem   it;
+		it.level = Risk::kRisky;
+		it.title = Fmt(tr("%zu spawned character(s) name a base the save does not have"), g.size());
+		it.what = tr("A script made each of them as a copy of another character's temporary leveled base (PlaceAtMe of "
+				  "GetLeveledActorBase). The game never saves that temporary base and deletes it with the character it belongs "
+				  "to, so this save names a base it does not contain. When it loads, the game gives that id to whatever has it "
+				  "then: nothing (the character has no base) or another character's base (it loads as that one, and can delete "
+				  "that one's base). The result differs from load to load: some loads crash (in Actor::LoadGame, in SPID, or when "
+				  "a script error names the character) and some do not.\n"
+				  "The fix is in the mod that spawns them: it must use GetActorBase. ReSaver Plus does not remove them: the "
+				  "player's record and scripts still name them. In the game, right after loading: open the console, type prid "
+				  "and the id, then disable and markfordelete; save, and open the new save here to check.\nCharacters:");
+		for (std::size_t i = 0; i < g.size() && i < 8; ++i) {
+			it.what += "\n  " + ghost::Describe(*_save, g[i]);
+			if (_db && g[i].leveledTemplate) {
+				if (const auto n = _db->describe(g[i].leveledTemplate); !n.empty()) {
+					it.what += " - " + n;
+				}
+			}
+		}
+		if (g.size() > 8) {
+			it.what += Fmt(tr(" and %zu more"), g.size() - 8);
+		}
+		CheckOption o;
+		o.label = tr("Find NPCs");
+		o.risk = Risk::kSafe;
+		o.why = tr("Only shows information.");
+		o.act = [this] {
+			_showActors = true;
+			_showCheck = false;
+		};
+		it.options.push_back(std::move(o));
+		v.push_back(std::move(it));
+	}
+
 	// actors saved while waiting to play a start / stop / turn idle the save does not keep: the load crashes
 	{
 		std::optional<watchdog::Step> pst(std::in_place, "stuckPathIdles");

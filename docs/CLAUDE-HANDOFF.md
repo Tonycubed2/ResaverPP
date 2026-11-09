@@ -660,6 +660,38 @@ project; you do the coding, building, delivering and publishing.
     as "no longer in your load order": MO2's plugins.txt does not list CC plugins (they are in loadorder.txt / Skyrim.ccc).
     The GUI path was not checked.
 
+- Ghost bases: the cause of the Save140 created actors with a missing base (2026-11-08, branch ghost, not published).
+  - Cause: Ultimate Deadly Encounters' clone spawns place a copy from Clone.GetLeveledActorBase(): waiting12.psc
+    SpawnerOfThings (dungeon "increased spawns"), WalkingDangers49.psc SpawnIncreasedSpawns (exterior), SOT_Multiply.psc
+    (NPC_ 05002654). All 4 Save140 actors, both Save132 ones and 12 of Save88's 13 are in UDE's IAmAClone faction
+    (SOTFull 002669) + MS01PlayerEnemyFaction and carry SOT_CleanUpNpcs (SOTFull 002803, the spell UnLevelNPC and
+    SpawnerOfThings add); Save88's FF004238 has neither (its base id FF001690 is also FF0041F6's: ids are reused).
+    FF003307 / FF0033C7 are in Forelhost01 / Forelhost03 (waiting12), FF003D2A / FF0040DF in Tamriel (WalkingDangers49);
+    FF003D2A is in Save88, 132 and 140 (alive since; UDECleanupMarkerScript only DisableNoWait()s and gives up on live
+    actors). SOTCleanup is an empty shim now; SOTOBISMonitorScript is SOT NPC Relevel's (Obis Relevel.esp) cloak monitor:
+    neither deletes anything. Fix for UDE (Tony compiles): GetActorBase() instead of GetLeveledActorBase() in those 3
+    scripts (scratchpad ude-fix/).
+  - Exe (SkyrimSE.exe 1.6.1170; tools skyf/xdis.py, calls.py, xref.py, fn.py, vt.py): see core/GhostActors.h. Leveling
+    0x1d74e0 (copy = new form 0x1bcb40, id from 0x1b8480, copy vfunc 0x178, template TESActorBaseData vfunc 0x20,
+    SetLeveledCreature 0x2fb0e0 -> 0x164140, SetBase vfunc 0x420); TLS +0x670 bit 0 suppresses change tracking
+    (AddChange 0x604320); ExtraLeveledCreature load 0x1728ae..0x172a6a rebuilds via 0x1d7880 and deletes the actor's
+    current base if created (0x1be0e0, 0x172a1e); ClearData 0x2d77b0 deletes a ref's created leveled base;
+    GetLeveledActorBase native 0x9e8980 = actor+0x40; GetBaseObject native 0xa2d060 = ExtraLeveledCreature+0x10 else +0x40
+    (Actor.GetActorBase = GetBaseObject() as ActorBase, vanilla Actor.psc). Saves: every created leveled actor stores a
+    plugin NPC as original base (Save140: 197 of 197 non-ghosts); no save has a created NPC_ change form.
+  - Correction: the old comments said LEVELED_BASE is the rebuilt FF base. It is the ORIGINAL base (normally a plugin
+    NPC); the crash log matcher's kRebuiltBase only ever matched ghosts (its example FF000998 / FF0040DF is one).
+    Comments fixed in ChangeFormData.h/.cpp.
+  - Code: `core/GhostActors.*` (`ghost::Find`, `ghost::Describe`): created ACHR whose initial base or ExtraLeveledCreature
+    original base is a created id with no NPC_ change form (inventory-only decode; Save88 0.4 s with load). In
+    `ops::Report::ghosts` + a warning (computed before the Papyrus early returns), Save check item (RISKY, report only,
+    "Find NPCs"), CLI `--ghost-actors`. ru.txt: 2 entries added. Test rs_unit TestGhostActors:
+    RESAVERPP_GHOST_SAVES="file=count[:id,...];..." (Save88=13, Save132=2:FF003D2A,FF0040DF,
+    Save140=4:FF003307,FF0033C7,FF003D2A,FF0040DF, Save89=0) and RESAVERPP_TG_SAVE (0). Linux build + ctest pass,
+    MinGW build in scratchpad bld-ghost-win (CLI checked under wine).
+  - Not done: no removal (the player's change form and Papyrus variables name these actors; a delete of the ACHR change
+    form alone was not proven safe). The suggested in-game clean (prid, disable, markfordelete) was not tested. The GUI
+    item was not looked at on screen. LE / VR not checked in their exes (the check runs on all Skyrim saves).
 - Co-save viewer/cleaner (2026-11-06, branch cosave, not published): `core/Cosave.*` reads/writes .skse/.f4se byte-exact (format
   identical in skse/Serialization.cpp LE 1.7.x, skse64/Serialization.cpp, f4se/Serialization.cpp: header sig/format 1/xse ver/runtime/
   numPlugins; plugin {uid, numChunks, length}; chunk {type, version, length}; the loader ignores numPlugins and reads while 12 bytes
