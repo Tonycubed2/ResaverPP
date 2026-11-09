@@ -32,6 +32,9 @@ refresh the quest journal (brings back quests and objectives the journal stopped
 - Legendary Edition has its own helper (`helper-le`), with the same commands.
 - Confirms every action in game: top-left notification or a message box (`sNotify` in ReSaverHelper.ini).
 - Optional: refresh the journal automatically after every save load (`bRefreshJournalOnLoad=1`).
+- Journal refresh (version 15, SE/AE): only objectives missing from the player's journal list are hidden and shown
+  again; objectives the journal already lists are left alone. Each re-show puts an objective message on the HUD, so
+  versions 4-14, which redid every shown objective (286 for one tester), kept the HUD busy for many minutes.
 - SE 1.5.97, AE 1.6.x / 1.7.x and VR 1.4.15 from one DLL (CommonLibSSE-NG).
 - Log: Documents\My Games\Skyrim Special Edition\SKSE\ReSaverHelper.log
 - In-game page (version 15): a "ReSaver Plus" page in SKSE Menu Framework's Mod Control Panel (F1), when that mod
