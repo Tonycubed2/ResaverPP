@@ -161,6 +161,7 @@ namespace ess
 
 	private:
 		const std::atomic<bool>* _cancel = nullptr;  // the running scan's cancel flag (a Data folder is one big folder)
+		ScanProgress*            _folderProgress = nullptr;  // a Data folder scanned on its own: progress by its archives
 		bool cancelled() const { return _cancel && _cancel->load(); }
 		void scanFolder(const std::filesystem::path& a_dir, const std::string& a_modName, bool a_enabled = true);
 		void scanGameData();

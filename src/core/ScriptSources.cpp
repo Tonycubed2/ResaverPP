@@ -166,9 +166,17 @@ namespace ess
 				}
 			}
 		}
+		if (_folderProgress) {
+			_folderProgress->total = bsas.size() + 1;
+			_folderProgress->done = 1;  // (the loose scripts)
+		}
 		for (const auto& b : bsas) {
 			if (cancelled()) {
 				return;
+			}
+			if (_folderProgress) {
+				_folderProgress->setCurrent(U8(b.filename()));
+				++_folderProgress->done;
 			}
 			const bool official = gameFolder && vanillaArchive(Lower(U8(b.filename())));
 			try {
@@ -205,6 +213,9 @@ namespace ess
 		auto cancelled = [&] { return a_progress && a_progress->cancel.load(); };
 		reset();
 		_cancel = a_progress ? &a_progress->cancel : nullptr;
+		if (a_progress) {
+			a_progress->setCurrent("");
+		}
 		struct Clear
 		{
 			const std::atomic<bool>*& c;
@@ -297,7 +308,9 @@ namespace ess
 			}
 		}
 		if (looksLikeData) {
+			_folderProgress = a_progress;  // (the progress counts its archives: it is one folder)
 			scanFolder(a_root, "Data");
+			_folderProgress = nullptr;
 			modsScanned = 1;
 			gameDataScanned = true;
 			return;

@@ -210,6 +210,55 @@ project; you do the coding, building, delivering and publishing.
   - tools/i18n/tr_keys.py: an entry's "# File.cpp:N" comments are no longer kept in the header (each --update added a copy of the first
     entry's comment); lang/ru.txt cleaned (72 lines). A full --update now would also refresh ~1100 line-number comments and move 8 unused
     keys (no translation changes; checked): not run in this branch, the 11 new entries were added by hand above the unused section.
+- Freeze after opening a save (SkyrimIstari, 8 Nov 2026, v64 + helper 14, Proton/Wine, i7 X990, no mod manager: mods folder =
+  the game's Data folder on Wine's Z: drive, 865 plugins; branch freeze, not published). His v51 log: open 14 s, pollWatch 19 s,
+  pollScan stuck 150 s+ at "mods scan 0 of 46" (= his Data folder's 44 sub-folders + 2: the scan was done, pollScan's
+  post-processing hung). His v64 log: 44 s "between frames" with no save open (that part covered window messages, the frame
+  cap wait, a dropped file and the minimized loop, which never counted a frame: minimized looked like a freeze).
+  - Measured on a Data folder built like his (scratchpad freezetools/gendata.py from his plugins.txt and Save89's lists: 945
+    plugins, 440 BSAs, 12.5k loose .pex, 44 folders), his Save89 (21.5 MB, level 1340), zord, tg/a.ess (4000 plugins), s140,
+    natively, under Wine 9 (MinGW build, Z: drive, freezetools/winrun.sh) and with an LD_PRELOAD slow-disk shim
+    (freezetools/slowfs.so: 1 ms per stat/open, 0.1 ms per directory entry, one lock like wineserver; slowrun.sh).
+    Window-thread blocks before (Wine, Save89): the mods list copied for the plugin names 7.5 s and again for the load order
+    check 7-9.6 s (ScriptSources copied by value), Save check items 10.5 s once and ~10 ms on EVERY call (3 calls a frame: read
+    plugins.txt, 6 stats), followers view 1.5 s (twice), enchanted items 1.2 s, Mods table 0.3-0.8 s, renamed-plugin check (a
+    directory listing of Data per enabled plugin: pluginPath with lowercase names). tg/a.ess: renamed check 18.5 s
+    (RenameCandidates per missing plugin re-read the save's 4000 names). Two saves in a row while the scan ran: 26-28 s in
+    "waiting for the previous mods scan to stop" (the second open restarted the scan and joined it; a Data-folder scan is one
+    folder and never looked at Cancel) = "selecting any save from a while back freezes". UI-thread file calls in 30 s: 12,773.
+  - After: worst window step 223 ms under Wine (two saves in a row; 76 ms native, 11 ms for tg/a.ess), no NOT RESPONDING in any
+    run; UI-thread file calls 644 in 30 s. Results compared with RESAVERPP_TEST_DUMP_STATE (Mods table sums, missing mods with
+    every field, enchanted items, quests, followers, Character effects, every Save check title) between the new path and
+    RESAVERPP_SYNC_OPEN=1 RESAVERPP_NO_BACKGROUND_ANALYSIS=1 (the window working it out): identical on Save89 and zord.
+  - Code: gui/AppBackground.cpp. open() runs on a worker once the window runs (setAsyncOpen; start-up/test hooks and the AI's
+    open_save use openNow): read + Analyze + history numbers + picture + description + the forms for the names + MO2 profile
+    scoring (ScoreProfiles, split from matchProfileToSave); finishOpen takes it over. Then an AnalysisJob re-reads the same
+    unedited file (size + time checked) and works out kAnMods / kAnMissing (ComputeMissing, split from checkMissingPlugins) /
+    kAnFirst (enchanted items, quests) / kAnSkyf / kAnFx (Character effects); again after the scan (mods, missing) and the names
+    (skyf, fx). analysisWillProvide() makes ensureMods / checkMissingPlugins / chargedItems / questStates / skyfRefresh / charFx
+    wait instead of computing (empty, never the previous save's); an edited save or a changed file falls back to the window.
+    _sources is a shared_ptr (workers share it; replaced, never changed); PluginDB::Input::shared / wantedShared;
+    ScriptSources::pluginFileName (names seen while scanning: pluginPath makes no file call); ops::RenameFinder; checkItems()
+    cached (0.5 s, invalidateCheck); currentLoadOrder cached by file time (looked at every 3 s); the load order check reads
+    plugins.txt in its thread; the saves folder watch is a worker (WatchJob; folders refreshed every 15 s; the old code never
+    kept the job: fixed before release); a running scan of the same folder is kept when another save opens; Cancel works inside
+    one folder (BSA and loose-script loops), and a Data-folder scan counts its archives (was "0 of 46" for the whole scan); the
+    previous save is freed on a worker; the path idle check also waits for the open/analysis workers.
+  - Background jobs in the status bar (Tony, same day): runningJobs() lists opening, the scan, the analysis, the names, the
+    crash-on-load check, bloat / older save / load order check, merged patch, file conflicts, save history, gallery pictures,
+    Collect logs, each with name, done / total (spinner when unknown) and Cancel where it can stop; "+N more" opens all of them.
+    Windows that wait show the same bars (drawBackgroundProgress, drawJobsInline). 28 Russian entries added at the end of ru.txt.
+  - Freeze log: watchdog::Step (Watchdog.h) names nested steps ("pollScan > the mods scan is done > checkMissingPlugins >
+    renamed plugins"), logs any step over 500 ms; "between frames" is split (window messages, title bar, dropped file, minimized
+    = "window minimized (not drawing)" and not a freeze, new frame, waiting for the next frame, swap); workers log over 1 s as
+    "slow (background)". RESAVERPP_TIMING=1 logs every step from 1 ms (and every status line), =mark adds file lookups of
+    "/resaverpp-step/begin|end/<step>" so strace shows which step made which file call (freezetools/stcount.py).
+    RESAVERPP_STARTUP_LOG=<file> writes the log on Linux. Test hooks: RESAVERPP_TEST_OPEN_LATER="a.ess;b.ess" (opened as gallery
+    clicks 5 s apart), RESAVERPP_TEST_DUMP_STATE, RESAVERPP_SYNC_OPEN, RESAVERPP_NO_BACKGROUND_ANALYSIS. rs_unit TestFreezeFix.
+  - Not known without his save and PC: how slow his Z: drive really is (the shim is a guess), whether his 44 s with no save open
+    was the window minimized (the next log says), and how long the background analysis takes there (it re-reads the save up to
+    three times: after opening, after the scan, after the names; on his CPU maybe 10-30 s each, with the bars showing it).
+    The scan thread makes ~240k readlink calls on the Data folder (std::filesystem, not looked into).
 - Versions are whole numbers, +1 per release. **Current published version: v64** (SE, LE and Fallout 4 pages, 2026-11-08; v64: suspended stack / thread / message deletes take the thread with them, stranded thread check and repair, invalid Papyrus block read, cleanup keeps running effects' scripts, --compare shows in-place edits. v63, 2026-11-08: v63: Fix the load order (late masters), the game's real load order in the check, MO2 relative gamePath (StockGame). v62, 2026-11-08: v62: MO2 profile matched to the open save. v61, 2026-11-07: v61: effect states explained in Character effects, compile logs kept per compile. v60, 2026-11-07: v60: Character effects window (paper doll, effects by source, stuck effects). v59, 2026-11-07: v59: load order check reads the plugin copy Vortex deployed, a missing plugin takes no slot. v58, 2026-11-06: v58 adds Fallout 4 active effect removal, settlements, save bloat by mod, load order check, world items / reset an area, companions, quest checks; Skyrim followers / beast form / quest checks; SKSE/F4SE co-save viewer and cleaner; ReSaverHelper SE 13, LE 13, F4 15; the Fallout 4 helperAtLeast fix. Before that v57, 2026-11-05; v57 adds the Russian interface, the Leftover items plugin-read fix and Fallout 4 Reset Havok / Purify / Merged patch / AI / NPC+player leftovers; ReSaverHelper F4 13; the Fallout 4 main file is packed as Data/Tools/ReSaverPP/ with mod manager download on: nexus-upload layout=data-tools, mod_manager=true) (v53 was never published on its own). v55: Collect all logs gathers Fallout 4 (F4SE folder, Logs, Fallout4*.ini, AppData Fallout4 plugins.txt, Fallout4.exe version; zip "Fallout 4 logs <date>.zip").
 - Fallout 4 Reset Havok + Purify FormLists (2026-11-05, not published): REFR change flag 2 = initial data + havok blob, read
   by the initial data loader 0xbf77b0 (not LoadGame) through 0xc10b00 blob kind 2: u8 (form version the blob was written
