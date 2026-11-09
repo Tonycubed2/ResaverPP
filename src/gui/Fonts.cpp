@@ -50,6 +50,14 @@ namespace fonts
 			return kHan;  // CJK and the symbol blocks (arrows, box drawing, circled numbers...: CJK fonts have most)
 		}
 
+		// the letters of a script proper (not the punctuation and symbol blocks, which fonts have or lack at random): only
+		// these make a second font of the chain worth loading
+		bool Core(unsigned c)
+		{
+			return (c >= 0x0E00 && c <= 0x0E7F) || (c >= 0x1100 && c <= 0x11FF) || (c >= 0x3040 && c <= 0x30FF) || (c >= 0x3130 && c <= 0x318F) ||
+				   (c >= 0x3400 && c <= 0x9FFF) || (c >= 0xAC00 && c <= 0xD7A3) || (c >= 0xF900 && c <= 0xFAFF);
+		}
+
 		struct Candidate
 		{
 			fs::path    file;
@@ -209,6 +217,7 @@ namespace fonts
 		ImFont* g_title = nullptr;
 
 		std::set<unsigned>     g_wanted[kGroups];   // characters asked for, per group
+		std::set<unsigned>     g_shown[kGroups];    // of those, the ones really drawn or in the translation (not the preloaded common ones)
 		std::vector<Candidate> g_loaded[kGroups];   // fonts merged for that group (the chain's first, more when it lacks some)
 		std::set<std::string>  g_tried[kGroups];    // chain files already merged for that group (also the ones dropped)
 		bool                   g_pending = false;
@@ -224,6 +233,7 @@ namespace fonts
 			if (g == kNone) {
 				return;
 			}
+			g_shown[g].insert(c);
 			if (g_wanted[g].insert(c).second) {
 				g_pending = true;
 			}
@@ -235,7 +245,7 @@ namespace fonts
 																											   : ImGui::GetIO().Fonts->GetGlyphRangesChineseSimplifiedCommon();
 				for (; r && r[0]; r += 2) {
 					for (unsigned k = r[0]; k <= r[1]; ++k) {
-						if (GroupOf(k) == kHan) {
+						if (GroupOf(k) == kHan && k >= 0x3000) {
 							g_wanted[kHan].insert(k);
 						}
 					}
@@ -375,8 +385,8 @@ namespace fonts
 				BuildOnce();
 				for (int g = 0; g < kGroups && g_main; ++g) {
 					std::size_t missing = 0;
-					for (unsigned c : g_wanted[g]) {
-						missing += g_main->FindGlyphNoFallback(static_cast<ImWchar>(c)) == nullptr;
+					for (unsigned c : g_shown[g]) {
+						missing += Core(c) && g_main->FindGlyphNoFallback(static_cast<ImWchar>(c)) == nullptr;
 					}
 					// a second font of the chain for what the first lacks (at most 2 per group: each costs memory)
 					if (missing && g_loaded[g].size() < 2) {

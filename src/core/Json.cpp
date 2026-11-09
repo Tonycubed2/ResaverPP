@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "Json.h"
+#include "Text.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -246,28 +247,8 @@ namespace ess::json
 
 	std::string ValidUtf8(const std::string& a_text)
 	{
-		std::string out;
-		out.reserve(a_text.size());
-		const auto* p = reinterpret_cast<const unsigned char*>(a_text.data());
-		const std::size_t n = a_text.size();
-		for (std::size_t i = 0; i < n;) {
-			const unsigned char c = p[i];
-			std::size_t len = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 0;
-			bool ok = len > 0 && i + len <= n && !(len == 2 && c < 0xC2);
-			for (std::size_t k = 1; ok && k < len; ++k) {
-				ok = (p[i + k] & 0xC0) == 0x80;
-			}
-			if (ok) {
-				out.append(a_text, i, len);
-				i += len;
-				continue;
-			}
-			// a lone byte: Latin-1 / Windows-1252 as its code point (U+0080..U+00FF)
-			out.push_back(static_cast<char>(0xC0 | (c >> 6)));
-			out.push_back(static_cast<char>(0x80 | (c & 0x3F)));
-			++i;
-		}
-		return out;
+		// game text that is not UTF-8 is in a code page (GBK, 1251, 1252...): read in it, as the window shows it
+		return ess::text::ToUtf8(a_text);
 	}
 
 	std::string Quote(const std::string& a_text)
