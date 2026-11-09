@@ -1581,6 +1581,28 @@ int main(int argc, char** argv)
 				} else {
 					std::printf("journal: not found in the player's record (objective counts come from the quests' own records)\n");
 				}
+				// stopped quests the Journal still shows as in progress (the save check's finding); completed quests and
+				// earlier runs of repeated quests are the Journal's Completed list
+				const auto  lo = quests::JournalLeftovers(states, [&](std::uint32_t a_id) { return db ? db->quest(a_id) : nullptr; });
+				std::size_t loObj = 0, loReal = 0, loRealObj = 0, doneOrStopped = 0;
+				for (const auto& l : lo) {
+					loObj += l.objectives;
+					loReal += l.repeats ? 0 : 1;
+					loRealObj += l.repeats ? 0 : l.objectives;
+				}
+				for (const auto& q : states) {
+					doneOrStopped += (q.completed() || !q.running()) ? q.shownObjectives() : 0;
+				}
+				std::printf("stopped but shown as in progress: %zu objective(s) of %zu quest(s); %zu quest(s) (%zu objectives) do not repeat by design "
+				            "(the old count, every shown objective of completed or stopped quests: %zu)\n",
+					loObj, lo.size(), loReal, loRealObj, doneOrStopped);
+				if (journalOnly) {
+					for (const auto& l : lo) {
+						const auto* def = db ? db->quest(l.quest) : nullptr;
+						std::printf("  leftover %08X  %-32s %-30s %zu objective(s)%s%s\n", l.quest, def ? def->edid.c_str() : "", def ? def->name.c_str() : "",
+							l.objectives, l.repeats ? "  repeats: " : "", l.why.c_str());
+					}
+				}
 			}
 			auto lower = [](std::string x) {
 				for (auto& c : x) {

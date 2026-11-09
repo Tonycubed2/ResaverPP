@@ -490,6 +490,43 @@ namespace ess::quests
 		return n;
 	}
 
+	std::string QuestDef::eventText() const
+	{
+		std::string t;
+		for (int i = 0; i < 4 && event; ++i) {
+			const char c = static_cast<char>((event >> (8 * i)) & 0xFF);
+			t += (c >= 32 && c < 127) ? c : '?';
+		}
+		return t;
+	}
+
+	std::size_t QuestState::leftoverObjectives(int a_type) const
+	{
+		if (!hasFlags || running() || completed() || !journalKnown) {
+			return 0;
+		}
+		std::size_t n = 0;
+		for (const auto& o : journal) {
+			const bool shown = a_type == 6 ? o.state == 1 : (o.state == 1 || o.state == 3 || o.state == 5);
+			n += shown && o.instance == currentInstance ? 1 : 0;
+		}
+		return n;
+	}
+
+	bool QuestState::earlierRunsOnly() const
+	{
+		bool any = false;
+		for (const auto& o : journal) {
+			if (o.state == 1 || o.state == 3 || o.state == 5) {
+				if (o.instance == currentInstance) {
+					return false;
+				}
+				any = true;
+			}
+		}
+		return any;
+	}
+
 	const char* QuestState::statusText() const
 	{
 		if (!hasFlags) {
@@ -524,6 +561,16 @@ namespace ess::quests
 			if (n.label == "QUEST_FLAGS") {
 				q.hasFlags = true;
 				q.flags = static_cast<std::uint16_t>(std::strtoul(n.value.c_str(), nullptr, 16));
+				return;
+			}
+			if (n.label.rfind("QUEST_INSTANCES", 0) == 0) {
+				// its first field is the quest's current instance id (TESQuest::SaveGame writes TESQuest+0x50 first)
+				for (const auto& f : n.kids) {
+					if (f.label == "UNK") {
+						q.currentInstance = static_cast<std::uint32_t>(std::strtoul(f.value.c_str(), nullptr, 10));
+						break;
+					}
+				}
 				return;
 			}
 			if (n.label.rfind("QUEST_STAGES", 0) == 0) {
@@ -783,6 +830,45 @@ namespace ess::quests
 		return out;
 	}
 
+	bool QuestRepeats(const QuestState* a_q, const QuestDef* a_def, std::string* a_why)
+	{
+		std::string why;
+		if (a_def && a_def->storyManager()) {
+			why = "started by the Story Manager (" + a_def->eventText() + ")";
+		} else if (a_def && a_def->repeatedStages()) {
+			why = "allows repeated stages";
+		} else if (a_q && a_q->journalKnown) {
+			for (const auto& o : a_q->journal) {
+				if (o.instance != a_q->currentInstance) {
+					why = "the journal lists an earlier run of it";
+					break;
+				}
+			}
+		}
+		if (a_why) {
+			*a_why = why;
+		}
+		return !why.empty();
+	}
+
+	std::vector<JournalLeftover> JournalLeftovers(const std::vector<QuestState>& a_states, const DefOf& a_defOf)
+	{
+		std::vector<JournalLeftover> out;
+		for (const auto& q : a_states) {
+			const auto* def = a_defOf ? a_defOf(q.formID) : nullptr;
+			const auto  n = q.leftoverObjectives(def ? def->type : -1);
+			if (!n) {
+				continue;
+			}
+			JournalLeftover l;
+			l.quest = q.formID;
+			l.objectives = n;
+			l.repeats = QuestRepeats(&q, def, &l.why);
+			out.push_back(std::move(l));
+		}
+		return out;
+	}
+
 	std::vector<QuestState> ReadStates(const SaveFile& a_save)
 	{
 		std::vector<QuestState> out;
@@ -815,7 +901,7 @@ namespace ess::quests
 					it = at.emplace(e.quest, out.size()).first;
 					out.push_back(std::move(q));
 				}
-				out[it->second].journal.push_back({ static_cast<std::int32_t>(e.index), static_cast<std::int32_t>(e.state) });
+				out[it->second].journal.push_back({ static_cast<std::int32_t>(e.index), static_cast<std::int32_t>(e.state), e.instance });
 			}
 		}
 		if (a_save.isFO4()) {

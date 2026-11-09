@@ -493,6 +493,8 @@ namespace ess
 								std::memcpy(&qd.flags, d + p, 2);
 								qd.priority = d[p + 2];
 								qd.type = d[p + 7];
+							} else if (Is(st, "ENAM") && len >= 4 && !a_in.fo4) {
+								qd.event = U32(d + p);  // Story Manager event (radiant quest)
 							} else if (Is(st, "INDX") && len >= 3) {
 								quests::Stage sg;
 								std::memcpy(&sg.index, d + p, 2);

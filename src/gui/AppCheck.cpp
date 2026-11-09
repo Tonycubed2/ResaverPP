@@ -23,6 +23,10 @@ using namespace ess;
 
 namespace
 {
+	// the game's limit on the player's journal list (iMaxQuestObjectives, SkyrimSE.exe 1.6.1170: 3000) and when to say so
+	constexpr unsigned    kJournalLimit = 3000;
+	constexpr std::size_t kJournalFullAt = 2950;
+
 	std::string Fmt(const char* f, auto... args)
 	{
 		char buf[1024];
@@ -686,31 +690,82 @@ std::vector<App::CheckItem> App::computeCheckItems()
 		}
 	}
 
-	// the journal shows objectives of quests that are over (Skyrim's quest data)
+	// the journal shows stopped quests as still in progress (Skyrim's quest data). What the Journal lists was checked in
+	// SkyrimSE.exe 1.6.1170 (Quests.h, leftoverObjectives): completed quests and earlier runs of a repeated quest are its
+	// Completed list, so only a stopped quest whose current run is still listed is counted; quests that repeat by design
+	// (radiant, Story Manager) are named apart, as normal.
 	if (!fo4()) {
-		std::size_t shownDone = 0;
 		watchdog::Step st("journal (questStates)");
-		for (const auto& q : questStates()) {
-			if (q.completed() || !q.running()) {
-				shownDone += q.shownObjectives();
+		const auto  lo = quests::JournalLeftovers(questStates(), [this](std::uint32_t a_id) { return _db ? _db->quest(a_id) : nullptr; });
+		std::size_t real = 0, realObj = 0, repeat = 0;
+		std::string list, repeatList;
+		for (const auto& l : lo) {
+			if (l.repeats) {
+				++repeat;
+				if (repeat <= 8) {
+					repeatList += "\n- " + formText(l.quest) + " (" + l.why + ")";
+				}
+				continue;
+			}
+			++real;
+			realObj += l.objectives;
+			if (real <= 15) {
+				list += "\n- " + formText(l.quest) + Fmt(tr(": %zu objective(s)"), l.objectives);
 			}
 		}
-		if (shownDone) {
+		if (real > 15) {
+			list += Fmt(tr("\n- and %zu more"), real - 15);
+		}
+		if (repeat > 8) {
+			repeatList += Fmt(tr("\n- and %zu more"), repeat - 8);
+		}
+		if (real) {
 			CheckItem it;
 			it.level = Risk::kInfo;
-			it.title = Fmt(tr("Your journal shows %zu objective(s) of quests that are completed or stopped"), shownDone);
-			it.what = tr("Leftovers of quests that ended. Harmless, but they fill the journal, and a very full journal stops showing new quests.");
-			CheckOption o;
-			o.label = tr("Refresh journal in game");
-			o.risk = Risk::kCaution;
-			o.why = std::string(info.connected && info.inGame ? tr("Done in the running game; this file is not changed. ")
-															  : tr("Needs the game running with ReSaverHelper.dll and a save loaded. ")) +
-					tr("Make a save in the game first and keep menus closed while it runs. With journal UI mods (such as QUI) a crash when "
-					"opening the menu afterwards was reported with helper 3; helper 4 works more carefully. If the game crashes, load "
-					"the save from before.");
-			o.enabled = info.connected && info.inGame && !_liveRefresh.running;
-			o.act = [this] { startLiveRefresh(); };
-			it.options.push_back(std::move(o));
+			it.title = Fmt(tr("Your journal shows %zu stopped quest(s) as still in progress"), real);
+			it.what = Fmt(tr("They stopped without being completed, but %zu of their objectives are still listed as in progress. Look at each "
+							 "one on the Quests page before you change it: a quest a mod stops and starts again by itself is normal."),
+						  realObj) +
+					  list;
+			if (repeat) {
+				it.what += Fmt(tr("\n\nNot counted: %zu stopped quest(s) that repeat by design, so their entries are normal (the next run "
+								  "moves them to Completed). Do not close these out:"),
+							   repeat) +
+						   repeatList;
+			}
+			it.what += tr("\n\nCompleted quests and earlier runs of repeated quests are your journal's Completed list and are not counted.");
+			CheckOption q;
+			q.label = tr("Show the Quests page");
+			q.risk = Risk::kSafe;
+			q.why = tr("Only shows information. Each quest's page says whether it repeats before you complete or stop it there.");
+			std::uint32_t first = 0;
+			for (const auto& l : lo) {
+				if (!l.repeats) {
+					first = l.quest;
+					break;
+				}
+			}
+			q.act = [this, first] {
+				_cat = Cat::kQuests;
+				_questSel = first;
+				_showCheck = false;
+			};
+			it.options.push_back(std::move(q));
+			v.push_back(std::move(it));
+		}
+		// the player's journal list is (nearly) full: PlayerCharacter's objective list (SkyrimSE.exe 1.6.1170 40510 0x737cd0)
+		// drops the oldest quest's entries once it holds more than iMaxQuestObjectives (3000 in the exe, 0x20140f8)
+		std::size_t entries = 0;
+		for (const auto& q : questStates()) {
+			entries += q.journal.size();
+		}
+		if (entries >= kJournalFullAt) {
+			CheckItem it;
+			it.level = Risk::kInfo;
+			it.title = Fmt(tr("Your journal's list is full: %zu of %u entries"), entries, kJournalLimit);
+			it.what = tr("The game keeps at most 3000 objectives in the journal (iMaxQuestObjectives, unless a mod changes it). When a new "
+						 "objective is shown, it removes the oldest quest's entries to make room: old quests, mostly completed ones, leave the "
+						 "journal. Quests themselves are not changed.");
 			CheckOption q;
 			q.label = tr("Show the Quests page");
 			q.risk = Risk::kSafe;

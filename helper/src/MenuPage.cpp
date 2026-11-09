@@ -910,13 +910,14 @@ namespace MenuPage
 			if (im::Button("Refresh the journal")) {
 				Queue([] {
 					const auto n = Game::StartRefresh("ini");
-					SetStatus(n ? std::format("Refreshing {} journal objective(s). Close the menu and wait for the message.", n) :
-					              std::string("Nothing to refresh (or a refresh is already running)."));
+					SetStatus(n ? std::format("Putting {} lost objective(s) back in the journal. Close the menu and wait for the message.", n) :
+					              std::string("Nothing to put back: the journal already lists every objective (or a refresh is already running)."));
 				});
 			}
 			im::EndDisabled();
-			Tip("For quests or objectives missing from the journal: each shown objective of every running quest is hidden and shown "
-				"again, one quest at a time, so the game rebuilds its list. Keep menus closed until it says it is done.");
+			Tip("For quests or objectives missing from the journal: each objective a running quest shows that the journal's list does "
+				"not hold is hidden and shown again, one quest at a time, so the game lists it again. Objectives already listed are left "
+				"alone (no on-screen message for them). Keep menus closed until it says it is done.");
 			if (prog.running) {
 				im::SameLine();
 				Dim(std::format("{} of {} done", prog.done, prog.total));

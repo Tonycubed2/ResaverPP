@@ -60,10 +60,15 @@ namespace Game
 		}
 
 		// ---- journal refresh ----------------------------------------------------------------------
-		// One quest at a time: all of its shown objectives are hidden, then shown again, then their
-		// completed / failed state is put back, before the next quest is touched. So at any moment at
-		// most one quest is in flux, and nothing happens while a menu is open (the Journal remembers what
-		// it showed; changing its list under it is what crashed in version 3 with some setups).
+		// Only objectives the journal lost are put back: an objective the quest shows (state 1, 3, 5) that the
+		// player's journal list (PlayerCharacter objectives, the list the Journal menu reads) does not hold for the
+		// quest's current run with that state. Objectives already listed are left alone: every
+		// SetObjectiveDisplayed(true) queues an objective notification on the HUD (SkyrimSE.exe 1.6.1170: native
+		// 0xa46d70 -> 23933 0x394440 -> 51646 0x9201c0 HUD message 0x11), so re-showing all of them (286 for
+		// SkyrimIstari, helper 4-14) kept the HUD busy for many minutes.
+		// One quest at a time: its lost objectives are hidden, then shown again (the game's own path adds them to
+		// the list again: 40510 0x737cd0), then their completed / failed state is put back, before the next quest is
+		// touched; nothing happens while a menu is open.
 		struct Obj
 		{
 			std::uint16_t index = 0;
@@ -80,10 +85,24 @@ namespace Game
 		std::atomic<bool>         g_refreshing{ false };
 		std::string               g_refreshNotify;
 
+		std::size_t g_listed = 0;  // shown objectives the journal list already held (left alone)
+
+		// the player's journal list holds this objective for the quest's current run, with this state
+		bool Listed(const RE::BSTArray<RE::BGSInstancedQuestObjective>& a_list, const RE::TESQuest* a_quest, const RE::BGSQuestObjective* a_obj)
+		{
+			for (const auto& io : a_list) {
+				if (io.Objective == a_obj && io.instanceID == a_quest->currentInstanceID && io.InstanceState == a_obj->state) {
+					return true;
+				}
+			}
+			return false;
+		}
+
 		void Finish()
 		{
 			g_refreshing = false;
-			const auto msg = std::format("ReSaverHelper: quest journal refreshed ({} objective(s) in {} quest(s))", g_done.load(), g_quests.size());
+			const auto msg = std::format("ReSaverHelper: quest journal refreshed ({} objective(s) put back in {} quest(s), {} already listed)", g_done.load(),
+				g_quests.size(), g_listed);
 			spdlog::info("{} ({} call(s) failed)", msg, g_failedCalls.load());
 			Notify(g_refreshNotify, msg);
 		}
@@ -420,8 +439,14 @@ namespace Game
 		if (!dh) {
 			return 0;
 		}
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		if (!player) {
+			return 0;
+		}
+		const auto& list = player->GetPlayerRuntimeData().objectives;
 		g_quests.clear();
 		g_total = 0;
+		g_listed = 0;
 		for (auto* quest : dh->GetFormArray<RE::TESQuest>()) {
 			if (!quest || !Running(quest)) {
 				continue;
@@ -434,7 +459,11 @@ namespace Game
 				}
 				const auto st = static_cast<std::uint8_t>(o->state.underlying());
 				if (st == 1 || st == 3 || st == 5) {
-					qi.objs.push_back({ o->index, st });
+					if (Listed(list, quest, o)) {
+						++g_listed;  // the journal has it: no call, no HUD notification
+					} else {
+						qi.objs.push_back({ o->index, st });
+					}
 				}
 			}
 			if (!qi.objs.empty()) {
@@ -442,16 +471,18 @@ namespace Game
 				g_quests.push_back(std::move(qi));
 			}
 		}
+		spdlog::info("Journal refresh: the journal list holds {} entries; {} shown objective(s) already listed, {} missing in {} quest(s)", list.size(),
+			g_listed, g_total, g_quests.size());
 		if (g_quests.empty()) {
-			Notify(a_notify, "ReSaverHelper: no journal objectives to refresh");
+			Notify(a_notify, std::format("ReSaverHelper: the journal already lists all {} shown objective(s), nothing to put back", g_listed));
 			return 0;
 		}
 		g_done = 0;
 		g_failedCalls = 0;
 		g_refreshNotify = a_notify;
 		g_refreshing = true;
-		spdlog::info("Journal refresh: {} objective(s) in {} quest(s), one quest at a time", g_total, g_quests.size());
-		Notify(a_notify, std::format("ReSaverHelper: refreshing the quest journal ({} objectives) - keep menus closed until it is done", g_total));
+		spdlog::info("Journal refresh: putting back {} objective(s) in {} quest(s), one quest at a time", g_total, g_quests.size());
+		Notify(a_notify, std::format("ReSaverHelper: putting {} lost objective(s) back in the journal - keep menus closed until it is done", g_total));
 		Step(0, 0, 0);
 		return g_total;
 	}

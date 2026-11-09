@@ -5655,6 +5655,106 @@ void TestFreezeFix()
 	}
 }
 
+// Journal leftovers (SkyrimIstari, 9 Nov 2026: "quests not closed out properly" pointed at completed and repeating quests).
+// The rule follows SkyrimSE.exe 1.6.1170's Journal (quest list 0x989f90, entry 0x98b270): an entry is shown when its state is
+// 1/3/5 (Miscellaneous, type 6: 1 only) and is under Completed when the quest is completed or the entry is of an earlier run.
+// RESAVERPP_IST2_SAVE = his Save103 (2997 journal entries; before the fix 1528 shown objectives of completed or stopped quests
+// were counted).
+void TestJournalLeftovers()
+{
+	using ess::quests::QuestState;
+	using ess::quests::QuestDef;
+	auto mk = [](std::uint32_t a_id, std::uint16_t a_flags, std::uint32_t a_cur, std::vector<ess::quests::ObjectiveState> a_journal) {
+		QuestState q;
+		q.formID = a_id;
+		q.hasFlags = true;
+		q.flags = a_flags;
+		q.currentInstance = a_cur;
+		q.journalKnown = true;
+		q.journal = std::move(a_journal);
+		return q;
+	};
+	const auto running = mk(1, 1, 0, { { 10, 1, 0 } });
+	const auto completed = mk(2, 2, 0, { { 10, 3, 0 }, { 20, 1, 0 } });
+	const auto stopped = mk(3, 0, 0, { { 10, 1, 0 }, { 20, 3, 0 }, { 30, 2, 0 } });
+	const auto earlier = mk(4, 0, 2, { { 10, 1, 1 }, { 20, 3, 1 } });
+	const auto mixed = mk(5, 0, 2, { { 10, 3, 1 }, { 10, 1, 2 } });
+	const auto misc = mk(6, 0, 0, { { 10, 3, 0 }, { 20, 1, 0 } });
+	Check(running.leftoverObjectives() == 0, "journal leftovers: a running quest has none");
+	Check(completed.leftoverObjectives() == 0, "journal leftovers: a completed quest's entries are the Completed list");
+	Check(stopped.leftoverObjectives() == 2, "journal leftovers: a stopped quest's shown entries of its current run (state 2 not shown)");
+	Check(earlier.leftoverObjectives() == 0 && earlier.earlierRunsOnly(), "journal leftovers: entries of an earlier run are not counted");
+	Check(mixed.leftoverObjectives() == 1 && !mixed.earlierRunsOnly(), "journal leftovers: only the current run's entry counts");
+	Check(misc.leftoverObjectives(6) == 1 && misc.leftoverObjectives() == 2, "journal leftovers: a Miscellaneous quest shows only state 1");
+	QuestDef sm, rep, plain;
+	sm.event = 'C' | ('L' << 8) | ('O' << 16) | (static_cast<std::uint32_t>('C') << 24);
+	rep.flags = 0x8;
+	std::string why;
+	Check(sm.eventText() == "CLOC" && ess::quests::QuestRepeats(&stopped, &sm, &why) && why.find("Story Manager (CLOC)") != std::string::npos,
+		"journal leftovers: a Story Manager quest repeats");
+	Check(ess::quests::QuestRepeats(&stopped, &rep, &why) && why == "allows repeated stages", "journal leftovers: repeated stages");
+	Check(!ess::quests::QuestRepeats(&stopped, &plain, &why) && why.empty(), "journal leftovers: a plain stopped quest does not repeat");
+	Check(ess::quests::QuestRepeats(&mixed, nullptr, &why), "journal leftovers: an earlier run in the journal means it repeats");
+	{
+		const std::vector<QuestState> all = { running, completed, stopped, earlier, mixed, misc };
+		const auto lo = ess::quests::JournalLeftovers(all, [&](std::uint32_t a_id) -> const QuestDef* { return a_id == 3 ? &sm : nullptr; });
+		std::set<std::uint32_t> ids;
+		for (const auto& l : lo) {
+			ids.insert(l.quest);
+		}
+		Check(ids == std::set<std::uint32_t>({ 3, 5, 6 }) && lo[0].repeats && lo[1].repeats && !lo[2].repeats,
+			"journal leftovers: listed with their repeat reason");
+	}
+	const char* env = std::getenv("RESAVERPP_IST2_SAVE");
+	if (!env || !std::filesystem::exists(env)) {
+		std::printf("(journal leftovers: RESAVERPP_IST2_SAVE not set, SkyrimIstari's Save103 skipped)\n");
+		return;
+	}
+	auto       s = SaveFile::load(env);
+	const auto st = ess::quests::ReadStates(*s);
+	std::size_t entries = 0, oldCount = 0, oldQuests = 0, instances = 0;
+	for (const auto& q : st) {
+		entries += q.journal.size();
+		const auto n = (q.completed() || !q.running()) ? q.shownObjectives() : 0;
+		oldCount += n;
+		oldQuests += n ? 1 : 0;
+		instances += q.currentInstance ? 1 : 0;
+	}
+	// the instance id read from CHANGE_QUEST_INSTANCES fits the journal: no entry is of a later run than the quest's current one
+	// (2823 entries of quests with a saved id on Save103), and quests without a saved id (the game keeps 0) list run 0 only
+	std::size_t withId = 0, later = 0, noId = 0, noIdOther = 0;
+	for (const auto& q : st) {
+		for (const auto& o : q.journal) {
+			if (q.currentInstance) {
+				++withId;
+				later += o.instance > q.currentInstance ? 1 : 0;
+			} else {
+				++noId;
+				noIdOther += o.instance ? 1 : 0;
+			}
+		}
+	}
+	std::printf("journal leftovers (Save103): %zu entries of quests with a saved instance id (%zu of a later run), %zu without (%zu not of run 0)\n", withId,
+		later, noId, noIdOther);
+	Check(withId > 2000 && later == 0 && noIdOther == 0, "journal leftovers (Save103): the saved instance id is each quest's latest run");
+	const auto lo = ess::quests::JournalLeftovers(st, nullptr);
+	std::size_t loObj = 0, repeating = 0;
+	bool date = false, drink = false;
+	for (const auto& l : lo) {
+		loObj += l.objectives;
+		repeating += l.repeats ? 1 : 0;
+		date = date || l.quest == 0x2FC73A4A;   // SDA_SeranaRomance11 "A Date at the Bannered Mare" (completed)
+		drink = drink || l.quest == 0x2F88E922;  // SDA_DrinkingBuddiesTriggerNew (Story Manager, CLOC)
+	}
+	std::printf("journal leftovers (Save103): %zu entries; before: %zu objectives in %zu quests; now: %zu objectives in %zu quests (%zu repeat by "
+				"an earlier run); %zu quests with a saved instance id\n",
+		entries, oldCount, oldQuests, loObj, lo.size(), repeating, instances);
+	Check(entries == 2997, "journal leftovers (Save103): 2997 journal entries");
+	Check(oldCount == 1528, "journal leftovers (Save103): the old rule counted 1528 objectives");
+	Check(loObj == 89 && lo.size() == 48, "journal leftovers (Save103): 89 objectives of 48 stopped quests are shown as in progress");
+	Check(!date && !drink, "journal leftovers (Save103): the completed Bannered Mare date and the radiant drinking quest are not counted");
+}
+
 int main()
 {
 	TestFloatLiteral();
@@ -5699,6 +5799,7 @@ int main()
 	TestFreezeFix();
 	TestGhostActors();
 	TestGhostRemove();
+	TestJournalLeftovers();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

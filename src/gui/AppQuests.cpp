@@ -14,6 +14,7 @@
 #include <cctype>
 #include <cstdio>
 #include <set>
+#include <unordered_set>
 #include <unordered_map>
 #include <functional>
 
@@ -378,7 +379,7 @@ void App::startLiveRefresh()
 		}
 		const auto n = std::strtoull(LiveLink::Field(r, 0).c_str(), nullptr, 10);
 		if (n == 0) {
-			_status = tr("Nothing to refresh: no running quest shows an objective.");
+			_status = tr("Nothing to refresh: the journal already lists every objective the running quests show.");
 			return;
 		}
 		_liveRefresh = LiveRefresh{ true, 0, n, 0 };
@@ -412,9 +413,10 @@ void App::drawRefreshJournal(bool a_compact)
 	ImGui::EndDisabled();
 	if (!can) {
 		LiveHint(info);
-	} else tips::Tip(tr("For every running quest, each objective the journal shows is hidden and shown again (completed / failed\n"
-						  "put back), so the game rebuilds its list. Brings back quests and objectives the journal stopped showing\n"
-						  "(the same fix as Quest Journal Limit Bug Fixer).\n\n"
+	} else tips::Tip(tr("Brings back quests and objectives the journal stopped showing: each objective a running quest shows that is\n"
+						  "missing from the journal's list is hidden and shown again (completed / failed put back), so the game lists it\n"
+						  "again. Helper 15 leaves the objectives the journal already lists alone, so only those put back appear on screen;\n"
+						  "older helpers redo every objective, and the screen then shows each one again for many minutes.\n\n"
 						  "Make a save in the game first and keep menus closed until it is done (helper 4 waits for them)."));
 	if (_liveRefresh.running) {
 		ImGui::SameLine();
@@ -462,18 +464,26 @@ void App::drawQuestsList()
 	if (analysisWillProvide(kAnFirst)) {
 		drawBackgroundProgress(0);  // (read in the background right after opening)
 	}
-	std::size_t shown = 0, shownDone = 0;
+	std::size_t shown = 0, leftover = 0;
 	for (const auto& q : states) {
-		const auto n = q.shownObjectives();
-		shown += n;
-		if (q.completed() || !q.running()) {
-			shownDone += n;
+		shown += q.shownObjectives();
+	}
+	// stopped quests the Journal still shows as in progress, without those that repeat by design (Quests.h)
+	std::unordered_set<std::uint32_t> leftoverQuests;
+	if (!fo4()) {
+		for (const auto& l : quests::JournalLeftovers(states, [this](std::uint32_t a_id) { return _db ? _db->quest(a_id) : nullptr; })) {
+			if (!l.repeats) {
+				leftover += l.objectives;
+				leftoverQuests.insert(l.quest);
+			}
 		}
 	}
 	ImGui::TextUnformatted(Fmt(fo4() ? tr("Your Pip-Boy shows %zu objective(s).") : tr("Your journal shows %zu objective(s)."), shown).c_str());
-	if (shownDone) {
+	if (leftover) {
 		ImGui::SameLine();
-		TextColored(theme::Warn(), Fmt(tr("%zu of them belong to quests that are completed or stopped."), shownDone));
+		TextColored(theme::Warn(), Fmt(tr("%zu of them belong to stopped quests it still shows as in progress."), leftover));
+		tips::Tip(tr("Completed quests and earlier runs of a repeated quest are the journal's Completed list: normal, not counted. Quests "
+				  "that repeat by design (radiant, started by the Story Manager) are not counted either."));
 	}
 	if (!fo4()) {
 		drawRefreshJournal(true);  // (Skyrim's journal; the Fallout 4 helper does not do this)
@@ -638,7 +648,7 @@ void App::drawQuestsList()
 				ImGui::TableNextColumn();
 				ImGui::TextDisabled("%08X", r.formID);
 				ImGui::TableNextColumn();
-				const bool odd = r.q && r.shown && (r.q->completed() || !r.q->running());
+				const bool odd = r.q && leftoverQuests.contains(r.formID);
 				if (odd) {
 					TextColored(theme::Warn(), r.status);
 				} else if (!r.q) {
@@ -690,10 +700,25 @@ void App::drawQuestDetail()
 	if (q->journalKnown) {
 		std::string js;
 		for (const auto& o : q->journal) {
-			js += (js.empty() ? "" : ",  ") + Fmt(tr("objective %d %s"), o.index, quests::ObjectiveStateText(o.state));
+			js += (js.empty() ? "" : ",  ") + Fmt(tr("objective %d %s"), o.index, quests::ObjectiveStateText(o.state)) +
+				  (o.instance != q->currentInstance ? tr(" (earlier run)") : "");
 		}
 		Dim(js.empty() ? std::string(tr("The journal does not list it.")) : tr("The journal lists: ") + js);
 	}
+	// a quest meant to stop and start again (radiant, Story Manager): stopped is its normal state between runs
+	std::string repeatWhy;
+	const bool  repeats = !fo4() && quests::QuestRepeats(q, def, &repeatWhy);
+	if (repeats) {
+		TextColored(theme::Warn(), Fmt(tr("This quest repeats (%s): its mod or the game stops it and starts it again. Stopped with objectives in "
+										  "the journal is normal between runs; completing or stopping it yourself can keep it from starting again."),
+									   repeatWhy.c_str()));
+	} else if (const auto n = q->leftoverObjectives(def ? def->type : -1)) {
+		TextColored(theme::Warn(), Fmt(tr("Stopped without being completed, but the journal still shows %zu of its objectives as in progress."), n));
+	}
+	const std::string repeatNote = repeats ? Fmt(tr("\n\nCAREFUL: this quest repeats (%s). Its mod or the game stops it and starts it again; "
+													 "closing it out yourself can keep it from ever starting again."),
+												 repeatWhy.c_str())
+										   : std::string();
 	// the quest's scripts with their property values (editable, like in the Creation Kit's quest window)
 	if (auto* pp = _save ? _save->papyrus() : nullptr) {
 		auto&       p = *pp;
@@ -771,7 +796,7 @@ void App::drawQuestDetail()
 				name.c_str(), st, effects.empty() ? "" : (tr("\n\nWhat the stage script does:") + effects).c_str(),
 				q->hasFlags ? "" :
 				              tr("\n\nThis quest has not started in this save: setting the stage starts it and completes it at once. Its people and "
-				              "places are not set up yet, so parts of its script may do nothing, and quests that come after it may still start.")) + earlier,
+				              "places are not set up yet, so parts of its script may do nothing, and quests that come after it may still start.")) + earlier + repeatNote,
 			[this, fid = q->formID, st, name] { liveSetStage(fid, st, Fmt(tr("completed \"%s\" (stage %u)"), name.c_str(), st), {},
 				                                                     Fmt("completed \"%s\" (stage %u)", name.c_str(), st)); });
 	}
@@ -791,7 +816,7 @@ void App::drawQuestDetail()
 			Fmt(tr("Mark \"%s\" as completed in the running game, without running its stage script?\n\nIts objectives are completed and it moves to "
 				"the completed quests in the journal. Unlike \"Complete quest in game\", no rewards are given and quests that normally "
 				"follow it are NOT started. Use it when the game refuses the completion stage. Make a save in the game first."),
-				name.c_str()),
+				name.c_str()) + repeatNote,
 			[this, fid = q->formID, name] { liveComplete(fid, name); });
 	}
 	ImGui::EndDisabled();
@@ -810,7 +835,7 @@ void App::drawQuestDetail()
 			Fmt(tr("Stop \"%s\" in the running game?\n\nThe game stops it the normal way (Quest.Stop): its scripts are told, the people and "
 				"items it held are let go, and its objectives leave the journal. It is not completed and gives no rewards. A quest that "
 				"starts by itself can start again later. Make a save in the game first."),
-				name.c_str()),
+				name.c_str()) + repeatNote,
 			[this, fid = q->formID, name] { liveStop(fid, name); });
 	}
 	ImGui::EndDisabled();

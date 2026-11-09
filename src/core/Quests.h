@@ -59,8 +59,9 @@ namespace ess::quests
 	struct QuestDef
 	{
 		std::string            edid, name;
-		std::uint16_t          flags = 0;  // DNAM
+		std::uint16_t          flags = 0;  // DNAM: 0x8 allow repeated stages, 0x100 run once
 		std::uint8_t           priority = 0, type = 0;
+		std::uint32_t          event = 0;  // Skyrim ENAM: the Story Manager event that starts it ('CLOC', 'SCPT'...), 0 none
 		std::vector<Stage>     stages;
 		std::vector<Objective> objectives;
 		std::string            fragmentScript;   // the quest's stage-fragment script
@@ -69,6 +70,13 @@ namespace ess::quests
 		std::vector<std::string> scripts;        // every script attached to the quest
 		std::uint16_t          plugin = 0;       // index into PluginDB::plugins() (last override)
 		std::unordered_map<std::uint32_t, std::string> aliases;  // alias id (ALST / ALLS / ALCS) -> name (ALID)
+
+		// started by the Story Manager (a radiant quest) or allowed to repeat its stages: such quests are stopped and
+		// started again by the game or their mod, so a stopped one is normal and closing it out can break the next run
+		bool            storyManager() const { return event != 0; }
+		bool            repeatedStages() const { return flags & 0x8; }
+		bool            runOnce() const { return flags & 0x100; }
+		std::string     eventText() const;  // "CLOC" (empty when none)
 
 		const Stage*    stage(std::uint16_t a_index) const;
 		const Fragment* fragmentFor(std::uint16_t a_stage) const;
@@ -111,8 +119,9 @@ namespace ess::quests
 	// ---- from the save ---------------------------------------------------------------------------
 	struct ObjectiveState
 	{
-		std::int32_t index = 0;
-		std::int32_t state = 0;  // 0 dormant, 1 shown, 2 completed, 3 completed + shown, 4 failed, 5 failed + shown
+		std::int32_t  index = 0;
+		std::int32_t  state = 0;     // 0 dormant, 1 shown, 2 completed, 3 completed + shown, 4 failed, 5 failed + shown
+		std::uint32_t instance = 0;  // journal entries: the quest instance (run) the entry belongs to
 	};
 
 	struct QuestState
@@ -130,8 +139,21 @@ namespace ess::quests
 		// Fallout 4: the quest's log entries the Pip-Boy shows (stage, log entry index within the stage), from the
 		// player's quest log (PlayerCharacter::questLog)
 		std::vector<std::pair<std::uint16_t, std::uint8_t>> logShown;
+		// the quest's current instance (TESQuest+0x50 currentInstanceID): saved first in CHANGE_QUEST_INSTANCES (change
+		// flag 27, SkyrimSE.exe 1.6.1170 TESQuest::SaveGame 0x3cadec); without that flag the game keeps its default 0
+		std::uint32_t currentInstance = 0;
 
 		bool          inJournal() const;  // the journal shows one of its objectives
+		// Objectives the Journal shows under the quest's in-progress entry although the quest is not running (stopped
+		// without being completed): the "leftovers" a save check can point at. What the Journal shows was checked in
+		// SkyrimSE.exe 1.6.1170 (quest list 0x989f90, entry 0x98b270): an entry of the player's list is shown when its
+		// state is 1, 3 or 5 (a Miscellaneous quest, type 6: only 1); it is under Completed when the quest is completed
+		// OR the entry belongs to an earlier run (its instance is not the quest's current instance). So completed
+		// quests and earlier runs of a repeatable / radiant quest (stopped and started again) are the journal working
+		// as designed and are not counted. a_type: the quest's type from its plugin (DNAM), -1 when unknown.
+		std::size_t   leftoverObjectives(int a_type = -1) const;
+		// the journal lists this quest under Completed only through entries of earlier runs (a repeated quest)
+		bool          earlierRunsOnly() const;
 
 		bool          running() const { return hasFlags && (flags & 1); }
 		bool          completed() const { return hasFlags && (flags & 2); }
@@ -144,8 +166,9 @@ namespace ess::quests
 	// The player's journal: every quest objective the journal lists, as saved in the player's record
 	// (ACHR 00000014): a count, then per objective the quest (RefID), the objective index, the quest
 	// instance and the state. Skyrim: the list is found by its shape (the player's record is not decoded field
-	// by field); a_found tells whether it was found. Entries of quests that no longer run may still be
-	// listed here: the game drops them when the save is loaded.
+	// by field); a_found tells whether it was found. Entries of quests that no longer run stay listed: when the save
+	// is loaded the game only drops entries whose quest or objective it cannot find (SkyrimSE.exe 1.6.1170
+	// PlayerCharacter::LoadGame 0x73c6ca: each entry read by 0x38ac20, removed when 0x38ace0, objective != null, fails).
 	struct JournalEntry
 	{
 		std::uint32_t quest = 0, index = 0, instance = 0, state = 0;
@@ -169,5 +192,22 @@ namespace ess::quests
 	// Every quest with saved state in the save (its QUST change form), in change form order, with what
 	// the journal lists for it (quests only in the journal are added at the end).
 	std::vector<QuestState> ReadStates(const SaveFile& a_save);
+
+	// A quest that is meant to stop and start again: started by the Story Manager (radiant, ENAM), allowed to repeat its
+	// stages (DNAM 0x8), or the journal already lists objectives of an earlier run of it. a_why gets the reason
+	// ("started by the Story Manager (CLOC)"...). a_q or a_def may be null.
+	bool QuestRepeats(const QuestState* a_q, const QuestDef* a_def, std::string* a_why = nullptr);
+
+	// Stopped (not running, not completed) quests the Journal still shows as in progress (leftoverObjectives). Those
+	// that repeat (QuestRepeats) are marked: for them it is normal, their next run moves the old entries to Completed.
+	struct JournalLeftover
+	{
+		std::uint32_t quest = 0;
+		std::size_t   objectives = 0;
+		bool          repeats = false;
+		std::string   why;  // why it repeats
+	};
+	using DefOf = std::function<const QuestDef*(std::uint32_t)>;
+	std::vector<JournalLeftover> JournalLeftovers(const std::vector<QuestState>& a_states, const DefOf& a_defOf);
 	const char*             ObjectiveStateText(std::int32_t a_state);
 }
