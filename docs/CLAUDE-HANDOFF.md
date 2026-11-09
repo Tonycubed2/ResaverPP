@@ -344,6 +344,64 @@ project; you do the coding, building, delivering and publishing.
   them in `tr()`, then `python3 tools/i18n/tr_keys.py --update lang/ru.txt` (CTest i18n_keys fails otherwise; rs_lang_test
   checks % conversions). Not translated: core texts (save check findings from ops, change form labels, error texts
   from core), AI prompt/tool texts, logs, CLI, reports/system info, in-game notifications. See TRANSLATING.md.
+- Chinese / CJK text showing as "?" (player4771, Fallout 4 page, 9 Nov 2026; branch cjk, not published). Causes found:
+  (1) fonts: CJK glyphs were merged only when the "codepage=" setting or GetACP() was 932/936/949/950/874, so a Chinese
+  user on an English-locale Windows or with "Beta: UTF-8" (ACP 65001) got ImGui's fallback glyph for every character
+  ('?' with Segoe UI); when they were merged it was ImGui's ChineseFull (21 533 glyphs, in main AND mono font): measured
+  here 4096 x 8192 RGBA (128 MB) at 100 %, 4096 x 16384 (256 MB) at 150-200 %, +0.5-1 s start (cjktools/atlas), more than
+  drivers with an 8192 texture limit take. Also Windows-only font paths (nothing under Wine/Linux) and CJK fonts drawn at
+  ~80 % size (ImGui sizes by ascent-descent; CJK fonts are taller). (2) PDF report: Courier/WinAnsi, every CJK char '?'.
+  (3) CLI: main()'s argv is in the ANSI code page (non-representable chars already '?'), and MinGW's
+  std::filesystem::path(std::string) reads UTF-8 (checked under Wine: GBK bytes throw "Cannot convert character
+  sequence"; path::string() gives UTF-8 whatever the ACP). (4) writing: text::FromUtf8 put '?' (WideCharToMultiByte default
+  char) for characters the code page lacks, and wrote new non-ASCII text in the code page although the games write UTF-8.
+  (5) English strings files decoded with the system code page (Fallout4_en.STRINGS has 1252 bytes 0xA4; on a GBK Windows
+  they became Chinese garbage). (6) zh-Hans was not a valid language code (lowercase only).
+  Encodings checked: xEdit wbInterface AddDefaultLEncodingsIfMissing / AddGameDefaultLEncodings (SSE/FO4: english/en 1252,
+  every other language UTF-8 first, fallback 1251/1250/932...; chinese/japanese UTF-8 even for LE) and xTranslator
+  Data/*/codepage.txt (FO4: en=1252, cn/ja/ko/ru=utf8; SkyrimSE: all utf8 with fallbacks; Skyrim LE chinese=utf8). Tony's
+  files: Fallout4_en.STRINGS 20 non-ASCII entries, all 1252; Skyrim LE Skyrim_English.STRINGS 1252; a mod's
+  *_french.ilstrings (SSE) 1584 entries, all UTF-8. No Chinese strings file exists on Tony's PC (only en). Exes:
+  Fallout4.exe 1.11.240: all 8 WideCharToMultiByte calls are CP_UTF8, the only MultiByteToWideChar is WM_CHAR with the
+  keyboard layout's ANSI page before Scaleform; language codes table at file 0x291d5a0 (mul en fr it de es esmx pl ja nl pt
+  ptbr ru ko zhhant zhhans fi sv da no) and the Translate_%s list (cn de esmx fr it ja pl ptbr ru zh). SkyrimSE.exe 1.6.1170
+  (SteamStub-encrypted .text) imports WideCharToMultiByte but not MultiByteToWideChar; Steam language list english spanish
+  french german italian polish russian chinese japanese. So the games keep text as UTF-8; saves hold UTF-8 player names.
+  No sample save with a non-ASCII name existed (cjktools/mkzh.py makes FO4 test saves: same-length header text only, the
+  file location table has absolute offsets).
+  What changed: `core/Text.*`: strict UTF-8 check (overlongs, surrogates), a UTF-8 tail cut inside a character is dropped,
+  `DecodeCodePage`/`EncodeCodePage` (Windows API / iconv; U+FFFD for bad bytes; false when a char has no place),
+  Automatic = Windows ACP unless 65001, else the game language's code page (`SetGameLanguage`, set in startNames from
+  sLanguage; `LanguageCodePage`: chinese/cn/zhhans 936, zhhant 950, japanese 932, korean 949, russian 1251...), else 1252.
+  `FromUtf8(u, original, preferUtf8)`: UTF-8 original -> UTF-8; code page original -> that page, UTF-8 if not
+  representable (never '?'); ASCII/empty original -> preferUtf8 (App: the majority encoding of the save's Papyrus strings,
+  else UTF-8 for SE/FO4, code page for LE). PluginDB strings files: decoded with the file's language code page; if
+  neither sLanguage nor en/english exists, any language the plugin has. MergedPatch copies text bytes unchanged.
+  JSON ValidUtf8 uses ToUtf8. Report PDF: runs of CJK text in Type0 STSong-Light / UniGB-UCS2-H (F3) and
+  HYSMyeongJo-Medium / UniKS-UCS2-H for Hangul (F4), not embedded (viewers supply them; poppler needs poppler-data),
+  CJK chars take two Courier columns; title in UTF-16. `gui/Fonts.*` (replaces main.cpp's font code): ImGui patched in
+  third_party/imgui (imgui.h + imgui_draw.cpp, marked "ReSaver++": `GImFontMissingGlyphHook` called from
+  ImFont::FindGlyph's fallback paths); missing chars >= U+0E00 are collected per group (Han+kana+symbols / Hangul /
+  Thai) and the atlas is rebuilt between frames (at most every 150 ms; main.cpp then ImGui_ImplOpenGL3_DestroyFontsTexture
+  and new app.monoFont/titleFont pointers). Fonts per group from a chain ordered by preference (UI language zh-Hans/zh-Hant/
+  ja/ko, else text code page, else game language): msyh, simsun, msjh, mingliu, YuGothM, meiryo, msgothic, malgun,
+  gulim, LeelawUI, tahoma (in %WINDIR%\Fonts), then Noto Sans CJK (.ttc index per language), WenQuanYi, Droid Sans
+  Fallback, Nanum, Noto Thai (Linux paths, and the same under Wine's Z:). A second font of the chain only when letters
+  really drawn are missing. Font files read once and kept (atlas uses them from memory). CJK merged at the interface
+  font's em size (stb metrics). First Han char with a CJK preference also loads ChineseSimplifiedCommon (or Japanese)
+  from U+3000. If the atlas passes GL_MAX_TEXTURE_SIZE the mono font is built without the extras. Measured here: the
+  Chinese test save + Chinese UI = 3012 chars, one font, atlas 2048 x 2048. Startup with no CJK: unchanged. Options >
+  Settings: "Text encoding of plugins and saves" (GBK/Big5/Shift-JIS named, "Automatic (now: ...)", font status line;
+  no restart needed any more). Lang: `i18n::AllTranslations()` (preloads the UI language's characters), codes may have
+  capitals; `lang/template/zh-Hans.txt` = every key with tr "" (not built in; CTest i18n_template_zh; keep it with
+  `tr_keys.py --update lang/template/zh-Hans.txt`); TRANSLATING.md has a Chinese section. CLI on Windows:
+  CommandLineToArgvW -> UTF-8 argv, SetConsoleOutputCP(CP_UTF8), links shell32. Tests: `rs_text_test` (ctest text:
+  UTF-8/GBK/Big5/Shift-JIS/949/1251/1252 detection, decoding, round trips, no '?', automatic, PDF). Screenshots
+  (scratchpad cjkshots/): before.png (old build: the player name/location as fallback glyphs), after.png, gbk936.png,
+  gbkauto.png (Linux, no hint: 1252 mojibake, as expected), zhui.png (15-string test zh-Hans.txt, not committed).
+  Open: the Chinese translation itself (volunteer player4771); FO4 "cn" taken as 936 for non-UTF-8 fallback is a choice
+  (no Chinese install to check whether cn is Simplified or Traditional; the Windows ACP comes first anyway); the PDF
+  Cyrillic now goes through the GB1 font (full-width); text reports (.txt) stay UTF-8 without BOM.
 - Save bloat by mod + load order check (2026-11-06, branch bloat, not published): `core/SaveBloat.*` (`ess::bloat::Build`: per plugin
   the Papyrus instances/threads/arrays/structs with their bytes as written, change forms by type, created forms by their base's plugin
   (FO4 DecodeRefr initial data, Skyrim baseObject / leveled template), inventory entries by item plugin, taken out of the holder's
