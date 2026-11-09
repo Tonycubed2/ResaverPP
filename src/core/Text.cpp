@@ -279,40 +279,39 @@ namespace ess::text
 			a_out = From1252(a);
 			return true;
 		}
+		// the whole text at once; on bad bytes, character by character (one byte, or a lead + trail byte), U+FFFD for
+		// each byte that is no character (the system's own replacement would be '?' or a dot)
+		auto strict = [cp](const std::string& in, std::string& out) {
 #ifdef _WIN32
-		bool       ok = true;
-		int        n = MultiByteToWideChar(cp, MB_ERR_INVALID_CHARS, a.data(), static_cast<int>(a.size()), nullptr, 0);
-		DWORD      flags = MB_ERR_INVALID_CHARS;
-		if (n <= 0) {
-			ok = false;
-			flags = 0;
-			n = MultiByteToWideChar(cp, 0, a.data(), static_cast<int>(a.size()), nullptr, 0);
-		}
-		if (n <= 0) {
-			a_out = From1252(a);  // a code page Windows does not have
-			return false;
-		}
-		std::wstring w(static_cast<std::size_t>(n), L'\0');
-		MultiByteToWideChar(cp, flags, a.data(), static_cast<int>(a.size()), w.data(), n);
-		const int m = WideCharToMultiByte(CP_UTF8, 0, w.data(), n, nullptr, 0, nullptr, nullptr);
-		a_out.assign(static_cast<std::size_t>(m), '\0');
-		WideCharToMultiByte(CP_UTF8, 0, w.data(), n, a_out.data(), m, nullptr, nullptr);
-		return ok;
+			const int n = MultiByteToWideChar(cp, MB_ERR_INVALID_CHARS, in.data(), static_cast<int>(in.size()), nullptr, 0);
+			if (n <= 0) {
+				return false;
+			}
+			std::wstring w(static_cast<std::size_t>(n), L'\0');
+			MultiByteToWideChar(cp, MB_ERR_INVALID_CHARS, in.data(), static_cast<int>(in.size()), w.data(), n);
+			const int m = WideCharToMultiByte(CP_UTF8, 0, w.data(), n, nullptr, 0, nullptr, nullptr);
+			out.assign(static_cast<std::size_t>(m), '\0');
+			WideCharToMultiByte(CP_UTF8, 0, w.data(), n, out.data(), m, nullptr, nullptr);
+			return true;
 #else
-		if (Iconv("UTF-8", IconvName(cp).c_str(), a, a_out)) {
+			return Iconv("UTF-8", IconvName(cp).c_str(), in, out);
+#endif
+		};
+		if (strict(a, a_out)) {
 			return true;
 		}
-		// invalid bytes: the valid parts in the code page, U+FFFD for each bad byte
+		// a code page this system does not have at all: Windows-1252
+		if (std::string probe; !strict("A", probe)) {
+			a_out = From1252(a);
+			return false;
+		}
 		a_out.clear();
-		std::size_t i = 0;
-		while (i < a.size()) {
-			std::size_t len = std::min<std::size_t>(a.size() - i, 2);
+		for (std::size_t i = 0; i < a.size();) {
 			std::string piece;
-			// one character: one byte (ASCII or a single-byte code page), or a lead byte + trail byte
-			if (Iconv("UTF-8", IconvName(cp).c_str(), a.substr(i, 1), piece)) {
+			if (strict(a.substr(i, 1), piece)) {
 				a_out += piece;
 				i += 1;
-			} else if (len == 2 && Iconv("UTF-8", IconvName(cp).c_str(), a.substr(i, 2), piece)) {
+			} else if (i + 1 < a.size() && strict(a.substr(i, 2), piece)) {
 				a_out += piece;
 				i += 2;
 			} else {
@@ -321,7 +320,6 @@ namespace ess::text
 			}
 		}
 		return false;
-#endif
 	}
 
 	bool EncodeCodePage(const std::string& u, unsigned cp, std::string& a_out)
