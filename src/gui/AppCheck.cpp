@@ -6,6 +6,7 @@
 //   yellow = caution: safe in the normal case, read why before doing it
 //   red    = risky: likely to break a mod or quest, or ReSaver++ cannot be sure; better not
 #include "App.h"
+#include "Watchdog.h"
 
 #include "Platform.h"
 #include "Theme.h"
@@ -14,6 +15,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <optional>
 #include <cstdio>
 
 using namespace ess;
@@ -108,10 +110,28 @@ namespace
 
 std::vector<App::CheckItem> App::checkItems()
 {
+	// Asked for up to three times a frame (menu bar, Overview, Save check): worked out at most twice a second, at once
+	// after anything it shows changed (invalidateCheck). It used to read plugins.txt and stat files every time: under
+	// Wine each such call is slow, and it slowed every frame.
+	const double now = ImGui::GetTime();
+	if (_checkCache && _checkSave == _save.get() && _checkGen == _editGen && now < _checkNext) {
+		return *_checkCache;
+	}
+	auto v = computeCheckItems();
+	_checkCache = std::make_shared<std::vector<CheckItem>>(v);
+	_checkSave = _save.get();
+	_checkGen = _editGen;
+	_checkNext = now + 0.5;
+	return v;
+}
+
+std::vector<App::CheckItem> App::computeCheckItems()
+{
 	std::vector<CheckItem> v;
 	if (!_save) {
 		return v;
 	}
+	watchdog::Step checkStep("Save check items");
 	auto* p = _save->papyrus();
 	const auto info = _live.info();
 
@@ -148,7 +168,10 @@ std::vector<App::CheckItem> App::checkItems()
 
 	// threads nothing will resume (ops::StrandedThreads): verified in SkyrimSE.exe 1.6.1170 only
 	if (p && !p->invalid && !_save->isFO4() && !_save->isLE()) {
-		if (const auto stranded = ops::StrandedThreads(*p); !stranded.empty()) {
+		std::optional<watchdog::Step> st(std::in_place, "stranded threads (ops::StrandedThreads)");
+		const auto stranded = ops::StrandedThreads(*p);
+		st.reset();
+		if (!stranded.empty()) {
 			CheckItem it;
 			it.level = Risk::kRisky;
 			it.title = Fmt(tr("%zu script thread(s) are waiting for nothing"), stranded.size());
@@ -176,7 +199,10 @@ std::vector<App::CheckItem> App::checkItems()
 	}
 
 	// the newest crash log came after this save and names one of its spawned or leveled actors
-	if (const auto& cc = crashCheck(); !cc.suspects.empty()) {
+	std::optional<watchdog::Step> cst(std::in_place, "crash log check");
+	const auto& cc = crashCheck();
+	cst.reset();
+	if (!cc.suspects.empty()) {
 		CheckItem it;
 		it.level = Risk::kRisky;
 		std::string ids;
@@ -482,7 +508,9 @@ std::vector<App::CheckItem> App::checkItems()
 
 	// actors saved while waiting to play a start / stop / turn idle the save does not keep: the load crashes
 	{
+		std::optional<watchdog::Step> pst(std::in_place, "stuckPathIdles");
 		const auto& stuck = stuckPathIdles();
+		pst.reset();
 		if (!stuck.empty()) {
 			CheckItem it;
 			it.level = Risk::kRisky;
@@ -552,11 +580,15 @@ std::vector<App::CheckItem> App::checkItems()
 	}
 
 	// load order limits and mods gone from it that still take space (AppF4Bloat.cpp)
-	bloatCheckItems(v);
+	{
+		watchdog::Step st("bloat and load order check");
+		bloatCheckItems(v);
+	}
 
 	// enchanted items that can never be recharged
 	{
 		std::size_t broken = 0;
+		watchdog::Step st("enchanted items (chargedItems)");
 		for (const auto& c : chargedItems()) {
 			broken += cf::NeedsChargeFix(c.inv) ? 1 : 0;
 		}
@@ -609,6 +641,7 @@ std::vector<App::CheckItem> App::checkItems()
 	// the journal shows objectives of quests that are over (Skyrim's quest data)
 	if (!fo4()) {
 		std::size_t shownDone = 0;
+		watchdog::Step st("journal (questStates)");
 		for (const auto& q : questStates()) {
 			if (q.completed() || !q.running()) {
 				shownDone += q.shownObjectives();
@@ -647,11 +680,20 @@ std::vector<App::CheckItem> App::checkItems()
 	if (fo4()) {
 		settlementCheckItems(v);
 	}
-	skyfCheckItems(v);  // followers, beast form, quests between stages (AppSkyFollowers.cpp)
+	{
+		watchdog::Step st("followers, beast form, quests (skyfCheckItems)");
+		skyfCheckItems(v);
+	}  // followers, beast form, quests between stages (AppSkyFollowers.cpp)
 	// Fallout 4: companions, quests whose stage script stopped early (AppF4Companions.cpp)
 	appendCheckItemsF4(v);
-	cosaveCheck(v);  // data of SKSE / F4SE plugins no longer installed (AppCosave.cpp)
-	charFxCheck(v);  // effects stuck on the character (AppCharEffects.cpp)
+	{
+		watchdog::Step st("co-save check");
+		cosaveCheck(v);  // data of SKSE / F4SE plugins no longer installed (AppCosave.cpp)
+	}
+	{
+		watchdog::Step st("character effects (charFxCheck)");
+		charFxCheck(v);  // effects stuck on the character (AppCharEffects.cpp)
+	}
 
 	std::stable_sort(v.begin(), v.end(), [](const CheckItem& a, const CheckItem& b) { return static_cast<int>(a.level) > static_cast<int>(b.level); });
 	return v;
@@ -720,7 +762,7 @@ void App::drawSaveCheck()
 	ImGui::TextUnformatted(tr("Risky: can break a mod or quest"));
 	ImGui::TextDisabled("%s", tr("Nothing here changes your save file until you use File > Save or Save As (the previous file is kept as .bak).\n"
 						"Removing mods writes a NEW save next to the old one. Make a backup of saves you care about anyway."));
-	if (scanning()) {
+	if (scanning() || _analysisJob || _openJob) {
 		ImGui::TextDisabled("%s", tr("Reading your mods in the background: this list updates when it is done."));
 		drawBackgroundProgress(0);
 	}

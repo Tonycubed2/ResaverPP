@@ -213,7 +213,7 @@ namespace ess
 				std::lock_guard l(a_progress.m);
 				a_progress.current = pluginName;
 			}
-			const auto path = a_in.sources.pluginPath(pluginName);
+			const auto path = a_in.src().pluginPath(pluginName);
 			if (!path || !ReadFile(*path, file) || file.size() < 24 || !Is(file.data(), "TES4")) {
 				missing.push_back(pluginName);
 				++a_progress.done;
@@ -255,8 +255,8 @@ namespace ess
 				auto loadStrings = [&](const char* a_ext) {
 					std::unordered_map<std::uint32_t, std::string> table;
 					for (const auto& lang : { Lower(a_in.language), std::string(a_in.fo4 ? "en" : "english") }) {
-						auto it = a_in.sources.stringsFiles.find(stem + "_" + lang + a_ext);
-						if (it == a_in.sources.stringsFiles.end()) {
+						auto it = a_in.src().stringsFiles.find(stem + "_" + lang + a_ext);
+						if (it == a_in.src().stringsFiles.end()) {
 							continue;
 						}
 						try {
@@ -359,7 +359,7 @@ namespace ess
 						continue;
 					}
 					const bool placed = IsPlacedRef(h);
-					if (placed && !a_in.wantedRefs.contains(id)) {
+					if (placed && !a_in.wanted().contains(id)) {
 						continue;
 					}
 					const std::uint8_t* d = h + 24;

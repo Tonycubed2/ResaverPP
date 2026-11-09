@@ -41,6 +41,8 @@
 #include <map>
 #include <set>
 #include <string>
+#include <sstream>
+#include <unordered_set>
 
 using namespace ess;
 
@@ -5411,6 +5413,91 @@ void TestScriptFloods()
 	std::error_code ec;
 	fs::remove(tmp, ec);
 	std::printf("(floods: %zu normal saves checked)\n", checked);
+// The freeze fix (SkyrimIstari, v64 under Wine): the shortcuts must give what the slow ways gave.
+// - ops::RenameFinder (all missing plugins at once) = ops::RenameCandidates (one at a time, the save read each time)
+// - ScriptSources::pluginPath from the names noted while scanning = the file found on disk, any case
+// - PluginDB::Input::wantedShared is read like wantedRefs
+// With RESAVERPP_SKY_SAVES the rename check also runs on the real saves' plugin lists.
+void TestFreezeFix()
+{
+	auto check = [](const SaveFile& a_save, const std::vector<std::string>& a_installed, const std::vector<std::string>& a_missing) {
+		const ops::RenameFinder f(a_save, a_installed);
+		bool same = true;
+		for (const auto& m : a_missing) {
+			same = same && f.find(m) == ops::RenameCandidates(a_save, m, a_installed);
+		}
+		return same;
+	};
+	{
+		auto s = MakeSave();
+		s->plugins.lite = { "Light.esl" };
+		const std::vector<std::string> installed = { "ModA.esl", "MODC.esl", "ModC.esm", "modc.esp", "Other.esp", "ModB.esp", "Light.esp", "NoExt", "ModC.txt" };
+		Check(check(*s, installed, { "ModC.esp", "ModA.esp", "Light.esl", "Gone.esp", "modc.ESP", "ModC" }), "freeze: RenameFinder = RenameCandidates (synthetic)");
+		const ops::RenameFinder f(*s, installed);
+		const auto              r = f.find("ModC.esp");
+		Check(r == std::vector<std::string>({ "MODC.esl", "ModC.esm" }), "freeze: RenameFinder keeps the installed list's order and leaves out the same name");
+	}
+	if (const char* env = std::getenv("RESAVERPP_SKY_SAVES")) {
+		std::size_t n = 0;
+		std::stringstream ss(env);
+		for (std::string dir; std::getline(ss, dir, ';');) {
+			std::error_code ec;
+			for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
+				if (e.path().extension() != ".ess") {
+					continue;
+				}
+				try {
+					const auto s = SaveFile::load(e.path());
+					// installed: every other plugin renamed to each extension; missing: every plugin of the save
+					std::vector<std::string> installed, missing;
+					std::size_t              k = 0;
+					for (const auto* list : { &s->plugins.full, &s->plugins.lite }) {
+						for (const auto& p : *list) {
+							missing.push_back(p);
+							if (k++ % 2) {
+								const auto stem = p.substr(0, p.find_last_of('.'));
+								installed.push_back(stem + ".esl");
+								installed.push_back(stem + ".ESM");
+								installed.push_back(p);
+							}
+						}
+					}
+					Check(check(*s, installed, missing), "freeze: RenameFinder = RenameCandidates (real save)");
+					++n;
+				} catch (const std::exception&) {
+				}
+			}
+		}
+		std::printf("(freeze: rename check on %zu real saves)\n", n);
+	}
+	{
+		// pluginPath: a Data folder with plugins in mixed case
+		const auto dir = std::filesystem::temp_directory_path() / "rs_freeze_data";
+		std::error_code ec;
+		std::filesystem::remove_all(dir, ec);
+		std::filesystem::create_directories(dir / "Scripts", ec);
+		for (const char* n : { "Skyrim.esm", "MyMod.ESP", "lower.esl" }) {
+			std::ofstream(dir / n) << "x";
+		}
+		ScriptSources src;
+		src.scan(dir, nullptr, {}, {}, nullptr);
+		auto name = [&](const char* a) {
+			const auto p = src.pluginPath(a);
+			return p ? p->filename().string() : std::string("(none)");
+		};
+		Check(name("mymod.esp") == "MyMod.ESP" && name("MYMOD.esp") == "MyMod.ESP" && name("Skyrim.esm") == "Skyrim.esm" && name("LOWER.ESL") == "lower.esl",
+			"freeze: pluginPath gives the file's own name for any spelling");
+		Check(name("gone.esp") == "(none)", "freeze: pluginPath of a plugin that is not there");
+		Check(src.pluginPath("mymod.esp")->parent_path() == dir, "freeze: pluginPath's folder");
+		std::filesystem::remove_all(dir, ec);
+	}
+	{
+		PluginDB::Input in;
+		in.wantedRefs = { 1, 2 };
+		Check(in.wanted().contains(2), "freeze: Input::wanted() is wantedRefs");
+		in.wantedShared = std::make_shared<const std::unordered_set<std::uint32_t>>(std::unordered_set<std::uint32_t>{ 3 });
+		Check(in.wanted().contains(3) && !in.wanted().contains(2), "freeze: Input::wanted() is wantedShared when set");
+	}
 }
 
 int main()
@@ -5454,6 +5541,7 @@ int main()
 	TestLiveEffectInstances();
 	TestSuspendedStacks();
 	TestScriptFloods();
+	TestFreezeFix();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

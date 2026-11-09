@@ -80,7 +80,9 @@ public:
 	};
 
 	~App();
-	void open(const std::filesystem::path& a_path);
+	void open(const std::filesystem::path& a_path);     // on a worker thread once the window runs (setAsyncOpen), else now
+	void openNow(const std::filesystem::path& a_path);  // read it before returning (the AI's open_save, start-up)
+	void setAsyncOpen(bool a_on) { _openAsync = a_on; }
 	void testShowArchive() { _showArchive = true; }
 	void testScriptProperty(const std::string& a_script, const std::string& a_prop) { editScriptProperty(a_script, a_prop); }
 	void testEditProperty(const std::string& a_spec, bool a_open = true);  // "Script@formid:property" (screenshots)
@@ -93,7 +95,9 @@ public:
 	// test hook: jump to a category, filter, and focus the first matching row
 	void testSelect(int a_cat, const char* a_filter, bool a_analysis);
 	void testFixLoadOrder(bool a_write);  // test hook: Fix the order's confirmation (and its button) once the check is done
+	std::vector<std::string> testDumpState();  // (tests: AppBackground.cpp)
 	void testShortcut(int a_which) { shortcut(static_cast<Sc>(a_which)); }  // (tests: a menu entry / shortcut button)
+	void testOpenFromGallery(const std::filesystem::path& a_path) { openFromGallery(a_path); }  // (tests: a save clicked in File > Open)
 	void testOpen(const std::string& w)
 	{
 		if (w == "report") {
@@ -226,7 +230,7 @@ public:
 		}
 		_removeMod = a_mod;
 		_removeOpen = true;
-		_removePlan = std::make_unique<ess::modremove::Plan>(ess::modremove::MakePlan(*_save, _removeMod, _sources.empty() ? nullptr : &_sources, _removeOpt));
+		_removePlan = std::make_unique<ess::modremove::Plan>(ess::modremove::MakePlan(*_save, _removeMod, _sources->empty() ? nullptr : _sources.get(), _removeOpt));
 	}
 
 	// script viewer (AppScripts.cpp): opens a script by name, preferring its .psc source; without one it
@@ -270,6 +274,23 @@ public:
 
 private:
 	std::vector<CheckItem> checkItems();
+	std::vector<CheckItem> computeCheckItems();
+	struct LoCache
+	{
+		bool                            known = false, le = false;
+		double                          next = 0;
+		int                             game = -1;
+		std::filesystem::path           file, mo2;
+		std::string                     profile;
+		std::filesystem::file_time_type time{}, cccTime{};
+		ess::loadorder::Active          active;
+	};
+	mutable LoCache _loCache;  // currentLoadOrder()
+	std::shared_ptr<std::vector<CheckItem>> _checkCache;
+	const void*                             _checkSave = nullptr;
+	std::uint64_t                           _checkGen = UINT64_MAX;
+	double                                  _checkNext = 0;
+	void                                    invalidateCheck() { _checkNext = 0; }
 	Risk                   checkWorst();
 	void                   drawSaveCheck();
 	void                   clearFloods(const std::set<std::string>& a_keys, std::size_t a_calls);  // Save check: script-call floods
@@ -485,7 +506,31 @@ private:
 	void drawRemoveModModal();
 	// mods still in the save but no longer in the load order (AppMissing.cpp)
 	void checkMissingPlugins();
-	bool matchProfileToSave();  // MO2: switch to the profile whose enabled plugins match the open save (true if it switched)
+	struct MissingInputs
+	{
+		std::shared_ptr<const ess::ScriptSources> sources;
+		bool                                      installKnown = false;
+		int                                       game = 0;
+		std::filesystem::path                     gameFolder, pluginsTxt;
+		std::string                               source, sourceUnknown;
+	};
+	struct MissingResult;
+	MissingInputs missingInputs() const;
+	static void   ComputeMissing(const ess::SaveFile& a_save, const MissingInputs& a_in, const std::function<const ess::mods::Table*()>& a_mods,
+		  MissingResult& a_out);
+	void          applyMissing(MissingResult&& a_result);
+	struct ProfileMatch
+	{
+		bool                             computed = false, tooFew = false, switchTo = false;
+		std::optional<ess::Mo2Instance>  setup;  // another Mod Organizer setup won
+		std::string                      profile, table;
+		double                           best = 0, current = 0;
+		std::size_t                      plugins = 0;
+	};
+	static ProfileMatch ScoreProfiles(const ess::SaveFile& a_save, const ess::Mo2Instance& a_mo2, const std::string& a_profile,
+		const std::filesystem::path& a_gameFolder, int a_game);
+	// MO2: switch to the profile whose enabled plugins match the open save (true if it switched); a_pre: scored already
+	bool matchProfileToSave(const ProfileMatch* a_pre = nullptr);
 	void drawMissingBanner();
 	void drawMissingModal();
 	struct MissingMod
@@ -513,6 +558,16 @@ private:
 	bool                    _orderSuspect = false, _scanSuspect = false;
 	std::size_t             _activeInSave = 0, _activeFound = 0, _activeChecked = 0;
 	std::filesystem::path   _missingFile;
+	struct MissingResult
+	{
+		std::vector<MissingMod>                          missing;
+		std::string                                      missingSource;
+		std::vector<std::pair<std::string, std::size_t>> missingScripts, unfoundScripts;
+		bool                                             removeMissingScripts = true, removeUnfoundScripts = false;
+		bool                                             orderSuspect = false, scanSuspect = false, installKnown = false;
+		std::size_t                                      activeInSave = 0, activeFound = 0, activeChecked = 0;
+		std::filesystem::path                            missingFile;
+	};
 
 	// Quests page and the live link to the running game (AppQuests.cpp)
 	void                                  drawQuestsList();
@@ -695,7 +750,7 @@ private:
 	// for a form ID the save has no change form for: the hint line and the actor it means (0 if none)
 	std::pair<std::string, std::uint32_t> missingFormHint(std::uint32_t a_formID);
 	void        drawSavesManager();
-	void        recordHistory();  // adds the open save's numbers to the history file
+	void        recordHistory(const ess::extras::SaveStat* a_stat = nullptr);  // adds the open save's numbers (worked out already: a_stat) to the history file
 	ess::loadorder::Active currentLoadOrder() const;
 	struct LeftoverGroup
 	{
@@ -1003,7 +1058,7 @@ private:
 	bool                              _modsOnlyScripts = true;
 	// scripts the game itself ships (base game, official DLC, Creation Club) are marked "*" in the lists; this hides them
 	bool                              _hideGameScripts = false;
-	ess::ScriptSources                _sources;
+	std::shared_ptr<ess::ScriptSources> _sources = std::make_shared<ess::ScriptSources>();  // replaced (never changed) after each scan: worker threads share it
 	// the mods scan runs on its own thread (it can take a while, much longer inside Mod Organizer)
 	std::thread                                _scanThread;
 	std::unique_ptr<ess::ScriptSources>        _scanResult;
@@ -1028,7 +1083,71 @@ private:
 	char                              _scanPathBuf[1024] = "";
 
 	// plugin names
-	std::unique_ptr<ess::PluginDB>           _db, _dbBuilding;
+	std::shared_ptr<ess::PluginDB>           _db;  // (shared with the background analysis)
+	std::unique_ptr<ess::PluginDB>           _dbBuilding;
+
+	// ---- work moved off the window's thread (AppBackground.cpp) ----
+	// Opening a save: the file is read, checked and its first results (Mods table, enchanted items, quests, followers,
+	// MO2 profile match) worked out on a worker; the window then only takes them over. After the mods scan and after
+	// the plugin names, the results that depend on them are worked out again on a worker from a fresh read of the
+	// (unedited) file, so the window never decodes the whole save itself. While the save is edited it works as before.
+	struct OpenJob;
+	struct AnalysisJob;
+	struct Prepared;
+	std::shared_ptr<OpenJob>     _openJob;
+	std::shared_ptr<AnalysisJob> _analysisJob;
+	unsigned                     _analysisNext = 0;  // parts to work out when the running analysis is done
+	std::shared_ptr<const std::unordered_set<std::uint32_t>> _wanted;  // the open save's forms, for the plugin names
+	const void*                  _wantedSave = nullptr;
+	std::uint64_t                _wantedGen = UINT64_MAX;
+	bool                         _openAsync = false;
+	std::uintmax_t               _openSize = 0;  // the open file as it was read (the analysis reads it again only if unchanged)
+	std::filesystem::file_time_type _openTime{};
+	enum : unsigned
+	{
+		kAnMods = 1,     // the Mods table with the scanned mods
+		kAnMissing = 2,  // mods no longer in the load order, scripts no longer installed
+		kAnSkyf = 4,     // followers, beast form, quests between stages (with the plugin names)
+		kAnFirst = 8,    // enchanted items and the quests (right after opening)
+		kAnFx = 16       // Character effects (with the plugin names)
+	};
+	bool analysisWillProvide(unsigned a_what) const;
+	bool startAnalysis(unsigned a_what);  // false: cannot (edited, file changed): the window works it out itself
+	void pollOpen();
+	void pollAnalysis();
+	void finishOpen(OpenJob& a_job);
+	void installPrepared(Prepared& a_p);
+	void setMods(std::unique_ptr<ess::mods::Table> a_table);
+	bool opening() const { return _openJob != nullptr; }
+	void stopBackgroundJobs();
+	void stopOpenAndAnalysis();  // AppBackground.cpp
+	static std::shared_ptr<SkyFollowersView> ComputeSkyf(const ess::SaveFile& a_save, const ess::PluginDB* a_db);
+	std::string skyfGameNote() const;
+	std::string skyfSummary() const;  // (tests)
+	std::string charFxSummary();      // (tests)
+	void        adoptSkyf(std::shared_ptr<SkyFollowersView> a_view);  // made by a worker for the open save
+	void        adoptCharFx(ess::chfx::View&& a_view, ess::loadorder::Active&& a_lo);  // the same for Character effects
+	static void PrepareParts(Prepared& a_out, ess::SaveFile& a_save, unsigned a_what, const std::shared_ptr<ess::ScriptSources>& a_sources,
+		const std::shared_ptr<ess::PluginDB>& a_db, const std::function<void(const char*)>& a_step, const std::function<bool()>& a_cancelled);
+	void        setSkyfGameNote(const std::string& a_note);
+	static void RunOpenJob(OpenJob& a_job);  // (on the worker)
+	// every background job, for the status bar's list (name, done / total, cancel)
+	struct JobRow
+	{
+		std::string           name, current;
+		std::size_t           done = 0, total = 0;  // total 0: no count (a spinner)
+		std::function<void()> cancel;               // empty: cannot be cancelled
+	};
+	std::vector<JobRow> runningJobs();
+	void        appendOtherJobs(std::vector<JobRow>& a_jobs);  // the other tools' background jobs (AppBackground.cpp)
+	void        appendPathJob(std::vector<JobRow>& a_jobs);     // AppCharges.cpp
+	void        appendBloatJobs(std::vector<JobRow>& a_jobs);    // AppF4Bloat.cpp
+	void        appendGalleryJob(std::vector<JobRow>& a_jobs);   // AppGallery.cpp
+	void        appendCollectJob(std::vector<JobRow>& a_jobs);   // AppCollect.cpp
+	void                drawJobsBar(float a_width);
+	bool                drawJobProgress(const JobRow& a_job, float a_width, bool a_withCancel);
+	bool                drawJobsInline(std::initializer_list<const char*> a_names);  // the jobs a window waits for, by name
+	bool                _jobsPopup = false;
 	std::unique_ptr<ess::PluginDB::Progress> _dbProgress;
 	std::thread                              _dbThread;
 	std::atomic<bool>                        _dbDone{ false };
@@ -1109,9 +1228,9 @@ private:
 	// watcher
 	bool                                                              _watch = false;
 	bool                                                              _openNewest = false;  // open the newest save at start
-	double                                                            _watchNext = 0;
-	std::map<std::filesystem::path, std::filesystem::file_time_type>  _watchSeen;
-	std::map<std::filesystem::path, std::pair<std::uintmax_t, double>> _watchPending;
+	struct WatchJob;
+	std::shared_ptr<WatchJob> _watchJob;  // the worker looking at the saves folders (AppTools.cpp)
+	double                    _watchFoldersNext = 0;
 
 	// AppMore state
 	int                      _arrayIndex = 0;

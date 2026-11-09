@@ -99,131 +99,7 @@ namespace
 // file handling
 // ==========================================================================================
 
-void App::open(const std::filesystem::path& a_path)
-{
-	++_editGen;
-	const auto t0 = std::chrono::steady_clock::now();
-	auto       ms = [&] { return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count(); };
-	try {
-		auto s = SaveFile::load(a_path);
-		if (!s->papyrus()) {
-			throw std::runtime_error(tr("the save has no Papyrus section"));
-		}
-		_save = std::move(s);
-		if (_save->isFO4()) {
-			// Fallout 4: its own setup (mods folder, game folder, profile, load order); the tools that need the
-			// save's change forms decoded (Skyrim only so far) close
-			_showPlayer = _showActors = _showTransplant = _showMerge = _showSkyFollowers = false;
-			if (!_settingsLoaded) {
-				loadSettings();
-			}
-			setGame(2);
-		}
-		// a Skyrim VR save lists SkyrimVR.esm: use the VR setup (mods, load order, saves)
-		if (!_save->isFO4()) {
-			bool vrSave = false;
-			for (const auto& p : _save->plugins.full) {
-				vrSave = vrSave || Lower(p) == "skyrimvr.esm";
-			}
-			if (!_settingsLoaded) {
-				loadSettings();
-			}
-			setGame(vrSave ? 1 : 0);
-		}
-		_cfFacts.clear();
-		_missingDismissed = false;
-		{
-			std::error_code aec;
-			const auto      abs = std::filesystem::absolute(a_path, aec);
-			_path = aec ? a_path : abs;  // (a save given on the command line can be a relative path)
-		}
-		if (const auto dir = platform::ToUtf8(a_path.parent_path()); !dir.empty() && dir != lastOpenDir()) {
-			lastOpenDir() = dir;  // File > Open starts here next time
-			saveSettings();
-		}
-		_dirty = false;
-		_report.reset();
-		_selected.clear();
-		_focus.reset();
-		_rowsDirty = true;
-		_cat = Cat::kOverview;
-		_homePanel = true;
-		if (_shotTex && freeTexture) {
-			freeTexture(_shotTex);
-			_shotTex = 0;
-		}
-		const auto& h = _save->header;
-		const std::size_t bpp = h.isLE() ? 3 : 4;
-		if (uploadTexture && h.shotWidth && h.shotHeight && h.screenshot.size() >= std::size_t(h.shotWidth) * h.shotHeight * bpp) {
-			std::vector<std::uint8_t> px(std::size_t(h.shotWidth) * h.shotHeight * 4, 255);
-			for (std::size_t i = 0, n = std::size_t(h.shotWidth) * h.shotHeight; i < n; ++i) {
-				for (std::size_t c = 0; c < 3; ++c) {
-					px[i * 4 + c] = h.screenshot[i * bpp + c];
-				}
-			}
-			_shotTex = uploadTexture(px.data(), static_cast<int>(h.shotWidth), static_cast<int>(h.shotHeight));
-			_shotW = static_cast<int>(h.shotWidth);
-			_shotH = static_cast<int>(h.shotHeight);
-		}
-		_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
-		_modsDirty = true;
-		_leftoversDirty = true;
-		recordHistory();
-		if (!_settingsLoaded) {
-			loadSettings();
-		}
-		// Mod Organizer: use the profile this save was played with (the one remembered may be another)
-		const bool profileSwitched = matchProfileToSave();
-		if (!_sourcesPath.empty() && (!_sources.scanned() || profileSwitched)) {
-			scanSources(platform::FromUtf8(_sourcesPath));  // checks again for missing mods when done
-		} else if (_autoNames && _sources.scanned()) {
-			startNames();
-		}
-		// the load order is known now: the banner shows at once (which mods are still installed is
-		// known when the scan of the mods is done; that can take a while inside Mod Organizer)
-		checkMissingPlugins();
-		_status = tr("Loaded ") + platform::ToUtf8(a_path.filename()) + (_save->isFO4() ? tr("  (Fallout 4 save)") : "");
-		if (profileSwitched) {
-			_status += "  " + _detectNote;
-		}
-		if (startupLog) {
-			startupLog("opened " + platform::ToUtf8(a_path) + " in " + std::to_string(ms()) + " ms; mods folder: " +
-					   (_sourcesPath.empty() ? std::string("(not set)") : _sourcesPath) + (scanning() ? " (reading it now)" : ""));
-			// what the save is made of: everything for a Fallout 4 save (newer support, more questions), a summary
-			// for Skyrim
-			for (const auto& line : DescribeSave(*_save, _save->isFO4())) {
-				startupLog(std::string(_save->isFO4() ? "  fo4 " : "  ") + line);
-			}
-		}
-		// a save whose structure does not add up may not be written back faithfully: look, don't save
-		_readOnly = !_save->problems.empty();
-		if (_readOnly) {
-			std::string list;
-			for (const auto& pr : _save->problems) {
-				list += "\n  - " + pr;
-			}
-			(void)list;  // the Save check explains it
-			_status += tr("  -  READ-ONLY (damaged save: see the Save check)");
-		}
-		_showCheck = _checkOnOpen || _readOnly;  // everything noticed about the save, in one window
-	} catch (const std::exception& e) {
-		_error = std::string(tr("Could not open ")) + platform::ToUtf8(a_path.filename()) + ":\n\n" + e.what();
-		if (startupLog) {
-			startupLog("could not open " + platform::ToUtf8(a_path) + ": " + e.what());
-			// what can still be told about the file, for the report
-			std::error_code ec;
-			startupLog("  file size " + std::to_string(std::filesystem::file_size(a_path, ec)) + " bytes");
-			Header h;
-			if (ReadSaveHeader(a_path, h)) {
-				startupLog("  header: " + h.magic + ", save version " + std::to_string(h.version) + ", " + h.playerName + " level " +
-						   std::to_string(h.playerLevel) + ", " + h.location + ", screenshot " + std::to_string(h.shotWidth) + "x" +
-						   std::to_string(h.shotHeight) + (h.isFO4() ? " (Fallout 4)" : ""));
-			} else {
-				startupLog("  the header could not be read either: not a Skyrim or Fallout 4 save, or damaged at the start");
-			}
-		}
-	}
-}
+// App::open, openNow, finishOpen: AppBackground.cpp (the file is read on a worker thread)
 
 void App::doSave(const std::filesystem::path& a_path)
 {
@@ -625,7 +501,7 @@ void App::rebuildRows()
 		_rows.push_back({ key, std::move(text), col, size, mass });
 	};
 	// the game's own scripts (base game, official DLC, Creation Club): marked "* ", or left out with "hide game scripts"
-	auto gameScript = [&](const std::string& a_script) { return !a_script.empty() && _sources.isGameScript(a_script); };
+	auto gameScript = [&](const std::string& a_script) { return !a_script.empty() && _sources->isGameScript(a_script); };
 	auto mark = [&](const std::string& a_script, std::string& a_text) {
 		if (!gameScript(a_script)) {
 			return true;
@@ -933,8 +809,12 @@ void App::draw()
 	watchdog::g_pathDone = _stuckPathDone ? 0 : _stuckPathNext;
 	watchdog::g_pathTotal = _stuckPathDone ? 0 : _stuckPathTotal;
 	watchdog::g_namesLoading = namesLoading();
+	watchdog::Section("pollOpen");
+	pollOpen();
 	watchdog::Section("pollScan");
 	pollScan();
+	watchdog::Section("pollAnalysis");
+	pollAnalysis();
 	watchdog::Section("pollNames");
 	pollNames();
 	watchdog::Section("pollWatch");
@@ -1453,7 +1333,7 @@ void App::drawMenu()
 		}
 		tips::Tip(tr("Full and light plugins against the game's limits, light plugins with form IDs out of range, missing or late masters, "
 		          "plugins the game will not load."));
-		if (ImGui::MenuItem(_db ? tr("Read plugin names again") : tr("Read plugin names"), nullptr, false, _sources.scanned() && !namesLoading())) {
+		if (ImGui::MenuItem(_db ? tr("Read plugin names again") : tr("Read plugin names"), nullptr, false, _sources->scanned() && !namesLoading())) {
 			startNames(true);
 		}
 		tips::Tip(tr("Read your installed plugins so forms show their in-game names and editor IDs instead of bare numbers."));
@@ -1713,14 +1593,14 @@ void App::drawList()
 	const bool scriptLists = _cat == Cat::kScripts || _cat == Cat::kInstances || _cat == Cat::kReferences || _cat == Cat::kThreads ||
 							 _cat == Cat::kMessages || _cat == Cat::kSuspended;
 	if (scriptLists) {
-		ImGui::BeginDisabled(_sources.gameScripts.empty());
+		ImGui::BeginDisabled(_sources->gameScripts.empty());
 		if (ImGui::Checkbox(tr("hide game scripts (*)"), &_hideGameScripts)) {
 			_rowsDirty = true;
 			_modOrder.clear();
 			saveSettings();
 		}
 		ImGui::EndDisabled();
-		tips::Tip(_sources.gameScripts.empty()
+		tips::Tip(_sources->gameScripts.empty()
 					  ? tr("Scripts the game itself ships are marked * once ReSaver Plus has read the game's Data folder (Options > Settings: "
 						"the game folder), so it is not known yet which scripts are the game's.")
 					  : tr("Scripts marked * are the game's own: the base game's, the official DLC's and the Creation Club's (read from the "
@@ -2786,7 +2666,12 @@ void App::drawStatus()
 	const float pad = ImGui::GetStyle().WindowPadding.x;
 	const float gap = 24.0f;
 	const float winW = ImGui::GetWindowWidth();
-	const bool  progress = (scanning() && _scanProgress) || (namesLoading() && _dbProgress);
+	if (static std::string last; std::getenv("RESAVERPP_TIMING") && last != _status && startupLog) {  // (measuring: each status line in the log)
+		last = _status;
+		startupLog("status: " + _status);
+	}
+	const auto  jobs = runningJobs();  // (atomic reads only)
+	const bool  progress = !jobs.empty();
 	const float rightW = progress ? std::min(560.0f, winW * 0.40f) : (_watch ? 160.0f : 0.0f) + 330.0f;
 	const float rightX = winW - rightW - pad;
 	auto fitEnd = [](std::string t, float a_w) {  // cut at the end
@@ -2848,7 +2733,7 @@ void App::drawStatus()
 	// right: the background work, or whether the game is connected
 	if (progress) {
 		ImGui::SameLine(rightX);
-		drawBackgroundProgress(rightW);
+		drawJobsBar(rightW);
 	} else {
 		ImGui::SameLine(rightX);
 		drawLiveStatus();
@@ -3267,10 +3152,14 @@ void App::scanSources(const std::filesystem::path& a_root)
 	// the game really loads (and disabled mods are ignored).
 	std::vector<std::string> order;
 	std::filesystem::path    overwrite, gameData;
-	_mo2 = FindMo2Instance(a_root, mo2Inis());
+	{
+		watchdog::Step st("FindMo2Instance");
+		_mo2 = FindMo2Instance(a_root, mo2Inis());
+	}
 	_vortex.reset();
 	if (!_mo2) {
 		// Vortex: the staging folder, the game folder or its Data folder all lead to the deployment manifest
+		watchdog::Step st("FindVortexDeployment");
 		_vortex = FindVortexDeployment(a_root);
 		if (_vortex && _gamePath.empty()) {
 			_gamePath = platform::ToUtf8(_vortex->dataPath.parent_path());
@@ -3289,6 +3178,7 @@ void App::scanSources(const std::filesystem::path& a_root)
 	// scan on a worker thread: reading hundreds of mod folders and their BSAs takes a while (much longer
 	// inside Mod Organizer's virtual file system), and the window must keep responding meanwhile
 	if (_scanThread.joinable()) {
+		watchdog::Step st("waiting for the previous mods scan to stop");
 		_scanProgress->cancel = true;
 		_scanThread.join();
 	}
@@ -3320,6 +3210,7 @@ void App::pollScan()
 	if (!_scanThread.joinable() || !_scanDone) {
 		return;
 	}
+	watchdog::Step pollStep("the mods scan is done");
 	_scanThread.join();
 	if (_scanProgress->cancel) {
 		return;
@@ -3329,19 +3220,29 @@ void App::pollScan()
 		_error = tr("Could not scan ") + platform::ToUtf8(a_root) + ":\n\n" + _scanResult->errors.front();
 		return;
 	}
-	_sources = std::move(*_scanResult);
+	_sources = std::move(_scanResult);
 	_scanResult.reset();
 	_sourcesPath = platform::ToUtf8(a_root);
-	saveSettings();
+	{
+		watchdog::Step st("saveSettings");
+		saveSettings();
+	}
 	_modsDirty = true;
 	_rowsDirty = true;  // (the game's own scripts are marked * now)
 	if (_save && _autoNames) {
+		watchdog::Step st("startNames");
 		startNames(true);
 	}
-	_status = Fmt(tr("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)"), _sources.modsScanned,
-		_sources.vortex ? tr(" deployed by Vortex") : _sources.ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources.pexFound, _sources.bsasRead,
-		_sources.errors.empty() ? "" : Fmt(tr(", %zu unreadable"), _sources.errors.size()).c_str());
-	checkMissingPlugins();  // the load order and the installed mods are known now
+	_status = Fmt(tr("Scanned %zu mods%s: %zu scripts found (%zu BSAs read%s)"), _sources->modsScanned,
+		_sources->vortex ? tr(" deployed by Vortex") : _sources->ranked ? (tr(" in MO2 profile '") + _profile + tr("' order")).c_str() : "", _sources->pexFound, _sources->bsasRead,
+		_sources->errors.empty() ? "" : Fmt(tr(", %zu unreadable"), _sources->errors.size()).c_str());
+	{
+		// the load order and the installed mods are known now: the Mods table and the missing mods again, worked out on a
+		// worker from the file (the window does it itself when the save was edited)
+		watchdog::Step st("checkMissingPlugins");
+		startAnalysis(kAnMods | kAnMissing);
+		checkMissingPlugins();  // (returns at once when the analysis works it out)
+	}
 	if (_pendingView) {
 		const auto v = *_pendingView;
 		_pendingView.reset();
@@ -3358,18 +3259,12 @@ void App::ensureMods()
 	if (!_save) {
 		return;
 	}
+	if (_mods && _modsDirty && analysisWillProvide(kAnMods)) {
+		return;  // worked out in the background (the table shown until then is the one made without the scan)
+	}
 	if (_modsDirty || !_mods) {
-		_mods = std::make_unique<mods::Table>(mods::Build(*_save, _sources.empty() ? nullptr : &_sources));
-		_scriptTotals.clear();
-		for (const auto& r : _mods->rows) {
-			for (const auto& [k, s] : r.scripts) {
-				auto& t = _scriptTotals[k];
-				t.first += s.instances.size();
-				t.second += s.threads.size();
-			}
-		}
-		_modsDirty = false;
-		_modOrder.clear();
+		watchdog::Step st("the Mods table (mods::Build)");
+		setMods(std::make_unique<mods::Table>(mods::Build(*_save, _sources->empty() ? nullptr : _sources.get())));
 	}
 }
 
@@ -3394,8 +3289,8 @@ void App::drawModsList()
 	ensureMods();
 	auto& rows = _mods->rows;
 
-	if (scanning()) {
-		drawBackgroundProgress(0);  // the lists fill in when the scan is done
+	if (scanning() || _analysisJob || _openJob) {
+		drawBackgroundProgress(0);  // the lists fill in when the scan (and the work after it) is done
 	}
 	ImGui::SetNextItemWidth(-260);
 	bool changed = ImGui::InputTextWithHint("##modfilter", tr("filter mods"), _filter, sizeof(_filter));
@@ -3411,7 +3306,7 @@ void App::drawModsList()
 	tips::Tip(tr("Hide the base game's, the official DLC's and the Creation Club's plugins, so only your mods are listed. In the script "
 			  "lists the game's own scripts are marked * and hidden the same way."));
 
-	if (ImGui::Button(_sources.empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
+	if (ImGui::Button(_sources->empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
 		if (platform::HasNativeDialogs()) {
 			if (auto p = platform::PickFolderDialog(tr("Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"))) {
 				scanSources(*p);
@@ -3423,10 +3318,10 @@ void App::drawModsList()
 	}
 	tips::Tip(tr("Point ReSaver++ at your mods (Mod Organizer 'mods' folder or Data) so each script is credited to the mod that ships it, and missing mods are spotted. Nothing is changed."));
 	ImGui::SameLine();
-	if (_sources.empty()) {
+	if (_sources->empty()) {
 		ImGui::TextDisabled("%s", tr("not scanned: scripts are credited to the mod whose object runs them"));
 	} else {
-		ImGui::TextDisabled(tr("%s  (%zu mods, %zu scripts)"), _sourcesPath.c_str(), _sources.modsScanned, _sources.pexFound);
+		ImGui::TextDisabled(tr("%s  (%zu mods, %zu scripts)"), _sourcesPath.c_str(), _sources->modsScanned, _sources->pexFound);
 		if (_mo2 && !_mo2->profiles.empty()) {
 			ImGui::TextDisabled("%s", tr("MO2 profile:"));
 			ImGui::SameLine();
@@ -3443,8 +3338,8 @@ void App::drawModsList()
 				}
 				ImGui::EndCombo();
 			}
-		} else if (!_sources.ranked) {
-			if (_sources.vortex && _vortex) {
+		} else if (!_sources->ranked) {
+			if (_sources->vortex && _vortex) {
 				ImGui::TextDisabled(tr("Vortex: %zu deployed mods; each script is credited to the mod Vortex deployed it from"), _vortex->mods.size());
 			} else {
 				ImGui::TextDisabled("%s", tr("no MO2 mod order found: when several mods ship the same script, the credit may go to the wrong one"));
@@ -3635,9 +3530,9 @@ void App::detailMod(std::uint64_t k)
 	ImGui::TextUnformatted(r.name.c_str());
 	ImGui::TextDisabled("%s%s", KindLabel(r.kind),
 		r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() : "");
-	if (!_sources.empty() && (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight)) {
-		auto it = _sources.pluginFolder.find(Lower(r.name));
-		if (it != _sources.pluginFolder.end()) {
+	if (!_sources->empty() && (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight)) {
+		auto it = _sources->pluginFolder.find(Lower(r.name));
+		if (it != _sources->pluginFolder.end()) {
 			ImGui::TextDisabled(tr("installed in mod folder: %s"), it->second.c_str());
 		}
 	}
@@ -3692,7 +3587,7 @@ void App::detailMod(std::uint64_t k)
 		if (ImGui::Button(tr("Remove mod from save..."))) {
 			_removeMod = r.name;
 			_removeOpen = true;
-			_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources.empty() ? nullptr : &_sources, _removeOpt));
+			_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources->empty() ? nullptr : _sources.get(), _removeOpt));
 		}
 		ImGui::PopStyleColor(2);
 		tips::Tip(tr("Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\n"
@@ -3774,7 +3669,7 @@ void App::detailMod(std::uint64_t k)
 				TextColored(theme::Dim(), s->script + tr("  (engine type)"));
 				tips::Tipf(tr("Not a mod script: this is the game's own link between a %s and Papyrus.\nIt is left alone by Kill."), s->script.c_str());
 			} else {
-				ImGui::TextUnformatted((_sources.isGameScript(s->script) ? "* " + s->script : s->script).c_str());  // (* the game's own)
+				ImGui::TextUnformatted((_sources->isGameScript(s->script) ? "* " + s->script : s->script).c_str());  // (* the game's own)
 				scriptItem(s->script);
 			}
 			ImGui::TableSetColumnIndex(1);
@@ -3847,7 +3742,7 @@ void App::detailMod(std::uint64_t k)
 				ImGui::TableSetColumnIndex(0);
 				ImGui::TextUnformatted(name.c_str());
 				scriptItem(name);
-				if (const auto* prov = _sources.providers(name); prov && prov->size() > 1) {
+				if (const auto* prov = _sources->providers(name); prov && prov->size() > 1) {
 					ImGui::SameLine();
 					std::string others;
 					for (const auto& x : *prov) {
@@ -3934,11 +3829,11 @@ void App::drawRemoveModModal()
 	replan |= ImGui::Checkbox(tr("Delete spawned objects that only carried its scripts"), &_removeOpt.spawnedObjects);
 	tips::Tip(tr("Delete in-game-created objects whose only purpose was to carry this mod's scripts."));
 	if (replan) {
-		_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources.empty() ? nullptr : &_sources, _removeOpt));
+		_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources->empty() ? nullptr : _sources.get(), _removeOpt));
 		ImGui::EndPopup();
 		return;
 	}
-	if (_sources.empty()) {
+	if (_sources->empty()) {
 		TextColored(theme::Warn(), tr("Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked."));
 	}
 	ImGui::Separator();
@@ -4019,40 +3914,16 @@ void App::fixMcmJam()
 
 bool App::drawBackgroundProgress(float a_width)
 {
-	std::size_t done = 0, total = 0;
-	std::string what, cur;
-	if (scanning() && _scanProgress) {
-		done = _scanProgress->done.load();
-		total = _scanProgress->total.load();
-		cur = _scanProgress->current();
-		what = tr("Scanning your mods");
-	} else if (namesLoading() && _dbProgress) {
-		done = _dbProgress->done.load();
-		total = _dbProgress->total.load();
-		{
-			std::lock_guard l(_dbProgress->m);
-			cur = _dbProgress->current;
+	// what the lists and checks wait for: opening, the mods scan, the analysis after it, the plugin names (each its own bar)
+	bool any = false;
+	for (const auto& j : runningJobs()) {
+		if (j.name.rfind(tr("Opening "), 0) == 0 || j.name == tr("Scanning your mods") || j.name == tr("Working out the results for your mods") ||
+			j.name == tr("Reading plugin names")) {
+			drawJobProgress(j, a_width, true);
+			any = true;
 		}
-		what = tr("Reading plugin names");
-	} else {
-		return false;
 	}
-	const float       f = total ? std::min(1.0f, static_cast<float>(done) / static_cast<float>(total)) : 0.0f;
-	const std::string label = total ? Fmt(tr("%s: %zu of %zu (%d%%)%s%s"), what.c_str(), done, total, static_cast<int>(f * 100.0f + 0.5f), cur.empty() ? "" : "  -  ",
-										  cur.c_str())
-									: what + "...";
-	ImGui::ProgressBar(total ? f : -1.0f * static_cast<float>(ImGui::GetTime()), ImVec2(a_width > 0 ? a_width : -1.0f, 0), "");
-	// the text inside the bar, from its left edge (cut at the right end when it does not fit)
-	const ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
-	auto*        dl = ImGui::GetWindowDrawList();
-	dl->PushClipRect(a, b, true);
-	const float pad = ImGui::GetStyle().FramePadding.x;
-	dl->AddText(ImVec2(a.x + pad, a.y + (b.y - a.y - ImGui::GetFontSize()) * 0.5f), ImGui::GetColorU32(ImGuiCol_Text), label.c_str());
-	dl->PopClipRect();
-	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("%s", label.c_str());
-	}
-	return true;
+	return any;
 }
 
 // The start page logo: RESAVER ++ in red, under a scanner light that sweeps back and forth along a red

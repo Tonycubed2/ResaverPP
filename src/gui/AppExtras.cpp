@@ -66,13 +66,38 @@ namespace
 
 loadorder::Active App::currentLoadOrder() const
 {
+	// read again only when the file changed; looked at no more than every 3 seconds (the Save check asks for it often,
+	// and every file call is slow through Wine's Z: drive)
+	auto&        c = _loCache;
+	const double now = ImGui::GetTime();
+	if (c.known && now < c.next && c.game == _game && c.mo2 == (_mo2 ? _mo2->ini : std::filesystem::path()) && c.profile == _profile &&
+		c.le == (_save && _save->isLE())) {
+		return c.active;
+	}
 	std::filesystem::path txt;
 	if (_mo2 && !_profile.empty()) {
 		txt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
 	} else {
 		txt = loadorder::GamePluginsTxt(_game, _save && _save->isLE());
 	}
-	return loadorder::Read(txt, gameFolder(), _game);
+	std::error_code ec;
+	const auto      t = std::filesystem::last_write_time(txt, ec);
+	const auto      ccc = gameFolder() / (_game == 2 ? "Fallout4.ccc" : "Skyrim.ccc");
+	std::error_code ec2;
+	const auto      tc = std::filesystem::last_write_time(ccc, ec2);
+	if (!(c.known && txt == c.file && !ec && t == c.time && (ec2 ? c.cccTime == std::filesystem::file_time_type{} : tc == c.cccTime))) {
+		c.active = loadorder::Read(txt, gameFolder(), _game);
+		c.file = txt;
+		c.time = ec ? std::filesystem::file_time_type{} : t;
+		c.cccTime = ec2 ? std::filesystem::file_time_type{} : tc;
+	}
+	c.known = true;
+	c.next = now + 3.0;
+	c.game = _game;
+	c.mo2 = _mo2 ? _mo2->ini : std::filesystem::path();
+	c.profile = _profile;
+	c.le = _save && _save->isLE();
+	return c.active;
 }
 
 // ==========================================================================================
@@ -258,7 +283,7 @@ void App::drawLeftovers()
 // save history
 // ==========================================================================================
 
-void App::recordHistory()
+void App::recordHistory(const extras::SaveStat* a_stat)
 {
 	if (!_save) {
 		return;
@@ -267,7 +292,7 @@ void App::recordHistory()
 		_history = extras::LoadHistory(HistoryFile());
 		_historyLoaded = true;
 	}
-	extras::AddToHistory(_history, extras::ComputeStat(*_save, _path));
+	extras::AddToHistory(_history, a_stat ? *a_stat : extras::ComputeStat(*_save, _path));
 	extras::SaveHistory(HistoryFile(), _history);
 	_historyChar = _save->header.playerName;
 }
@@ -572,7 +597,7 @@ void App::drawPapyrusLog()
 			ImGui::TableNextColumn();
 			std::string mod;
 			if (!g.script.empty()) {
-				if (const auto* prov = _sources.providers(g.script); prov && !prov->empty()) {
+				if (const auto* prov = _sources->providers(g.script); prov && !prov->empty()) {
 					mod = prov->front().mod;
 				}
 			}

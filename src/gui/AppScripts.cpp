@@ -375,7 +375,7 @@ bool App::ensureSourcesScanned()
 	if (scanning()) {
 		return false;
 	}
-	if (!_sources.scanned() && !_sourcesPath.empty()) {
+	if (!_sources->scanned() && !_sourcesPath.empty()) {
 		scanSources(platform::FromUtf8(_sourcesPath));
 		return false;
 	}
@@ -410,11 +410,11 @@ void App::viewScript(const std::string& a_script, const std::string& a_function,
 			return;
 		}
 	}
-	if (auto it = _sources.sourceFiles.find(key); it != _sources.sourceFiles.end()) {
+	if (auto it = _sources->sourceFiles.find(key); it != _sources->sourceFiles.end()) {
 		openDoc(a_script, it->second, false, a_function, a_state, a_instruction);
 		return;
 	}
-	if (const auto pexf = _sources.findPex(a_script)) {
+	if (const auto pexf = _sources->findPex(a_script)) {
 		_decompileWhere = PexWhere(*pexf);
 		if (_decompileAlways) {
 			openDoc(a_script, {}, true, a_function, a_state, a_instruction);
@@ -427,7 +427,7 @@ void App::viewScript(const std::string& a_script, const std::string& a_function,
 		}
 		return;
 	}
-	if (!_sources.scanned()) {
+	if (!_sources->scanned()) {
 		_error = tr("ReSaver++ does not know where your mods are yet.\n\nGo to Options > Settings, click \"Choose mods folder...\" and pick your Mod Organizer "
 				 "\"mods\" folder (or the game's Data folder), then double-click the script again.");
 		_showSettings = true;
@@ -465,7 +465,7 @@ void App::openDoc(const std::string& a_script, const std::filesystem::path& a_ps
 	d->name = a_script;
 	d->pexFile = a_pexFile;
 	if (a_pexFile.empty()) {
-		d->pex = _sources.findPex(a_script);
+		d->pex = _sources->findPex(a_script);
 	}
 	std::string text;
 	try {
@@ -473,7 +473,7 @@ void App::openDoc(const std::string& a_script, const std::filesystem::path& a_ps
 			d->psc = a_psc;
 			text = ReadAll(a_psc);
 			d->crlf = text.find("\r\n") != std::string::npos || text.find('\n') == std::string::npos;
-			if (auto it = _sources.sourceMods.find(Lower(a_script)); it != _sources.sourceMods.end()) {
+			if (auto it = _sources->sourceMods.find(Lower(a_script)); it != _sources->sourceMods.end()) {
 				d->sourceMod = it->second;
 			}
 		} else {
@@ -492,7 +492,7 @@ void App::openDoc(const std::string& a_script, const std::filesystem::path& a_ps
 				d->name = f.str(f.objects.front().name);
 			}
 			const auto here = !a_pexFile.empty() ? a_pexFile.parent_path() : (d->pex && d->pex->bsaEntry.empty() ? d->pex->file.parent_path() : std::filesystem::path());
-			const auto lines = pex::Decompile(f, &d->decompileWarnings, MakeLookup(_sources, here));
+			const auto lines = pex::Decompile(f, &d->decompileWarnings, MakeLookup(*_sources, here));
 			for (const auto& l : lines) {
 				text += l + "\n";
 			}
@@ -508,10 +508,10 @@ void App::openDoc(const std::string& a_script, const std::filesystem::path& a_ps
 	}
 
 	// colours: installed script names are classes
-	const std::size_t key = _sources.pexFound * 31 + _sources.sourceFiles.size() + (_save ? _save->papyrus()->scripts.size() * 7 : 0);
+	const std::size_t key = _sources->pexFound * 31 + _sources->sourceFiles.size() + (_save ? _save->papyrus()->scripts.size() * 7 : 0);
 	if (!_scriptNamesCache || key != _scriptNamesKey) {
 		auto ctx = std::make_shared<psc::Context>();
-		for (const auto& n : _sources.scriptNames()) {
+		for (const auto& n : _sources->scriptNames()) {
 			ctx->scripts.insert(n);
 		}
 		if (_save) {
@@ -951,7 +951,7 @@ void App::drawDoc(ScriptDoc& d)
 			}
 			if (e > b) {
 				const auto word = line.substr(static_cast<std::size_t>(b), static_cast<std::size_t>(e - b));
-				if (d.ctx->scripts.contains(Lower(word)) || _sources.sourceFiles.contains(Lower(word))) {
+				if (d.ctx->scripts.contains(Lower(word)) || _sources->sourceFiles.contains(Lower(word))) {
 					viewScript(word);
 				} else if (const int fl = psc::FindFunction(d.analysis, word); fl >= 0) {
 					ed.ScrollToLine(fl);  // a function of this script
@@ -1054,10 +1054,10 @@ bool App::saveDoc(ScriptDoc& d, bool a_saveAs)
 		std::filesystem::path suggested;
 		if (!d.psc.empty()) {
 			suggested = d.psc;
-		} else if (d.pex && d.pex->mod != "Game Data" && !_sources.folderPath(d.pex->mod).empty()) {
-			suggested = _sources.folderPath(d.pex->mod) / "Source" / "Scripts" / (d.name + ".psc");
-		} else if (!_sources.overwriteDir.empty()) {
-			suggested = _sources.overwriteDir / "Source" / "Scripts" / (d.name + ".psc");
+		} else if (d.pex && d.pex->mod != "Game Data" && !_sources->folderPath(d.pex->mod).empty()) {
+			suggested = _sources->folderPath(d.pex->mod) / "Source" / "Scripts" / (d.name + ".psc");
+		} else if (!_sources->overwriteDir.empty()) {
+			suggested = _sources->overwriteDir / "Source" / "Scripts" / (d.name + ".psc");
 		} else if (!d.pexFile.empty()) {
 			suggested = d.pexFile.parent_path() / (d.name + ".psc");
 		} else {
@@ -1123,11 +1123,11 @@ std::filesystem::path App::gameFolder() const
 	if (!_gamePath.empty()) {
 		return platform::FromUtf8(_gamePath);
 	}
-	if (!_sources.gameData.empty()) {
-		return _sources.gameData.parent_path();
+	if (!_sources->gameData.empty()) {
+		return _sources->gameData.parent_path();
 	}
-	if (_sources.gameDataScanned && !_sources.root.empty()) {
-		return _sources.root.parent_path();
+	if (_sources->gameDataScanned && !_sources->root.empty()) {
+		return _sources->root.parent_path();
 	}
 	return {};
 }
@@ -1145,8 +1145,8 @@ std::filesystem::path App::compilerPath() const
 
 std::filesystem::path App::compileOutputFolder(const ScriptDoc& d) const
 {
-	const auto overwrite = !_sources.overwriteDir.empty() ? _sources.overwriteDir / "Scripts"
-						 : !_sources.gameData.empty()     ? _sources.gameData / "Scripts"
+	const auto overwrite = !_sources->overwriteDir.empty() ? _sources->overwriteDir / "Scripts"
+						 : !_sources->gameData.empty()     ? _sources->gameData / "Scripts"
 														  : std::filesystem::path();
 	if (_compileOutMode == 2 && !_compileOutDir.empty()) {
 		return platform::FromUtf8(_compileOutDir);
@@ -1164,7 +1164,7 @@ std::filesystem::path App::compileOutputFolder(const ScriptDoc& d) const
 		return dir;
 	}
 	if (d.pex && d.pex->mod != "Game Data") {
-		return d.pex->bsaEntry.empty() ? d.pex->file.parent_path() : _sources.folderPath(d.pex->mod) / "Scripts";
+		return d.pex->bsaEntry.empty() ? d.pex->file.parent_path() : _sources->folderPath(d.pex->mod) / "Scripts";
 	}
 	if (!d.pexFile.empty()) {
 		return d.pexFile.parent_path();
@@ -1246,7 +1246,7 @@ void App::startCompile(ScriptDoc& d)
 	if (!d.psc.empty()) {
 		add(d.psc.parent_path());
 	}
-	for (const auto& [dir, enabled] : _sources.sourceDirs) {
+	for (const auto& [dir, enabled] : _sources->sourceDirs) {
 		if (enabled) {
 			add(dir);
 		}
@@ -1254,7 +1254,7 @@ void App::startCompile(ScriptDoc& d)
 	const auto data = gameFolder() / "Data";
 	add(data / "Source" / "Scripts");
 	add(data / "Scripts" / "Source");
-	for (const auto& [dir, enabled] : _sources.sourceDirs) {
+	for (const auto& [dir, enabled] : _sources->sourceDirs) {
 		if (!enabled) {
 			add(dir);
 		}
@@ -1596,7 +1596,7 @@ void App::drawCompileSettings()
 	}
 	tips::Tip(tr("Extra folders with script sources the compiler looks in first (one per line), e.g. SKSE or SkyUI sources."));
 	std::size_t enabled = 0;
-	for (const auto& [dir, on] : _sources.sourceDirs) {
+	for (const auto& [dir, on] : _sources->sourceDirs) {
 		enabled += on ? 1 : 0;
 	}
 	ImGui::TextDisabled(tr("Also searched: the script's folder, the source folders of your %zu active mods (in load priority), the game's\n"
@@ -1783,7 +1783,7 @@ void App::autoDetectPaths(bool a_force)
 		_detectNote = tr("Neither Mod Organizer nor the game was found: set the folders below.");
 		return;
 	}
-	_sources = ScriptSources{};
+	_sources = std::make_shared<ess::ScriptSources>();
 	_modsDirty = true;
 	saveSettings();
 	_status = _detectNote + ".";
@@ -1861,7 +1861,7 @@ void App::setGame(int a_game)
 	_db.reset();
 	_dbKey.clear();
 	// nothing of the other game's mods applies
-	_sources = ScriptSources{};
+	_sources = std::make_shared<ess::ScriptSources>();
 	_mo2.reset();
 	_vortex.reset();
 	_modsDirty = true;

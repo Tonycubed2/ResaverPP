@@ -155,8 +155,14 @@ namespace ess
 
 		// plugin (lowercase) -> mod folder that contains it
 		std::unordered_map<std::string, std::string> pluginFolder;
+		// "<mod folder>|<plugin, lowercase>" -> the plugin's file name as it is on disk, noted while scanning: pluginPath()
+		// needs no file system call (each one is slow through Wine's Z: drive, and it was asked for every plugin)
+		std::unordered_map<std::string, std::string> pluginFileName;
 
 	private:
+		const std::atomic<bool>* _cancel = nullptr;  // the running scan's cancel flag (a Data folder is one big folder)
+		ScanProgress*            _folderProgress = nullptr;  // a Data folder scanned on its own: progress by its archives
+		bool cancelled() const { return _cancel && _cancel->load(); }
 		void scanFolder(const std::filesystem::path& a_dir, const std::string& a_modName, bool a_enabled = true);
 		void scanGameData();
 		void reset();

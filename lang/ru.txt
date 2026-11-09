@@ -13366,3 +13366,114 @@ tr "; прочитано снова: потоков %zu, приостановл�
 # AppCheck.cpp:692  markEdited(Fmt(tr("Cleared %zu queued calls that never started (%zu threads); left alone %zu"), r.calls, r.threads,
 en "Cleared %zu queued calls that never started (%zu threads); left alone %zu"
 tr "Очищено не начавшихся вызовов в очереди: %zu (потоков: %zu); не тронуто: %zu"
+# AppBackground.cpp
+en "Opening "
+tr "Открываю "
+
+# AppBackground.cpp
+en "Working out the results for your mods"
+tr "Подсчёт результатов для ваших модов"
+
+# AppBackground.cpp
+en "reading the save file"
+tr "чтение файла сохранения"
+
+# AppBackground.cpp
+en "checking the save"
+tr "проверка сохранения"
+
+# AppBackground.cpp
+en "matching the Mod Organizer profile"
+tr "подбор профиля Mod Organizer"
+
+# AppBackground.cpp
+en "cancelled"
+tr "отменено"
+
+# AppBackground.cpp
+en "matching scripts to your mods"
+tr "сопоставление скриптов с модами"
+
+# AppBackground.cpp
+en "enchanted items and quests"
+tr "зачарованные предметы и квесты"
+
+# AppBackground.cpp
+en "followers, beast form and quests"
+tr "спутники, звериный облик и квесты"
+
+# AppBackground.cpp
+en "mods no longer in your load order"
+tr "моды, которых больше нет в порядке загрузки"
+
+# AppBackground.cpp
+en "Opening cancelled"
+tr "Открытие отменено"
+
+# AppBackground.cpp
+en "%s: %zu of %zu%s%s"
+tr "%s: %zu из %zu%s%s"
+
+# AppBackground.cpp
+en "Stop this job. What it did so far is dropped."
+tr "Остановить эту задачу. Сделанное ею до сих пор будет отброшено."
+
+# AppBackground.cpp
+en "+%zu more"
+tr "ещё %zu"
+
+# AppBackground.cpp
+en "Show every job running in the background."
+tr "Показать все задачи, выполняемые в фоне."
+
+# AppBackground.cpp
+en "Background jobs"
+tr "Фоновые задачи"
+
+# AppBackground.cpp
+en "Building the merged patch"
+tr "Сборка объединённого патча"
+
+# AppBackground.cpp
+en "Finding file conflicts"
+tr "Поиск конфликтов файлов"
+
+# AppBackground.cpp
+en "Reading the character's saves (save history)"
+tr "Чтение сохранений персонажа (история сохранений)"
+
+# AppCharges.cpp
+en "Checking the characters for the crash-on-load problem"
+tr "Проверка персонажей на вылет при загрузке"
+
+# AppCollect.cpp
+en "Collecting the logs"
+tr "Сбор журналов"
+
+# AppF4Bloat.cpp
+en "Measuring the save's size by mod"
+tr "Подсчёт размера сохранения по модам"
+
+# AppF4Bloat.cpp
+en "Measuring the older save's size by mod"
+tr "Подсчёт размера старого сохранения по модам"
+
+# AppF4Bloat.cpp
+en "Checking the load order"
+tr "Проверка порядка загрузки"
+
+# AppGallery.cpp
+en "Reading the saves' pictures"
+tr "Чтение картинок сохранений"
+
+# AppSkyFollowers.cpp
+en "Reading the save..."
+tr "Чтение сохранения..."
+
+# AppBackground.cpp
+en "character effects"
+tr "эффекты персонажа"
+
+# AppCharEffects.cpp
+en "Still reading the save..."
+tr "Сохранение ещё читается..."

@@ -3,6 +3,8 @@
 // (ReSaver's "Parse ESP/ESMs"). Only what is needed for naming is kept: editor ID, display
 // name, record type, and the base object of placed references the save mentions.
 #pragma once
+
+#include <memory>
 #include <cctype>
 #include <set>
 
@@ -26,7 +28,11 @@ namespace ess
 		{
 			std::vector<std::string>          full, lite;  // the save's plugin lists (load order)
 			std::unordered_set<std::uint32_t> wantedRefs;  // runtime form IDs of placed references to keep
+			std::shared_ptr<const std::unordered_set<std::uint32_t>> wantedShared;  // or these when set (worked out already)
+			const std::unordered_set<std::uint32_t>& wanted() const { return wantedShared ? *wantedShared : wantedRefs; }
 			ScriptSources                     sources;     // where the plugin and strings files are
+			std::shared_ptr<const ScriptSources> shared;   // or this one when set (the window's, not copied)
+			const ScriptSources&              src() const { return shared ? *shared : sources; }
 			std::string                       language = "english";  // Fallout 4: "en" (Fallout4_en.strings)
 			bool                              fo4 = false;  // Fallout 4 plugins: names, editor IDs, quests (QUST in
 			                                                // Fallout 4's layout) and the magic effect / spell data

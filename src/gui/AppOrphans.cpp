@@ -58,7 +58,7 @@ void App::buildOrphans()
 		return;
 	}
 	_orphansBuiltScanning = scanning();
-	_orphans = orphans::Find(*_save, _orphansBuiltScanning ? nullptr : &_sources);
+	_orphans = orphans::Find(*_save, _orphansBuiltScanning ? nullptr : _sources.get());
 	for (const auto& g : _orphans) {
 		_orphanSel.push_back(DefaultTick(g.status) ? 1 : 0);
 	}

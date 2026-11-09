@@ -218,6 +218,17 @@ void App::startCollectLogs()
 	_collectJob = std::move(job);
 }
 
+void App::appendCollectJob(std::vector<JobRow>& a_jobs)
+{
+	if (_collectJob && !_collectJob->finished) {
+		JobRow r;
+		r.name = tr("Collecting the logs");
+		r.done = _collectJob->done.load();
+		r.total = _collectJob->items.size();
+		a_jobs.push_back(std::move(r));
+	}
+}
+
 void App::drawCollectLogs()
 {
 	if (!_collectJob) {

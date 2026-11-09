@@ -2,6 +2,8 @@
 // Save editing operations and analysis. Semantics follow ReSaver's Papyrus/ESS operations.
 #pragma once
 
+#include <unordered_map>
+
 #include "Save.h"
 #include "ScriptFlood.h"
 
@@ -213,4 +215,14 @@ namespace ess::ops
 	std::string RenamePlugin(SaveFile& s, const std::string& a_from, const std::string& a_to);
 	// Installed plugins that look like a renamed copy of a_missing (same name, other extension).
 	std::vector<std::string> RenameCandidates(const SaveFile& s, const std::string& a_missing, const std::vector<std::string>& a_installed);
+	// the same for many missing plugins at once (the save and the installed list read once)
+	class RenameFinder
+	{
+	public:
+		RenameFinder(const SaveFile& s, const std::vector<std::string>& a_installed);
+		std::vector<std::string> find(const std::string& a_missing) const;
+
+	private:
+		std::unordered_map<std::string, std::vector<std::string>> _byStem;
+	};
 }

@@ -76,6 +76,7 @@ namespace ess
 			const auto ext = Lower(U8(e.path().extension()));
 			if (IsPlugin(ext)) {
 				plugins.push_back(Lower(U8(e.path().filename())));
+				pluginFileName.emplace(a_modName + "|" + plugins.back(), U8(e.path().filename()));
 			} else if (ext == ".bsa" || ext == ".ba2") {
 				// Every archive is read (Fallout 4's are .ba2), "... - Textures.bsa" too: some mods pack their scripts in it, and
 				// the game loads scripts from any archive it loads. Only the file list is read (fast).
@@ -151,6 +152,9 @@ namespace ess
 					it.disable_recursion_pending();
 					continue;
 				}
+				if (cancelled()) {
+					return;
+				}
 				if (it->is_regular_file(ec) && Lower(U8(it->path().extension())) == ".pex") {
 					auto rel = U8(std::filesystem::relative(it->path(), e.path(), ec).replace_extension());
 					for (auto& c : rel) {
@@ -162,7 +166,18 @@ namespace ess
 				}
 			}
 		}
+		if (_folderProgress) {
+			_folderProgress->total = bsas.size() + 1;
+			_folderProgress->done = 1;  // (the loose scripts)
+		}
 		for (const auto& b : bsas) {
+			if (cancelled()) {
+				return;
+			}
+			if (_folderProgress) {
+				_folderProgress->setCurrent(U8(b.filename()));
+				++_folderProgress->done;
+			}
 			const bool official = gameFolder && vanillaArchive(Lower(U8(b.filename())));
 			try {
 				for (const auto& f : ListBSA(b)) {
@@ -197,6 +212,15 @@ namespace ess
 		};
 		auto cancelled = [&] { return a_progress && a_progress->cancel.load(); };
 		reset();
+		_cancel = a_progress ? &a_progress->cancel : nullptr;
+		if (a_progress) {
+			a_progress->setCurrent("");
+		}
+		struct Clear
+		{
+			const std::atomic<bool>*& c;
+			~Clear() { c = nullptr; }
+		} clear{ _cancel };
 		root = a_root;
 		overwriteDir = a_overwrite;
 		gameData = a_gameData;
@@ -284,7 +308,9 @@ namespace ess
 			}
 		}
 		if (looksLikeData) {
+			_folderProgress = a_progress;  // (the progress counts its archives: it is one folder)
 			scanFolder(a_root, "Data");
+			_folderProgress = nullptr;
 			modsScanned = 1;
 			gameDataScanned = true;
 			return;
@@ -310,6 +336,7 @@ namespace ess
 		_byScript.clear();
 		_modBsas.clear();
 		pluginFolder.clear();
+		pluginFileName.clear();
 		scriptsByMod.clear();
 		errors.clear();
 		enabledFolders.clear();
@@ -582,6 +609,10 @@ namespace ess
 			return std::nullopt;
 		}
 		const auto dir = folderPath(it->second);
+		// the name the scan saw in that folder (no file system call)
+		if (auto n = pluginFileName.find(it->second + "|" + it->first); n != pluginFileName.end()) {
+			return dir / text::PathFrom(n->second);
+		}
 		std::error_code ec;
 		// exact name first, then a case-insensitive match
 		auto p = dir / text::PathFrom(a_plugin);

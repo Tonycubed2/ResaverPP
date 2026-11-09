@@ -3,6 +3,7 @@
 // opened, and their leftovers removed after the player confirms (each through the same safety checks
 // as "Remove mod from save"), into a new save file.
 #include "App.h"
+#include "Watchdog.h"
 
 #include "Platform.h"
 #include "Theme.h"
@@ -15,6 +16,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <optional>
 #include <cctype>
 #include <cstdio>
 #include <set>
@@ -54,23 +56,27 @@ namespace
 // half of the mods a save uses look "not enabled" and every check floods with false findings. So when a save opens,
 // every profile of every Mod Organizer setup for this game is compared with the plugins the save was made with, and
 // when another one clearly matches it better, it is used instead (and the user is told).
-bool App::matchProfileToSave()
+// The scoring reads only files (every profile's plugins.txt, the Mod Organizer setups): the save opening thread runs it
+// (AppBackground.cpp), the window only applies the answer.
+App::ProfileMatch App::ScoreProfiles(const SaveFile& a_save, const Mo2Instance& a_mo2, const std::string& a_profile,
+	const std::filesystem::path& a_gameFolder, int a_game)
 {
-	if (!_save || !_mo2) {
-		return false;
-	}
+	ProfileMatch m;
+	m.computed = true;
 	std::vector<std::string> savePlugins;
-	for (const auto& p : _save->plugins.full) {
+	for (const auto& p : a_save.plugins.full) {
 		savePlugins.push_back(Lower(p));
 	}
-	for (const auto& p : _save->plugins.lite) {
+	for (const auto& p : a_save.plugins.lite) {
 		savePlugins.push_back(Lower(p));
 	}
+	m.plugins = savePlugins.size();
 	if (savePlugins.size() < 10) {
-		return false;  // too few to tell profiles apart
+		m.tooFew = true;
+		return m;  // too few to tell profiles apart
 	}
-	auto score = [&](const Mo2Instance& m, const std::string& profile) {
-		const auto active = loadorder::Read(m.profilesDir / platform::FromUtf8(profile) / "plugins.txt", !m.gamePath.empty() ? m.gamePath : gameFolder(), _game);
+	auto score = [&](const Mo2Instance& a_m, const std::string& profile) {
+		const auto active = loadorder::Read(a_m.profilesDir / platform::FromUtf8(profile) / "plugins.txt", !a_m.gamePath.empty() ? a_m.gamePath : a_gameFolder, a_game);
 		if (!active.known) {
 			return -1.0;
 		}
@@ -81,81 +87,107 @@ bool App::matchProfileToSave()
 		return static_cast<double>(in) / static_cast<double>(savePlugins.size());
 	};
 	// this setup first, then the other Mod Organizer setups for the same game
-	std::vector<Mo2Instance> setups{ *_mo2 };
+	std::vector<Mo2Instance> setups{ a_mo2 };
 	std::error_code          ec;
-	for (auto& m : FindMo2Instances({ platform::ExeFolder() })) {
-		if (Lower(m.gameName) == Lower(_mo2->gameName) && m.ini != _mo2->ini && std::filesystem::is_directory(m.modsDir, ec)) {
-			setups.push_back(std::move(m));
-		}
-	}
-	const double current = score(*_mo2, _profile);
-	double       best = current;
-	std::size_t  bestSetup = 0;
-	std::string  bestProfile = _profile;
-	std::string  table;
-	for (std::size_t i = 0; i < setups.size(); ++i) {
-		for (const auto& pr : setups[i].profiles) {
-			const double sc = score(setups[i], pr);
-			table += Fmt("\n    %s%s: %.0f%%", i ? (platform::ToUtf8(setups[i].ini.parent_path()) + " / ").c_str() : "", pr.c_str(), sc * 100.0);
-			if (sc > best + 1e-9) {
-				best = sc;
-				bestSetup = i;
-				bestProfile = pr;
+	{
+		watchdog::Step st("FindMo2Instances");
+		for (auto& i : FindMo2Instances({ platform::ExeFolder() })) {
+			if (Lower(i.gameName) == Lower(a_mo2.gameName) && i.ini != a_mo2.ini && std::filesystem::is_directory(i.modsDir, ec)) {
+				setups.push_back(std::move(i));
 			}
 		}
 	}
-	if (startupLog) {
-		startupLog(Fmt("MO2 profiles against this save's %zu plugins (share of them enabled in each):", savePlugins.size()) + table);
+	watchdog::Step scoreStep("each profile's plugins.txt");
+	m.current = score(a_mo2, a_profile);
+	m.best = m.current;
+	std::size_t bestSetup = 0;
+	m.profile = a_profile;
+	for (std::size_t i = 0; i < setups.size(); ++i) {
+		for (const auto& pr : setups[i].profiles) {
+			const double sc = score(setups[i], pr);
+			m.table += Fmt("\n    %s%s: %.0f%%", i ? (platform::ToUtf8(setups[i].ini.parent_path()) + " / ").c_str() : "", pr.c_str(), sc * 100.0);
+			if (sc > m.best + 1e-9) {
+				m.best = sc;
+				bestSetup = i;
+				m.profile = pr;
+			}
+		}
 	}
 	// only a clear winner: the current one misses more than a tenth of the save and the other has at least nine tenths
-	if ((bestSetup == 0 && bestProfile == _profile) || best < 0.9 || best - current < 0.1) {
+	m.switchTo = !((bestSetup == 0 && m.profile == a_profile) || m.best < 0.9 || m.best - m.current < 0.1);
+	if (bestSetup != 0) {
+		m.setup = setups[bestSetup];
+	}
+	return m;
+}
+
+bool App::matchProfileToSave(const ProfileMatch* a_pre)
+{
+	if (!_save || !_mo2) {
+		return false;
+	}
+	const ProfileMatch m = a_pre && a_pre->computed ? *a_pre : ScoreProfiles(*_save, *_mo2, _profile, gameFolder(), _game);
+	if (m.tooFew) {
+		return false;
+	}
+	if (startupLog) {
+		startupLog(Fmt("MO2 profiles against this save's %zu plugins (share of them enabled in each):", m.plugins) + m.table);
+	}
+	if (!m.switchTo) {
 		return false;
 	}
 	const std::string was = _profile;
-	if (bestSetup != 0) {
-		_mo2 = setups[bestSetup];
+	if (m.setup) {
+		_mo2 = *m.setup;
 		_sourcesPath = platform::ToUtf8(_mo2->modsDir);
 		if (!_mo2->gamePath.empty()) {
 			_gamePath = platform::ToUtf8(_mo2->gamePath);
 		}
 	}
-	_profile = bestProfile;
+	_profile = m.profile;
 	_detectNote = Fmt(tr("Switched to the Mod Organizer profile \"%s\"%s: %.0f%% of this save's plugins are enabled in it, only %.0f%% in \"%s\". "
 	                     "(Options > Settings to pick another.)"),
-		_profile.c_str(), bestSetup ? (" (" + platform::ToUtf8(_mo2->ini.parent_path()) + ")").c_str() : "", best * 100.0, std::max(0.0, current) * 100.0,
+		_profile.c_str(), m.setup ? (" (" + platform::ToUtf8(_mo2->ini.parent_path()) + ")").c_str() : "", m.best * 100.0, std::max(0.0, m.current) * 100.0,
 		was.c_str());
 	if (startupLog) {
-		startupLog("switched to MO2 profile " + _profile + (bestSetup ? " of " + platform::ToUtf8(_mo2->ini) : std::string()));
+		startupLog("switched to MO2 profile " + _profile + (m.setup ? " of " + platform::ToUtf8(_mo2->ini) : std::string()));
 	}
 	saveSettings();
 	return true;
 }
 
-void App::checkMissingPlugins()
+App::MissingInputs App::missingInputs() const
 {
-	_missing.clear();
-	_missingSource.clear();
-	_missingScripts.clear();
-	_unfoundScripts.clear();
-	_removeUnfoundScripts = false;
-	_removeMissingScripts = true;
-	_orderSuspect = _scanSuspect = false;
-	_activeInSave = _activeFound = _activeChecked = 0;
-	_missingFile.clear();
-	if (!_save) {
-		return;
-	}
-	_installKnown = _sources.scanned() && !scanning();
+	MissingInputs in;
+	in.sources = _sources;
+	in.installKnown = _sources->scanned() && !scanning();
+	in.game = _game;
+	in.gameFolder = gameFolder();
 	// the load order the game uses next: the Mod Organizer profile's, or the game's own plugins.txt
-	std::filesystem::path txt;
 	if (_mo2 && !_profile.empty()) {
-		txt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
-		_missingSource = tr("Mod Organizer profile \"") + _profile + "\"";
+		in.pluginsTxt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
+		in.source = tr("Mod Organizer profile \"") + _profile + "\"";
 	} else {
-		txt = loadorder::GamePluginsTxt(_game, _save && _save->isLE());
-		_missingSource = _vortex ? tr("your load order (Vortex)") : tr("your load order");
+		in.pluginsTxt = loadorder::GamePluginsTxt(_game, _save && _save->isLE());
+		in.source = _vortex ? tr("your load order (Vortex)") : tr("your load order");
 	}
-	const auto active = loadorder::Read(txt, gameFolder(), _game);
+	in.sourceUnknown = tr("your load order");
+	return in;
+}
+
+// Mods still in the save but not in the load order, scripts no longer installed. Reads only the save, the scan and the load
+// order file, so the background analysis (AppBackground.cpp) can run it too; a_mods gives the Mods table (built only when
+// a missing mod needs its counts).
+void App::ComputeMissing(const SaveFile& a_save, const MissingInputs& a_in, const std::function<const mods::Table*()>& a_mods, MissingResult& out)
+{
+	out = MissingResult{};
+	out.missingSource = a_in.source;
+	out.installKnown = a_in.installKnown;
+	std::optional<watchdog::Step> step;
+	step.emplace("reading the load order");
+	const auto active = loadorder::Read(a_in.pluginsTxt, a_in.gameFolder, a_in.game);
+	step.reset();
+	step.emplace("scripts not installed");
 	// scripts whose compiled file is nowhere: not in any mod (enabled or not) and not in the game's own
 	// archives. Only when the game's Data folder was scanned too, or every vanilla script would count.
 	//  - "missing": the save itself says the game could not load it either (it writes an empty parent
@@ -164,15 +196,15 @@ void App::checkMissingPlugins()
 	//    mod was uninstalled since, or the scan looked in the wrong place (or missed an archive): not
 	//    removed unless the player asks. Not listed at all when it runs on objects of a plugin that is
 	//    in the load order (that mod is installed, so its scripts are too).
-	if (_installKnown && _sources.gameDataScanned) {
-		const auto& p = *_save->papyrus();
+	if (out.installKnown && a_in.sources->gameDataScanned) {
+		const auto& p = *a_save.papyrus();
 		std::unordered_map<std::string, std::size_t> uses;
 		std::unordered_set<std::string>              onLoaded;  // scripts with an instance on an object of a loaded plugin
 		for (const auto& i : p.instances) {
 			const auto key = Lower(p.str(i.script));
 			++uses[key];
 			if (active.known && !i.refID.isZero() && i.refID.type() != RefID::Type::kCreated) {
-				const auto plugin = Lower(_save->pluginOf(_save->formIDOf(i.refID)));
+				const auto plugin = Lower(a_save.pluginOf(a_save.formIDOf(i.refID)));
 				if (!plugin.empty() && active.plugins.contains(plugin)) {
 					onLoaded.insert(key);
 				}
@@ -187,37 +219,39 @@ void App::checkMissingPlugins()
 		// without it), even if the scan did not find its file: not listed
 		std::unordered_set<std::string> parentsOfInstalled;
 		for (const auto& sc : p.scripts) {
-			if (!p.str(sc.parent).empty() && _sources.providers(p.str(sc.name))) {
+			if (!p.str(sc.parent).empty() && a_in.sources->providers(p.str(sc.name))) {
 				parentsOfInstalled.insert(Lower(p.str(sc.parent)));
 			}
 		}
 		for (const auto& sc : p.scripts) {
 			const auto name = p.str(sc.name);
 			const auto key = Lower(name);
-			if (name.empty() || ops::IsEngineType(name) || _sources.providers(name) || parentsOfInstalled.contains(key)) {
+			if (name.empty() || ops::IsEngineType(name) || a_in.sources->providers(name) || parentsOfInstalled.contains(key)) {
 				continue;
 			}
 			if (ops::IsScriptUndefined(p, sc)) {
-				_missingScripts.emplace_back(name, uses[key]);
+				out.missingScripts.emplace_back(name, uses[key]);
 			} else if (!onLoaded.contains(key)) {
-				_unfoundScripts.emplace_back(name, uses[key]);
+				out.unfoundScripts.emplace_back(name, uses[key]);
 			}
 		}
-		std::sort(_missingScripts.begin(), _missingScripts.end());
-		std::sort(_unfoundScripts.begin(), _unfoundScripts.end());
+		std::sort(out.missingScripts.begin(), out.missingScripts.end());
+		std::sort(out.unfoundScripts.begin(), out.unfoundScripts.end());
 	}
 	// archives or folders the scan could not read may hold scripts: "not found" is not proof then
-	if (_installKnown && !_sources.errors.empty()) {
-		_removeMissingScripts = false;
+	if (out.installKnown && !a_in.sources->errors.empty()) {
+		out.removeMissingScripts = false;
 	}
 
 	if (!active.known) {
-		_missingSource = tr("your load order");
+		out.missingSource = a_in.sourceUnknown;
 		return;  // no load order to compare plugins with (missing scripts can still be listed)
 	}
-	_missingFile = active.file;
-	std::vector<std::string> all = _save->plugins.full;
-	all.insert(all.end(), _save->plugins.lite.begin(), _save->plugins.lite.end());
+	step.reset();
+	step.emplace("the installed plugins' files");
+	out.missingFile = active.file;
+	std::vector<std::string> all = a_save.plugins.full;
+	all.insert(all.end(), a_save.plugins.lite.begin(), a_save.plugins.lite.end());
 	// Sanity: a save made with this load order has nearly all of its plugins in it, and a scan of the right
 	// mods folder finds nearly every plugin the load order enables. Far off means the wrong profile, a stale
 	// plugins.txt or the wrong mods folder: then nothing is ticked.
@@ -226,20 +260,20 @@ void App::checkMissingPlugins()
 		if (!active.plugins.contains(low)) {
 			continue;
 		}
-		++_activeInSave;
+		++out.activeInSave;
 		const bool gameFile = (low.rfind("cc", 0) == 0 && low.find("sse") != std::string::npos) || low == "skyrim.esm" || low == "update.esm" || low == "dawnguard.esm" ||
 							  low == "hearthfires.esm" || low == "dragonborn.esm" || low == "_resourcepack.esl" || low == "skyrimvr.esm" ||
 							  modremove::IsCreationClubPlugin(low) ||
 							  std::find(loadorder::Fallout4Masters().begin(), loadorder::Fallout4Masters().end(), low) != loadorder::Fallout4Masters().end();
-		if (_installKnown && !gameFile) {
-			++_activeChecked;
-			_activeFound += _sources.pluginPath(p).has_value() ? 1 : 0;
+		if (out.installKnown && !gameFile) {
+			++out.activeChecked;
+			out.activeFound += a_in.sources->pluginPath(p).has_value() ? 1 : 0;
 		}
 	}
-	_orderSuspect = all.size() >= 10 && _activeInSave * 2 < all.size();
-	_scanSuspect = _activeChecked >= 10 && _activeFound * 2 < _activeChecked;
-	if (_orderSuspect || _scanSuspect) {
-		_removeMissingScripts = false;
+	out.orderSuspect = all.size() >= 10 && out.activeInSave * 2 < all.size();
+	out.scanSuspect = out.activeChecked >= 10 && out.activeFound * 2 < out.activeChecked;
+	if (out.orderSuspect || out.scanSuspect) {
+		out.removeMissingScripts = false;
 	}
 	std::unordered_map<std::string, std::size_t> index;
 	for (const auto& p : all) {
@@ -248,64 +282,104 @@ void App::checkMissingPlugins()
 		}
 		MissingMod m;
 		m.plugin = p;
-		m.installed = !_installKnown || _sources.pluginPath(p).has_value();  // unknown: treat as installed (not ticked)
-		if (auto it = _sources.pluginFolder.find(Lower(p)); it != _sources.pluginFolder.end()) {
+		m.installed = !out.installKnown || a_in.sources->pluginPath(p).has_value();  // unknown: treat as installed (not ticked)
+		if (auto it = a_in.sources->pluginFolder.find(Lower(p)); it != a_in.sources->pluginFolder.end()) {
 			m.folder = it->second;
 		}
 		m.selected = !m.installed;  // a disabled mod may come back: not ticked by default
-		index[Lower(p)] = _missing.size();
-		_missing.push_back(std::move(m));
+		index[Lower(p)] = out.missing.size();
+		out.missing.push_back(std::move(m));
 	}
-	if (_missing.empty()) {
+	if (out.missing.empty()) {
 		return;
 	}
+	step.reset();
+	step.emplace("what is left of each missing mod");
 	// what is left of each in the save
-	for (const auto& c : _save->changeForms) {
-		const auto plugin = Lower(_save->pluginOf(_save->formIDOf(c.refID)));
+	for (const auto& c : a_save.changeForms) {
+		const auto plugin = Lower(a_save.pluginOf(a_save.formIDOf(c.refID)));
 		if (auto it = index.find(plugin); it != index.end()) {
-			++_missing[it->second].changeForms;
+			++out.missing[it->second].changeForms;
 		}
 	}
-	ensureMods();
-	if (_mods) {
-		for (const auto& r : _mods->rows) {
+	if (const auto* table = a_mods()) {
+		for (const auto& r : table->rows) {
 			if (auto it = index.find(Lower(r.name)); it != index.end()) {
-				auto& m = _missing[it->second];
+				auto& m = out.missing[it->second];
 				m.scripts = r.scriptCount;
 				m.instances = r.instanceCount;
 				m.threads = r.threadCount;
 			}
 		}
 	}
+	step.reset();
+	step.emplace("renamed plugins");
 	// renamed rather than removed (Mod.esp -> Mod.esl, ...): offer to point the save at the new name instead
 	{
 		std::vector<std::string> enabled;
 		for (const auto& low : active.plugins) {
 			std::string name = low;
-			if (const auto path = _sources.pluginPath(low)) {
+			if (const auto path = a_in.sources->pluginPath(low)) {
 				name = platform::ToUtf8(path->filename());
 			}
 			enabled.push_back(name);
 		}
-		for (auto& m : _missing) {
-			m.renamedTo = ops::RenameCandidates(*_save, m.plugin, enabled);
+		const ops::RenameFinder finder(a_save, enabled);
+		for (auto& m : out.missing) {
+			m.renamedTo = finder.find(m.plugin);
 		}
 	}
 	// nothing left of it: nothing to clean, the game already dropped it
-	for (auto& m : _missing) {
+	for (auto& m : out.missing) {
 		if (!m.renamedTo.empty()) {
 			m.selected = false;  // probably renamed: never cleaned by default
 		}
 		if (m.changeForms == 0 && m.scripts == 0 && m.threads == 0) {
 			m.selected = false;
 		}
-		if (_orderSuspect || _scanSuspect) {
+		if (out.orderSuspect || out.scanSuspect) {
 			m.selected = false;
 		}
 	}
-	if (_orderSuspect || _scanSuspect) {
-		_removeMissingScripts = false;  // nothing destructive is ticked when the setup does not match the save
+	if (out.orderSuspect || out.scanSuspect) {
+		out.removeMissingScripts = false;  // nothing destructive is ticked when the setup does not match the save
 	}
+}
+
+
+void App::applyMissing(MissingResult&& a_r)
+{
+	_missing = std::move(a_r.missing);
+	_missingSource = std::move(a_r.missingSource);
+	_missingScripts = std::move(a_r.missingScripts);
+	_unfoundScripts = std::move(a_r.unfoundScripts);
+	_removeUnfoundScripts = a_r.removeUnfoundScripts;
+	_removeMissingScripts = a_r.removeMissingScripts;
+	_orderSuspect = a_r.orderSuspect;
+	_scanSuspect = a_r.scanSuspect;
+	_activeInSave = a_r.activeInSave;
+	_activeFound = a_r.activeFound;
+	_activeChecked = a_r.activeChecked;
+	_missingFile = std::move(a_r.missingFile);
+	_installKnown = a_r.installKnown;
+	invalidateCheck();
+}
+
+void App::checkMissingPlugins()
+{
+	if (!_save) {
+		applyMissing(MissingResult{});
+		return;
+	}
+	if (analysisWillProvide(kAnMissing)) {
+		return;  // the background analysis is working it out for this save (the banner keeps what it showed)
+	}
+	MissingResult r;
+	ComputeMissing(*_save, missingInputs(), [this]() -> const mods::Table* {
+		ensureMods();
+		return _mods.get();
+	}, r);
+	applyMissing(std::move(r));
 }
 
 void App::drawMissingBanner()
@@ -401,17 +475,17 @@ void App::drawMissingModal()
 										  _activeInSave, inSave));
 		}
 	}
-	if (_installKnown && !_sources.errors.empty()) {
+	if (_installKnown && !_sources->errors.empty()) {
 		std::string list;
-		for (std::size_t i = 0; i < _sources.errors.size() && i < 6; ++i) {
-			list += "\n    " + _sources.errors[i];
+		for (std::size_t i = 0; i < _sources->errors.size() && i < 6; ++i) {
+			list += "\n    " + _sources->errors[i];
 		}
-		if (_sources.errors.size() > 6) {
-			list += Fmt(tr("\n    ... and %zu more"), _sources.errors.size() - 6);
+		if (_sources->errors.size() > 6) {
+			list += Fmt(tr("\n    ... and %zu more"), _sources->errors.size() - 6);
 		}
 		TextColored(theme::Warn(), Fmt(tr("%zu archive(s) or folder(s) could not be read, so a script \"not found\" may just be in one of them. "
 									   "Missing scripts are not ticked:"),
-									   _sources.errors.size()) +
+									   _sources->errors.size()) +
 									   list);
 	}
 	if (_scanSuspect) {
@@ -432,7 +506,7 @@ void App::drawMissingModal()
 			auto& m = _missing[i];
 			// the safety check of each ticked mod, on the unchanged save
 			if (m.selected && !m.planned) {
-				const auto plan = modremove::MakePlan(*_save, m.plugin, _sources.scanned() ? &_sources : nullptr, _removeOpt);
+				const auto plan = modremove::MakePlan(*_save, m.plugin, _sources->scanned() ? _sources.get() : nullptr, _removeOpt);
 				m.planned = true;
 				m.blocked = !plan.canApply();
 				m.planText = plan.summary();
@@ -536,7 +610,7 @@ void App::drawMissingModal()
 		TextColored(theme::Dim(), Fmt(tr("Either their mod was uninstalled after this save, or ReSaver++ looked in the wrong place. Mods folder scanned: "
 									  "%s (%zu mod folders, %zu scripts). If these mods are still installed, do NOT remove them: check the "
 									  "mods folder in Options > Settings first. Removing a script a mod still uses restarts its quests and its MCM."),
-							  _sourcesPath.c_str(), _sources.modsScanned, _sources.pexFound));
+							  _sourcesPath.c_str(), _sources->modsScanned, _sources->pexFound));
 		ImGui::Checkbox(Fmt(tr("Also remove these %zu script(s) (only if you uninstalled their mods)"), _unfoundScripts.size()).c_str(), &_removeUnfoundScripts);
 		tips::Tip(tr("Only tick this if you really uninstalled these mods. If they are still installed and ReSaver++ just looked in the wrong folder, removing them restarts their quests and MCM."));
 		if (ImGui::TreeNode("unfound scripts", "%s", tr("Show them"))) {
@@ -577,7 +651,7 @@ void App::drawMissingModal()
 			if (!m.selected) {
 				continue;
 			}
-			const auto plan = modremove::MakePlan(*_save, m.plugin, _sources.scanned() ? &_sources : nullptr, _removeOpt);
+			const auto plan = modremove::MakePlan(*_save, m.plugin, _sources->scanned() ? _sources.get() : nullptr, _removeOpt);
 			if (!plan.canApply()) {
 				skipped += (skipped.empty() ? "" : ", ") + m.plugin;
 				continue;

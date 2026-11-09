@@ -4,6 +4,7 @@
 // the save, on that one item, so xEdit never shows them. An item with an enchantment but max charge 0
 // can never be recharged with soul gems; it can be fixed here.
 #include "App.h"
+#include "Watchdog.h"
 
 #include <atomic>
 #include <chrono>
@@ -43,6 +44,11 @@ namespace
 const std::vector<cf::ChargedItem>& App::chargedItems()
 {
 	if (_chargedGen != _editGen) {
+		if (analysisWillProvide(kAnFirst)) {
+			static const std::vector<cf::ChargedItem> kNone;
+			return kNone;  // worked out in the background (AppBackground.cpp)
+		}
+		watchdog::Step st("enchanted items (FindChargedItems)");
 		_charged = _save ? cf::FindChargedItems(*_save) : std::vector<cf::ChargedItem>{};
 		_chargedGen = _editGen;
 	}
@@ -63,6 +69,19 @@ struct App::PathJob
 	double                              ms = 0;
 	std::vector<std::string>            log;
 };
+
+void App::appendPathJob(std::vector<JobRow>& a_jobs)
+{
+	if (_pathJob && !_pathJob->finished) {
+		JobRow r;
+		r.name = tr("Checking the characters for the crash-on-load problem");
+		r.done = _pathJob->done.load();
+		r.total = _pathJob->total.load();
+		auto job = _pathJob;
+		r.cancel = [job] { job->cancel = true; };
+		a_jobs.push_back(std::move(r));
+	}
+}
 
 void App::stopPathJob()
 {
@@ -94,7 +113,7 @@ void App::pollPathIdles()
 	}
 	// it waits for the mods scan and the plugin names: those come first, and on a slow PC (or under Wine) the
 	// three at once crawled
-	if (_pathJobPending && _save && !scanning() && !namesLoading()) {
+	if (_pathJobPending && _save && !scanning() && !namesLoading() && !_openJob && !_analysisJob) {
 		_pathJobPending = false;
 		auto job = std::make_shared<PathJob>();
 		job->copy.header = _save->header;

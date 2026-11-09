@@ -127,8 +127,8 @@ App::CosaveView& App::cosaveView()
 	// start (or restart) the DLL search once the mods have been read
 	if (!scanning()) {
 		const auto gameData = gameFolder().empty() ? std::filesystem::path() : gameFolder() / "Data";
-		auto       roots = cosave::RootsOf(_sources);
-		const auto k = platform::ToUtf8(roots.root) + "|" + std::to_string(_sources.modsScanned) + "|" + platform::ToUtf8(roots.gameData) + "|" +
+		auto       roots = cosave::RootsOf(*_sources);
+		const auto k = platform::ToUtf8(roots.root) + "|" + std::to_string(_sources->modsScanned) + "|" + platform::ToUtf8(roots.gameData) + "|" +
 					   platform::ToUtf8(gameData) + "|" + std::to_string(roots.enabled.size());
 		if (k != c.dllKey || !c.job) {
 			c.dllKey = k;
