@@ -66,7 +66,7 @@ namespace
 
 loadorder::Active App::currentLoadOrder() const
 {
-	// read again only when the file changed; looked at no more than once a second (the Save check asks for it often,
+	// read again only when the file changed; looked at no more than every 3 seconds (the Save check asks for it often,
 	// and every file call is slow through Wine's Z: drive)
 	auto&        c = _loCache;
 	const double now = ImGui::GetTime();
@@ -92,7 +92,7 @@ loadorder::Active App::currentLoadOrder() const
 		c.cccTime = ec2 ? std::filesystem::file_time_type{} : tc;
 	}
 	c.known = true;
-	c.next = now + 1.0;
+	c.next = now + 3.0;
 	c.game = _game;
 	c.mo2 = _mo2 ? _mo2->ini : std::filesystem::path();
 	c.profile = _profile;

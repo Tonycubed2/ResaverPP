@@ -887,11 +887,11 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 	// the load order: checked once in the background when the mods are known (again when plugins.txt changes)
 	{
 		const bool le = _save->isLE();
-		// which plugins.txt and when it was written: looked up again every 2 seconds only (each file call is slow under
+		// which plugins.txt and when it was written: looked up again every 3 seconds only (each file call is slow under
 		// Wine, and the Save check is worked out twice a second)
 		const double now = ImGui::GetTime();
 		if (now >= st.loLookNext || st.loLookGame != _game || st.loLookLe != le || st.loLookProfile != _profile) {
-			st.loLookNext = now + 2.0;
+			st.loLookNext = now + 3.0;
 			st.loLookGame = _game;
 			st.loLookLe = le;
 			st.loLookProfile = _profile;

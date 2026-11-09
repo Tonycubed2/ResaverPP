@@ -311,6 +311,10 @@ void App::finishOpen(OpenJob& a_job)
 	}
 	const auto t0 = std::chrono::steady_clock::now();
 	try {
+		if (_save && _openAsync) {
+			// the save shown before is freed by a worker (hundreds of thousands of objects: a quarter of a second here)
+			std::thread([old = std::shared_ptr<SaveFile>(std::move(_save))] {}).detach();
+		}
 		_save = std::move(a_job.save);
 		_analysisJob.reset();  // (for the save shown before)
 		_analysisNext = 0;
