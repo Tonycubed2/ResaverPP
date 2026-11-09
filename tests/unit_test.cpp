@@ -5413,6 +5413,8 @@ void TestScriptFloods()
 	std::error_code ec;
 	fs::remove(tmp, ec);
 	std::printf("(floods: %zu normal saves checked)\n", checked);
+}
+
 // The freeze fix (SkyrimIstari, v64 under Wine): the shortcuts must give what the slow ways gave.
 // - ops::RenameFinder (all missing plugins at once) = ops::RenameCandidates (one at a time, the save read each time)
 // - ScriptSources::pluginPath from the names noted while scanning = the file found on disk, any case

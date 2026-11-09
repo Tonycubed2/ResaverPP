@@ -341,7 +341,7 @@ std::vector<App::CheckItem> App::computeCheckItems()
 			it.what = Fmt(tr("Events are queued faster than the game can run them: script lag. The event %s of the script %s was "
 						  "queued %zu times%s%s."),
 				f.event.c_str(), f.script.c_str(), f.total(), on.empty() ? "" : tr(", made on "), on.c_str());
-			if (const auto* prov = _sources.providers(f.script); prov && !prov->empty()) {
+			if (const auto* prov = _sources->providers(f.script); prov && !prov->empty()) {
 				it.what += Fmt(tr(" The script comes from %s."), prov->front().mod.c_str());
 			} else if (!f.targets.empty() && f.targets.front().found && !f.targets.front().plugin.empty()) {
 				it.what += Fmt(tr(" The object it runs on comes from %s."), f.targets.front().plugin.c_str());
