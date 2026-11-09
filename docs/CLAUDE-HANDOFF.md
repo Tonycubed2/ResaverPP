@@ -606,7 +606,7 @@ project; you do the coding, building, delivering and publishing.
     the change forms (create), table 2, pass 2 (0x6066f0..: 0x60e5e0 initial data, then form->LoadGame vfunc 0x78), and only
     then table 3 (0x60692d, Papyrus is type 1001 there). Both crashes are in pass 2 at change form #56850 (FF003307) and #57114
     (FF003D2A); the loop index is on the stack in both logs (0xDE12, 0xDF1A). So the game had not read the Papyrus section
-    when it crashed: the removed instances cannot be the cause. The only data read differently before the crash is the player's
+    when it crashed: the removed instances cannot be the cause of THOSE two crashes. The only data read differently before the crash is the player's
     change form without that effect.
   - Crash sites: 07:58 Actor::LoadGame 0x686de0 -> 0x6760d0 (process level from the save, 2) -> vfunc 0x798 = 0x682f20 ->
     0x6c3720 (adds base / race abilities; [actor+0x1F8] = race copied from base+0x158) with the actor's base (actor+0x40)
@@ -617,8 +617,37 @@ project; you do the coding, building, delivering and publishing.
     such spells per save; 4 in Save89), so the edited list is not an invalid shape. There is no Skyrim emulator; nothing was run.
   - Test saves for Tony (in game, both from old.ess): s140/fixed.ess = old + Remove undefined elements with the fixed code
     (Papyrus bytes identical to new.ess, change forms identical to old.ess); s140/effect-only.ess = old + only the effect
-    removal (`--remove-effect 56`; change forms identical to new.ess, Papyrus = old). Expected if the analysis is right:
-    fixed.ess loads, effect-only.ess crashes. Not tried yet.
+    removal (`--remove-effect 56`; change forms identical to new.ess, Papyrus = old).
+  - Results (2026-11-08 evening, Tony; read from Papyrus.0/1.log, TheWatcher stats, po3_DialogueHistory.log, skse64.log):
+    Test B (effect-only) loaded from the menu AND again by console load: no crash. Test A (fixed.ess) was loaded only as the
+    SECOND load of a session (the first load, 19:58:51, still logged "Unable to get type OnCombatExit": another save); A's
+    Papyrus loaded completely ("VM is thawing" 19:59:28, no OnCombatExit warnings) and the game crashed in the same second
+    (crash-2026-11-09-00-59-29.log: 0x2ea0e0 = 19778, a reference's display name -> extra 0x2D ExtraLeveledCreature +0x10
+    original base -> garbage vtable; reached from 0x9a2720 = 53515, the VM's "Active effect %d on %s (%08X)" error describer,
+    for SKY_NBIF_MainScript.RegisterForAnimationEvent "no native object bound" on FF0033C7; that error is printed for 121
+    actors after EVERY load of every Save140 variant, with an empty name). So the earlier conclusion "the effect removal is the
+    trigger" is withdrawn: new.ess crashed before reading any byte that differs from effect-only.ess, which loaded twice.
+  - What the game does with the removed instances: Papyrus log of every load of the original: "Unable to get type OnCombatExit /
+    ReanimateDelivery referenced by the save game. Objects of this type will not be loaded" + "Could not find type ... in the
+    type table" once per instance (1 + 3). The game never loads them, so removing them changes nothing the VM ends up with.
+    Nothing names them (no variable, array, frame, queued call, suspended stack, unbind); their forms have no change forms.
+    Removal checked: an unedited write of old.ess is byte-identical to the file (compressed too); fixed.ess differs from old.ess
+    only inside Papyrus (2 definitions, 4 instances, their data-order entries) and in the two offsets after it (-188).
+  - The real anomaly (in the ORIGINAL save): of 458 created actors in old.ess, 4 have an initial base and an ExtraLeveledCreature
+    original base that is a created NPC the save does not contain: FF003307 -> FF003327 (template E50362F9 "Draugr Pillager"),
+    FF0033C7 -> FF003F94 (E51E9BF5 "Skilled Draugr Warlock"), FF003D2A -> FF001CEE (Skyrim.esm 00039CF6 EncBandit01Melee1H...),
+    FF0040DF -> FF000998. All three crash victims are among them. At the crashes the ids belonged to the wrong NPCs (FF003327
+    was "Ascendant Conjurer", FF001CEE "Ash Zombie") or pointed at freed memory. Tony's Save88 has 13 such actors, Save132 2
+    (FF003D2A, FF0040DF), Save140 4; SkyrimIstari's Save89 and trashgod's a.ess none. So: the created base id is bound at load
+    to whatever form has it at that moment (a temporary NPC the game creates, or one from the previous session on a reload),
+    which differs from load to load; hence crashes on some loads and not others, whatever ReSaver Plus did. Not traced in the
+    exe: the id allocator and the base lookup for these actors. FF003307 and FF0033C7 carry UDE's SOTCleanup and
+    SOTOBISMonitorScript (FF0041FE, FF004209 also have SOTCleanup and are fine); the spawner is not identified.
+    These actors are named elsewhere (the player's change form holds FF003307's and FF0033C7's RefIDs; Papyrus variables name
+    their instances), so deleting them is not a one-step edit; not done.
+  - Test saves (s140/, use the original .skse): T0_roundtrip_no_change.ess (md5 = old.ess), T1_only_OnCombatExit_removed.ess,
+    T2_only_ReanimateDelivery_removed.ess, T3_only_effect_removed.ess (= effect-only), T4_undefined_removed_testA.ess (= fixed).
+    The decisive control: old.ess loaded from the menu, then loaded again by console, several times.
   - Code (this branch): `ops::LiveEffectInstances / KeepLiveEffectInstances / KeptText`, `ops::RemoveUnattachedInstances(SaveFile&)`,
     `RemoveUndefinedElements(SaveFile&)`, `DeleteScripts(SaveFile&, names)` (CleanResult {removed, kept}); PurgeScript,
     PurgeInstances, ApplyPluginPurge, modremove::Apply (kept arrays/unbinds stay), batch::Apply carry `kept`. Rule: an AME
