@@ -1106,7 +1106,8 @@ private:
 	{
 		kAnMods = 1,     // the Mods table with the scanned mods
 		kAnMissing = 2,  // mods no longer in the load order, scripts no longer installed
-		kAnSkyf = 4      // followers, beast form, quests between stages (with the plugin names)
+		kAnSkyf = 4,     // followers, beast form, quests between stages (with the plugin names)
+		kAnFirst = 8     // enchanted items and the quests (right after opening)
 	};
 	bool analysisWillProvide(unsigned a_what) const;
 	bool startAnalysis(unsigned a_what);  // false: cannot (edited, file changed): the window works it out itself

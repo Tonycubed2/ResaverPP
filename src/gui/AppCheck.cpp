@@ -645,7 +645,7 @@ void App::drawSaveCheck()
 	ImGui::TextUnformatted(tr("Risky: can break a mod or quest"));
 	ImGui::TextDisabled("%s", tr("Nothing here changes your save file until you use File > Save or Save As (the previous file is kept as .bak).\n"
 						"Removing mods writes a NEW save next to the old one. Make a backup of saves you care about anyway."));
-	if (scanning()) {
+	if (scanning() || _analysisJob || _openJob) {
 		ImGui::TextDisabled("%s", tr("Reading your mods in the background: this list updates when it is done."));
 		drawBackgroundProgress(0);
 	}

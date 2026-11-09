@@ -3,6 +3,7 @@
 // plugins and the save), what its completion stage's script does, and - with ReSaverHelper.dll in the
 // running game - completing a quest, setting a stage and refreshing the journal in game.
 #include "App.h"
+#include "Watchdog.h"
 
 #include "Theme.h"
 #include "Tips.h"
@@ -58,6 +59,11 @@ namespace
 const std::vector<quests::QuestState>& App::questStates()
 {
 	if (_questGen != _editGen) {
+		if (analysisWillProvide(kAnFirst)) {
+			static const std::vector<quests::QuestState> kNone;
+			return kNone;  // worked out in the background (AppBackground.cpp)
+		}
+		watchdog::Step st("quests (quests::ReadStates)");
 		_questStates = _save ? quests::ReadStates(*_save) : std::vector<quests::QuestState>{};  // (Skyrim and Fallout 4)
 		_questGen = _editGen;
 		_questPreviews.clear();
@@ -453,6 +459,9 @@ void App::drawRefreshJournal(bool a_compact)
 void App::drawQuestsList()
 {
 	const auto& states = questStates();
+	if (analysisWillProvide(kAnFirst)) {
+		drawBackgroundProgress(0);  // (read in the background right after opening)
+	}
 	std::size_t shown = 0, shownDone = 0;
 	for (const auto& q : states) {
 		const auto n = q.shownObjectives();

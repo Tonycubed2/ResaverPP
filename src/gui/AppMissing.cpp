@@ -324,8 +324,9 @@ void App::ComputeMissing(const SaveFile& a_save, const MissingInputs& a_in, cons
 			}
 			enabled.push_back(name);
 		}
+		const ops::RenameFinder finder(a_save, enabled);
 		for (auto& m : out.missing) {
-			m.renamedTo = ops::RenameCandidates(a_save, m.plugin, enabled);
+			m.renamedTo = finder.find(m.plugin);
 		}
 	}
 	// nothing left of it: nothing to clean, the game already dropped it

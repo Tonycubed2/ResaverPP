@@ -4,6 +4,7 @@
 // the save, on that one item, so xEdit never shows them. An item with an enchantment but max charge 0
 // can never be recharged with soul gems; it can be fixed here.
 #include "App.h"
+#include "Watchdog.h"
 
 #include <atomic>
 #include <chrono>
@@ -43,6 +44,11 @@ namespace
 const std::vector<cf::ChargedItem>& App::chargedItems()
 {
 	if (_chargedGen != _editGen) {
+		if (analysisWillProvide(kAnFirst)) {
+			static const std::vector<cf::ChargedItem> kNone;
+			return kNone;  // worked out in the background (AppBackground.cpp)
+		}
+		watchdog::Step st("enchanted items (FindChargedItems)");
 		_charged = _save ? cf::FindChargedItems(*_save) : std::vector<cf::ChargedItem>{};
 		_chargedGen = _editGen;
 	}

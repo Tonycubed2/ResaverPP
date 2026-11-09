@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <optional>
 #include <thread>
 
 using namespace ess;
@@ -102,7 +103,7 @@ struct App::OpenJob
 	std::filesystem::file_time_type time{};
 	double                         ms = 0;
 	std::atomic<std::size_t>       step{ 0 };
-	static constexpr std::size_t   kSteps = 7;
+	static constexpr std::size_t   kSteps = 3;
 	std::atomic<bool>              done{ false }, cancel{ false };
 	mutable std::mutex             m;
 	std::string                    current;  // guarded by m
@@ -209,7 +210,9 @@ void App::RunOpenJob(OpenJob& a_job)
 		a_job.size = std::filesystem::file_size(a_job.path, ec);
 		a_job.time = std::filesystem::last_write_time(a_job.path, ec);
 		a_job.setCurrent(N_("reading the save file"));
+		std::optional<watchdog::Timed> tm(std::in_place, "open: reading the file");
 		auto s = SaveFile::load(a_job.path);
+		tm.reset();
 		if (!s->papyrus()) {
 			throw std::runtime_error(tr("the save has no Papyrus section"));
 		}
@@ -217,6 +220,7 @@ void App::RunOpenJob(OpenJob& a_job)
 			return;
 		}
 		a_job.setCurrent(N_("checking the save"));
+		tm.emplace("open: Analyze, history numbers, picture, description, forms for the names");
 		a_job.report = std::make_unique<ops::Report>(ops::Analyze(*s));
 		a_job.stat = extras::ComputeStat(*s, a_job.abs);
 		// the picture, as RGBA for the texture
@@ -240,13 +244,14 @@ void App::RunOpenJob(OpenJob& a_job)
 		}
 		// Mod Organizer: which profile this save was played with (reads every profile's plugins.txt). Only for the game
 		// setup in use now: a save of another game switches the setup first, then the window scores it itself.
+		tm.reset();
 		const bool sameGame = GameOfSave(*s) == a_job.game;
 		if (sameGame && a_job.mo2) {
 			a_job.setCurrent(N_("matching the Mod Organizer profile"));
 			a_job.profileMatch = ScoreProfiles(*s, *a_job.mo2, a_job.profile, a_job.gameFolder, a_job.game);
 		}
-		PrepareParts(a_job.prepared, *s, kAnMods | (s->isFO4() ? 0u : kAnSkyf) | 0x100u /* charged, quests */, sameGame ? a_job.sources : nullptr,
-			sameGame ? a_job.db : nullptr, [&](const char* a_what) { a_job.setCurrent(a_what); }, [&] { return a_job.cancel.load(); });
+		// (the Mods table, enchanted items, quests, followers: worked out by the analysis right after, while the save is
+		// already shown)
 		a_job.save = std::move(s);
 	} catch (const std::exception& e) {
 		a_job.error = e.what();
@@ -348,8 +353,12 @@ void App::finishOpen(OpenJob& a_job)
 		_wantedGen = _editGen;
 		_modsDirty = true;
 		_leftoversDirty = true;
-		if (sameSetup) {
-			installPrepared(a_job.prepared);
+		// the Mods table, the missing mods, the enchanted items, the quests and the followers view: worked out on a worker
+		// from the file (the window shows the save meanwhile, with their progress)
+		(void)sameSetup;
+		if (startAnalysis(kAnMods | kAnMissing | kAnFirst | (_save->isFO4() ? 0u : kAnSkyf))) {
+			setMods(std::make_unique<mods::Table>());  // (empty until then: never the save shown before)
+			_modsDirty = true;
 		}
 		{
 			watchdog::Step st("save history");
@@ -361,7 +370,12 @@ void App::finishOpen(OpenJob& a_job)
 			watchdog::Step st("matchProfileToSave");
 			profileSwitched = matchProfileToSave(sameSetup && _mo2 && a_job.mo2 && _profile == a_job.profile ? &a_job.profileMatch : nullptr);
 		}
-		if (!_sourcesPath.empty() && (!_sources->scanned() || profileSwitched)) {
+		const bool sameScanRunning = scanning() && !_scanDone && _scanProgress && !_scanProgress->cancel && !profileSwitched &&
+									 _scanRoot == (_vortex ? _vortex->stagingPath : platform::FromUtf8(_sourcesPath));
+		if (sameScanRunning) {
+			// another save opened while the mods are still being read: that scan goes on (it is the same mods folder and
+			// profile) and checks this save when it is done; starting it again only made the wait longer
+		} else if (!_sourcesPath.empty() && (!_sources->scanned() || profileSwitched)) {
 			watchdog::Step st("scanSources");
 			scanSources(platform::FromUtf8(_sourcesPath));  // checks again for missing mods when done
 		} else if (_autoNames && _sources->scanned()) {
@@ -449,11 +463,13 @@ void App::PrepareParts(Prepared& a_out, SaveFile& a_save, unsigned a_what, const
 {
 	if ((a_what & App::kAnMods) && !a_cancelled()) {
 		a_step(N_("matching scripts to your mods"));
+		watchdog::Timed t("background: mods::Build");
 		a_out.mods = std::make_unique<mods::Table>(mods::Build(a_save, a_sources && !a_sources->empty() ? a_sources.get() : nullptr));
 		a_out.modsSources = a_sources;
 	}
-	if ((a_what & 0x100u) && !a_cancelled()) {
+	if ((a_what & App::kAnFirst) && !a_cancelled()) {
 		a_step(N_("enchanted items and quests"));
+		watchdog::Timed t("background: FindChargedItems + quests::ReadStates");
 		a_out.charged = cf::FindChargedItems(a_save);
 		a_out.hasCharged = true;
 		a_out.quests = quests::ReadStates(a_save);
@@ -461,6 +477,7 @@ void App::PrepareParts(Prepared& a_out, SaveFile& a_save, unsigned a_what, const
 	}
 	if ((a_what & App::kAnSkyf) && !a_save.isFO4() && !a_cancelled()) {
 		a_step(N_("followers, beast form and quests"));
+		watchdog::Timed t("background: followers view");
 		a_out.skyf = App::ComputeSkyf(a_save, a_db.get());
 		a_out.skyfDb = a_db;
 	}
@@ -498,7 +515,7 @@ bool App::startAnalysis(unsigned a_what)
 	job->sources = _sources;
 	job->db = _db;
 	job->missingIn = missingInputs();
-	job->steps = 1 + ((a_what & kAnMods) ? 1 : 0) + ((a_what & kAnMissing) ? 1 : 0) + ((a_what & kAnSkyf) ? 1 : 0);
+	job->steps = 1 + ((a_what & kAnMods) ? 1 : 0) + ((a_what & kAnMissing) ? 1 : 0) + ((a_what & kAnSkyf) ? 1 : 0) + ((a_what & kAnFirst) ? 1 : 0);
 	_analysisJob = job;
 	std::thread([job] {
 		watchdog::Timed t("analysing the save again");
@@ -510,8 +527,10 @@ bool App::startAnalysis(unsigned a_what)
 				throw std::runtime_error("the file changed since it was opened");
 			}
 			job->setCurrent(N_("reading the save file"));
+			std::optional<watchdog::Timed> tm(std::in_place, "analysis: reading the file");
 			auto s = SaveFile::load(job->path);
-			PrepareParts(job->out, *s, job->what & (kAnMods | kAnSkyf), job->sources, job->db, [&](const char* a_what) { job->setCurrent(a_what); },
+			tm.reset();
+			PrepareParts(job->out, *s, job->what & (kAnMods | kAnSkyf | kAnFirst), job->sources, job->db, [&](const char* a_what) { job->setCurrent(a_what); },
 				[&] { return job->cancel.load(); });
 			if ((job->what & kAnMissing) && !job->cancel) {
 				job->setCurrent(N_("mods no longer in your load order"));

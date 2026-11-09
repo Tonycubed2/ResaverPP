@@ -3289,8 +3289,8 @@ void App::drawModsList()
 	ensureMods();
 	auto& rows = _mods->rows;
 
-	if (scanning()) {
-		drawBackgroundProgress(0);  // the lists fill in when the scan is done
+	if (scanning() || _analysisJob || _openJob) {
+		drawBackgroundProgress(0);  // the lists fill in when the scan (and the work after it) is done
 	}
 	ImGui::SetNextItemWidth(-260);
 	bool changed = ImGui::InputTextWithHint("##modfilter", tr("filter mods"), _filter, sizeof(_filter));

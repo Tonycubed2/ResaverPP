@@ -1359,6 +1359,39 @@ namespace ess::ops
 		return {};
 	}
 
+	RenameFinder::RenameFinder(const SaveFile& s, const std::vector<std::string>& a_installed)
+	{
+		std::set<std::string> inSave;
+		for (const auto* list : { &s.plugins.full, &s.plugins.lite }) {
+			for (const auto& p : *list) {
+				inSave.insert(LowerName(p));
+			}
+		}
+		// the installed plugins the save does not list, by name without extension (in a_installed's order)
+		for (const auto& p : a_installed) {
+			if (!inSave.contains(LowerName(p)) && PluginExt(p)) {
+				_byStem[Stem(p)].push_back(p);
+			}
+		}
+	}
+
+	std::vector<std::string> RenameFinder::find(const std::string& a_missing) const
+	{
+		// = RenameCandidates(s, a_missing, a_installed), without reading the save and the list again for each plugin
+		std::vector<std::string> out;
+		const auto it = _byStem.find(Stem(a_missing));
+		if (it == _byStem.end()) {
+			return out;
+		}
+		const auto low = LowerName(a_missing);
+		for (const auto& p : it->second) {
+			if (LowerName(p) != low) {
+				out.push_back(p);
+			}
+		}
+		return out;
+	}
+
 	std::vector<std::string> RenameCandidates(const SaveFile& s, const std::string& a_missing, const std::vector<std::string>& a_installed)
 	{
 		std::set<std::string> inSave;
