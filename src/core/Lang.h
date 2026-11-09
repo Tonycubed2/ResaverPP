@@ -77,6 +77,9 @@ namespace i18n
 	};
 	LoadInfo LastLoad();
 
+	// every translated text of the current language, one after the other (to load the font characters they need)
+	std::string AllTranslations();
+
 	// the translation (or the English); the returned pointer stays valid for the whole run
 	const char* Tr(const char* a_en);
 	// like Tr, but for window titles, popups, headers and tabs: the English stays the ImGui id

@@ -3,6 +3,7 @@
 // FormLists, batch clean, compare, reports and the save-folder watcher.
 #include "App.h"
 #include "Watchdog.h"
+#include "core/Text.h"
 #include <mutex>
 #include <set>
 
@@ -191,6 +192,11 @@ void App::startNames(bool a_force)
 	}
 	in->language = gameLanguage();
 	in->fo4 = _save->isFO4();
+	// the game's language is also the hint for text that is not UTF-8 when Windows' code page says nothing (UTF-8 / Linux)
+	if (text::GameLanguage() != in->language) {
+		text::SetGameLanguage(in->language);
+		_rowsDirty = true;
+	}
 	_dbThread = std::thread([this, in] {
 		_dbBuilding->load(*in, *_dbProgress);
 		_dbDone = true;

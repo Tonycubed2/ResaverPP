@@ -3586,6 +3586,9 @@ struct ImFontAtlas
 
 // Font runtime data and rendering
 // ImFontAtlas automatically loads a default embedded font for you when you call GetTexDataAsAlpha8() or GetTexDataAsRGBA32().
+// ReSaver++: called by ImFont::FindGlyph for a character the font does not have (it then draws the fallback glyph)
+extern IMGUI_API void (*GImFontMissingGlyphHook)(ImFont* font, ImWchar c);
+
 struct ImFont
 {
     // [Internal] Members: Hot ~20/24 bytes (for CalcTextSize)

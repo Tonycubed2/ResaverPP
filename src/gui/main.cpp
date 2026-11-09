@@ -7,7 +7,10 @@
 #endif
 
 #include "App.h"
+#include "Fonts.h"
 #include "Watchdog.h"
+#include "core/Lang.h"
+#include "core/Text.h"
 
 #include <thread>
 
@@ -345,117 +348,6 @@ namespace
 		}
 	}
 
-	ImFont* g_mono = nullptr;
-
-	// Characters beyond basic Latin: names and places in saves from other languages (Polish, Czech,
-	// Russian, Greek, Vietnamese, ...). Segoe UI / Consolas cover these.
-	const ImWchar* WideRanges()
-	{
-		static const ImWchar r[] = { 0x0020, 0x024F, 0x0250, 0x02FF, 0x0300, 0x036F, 0x0370, 0x03FF, 0x0400, 0x052F, 0x1E00, 0x1EFF, 0x2000, 0x206F,
-			0x20A0, 0x20CF, 0x2100, 0x218F, 0x2190, 0x21FF, 0x2200, 0x22FF, 0x2500, 0x25FF, 0xFFFD, 0xFFFD, 0 };
-		return r;
-	}
-
-	// East Asian text needs a font with those characters: picked from the game text code page (the
-	// "codepage=" setting, else the system's)
-	struct AsianFont
-	{
-		std::vector<const char*> files;
-		const ImWchar*           ranges = nullptr;
-	};
-
-	unsigned TextCodePage()
-	{
-		std::ifstream f(platform::SettingsFile());
-		for (std::string line; std::getline(f, line);) {
-			if (line.rfind("codepage=", 0) == 0) {
-				if (const unsigned cp = static_cast<unsigned>(std::strtoul(line.c_str() + 9, nullptr, 10))) {
-					return cp;
-				}
-			}
-		}
-#ifdef _WIN32
-		return GetACP();
-#else
-		return 1252;
-#endif
-	}
-
-	AsianFont PickAsianFont()
-	{
-		auto& io = ImGui::GetIO();
-		switch (TextCodePage()) {
-		case 932: return { { "C:\\Windows\\Fonts\\YuGothM.ttc", "C:\\Windows\\Fonts\\meiryo.ttc", "C:\\Windows\\Fonts\\msgothic.ttc" }, io.Fonts->GetGlyphRangesJapanese() };
-		case 936: return { { "C:\\Windows\\Fonts\\msyh.ttc", "C:\\Windows\\Fonts\\simsun.ttc" }, io.Fonts->GetGlyphRangesChineseFull() };
-		case 950: return { { "C:\\Windows\\Fonts\\msjh.ttc", "C:\\Windows\\Fonts\\mingliu.ttc" }, io.Fonts->GetGlyphRangesChineseFull() };
-		case 949: return { { "C:\\Windows\\Fonts\\malgun.ttf", "C:\\Windows\\Fonts\\gulim.ttc" }, io.Fonts->GetGlyphRangesKorean() };
-		case 874: return { { "C:\\Windows\\Fonts\\LeelawUI.ttf", "C:\\Windows\\Fonts\\tahoma.ttf" }, io.Fonts->GetGlyphRangesThai() };
-		default: return {};
-		}
-	}
-
-	ImFont* AddFont(const std::vector<const char*>& a_files, float a_size, bool a_fallbackDefault)
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		ImFont*  font = nullptr;
-		for (const char* f : a_files) {
-			std::error_code ec;
-			if (std::filesystem::exists(f, ec) && (font = io.Fonts->AddFontFromFileTTF(f, a_size, nullptr, WideRanges())) != nullptr) {
-				break;
-			}
-		}
-		if (!font && a_fallbackDefault) {
-			ImFontConfig cfg;
-			cfg.SizePixels = a_size * 13.0f / 17.0f;
-			font = io.Fonts->AddFontDefault(&cfg);
-		}
-		// merge East Asian characters into it when the game text is in such a language
-		if (font) {
-			const auto asian = PickAsianFont();
-			for (const char* f : asian.files) {
-				std::error_code ec;
-				if (!std::filesystem::exists(f, ec)) {
-					continue;
-				}
-				ImFontConfig cfg;
-				cfg.MergeMode = true;
-				if (io.Fonts->AddFontFromFileTTF(f, a_size, &cfg, asian.ranges)) {
-					break;
-				}
-			}
-		}
-		return font;
-	}
-
-	// fixed-width font for the script viewer
-	void LoadMonoFont(float a_scale)
-	{
-		g_mono = AddFont({ "C:\\Windows\\Fonts\\consola.ttf", "C:\\Windows\\Fonts\\cour.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-							 "/usr/share/fonts/TTF/DejaVuSansMono.ttf" },
-			16.0f * a_scale, true);
-	}
-
-	// the start page logo: a big bold font with only the characters it needs (a big font with every
-	// character would take a lot of texture memory)
-	ImFont* g_title = nullptr;
-	void    LoadTitleFont(float a_scale)
-	{
-		static const ImWchar ranges[] = { 0x0020, 0x005A, 0 };  // space to Z: capitals, digits, +
-		for (const char* f : { "C:\\Windows\\Fonts\\segoeuib.ttf", "C:\\Windows\\Fonts\\arialbd.ttf",
-				 "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf" }) {
-			std::error_code ec;
-			if (std::filesystem::exists(f, ec) && (g_title = ImGui::GetIO().Fonts->AddFontFromFileTTF(f, 110.0f * a_scale, nullptr, ranges)) != nullptr) {
-				return;
-			}
-		}
-	}
-
-	void LoadFonts(float a_scale)
-	{
-		AddFont({ "C:\\Windows\\Fonts\\segoeui.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf" },
-			17.0f * a_scale, true);
-	}
-
 	void Style()
 	{
 		theme::Apply(theme::Kind::kLight);  // the default; the saved theme is applied with the settings
@@ -533,17 +425,24 @@ int RunApp(int argc, char** argv)
 	ImGui::GetIO().IniFilename = nullptr;
 	Style();
 	ImGui::GetStyle().ScaleAllSizes(xs);
-	LoadFonts(xs);
-	LoadMonoFont(xs);
-	LoadTitleFont(xs);
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 130");
 
 	Step("reading the settings and starting ReSaver++");
 	App app;
 	g_app = &app;
-	app.monoFont = g_mono;
-	app.titleFont = g_title;
+	// fonts after the settings: the interface language and the text code page choose the font for Chinese characters
+	std::string fontLanguage = i18n::Current();
+	fonts::SetPreference(fontLanguage, ess::text::EffectiveCodePage(), ess::text::GameLanguage());
+	fonts::Want(i18n::AllTranslations());
+	{
+		GLint maxTexture = 0;
+		glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTexture);
+		fonts::Init(xs, maxTexture);
+		Log("fonts: " + fonts::Status() + " (largest texture the driver takes: " + std::to_string(maxTexture) + ")");
+	}
+	app.monoFont = fonts::Mono();
+	app.titleFont = fonts::Title();
 	app.uploadTexture = [](const std::uint8_t* px, int w, int h) -> std::uint64_t {
 		GLuint tex = 0;
 		glGenTextures(1, &tex);
@@ -667,6 +566,23 @@ int RunApp(int argc, char** argv)
 			watchdog::Alive("minimized (not drawing)");
 			ImGui_ImplGlfw_Sleep(50);
 			continue;
+		}
+
+		// characters the last frames had no glyph for (Chinese, Japanese, Korean, Thai): into the font atlas now
+		watchdog::Section("fonts (characters drawn for the first time)");
+		if (i18n::Current() != fontLanguage) {
+			fontLanguage = i18n::Current();
+			fonts::Want(i18n::AllTranslations());
+		}
+		fonts::SetPreference(fontLanguage, ess::text::EffectiveCodePage(), ess::text::GameLanguage());
+		if (fonts::Rebuild()) {
+			ImGui_ImplOpenGL3_DestroyFontsTexture();  // (made again from the new atlas by ImGui_ImplOpenGL3_NewFrame)
+			app.monoFont = fonts::Mono();
+			app.titleFont = fonts::Title();
+			static int logged = 0;
+			if (++logged <= 20) {
+				Log("fonts: " + fonts::Status());
+			}
 		}
 
 		watchdog::Section("new frame (ImGui / GLFW)");

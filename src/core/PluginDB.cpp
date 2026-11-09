@@ -254,8 +254,21 @@ namespace ess
 				const auto stem = Lower(U8(text::PathFrom(pluginName).stem()));
 				auto loadStrings = [&](const char* a_ext) {
 					std::unordered_map<std::uint32_t, std::string> table;
-					for (const auto& lang : { Lower(a_in.language), std::string(a_in.fo4 ? "en" : "english") }) {
-						auto it = a_in.src().stringsFiles.find(stem + "_" + lang + a_ext);
+					// the game's language, then English, then any language the plugin has (an install in one language
+					// only, with no sLanguage line in the INI: Steam chose the language)
+					std::vector<std::string> langs{ Lower(a_in.language), std::string(a_in.fo4 ? "en" : "english") };
+					const std::string prefix = stem + "_";
+					for (const auto& [key, loc] : a_in.src().stringsFiles) {
+						if (key.size() > prefix.size() + std::strlen(a_ext) && key.rfind(prefix, 0) == 0 && key.ends_with(a_ext)) {
+							auto l = key.substr(prefix.size(), key.size() - prefix.size() - std::strlen(a_ext));
+							if (std::find(langs.begin(), langs.end(), l) == langs.end()) {
+								langs.push_back(std::move(l));
+							}
+						}
+					}
+					std::sort(langs.begin() + 2, langs.end());  // (the same choice every time)
+					for (const auto& lang : langs) {
+						auto it = a_in.src().stringsFiles.find(prefix + lang + a_ext);
 						if (it == a_in.src().stringsFiles.end()) {
 							continue;
 						}
@@ -279,6 +292,12 @@ namespace ess
 							errors.push_back(pluginName + " " + a_ext + ": " + e.what());
 						}
 						if (!table.empty()) {
+							// to UTF-8 here: text that is not UTF-8 is in the code page of the file's language (English
+							// strings files are Windows-1252, e.g. Fallout4_en.STRINGS' 0xA4 / 0xE9), whatever Windows uses
+							const unsigned cp = text::LanguageCodePage(lang);
+							for (auto& [id, t] : table) {
+								t = text::ToUtf8(t, cp);
+							}
 							break;
 						}
 					}

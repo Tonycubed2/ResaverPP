@@ -3901,13 +3901,23 @@ void ImFont::AddRemapChar(ImWchar dst, ImWchar src, bool overwrite_dst)
 }
 
 // Find glyph, return fallback if missing
+// ReSaver++: told about each character a font had to draw with its fallback glyph (src/gui/Fonts.cpp loads
+// Chinese / Japanese / Korean / Thai characters from a system font when they are first needed)
+void (*GImFontMissingGlyphHook)(ImFont* font, ImWchar c) = NULL;
+
 ImFontGlyph* ImFont::FindGlyph(ImWchar c)
 {
     if (c >= (size_t)IndexLookup.Size)
+    {
+        if (GImFontMissingGlyphHook) GImFontMissingGlyphHook(this, c); // ReSaver++
         return FallbackGlyph;
+    }
     const ImU16 i = IndexLookup.Data[c];
     if (i == (ImU16)-1)
+    {
+        if (GImFontMissingGlyphHook) GImFontMissingGlyphHook(this, c); // ReSaver++
         return FallbackGlyph;
+    }
     return &Glyphs.Data[i];
 }
 

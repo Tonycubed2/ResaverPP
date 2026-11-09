@@ -102,7 +102,7 @@ namespace i18n
 		bool ValidCode(const std::string& a_code)
 		{
 			return !a_code.empty() && a_code.size() <= 16 &&
-			       std::all_of(a_code.begin(), a_code.end(), [](char c) { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_'; });
+			       std::all_of(a_code.begin(), a_code.end(), [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_'; });
 		}
 
 		const char* Lookup(Table* a_t, std::string_view a_en)
@@ -285,6 +285,17 @@ namespace i18n
 
 	const std::string& Current() { return g_table.load() ? g_current : English(); }
 	bool               IsEnglish() { return g_table.load() == nullptr; }
+
+	std::string AllTranslations()
+	{
+		std::string all;
+		if (auto* t = g_table.load()) {
+			for (const auto& [en, tx] : t->map) {
+				all += tx;
+			}
+		}
+		return all;
+	}
 
 	std::string LoadNote()
 	{

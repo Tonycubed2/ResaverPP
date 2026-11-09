@@ -2861,7 +2861,17 @@ void App::editPopup()
 		apply = ImGui::Button(tr("Apply"), ImVec2(120, 0));
 		tips::Tip(tr("Use this value. Nothing is written to disk until you save."));
 		if (apply) {
-			v->value = p.internString(text::FromUtf8(_editStr, p.str(static_cast<TStr>(v->value))));
+			// back in the encoding the old text had; for a new text after plain English, the encoding the save's other
+			// texts use (UTF-8 for Skyrim SE and Fallout 4, which write UTF-8 themselves; a code page for Legendary
+			// Edition unless its texts are UTF-8)
+			std::size_t utf8 = 0, codePage = 0;
+			for (const auto& t : p.strings) {
+				if (!text::IsAscii(t)) {
+					++(text::IsUtf8(t) ? utf8 : codePage);
+				}
+			}
+			const bool preferUtf8 = utf8 || codePage ? utf8 >= codePage : !_save->isLE();
+			v->value = p.internString(text::FromUtf8(_editStr, p.str(static_cast<TStr>(v->value)), preferUtf8));
 		}
 		break;
 	case VType::kRef:
