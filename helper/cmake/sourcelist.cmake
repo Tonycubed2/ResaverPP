@@ -6,6 +6,7 @@ set(sources ${sources}
     src/Transplant.cpp
     src/Rescue.cpp
     src/SkyFix.cpp
+    src/GhostRemove.cpp
     src/LiveInfo.cpp
     src/MenuPage.cpp
 )

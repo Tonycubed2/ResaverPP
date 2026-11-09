@@ -34,6 +34,9 @@
 //   SAVEGAME <notify>                     -> OK  <save name>             (a new save ReSaverPP_Rescue_<date>; version 12)
 //   RESCUE <notify>                       -> OK  <one line: what was done>   (SAVEGAME, CONTROLS, GATHER; version 12;
 //                                            the same as holding Ctrl in the game for iRescueHoldSeconds)
+//   GHOSTREMOVE <refid hex>[,<refid hex>...] [<notify>]
+//                                         -> OK  <count>  <one field per id: refid*result>   (helper 15; result: done, not found,
+//                                         not a created actor, not marked: the console's disable + markfordelete on each)
 // <notify>: hud (top-left notification), box (message box), none, or ini (the helper's own setting).
 #include <string>
 #include <vector>

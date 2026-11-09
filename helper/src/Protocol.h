@@ -38,7 +38,14 @@
 //   TEAMMATE <formid hex> <0|1> <notify>  -> OK  1 | OK 0 <why not>   (Actor.SetPlayerTeammate; version 13)
 //   BEASTREVERT <werewolf|vampire> <notify> -> OK 1 | OK 0 <why not>  (the change script's guards set back to false, then its
 //                                         own ShiftBack(): PlayerWerewolfChangeScript / DLC1PlayerVampireChangeScript; version 13)
+//   GHOSTREMOVE <refid hex>[,<refid hex>...] [<notify>]
+//                                         -> OK  <count>  <one field per id: refid*result>   (version 15; result: done, not found,
+//                                         not a created actor, not marked. Ghost actors (GhostRemove.h): for each created (FF)
+//                                         actor, the console's "disable" then "markfordelete" on it, on the main thread, one id
+//                                         at a time, each step logged first)
 // <notify>: hud (top-left notification), box (message box), none, or ini (the helper's own setting).
+#include <algorithm>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -76,6 +83,44 @@ namespace proto
 				out.back() += c;
 			}
 		}
+		return out;
+	}
+
+	// "FF003D2A,ff0040df FF003307" -> the ids (hex, separated by commas, spaces, tabs or new lines; "0x" allowed; an
+	// optional "[...]" around each kept from a crash log; anything that is not a hex id of up to 8 digits is skipped)
+	inline std::vector<std::uint32_t> ParseIdList(const std::string& a_text)
+	{
+		std::vector<std::uint32_t> out;
+		std::string                tok;
+		auto                       flush = [&] {
+			std::string t = tok;
+			tok.clear();
+			if (t.size() > 2 && t[0] == '0' && (t[1] == 'x' || t[1] == 'X')) {
+				t = t.substr(2);
+			}
+			if (t.empty() || t.size() > 8) {
+				return;
+			}
+			std::uint32_t v = 0;
+			for (char c : t) {
+				const int d = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+				if (d < 0) {
+					return;
+				}
+				v = v * 16 + static_cast<std::uint32_t>(d);
+			}
+			if (v && std::find(out.begin(), out.end(), v) == out.end()) {
+				out.push_back(v);
+			}
+		};
+		for (char c : a_text) {
+			if (c == ',' || c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ';' || c == '[' || c == ']' || c == '(' || c == ')') {
+				flush();
+			} else {
+				tok += c;
+			}
+		}
+		flush();
 		return out;
 	}
 

@@ -2,6 +2,7 @@
 #include "MenuPage.h"
 
 #include "Game.h"
+#include "GhostRemove.h"
 #include "LiveInfo.h"
 #include "Protocol.h"
 #include "Rescue.h"
@@ -1005,6 +1006,120 @@ namespace MenuPage
 			DrawAsk();
 		}
 
+		// ------------------------------------------------------------------ 5b. Troubleshooting: ghost actors (GhostRemove.h)
+		// The live game cannot tell a ghost actor reliably, so the ids come from ReSaver Plus's Save check (typed or pasted).
+		char g_ghostText[2048] = "";
+		struct GhostRow
+		{
+			RE::FormID  id = 0;
+			bool        tick = true;
+			std::string result;  // "" not done yet
+		};
+		std::vector<GhostRow> g_ghosts;  // drawn and changed on the main thread only (render callback and SKSE tasks)
+		bool                  g_ghostRisk = false;
+		std::atomic<bool>     g_ghostBusy{ false };
+
+		void __stdcall RenderGhosts()
+		{
+			StatusLine();
+			if (!NeedGame()) {
+				DrawAsk();
+				return;
+			}
+			Wrapped("Ghost actors are spawned characters whose base NPC is a temporary copy the save does not contain (Ultimate Deadly "
+					"Encounters' clone spawns make them). On load they get no base or another character's base, which can crash the "
+					"game. ReSaver Plus finds them in a save: its Save check lists their ids. Paste or type them here.");
+			im::SetNextItemWidth(-FLT_MIN);
+			im::InputTextMultiline("##ghostids", g_ghostText, sizeof(g_ghostText), im::ImVec2(0, im::GetFontSize() * 4.0f));
+			Tip("Ids in hex, like FF003D2A, separated by commas, spaces or new lines.");
+			if (im::Button("Read the ids")) {
+				std::vector<GhostRow> rows;
+				for (const auto id : proto::ParseIdList(g_ghostText)) {
+					rows.push_back({ id, (id >> 24) == 0xFF, {} });
+				}
+				g_ghosts = std::move(rows);
+				SetStatus(std::format("{} id(s) read.", g_ghosts.size()));
+			}
+			if (g_ghosts.empty()) {
+				DrawAsk();
+				return;
+			}
+			im::Spacing();
+			if (im::SmallButton("Select all")) {
+				for (auto& r : g_ghosts) {
+					r.tick = (r.id >> 24) == 0xFF;
+				}
+			}
+			im::SameLine();
+			if (im::SmallButton("Select none")) {
+				for (auto& r : g_ghosts) {
+					r.tick = false;
+				}
+			}
+			for (auto& r : g_ghosts) {
+				im::PushID(static_cast<int>(r.id));
+				const bool created = (r.id >> 24) == 0xFF;
+				im::BeginDisabled(!created);
+				im::Checkbox(Hex(r.id).c_str(), &r.tick);
+				im::EndDisabled();
+				if (!created) {
+					r.tick = false;
+					im::SameLine();
+					Dim("not a created (FF) id: left alone");
+				} else if (!r.result.empty()) {
+					im::SameLine();
+					Colored(r.result == "done" ? kGreen : kYellow, r.result);
+				}
+				im::PopID();
+			}
+			im::Spacing();
+			Colored(kRed, "Risk: touching a broken character can crash the game.");
+			Wrapped("Make a save first. If the game crashes: load that save, open ReSaverHelper.log (the last lines name the id it was on), "
+					"and leave that one out next time. If it works: save the game as a new save and open it in ReSaver Plus to check.");
+			im::Checkbox("I understand the risk", &g_ghostRisk);
+			std::size_t n = 0;
+			for (const auto& r : g_ghosts) {
+				n += r.tick;
+			}
+			im::BeginDisabled(!g_ghostRisk || n == 0 || g_ghostBusy);
+			if (im::Button(std::format("Remove the selected ({})", n).c_str())) {
+				std::vector<RE::FormID> ids;
+				for (const auto& r : g_ghosts) {
+					if (r.tick) {
+						ids.push_back(r.id);
+					}
+				}
+				AskFirst(std::format("Disable and mark for delete {} character(s)?\n\nThe console's disable and markfordelete on each. Make "
+									 "a save first: touching a broken character can crash the game.",
+							 ids.size()),
+					[ids] {
+						g_ghostBusy = true;
+						SetStatus("Removing (close the menu).");
+						for (std::size_t i = 0; i < ids.size(); ++i) {
+							Queue([id = ids[i], last = i + 1 == ids.size()] {
+								const auto word = std::string(GhostRemove::Word(GhostRemove::Remove(id)));
+								std::size_t done = 0, total = 0;
+								for (auto& r : g_ghosts) {
+									if (r.id == id) {
+										r.result = word;
+										r.tick = false;
+									}
+									total += !r.result.empty();
+									done += r.result == "done";
+								}
+								if (last) {
+									g_ghostBusy = false;
+									SetStatus(std::format("{} of {} done. Save the game now (a new save), then open it in ReSaver Plus.", done, total));
+								}
+							});
+						}
+					});
+			}
+			im::EndDisabled();
+			Tip("For each ticked id: the console's disable, then markfordelete, one at a time; each step is written to ReSaverHelper.log first.");
+			DrawAsk();
+		}
+
 		// ------------------------------------------------------------------ 6. Troubleshooting tests
 		void __stdcall RenderStages()
 		{
@@ -1216,6 +1331,7 @@ namespace MenuPage
 		SKSEMenuFramework::AddSectionItem("Quests", RenderQuests);
 		SKSEMenuFramework::AddSectionItem("Troubleshooting/Script health", RenderHealth);
 		SKSEMenuFramework::AddSectionItem("Troubleshooting/Write a report", RenderReport);
+		SKSEMenuFramework::AddSectionItem("Troubleshooting/Ghost actors", RenderGhosts);
 		SKSEMenuFramework::AddSectionItem("Troubleshooting tests/Diagnostic stages", RenderStages);
 		SKSEMenuFramework::AddSectionItem("Troubleshooting tests/Test spawns", RenderSpawns);
 		SKSEMenuFramework::AddSectionItem("Troubleshooting tests/Helper and connection", RenderChecks);

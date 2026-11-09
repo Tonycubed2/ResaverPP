@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Server.h"
 #include "Game.h"
+#include "GhostRemove.h"
 #include "Protocol.h"
 #include "Rescue.h"
 #include "Settings.h"
@@ -159,6 +160,27 @@ namespace Server
 				}
 				Game::Notify(notify, cmd == "FOLLOWERSET" ? "ReSaverHelper: follower taken back" : cmd == "TEAMMATE" ? "ReSaverHelper: teammate flag changed" : "ReSaverHelper: turning you back");
 				return { "OK", "1" };
+			}
+			// version 15: ghost actors, the console's disable + markfordelete on each (GhostRemove.h); one main-thread task per
+			// id, so the log shows which id the game was on if it crashes
+			if (cmd == "GHOSTREMOVE") {
+				const auto ids = proto::ParseIdList(arg(0));
+				if (ids.empty()) {
+					return err("no ids given (GHOSTREMOVE <id>[,<id>...])");
+				}
+				spdlog::info("ghost: removing {} actor(s) asked for by ReSaver++", ids.size());
+				std::vector<std::string> out{ "OK", std::to_string(ids.size()) };
+				std::size_t              done = 0;
+				for (const auto id : ids) {
+					auto       res = std::make_shared<std::atomic<int>>(-1);
+					const bool ran = Game::RunOnMain([id, res] { res->store(static_cast<int>(GhostRemove::Remove(id))); }, kWait);
+					const int  r = res->load();
+					std::string word = !ran || r < 0 ? "the game did not answer within 30 seconds" : GhostRemove::Word(static_cast<GhostRemove::Result>(r));
+					done += word == "done";
+					out.push_back(std::format("{:08X}*{}", id, word));
+				}
+				Game::Notify(arg(1), std::format("ReSaverHelper: {} of {} ghost actor(s) disabled and marked for delete. Save the game now.", done, ids.size()));
+				return out;
 			}
 			if (cmd == "QUEST") {
 				struct State

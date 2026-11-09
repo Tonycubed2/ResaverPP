@@ -25,6 +25,10 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   character's teammate flag, and turn you back from werewolf / Vampire Lord form with the transformation script's own ShiftBack
   (its "already busy" guards are reset first, so a revert that stopped half way runs to the end). Version 13 also sets
   PlayerFollowerCount (0BCC98) when Transplant brings a vanilla follower back; 10-12 looked up 0BCCAE, a perk, so the count stayed 0.
+- Ghost actors (version 15, SE/AE): `GHOSTREMOVE` disables and marks for delete the spawned characters ReSaver Plus's
+  Save check found with a base the save does not contain, the same as the console's `prid <id>`, `disable`,
+  `markfordelete` (run through the game's console route, see `src/GhostRemove.h`), and reports each one: done, not
+  found, not a created actor. Also on the in-game page (Troubleshooting > Ghost actors).
 - Legendary Edition has its own helper (`helper-le`), with the same commands.
 - Confirms every action in game: top-left notification or a message box (`sNotify` in ReSaverHelper.ini).
 - Optional: refresh the journal automatically after every save load (`bRefreshJournalOnLoad=1`).
@@ -114,6 +118,12 @@ menu. Everything is written to ReSaverHelper.log. Hover any button or line for d
     and cannot, which makes the next save bad; how to test it with the console's `ts`.
   - Write a report: ReSaverHelper-report.txt in the SKSE log folder (game and helper versions, cell, characters
     around you with problems, followers, script health, plugin counts, settings). Open it opens it in your editor.
+  - Ghost actors: paste or type the ids ReSaver Plus's Save check lists (spawned characters whose base NPC is a
+    temporary copy the save does not contain; Ultimate Deadly Encounters' clone spawns make them), tick the ones to
+    remove, tick "I understand the risk" and remove them: for each, the console's `disable` then `markfordelete`,
+    one at a time, each step written to ReSaverHelper.log first. Touching a broken character can crash the game: make
+    a save first; afterwards save as a new save and open it in ReSaver Plus to check. The live game cannot tell which
+    characters are ghosts, so the list always comes from ReSaver Plus.
 - **Troubleshooting tests**
   - Diagnostic stages: what each stage does, buttons that write iDiagnosticStage to ReSaverHelper.ini (takes effect
     when the game starts again), "Back to normal", and how to run the test.
