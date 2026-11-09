@@ -366,6 +366,40 @@ namespace ess::report
 			}
 			return o;
 		}
+
+		// UTF-8 split into characters: (code point, its bytes)
+		std::vector<std::pair<char32_t, std::string>> Chars(const std::string& s)
+		{
+			std::vector<std::pair<char32_t, std::string>> v;
+			for (std::size_t i = 0; i < s.size();) {
+				const auto c = static_cast<unsigned char>(s[i]);
+				const std::size_t n = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 1;
+				char32_t u = n == 1 ? c : n == 2 ? (c & 0x1F) : n == 3 ? (c & 0x0F) : (c & 0x07);
+				for (std::size_t k = 1; k < n && i + k < s.size(); ++k) {
+					u = (u << 6) | (static_cast<unsigned char>(s[i + k]) & 0x3F);
+				}
+				v.emplace_back(u, s.substr(i, n));
+				i += n;
+			}
+			return v;
+		}
+
+		// a character Courier's WinAnsi encoding has (else it goes into the CJK font)
+		bool WinAnsi(char32_t u)
+		{
+			if (u < 0x80 || (u >= 0xA0 && u <= 0xFF)) {
+				return true;
+			}
+			for (char32_t k : { 0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2026, 0x20AC }) {
+				if (u == k) {
+					return true;
+				}
+			}
+			return false;
+		}
+		bool Hangul(char32_t u) { return (u >= 0x1100 && u <= 0x11FF) || (u >= 0x3130 && u <= 0x318F) || (u >= 0xAC00 && u <= 0xD7AF); }
+		// columns on the Courier grid: a CJK character (1 em) takes two 0.6 em columns
+		std::size_t Cols(char32_t u) { return WinAnsi(u) ? 1 : 2; }
 	}
 
 	void WritePdf(const std::filesystem::path& a_path, const std::string& a_title, const std::vector<std::string>& a_lines)
@@ -396,13 +430,23 @@ namespace ess::report
 				lines.push_back({ 1, "" });
 				t = "== " + t + " ==";
 			}
-			t = ToAnsi(t);
 			if (t.empty()) {
 				lines.push_back({ font, "" });
 			}
-			while (!t.empty()) {
-				lines.push_back({ font, t.substr(0, width) });
-				t = t.size() > width ? "      " + t.substr(width) : "";
+			// wrapped by columns (CJK characters take two), never inside a character
+			std::string cur;
+			std::size_t cols = 0;
+			for (const auto& [u, bytes] : Chars(t)) {
+				if (cols + Cols(u) > width) {
+					lines.push_back({ font, cur });
+					cur = "      ";
+					cols = 6;
+				}
+				cur += bytes;
+				cols += Cols(u);
+			}
+			if (!cur.empty()) {
+				lines.push_back({ font, cur });
 			}
 		}
 		const std::size_t pages = std::max<std::size_t>(1, (lines.size() + perPage - 1) / perPage);
@@ -413,7 +457,9 @@ namespace ess::report
             offsets.push_back(pdf.size());
             pdf += std::to_string(offsets.size()) + " 0 obj\n" + body + "\nendobj\n";
 		};
-		// 1 catalog, 2 pages, 3 font regular, 4 font bold, then page/content pairs
+		// 1 catalog, 2 pages, 3 font regular, 4 font bold, then page/content pairs; the CJK font (Chinese, Japanese,
+		// Korean names) is the last object before the info: Adobe's standard STSong-Light with the UniGB-UCS2-H CMap,
+		// which PDF viewers supply themselves (nothing embedded), text written as UCS-2 hex
 		obj("<< /Type /Catalog /Pages 2 0 R >>");
 		std::string kids;
 		for (std::size_t i = 0; i < pages; ++i) {
@@ -422,40 +468,89 @@ namespace ess::report
 		obj("<< /Type /Pages /Kids [" + kids + "] /Count " + std::to_string(pages) + " >>");
 		obj("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>");
 		obj("<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>");
+		const std::string cjkFont = std::to_string(5 + pages * 2);  // (objects 1-4, then 2 per page, then this font)
+		// one line: runs of Courier (WinAnsi) and of the CJK font, each placed on the column grid
+		auto put = [&](std::string& s, int a_font, double a_size, double a_x, double a_y, const std::string& a_text) {
+			char        buf[128];
+			int         runFont = -1;
+			double      runX = a_x, x = a_x;
+			std::string run;
+			auto        flush = [&] {
+                if (run.empty()) {
+                    return;
+                }
+                std::snprintf(buf, sizeof(buf), "/F%d %.1f Tf 1 0 0 1 %.1f %.1f Tm\n", runFont, a_size, runX, a_y);
+                s += buf;
+                s += runFont >= 3 ? "<" + run + "> Tj\n" : "(" + Esc(ToAnsi(run)) + ") Tj\n";
+                run.clear();
+			};
+			for (const auto& [u, bytes] : Chars(a_text)) {
+				const int f = WinAnsi(u) ? a_font : Hangul(u) ? 4 : 3;
+				if (f != runFont) {
+					flush();
+					runFont = f;
+					runX = x;
+				}
+				if (f >= 3) {
+					std::snprintf(buf, sizeof(buf), "%04X", static_cast<unsigned>(u < 0x10000 ? u : 0xFF1F));  // (outside the BMP: a full-width ?)
+					run += buf;
+				} else {
+					run += bytes;
+				}
+				x += Cols(u) * 0.6 * a_size;
+			}
+			flush();
+		};
 		for (std::size_t pg = 0; pg < pages; ++pg) {
 			std::string s = "BT\n";
-			char        buf[128];
-			// footer
-			std::snprintf(buf, sizeof(buf), "/F1 7 Tf 1 0 0 1 %.1f %.1f Tm\n", kMargin, kMargin - 14);
-			s += buf;
-			s += "(" + Esc(ToAnsi(a_title)) + Fmt("   -   page %zu of %zu", pg + 1, pages) + ") Tj\n";
-			int curFont = 0;
+			put(s, 1, 7, kMargin, kMargin - 14, a_title + Fmt("   -   page %zu of %zu", pg + 1, pages));
 			for (std::size_t i = 0; i < perPage; ++i) {
 				const auto idx = pg * perPage + i;
 				if (idx >= lines.size()) {
 					break;
 				}
 				const auto& l = lines[idx];
-				if (l.text.empty()) {
-					continue;
+				if (!l.text.empty()) {
+					put(s, l.font, kSize, kMargin, kH - kMargin - kLead * double(i + 1), l.text);
 				}
-				if (l.font != curFont) {
-					std::snprintf(buf, sizeof(buf), "/F%d %.1f Tf\n", l.font, kSize);
-					s += buf;
-					curFont = l.font;
-				}
-				std::snprintf(buf, sizeof(buf), "1 0 0 1 %.1f %.1f Tm\n", kMargin, kH - kMargin - kLead * double(i + 1));
-				s += buf;
-				s += "(" + Esc(l.text) + ") Tj\n";
 			}
 			s += "ET";
 			const auto pageNo = 5 + pg * 2;
-			obj("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents " +
+			obj("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 " + cjkFont + " 0 R /F4 " + std::to_string(5 + pages * 2 + 3) + " 0 R >> >> /Contents " +
 				std::to_string(pageNo + 1) + " 0 R >>");
 			obj("<< /Length " + std::to_string(s.size()) + " >>\nstream\n" + s + "\nendstream");
 		}
-		// info + xref
-		obj("<< /Title (" + Esc(ToAnsi(a_title)) + ") /Producer (ReSaver++) >>");
+		// the CJK font: Type0 over the CID font STSong-Light (Adobe-GB1: Chinese, plus kana and some Hangul)
+		obj("<< /Type /Font /Subtype /Type0 /BaseFont /STSong-Light /Encoding /UniGB-UCS2-H /DescendantFonts [" + std::to_string(offsets.size() + 2) +
+			" 0 R] >>");
+		obj("<< /Type /Font /Subtype /CIDFontType0 /BaseFont /STSong-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (GB1) /Supplement 4 >> "
+			"/FontDescriptor " + std::to_string(offsets.size() + 2) + " 0 R /DW 1000 >>");
+		obj("<< /Type /FontDescriptor /FontName /STSong-Light /Flags 6 /FontBBox [-25 -254 1000 880] /ItalicAngle 0 /Ascent 880 /Descent -120 "
+			"/CapHeight 880 /StemV 93 >>");
+		// Korean: Hangul is not in Adobe-GB1; HYSMyeongJo-Medium (Adobe-Korea1) with UniKS-UCS2-H
+		obj("<< /Type /Font /Subtype /Type0 /BaseFont /HYSMyeongJo-Medium /Encoding /UniKS-UCS2-H /DescendantFonts [" +
+			std::to_string(offsets.size() + 2) + " 0 R] >>");
+		obj("<< /Type /Font /Subtype /CIDFontType0 /BaseFont /HYSMyeongJo-Medium /CIDSystemInfo << /Registry (Adobe) /Ordering (Korea1) "
+			"/Supplement 1 >> /FontDescriptor " + std::to_string(offsets.size() + 2) + " 0 R /DW 1000 >>");
+		obj("<< /Type /FontDescriptor /FontName /HYSMyeongJo-Medium /Flags 6 /FontBBox [-28 -148 1001 880] /ItalicAngle 0 /Ascent 880 "
+			"/Descent -148 /CapHeight 880 /StemV 93 >>");
+		// info + xref; the title as UTF-16 when it is not plain ASCII
+		std::string title = "(" + Esc(a_title) + ")";
+		if (std::any_of(a_title.begin(), a_title.end(), [](char c) { return static_cast<unsigned char>(c) >= 0x80; })) {
+			title = "<FEFF";
+			char buf[16];
+			for (const auto& ch : Chars(a_title)) {
+				const auto u = ch.first;
+				if (u >= 0x10000) {
+					std::snprintf(buf, sizeof(buf), "%04X%04X", static_cast<unsigned>(0xD800 + ((u - 0x10000) >> 10)), static_cast<unsigned>(0xDC00 + ((u - 0x10000) & 0x3FF)));
+				} else {
+					std::snprintf(buf, sizeof(buf), "%04X", static_cast<unsigned>(u));
+				}
+				title += buf;
+			}
+			title += ">";
+		}
+		obj("<< /Title " + title + " /Producer (ReSaver++) >>");
 		const auto xref = pdf.size();
 		pdf += "xref\n0 " + std::to_string(offsets.size() + 1) + "\n0000000000 65535 f \n";
 		for (auto o : offsets) {
