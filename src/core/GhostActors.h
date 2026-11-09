@@ -37,8 +37,9 @@
 // Seen on Tony's saves: all of them made by Ultimate Deadly Encounters' clone spawns (waiting12, WalkingDangers49,
 // SOT_Multiply: PlaceAtMe of Clone.GetLeveledActorBase()); Save88 13, Save132 2, Save140 4; none in other saves.
 //
-// Report only: removing such an actor also needs the player's record and the scripts that name it handled, and
-// that was not proven safe.
+// Not removed from the save file: the player's record and the scripts that name such an actor would also need handling,
+// and that was not proven safe. Removal is done in the running game instead (ReSaverHelper 15 GHOSTREMOVE: the
+// console's disable + markfordelete on each, helper/src/GhostRemove.h), or by hand with the console (ConsoleText).
 #pragma once
 
 #include "Save.h"
@@ -69,4 +70,18 @@ namespace ess::ghost
 	std::vector<Actor> Find(const SaveFile& a_save);
 	// "FF003307 (base FF003327 not in the save; built from E50362F9, The Restless Dead.esp) in 0001527F, made by SOTFull.esp"
 	std::string Describe(const SaveFile& a_save, const Actor& a_actor);
+
+	// ---- removal in the running game ------------------------------------------------------------------------------
+	// The console commands for doing it by hand, for each id: "prid FF003D2A", "disable", "markfordelete", one per line.
+	std::string ConsoleText(const std::vector<std::uint32_t>& a_ids);
+	// The helper's GHOSTREMOVE argument: "FF003D2A,FF0040DF".
+	std::string RemoveArgument(const std::vector<std::uint32_t>& a_ids);
+	struct RemoveResult
+	{
+		std::uint32_t id = 0;
+		std::string   word;  // done, not found, not a created actor, not marked, or why the game did not answer
+		bool          done() const { return word == "done"; }
+	};
+	// The reply fields after "OK": <count> then one "FF003D2A*done" per id. Empty when malformed.
+	std::vector<RemoveResult> ParseRemoveReply(const std::vector<std::string>& a_fields);
 }

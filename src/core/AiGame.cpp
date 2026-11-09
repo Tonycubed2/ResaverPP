@@ -70,6 +70,7 @@ THE RUNNING GAME (game_command)
   TEAMMATE <formid> <0|1> <notify> -> 1 / 0 <why>: Actor.SetPlayerTeammate (helper 13)
   BEASTREVERT <werewolf|vampire> <notify> -> 1 / 0 <why>: the transformation script's own ShiftBack() after its guards are reset: race back, claws / Vampire Lord powers, factions, controls, beast form menus (helper 13)
   (FOLLOWERSET, TEAMMATE and BEASTREVERT are in both helpers from version 13: the SE/AE/VR one and the Legendary Edition one (HELLO says LE); the same commands for LE saves.)
+  GHOSTREMOVE <ids comma separated> <notify> -> count, then one field per id: id*result (done, not found, not a created actor, not marked): for each ghost actor (run_cli {save} --ghost-actors lists them), the console's disable then markfordelete on it, one at a time, each step written to ReSaverHelper.log first (helper 15, SE/AE/VR only; not in the Legendary Edition helper)
   Dismissing the vanilla follower is SETSTAGE 000750BA 400 <notify> "" (DialogueFollower stage 400 runs DismissFollower()). A werewolf whose time ran out is SETSTAGE 0002BA16 100 (the script's ShiftBack); a Vampire Lord without Revert Form: SETSTAGE <DLC1PlayerVampireQuest id> 100.
   <notify> is hud (top-left notification), box (message box), none, or ini (the helper's setting). <message> may be empty ("") for the default text.
 - Form IDs for game_command are the runtime IDs, the same as the save shows. Quests without any script may answer that only the console can do it; then give the user the console command (setstage / stopquest / resetquest <editor id>).
@@ -94,6 +95,7 @@ RECIPES
 - Stuck, cannot move (a scene or mod left the controls off): game_command CONTROLS; RESCUE also saves and gathers the followers.
 - Followers ("you already have a follower", a dismissed follower still following, a follower gone, a dead one still counted): run_cli {save} --followers lists who is in the vanilla follower quest's Follower / Animal alias, the follower factions, the teammate flag, where each is, PlayerFollowerCount, and the problems with their fixes.
   In the save (verified edits only): --fix-follower-count / --fix-animal-count (the count the alias says), --clear-teammate <ids> (the flag SetPlayerTeammate(false) clears). Everything else in the running game: SETSTAGE 000750BA 400 (dismiss), FOLLOWERSET <id>, TEAMMATE <id> 0|1, GATHER <notify> <id>. Follower mods (NFF, AFT...) keep their own quests: change those with the mod's own menu.
+- Ghost actors (the report's "name a base NPC the save does not have" warning; run_cli {save} --ghost-actors lists them): spawned characters (Ultimate Deadly Encounters' clone spawns, PlaceAtMe of GetLeveledActorBase) whose base the save does not contain; loads can crash. The save file is not edited for them. In the running game (helper 15, the save loaded): GHOSTREMOVE <ids> <notify> disables and marks each for delete, as the console's prid <id>, disable, markfordelete. Before asking for approval tell the user plainly: touching a broken character can crash the game, make a save in the game first; if it crashes, load that save, ReSaverHelper.log's last lines name the id it was on, leave that one out. Afterwards: SAVEGAME (or the user saves), then open the new save and check again. Without the helper: give the console lines prid <id>, disable, markfordelete for each. The real fix is in the mod (GetActorBase instead of GetLeveledActorBase). The app's Save check has the same, with a tick box per character.
 - Stuck as a werewolf or Vampire Lord, or its claws / powers / factions left on you: run_cli {save} --beast-form says what is wrong and which fix: SETSTAGE <quest> 100 or BEASTREVERT (game only: race, controls and menus are game state; the save is not edited for this).
 - Quests between stages: --stuck-stages lists stage scripts that were still running when the game saved (they carry on when it loads); with --sources it also lists running quests whose shut-down stage (a stage flagged "shut down" and not "start up" in the plugin) is done: the game runs such a stage only while it stops a quest, so a script or the console set it and the quest was never stopped. Stopping it in the running game (STOP <quest>, helper 11) is what the game would have done; ask the user first, it ends the quest. With the game running, QUEST shows where the quest stands now.
 - Player: --player, --set-gold, --set-skill, --set-level, --set-perks, --set-item, --set-bounty, --clear-crimes.
@@ -323,6 +325,10 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 
 	std::string HelperRefusal(const std::string& a_runtime, const std::string& a_command)
 	{
+		if (a_runtime == "LE" && Upper(a_command) == "GHOSTREMOVE") {
+			return "not available in ReSaverHelper LE: GHOSTREMOVE (ghost actors) is in the SE/AE/VR helper from version 15. Give the "
+			       "user the console lines instead: prid <id>, disable, markfordelete. Nothing was sent to the game.";
+		}
 		if (!HelperIsFo4(a_runtime) || Fo4HelperCommands().contains(Upper(a_command))) {
 			return {};
 		}

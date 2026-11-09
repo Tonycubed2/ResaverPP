@@ -270,6 +270,7 @@ public:
 		Risk                     level = Risk::kInfo;  // how serious the finding is
 		std::string              title, what;
 		std::vector<CheckOption> options;
+		std::function<void()>    draw;  // more of its own, drawn under `what` (before the options), when set
 	};
 
 private:
@@ -298,6 +299,21 @@ private:
 	static void            TextWrappedAt(std::uint32_t a_col, const std::string& a_text, float a_x);
 	void                   startLiveRefresh();
 	bool                   _showCheck = false, _checkOnOpen = true;
+
+	// Save check: ghost actors removed in the running game (helper 15 GHOSTREMOVE), or by hand with the console (AppCheck.cpp)
+	struct GhostUi
+	{
+		const void*                            save = nullptr;  // the save this is for (reset when another opens)
+		std::set<std::uint32_t>                unticked;        // ids the user left out
+		bool                                   risk = false;    // "I understand the risk"
+		bool                                   busy = false, saving = false;
+		std::vector<ess::ghost::RemoveResult>  results;
+		std::string                            error, savedAs;  // savedAs: the save the helper made afterwards
+	};
+	GhostUi                _ghostUi;
+	void                   drawGhostRemove();
+	bool                   ghostHelperReady(std::string& a_why) const;  // connected, helper 15+ for SE/AE/VR, in game
+	std::filesystem::path  findSaveNamed(const std::string& a_name) const;  // in the saves folders; "" newest
 
 	// the SKSE / F4SE co-save: each plugin's data, which plugins are no longer installed, PapyrusUtil, cleaning (AppCosave.cpp)
 	struct CosaveView;

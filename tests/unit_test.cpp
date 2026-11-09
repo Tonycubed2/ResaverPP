@@ -13,6 +13,7 @@
 #include "core/Ops.h"
 #include "core/ScriptFlood.h"
 #include "core/GhostActors.h"
+#include "../helper/src/Protocol.h"  // the helper's id list parser (GHOSTREMOVE, F1 page)
 #include "core/Pex.h"
 #include "core/Save.h"
 #include "core/SaveArchive.h"
@@ -5511,6 +5512,67 @@ void TestGhostActors()
 	}
 }
 
+// Ghost actors removed in the running game (helper 15 GHOSTREMOVE): the argument, the helper's parse of it, its reply, the
+// console fallback, the AI lesson and refusal.
+void TestGhostRemove()
+{
+	const std::vector<std::uint32_t> ids{ 0xFF003D2A, 0xFF0040DF, 0xFF003307 };
+	const auto arg = ghost::RemoveArgument(ids);
+	Check(arg == "FF003D2A,FF0040DF,FF003307", "ghost remove: the GHOSTREMOVE argument");
+	Check(proto::ParseIdList(arg) == ids, "ghost remove: the helper reads back the ids ReSaver Plus sends");
+	Check(proto::ParseIdList("ff003d2a  0xFF0040DF\n[FF003307]; FF003D2A, nothex, 123456789, 0") == ids,
+		"ghost remove: pasted ids (spaces, new lines, 0x, brackets) read, duplicates, junk, too long and 0 skipped");
+	Check(proto::ParseIdList("").empty() && proto::ParseIdList(" , ;").empty(), "ghost remove: nothing to read");
+	Check(ghost::ConsoleText({ 0xFF003D2A, 0xFF0040DF }) == "prid FF003D2A\ndisable\nmarkfordelete\nprid FF0040DF\ndisable\nmarkfordelete\n",
+		"ghost remove: the console lines for doing it by hand");
+	Check(ghost::ConsoleText({}).empty() && ghost::RemoveArgument({}).empty(), "ghost remove: nothing ticked, nothing to send or copy");
+	const auto r = ghost::ParseRemoveReply({ "3", "FF003D2A*done", "FF0040DF*not found", "FF003307*not a created actor" });
+	Check(r.size() == 3 && r[0].id == 0xFF003D2A && r[0].done() && r[1].word == "not found" && !r[1].done() &&
+			  r[2].id == 0xFF003307 && r[2].word == "not a created actor",
+		"ghost remove: the helper's reply, one result per id");
+	Check(ghost::ParseRemoveReply({ "1", "FF003D2A*the game did not answer within 30 seconds" }).at(0).word ==
+			  "the game did not answer within 30 seconds",
+		"ghost remove: a time-out is reported as such");
+	Check(ghost::ParseRemoveReply({}).empty() && ghost::ParseRemoveReply({ "2", "FF003D2A*done" }).empty() &&
+			  ghost::ParseRemoveReply({ "1", "FF003D2Adone" }).empty() && ghost::ParseRemoveReply({ "1", "XYZ*done" }).empty() &&
+			  ghost::ParseRemoveReply({ "x" }).empty(),
+		"ghost remove: malformed replies give nothing");
+	namespace ag = ess::aigame;
+	const auto lesson = ag::Lesson(ag::Game::kSkyrimSE);
+	Check(lesson.find("GHOSTREMOVE") != std::string::npos && lesson.find("can crash the game") != std::string::npos &&
+			  lesson.find("prid <id>, disable, markfordelete") != std::string::npos,
+		"ghost remove: the AI lesson has the command, the risk and the console fallback");
+	Check(!ag::HelperRefusal("LE", "ghostremove").empty() && ag::HelperRefusal("AE", "GHOSTREMOVE").empty() &&
+			  ag::HelperRefusal("SE", "GHOSTREMOVE").empty() && !ag::HelperReadOnly("GHOSTREMOVE"),
+		"ghost remove: refused for the LE helper, asks for approval (not read-only)");
+	// the real saves' ghosts make an argument the helper reads back whole
+	if (const char* env = std::getenv("RESAVERPP_GHOST_SAVES"); env && *env) {
+		std::string all = env;
+		for (std::size_t p = 0; p <= all.size();) {
+			auto e = all.find(';', p);
+			if (e == std::string::npos) {
+				e = all.size();
+			}
+			const auto item = all.substr(p, e - p);
+			p = e + 1;
+			const auto eq = item.rfind('=');
+			if (eq == std::string::npos) {
+				continue;
+			}
+			auto       sv = SaveFile::load(item.substr(0, eq));
+			const auto g = ghost::Find(*sv);
+			std::vector<std::uint32_t> want;
+			for (const auto& a : g) {
+				want.push_back(a.formID);
+			}
+			const auto text = ghost::ConsoleText(want);
+			Check(proto::ParseIdList(ghost::RemoveArgument(want)) == want &&
+					  static_cast<std::size_t>(std::count(text.begin(), text.end(), '\n')) == 3 * want.size(),
+				("ghost remove: " + std::filesystem::path(item.substr(0, eq)).filename().string().substr(0, 10) + " ids round trip").c_str());
+		}
+	}
+}
+
 void TestFreezeFix()
 {
 	auto check = [](const SaveFile& a_save, const std::vector<std::string>& a_installed, const std::vector<std::string>& a_missing) {
@@ -5636,6 +5698,7 @@ int main()
 	TestScriptFloods();
 	TestFreezeFix();
 	TestGhostActors();
+	TestGhostRemove();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

@@ -692,6 +692,34 @@ project; you do the coding, building, delivering and publishing.
   - Not done: no removal (the player's change form and Papyrus variables name these actors; a delete of the ACHR change
     form alone was not proven safe). The suggested in-game clean (prid, disable, markfordelete) was not tested. The GUI
     item was not looked at on screen. LE / VR not checked in their exes (the check runs on all Skyrim saves).
+  - Removal in the running game (2026-11-09, branch ghostrm, not published; in helper 15, which is still unpublished and
+    which Tony must build in VS2022: `helper/src/GhostRemove.h/.cpp` new, `Server.cpp`, `MenuPage.cpp`, `Protocol.h`
+    (comment + `proto::ParseIdList`), cmake lists, README). Helper command `GHOSTREMOVE <ids comma separated> [<notify>]` ->
+    `OK <count> <id*result>...` (done / not found / not a created actor / not marked / time-out text); one RunOnMain task
+    per id, every step logged before it is done. Per id: (id>>24)==FF, untyped TESForm::LookupByID, GetFormType() ==
+    ActorCharacter, AsReference() (vfunc 0x2B; Character's 0x2f3d60 = `mov rax,rcx`), then the console lines "Disable" and
+    "MarkForDelete" through Script::CompileAndRun(ref) (the same route the console window uses), then IsDeleted() for the
+    result. Never its base, name or extras.
+  - Exe evidence (SkyrimSE.exe 1.6.1170, scratchpad ghostrm-tools/ct.py reads the command table, SCRIPT_FUNCTION 0x50 bytes):
+    Disable = entry 0x1fdc4b0 opcode 0x1022, execute 0x34cb00 (id 22096): ParseParameters (21910), skips no ref / flag 0x800
+    disabled / 0x4000 temporary / an ExtraEnableStateParent (0x36: 0x2fc8c0 -> 0x15ffd0), optional fade -> 3D fade bits, then
+    0x33f1d0 (id 21913) which QUEUES the ref on the disable list (fade / no-fade lists, under a lock); not CommonLib's
+    TESObjectREFR::Disable vfunc 0x8A. MarkForDelete = entry 0x1fe4430 opcode 0x11ba, execute 0x35c350 (id 22510): skips no
+    ref / already deleted (0x20) / the player (0x31874f8 = id 403521), SetDelete(true) (vfunc 0x23, Character 0x67e390), then
+    if GetFile(0) (0x1e0420) is null and not persistent (0x400, 0x2de550): in-game flag kWantsDelete via 0x1e14a0 (+AddChange
+    vfunc 0x0A) and the ref is put on the list at 0x3137f48 (id 401213). Console window 0x8f4270 (id 442673) runs a line as
+    CompileAndRun_Impl 0x33d6a0 (CommonLib id 441582) with compiler name 1 and the selected ref 0x31acd74 (id 504099); the
+    compile step 0x3412d0 never reads the target ref; the run step 0x33d300 reads only its form type (+0x1A == 0x3E) and
+    hands it to the interpreter 0x37fe70 (id 23336, not traced further). Only 1.6.1170 checked; SE 1.5.97 / VR go through
+    CommonLib's own ids for CompileAndRun.
+  - App: the Save check ghost item has a custom part (`CheckItem::draw`, `App::drawGhostRemove`, `_ghostUi`): a checkbox per
+    actor + Select all / none, the risk text, "I understand the risk", "Remove the selected in the running game (n)" (needs
+    `ghostHelperReady`: connected, not LE / F4, helperAtLeast(15), in game), per-actor results, then "Save the game now"
+    (SAVEGAME) and "Check the new save" (`findSaveNamed`: that save in watchFolders(), else the newest) and a tree node with
+    the console lines (`ghost::ConsoleText`) + Copy. Core: `ghost::RemoveArgument`, `ghost::ParseRemoveReply`. AI lesson:
+    GHOSTREMOVE + recipe; HelperRefusal refuses GHOSTREMOVE for the LE helper. ru.txt: 32 entries added (the old ghost text
+    entry is left, unused). F1 page: Troubleshooting > Ghost actors (paste ids, ticks, risk tick, AskFirst, one SKSE task per id).
+    Tests: rs_unit TestGhostRemove. Not run in the game; the GUI part was not looked at on screen.
 - Co-save viewer/cleaner (2026-11-06, branch cosave, not published): `core/Cosave.*` reads/writes .skse/.f4se byte-exact (format
   identical in skse/Serialization.cpp LE 1.7.x, skse64/Serialization.cpp, f4se/Serialization.cpp: header sig/format 1/xse ver/runtime/
   numPlugins; plugin {uid, numChunks, length}; chunk {type, version, length}; the loader ignores numPlugins and reads while 12 bytes

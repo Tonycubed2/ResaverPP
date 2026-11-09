@@ -13485,3 +13485,131 @@ tr "Созданных персонажей, ссылающихся на осн�
 # AppCheck.cpp:515  it.what = tr("A script made each of them as a copy of another character's temporary leveled base ...
 en "A script made each of them as a copy of another character's temporary leveled base (PlaceAtMe of GetLeveledActorBase). The game never saves that temporary base and deletes it with the character it belongs to, so this save names a base it does not contain. When it loads, the game gives that id to whatever has it then: nothing (the character has no base) or another character's base (it loads as that one, and can delete that one's base). The result differs from load to load: some loads crash (in Actor::LoadGame, in SPID, or when a script error names the character) and some do not.\nThe fix is in the mod that spawns them: it must use GetActorBase. ReSaver Plus does not remove them: the player's record and scripts still name them. In the game, right after loading: open the console, type prid and the id, then disable and markfordelete; save, and open the new save here to check.\nCharacters:"
 tr "Каждого из них скрипт создал как копию временной уровневой основы другого персонажа (PlaceAtMe с GetLeveledActorBase). Игра никогда не сохраняет эту временную основу и удаляет её вместе с персонажем, которому она принадлежит, поэтому сохранение ссылается на основу, которой в нём нет. При загрузке игра отдаёт этот номер тому, у кого он в тот момент есть: никому (у персонажа нет основы) или основе другого персонажа (он загружается как тот персонаж и может удалить его основу). Результат меняется от загрузки к загрузке: одни загрузки падают (в Actor::LoadGame, в SPID или когда ошибка скрипта называет этого персонажа), другие нет.\nИсправлять нужно мод, который их создаёт: он должен использовать GetActorBase. ReSaver Plus их не удаляет: на них всё ещё ссылаются запись игрока и скрипты. В игре сразу после загрузки: откройте консоль, введите prid и номер, затем disable и markfordelete; сохраните игру и откройте новое сохранение здесь для проверки.\nПерсонажи:"
+
+# AppCheck.cpp
+en "A script made each of them as a copy of another character's temporary leveled base (PlaceAtMe of GetLeveledActorBase). The game never saves that temporary base and deletes it with the character it belongs to, so this save names a base it does not contain. When it loads, the game gives that id to whatever has it then: nothing (the character has no base) or another character's base (it loads as that one, and can delete that one's base). The result differs from load to load: some loads crash (in Actor::LoadGame, in SPID, or when a script error names the character) and some do not.\nThe fix is in the mod that spawns them: it must use GetActorBase. ReSaver Plus does not take them out of the save file (the player's record and scripts still name them); it can remove them in the running game, below.\nCharacters:"
+tr "Каждого из них скрипт создал как копию временной уровневой основы другого персонажа (PlaceAtMe с GetLeveledActorBase). Игра никогда не сохраняет эту временную основу и удаляет её вместе с персонажем, которому она принадлежит, поэтому сохранение ссылается на основу, которой в нём нет. При загрузке игра отдаёт этот номер тому, у кого он в тот момент есть: никому (у персонажа нет основы) или основе другого персонажа (он загружается как тот персонаж и может удалить его основу). Результат меняется от загрузки к загрузке: одни загрузки падают (в Actor::LoadGame, в SPID или когда ошибка скрипта называет этого персонажа), другие нет.\nИсправлять нужно мод, который их создаёт: он должен использовать GetActorBase. ReSaver Plus не убирает их из файла сохранения (на них всё ещё ссылаются запись игрока и скрипты); он может удалить их в запущенной игре, ниже.\nПерсонажи:"
+
+# AppCheck.cpp
+en "Needs the game running with ReSaverHelper and \"Connect to the running game\" on (Settings). Not connected now."
+tr "Нужна запущенная игра с ReSaverHelper и включённым «Подключаться к запущенной игре» (Настройки). Сейчас нет подключения."
+
+# AppCheck.cpp
+en "Needs the Skyrim SE / AE helper (ReSaverHelper 15 or later). The connected helper cannot do it."
+tr "Нужен помощник для Skyrim SE / AE (ReSaverHelper 15 или новее). Подключённый помощник этого не умеет."
+
+# AppCheck.cpp
+en "Needs ReSaverHelper 15 or later (the game has version %s): update the helper."
+tr "Нужен ReSaverHelper 15 или новее (в игре версия %s): обновите помощник."
+
+# AppCheck.cpp
+en "Load the save in the game first (the helper is connected, but no save is loaded)."
+tr "Сначала загрузите сохранение в игре (помощник подключён, но сохранение не загружено)."
+
+# AppCheck.cpp
+en "Remove them in the running game"
+tr "Удалить их в запущенной игре"
+
+# AppCheck.cpp
+en "Select all"
+tr "Выбрать все"
+
+# AppCheck.cpp
+en "Select none"
+tr "Снять все"
+
+# AppCheck.cpp
+en "removed"
+tr "удалён"
+
+# AppCheck.cpp
+en "not in the running game"
+tr "нет в запущенной игре"
+
+# AppCheck.cpp
+en "not a spawned character in the running game: left alone"
+tr "в запущенной игре это не созданный персонаж: не тронут"
+
+# AppCheck.cpp
+en "the game did not mark it for delete"
+tr "игра не пометила его на удаление"
+
+# AppCheck.cpp
+en "Risk: touching a broken character can crash the game. Removing it is the console's disable and markfordelete on it, nothing more, but the character itself may already be damaged."
+tr "Риск: любое действие с повреждённым персонажем может обрушить игру. Удаление — это только консольные disable и markfordelete для него, но сам персонаж уже может быть повреждён."
+
+# AppCheck.cpp
+en "Before you start: make a save in the game (a new save, not over an old one).\nIf the game crashes: load that save again, open ReSaverHelper.log in the SKSE log folder (its last lines name the character it was working on), untick that one here and try again with the others. Or use the console commands below one character at a time."
+tr "Перед началом: сделайте сохранение в игре (новое сохранение, не поверх старого).\nЕсли игра упадёт: загрузите это сохранение снова, откройте ReSaverHelper.log в папке журналов SKSE (последние строки называют персонажа, с которым он работал), снимите здесь отметку с этого персонажа и попробуйте снова с остальными. Или используйте консольные команды ниже, по одному персонажу."
+
+# AppCheck.cpp
+en "I understand the risk"
+tr "Я понимаю риск"
+
+# AppCheck.cpp
+en "Remove the selected in the running game (%zu)"
+tr "Удалить отмеченных в запущенной игре (%zu)"
+
+# AppCheck.cpp
+en "Asking the game to remove the selected characters..."
+tr "Игра удаляет отмеченных персонажей..."
+
+# AppCheck.cpp
+en "The helper's answer could not be read. Look in ReSaverHelper.log."
+tr "Не удалось прочитать ответ помощника. Посмотрите ReSaverHelper.log."
+
+# AppCheck.cpp
+en "%d of %zu character(s) removed in the game. Now save the game."
+tr "Удалено в игре персонажей: %d из %zu. Теперь сохраните игру."
+
+# AppCheck.cpp
+en "For each ticked character, in the running game: the console's disable, then markfordelete (as prid <id>, disable, markfordelete), one at a time. ReSaverHelper writes each step to its log first. Needs ReSaverHelper 15 or later."
+tr "Для каждого отмеченного персонажа в запущенной игре: консольные disable, затем markfordelete (как prid <id>, disable, markfordelete), по одному. ReSaverHelper сначала записывает каждый шаг в свой журнал. Нужен ReSaverHelper 15 или новее."
+
+# AppCheck.cpp
+en "working..."
+tr "выполняется..."
+
+# AppCheck.cpp
+en "%d character(s) removed in the running game. Now save the game as a NEW save (the removal is only kept in a save made after it), then open that save here to check it."
+tr "Удалено в запущенной игре персонажей: %d. Теперь сохраните игру как НОВОЕ сохранение (удаление сохраняется только в сохранении, сделанном после него), затем откройте это сохранение здесь для проверки."
+
+# AppCheck.cpp
+en "Save the game now (a new save)"
+tr "Сохранить игру сейчас (новое сохранение)"
+
+# AppCheck.cpp
+en "The helper saves the game as ReSaverPP_Rescue_<date>_<time>. Or save in the game yourself."
+tr "Помощник сохраняет игру как ReSaverPP_Rescue_<дата>_<время>. Или сохраните игру сами."
+
+# AppCheck.cpp
+en "Check the newest save"
+tr "Проверить новейшее сохранение"
+
+# AppCheck.cpp
+en "Check the new save"
+tr "Проверить новое сохранение"
+
+# AppCheck.cpp
+en "No save found in the saves folder."
+tr "В папке сохранений не найдено сохранений."
+
+# AppCheck.cpp
+en "Opens that save here: its Save check should no longer list the removed characters. (Give the game a few seconds to finish writing the save first.)"
+tr "Открывает это сохранение здесь: его проверка больше не должна показывать удалённых персонажей. (Сначала дайте игре несколько секунд дописать сохранение.)"
+
+# AppCheck.cpp
+en "Without the helper: the console commands"
+tr "Без помощника: консольные команды"
+
+# AppCheck.cpp
+en "Make a save first. In the game, right after loading, open the console (~) and type these lines, one at a time (prid selects the character, disable hides it, markfordelete lets the game delete it). Then save as a new save and open it here to check."
+tr "Сначала сделайте сохранение. В игре сразу после загрузки откройте консоль (~) и введите эти строки по одной (prid выбирает персонажа, disable скрывает его, markfordelete позволяет игре его удалить). Затем сохраните как новое сохранение и откройте его здесь для проверки."
+
+# AppCheck.cpp
+en "(tick the characters above)"
+tr "(отметьте персонажей выше)"
+
+# AppCheck.cpp
+en "Copied: the console commands for the ticked characters."
+tr "Скопировано: консольные команды для отмеченных персонажей."

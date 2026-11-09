@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -154,5 +155,65 @@ namespace ess::ghost
 			}
 		}
 		return s;
+	}
+
+	std::string ConsoleText(const std::vector<std::uint32_t>& a_ids)
+	{
+		std::string s;
+		char        b[32];
+		for (const auto id : a_ids) {
+			std::snprintf(b, sizeof(b), "prid %08X\n", id);
+			s += b;
+			s += "disable\nmarkfordelete\n";
+		}
+		return s;
+	}
+
+	std::string RemoveArgument(const std::vector<std::uint32_t>& a_ids)
+	{
+		std::string s;
+		char        b[16];
+		for (const auto id : a_ids) {
+			std::snprintf(b, sizeof(b), "%08X", id);
+			s += (s.empty() ? "" : ",") + std::string(b);
+		}
+		return s;
+	}
+
+	std::vector<RemoveResult> ParseRemoveReply(const std::vector<std::string>& a_fields)
+	{
+		std::vector<RemoveResult> out;
+		if (a_fields.empty()) {
+			return out;
+		}
+		std::size_t n = 0;
+		try {
+			n = std::stoul(a_fields[0]);
+		} catch (...) {
+			return out;
+		}
+		if (a_fields.size() != n + 1) {
+			return {};
+		}
+		for (std::size_t i = 1; i < a_fields.size(); ++i) {
+			const auto& f = a_fields[i];
+			const auto  star = f.find('*');
+			if (star == std::string::npos || star == 0) {
+				return {};
+			}
+			RemoveResult r;
+			try {
+				std::size_t used = 0;
+				r.id = static_cast<std::uint32_t>(std::stoul(f.substr(0, star), &used, 16));
+				if (used != star) {
+					return {};
+				}
+			} catch (...) {
+				return {};
+			}
+			r.word = f.substr(star + 1);
+			out.push_back(std::move(r));
+		}
+		return out;
 	}
 }

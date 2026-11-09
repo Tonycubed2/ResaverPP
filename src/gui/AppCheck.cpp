@@ -15,6 +15,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <cctype>
 #include <optional>
 #include <cstdio>
 
@@ -27,6 +28,14 @@ namespace
 		char buf[1024];
 		std::snprintf(buf, sizeof(buf), f, args...);
 		return buf;
+	}
+
+	std::string Lower(std::string s)
+	{
+		for (auto& c : s) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		return s;
 	}
 
 	void Wrapped(std::uint32_t col, const std::string& s)
@@ -518,9 +527,9 @@ std::vector<App::CheckItem> App::computeCheckItems()
 				  "then: nothing (the character has no base) or another character's base (it loads as that one, and can delete "
 				  "that one's base). The result differs from load to load: some loads crash (in Actor::LoadGame, in SPID, or when "
 				  "a script error names the character) and some do not.\n"
-				  "The fix is in the mod that spawns them: it must use GetActorBase. ReSaver Plus does not remove them: the "
-				  "player's record and scripts still name them. In the game, right after loading: open the console, type prid "
-				  "and the id, then disable and markfordelete; save, and open the new save here to check.\nCharacters:");
+				  "The fix is in the mod that spawns them: it must use GetActorBase. ReSaver Plus does not take them out of the "
+				  "save file (the player's record and scripts still name them); it can remove them in the running game, below.\n"
+				  "Characters:");
 		for (std::size_t i = 0; i < g.size() && i < 8; ++i) {
 			it.what += "\n  " + ghost::Describe(*_save, g[i]);
 			if (_db && g[i].leveledTemplate) {
@@ -532,6 +541,7 @@ std::vector<App::CheckItem> App::computeCheckItems()
 		if (g.size() > 8) {
 			it.what += Fmt(tr(" and %zu more"), g.size() - 8);
 		}
+		it.draw = [this] { drawGhostRemove(); };
 		CheckOption o;
 		o.label = tr("Find NPCs");
 		o.risk = Risk::kSafe;
@@ -829,6 +839,9 @@ void App::drawSaveCheck()
 		ImGui::PopStyleColor();
 		ImGui::Indent(ImGui::GetTextLineHeight() + ImGui::GetStyle().ItemSpacing.x);
 		ImGui::TextWrapped("%s", it.what.c_str());
+		if (it.draw) {
+			it.draw();
+		}
 		for (const auto& o : it.options) {
 			if (RiskButton(o.label, o.risk, o.enabled)) {
 				o.act();
@@ -855,6 +868,225 @@ void App::drawSaveCheck()
 	}
 	tips::Tip(tr("Close the save check. Open it again with Tools > Save check (F2) or the button on the Overview page."));
 	ImGui::End();
+}
+
+// ---- ghost actors: remove them in the running game ---------------------------------------------------------------
+
+bool App::ghostHelperReady(std::string& a_why) const
+{
+	const auto info = _live.info();
+	if (!info.connected) {
+		a_why = tr("Needs the game running with ReSaverHelper and \"Connect to the running game\" on (Settings). Not connected now.");
+		return false;
+	}
+	if (info.runtime == "LE" || info.runtime.rfind("F4", 0) == 0) {
+		a_why = tr("Needs the Skyrim SE / AE helper (ReSaverHelper 15 or later). The connected helper cannot do it.");
+		return false;
+	}
+	if (!helperAtLeast(15)) {
+		a_why = Fmt(tr("Needs ReSaverHelper 15 or later (the game has version %s): update the helper."), info.helperVersion.c_str());
+		return false;
+	}
+	if (!info.inGame) {
+		a_why = tr("Load the save in the game first (the helper is connected, but no save is loaded).");
+		return false;
+	}
+	return true;
+}
+
+std::filesystem::path App::findSaveNamed(const std::string& a_name) const
+{
+	std::error_code                 ec;
+	std::filesystem::path           best;
+	std::filesystem::file_time_type bestTime = std::filesystem::file_time_type::min();
+	for (const auto& dir : watchFolders()) {
+		if (!a_name.empty()) {
+			const auto f = dir / platform::FromUtf8(a_name + saveExtension());
+			if (std::filesystem::is_regular_file(f, ec)) {
+				return f;
+			}
+			continue;
+		}
+		for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
+			if (e.is_regular_file(ec) && Lower(platform::ToUtf8(e.path().extension())) == saveExtension()) {
+				const auto t = e.last_write_time(ec);
+				if (t > bestTime) {
+					bestTime = t;
+					best = e.path();
+				}
+			}
+		}
+	}
+	return best;
+}
+
+void App::drawGhostRemove()
+{
+	if (!_report || _report->ghosts.empty() || !_save) {
+		return;
+	}
+	auto& u = _ghostUi;
+	if (u.save != _save.get()) {
+		u = GhostUi{};
+		u.save = _save.get();
+	}
+	const auto& g = _report->ghosts;
+	ImGui::PushID("ghostremove");
+	ImGui::Spacing();
+	ImGui::SeparatorText(tr("Remove them in the running game"));
+	if (ImGui::SmallButton(tr("Select all"))) {
+		u.unticked.clear();
+	}
+	ImGui::SameLine();
+	if (ImGui::SmallButton(tr("Select none"))) {
+		for (const auto& a : g) {
+			u.unticked.insert(a.formID);
+		}
+	}
+	std::vector<std::uint32_t> picked;
+	for (const auto& a : g) {
+		ImGui::PushID(static_cast<int>(a.formID));
+		bool tick = !u.unticked.contains(a.formID);
+		std::string label = Fmt("%08X", a.formID);
+		if (_db && a.leveledTemplate) {
+			if (const auto n = _db->describe(a.leveledTemplate); !n.empty()) {
+				label += " - " + n;
+			}
+		}
+		if (ImGui::Checkbox(label.c_str(), &tick)) {
+			if (tick) {
+				u.unticked.erase(a.formID);
+			} else {
+				u.unticked.insert(a.formID);
+			}
+		}
+		tips::Tip(ghost::Describe(*_save, a));
+		for (const auto& r : u.results) {
+			if (r.id == a.formID) {
+				ImGui::SameLine();
+				ImGui::PushStyleColor(ImGuiCol_Text, r.done() ? theme::Good() : theme::Caution());
+				ImGui::TextUnformatted(r.done()                       ? tr("removed")
+									   : r.word == "not found"           ? tr("not in the running game")
+									   : r.word == "not a created actor" ? tr("not a spawned character in the running game: left alone")
+									   : r.word == "not marked"          ? tr("the game did not mark it for delete")
+																		 : r.word.c_str());
+				ImGui::PopStyleColor();
+			}
+		}
+		if (tick) {
+			picked.push_back(a.formID);
+		}
+		ImGui::PopID();
+	}
+
+	// the risk, plainly
+	Wrapped(theme::Bad(), tr("Risk: touching a broken character can crash the game. Removing it is the console's disable and "
+							 "markfordelete on it, nothing more, but the character itself may already be damaged."));
+	ImGui::TextWrapped("%s", tr("Before you start: make a save in the game (a new save, not over an old one).\n"
+								"If the game crashes: load that save again, open ReSaverHelper.log in the SKSE log folder (its last lines "
+								"name the character it was working on), untick that one here and try again with the others. Or use the "
+								"console commands below one character at a time."));
+	ImGui::Checkbox(tr("I understand the risk"), &u.risk);
+	std::string why;
+	const bool  ready = ghostHelperReady(why);
+	if (!ready) {
+		Wrapped(theme::Dim(), why);
+	}
+	ImGui::BeginDisabled(!u.risk || picked.empty() || !ready || u.busy);
+	if (ImGui::Button(Fmt(tr("Remove the selected in the running game (%zu)"), picked.size()).c_str())) {
+		u.busy = true;
+		u.error.clear();
+		u.savedAs.clear();
+		_status = tr("Asking the game to remove the selected characters...");
+		_live.request({ "GHOSTREMOVE", ghost::RemoveArgument(picked), liveNotifyMode() }, [this, picked](const LiveLink::Reply& r) {
+			auto& v = _ghostUi;
+			v.busy = false;
+			if (!LiveLink::Ok(r)) {
+				v.error = tr("The game said: ") + LiveLink::Error(r);
+				_status = v.error;
+				return;
+			}
+			const auto res = ghost::ParseRemoveReply(std::vector<std::string>(r.begin() + 1, r.end()));
+			if (res.empty()) {
+				v.error = tr("The helper's answer could not be read. Look in ReSaverHelper.log.");
+				_status = v.error;
+				return;
+			}
+			for (const auto& x : res) {
+				std::erase_if(v.results, [&](const ghost::RemoveResult& o) { return o.id == x.id; });
+				v.results.push_back(x);
+				if (x.done()) {
+					v.unticked.insert(x.id);
+				}
+			}
+			const auto done = std::count_if(res.begin(), res.end(), [](const ghost::RemoveResult& x) { return x.done(); });
+			_status = Fmt(tr("%d of %zu character(s) removed in the game. Now save the game."), static_cast<int>(done), res.size());
+		});
+	}
+	ImGui::EndDisabled();
+	tips::Tip(tr("For each ticked character, in the running game: the console's disable, then markfordelete (as prid <id>, disable, "
+				 "markfordelete), one at a time. ReSaverHelper writes each step to its log first. Needs ReSaverHelper 15 or later."));
+	if (u.busy) {
+		ImGui::SameLine();
+		ImGui::TextDisabled("%s", tr("working..."));
+	}
+	if (!u.error.empty()) {
+		Wrapped(theme::Bad(), u.error);
+	}
+
+	// afterwards: save in the game, then check the new save
+	if (!u.results.empty()) {
+		const auto done = std::count_if(u.results.begin(), u.results.end(), [](const ghost::RemoveResult& x) { return x.done(); });
+		Wrapped(theme::Good(), Fmt(tr("%d character(s) removed in the running game. Now save the game as a NEW save (the removal "
+									   "is only kept in a save made after it), then open that save here to check it."),
+								   static_cast<int>(done)));
+		ImGui::BeginDisabled(u.saving || !helperAtLeast(12) || liveFO4());
+		if (ImGui::Button(tr("Save the game now (a new save)"))) {
+			u.saving = true;
+			_live.request({ "SAVEGAME", liveNotifyMode() }, [this](const LiveLink::Reply& r) {
+				_ghostUi.saving = false;
+				if (LiveLink::Ok(r)) {
+					_ghostUi.savedAs = LiveLink::Field(r, 0);
+					_status = tr("The game was saved as ") + _ghostUi.savedAs + tr(" (a new save: nothing was overwritten).");
+				} else {
+					_ghostUi.error = tr("The game said: ") + LiveLink::Error(r);
+				}
+			});
+		}
+		ImGui::EndDisabled();
+		tips::Tip(tr("The helper saves the game as ReSaverPP_Rescue_<date>_<time>. Or save in the game yourself."));
+		ImGui::SameLine();
+		if (ImGui::Button(u.savedAs.empty() ? tr("Check the newest save") : tr("Check the new save"))) {
+			auto f = findSaveNamed(u.savedAs);
+			if (f.empty() && !u.savedAs.empty()) {
+				f = findSaveNamed("");
+			}
+			if (f.empty()) {
+				_status = tr("No save found in the saves folder.");
+			} else {
+				open(f);
+			}
+		}
+		tips::Tip(tr("Opens that save here: its Save check should no longer list the removed characters. (Give the game a few "
+					 "seconds to finish writing the save first.)"));
+	}
+
+	// without the helper: the console commands to type
+	if (ImGui::TreeNode(tr("Without the helper: the console commands"))) {
+		ImGui::TextWrapped("%s", tr("Make a save first. In the game, right after loading, open the console (~) and type these lines, "
+									"one at a time (prid selects the character, disable hides it, markfordelete lets the game delete it). "
+									"Then save as a new save and open it here to check."));
+		const auto text = ghost::ConsoleText(picked);
+		ImGui::TextUnformatted(text.empty() ? tr("(tick the characters above)") : text.c_str());
+		ImGui::BeginDisabled(text.empty());
+		if (ImGui::Button(tr("Copy the console commands"))) {
+			ImGui::SetClipboardText(text.c_str());
+			_status = tr("Copied: the console commands for the ticked characters.");
+		}
+		ImGui::EndDisabled();
+		ImGui::TreePop();
+	}
+	ImGui::PopID();
 }
 
 void App::TextWrappedAt(std::uint32_t a_col, const std::string& a_text, float a_x)
