@@ -3,6 +3,8 @@
 // FormLists, batch clean, compare, reports and the save-folder watcher.
 #include "App.h"
 #include "Watchdog.h"
+#include <mutex>
+#include <set>
 
 #include "Platform.h"
 #include "Theme.h"
@@ -55,6 +57,7 @@ App::~App()
 {
 	_ai.clear();  // stops the chat's thread before the rest of the app goes
 	stopPathJob();
+	stopBackgroundJobs();  // (the watch, open and analysis workers own their data and end on their own)
 	if (_dbProgress) {
 		_dbProgress->cancel = true;
 	}
@@ -156,7 +159,7 @@ std::string App::gameLanguage() const
 
 void App::startNames(bool a_force)
 {
-	if (!_save || !_sources.scanned()) {
+	if (!_save || !_sources->scanned()) {
 		return;
 	}
 	const auto key = platform::ToUtf8(_path) + "|" + _sourcesPath + "|" + _profile;
@@ -176,9 +179,15 @@ void App::startNames(bool a_force)
 	_dbBuilding = std::make_unique<PluginDB>();
 	auto in = std::make_shared<PluginDB::Input>();
 	{
-		watchdog::Step st("PrepareInput + copy of the mods list");
-		PrepareInput(*_save, *in);
-		in->sources = _sources;
+		in->shared = _sources;
+		if (_wanted && _wantedSave == _save.get() && _wantedGen == _editGen) {
+			in->full = _save->plugins.full;  // (the forms the save refers to were worked out when it was opened)
+			in->lite = _save->plugins.lite;
+			in->wantedShared = _wanted;
+		} else {
+			watchdog::Step st("PrepareInput (the forms the save refers to)");
+			PrepareInput(*_save, *in);
+		}
 	}
 	in->language = gameLanguage();
 	in->fo4 = _save->isFO4();
@@ -195,6 +204,10 @@ void App::pollNames()
 		if (!_dbProgress->cancel) {
 			_db = std::move(_dbBuilding);
 			_rowsDirty = true;
+			invalidateCheck();
+			if (_save && !_save->isFO4()) {
+				startAnalysis(kAnSkyf);  // the followers view uses the names: worked out again on a worker
+			}
 			_status = Fmt(tr("Read %zu of %zu plugins: %zu named forms%s"), _db->pluginsRead, _db->plugins().size(), _db->size(),
 				_db->missing.empty() ? "" : Fmt(tr(" (%zu plugins not found)"), _db->missing.size()).c_str());
 		}
@@ -847,7 +860,7 @@ void App::drawReportModal()
 	ImGui::Separator();
 	ImGui::Checkbox(tr("Export the report as a PDF (otherwise a .txt file)"), &_reportOpt.pdf);
 	tips::Tip(tr("Ticked: a PDF you can open in any viewer. Unticked: a plain text file, easy to paste into a forum post."));
-	if (!_db && _sources.scanned()) {
+	if (!_db && _sources->scanned()) {
 		ImGui::TextDisabled("%s", namesLoading() ? tr("Plugin names are still being read; the report will show form IDs only.") : "");
 	}
 	ImGui::Spacing();
@@ -984,70 +997,121 @@ std::vector<std::filesystem::path> App::iniSaveFolders() const
 	return v;
 }
 
+// The saves folders are looked at every 1.5 s by a worker thread (WatchJob): listing a folder of hundreds of saves and
+// reading each one's time took the window ~10 ms a time under Wine, and much longer while the mods scan used the disk.
+// The window only opens what the worker found (pollWatch).
+struct App::WatchJob
+{
+	std::mutex                         m;
+	std::vector<std::filesystem::path> folders;  // guarded by m (the window refreshes it)
+	std::vector<std::filesystem::path> ready;    // new saves whose size stopped changing, guarded by m
+	std::atomic<bool>                  stop{ false };
+};
+
 void App::setWatching(bool a_on)
 {
 	_watch = a_on;
-	_watchPending.clear();
-	_watchSeen.clear();
+	if (_watchJob) {
+		_watchJob->stop = true;
+		_watchJob.reset();
+	}
 	if (a_on) {
-		// remember what is there now; only saves written from now on are opened
-		std::error_code ec;
-		for (const auto& dir : watchFolders()) {
-			for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
-				if (e.is_regular_file(ec) && IsSaveFile(e.path())) {
-					_watchSeen[e.path()] = e.last_write_time(ec);
+		// what is there now is remembered by the worker on its first look: only saves written from now on are opened
+		auto job = std::make_shared<WatchJob>();
+		job->folders = watchFolders();
+		_watchJob = job;
+		_watchFoldersNext = ImGui::GetTime() + 15.0;
+		std::thread([job] {
+			std::map<std::filesystem::path, std::filesystem::file_time_type>     seen;
+			std::map<std::filesystem::path, std::pair<std::uintmax_t, double>>  pending;
+			std::set<std::filesystem::path>                                     known;  // folders looked at once
+			const auto t0 = std::chrono::steady_clock::now();
+			auto       secs = [&] { return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); };
+			while (!job->stop) {
+				std::vector<std::filesystem::path> folders;
+				{
+					std::lock_guard l(job->m);
+					folders = job->folders;
+				}
+				const double    now = secs();
+				std::error_code ec;
+				for (const auto& dir : folders) {
+					const bool first = known.insert(dir).second;  // a folder seen for the first time: what is in it is old
+					for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
+						if (!e.is_regular_file(ec) || !IsSaveFile(e.path())) {
+							continue;
+						}
+						const auto t = e.last_write_time(ec);
+						auto       it = seen.find(e.path());
+						if (it != seen.end() && it->second == t) {
+							continue;
+						}
+						seen[e.path()] = t;
+						if (!first) {
+							pending[e.path()] = { e.file_size(ec), now };
+						}
+					}
+				}
+				// a new save is ready once its size has stopped changing (the game writes .ess then .skse)
+				for (auto it = pending.begin(); it != pending.end();) {
+					const auto size = std::filesystem::file_size(it->first, ec);
+					if (ec) {
+						it = pending.erase(it);
+						continue;
+					}
+					if (size != it->second.first) {
+						it->second = { size, now };
+						++it;
+						continue;
+					}
+					if (now - it->second.second < 2.0) {
+						++it;
+						continue;
+					}
+					{
+						std::lock_guard l(job->m);
+						job->ready.push_back(it->first);
+					}
+					it = pending.erase(it);
+				}
+				for (int i = 0; i < 15 && !job->stop; ++i) {
+					std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				}
 			}
-		}
+		}).detach();
 		_status = tr("Watching the saves folder: new saves open automatically.");
 	}
 	saveSettings();
 }
 
+void App::stopBackgroundJobs()
+{
+	if (_watchJob) {
+		_watchJob->stop = true;
+	}
+	stopOpenAndAnalysis();
+}
+
 void App::pollWatch()
 {
-	if (!_watch) {
+	if (!_watch || !_watchJob) {
 		return;
 	}
 	const double now = ImGui::GetTime();
-	if (now < _watchNext) {
-		return;
+	if (now >= _watchFoldersNext) {
+		// the folders themselves (the saves folder's sub-folders, sLocalSavePath in the game's ini files) change rarely
+		watchdog::Step st("the saves folders to watch");
+		_watchFoldersNext = now + 15.0;
+		auto f = watchFolders();
+		std::lock_guard l(_watchJob->m);
+		_watchJob->folders = std::move(f);
 	}
-	_watchNext = now + 1.5;
-	watchdog::Step st("looking for new saves (watch)");
-	std::error_code ec;
-	for (const auto& dir : watchFolders()) {
-		for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
-			if (!e.is_regular_file(ec) || !IsSaveFile(e.path())) {
-				continue;
-			}
-			const auto t = e.last_write_time(ec);
-			auto       it = _watchSeen.find(e.path());
-			if (it != _watchSeen.end() && it->second == t) {
-				continue;
-			}
-			_watchSeen[e.path()] = t;
-			_watchPending[e.path()] = { e.file_size(ec), now };
-		}
+	std::vector<std::filesystem::path> ready;
+	{
+		std::lock_guard l(_watchJob->m);
+		ready.swap(_watchJob->ready);
 	}
-	// open a new save once its size has stopped changing (the game writes .ess then .skse)
-	for (auto it = _watchPending.begin(); it != _watchPending.end();) {
-		const auto size = std::filesystem::file_size(it->first, ec);
-		if (ec) {
-			it = _watchPending.erase(it);
-			continue;
-		}
-		if (size != it->second.first) {
-			it->second = { size, now };
-			++it;
-			continue;
-		}
-		if (now - it->second.second < 2.0) {
-			++it;
-			continue;
-		}
-		const auto path = it->first;
-		it = _watchPending.erase(it);
+	for (const auto& path : ready) {
 		if (_dirty) {
 			_status = tr("New save ") + platform::ToUtf8(path.filename()) + tr(" appeared; not opened because this one has unsaved edits.");
 		} else {

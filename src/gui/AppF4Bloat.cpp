@@ -71,7 +71,7 @@ namespace
 		std::atomic<bool>     done{ false };
 		std::filesystem::path pluginsTxt;
 		locheck::Result       result;
-		std::size_t           plugins = 0;
+		std::atomic<std::size_t> plugins{ 0 };
 	};
 }
 
@@ -113,6 +113,30 @@ struct App::BloatState
 	std::vector<std::filesystem::path> loFixBackups;
 };
 
+void App::appendBloatJobs(std::vector<JobRow>& a_jobs)
+{
+	if (!_bloatState) {
+		return;
+	}
+	auto& st = *_bloatState;
+	if (st.self && !st.self->done) {
+		JobRow r;
+		r.name = tr("Measuring the save's size by mod");
+		a_jobs.push_back(std::move(r));
+	}
+	if (st.old && !st.old->done) {
+		JobRow r;
+		r.name = tr("Measuring the older save's size by mod");
+		a_jobs.push_back(std::move(r));
+	}
+	if (st.lo && !st.lo->done) {
+		JobRow r;
+		r.name = tr("Checking the load order");
+		r.total = 0;
+		a_jobs.push_back(std::move(r));
+	}
+}
+
 App::BloatState& App::bloatState()
 {
 	if (!_bloatState) {
@@ -124,7 +148,7 @@ App::BloatState& App::bloatState()
 std::shared_ptr<ScriptSources> App::bloatSources()
 {
 	// a copy for the worker threads (the scan may be replaced while they run)
-	return _sources.scanned() && !scanning() ? std::make_shared<ScriptSources>(_sources) : nullptr;
+	return _sources->scanned() && !scanning() ? _sources : nullptr;
 }
 
 void App::bloatReport(bool a_allowHere)
@@ -167,7 +191,7 @@ void App::bloatReport(bool a_allowHere)
 	}
 	const auto t0 = std::chrono::steady_clock::now();
 	bloat::Options o;
-	o.sources = _sources.scanned() ? &_sources : nullptr;
+	o.sources = _sources->scanned() ? _sources.get() : nullptr;
 	st.report = std::make_unique<bloat::Report>(bloat::Build(*_save, o));
 	st.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
 }
@@ -544,7 +568,7 @@ void App::drawLoadOrderFix()
 	auto& st = bloatState();
 	const char* id = trId("Fix the load order");
 	// planned from a check that read the scanned mods (one started before the scan is run again first)
-	const bool waitScan = !st.loScanned && (scanning() || (!_sourcesPath.empty() && !_sources.scanned()));
+	const bool waitScan = !st.loScanned && (scanning() || (!_sourcesPath.empty() && !_sources->scanned()));
 	if (st.loFixAsk && st.lo && st.lo->done && !waitScan) {
 		st.loFixAsk = false;
 		const auto& r = st.lo->result;
@@ -685,7 +709,7 @@ void App::drawLoadOrderCheck()
 	}
 	ImGui::TextDisabled(tr("Load order: %s"), platform::ToUtf8(pluginsTxt).c_str());
 
-	const bool noMods = _sourcesPath.empty() && !_sources.scanned() && gameFolder().empty();
+	const bool noMods = _sourcesPath.empty() && !_sources->scanned() && gameFolder().empty();
 	if (noMods) {
 		Colored(theme::Warn(), tr("ReSaver Plus does not know where your mods are yet: set your mods folder (Mod Organizer) or game folder in "
 		                       "Options > Settings, then come back here."));
@@ -696,22 +720,23 @@ void App::drawLoadOrderCheck()
 	ImGui::BeginDisabled(busy || scanning());
 	// the plugin files are found through the scan of the mods: started here when no save was opened yet (opening a save
 	// starts it otherwise)
-	if (!_sourcesPath.empty() && !_sources.scanned() && !scanning()) {
+	if (!_sourcesPath.empty() && !_sources->scanned() && !scanning()) {
 		ensureSourcesScanned();
 	}
 	// checked again by itself when the check ran before the scan of the mods had started (opened right at startup)
-	const bool rescan = st.lo && st.lo->done && !st.loScanned && _sources.scanned() && !scanning();
+	const bool rescan = st.lo && st.lo->done && !st.loScanned && _sources->scanned() && !scanning();
 	if (ImGui::Button(st.lo ? tr("Check again") : tr("Check the load order")) || (!st.lo && !scanning()) || rescan) {
-		st.loScanned = _sources.scanned();
+		st.loScanned = _sources->scanned();
 		auto job = std::make_shared<LoJob>();
 		job->pluginsTxt = pluginsTxt;
-		auto src = std::make_shared<ScriptSources>(_sources);
+		auto src = _sources;
 		const auto gf = gameFolder();
 		locheck::Options o;
 		o.game = game;
-		o.loadOrder = merge::ReadLoadOrder(pluginsTxt, gf, _game == 2 ? 2 : -1);
-		job->plugins = o.loadOrder.size();
-		std::thread([job, src, gf, o]() mutable {
+		const int g = _game == 2 ? 2 : -1;
+		std::thread([job, src, gf, o, pluginsTxt, g]() mutable {
+			o.loadOrder = merge::ReadLoadOrder(pluginsTxt, gf, g);  // (not on the window's thread)
+			job->plugins = o.loadOrder.size();
 			o.findPlugin = [src, gf](const std::string& a_name) -> std::optional<std::filesystem::path> {
 				if (auto p = src->pluginPath(a_name)) {
 					return p;
@@ -739,7 +764,7 @@ void App::drawLoadOrderCheck()
 	}
 	if (busy) {
 		ImGui::SameLine();
-		ImGui::TextDisabled(tr("reading %zu plugins..."), st.lo->plugins);
+		ImGui::TextDisabled(tr("reading %zu plugins..."), st.lo->plugins.load());
 		drawLoadOrderFix();  // the result of Fix the order stays on screen while the check runs again
 		ImGui::End();
 		return;
@@ -859,17 +884,18 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 			_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_game, le);
 		std::error_code ec;
 		const auto      t = std::filesystem::last_write_time(pluginsTxt, ec);
-		const bool      known = !ec && (_sources.scanned() || !gameFolder().empty()) && !scanning();
+		const bool      known = !ec && (_sources->scanned() || !gameFolder().empty()) && !scanning();
 		if (known && (!st.lo || (st.lo->done && (st.loFile != pluginsTxt || st.loTime != t)))) {
 			auto job = std::make_shared<LoJob>();
 			job->pluginsTxt = pluginsTxt;
-			auto       src = std::make_shared<ScriptSources>(_sources);
+			auto       src = _sources;
 			const auto gf = gameFolder();
 			locheck::Options o;
 			o.game = GameOf(_game, le);
-			o.loadOrder = merge::ReadLoadOrder(pluginsTxt, gf, _game == 2 ? 2 : -1);
-			job->plugins = o.loadOrder.size();
-			std::thread([job, src, gf, o]() mutable {
+			const int  game = _game == 2 ? 2 : -1;
+			std::thread([job, src, gf, o, pluginsTxt, game]() mutable {
+				o.loadOrder = merge::ReadLoadOrder(pluginsTxt, gf, game);  // (reads the file and the plugins' headers: not on the window's thread)
+				job->plugins = o.loadOrder.size();
 				o.findPlugin = [src, gf](const std::string& a_name) -> std::optional<std::filesystem::path> {
 					if (auto p = src->pluginPath(a_name)) {
 						return p;
@@ -889,7 +915,7 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 			st.loFile = pluginsTxt;
 			st.loTime = t;
 			st.loAuto = true;
-			st.loScanned = _sources.scanned();
+			st.loScanned = _sources->scanned();
 		}
 		if (st.lo && st.lo->done) {
 			const auto& r = st.lo->result;

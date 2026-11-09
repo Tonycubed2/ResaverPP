@@ -109,8 +109,17 @@ namespace
 	constexpr int              kMaxSteps = 8;
 	std::atomic<const char*>   g_steps[kMaxSteps]{};
 	std::atomic<int>           g_stepDepth{ 0 };
-	std::atomic<const char*>   g_alive{ nullptr };  // set while the loop runs without drawing (minimized)
+	std::atomic<const char*>   g_alive{ nullptr };
+	std::thread::id            g_uiThread = std::this_thread::get_id();  // (static init runs on the main thread)  // set while the loop runs without drawing (minimized)
 	const bool                 g_timing = std::getenv("RESAVERPP_TIMING") != nullptr;
+	// RESAVERPP_TIMING=mark: each step also looks up a made-up file "/resaverpp-step/<begin|end>/<step>", so a system call
+	// trace (strace, also under Wine) shows where each step starts and ends, and which file calls each one makes
+	const bool                 g_marks = g_timing && std::string(std::getenv("RESAVERPP_TIMING")) == "mark";
+	void Mark(const char* a_what, const char* a_name)
+	{
+		std::error_code ec;
+		(void)std::filesystem::exists(std::filesystem::path(std::string("/resaverpp-step/") + a_what + "/" + a_name), ec);
+	}
 
 	// "pollScan > checkMissingPlugins > the installed plugins' files"
 	std::string WherePath(int a_depth)
@@ -200,21 +209,33 @@ namespace watchdog
 
 	Step::Step(const char* a_name) :
 		_t0(std::chrono::steady_clock::now()),
-		_depth(g_stepDepth.load())
+		_depth(std::this_thread::get_id() == g_uiThread ? g_stepDepth.load() : -1)
 	{
+		if (_depth < 0) {
+			return;  // (the same code run by a worker thread: the steps are the window's)
+		}
 		if (_depth < kMaxSteps) {
 			g_steps[_depth] = a_name;
 		}
 		g_stepDepth = _depth + 1;
+		if (g_marks) {
+			Mark("begin", a_name);
+		}
 	}
 
 	Step::~Step()
 	{
+		if (_depth < 0) {
+			return;
+		}
 		const auto ms = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - _t0).count() / 1000.0;
 		if (ms > 500.0 || (g_timing && ms >= 1.0)) {
 			char b[64];
 			std::snprintf(b, sizeof(b), " took %.0f ms", ms);
 			Log("slow: " + WherePath(_depth + 1) + b);
+		}
+		if (g_marks && _depth < kMaxSteps) {
+			Mark("end", g_steps[_depth].load());
 		}
 		g_stepDepth = _depth;
 	}
@@ -610,6 +631,9 @@ int RunApp(int argc, char** argv)
 		}
 	}
 
+	// from now on a save opens on a worker thread (the window keeps drawing; the test hooks above wanted it read already)
+	app.setAsyncOpen(std::getenv("RESAVERPP_SYNC_OPEN") == nullptr);
+
 	// optional: RESAVERPP_SCREENSHOT=<file.ppm> renders a few frames, saves the window and exits (used for testing)
 	const char* shotPath = std::getenv("RESAVERPP_SCREENSHOT");
 	int         frame = 0;
@@ -761,6 +785,11 @@ int RunApp(int argc, char** argv)
 		}
 	}
 
+	if (std::getenv("RESAVERPP_TEST_DUMP_STATE")) {
+		for (const auto& l : app.testDumpState()) {
+			Log("state: " + l);
+		}
+	}
 #ifdef _WIN32
 	timeEndPeriod(1);
 #endif

@@ -119,7 +119,7 @@ App::F4CompanionsState& App::f4companions()
 		st.questGen = _editGen;
 		st.questSave = _save.get();
 		st.questStats = {};
-		st.quests = fo4quest::FindStoppedStages(*_save, *_db, _sources, &st.questStats);
+		st.quests = fo4quest::FindStoppedStages(*_save, *_db, *_sources, &st.questStats);
 	}
 	return st;
 }

@@ -855,7 +855,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 			if (!std::filesystem::exists(p, ec)) {
 				return "not opened: " + platform::ToUtf8(p) + " does not exist";
 			}
-			open(p);
+			openNow(p);  // (the answer says whether it opened)
 			return _save && _path == p ? "opened " + platform::ToUtf8(p) : "could not open it: " + _status;
 		});
 	}

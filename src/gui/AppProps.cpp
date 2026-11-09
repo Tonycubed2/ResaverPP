@@ -152,7 +152,7 @@ bool App::formPicker(Variable& a_var)
 
 	// the names come from the plugins: read them now if they are not yet
 	if (!_db) {
-		if (!_sources.scanned()) {
+		if (!_sources->scanned()) {
 			ImGui::PushTextWrapPos(ImGui::GetFontSize() * 40);
 			ImGui::TextWrapped("%s", tr("To list the forms by name, ReSaver Plus reads your plugins. Tell it where your mods are first: Options > "
 							   "Settings > Choose mods folder."));
@@ -456,7 +456,7 @@ void App::preparePluginAsk(EID a_instance, const std::string& a_property, std::u
 			return;
 		}
 	}
-	const auto path = _sources.pluginPath(a.plugin);
+	const auto path = _sources->pluginPath(a.plugin);
 	if (!path) {
 		a.why = a.plugin + tr(" was not found in your mods.");
 		return;

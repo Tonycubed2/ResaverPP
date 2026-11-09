@@ -96,7 +96,7 @@ const App::QuestPreview& App::questPreview(std::uint32_t a_formID)
 		return pv;
 	}
 	try {
-		const auto px = _sources.findPex(def->fragmentScript);
+		const auto px = _sources->findPex(def->fragmentScript);
 		if (!px) {
 			pv.error = tr("Its stage script ") + def->fragmentScript + tr(".pex was not found in your mods.");
 			return pv;

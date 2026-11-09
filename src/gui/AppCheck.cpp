@@ -87,6 +87,23 @@ namespace
 
 std::vector<App::CheckItem> App::checkItems()
 {
+	// Asked for up to three times a frame (menu bar, Overview, Save check): worked out at most twice a second, at once
+	// after anything it shows changed (invalidateCheck). It used to read plugins.txt and stat files every time: under
+	// Wine each such call is slow, and it slowed every frame.
+	const double now = ImGui::GetTime();
+	if (_checkCache && _checkSave == _save.get() && _checkGen == _editGen && now < _checkNext) {
+		return *_checkCache;
+	}
+	auto v = computeCheckItems();
+	_checkCache = std::make_shared<std::vector<CheckItem>>(v);
+	_checkSave = _save.get();
+	_checkGen = _editGen;
+	_checkNext = now + 0.5;
+	return v;
+}
+
+std::vector<App::CheckItem> App::computeCheckItems()
+{
 	std::vector<CheckItem> v;
 	if (!_save) {
 		return v;

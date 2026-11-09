@@ -91,7 +91,7 @@ void App::drawMergedPatch()
 		ImGui::TextDisabled(tr("Mod Organizer profile: %s"), _profile.c_str());
 	}
 
-	const bool noMods = _sourcesPath.empty() && !_sources.scanned();
+	const bool noMods = _sourcesPath.empty() && !_sources->scanned();
 	if (noMods) {
 		Colored(theme::Warn(), tr("ReSaver Plus does not know where your mods are yet: set your mods folder (Mod Organizer) or game folder in "
 							   "Options > Settings, then come back here."));
@@ -110,7 +110,7 @@ void App::drawMergedPatch()
 		opt->patchName = kPatchName;
 		opt->game = f4 ? 2 : 0;
 		opt->light = !f4NoLight;
-		auto src = std::make_shared<ScriptSources>(_sources);
+		auto src = _sources;
 		merge::UseSources(*opt, *src);
 		_mergeLoadOrder = opt->loadOrder.size();
 		_mergeProgress = std::make_unique<merge::Progress>();
@@ -122,7 +122,7 @@ void App::drawMergedPatch()
 			_mergeBusy = false;
 		});
 	};
-	if (_mergeWaitScan && !scanning() && _sources.scanned()) {
+	if (_mergeWaitScan && !scanning() && _sources->scanned()) {
 		_mergeWaitScan = false;
 		start();
 	}

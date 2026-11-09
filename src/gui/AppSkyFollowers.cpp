@@ -5,6 +5,7 @@
 // scripts: SETSTAGE 000750BA 400 (DismissFollower), FOLLOWERSET (SetFollower, helper 13), TEAMMATE (helper 13),
 // GATHER <id> (helper 12.2), SETSTAGE <quest> 100 (ShiftBack), BEASTREVERT (helper 13).
 #include "App.h"
+#include "Watchdog.h"
 
 #include "Theme.h"
 #include "Tips.h"
@@ -48,28 +49,19 @@ struct App::SkyFollowersView
 	std::string                   gameNote;  // the last answer from the game
 };
 
-void App::skyfRefresh()
+std::shared_ptr<App::SkyFollowersView> App::ComputeSkyf(const SaveFile& a_save, const PluginDB* a_db)
 {
-	if (!_save || fo4()) {
-		return;
-	}
-	if (!_skyf) {
-		_skyf = std::make_shared<SkyFollowersView>();
-	}
-	auto& v = *_skyf;
-	if (v.save == _save.get() && v.gen == _editGen && v.db == _db.get()) {
-		return;
-	}
-	v.save = _save.get();
-	v.gen = _editGen;
-	v.db = _db.get();
-	const auto* db = _db.get();
-	v.fol = skyf::ReadFollowers(*_save, [db](std::uint32_t ref) -> std::uint32_t {
+	auto  out = std::make_shared<SkyFollowersView>();
+	auto& v = *out;
+	v.save = &a_save;
+	v.db = a_db;
+	const auto* db = a_db;
+	v.fol = skyf::ReadFollowers(a_save, [db](std::uint32_t ref) -> std::uint32_t {
 		const auto* f = db ? db->find(ref) : nullptr;
 		return f ? f->base : 0;
 	});
-	v.beasts = skyf::ReadBeastForms(*_save);
-	v.stages = skyf::FindStuckStages(*_save, [db](std::uint32_t q) {
+	v.beasts = skyf::ReadBeastForms(a_save);
+	v.stages = skyf::FindStuckStages(a_save, [db](std::uint32_t q) {
 		std::vector<std::pair<std::uint16_t, std::uint8_t>> st;
 		if (const auto* d = db ? db->quest(q) : nullptr) {
 			for (const auto& s : d->stages) {
@@ -78,6 +70,60 @@ void App::skyfRefresh()
 		}
 		return skyf::ShutdownOnlyStages(st);
 	});
+	return out;
+}
+
+void App::adoptSkyf(std::shared_ptr<SkyFollowersView> a_view)
+{
+	const std::string note = skyfGameNote();
+	a_view->save = _save.get();
+	a_view->gen = _editGen;
+	a_view->db = _db.get();
+	a_view->gameNote = note;
+	_skyf = std::move(a_view);
+}
+
+std::string App::skyfSummary() const
+{
+	if (!_skyf) {
+		return "skyf: none";
+	}
+	std::string st;
+	for (const auto& x : _skyf->stages) {
+		st += Fmt(" %08X", x.quest);
+	}
+	return Fmt("skyf: %zu follower findings, %zu beasts, %zu stages%s", _skyf->fol.findings.size(), _skyf->beasts.size(), _skyf->stages.size(), st.c_str());
+}
+
+std::string App::skyfGameNote() const { return _skyf ? _skyf->gameNote : std::string(); }
+void        App::setSkyfGameNote(const std::string& a_note)
+{
+	if (_skyf) {
+		_skyf->gameNote = a_note;
+	}
+}
+
+void App::skyfRefresh()
+{
+	if (!_save || fo4()) {
+		return;
+	}
+	if (_skyf && _skyf->save == _save.get() && _skyf->gen == _editGen && _skyf->db == _db.get()) {
+		return;
+	}
+	if (analysisWillProvide(kAnSkyf)) {
+		// worked out in the background: until then the view made at opening (without the names) is shown, never
+		// another save's
+		if (_skyf && (_skyf->save != _save.get() || _skyf->gen != _editGen)) {
+			_skyf.reset();
+		}
+		return;
+	}
+	watchdog::Step st("followers, beast form, quests (skyf)");
+	const std::string note = skyfGameNote();
+	_skyf = ComputeSkyf(*_save, _db.get());
+	_skyf->gen = _editGen;
+	_skyf->gameNote = note;
 }
 
 // the running game's form id for a form of the save: asked from the game (RESOLVE) for plugin forms, since the game's load
@@ -150,6 +196,10 @@ void App::drawSkyFollowers()
 	maximizeControl("Followers and beast form");
 	skyfRefresh();
 	if (!_skyf) {
+		// still worked out in the background: its progress instead of an empty window
+		if (!drawJobsInline({ N_("Opening "), N_("Working out the results for your mods") })) {
+			ImGui::TextDisabled("%s", tr("Reading the save..."));
+		}
 		ImGui::End();
 		return;
 	}

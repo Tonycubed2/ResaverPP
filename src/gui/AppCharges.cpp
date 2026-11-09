@@ -64,6 +64,19 @@ struct App::PathJob
 	std::vector<std::string>            log;
 };
 
+void App::appendPathJob(std::vector<JobRow>& a_jobs)
+{
+	if (_pathJob && !_pathJob->finished) {
+		JobRow r;
+		r.name = tr("Checking the characters for the crash-on-load problem");
+		r.done = _pathJob->done.load();
+		r.total = _pathJob->total.load();
+		auto job = _pathJob;
+		r.cancel = [job] { job->cancel = true; };
+		a_jobs.push_back(std::move(r));
+	}
+}
+
 void App::stopPathJob()
 {
 	if (_pathJob) {
@@ -94,7 +107,7 @@ void App::pollPathIdles()
 	}
 	// it waits for the mods scan and the plugin names: those come first, and on a slow PC (or under Wine) the
 	// three at once crawled
-	if (_pathJobPending && _save && !scanning() && !namesLoading()) {
+	if (_pathJobPending && _save && !scanning() && !namesLoading() && !_openJob && !_analysisJob) {
 		_pathJobPending = false;
 		auto job = std::make_shared<PathJob>();
 		job->copy.header = _save->header;

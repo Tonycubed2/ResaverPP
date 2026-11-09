@@ -186,6 +186,20 @@ void App::loadGallery(const std::filesystem::path& a_folder)
 	_galleryCharacter.clear();
 }
 
+void App::appendGalleryJob(std::vector<JobRow>& a_jobs)
+{
+	if (_gallery && !_gallery->done && _showGallery) {
+		JobRow r;
+		r.name = tr("Reading the saves' pictures");
+		r.done = _gallery->readCount.load();
+		{
+			std::lock_guard l(_gallery->m);
+			r.total = _gallery->entries.size();
+		}
+		a_jobs.push_back(std::move(r));
+	}
+}
+
 void App::startOpenDialog()
 {
 	if (!_settingsLoaded) {
