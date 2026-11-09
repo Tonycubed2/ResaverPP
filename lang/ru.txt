@@ -8096,36 +8096,36 @@ en "Thai 874"
 tr "Тайская 874"
 
 # AppMore.cpp:923  { 1257, N_("Baltic 1257") }, { 1258, N_("Vietnamese 1258") }, { 874, N_("Thai 874") }, { 932, N_("Japanese 932") }, { 936, N_("Chinese Simplified 936"
-en "Japanese 932"
-tr "Японская 932"
+en "Japanese Shift-JIS 932"
+tr "Японская Shift-JIS 932"
 
 # AppMore.cpp:923  { 1257, N_("Baltic 1257") }, { 1258, N_("Vietnamese 1258") }, { 874, N_("Thai 874") }, { 932, N_("Japanese 932") }, { 936, N_("Chinese Simplified 936"
-en "Chinese Simplified 936"
-tr "Китайская упрощённая 936"
+en "Chinese Simplified GBK 936"
+tr "Китайская упрощённая GBK 936"
 
 # AppMore.cpp:924  { 949, N_("Korean 949") }, { 950, N_("Chinese Traditional 950") } };
 en "Korean 949"
 tr "Корейская 949"
 
 # AppMore.cpp:924  { 949, N_("Korean 949") }, { 950, N_("Chinese Traditional 950") } };
-en "Chinese Traditional 950"
-tr "Китайская традиционная 950"
+en "Chinese Traditional Big5 950"
+tr "Китайская традиционная Big5 950"
 
 # AppMore.cpp:932  current = Fmt(tr("Automatic (this system: %u)"), text::EffectiveCodePage());
-en "Automatic (this system: %u)"
-tr "Автоматически (в этой системе: %u)"
+en "Automatic (now: %s)"
+tr "Автоматически (сейчас: %s)"
 
 # AppMore.cpp:935  const bool tipOpen805 = ImGui::BeginCombo(tr("Text encoding"), current.c_str());
-en "Text encoding"
-tr "Кодировка текста"
+en "Text encoding of plugins and saves"
+tr "Кодировка текста плагинов и сохранений"
 
 # AppMore.cpp:936  tips::Tip(tr("The code page used to show names saved by a non-English game. Automatic uses your system's."));
-en "The code page used to show names saved by a non-English game. Automatic uses your system's."
-tr "Кодовая страница для имён, сохранённых не английской версией игры. «Автоматически» берёт системную."
+en "How names, places and texts that are not UTF-8 are read: older mods made on a Chinese, Japanese, Russian... Windows. Automatic uses your Windows code page, or the game's language when Windows uses UTF-8."
+tr "Как читаются имена, места и тексты не в UTF-8: старые моды, сделанные в китайской, японской, русской... Windows. «Автоматически» берёт кодовую страницу Windows, а если Windows работает в UTF-8, то язык игры."
 
 # AppMore.cpp:947  ImGui::TextDisabled("%s", tr("Names and places in saves are shown in this encoding when they are not UTF-8.\n"
-en "Names and places in saves are shown in this encoding when they are not UTF-8.\nJapanese, Chinese, Korean and Thai characters need a restart after changing it (fonts)."
-tr "Имена и места в сохранениях показываются в этой кодировке, если они не в UTF-8.\nДля японских, китайских, корейских и тайских символов после изменения нужен перезапуск (шрифты)."
+en "Text that is valid UTF-8 is always shown as UTF-8 (the games and most translations use it); this is for the rest.\nEdited texts are written back in the encoding they had. Chinese, Japanese, Korean and Thai characters\ncome from a font of your system when they are first shown."
+tr "Текст в правильном UTF-8 всегда показывается как UTF-8 (так пишут игры и большинство переводов); настройка — для остального.\nИзменённые тексты записываются обратно в той же кодировке. Китайские, японские, корейские и тайские символы\nберутся из шрифта системы, когда впервые появляются на экране."
 
 # AppMore.cpp:950  ImGui::SeparatorText(tr("Saving"));
 en "Saving"

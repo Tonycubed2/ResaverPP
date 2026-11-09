@@ -52,6 +52,29 @@ A file next to the exe wins over the built-in translation, text by text; texts m
 For a new language, copy `ru.txt`, rename it (`de.txt`, `pl.txt`...), change the `language` line and replace every
 `tr` line (or empty them: `tr ""`).
 
+## Chinese (and Japanese, Korean)
+
+A ready file for Simplified Chinese is in the source: `lang/template/zh-Hans.txt` (download it from GitHub,
+Tonycubed2/ResaverPP, or ask on the Nexus page). It has every text with an empty `tr ""`.
+
+1. Translate as many `tr ""` lines as you like (an empty one shows the English, so a half-done file works too).
+   Write the Chinese as it is: the file is UTF-8 (in Notepad: Save as > Encoding: UTF-8). Keep the first line
+   `language "简体中文"`.
+2. Test it: make a folder `lang` next to `ReSaverPP.exe`, put the file in it as `zh-Hans.txt`, start ReSaver Plus and
+   choose 简体中文 in Options > Language. Edit, then press **Reload language files** in Options > Settings.
+3. Send the file back (see "Sending it" below). Tell us which texts you were unsure of and where the Chinese is too
+   long for its button; a screenshot helps.
+
+Chinese characters are drawn with a font of your Windows (Microsoft YaHei, else SimSun; on Linux / Wine Noto Sans CJK
+or WenQuanYi): nothing to install. The font is loaded when the first Chinese character shows, at the size of the
+interface font. The language code decides which font shapes come first: `zh-Hans` (Simplified), `zh-Hant`
+(Traditional: Microsoft JhengHei), `ja` (Japanese: Yu Gothic / Meiryo), `ko` (Korean: Malgun Gothic). For Traditional
+Chinese, Japanese or Korean, copy the template to `zh-Hant.txt`, `ja.txt` or `ko.txt` and change the `language` line.
+
+Not translated (they stay English in every language): texts from the save check's findings that come from the core,
+change form labels, error messages from the core, AI prompts, logs, the command line tool, reports and system info,
+and messages shown in the game.
+
 ## Sending it
 
 Post the file on the ReSaver Plus Nexus page (Posts or Bugs, or a private message to tonycubed2), or open a pull
@@ -65,4 +88,7 @@ request on GitHub (Tonycubed2/ResaverPP) that changes `lang/<code>.txt`. It is t
 - `python3 tools/i18n/tr_keys.py --update lang/ru.txt` adds new texts to the catalogue (with `tr ""`), keeps the
   translations and moves texts the code no longer uses to the end. `--check` fails when a text is missing (CTest
   `i18n_keys`); `rs_lang_test` checks the `%` conversions.
-- `lang/*.txt` are built into the exe by `cmake/EmbedLang.cmake`.
+- `lang/*.txt` are built into the exe by `cmake/EmbedLang.cmake`. `lang/template/*.txt` are not (empty templates for
+  volunteers): keep them in step with `python3 tools/i18n/tr_keys.py --update lang/template/zh-Hans.txt` (CTest
+  `i18n_template_zh`). A returned translation goes to `lang/zh-Hans.txt` and is built in from then on.
+- Language codes may have capitals (`zh-Hans`): letters, digits, `-` and `_`.

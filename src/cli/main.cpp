@@ -492,8 +492,43 @@ static int AnalyzeLogsMain(int argc, char** argv)
 	return 0;
 }
 
+#ifdef _WIN32
+#	ifndef WIN32_LEAN_AND_MEAN
+#		define WIN32_LEAN_AND_MEAN
+#	endif
+#	ifndef NOMINMAX
+#		define NOMINMAX
+#	endif
+#	include <windows.h>
+#	include <shellapi.h>
+#endif
+
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+	// The arguments as UTF-8 (what std::filesystem::path takes from text with MinGW): main's argv is in the Windows code
+	// page, where a file or folder name with Chinese (on a non-Chinese Windows) already turned into '?'. Output in UTF-8.
+	static std::vector<std::string> u8args;
+	static std::vector<char*>       u8argv;
+	if (int wargc = 0; LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &wargc)) {
+		for (int i = 0; i < wargc; ++i) {
+			const int n = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, nullptr, 0, nullptr, nullptr);
+			std::string a(static_cast<std::size_t>(n > 0 ? n - 1 : 0), '\0');
+			if (n > 1) {
+				WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, a.data(), n, nullptr, nullptr);
+			}
+			u8args.push_back(std::move(a));
+		}
+		LocalFree(wargv);
+		for (auto& a : u8args) {
+			u8argv.push_back(a.data());
+		}
+		u8argv.push_back(nullptr);
+		argc = wargc;
+		argv = u8argv.data();
+	}
+	SetConsoleOutputCP(CP_UTF8);
+#endif
 	if (argc < 2 || !std::strcmp(argv[1], "-h") || !std::strcmp(argv[1], "--help")) {
 		Usage();
 		return argc < 2 ? 1 : 0;
@@ -2207,7 +2242,7 @@ int main(int argc, char** argv)
 			}
 		}
 		if (!batchFile.empty()) {
-			std::ifstream bf(batchFile);
+			std::ifstream bf(std::filesystem::path(std::u8string(batchFile.begin(), batchFile.end())));
 			std::string   list((std::istreambuf_iterator<char>(bf)), std::istreambuf_iterator<char>());
 			auto          matches = batch::Resolve(*save, list);
 			for (auto& mt : matches) {

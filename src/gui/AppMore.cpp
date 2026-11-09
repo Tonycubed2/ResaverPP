@@ -4,6 +4,7 @@
 #include "App.h"
 #include <algorithm>
 
+#include "Fonts.h"
 #include "Platform.h"
 #include "Theme.h"
 #include "Tips.h"
@@ -920,22 +921,26 @@ void App::drawSettings()
 			unsigned    cp;
 			const char* name;
 		};
-		static const Cp cps[] = { { 0, N_("Automatic") }, { 65001, "UTF-8" }, { 1250, N_("Central European (Polish, Czech, Hungarian...) 1250") },
-			{ 1251, N_("Cyrillic (Russian, Ukrainian...) 1251") }, { 1252, N_("Western European 1252") }, { 1253, N_("Greek 1253") }, { 1254, N_("Turkish 1254") },
-			{ 1257, N_("Baltic 1257") }, { 1258, N_("Vietnamese 1258") }, { 874, N_("Thai 874") }, { 932, N_("Japanese 932") }, { 936, N_("Chinese Simplified 936") },
-			{ 949, N_("Korean 949") }, { 950, N_("Chinese Traditional 950") } };
-		std::string current = tr("Automatic");
+		static const Cp cps[] = { { 0, N_("Automatic") }, { 65001, "UTF-8" }, { 1252, N_("Western European 1252") },
+			{ 1250, N_("Central European (Polish, Czech, Hungarian...) 1250") }, { 1251, N_("Cyrillic (Russian, Ukrainian...) 1251") },
+			{ 1253, N_("Greek 1253") }, { 1254, N_("Turkish 1254") }, { 1257, N_("Baltic 1257") }, { 1258, N_("Vietnamese 1258") },
+			{ 936, N_("Chinese Simplified GBK 936") }, { 950, N_("Chinese Traditional Big5 950") }, { 932, N_("Japanese Shift-JIS 932") },
+			{ 949, N_("Korean 949") }, { 874, N_("Thai 874") } };
+		std::string current;
 		for (const auto& c : cps) {
 			if (c.cp == text::CodePage()) {
 				current = tr(c.name);
 			}
 		}
 		if (text::CodePage() == 0) {
-			current = Fmt(tr("Automatic (this system: %u)"), text::EffectiveCodePage());
+			current = Fmt(tr("Automatic (now: %s)"), text::CodePageName(text::EffectiveCodePage()).c_str());
+		} else if (current.empty()) {
+			current = text::CodePageName(text::CodePage());
 		}
 		ImGui::SetNextItemWidth(420);
-		const bool tipOpen805 = ImGui::BeginCombo(tr("Text encoding"), current.c_str());
-		tips::Tip(tr("The code page used to show names saved by a non-English game. Automatic uses your system's."));
+		const bool tipOpen805 = ImGui::BeginCombo(tr("Text encoding of plugins and saves"), current.c_str());
+		tips::Tip(tr("How names, places and texts that are not UTF-8 are read: older mods made on a Chinese, Japanese, Russian... Windows. "
+					 "Automatic uses your Windows code page, or the game's language when Windows uses UTF-8."));
 		if (tipOpen805) {
 			for (const auto& c : cps) {
 				if (ImGui::Selectable(tr(c.name), c.cp == text::CodePage())) {
@@ -946,8 +951,10 @@ void App::drawSettings()
 			}
 			ImGui::EndCombo();
 		}
-		ImGui::TextDisabled("%s", tr("Names and places in saves are shown in this encoding when they are not UTF-8.\n"
-							"Japanese, Chinese, Korean and Thai characters need a restart after changing it (fonts)."));
+		ImGui::TextDisabled("%s", tr("Text that is valid UTF-8 is always shown as UTF-8 (the games and most translations use it); this is for the rest.\n"
+							"Edited texts are written back in the encoding they had. Chinese, Japanese, Korean and Thai characters\n"
+							"come from a font of your system when they are first shown."));
+		ImGui::TextDisabled("%s", fonts::Status().c_str());
 	}
 	ImGui::SeparatorText(tr("Saving"));
 	const char* comp[] = { tr("Keep the save's compression"), tr("LZ4 (game default)"), "zlib", tr("Uncompressed") };

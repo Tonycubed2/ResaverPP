@@ -61,6 +61,9 @@ file(GLOB RS_CLI_SOURCES CONFIGURE_DEPENDS src/cli/*.cpp)
 if (RS_CLI_SOURCES)
 	add_executable(resaverpp-cli ${RS_CLI_SOURCES})
 	target_link_libraries(resaverpp-cli PRIVATE rs_core)
+	if (WIN32)
+		target_link_libraries(resaverpp-cli PRIVATE shell32)  # CommandLineToArgvW: the arguments in Unicode
+	endif()
 	rs_add_version_info(resaverpp-cli resaverpp-cli "ReSaver++ command line - Skyrim save editor")
 	if (MINGW)
 		target_link_options(resaverpp-cli PRIVATE -static)
@@ -114,6 +117,8 @@ if (RESAVERPP_TESTS)
 	find_package(Python3 COMPONENTS Interpreter QUIET)
 	if (Python3_FOUND)
 		add_test(NAME i18n_keys COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/i18n/tr_keys.py --check ${CMAKE_SOURCE_DIR}/lang/ru.txt)
+		# ... and in the empty template a volunteer fills in (lang/template/zh-Hans.txt: not built in until translated)
+		add_test(NAME i18n_template_zh COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/i18n/tr_keys.py --check ${CMAKE_SOURCE_DIR}/lang/template/zh-Hans.txt)
 	endif()
 	# real saves: -DRESAVERPP_TEST_SAVES=<folder with .ess files>. Each is loaded, written back and
 	# compared, backups checked. A folder given without saves in it fails the run (fixtures missing).
