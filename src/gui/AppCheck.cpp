@@ -703,7 +703,7 @@ std::vector<App::CheckItem> App::computeCheckItems()
 			if (l.repeats) {
 				++repeat;
 				if (repeat <= 8) {
-					repeatList += "\n- " + formText(l.quest) + " (" + l.why + ")";
+					repeatList += "\n- " + formText(l.quest) + " (" + repeatText(l.why) + ")";
 				}
 				continue;
 			}

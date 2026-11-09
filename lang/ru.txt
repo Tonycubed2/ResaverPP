@@ -13166,6 +13166,66 @@ tr "Перемещает каждый мастер-файл, который за
 en "#n: the plugin's position among the enabled plugins in plugins.txt, counting from 0."
 tr "#n: место плагина среди включённых плагинов в plugins.txt, считая с 0."
 
+en ": %zu objective(s)"
+tr ": целей — %zu"
+
+en "\n- and %zu more"
+tr "\n- и ещё %zu"
+
+en "Your journal shows %zu stopped quest(s) as still in progress"
+tr "Журнал показывает остановленные квесты как ещё не завершённые: %zu"
+
+en "They stopped without being completed, but %zu of their objectives are still listed as in progress. Look at each one on the Quests page before you change it: a quest a mod stops and starts again by itself is normal."
+tr "Они остановлены, но не завершены, а %zu их целей всё ещё числятся в журнале как текущие. Посмотрите каждый на странице «Квесты», прежде чем что-то менять: квест, который мод сам останавливает и запускает снова, — это нормально."
+
+en "\n\nNot counted: %zu stopped quest(s) that repeat by design, so their entries are normal (the next run moves them to Completed). Do not close these out:"
+tr "\n\nНе учтены: повторяющиеся по замыслу остановленные квесты (%zu) — их записи нормальны (при следующем запуске они перейдут в «Завершённые»). Не закрывайте их:"
+
+en "\n\nCompleted quests and earlier runs of repeated quests are your journal's Completed list and are not counted."
+tr "\n\nЗавершённые квесты и прошлые прохождения повторяющихся квестов — это раздел «Завершённые» вашего журнала; они не учитываются."
+
+en "Only shows information. Each quest's page says whether it repeats before you complete or stop it there."
+tr "Только показывает сведения. Страница каждого квеста сообщает, повторяется ли он, прежде чем вы его там завершите или остановите."
+
+en "Your journal's list is full: %zu of %u entries"
+tr "Список журнала заполнен: %zu из %u записей"
+
+en "The game keeps at most 3000 objectives in the journal (iMaxQuestObjectives, unless a mod changes it). When a new objective is shown, it removes the oldest quest's entries to make room: old quests, mostly completed ones, leave the journal. Quests themselves are not changed."
+tr "Игра хранит в журнале не более 3000 целей (iMaxQuestObjectives, если мод не меняет это значение). Когда появляется новая цель, игра удаляет записи самого старого квеста, чтобы освободить место: старые квесты, в основном завершённые, пропадают из журнала. Сами квесты не меняются."
+
+en "Nothing to refresh: the journal already lists every objective the running quests show."
+tr "Обновлять нечего: журнал уже содержит все цели, которые показывают активные квесты."
+
+en "Brings back quests and objectives the journal stopped showing: each objective a running quest shows that is\nmissing from the journal's list is hidden and shown again (completed / failed put back), so the game lists it\nagain. Helper 15 leaves the objectives the journal already lists alone, so only those put back appear on screen;\nolder helpers redo every objective, and the screen then shows each one again for many minutes.\n\nMake a save in the game first and keep menus closed until it is done (helper 4 waits for them)."
+tr "Возвращает квесты и цели, которые журнал перестал показывать: каждая цель активного квеста, которой нет в списке\nжурнала, скрывается и показывается снова (выполненные / проваленные восстанавливаются), и игра снова вносит её в список.\nHelper 15 не трогает цели, которые уже есть в журнале, поэтому на экране появляются только возвращённые;\nстарые версии помощника повторяют все цели, и экран потом много минут показывает каждую из них.\n\nСначала сохранитесь в игре и не открывайте меню, пока обновление не закончится (helper 4 ждёт их закрытия)."
+
+en "%zu of them belong to stopped quests it still shows as in progress."
+tr "Из них %zu принадлежат остановленным квестам, которые журнал всё ещё показывает как текущие."
+
+en "Completed quests and earlier runs of a repeated quest are the journal's Completed list: normal, not counted. Quests that repeat by design (radiant, started by the Story Manager) are not counted either."
+tr "Завершённые квесты и прошлые прохождения повторяющегося квеста — это раздел «Завершённые» журнала: это нормально и не учитывается. Повторяющиеся по замыслу квесты (радиантные, запускаемые Story Manager) тоже не учитываются."
+
+en "started by the Story Manager (%s)"
+tr "запускается Story Manager (%s)"
+
+en "allows repeated stages"
+tr "допускает повтор стадий"
+
+en "the journal lists an earlier run of it"
+tr "в журнале есть его прошлое прохождение"
+
+en " (earlier run)"
+tr " (прошлое прохождение)"
+
+en "This quest repeats (%s): its mod or the game stops it and starts it again. Stopped with objectives in the journal is normal between runs; completing or stopping it yourself can keep it from starting again."
+tr "Этот квест повторяется (%s): мод или игра останавливает его и запускает снова. Между запусками он нормально остаётся остановленным с целями в журнале; если завершить или остановить его самому, он может больше не запуститься."
+
+en "Stopped without being completed, but the journal still shows %zu of its objectives as in progress."
+tr "Остановлен, но не завершён, а журнал всё ещё показывает %zu его целей как текущие."
+
+en "\n\nCAREFUL: this quest repeats (%s). Its mod or the game stops it and starts it again; closing it out yourself can keep it from ever starting again."
+tr "\n\nОСТОРОЖНО: этот квест повторяется (%s). Мод или игра останавливает его и запускает снова; если закрыть его самому, он может больше никогда не запуститься."
+
 # ---- no longer used by the code (kept for reference; safe to delete) ----
 
 en "Not done: the player's cell and the cells loaded around the player (the game does not reset a cell while a save loads), an outdoor cell the save has no coordinates for, and a cell the save does not say is indoors. Only what is in the cell when the game resets it is touched: an actor that walked elsewhere is not. Settlements: their workshop objects belong to the settlement; resetting a settlement cell is not recommended."

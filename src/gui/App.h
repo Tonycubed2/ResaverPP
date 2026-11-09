@@ -687,6 +687,7 @@ private:
 
 	// plugin names, lookup, change forms, clean tools, compare, report, watcher (AppTools.cpp)
 	std::string formText(std::uint32_t a_formID) const;
+	std::string repeatText(const std::string& a_why) const;  // quests::QuestRepeats' reason, translated (AppQuests.cpp)
 	std::string gameLanguage() const;
 	void        startNames(bool a_force = false);
 	void        pollNames();

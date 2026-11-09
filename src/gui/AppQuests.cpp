@@ -670,6 +670,21 @@ void App::drawQuestsList()
 	}
 }
 
+std::string App::repeatText(const std::string& a_why) const
+{
+	static const std::string sm = "started by the Story Manager (";
+	if (a_why.rfind(sm, 0) == 0 && a_why.size() > sm.size()) {
+		return Fmt(tr("started by the Story Manager (%s)"), a_why.substr(sm.size(), a_why.size() - sm.size() - 1).c_str());
+	}
+	if (a_why == "allows repeated stages") {
+		return tr("allows repeated stages");
+	}
+	if (a_why == "the journal lists an earlier run of it") {
+		return tr("the journal lists an earlier run of it");
+	}
+	return a_why;
+}
+
 // ---- detail ---------------------------------------------------------------------------------------
 
 void App::drawQuestDetail()
@@ -711,13 +726,13 @@ void App::drawQuestDetail()
 	if (repeats) {
 		TextColored(theme::Warn(), Fmt(tr("This quest repeats (%s): its mod or the game stops it and starts it again. Stopped with objectives in "
 										  "the journal is normal between runs; completing or stopping it yourself can keep it from starting again."),
-									   repeatWhy.c_str()));
+									   repeatText(repeatWhy).c_str()));
 	} else if (const auto n = q->leftoverObjectives(def ? def->type : -1)) {
 		TextColored(theme::Warn(), Fmt(tr("Stopped without being completed, but the journal still shows %zu of its objectives as in progress."), n));
 	}
 	const std::string repeatNote = repeats ? Fmt(tr("\n\nCAREFUL: this quest repeats (%s). Its mod or the game stops it and starts it again; "
 													 "closing it out yourself can keep it from ever starting again."),
-												 repeatWhy.c_str())
+												 repeatText(repeatWhy).c_str())
 										   : std::string();
 	// the quest's scripts with their property values (editable, like in the Creation Kit's quest window)
 	if (auto* pp = _save ? _save->papyrus() : nullptr) {
