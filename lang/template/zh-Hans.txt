@@ -13697,3 +13697,9 @@ tr ""
 
 en "Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new character has them. Nothing else in the save changes. Checked in game in Skyrim Special Edition only, not in this game: keep the original save."
 tr ""
+
+en "%zu translated text(s) not used: their codes (%%s, %%d, %%zu...) are not the same, in the same order, as in the English. They show in English until fixed."
+tr ""
+
+en "The program fills the codes in the order they appear, so a code moved or changed would show the wrong value or crash. Reword the translation so its codes come in the English order."
+tr ""

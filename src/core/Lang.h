@@ -74,6 +74,10 @@ namespace i18n
 		std::size_t fromFile = 0;  // texts from lang/<code>.txt next to the exe
 		std::string file;          // "lang/ru.txt" when there was one
 		std::string error;         // a syntax error in it (texts before it are used)
+		// translations not used because their printf conversions (%s, %zu...) differ from the English in kind or
+		// order: printf would read the wrong argument (a crash). The English is shown for them.
+		std::size_t              rejected = 0;
+		std::vector<std::string> rejectedTexts;  // "line N: <English>" (the first 20)
 	};
 	LoadInfo LastLoad();
 
@@ -92,6 +96,10 @@ namespace i18n
 
 	// the printf conversions of a format string, in order ("%zu", "%s", "%.1f"); "%%" is not one
 	std::vector<std::string> FormatSpecs(std::string_view a_text);
+	// whether a translation can stand in for its English: the same conversions in the same order. An English text with
+	// a stray % ("%TEMP%") is never used as a printf format (it would break the English too): its translation only
+	// must not add a conversion.
+	bool SpecsMatch(std::string_view a_en, std::string_view a_tr);
 }
 
 inline const char* tr(const char* a_en) { return i18n::Tr(a_en); }

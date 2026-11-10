@@ -760,6 +760,18 @@ void App::drawSettings()
 				note += Fmt(tr(" (stopped at an error: %s)"), info.error.c_str());
 			}
 			ImGui::TextDisabled("%s", note.c_str());
+			if (info.rejected) {
+				std::string list;
+				for (const auto& r : info.rejectedTexts) {
+					list += "\n" + r;
+				}
+				TextColored(theme::Warn(), Fmt(tr("%zu translated text(s) not used: their codes (%%s, %%d, %%zu...) are not the same, in the same "
+												  "order, as in the English. They show in English until fixed."),
+											   info.rejected));
+				tips::Tip(tr("The program fills the codes in the order they appear, so a code moved or changed would show the wrong value or "
+							 "crash. Reword the translation so its codes come in the English order.") +
+						  list);
+			}
 		}
 	}
 	ImGui::SeparatorText(tr("Game"));

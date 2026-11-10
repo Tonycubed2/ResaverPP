@@ -57,7 +57,7 @@ namespace
 				}
 				++translated;
 				const auto en = i18n::FormatSpecs(e.en), tr = i18n::FormatSpecs(e.tr);
-				if (en != tr) {
+				if (!i18n::SpecsMatch(e.en, e.tr)) {
 					Check(false, where + "conversions differ: English " + Join(en) + ", translation " + Join(tr) + "  (" + e.en.substr(0, 60) + ")");
 				} else {
 					++specsOk;
@@ -78,6 +78,9 @@ namespace
 		Check(i18n::FormatSpecs("%zu of %zu (%d%%) %.1f MB %-28s %08X %lld") == V{ "%zu", "%zu", "%d", "%.1f", "%-28s", "%08X", "%lld" },
 			"FormatSpecs reads the usual conversions and skips %%");
 		Check(i18n::FormatSpecs("no conversions").empty(), "FormatSpecs: none");
+		Check(i18n::SpecsMatch("%zu of %s", "%zu / %s") && !i18n::SpecsMatch("%zu of %s", "%s / %zu"), "SpecsMatch: order counts");
+		Check(i18n::SpecsMatch("in %TEMP%).", "\xE5\x9C\xA8 %TEMP% \xE4\xB8\xAD\xEF\xBC\x89"), "SpecsMatch: a text with a stray % is plain text");
+		Check(!i18n::SpecsMatch("in %TEMP%).", "%s"), "SpecsMatch: plain text gets no conversion");
 	}
 
 	void TestTr()

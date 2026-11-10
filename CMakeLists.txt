@@ -118,6 +118,7 @@ if (RESAVERPP_TESTS)
 	if (Python3_FOUND)
 		add_test(NAME i18n_keys COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/i18n/tr_keys.py --check ${CMAKE_SOURCE_DIR}/lang/ru.txt)
 		# ... and in the empty template a volunteer fills in (lang/template/zh-Hans.txt: not built in until translated)
+		add_test(NAME i18n_keys_zh COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/i18n/tr_keys.py --check ${CMAKE_SOURCE_DIR}/lang/zh-Hans.txt)
 		add_test(NAME i18n_template_zh COMMAND Python3::Interpreter ${CMAKE_SOURCE_DIR}/tools/i18n/tr_keys.py --check ${CMAKE_SOURCE_DIR}/lang/template/zh-Hans.txt)
 	endif()
 	# real saves: -DRESAVERPP_TEST_SAVES=<folder with .ess files>. Each is loaded, written back and

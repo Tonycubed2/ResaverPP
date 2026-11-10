@@ -233,6 +233,13 @@ namespace i18n
                 if (e.tr.empty() || e.en.empty()) {
                     continue;
                 }
+                if (!SpecsMatch(e.en, e.tr)) {  // would make printf read the wrong argument: keep the English
+                    if (t->info.rejectedTexts.size() < 20) {
+                        t->info.rejectedTexts.push_back("line " + std::to_string(e.line) + ": " + e.en.substr(0, 100));
+                    }
+                    ++t->info.rejected;
+                    continue;
+                }
                 auto& en = t->store.emplace_back(std::move(e.en));
                 auto& tx = t->store.emplace_back(std::move(e.tr));
                 t->map[en] = tx.c_str();
@@ -274,6 +281,9 @@ namespace i18n
 			g_table.store(nullptr);
 			g_current = "en";
 			return false;
+		}
+		if (t->info.rejected) {
+			note += ", " + std::to_string(t->info.rejected) + " not used (their %-codes differ from the English; shown in English)";
 		}
 		t->note = note;
 		t->info.builtin = builtin;
@@ -407,5 +417,15 @@ namespace i18n
 			}
 		}
 		return v;
+	}
+
+	bool SpecsMatch(std::string_view a_en, std::string_view a_tr)
+	{
+		const auto real = [](const std::string& a_spec) { return std::strchr("diouxXeEfFgGaAcspn", a_spec.back()) != nullptr; };
+		const auto en = FormatSpecs(a_en), tr = FormatSpecs(a_tr);
+		if (!std::all_of(en.begin(), en.end(), real)) {
+			return std::none_of(tr.begin(), tr.end(), real);
+		}
+		return en == tr;
 	}
 }
