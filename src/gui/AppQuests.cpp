@@ -239,6 +239,49 @@ void App::liveStop(std::uint32_t a_formID, const std::string& a_name)
 	});
 }
 
+void App::liveStopBatch(std::shared_ptr<QuestStopBatch> a_b)
+{
+	if (a_b->next >= a_b->list.size()) {
+		_questBatchRunning = false;
+		std::string sum = Fmt(tr("Stopped %zu of %zu quest(s) in game."), a_b->stopped, a_b->list.size());
+		if (a_b->busy) {
+			sum += " " + Fmt(tr("%zu more when the game is free."), a_b->busy);
+		}
+		if (!a_b->failed.empty()) {
+			std::string names;
+			for (std::size_t i = 0; i < a_b->failed.size() && i < 8; ++i) {
+				names += (i ? ", " : "") + a_b->failed[i];
+			}
+			if (a_b->failed.size() > 8) {
+				names += ", ...";
+			}
+			sum += " " + Fmt(tr("Not stopped (%zu): %s (a quest with no script at all: use \"Copy stop command\" and the console)."),
+							 a_b->failed.size(), names.c_str());
+		}
+		_status = sum + tr(" Save in the game to keep it.");
+		if (startupLog) {
+			startupLog("quests: " + sum);
+		}
+		return;
+	}
+	const auto [id, name] = a_b->list[a_b->next];
+	_status = Fmt(tr("Stopping quest %zu of %zu in game: %s..."), a_b->next + 1, a_b->list.size(), name.c_str());
+	_live.request({ "STOP", Fmt("%08X", id), "none", "" }, [this, a_b, id, name](const LiveLink::Reply& r) {
+		const auto f = LiveLink::Ok(r) ? LiveLink::Field(r, 0) : std::string();
+		if (f == "1") {
+			++a_b->stopped;
+			_questPicks.erase(id);
+		} else if (f == "?") {
+			++a_b->busy;
+			_questPicks.erase(id);
+		} else {
+			a_b->failed.push_back(LiveLink::Ok(r) ? name : name + " (" + LiveLink::Error(r) + ")");
+		}
+		++a_b->next;
+		liveStopBatch(a_b);
+	});
+}
+
 void App::liveReset(std::uint32_t a_formID, const std::string& a_name)
 {
 	const std::string what = Fmt(tr("reset \"%s\""), a_name.c_str());
@@ -596,9 +639,62 @@ void App::drawQuestsList()
 		}
 	}
 
-	if (ImGui::BeginTable("quests", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable |
+	// several quests at once: tick them, then stop them all in the running game (helper 11)
+	{
+		const auto info = _live.info();
+		const bool live = info.connected && info.inGame;
+		ImGui::BeginDisabled(_questPicks.empty() || !live || !helperAtLeast(11) || _questBatchRunning);
+		if (ImGui::Button(Fmt(tr("Stop selected (%zu) in game"), _questPicks.size()).c_str())) {
+			auto        b = std::make_shared<QuestStopBatch>();
+			std::string names;
+			std::size_t mq = 0;
+			for (const auto id : _questPicks) {
+				const auto* d = _db ? _db->quest(id) : nullptr;
+				std::string n = d ? (d->name.empty() ? d->edid : d->name) : Fmt("%08X", id);
+				if (d && d->edid.size() >= 2 && (d->edid[0] == 'M' || d->edid[0] == 'm') && (d->edid[1] == 'Q' || d->edid[1] == 'q')) {
+					++mq;
+				}
+				if (b->list.size() < 25) {
+					names += "\n  - " + n;
+				}
+				b->list.emplace_back(id, n);
+			}
+			if (b->list.size() > 25) {
+				names += Fmt(tr("\n  - and %zu more"), b->list.size() - 25);
+			}
+			std::string text = Fmt(tr("Stop these %zu quest(s) in the running game, one after another?"), b->list.size()) + names + "\n\n" +
+							   tr("The game stops each the normal way (Quest.Stop): its scripts are told, the people and items it held are let "
+								  "go, and its objectives leave the journal. None is completed or gives rewards. Quests that start by "
+								  "themselves can start again later. Make a save in the game first.");
+			if (mq) {
+				text += "\n\n" + Fmt(tr("CAREFUL: %zu of them look like main quests (editor ID MQ...). Stopping the main quest can break the game."), mq);
+			}
+			confirm(tr("Stop selected quests"), text, [this, b] {
+				_questBatchRunning = true;
+				liveStopBatch(b);
+			});
+		}
+		ImGui::EndDisabled();
+		if (!live) {
+			LiveHint(info);
+		} else if (!helperAtLeast(11) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip(tr("Needs ReSaverHelper version 11 (you have version %s)."), info.helperVersion.c_str());
+		} else {
+			tips::Tip(tr("Tick quests in the list (the box in front of each), then stop them all in the running game, one after another."));
+		}
+		if (!_questPicks.empty()) {
+			ImGui::SameLine();
+			if (ImGui::Button(tr("Untick all"))) {
+				_questPicks.clear();
+			}
+		}
+	}
+
+	if (ImGui::BeginTable("quests", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable |
 										   ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Sortable)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
+		ImGui::TableSetupColumn("##pick", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_NoResize,
+			ImGui::GetFrameHeight(), 99);
 		ImGui::TableSetupColumn(tr("Quest"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort, 4.0f, 0);
 		ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthStretch, 1.0f, 1);
 		ImGui::TableSetupColumn(tr("Status"), ImGuiTableColumnFlags_WidthStretch, 1.6f, 2);
@@ -637,7 +733,20 @@ void App::drawQuestsList()
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(static_cast<int>(r.formID));
-				if (ImGui::Selectable(r.label.c_str(), _questSel == r.formID, ImGuiSelectableFlags_SpanAllColumns)) {
+				// the row (spans every column) first, then the tick box over its first cell (AllowOverlap: the box gets the click)
+				const bool rowClicked = ImGui::Selectable("##row", _questSel == r.formID, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
+				ImGui::SameLine(0, 0);
+				bool pick = _questPicks.contains(r.formID);
+				if (ImGui::Checkbox("##pick", &pick)) {
+					if (pick) {
+						_questPicks.insert(r.formID);
+					} else {
+						_questPicks.erase(r.formID);
+					}
+				}
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(r.label.c_str());
+				if (rowClicked) {
 					_questSel = r.formID;
 					_setStageIdx = 0;
 					if (_live.info().inGame) {

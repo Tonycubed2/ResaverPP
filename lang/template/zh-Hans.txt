@@ -13730,3 +13730,36 @@ tr ""
 
 en "Reset %zu damaged form(s)"
 tr ""
+
+en "Stopped %zu of %zu quest(s) in game."
+tr ""
+
+en "%zu more when the game is free."
+tr ""
+
+en "Not stopped (%zu): %s (a quest with no script at all: use \"Copy stop command\" and the console)."
+tr ""
+
+en " Save in the game to keep it."
+tr ""
+
+en "Stopping quest %zu of %zu in game: %s..."
+tr ""
+
+en "Stop selected (%zu) in game"
+tr ""
+
+en "Stop these %zu quest(s) in the running game, one after another?"
+tr ""
+
+en "The game stops each the normal way (Quest.Stop): its scripts are told, the people and items it held are let go, and its objectives leave the journal. None is completed or gives rewards. Quests that start by themselves can start again later. Make a save in the game first."
+tr ""
+
+en "CAREFUL: %zu of them look like main quests (editor ID MQ...). Stopping the main quest can break the game."
+tr ""
+
+en "Stop selected quests"
+tr ""
+
+en "Tick quests in the list (the box in front of each), then stop them all in the running game, one after another."
+tr ""

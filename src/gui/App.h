@@ -622,6 +622,14 @@ private:
 	void                                  drawQuestNotifyChoice();
 	void                                  liveComplete(std::uint32_t a_formID, const std::string& a_name);
 	void                                  liveStop(std::uint32_t a_formID, const std::string& a_name);   // helper 11: Quest.Stop
+	// several quests one after another (helper 11); a_done counts the answers, the summary goes to the status line at the end
+	struct QuestStopBatch
+	{
+		std::vector<std::pair<std::uint32_t, std::string>> list;
+		std::size_t                                        next = 0, stopped = 0, busy = 0;
+		std::vector<std::string>                           failed;
+	};
+	void                                  liveStopBatch(std::shared_ptr<QuestStopBatch> a_batch);
 	void                                  liveReset(std::uint32_t a_formID, const std::string& a_name);  // helper 11: Quest.Reset
 	bool                                  helperAtLeast(int a_version) const;
 	bool                                  liveFO4() const;  // the running game is Fallout 4 (its helper: the rescue set only)
@@ -637,6 +645,8 @@ private:
 	char                                  _questFilter[128] = "";
 	int                                   _questShow = 0;  // 0 in the journal, 1 running, 2 completed, 3 all
 	std::uint32_t                         _questSel = 0;
+	std::set<std::uint32_t>               _questPicks;      // ticked in the list (Stop selected)
+	bool                                  _questBatchRunning = false;
 	std::map<std::uint32_t, QuestPreview> _questPreviews;
 	struct LiveQuest
 	{

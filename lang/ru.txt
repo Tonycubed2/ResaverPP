@@ -13756,3 +13756,36 @@ tr "Удалить сохранённые изменения %zu поврежд�
 
 en "Reset %zu damaged form(s)"
 tr "Сбросить %zu повреждённых форм(ы)"
+
+en "Stopped %zu of %zu quest(s) in game."
+tr "В игре остановлено %zu из %zu квест(ов)."
+
+en "%zu more when the game is free."
+tr "Ещё %zu — когда игра освободится."
+
+en "Not stopped (%zu): %s (a quest with no script at all: use \"Copy stop command\" and the console)."
+tr "Не остановлены (%zu): %s (квест совсем без скрипта: используйте «Копировать команду остановки» и консоль)."
+
+en " Save in the game to keep it."
+tr " Сохранитесь в игре, чтобы это закрепить."
+
+en "Stopping quest %zu of %zu in game: %s..."
+tr "Остановка квеста %zu из %zu в игре: %s..."
+
+en "Stop selected (%zu) in game"
+tr "Остановить выбранные (%zu) в игре"
+
+en "Stop these %zu quest(s) in the running game, one after another?"
+tr "Остановить эти %zu квест(ов) в запущенной игре, один за другим?"
+
+en "The game stops each the normal way (Quest.Stop): its scripts are told, the people and items it held are let go, and its objectives leave the journal. None is completed or gives rewards. Quests that start by themselves can start again later. Make a save in the game first."
+tr "Игра останавливает каждый обычным способом (Quest.Stop): его скрипты получают уведомление, удерживаемые им персонажи и предметы освобождаются, а его цели уходят из журнала. Ни один не завершается и не даёт наград. Квесты, которые запускаются сами, могут позже начаться снова. Сначала сохранитесь в игре."
+
+en "CAREFUL: %zu of them look like main quests (editor ID MQ...). Stopping the main quest can break the game."
+tr "ОСТОРОЖНО: %zu из них похожи на квесты основного сюжета (ID редактора MQ...). Остановка основного квеста может сломать игру."
+
+en "Stop selected quests"
+tr "Остановка выбранных квестов"
+
+en "Tick quests in the list (the box in front of each), then stop them all in the running game, one after another."
+tr "Отметьте квесты в списке (флажок перед каждым), затем остановите их все в запущенной игре, один за другим."
