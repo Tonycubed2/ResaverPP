@@ -132,6 +132,10 @@ namespace ess::cf
 		};
 		std::vector<PathStateAt> pathFollowerStates;
 
+		// an actor's BOOL BITS (Actor::boolBits) and where they are in the body; bit 0x2 is kProcessMe (the AI runs)
+		std::size_t   boolBitsAt = 0;
+		std::uint32_t boolBits = 0;
+
 		// the movement controller's MovementPathManagerArbiter (the part that walks the actor to a destination):
 		// its bytes in the body, its state (0 idle) and whether it holds a path request
 		std::pair<std::size_t, std::size_t> pathManager{ 0, 0 };
@@ -310,14 +314,21 @@ namespace ess::cf
 	bool        CanResetAI(const ChangeForm& a_cf, const Decoded& a_decoded);
 	std::string ResetAI(const SaveFile& a_save, ChangeForm& a_cf);
 
-	// The player's movement controller can keep a "walk to" job that never finishes: its MovementPathManagerArbiter is
-	// saved busy (state not 0) with a path request and a path. The game walks the player onto furniture with that same
-	// part, so every chair, bed and crafting station then half-starts and stops: the furniture camera comes on, the body
-	// fights it, and moving frees the player. A save made in the same setup with a new character has it idle (state 0,
-	// no request, no path). ClearStuckPlayerMovement sets it back to that idle state and leaves everything else as it is.
+	// The player cannot use any furniture (chairs, beds, crafting stations: E does nothing, or the furniture camera comes
+	// on and the body never sits) when the player's AI is switched off: Actor::boolBits without kProcessMe (0x2), what a
+	// script's EnableAI(false) on the player leaves behind. The game hands "use this furniture" to the player's AI (walk
+	// to the marker, then the enter animation), so nothing carries it out: TESFurniture::Activate (1.6.1170 0x269C00) and
+	// its checks pass, but the sit/sleep state never leaves "normal". Each attempt also leaves a "walk to" job in the
+	// movement controller (MovementPathManagerArbiter) saved busy, state not 0, that never finishes.
+	// Found in a save where this started between two saves and a new character in the same setup could sit; confirmed
+	// in game: setting the bit back (what EnableAI(true) does) made chairs and beds work again.
+	// ClearStuckPlayerMovement switches the AI back on and sets the path manager back to idle; nothing else changes.
 	struct StuckMovement
 	{
-		bool          found = false;   // the player's path manager is busy
+		bool          found = false;   // aiOff or the path manager busy
+		bool          aiOff = false;   // kProcessMe not set on the player
+		bool          pathBusy = false;  // the player's path manager is busy
+		std::uint32_t boolBits = 0;
 		std::int32_t  state = 0;
 		std::size_t   bytes = 0;       // the size of its saved data
 		bool          hasGoal = false;

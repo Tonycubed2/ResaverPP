@@ -3329,7 +3329,8 @@ namespace ess::cf
 			p.out().levelAt = p.r.pos();
 			const auto level = p.i32("PROCESS LEVEL");
 			p.out().processLevel = level;
-			p.flags32("BOOL BITS");
+			p.out().boolBitsAt = p.r.pos();
+			p.out().boolBits = p.flags32("BOOL BITS");
 			if (Bit(flags, 0)) {
 				p.changeFormFlags();
 			}
@@ -5384,6 +5385,11 @@ namespace ess::cf
 
 	}
 
+	namespace
+	{
+		constexpr std::uint32_t kProcessMe = 0x2;  // Actor::BOOL_BITS::kProcessMe: the actor's AI runs
+	}
+
 	StuckMovement FindStuckPlayerMovement(const SaveFile& a_save)
 	{
 		StuckMovement out;
@@ -5400,10 +5406,13 @@ namespace ess::cf
 			out.error = "the player's record could not be read completely (" + d.error + ")";
 			return out;
 		}
-		if (d.pathManager.second <= d.pathManager.first || (d.pathManagerState == 0 && !d.pathManagerRequest)) {
+		out.boolBits = d.boolBits;
+		out.aiOff = d.boolBitsAt != 0 && (d.boolBits & kProcessMe) == 0;
+		out.pathBusy = d.pathManager.second > d.pathManager.first && (d.pathManagerState != 0 || d.pathManagerRequest);
+		out.found = out.aiOff || out.pathBusy;
+		if (!out.pathBusy) {
 			return out;
 		}
-		out.found = true;
 		out.state = d.pathManagerState;
 		out.bytes = d.pathManager.second - d.pathManager.first;
 		// REQUEST > GOAL > LOCATION > POS, and its CELL/WORLD
@@ -5425,15 +5434,22 @@ namespace ess::cf
 			return {};
 		}
 		char goal[160] = "";
-		if (a_stuck.hasGoal) {
+		if (a_stuck.pathBusy && a_stuck.hasGoal) {
 			std::snprintf(goal, sizeof(goal), ", still walking to %.0f, %.0f, %.0f%s", a_stuck.goal[0], a_stuck.goal[1], a_stuck.goal[2],
 				a_stuck.goalCell ? Fmt(" in %08X", a_stuck.goalCell).c_str() : "");
 		}
-		return Fmt("The player's movement is stuck: the \"walk to\" part of the player's movement controller was saved busy (state %d%s). "
-				   "The game walks the player onto furniture with it, so no chair, bed or crafting station can be used: the furniture "
-				   "camera comes on, the body fights it and moving frees the player. Fix: --clear-stuck-movement (GUI: Edit player > "
-				   "Repairs).",
-			a_stuck.state, goal);
+		std::string what;
+		if (a_stuck.aiOff) {
+			what = Fmt("the player's AI is switched off (actor bits %08X, without 0x2), what a script's EnableAI(false) on the player "
+					   "leaves behind", a_stuck.boolBits);
+		}
+		if (a_stuck.pathBusy) {
+			what += Fmt("%sthe \"walk to\" part of the player's movement was saved busy (state %d%s)", what.empty() ? "" : "; ",
+				a_stuck.state, goal);
+		}
+		return "The player cannot use furniture: " + what +
+		       ". The game hands sitting, sleeping and crafting stations to the player's AI, so E on a chair or bed does nothing "
+		       "(or the furniture camera comes on and the body never sits). Fix: --clear-stuck-movement (GUI: Edit player > Repairs).";
 	}
 
 	std::string ClearStuckPlayerMovement(SaveFile& a_save)
@@ -5455,26 +5471,31 @@ namespace ess::cf
 		if (!d.complete) {
 			return "the player's record could not be read completely (" + d.error + "): nothing changed";
 		}
-		if (d.pathManager.second <= d.pathManager.first) {
-			return "the player has no movement controller data: nothing changed";
+		const bool aiOff = d.boolBitsAt != 0 && (d.boolBits & kProcessMe) == 0;
+		const bool pathBusy = d.pathManager.second > d.pathManager.first && (d.pathManagerState != 0 || d.pathManagerRequest);
+		if (!aiOff && !pathBusy) {
+			return "the player's AI is on and the player's movement is not stuck: nothing changed";
 		}
-		if (d.pathManagerState == 0 && !d.pathManagerRequest) {
-			return "the player's movement is not stuck: nothing changed";
+		const auto before = *cf;
+		auto       body = Body(*cf);
+		if (pathBusy) {
+			// idle, as the game saves it: state 0, no request, no path (their ids 0)
+			const std::size_t         idBytes = cf->version >= 0x4b ? 8 : 4;
+			std::vector<std::uint8_t> idle(4 + 2 * idBytes, 0);
+			body.erase(body.begin() + static_cast<std::ptrdiff_t>(d.pathManager.first), body.begin() + static_cast<std::ptrdiff_t>(d.pathManager.second));
+			body.insert(body.begin() + static_cast<std::ptrdiff_t>(d.pathManager.first), idle.begin(), idle.end());
 		}
-		// idle, as the game saves it: state 0, no request, no path (their ids 0)
-		const std::size_t         idBytes = cf->version >= 0x4b ? 8 : 4;
-		std::vector<std::uint8_t> idle(4 + 2 * idBytes, 0);
-		const auto                before = *cf;
-		auto                      body = Body(*cf);
-		body.erase(body.begin() + static_cast<std::ptrdiff_t>(d.pathManager.first), body.begin() + static_cast<std::ptrdiff_t>(d.pathManager.second));
-		body.insert(body.begin() + static_cast<std::ptrdiff_t>(d.pathManager.first), idle.begin(), idle.end());
+		if (aiOff) {
+			// before the path manager in the body, so its position did not move
+			std::uint32_t bits = d.boolBits | kProcessMe;
+			std::memcpy(body.data() + d.boolBitsAt, &bits, 4);
+		}
 		SetBody(*cf, body);
 		const auto after = Decode(a_save, *cf);
 		// everything else must read back the same: a later part that refers to the removed request or path by its id
 		// would no longer read, and is refused here
-		if (!after.complete || after.pathManagerState != 0 || after.pathManagerRequest || after.movement.second == 0 ||
-			after.combat.second - after.combat.first != d.combat.second - d.combat.first ||
-			after.aiProcess != d.aiProcess) {
+		if (!after.complete || (after.boolBits & kProcessMe) == 0 || after.pathManagerState != 0 || after.pathManagerRequest ||
+			after.combat.second - after.combat.first != d.combat.second - d.combat.first || after.aiProcess != d.aiProcess) {
 			*cf = before;
 			return "the result would not read back correctly: nothing changed";
 		}

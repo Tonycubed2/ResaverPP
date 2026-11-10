@@ -13673,3 +13673,22 @@ tr "(отметьте персонажей выше)"
 # AppCheck.cpp
 en "Copied: the console commands for the ticked characters."
 tr "Скопировано: консольные команды для отмеченных персонажей."
+
+# AppTools.cpp (Edit player > Repairs)
+en "Repairs"
+tr "Исправления"
+
+en "Problems found in the player's record, with a button that fixes each."
+tr "Проблемы, найденные в записи персонажа, с кнопкой исправления для каждой."
+
+en "The player cannot use furniture: chairs, beds and crafting stations do nothing."
+tr "Персонаж не может пользоваться мебелью: стулья, кровати и верстаки не срабатывают."
+
+en "Fix: player can use furniture again"
+tr "Исправить: персонаж снова может пользоваться мебелью"
+
+en "The player can use furniture again"
+tr "Персонаж снова может пользоваться мебелью"
+
+en "Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new character has them. Nothing else in the save changes. Save the result under a new name and load it."
+tr "Снова включает ИИ персонажа и возвращает часть движения «идти к» в состояние покоя, как у нового персонажа. Больше ничего в сохранении не меняется. Сохраните результат под новым именем и загрузите его."

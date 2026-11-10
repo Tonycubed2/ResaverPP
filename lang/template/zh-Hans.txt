@@ -13647,3 +13647,22 @@ tr ""
 # main.cpp:649  ImGui::TextWrapped("%s", tr("Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."));
 en "Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."
 tr ""
+
+# AppTools.cpp (Edit player > Repairs)
+en "Repairs"
+tr ""
+
+en "Problems found in the player's record, with a button that fixes each."
+tr ""
+
+en "The player cannot use furniture: chairs, beds and crafting stations do nothing."
+tr ""
+
+en "Fix: player can use furniture again"
+tr ""
+
+en "The player can use furniture again"
+tr ""
+
+en "Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new character has them. Nothing else in the save changes. Save the result under a new name and load it."
+tr ""

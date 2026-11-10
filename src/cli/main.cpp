@@ -2341,12 +2341,13 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "%s\n", why.c_str());
 				return 1;
 			}
-			if (stuck.hasGoal) {
-				std::printf("cleared the player's stuck movement (state %d, walking to %.0f, %.0f, %.0f): chairs, beds and crafting stations work again\n",
-					stuck.state, stuck.goal[0], stuck.goal[1], stuck.goal[2]);
-			} else {
-				std::printf("cleared the player's stuck movement (state %d): chairs, beds and crafting stations work again\n", stuck.state);
+			if (stuck.aiOff) {
+				std::printf("switched the player's AI back on (actor bits %08X -> %08X)\n", stuck.boolBits, stuck.boolBits | 0x2u);
 			}
+			if (stuck.pathBusy) {
+				std::printf("cleared the player's stuck \"walk to\" job (state %d)\n", stuck.state);
+			}
+			std::printf("chairs, beds and crafting stations work again\n");
 		}
 		for (const auto id : clearTeammates) {
 			if (const auto why = skyf::ClearTeammate(*save, id); !why.empty()) {

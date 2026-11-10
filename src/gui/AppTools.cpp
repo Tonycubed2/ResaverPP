@@ -1207,13 +1207,13 @@ void App::drawPlayer()
 		const bool hRep = ImGui::CollapsingHeader(trId("Repairs"), ImGuiTreeNodeFlags_DefaultOpen);
 		tips::Tip(tr("Problems found in the player's record, with a button that fixes each."));
 		if (hRep) {
-			TextColored(theme::Warn(), tr("Stuck movement: chairs, beds and crafting stations cannot be used."));
+			TextColored(theme::Warn(), tr("The player cannot use furniture: chairs, beds and crafting stations do nothing."));
 			ImGui::TextWrapped("%s", cf::StuckMovementText(_pvStuck).c_str());
-			if (ImGui::Button(tr("Clear stuck movement"))) {
-				done(cf::ClearStuckPlayerMovement(*_save), tr("Cleared the player's stuck movement"));
+			if (ImGui::Button(tr("Fix: player can use furniture again"))) {
+				done(cf::ClearStuckPlayerMovement(*_save), tr("The player can use furniture again"));
 			}
-			tips::Tip(tr("Sets the \"walk to\" part of the player's movement back to idle, as a new character has it. Nothing else in "
-						 "the save changes. Save the result under a new name and load it."));
+			tips::Tip(tr("Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new "
+						 "character has them. Nothing else in the save changes. Save the result under a new name and load it."));
 			ImGui::Separator();
 		}
 	}
