@@ -1102,6 +1102,71 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
+- Menu load guard, helper 17 (2026-11-10, branch menuguard2, not built, not tested in game; Tony builds in VS2022). For
+  SkyrimIstari's 1.6.640 Proton session with helper 16 (scratchpad/istari-skills: crash-2026-11-09-23-13-15 + SKSE logs):
+  the Map failure was caught (3x CreateMovie null, stand-in closed it) but the Papyrus notice never showed in the
+  paused Tween menu; then StatsMenu failed 3x the same way on thread 616 with "menu -" and the game crashed in 52510+0x939.
+  - 52510 = StatsMenu::ProcessMessage (StatsMenu vtable 215973 = 1.6.1170 0x1419013e8, slot 4; same id in CustomSkills'
+    Offset.h). 1.6.1170 0x14095f710; +0x939 = 0x140960049 `mov rax,[rcx]` after `mov rcx,[rsi+0x10]` (uiMovie), in
+    case 0 (kUpdate) of the jump table at 0x140960c48: `if (+0x323 is3dInitialized && +0x321) uiMovie->vtbl[+0x88](
+    &beastSkillHolder +0x2F8, "...")` with NO null check, then 52525/52535/52536/52527 (Flash setup), +0x321 = 0, task
+    +0x2F0 released. Same +0x939 and caller 82082+0xB8B (= return after `call [rax+0x20]` at 0x140fa4b28) on 640.
+  - Why it escaped the guard: StatsMenu loads its movie asynchronously. Ctor 52508 (0x14095ed20) +0x46B calls 82326
+    (0x140fb0590; its only caller) = alloc 0x38-byte BSScaleformMovieLoadTask (ctor 0x141036540: +0x18 menu (AddRef'd),
+    +0x20 &menu->uiMovie, +0x28 "StatsMenu", +0x30 mode 2, +0x34 alpha 0), store it at menu+0x2F0, queue it. Task vtable
+    242930 (SE 292005, CommonLib VTABLE_BSScaleformMovieLoadTask; 1.6.1170 0x141a0a3b8, RTTI BSScaleformMovieLoadTask):
+    slot 1 Run 84665 (0x141036640) = LoadMovie(mgr, [+0x18], [+0x20], [+0x28], [+0x30], [+0x34]) on a loader thread;
+    slot 2 84666 (0x141036680) = `mov rcx,[rcx+0x18]; mov rax,[rcx]; jmp [rax+0x18]` = menu IMenu slot 3, StatsMenu
+    52529 (0x1409649e0) = `mov byte [rcx+0x321],1; ret` (the only writer of +0x321 in the exe). So the creator wrapper
+    (main thread) was long gone and +0x321 was set although uiMovie stayed null. Not CustomSkills: v3.2 only
+    write_call's creator 52612+0x5D (ctor), LoadMovie+0x1DD and points inside StatsMenu functions (source checked).
+  - Every other uiMovie use in StatsMenu::ProcessMessage (fade-in 0x14095ff71, 0x14096010e, kHide 0x140960abd),
+    PostDisplay 52511 (0x140960cb4), base AdvanceMovie 82307 (0x140faedce), button handler 52520 (0x140961363) checks for
+    null: the menu runs without a movie while it loads. kHide (case 3, 0x140960957) cancels/releases the task, null-checks
+    uiMovie, sets state 3 (fade out) and returns kIgnore; kUpdate in state 3 queues kHide again when the outro is done
+    (0x1409603a8: AddMessage 13631 "StatsMenu" kHide); second kHide returns 0 -> UI (0x140fa42a4..0x140fa4407) removes it
+    from the stack and map. = the "closed before its movie loaded" path.
+  - Fix A: vtable slots 1/2 of BSScaleformMovieLoadTask hooked (write_vfunc; only if slot 1 starts with the 27 bytes
+    `48 83 EC 38 F3 0F 10 41 34 8B 41 30 4C 8B 49 28 4C 8B 41 20 48 8B 51 18 48 8B 0D` + E8 at +0x29 and slot 2 is exactly
+    `48 8B 49 18 48 8B 01 48 FF 60 18`, else logged and not hooked). Run sets thread_local t_task; LoadMovieHook sees
+    menu/view match -> after all tries fail records the task. Finish: recorded failure -> skip the slot-3 call, AddTask
+    (main): find the menu in UI::menuMap by pointer (GPtr held), UIMessageQueue kHide, count, notice. Movie null but no
+    recorded failure -> slot-3 call skipped too (it can only lead to the null deref), no close.
+  - Generic net (sync failure of a menu's own movie with no usable creator wrapper): its class's ProcessMessage (vtable
+    slot 4, REL::safe_write, original per vtable) refuses kShow (kIgnore) while that object has no movie (UI path
+    0x140fa465a -> 0x140fa4951, as the stand-in). PostCreate (called before kShow) and other messages are NOT covered.
+    Not a "null uiMovie at first message" check: StatsMenu legitimately gets kShow with a null movie (still loading).
+  - B, notice: Notice() on the main thread (AddTask) without Papyrus: sNotify=box, or hud while UI::GameIsPaused() ->
+    MessageBoxMenu::Create varargs (RELOCATION_ID(51420, 52269); 1.6.1170 0x14094b280 reads button pointers until null),
+    hud otherwise -> SendHUDMessage::ShowHUDMessage (52050, 52933; 0x14097a5e0 uses UIMessageQueue + AddMessage 13631).
+    Not RE::DebugMessageBox: its MessageBoxMenu::Create(BSString&...) id 52270 is NOT in the 1.6.1170 address library.
+  - C, diagnostics: the BSScaleformManager setup 82323 (0x140faf9e0-0x140fafff2, stores the singleton 402775 at 0x140fafa18) gives the GFxLoader (mgr+8)
+    SetState(4 kLog, DejaGFxLogger vtable 0x1419ffbe0, stateType at +0x10 = 4), (5 image loader), (0x13 font lib),
+    (0x15 font map), (3 translator); file opener via LoaderConfig = BSScaleformFileOpener (ctor 0x140fb43b0, type 10,
+    vtable 0x141a00478: slot1 OpenFile(url,flags,mode) -> slot3 OpenFileEx(url,log,flags,mode), slot2 modify time 0).
+    CommonLib's StateType numbering matches (4, 10, 30 zlib). DejaGFxLogger::LogMessageVarg 82391 (0x140fb2dc0) is
+    `ret`: the game discards all Scaleform messages; strings like "GFxLoader failed to open", "Error loading SWF file",
+    "file does not start with a SWF header" are in the exe. GuardLog (RE::GFxLog subclass, Scaleform heap new) and
+    GuardFileOpener (GFxState subclass with the 3 slots) wrap the previous states (refs kept forever, every call forwarded)
+    at kPostLoad if Scaleform exists, else kDataLoaded. During a guarded LoadMovie (thread_local t_steps) messages and
+    opener calls (GFile slots 2 IsValid / 6 GetLength / 8 GetErrorCode, checked on ScaleformFile::MemoryFile vtable
+    0x141a004d8) are collected and printed once per failed open; general/parse channel messages outside loads are written
+    (max 200), ActionScript ones only counted. Scaleform heap: GMemory::GetGlobalHeap (412058 = 0x143292490, the heap the
+    manager allocates from), vtable 0x141a09af8 slots 0x14-0x17 (lock +0x98, engine +0xC8; 0x14 uses the same engine
+    call 0x1410ea630 SetLimit compares against), limit +0x60 (SetLimit slot 6 writes it) = CommonLib GetLimit(); logged
+    at start, after data loaded / each load, and at each failure. The "last loads" list now prints once per failed open
+    and only the loads since the previous list. Each wrapped creator is logged with its module.
+  - NOT done (unverified): movie views alive (no verified registry); GFx ResourceLib / MovieDef cache inspection or
+    eviction (GFxResourceWeakLib layout and key type not verified; not implemented). Possible side effect, unverified:
+    if GFx's movie cache key includes the file opener, movies loaded after the guard's opener goes in are cached anew.
+  - D: sTestFailMovies=StatsMenu exercises the background path (forced failure on the loader thread -> recorded task ->
+    Finish skips slot 3 -> kHide + notice). The generic net has no test switch (forcing it would run real menus' PostCreate
+    without a movie; not provably safe).
+  - INI: bMenuLoadDiagnostics=1 (new). Version 17 (Protocol.h, CMakeLists 17.0.0). F1 tip shows "What the guard did".
+  - Unverified: everything on 1.6.640 beyond ids existing + the two crash offsets matching 1170 (runtime byte checks refuse
+    the task hooks on other bytes and log them; the 640 log also prints StatsMenu ctor+0x46B's call target); SE 1.5.97 ids
+    (292005, 51420, 52050, 525584) are CommonLib's; under Wine/Proton the loader-thread path is untested. Cause of the GFx
+    failures still unknown: the new log lines are meant to show it.
 - Menu load guard, helper 16 (2026-11-09, branch menuguard, not built, not tested in game; Tony builds in VS2022). For
   SkyrimIstari's Map crash (crash-2026-11-09-18-06-43, 1.6.640 +0x9250A0 = 53093+0x200) and the two Journal crashes. Files:
   helper/src/MenuGuard.{h,cpp} (new), Settings, main.cpp, MenuPage.cpp (F1 "Menu load problems" + report), Protocol.h (16),

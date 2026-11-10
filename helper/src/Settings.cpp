@@ -55,7 +55,10 @@ namespace Settings
 			"iMenuLoadRetries=2\n"
 			"; 1 = one log line for every interface file loaded (else only failures, with the last 50 loads)\n"
 			"bLogAllMovieLoads=0\n"
-			"; TEST ONLY - leave empty. Interface file names whose load is made to fail on purpose (e.g. Map,Quest_Journal),\n"
+			"; 1 = Scaleform's own error messages and its file opening are written to the log when a load fails (version 17)\n"
+			"bMenuLoadDiagnostics=1\n"
+			"; TEST ONLY - leave empty. Interface file names whose load is made to fail on purpose (e.g. Map,Quest_Journal,\n"
+			"; StatsMenu - StatsMenu is the Skills menu, which loads its file in the background),\n"
 			"; to try the guard. sTestFailMode: first = only the first try fails (the retry works), all = every try fails.\n"
 			"sTestFailMovies=\n"
 			"sTestFailMode=first\n";
@@ -113,6 +116,8 @@ namespace Settings
 			}
 		} else if (n == "blogallmovieloads") {
 			g_values.logAllMovieLoads = ParseBool(v);
+		} else if (n == "bmenuloaddiagnostics") {
+			g_values.menuLoadDiagnostics = ParseBool(v);
 		} else if (n == "stestfailmovies") {
 			g_values.testFailMovies = v;
 		} else if (n == "stestfailmode") {
@@ -160,6 +165,9 @@ namespace Settings
 		if (n == "blogallmovieloads") {
 			return g_values.logAllMovieLoads ? "1" : "0";
 		}
+		if (n == "bmenuloaddiagnostics") {
+			return g_values.menuLoadDiagnostics ? "1" : "0";
+		}
 		if (n == "stestfailmovies") {
 			return g_values.testFailMovies;
 		}
@@ -197,8 +205,8 @@ namespace Settings
 		}
 		spdlog::info("Settings: sNotify={} bRefreshJournalOnLoad={} iRefreshDelaySeconds={} bListen={} bRescueHotkey={} iRescueHoldSeconds={}",
 			g_values.notify, g_values.refreshOnLoad, g_values.refreshDelay, g_values.listen, g_values.rescueHotkey, g_values.rescueHoldSeconds);
-		spdlog::info("Settings: bMenuLoadGuard={} iMenuLoadRetries={} bLogAllMovieLoads={}{}", g_values.menuLoadGuard, g_values.menuLoadRetries,
-			g_values.logAllMovieLoads, g_values.testFailMovies.empty() ? std::string() :
+		spdlog::info("Settings: bMenuLoadGuard={} iMenuLoadRetries={} bLogAllMovieLoads={} bMenuLoadDiagnostics={}{}", g_values.menuLoadGuard,
+			g_values.menuLoadRetries, g_values.logAllMovieLoads, g_values.menuLoadDiagnostics, g_values.testFailMovies.empty() ? std::string() :
 		                                   std::format(" TEST: sTestFailMovies={} sTestFailMode={}", g_values.testFailMovies, g_values.testFailMode));
 	}
 
@@ -224,7 +232,7 @@ namespace Settings
 			}
 		}
 		for (const char* key : { "sNotify", "bRefreshJournalOnLoad", "iRefreshDelaySeconds", "bListen", "bRescueHotkey", "iRescueHoldSeconds", "sGatherSkip", "bMenuLoadGuard", "iMenuLoadRetries",
-				 "bLogAllMovieLoads", "sTestFailMovies", "sTestFailMode" }) {
+				 "bLogAllMovieLoads", "bMenuLoadDiagnostics", "sTestFailMovies", "sTestFailMode" }) {
 			bool found = false;
 			for (auto& l : lines) {
 				const auto t = Trim(l);

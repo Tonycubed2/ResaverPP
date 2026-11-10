@@ -17,6 +17,7 @@ namespace Settings
 		bool        menuLoadGuard = true;     // bMenuLoadGuard: hook LoadMovie, retry failed loads, close a menu without its movie
 		int         menuLoadRetries = 2;      // iMenuLoadRetries: tries after a failed load (0 to 5; the 2nd and later wait 50 ms)
 		bool        logAllMovieLoads = false; // bLogAllMovieLoads: one log line per movie load (else only failures and the last 50)
+		bool        menuLoadDiagnostics = true; // bMenuLoadDiagnostics (version 17): Scaleform's log and file opener watched (MenuGuard.h)
 		std::string testFailMovies;           // sTestFailMovies: TEST ONLY - movie names whose load is made to fail on purpose
 		std::string testFailMode = "first";   // sTestFailMode: first = only the first try fails, all = every try fails
 	};

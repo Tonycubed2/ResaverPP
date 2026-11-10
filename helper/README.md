@@ -39,10 +39,13 @@ refresh the quest journal (brings back quests and objectives the journal stopped
 - Log: Documents\My Games\Skyrim Special Edition\SKSE\ReSaverHelper.log
 - In-game page (version 15): a "ReSaver Plus" page in SKSE Menu Framework's Mod Control Panel (F1), when that mod
   is installed. Optional: without it the helper works exactly as before. See "The in-game page (F1)" below.
-- Menu load guard (version 16, SE/AE): when a menu's interface file does not load, the menu does not open (with a
-  notice) instead of crashing the game, and ReSaverHelper.log says why the load failed. See "Menu load guard" below.
+- Menu load guard (version 16, SE/AE; version 17 adds the Skills menu, a notice you see at once, and Scaleform's own
+  messages in the log): when a menu's interface file does not load, the menu does not open (with a notice) instead of
+  crashing the game, and ReSaverHelper.log says why the load failed. See "Menu load guard" below.
 - What it does not do: apart from the menu load guard (version 16: one hook on the game's movie loading, three on the
-  calls inside it, and the menu creators wrapped; `bMenuLoadGuard=0` leaves all of that out), it patches no game
+  calls inside it, and the menu creators wrapped; version 17: two slots of the game's background movie load task,
+  Scaleform's log and file opener, and, only after a failed load, the "show" message of that menu's class;
+  `bMenuLoadGuard=0` leaves all of that out), it patches no game
   code, listens to no game events (no death, combat, hit or animation event sinks) and touches no
   physics, ragdoll, Havok or animation graph. On its own it only waits on the pipe and, from version 12, checks
   every 0.1 s whether Ctrl is held (the rescue hotkey). Everything else happens only when you ask in ReSaver Plus,
@@ -83,39 +86,53 @@ and test; then 1, 2, 3, 4. Each stage stops the helper after one more step of wh
 
 Remove the line (or set 5) to run normally. ReSaver Plus cannot talk to the helper below stage 4.
 
-## Menu load guard (version 16)
+## Menu load guard (versions 16 and 17)
 
-Every menu (Map, Journal, Inventory...) loads its interface file, `Interface\<name>.swf` (or
+Every menu (Map, Journal, Skills, Inventory...) loads its interface file, `Interface\<name>.swf` (or
 `Interface\Exported\<name>.gfx`), when it opens. If that load fails, the game uses the menu anyway and crashes: the
-Map at once (SkyrimSE.exe+9250A0 on 1.6.640), the Journal when it shows (GFxMovieView::InvokeNoReturn). This has
-been seen on 1.6.640 under Proton with SkyUI, InfinityUI and Map Marker Framework, a few times per session, for files
-that loaded fine earlier in the same session. The cause is not known yet; the guard is there to stop the crash and
-to find the cause.
+Map at once (SkyrimSE.exe+9250A0 on 1.6.640), the Journal when it shows (GFxMovieView::InvokeNoReturn), the Skills
+menu a moment after it opens (SkyrimSE.exe+901699 on 1.6.640, StatsMenu::ProcessMessage). This has been seen on
+1.6.640 under Proton with SkyUI, InfinityUI and Map Marker Framework, a few times per session, for files that loaded
+fine earlier in the same session. The cause is not known yet; the guard is there to stop the crash and to find the
+cause.
 
 What it does (Skyrim SE and AE; not VR):
 
 - Every failed load is written to ReSaverHelper.log: which step failed (the game's file check found no file; GFx
   could not read the file; the movie could not be created from it), how long it took, the files on disk (size,
   whether they open) and what the game's own file system finds, the memory of the game process and of the PC, open
-  handles, video memory, and the last 50 interface files loaded. At start it also logs which other mods hook the
-  movie loading (for example Map Marker Framework).
+  handles, video memory, Scaleform's own memory, and the interface files loaded since the last such list. At start
+  it also logs which other mods hook the movie loading (for example Map Marker Framework) and which mod made each
+  menu.
+- Version 17: what Scaleform itself says. The game throws Scaleform's messages away; the helper now catches them
+  (and still passes them on) and writes the ones of a failed load to the log ("GFxLoader failed to open ...", "Error
+  loading SWF file ...", and so on), and which file Scaleform asked to open during the load and what it got (or that
+  it asked for none). Messages from the interface scripts are only counted, not written.
 - The load is tried again (`iMenuLoadRetries`, 2 by default: at once, then after 50 ms). The log says whether a
   retry worked.
-- If every try fails, the menu does not open and a notification says "ReSaverHelper: MapMenu could not load its
-  interface file (Map.swf); see ReSaverHelper.log". The game goes on; open the menu again to try again.
-- The F1 page (Troubleshooting tests > Helper and connection) and the report count the failures per file.
+- If every try fails, the menu does not open and a notice says "ReSaverHelper: MapMenu could not load its interface
+  file (Map.swf) and did not open. See ReSaverHelper.log." The game goes on; open the menu again to try again.
+- Version 17: the Skills menu (StatsMenu) loads its file a moment after it opens, in the background. If that load
+  fails, the helper keeps the menu from using the missing file and closes it (as if you closed it right away), with
+  the same notice.
+- Version 17: the notice comes at once, also while a menu has the game paused: with `sNotify=hud` it is the
+  top-left notification, or a message box while the game is paused in a menu (the notification would only show
+  later); `sNotify=box` always uses a message box; `sNotify=none` shows nothing (the log and F1 page still have it).
+- The F1 page (Troubleshooting tests > Helper and connection) and the report count the failures per file and say
+  what the guard did.
 
 Settings in ReSaverHelper.ini (read when the game starts):
 
 - `bMenuLoadGuard=1`: 0 = off: no hooks at all, the game behaves as without the helper.
 - `iMenuLoadRetries=2`: tries after a failed load, 0 to 5 (the second and later wait 50 ms).
-- `bLogAllMovieLoads=0`: 1 = one log line for every interface file loaded (normally only failures, with the last
-  50 loads listed at each failure, to keep the log small).
+- `bLogAllMovieLoads=0`: 1 = one log line for every interface file loaded (normally only failures, with the
+  loads since the last list, to keep the log small).
+- `bMenuLoadDiagnostics=1` (version 17): 0 = do not watch Scaleform's log and file opener.
 - Test only, leave empty in normal play: `sTestFailMovies=` lists interface file names (without .swf, separated by
-  commas, any case, e.g. `Map,Quest_Journal`) whose load is made to fail on purpose, to see the guard work.
-  `sTestFailMode=first` fails only the first try (the retry works, the menu opens); `all` fails every try (the menu
-  does not open, the notice shows). Forced failures are marked "TEST: forced failure" in the log, "(TEST)" on the
-  F1 page and "- test" in the notice.
+  commas, any case, e.g. `Map,Quest_Journal,StatsMenu`) whose load is made to fail on purpose, to see the guard work.
+  `StatsMenu` is the Skills menu: it tests the background load (version 17). `sTestFailMode=first` fails only the
+  first try (the retry works, the menu opens); `all` fails every try (the menu does not open, the notice shows).
+  Forced failures are marked "TEST: forced failure" in the log, "(TEST)" on the F1 page and "- test" in the notice.
 
 When it happens, please send ReSaverHelper.log (and the save, if a menu would not open), as soon as you can: the
 log is rewritten each time the game starts.
