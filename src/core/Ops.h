@@ -208,6 +208,7 @@ namespace ess::ops
 		std::vector<flood::Flood> floods;           // script-call floods (flood::Find)
 		std::vector<ghost::Actor> ghosts;           // spawned actors whose created base is not in the save (ghost::Find)
 		std::vector<cf::DamagedForm> damaged;       // change forms whose zlib data cannot be decompressed (cf::DamagedForms)
+		cf::StuckMovement        stuck;             // the player cannot use furniture (cf::FindStuckPlayerMovement; Skyrim)
 	};
 	// a_knownDamaged: the damaged change forms of the last analysis of this same save (after an edit): only those are
 	// checked again (an edit never makes a form damaged; a full check of a big Fallout 4 save takes ~0.25 s)

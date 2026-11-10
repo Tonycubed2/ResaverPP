@@ -338,6 +338,35 @@ std::vector<App::CheckItem> App::computeCheckItems()
 		v.push_back(std::move(it));
 	}
 
+	// the player cannot use furniture: AI switched off and/or a stuck "walk to" job (cf::FindStuckPlayerMovement)
+	if (_report && _report->stuck.found) {
+		const auto& st = _report->stuck;
+		CheckItem   it;
+		it.level = Risk::kRisky;
+		it.title = tr("The player cannot use furniture: chairs, beds and crafting stations do nothing");
+		it.what = cf::StuckMovementText(st);
+		CheckOption o;
+		o.label = tr("Fix: player can use furniture again");
+		const bool checked = !_save->isLE();  // confirmed in Skyrim Special Edition
+		o.risk = checked ? Risk::kSafe : Risk::kCaution;
+		o.why = checked ? tr("Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new "
+							 "character has them. Nothing else in the save changes. Checked in game: chairs and beds worked again.")
+						: tr("Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new "
+							 "character has them. Nothing else in the save changes. Checked in game in Skyrim Special Edition only, not in this "
+							 "game: keep the original save.");
+		o.act = [this] {
+			const std::string why = cf::ClearStuckPlayerMovement(*_save);
+			if (!why.empty()) {
+				_error = tr("Could not change the player: ") + why;
+				return;
+			}
+			_pvLoaded = false;  // Edit player reads the player again
+			markEdited(tr("The player can use furniture again"));
+		};
+		it.options.push_back(std::move(o));
+		v.push_back(std::move(it));
+	}
+
 	if (_report && p) {
 		const auto& r = *_report;
 

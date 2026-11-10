@@ -13687,3 +13687,13 @@ tr ""
 
 en "Its compressed data does not unpack to the size the save gives. Checks and tools skip it; saving writes it back exactly as it is."
 tr ""
+
+en "The player cannot use furniture: chairs, beds and crafting stations do nothing"
+tr ""
+
+
+en "Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new character has them. Nothing else in the save changes. Checked in game: chairs and beds worked again."
+tr ""
+
+en "Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new character has them. Nothing else in the save changes. Checked in game in Skyrim Special Edition only, not in this game: keep the original save."
+tr ""

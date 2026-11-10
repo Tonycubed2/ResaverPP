@@ -1297,8 +1297,9 @@ namespace ess::ops
 			}
 		}
 		if (!s.isFO4()) {
-			if (const auto stuck = cf::FindStuckPlayerMovement(s); stuck.found) {
-				r.warnings.push_back(cf::StuckMovementText(stuck));
+			r.stuck = cf::FindStuckPlayerMovement(s);
+			if (r.stuck.found) {
+				r.warnings.push_back(cf::StuckMovementText(r.stuck));
 			}
 		}
 		r.floods = flood::Find(s);
