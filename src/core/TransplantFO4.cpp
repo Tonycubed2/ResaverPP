@@ -777,8 +777,8 @@ namespace ess::transplant::fo4
 		if (!p) {
 			return "no player reference (ACHR 00000014) in the save";
 		}
-		const auto body = cf::Body(*p);
-		const auto d = fo4cf::DecodeRefr(a_save, *p, body);
+		std::vector<std::uint8_t> body;
+		const auto d = cf::TryBody(*p, body) ? fo4cf::DecodeRefr(a_save, *p, body) : fo4cf::DecodeRefr(a_save, *p);
 		if (!d.decoded) {
 			return "the player's inventory cannot be read: " + d.error;
 		}

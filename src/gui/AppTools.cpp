@@ -480,6 +480,13 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 		};
 	}
 	const auto d = cf::Decode(*_save, c, types);
+	if (d.damaged || (_save->isFO4() && c.length2 && !cf::BodyProblem(c).empty())) {
+		// its zlib data does not unpack (cf::TryBody): nothing below can be read
+		TextColored(theme::Warn(), tr("Could not be read: zlib data damaged"));
+		ImGui::TextWrapped("%s", d.damaged ? d.error.c_str() : cf::BodyProblem(c).c_str());
+		ImGui::TextWrapped("%s", tr("Its compressed data does not unpack to the size the save gives. Checks and tools skip it; saving writes it "
+		                            "back exactly as it is."));
+	}
 	if (_save->isFO4()) {
 		detailChangeFormFO4(c);
 	}
@@ -574,7 +581,9 @@ void App::detailChangeFormDecoded(const ChangeForm& c)
 		}
 	}
 	ImGui::SeparatorText(tr("Decoded data"));
-	if (!d.supported) {
+	if (d.damaged) {
+		TextColored(theme::Warn(), tr("Could not be read: zlib data damaged"));
+	} else if (!d.supported) {
 		ImGui::TextDisabled("%s", tr("This change form type is not decoded (ReSaver does not decode it either); the raw bytes are below."));
 	} else if (d.complete) {
 		TextColored(theme::Good(), Fmt(tr("Fully decoded (%zu bytes)."), d.bodySize));

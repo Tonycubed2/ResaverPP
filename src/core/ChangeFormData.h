@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -54,6 +55,7 @@ namespace ess::cf
 		bool        supported = false;  // the type has a decoder
 		bool        complete = false;   // the whole body was decoded with nothing left over
 		std::string error;              // why decoding stopped (if it did)
+		bool        damaged = false;    // the body itself could not be read (zlib data damaged: see Body)
 		std::size_t bodySize = 0, consumed = 0;
 		Node        root;
 
@@ -187,7 +189,29 @@ namespace ess::cf
 	// decode the explosion data of spawned explosion references.
 	using TypeLookup = std::function<std::string(std::uint32_t)>;
 
-	std::vector<std::uint8_t> Body(const ChangeForm& a_cf);                        // decompressed
+	// The decompressed body. A compressed change form whose zlib data does not inflate to exactly its length2 bytes
+	// ("damaged") throws BodyError: an edit must never write back a body it could not read. Code that only looks at
+	// forms (scans, checks, views) uses TryBody and treats such a form as unreadable (skips it). The game itself
+	// loads it anyway (TESV.exe 1.9.32: inflate(Z_SYNC_FLUSH) into a length2 buffer, result not checked), so one
+	// such form must never stop the app or a whole check; a write keeps its original bytes.
+	struct BodyError : std::runtime_error
+	{
+		using std::runtime_error::runtime_error;
+	};
+	std::vector<std::uint8_t> Body(const ChangeForm& a_cf);                        // decompressed (throws BodyError)
+	// false (a_out empty, a_why = what is wrong with it) for a damaged change form
+	bool                      TryBody(const ChangeForm& a_cf, std::vector<std::uint8_t>& a_out, std::string* a_why = nullptr);
+	// "" when the body can be read, else what is wrong ("zlib data damaged: ...")
+	std::string               BodyProblem(const ChangeForm& a_cf);
+	struct DamagedForm
+	{
+		std::size_t   index = 0;   // in a_save.changeForms
+		std::uint32_t formID = 0;  // runtime form ID
+		std::string   why;
+	};
+	// every change form whose body cannot be read (decompresses each compressed form once); with a_only: only the forms
+	// with those form IDs are checked
+	std::vector<DamagedForm>  DamagedForms(const SaveFile& a_save, const std::vector<DamagedForm>* a_only = nullptr);
 	void                      SetBody(ChangeForm& a_cf, const std::vector<std::uint8_t>& a_body);  // recompresses if it was compressed
 	// a_inventoryOnly: stop once the inventory (and its charged items) is read; much faster for actors, whose AI data follows
 	Decoded                   Decode(const SaveFile& a_save, const ChangeForm& a_cf, const TypeLookup& a_types = {}, bool a_inventoryOnly = false);

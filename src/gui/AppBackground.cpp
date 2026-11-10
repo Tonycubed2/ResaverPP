@@ -411,6 +411,9 @@ void App::finishOpen(OpenJob& a_job)
 			for (const auto& line : a_job.describe) {
 				startupLog(std::string(_save->isFO4() ? "  fo4 " : "  ") + line);
 			}
+			if (_report && !_report->damaged.empty()) {
+				startupLog("  " + ops::DamagedFormsText(*_save, _report->damaged, 50));
+			}
 		}
 		// a save whose structure does not add up may not be written back faithfully: look, don't save
 		_readOnly = !_save->problems.empty();

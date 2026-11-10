@@ -282,7 +282,11 @@ namespace ess::fo4cf
 	Actor DecodeActor(const SaveFile& a_save, const ChangeForm& a_cf, std::vector<std::pair<std::uint32_t, char>>* a_trace)
 	{
 		Actor out;
-		const auto body = cf::Body(a_cf);
+		std::vector<std::uint8_t> body;
+		if (std::string why; !cf::TryBody(a_cf, body, &why)) {
+			out.error = "could not be read: " + why;
+			return out;
+		}
 		const auto refr = DecodeRefr(a_save, a_cf, body);
 		if (!refr.actor || !refr.decoded) {
 			out.error = refr.actor ? "the reference part: " + refr.error : "not an ACHR";

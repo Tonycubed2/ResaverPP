@@ -95,7 +95,11 @@ namespace ess::fo4cell
 	CellData DecodeAs(const SaveFile& a_save, const ChangeForm& a_cf, int a_interior)
 	{
 		CellData d;
-		const auto body = cf::Body(a_cf);
+		std::vector<std::uint8_t> body;
+		if (std::string why; !cf::TryBody(a_cf, body, &why)) {
+			d.error = "could not be read: " + why;
+			return d;
+		}
 		const auto fl = a_cf.changeFlags;
 		Reader     r(body.data(), body.size());
 		try {

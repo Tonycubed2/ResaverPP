@@ -13692,3 +13692,24 @@ tr "Персонаж снова может пользоваться мебель
 
 en "Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new character has them. Nothing else in the save changes. Save the result under a new name and load it."
 tr "Снова включает ИИ персонажа и возвращает часть движения «идти к» в состояние покоя, как у нового персонажа. Больше ничего в сохранении не меняется. Сохраните результат под новым именем и загрузите его."
+
+en "%zu change form(s) could not be read: zlib data damaged"
+tr "%zu форм(ы) изменений не удалось прочитать: данные zlib повреждены"
+
+en "\n  - and %zu more"
+tr "\n  - и ещё %zu"
+
+en "The compressed data of these change forms does not unpack to the size the save gives:"
+tr "Сжатые данные этих форм изменений не распаковываются до размера, указанного в сохранении:"
+
+en "\nReSaver++ shows them as unreadable and every check and tool skips them; everything else works as usual. Saving writes them back exactly as they were. If the game misbehaves with one of these forms, load an earlier save."
+tr "\nReSaver++ показывает их как нечитаемые, и все проверки и инструменты их пропускают; всё остальное работает как обычно. При сохранении они записываются обратно в точности как были. Если игра ведёт себя странно с одной из этих форм, загрузите более раннее сохранение."
+
+en "Show it in Change forms"
+tr "Показать в «Формах изменений»"
+
+en "Could not be read: zlib data damaged"
+tr "Не удалось прочитать: данные zlib повреждены"
+
+en "Its compressed data does not unpack to the size the save gives. Checks and tools skip it; saving writes it back exactly as it is."
+tr "Её сжатые данные не распаковываются до размера, указанного в сохранении. Проверки и инструменты её пропускают; при сохранении она записывается обратно в точности как есть."

@@ -4,6 +4,7 @@
 
 #include <unordered_map>
 
+#include "ChangeFormData.h"
 #include "GhostActors.h"
 #include "Save.h"
 #include "ScriptFlood.h"
@@ -206,8 +207,13 @@ namespace ess::ops
 		bool                     mcmJam = false;    // SkyUI registration was mid-way (FixMcmJam applies)
 		std::vector<flood::Flood> floods;           // script-call floods (flood::Find)
 		std::vector<ghost::Actor> ghosts;           // spawned actors whose created base is not in the save (ghost::Find)
+		std::vector<cf::DamagedForm> damaged;       // change forms whose zlib data cannot be decompressed (cf::DamagedForms)
 	};
-	Report Analyze(SaveFile& s);
+	// a_knownDamaged: the damaged change forms of the last analysis of this same save (after an edit): only those are
+	// checked again (an edit never makes a form damaged; a full check of a big Fallout 4 save takes ~0.25 s)
+	Report Analyze(SaveFile& s, const std::vector<cf::DamagedForm>* a_knownDamaged = nullptr);
+	// "N change form(s) could not be decompressed: <form id> (<type>: <why>), ..." (the log and the analysis)
+	std::string DamagedFormsText(const SaveFile& s, const std::vector<cf::DamagedForm>& a_damaged, std::size_t a_max = 20);
 	std::string FormatReport(const Report& r, std::size_t a_top = 20);
 
 	// Points the save at a plugin that was renamed (Mod.esp -> Mod.esl, ...): the save's plugin list entry is

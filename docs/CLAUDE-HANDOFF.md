@@ -1102,6 +1102,29 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
+- Damaged change forms (2026-11-10, branch zlibfix, not published). InfinityA1 (Skyrim LE, Win 11 26200): v66/v67 open his
+  newest save, then "Something went wrong: zlib decompression failed" every frame. Reproduced (Vortex's LE test saves,
+  scratchpad zfix/saves: c_player.ess = player ACHR length2 + 1): the only escaping path was quests::ReadJournal ->
+  cf::Body on the player's record (uncaught since c93e88a, v20), from App::questStates <- Save check <- checkWorst every
+  frame and from the background analysis (which then fell back). v60 (571bbe5, built in zfix/bld60) fails the same way on
+  that save: his v60 save must not have had the damaged form. With every compressed form damaged (c_all.ess) nothing else
+  escaped at open; the rest was found by reading every cf::Body caller.
+  - Fix: cf::Body throws cf::BodyError (edits never write a body they could not read); cf::TryBody / BodyProblem /
+    DamagedForms; Decode sets `damaged`; every scan/check/view skips such forms (ReadJournal, FixCharges, FixStuckPathIdles,
+    MoveActorToPlayer, FollowersSky teammate bit, FO4 DecodeRefr/DecodeNpc/DecodeActor/DecodeCell, WorldItems, Workshop,
+    SetPlayerCaps, ClearHavok, Transplant). ops::Report::damaged + a warning ("N change form(s) could not be decompressed:
+    ..."), the startup log line, a Save check item (Caution, "Show it in Change forms"), the form view says "Could not be
+    read: zlib data damaged". After an edit, Analyze re-checks only the known damaged forms (a full pass is 240 ms on a
+    170k-form FO4 save). Saves keep the forms' bytes (rs_unit TestDamagedChangeForms; RESAVERPP_DAMAGED_SAVES="file;dir"
+    damages real saves in memory, runs every check, writes and reads back byte for byte).
+  - The game (TESV.exe 1.9.32, scratchpad le13/TESV.dec.exe): change-form inflate helper 0x682f70 = inflateInit_, one
+    inflate(Z_SYNC_FLUSH) into the length2 buffer, inflateEnd, result never checked. Its caller 0x6879b0 reads the change form
+    header (type byte, width = type >> 6, version byte, length1, length2 via 0x677410), copies length1 raw bytes when
+    length2 is 0, else resizes the buffer to length2 (0x685ed0) and calls 0x682f70(src, length1, buf, length2) at 0x687a55. So the game loads such a form silently with the rest of the buffer unset. ReSaver
+    (FallrimTools mf/BufferUtil.inflateZLIB) zero-pads short output with a warning and drops the form on a data error.
+    Decoding semantics were NOT changed (the tail's content is not known): such forms are just unreadable here.
+  - Startup log now says "Windows 11 (10.0 build 26200)" for builds >= 22000.
+
 - Menu load guard, helper 17 (2026-11-10, branch menuguard2, not built, not tested in game; Tony builds in VS2022). For
   SkyrimIstari's 1.6.640 Proton session with helper 16 (scratchpad/istari-skills: crash-2026-11-09-23-13-15 + SKSE logs):
   the Map failure was caught (3x CreateMovie null, stand-in closed it) but the Papyrus notice never showed in the

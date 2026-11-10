@@ -179,6 +179,35 @@ std::vector<App::CheckItem> App::computeCheckItems()
 		v.push_back(std::move(it));
 	}
 
+	// change forms whose compressed data cannot be decompressed (ops::Report::damaged, cf::DamagedForms)
+	if (_report && !_report->damaged.empty()) {
+		CheckItem it;
+		it.level = Risk::kCaution;
+		it.title = Fmt(tr("%zu change form(s) could not be read: zlib data damaged"), _report->damaged.size());
+		std::string list;
+		for (std::size_t i = 0; i < _report->damaged.size() && i < 12; ++i) {
+			const auto& d = _report->damaged[i];
+			list += Fmt("\n  - %08X (%s): %s", d.formID, ChangeFormTypeName(_save->changeForms[d.index].typeCode(), fo4()), d.why.c_str());
+		}
+		if (_report->damaged.size() > 12) {
+			list += Fmt(tr("\n  - and %zu more"), _report->damaged.size() - 12);
+		}
+		it.what = tr("The compressed data of these change forms does not unpack to the size the save gives:") + list +
+				  tr("\nReSaver++ shows them as unreadable and every check and tool skips them; everything else works as usual. Saving "
+				  "writes them back exactly as they were. If the game misbehaves with one of these forms, load an earlier save.");
+		const auto first = _save->changeForms[_report->damaged.front().index].refID.data;
+		CheckOption o;
+		o.label = tr("Show it in Change forms");
+		o.risk = Risk::kSafe;
+		o.why = tr("Only shows information.");
+		o.act = [this, first] {
+			select(Cat::kChangeForms, first);
+			_showCheck = false;
+		};
+		it.options.push_back(std::move(o));
+		v.push_back(std::move(it));
+	}
+
 	// threads nothing will resume (ops::StrandedThreads): verified in SkyrimSE.exe 1.6.1170 only
 	if (p && !p->invalid && !_save->isFO4() && !_save->isLE()) {
 		std::optional<watchdog::Step> st(std::in_place, "stranded threads (ops::StrandedThreads)");

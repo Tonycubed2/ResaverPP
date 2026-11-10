@@ -13666,3 +13666,24 @@ tr ""
 
 en "Switches the player's AI back on and sets the \"walk to\" part of the player's movement back to idle, as a new character has them. Nothing else in the save changes. Save the result under a new name and load it."
 tr ""
+
+en "%zu change form(s) could not be read: zlib data damaged"
+tr ""
+
+en "\n  - and %zu more"
+tr ""
+
+en "The compressed data of these change forms does not unpack to the size the save gives:"
+tr ""
+
+en "\nReSaver++ shows them as unreadable and every check and tool skips them; everything else works as usual. Saving writes them back exactly as they were. If the game misbehaves with one of these forms, load an earlier save."
+tr ""
+
+en "Show it in Change forms"
+tr ""
+
+en "Could not be read: zlib data damaged"
+tr ""
+
+en "Its compressed data does not unpack to the size the save gives. Checks and tools skip it; saving writes it back exactly as it is."
+tr ""

@@ -425,7 +425,16 @@ namespace ess::fo4cf
 		std::string Msg(const std::exception& e) { return e.what(); }
 	}
 
-	Refr DecodeRefr(const SaveFile& a_save, const ChangeForm& a_cf) { return DecodeRefr(a_save, a_cf, cf::Body(a_cf)); }
+	Refr DecodeRefr(const SaveFile& a_save, const ChangeForm& a_cf)
+	{
+		std::vector<std::uint8_t> body;
+		if (std::string why; !cf::TryBody(a_cf, body, &why)) {
+			Refr out;
+			out.error = "could not be read: " + why;
+			return out;
+		}
+		return DecodeRefr(a_save, a_cf, body);
+	}
 
 	Refr DecodeRefr(const SaveFile& a_save, const ChangeForm& a_cf, const std::vector<std::uint8_t>& a_body)
 	{
@@ -508,7 +517,11 @@ namespace ess::fo4cf
 			out.error = "not a Fallout 4 NPC_";
 			return out;
 		}
-		const auto body = cf::Body(a_cf);
+		std::vector<std::uint8_t> body;
+		if (std::string why; !cf::TryBody(a_cf, body, &why)) {
+			out.error = "could not be read: " + why;
+			return out;
+		}
 		Reader     r(body.data(), body.size());
 		try {
 			NpcBody(r, a_cf.changeFlags, a_save.formVersion, &out.parts, &out.name);
@@ -531,7 +544,10 @@ namespace ess::fo4cf
 		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::REFR) {
 			return "not an object reference (REFR)";
 		}
-		auto       body = cf::Body(a_cf);
+		std::vector<std::uint8_t> body;
+		if (std::string why; !cf::TryBody(a_cf, body, &why)) {
+			return "this reference could not be read (" + why + "): nothing changed";
+		}
 		const auto d = DecodeRefr(a_save, a_cf, body);
 		if (!d.complete) {
 			return "this reference could not be read completely (" + d.error + "): nothing changed";
@@ -674,7 +690,10 @@ namespace ess::fo4cf
 		if (!p) {
 			return "no player reference (ACHR 0x14) in this save";
 		}
-		auto       body = cf::Body(*p);
+		std::vector<std::uint8_t> body;
+		if (std::string why; !cf::TryBody(*p, body, &why)) {
+			return "the player's record could not be read (" + why + "): nothing changed";
+		}
 		const auto d = DecodeRefr(a_save, *p, body);
 		if (!d.decoded) {
 			return "the player's inventory cannot be read: " + d.error;

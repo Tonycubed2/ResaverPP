@@ -143,8 +143,9 @@ namespace ess::fo4world
 			if (c.typeCode() != static_cast<std::uint8_t>(ChangeFormType::REFR) || c.refID.type() != RefID::Type::kCreated) {
 				continue;
 			}
-			const auto body = cf::Body(c);
-			const auto d = fo4cf::DecodeRefr(a_save, c, body);
+			std::vector<std::uint8_t> body;
+			// a damaged body (zlib data): DecodeRefr(a_save, c) says why it cannot be read
+			const auto d = cf::TryBody(c, body) ? fo4cf::DecodeRefr(a_save, c, body) : fo4cf::DecodeRefr(a_save, c);
 			Item it;
 			it.formID = a_save.formIDOf(c.refID);
 			it.ref = c.refID;
@@ -211,7 +212,11 @@ namespace ess::fo4world
 			// a listed item's own change form is skipped for its own id only (its body may name another listed item)
 			const std::uint32_t self = c.refID.type() == RefID::Type::kCreated ? c.refID.value() : 0xFFFFFFFFu;
 			const auto fid = a_save.formIDOf(c.refID);
-			scan.scan(cf::Body(c), ids, Hex(fid) + " (" + ChangeFormTypeName(c.typeCode(), true) + ")", self);
+			std::vector<std::uint8_t> body;
+			if (!cf::TryBody(c, body)) {
+				continue;  // damaged (zlib data): cannot be searched
+			}
+			scan.scan(body, ids, Hex(fid) + " (" + ChangeFormTypeName(c.typeCode(), true) + ")", self);
 		}
 		for (const auto* t : { &a_save.table1, &a_save.table2, &a_save.table3 }) {
 			for (const auto& g : *t) {

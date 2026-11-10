@@ -775,7 +775,10 @@ namespace ess::quests
 		if (!player) {
 			return {};
 		}
-		const auto d = cf::Body(*player);
+		std::vector<std::uint8_t> d;
+		if (!cf::TryBody(*player, d)) {
+			return {};  // the player's data cannot be read (zlib data damaged): the journal is not known
+		}
 		auto       u32 = [&](std::size_t p) { return static_cast<std::uint32_t>(d[p]) | (d[p + 1] << 8) | (d[p + 2] << 16) | (static_cast<std::uint32_t>(d[p + 3]) << 24); };
 		// a vsval count: the low 2 bits say 1, 2 or 4 bytes
 		auto vsval = [&](std::size_t p, std::size_t& a_len) -> std::uint32_t {

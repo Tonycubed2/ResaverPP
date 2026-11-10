@@ -1,6 +1,7 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "ChangeFormData.h"
 #include "ChangeFormFO4.h"
+#include "miniz.h"
 #include <cmath>
 #include <map>
 #include <iterator>
@@ -3597,12 +3598,103 @@ namespace ess::cf
 			nullptr, "QUEST_ALREADY_RUN", "QUEST_INSTANCES", "QUEST_RUNDATA", "QUEST_OBJECTIVES", "QUEST_SCRIPT", "QUEST_STAGES" };
 	}
 
+	namespace
+	{
+		// why a compressed body does not inflate to length2 bytes (only worked out once the fast path failed)
+		std::string ZlibProblem(const ChangeForm& a_cf)
+		{
+			std::vector<std::uint8_t> out(static_cast<std::size_t>(a_cf.length2) + 1);  // one more: tells "too long" apart
+			mz_stream                 z{};
+			if (mz_inflateInit(&z) != MZ_OK) {
+				return "zlib data damaged";
+			}
+			z.next_in = a_cf.data.data();
+			z.avail_in = static_cast<unsigned>(a_cf.data.size());
+			z.next_out = out.data();
+			z.avail_out = static_cast<unsigned>(out.size());
+			int rc = MZ_OK;
+			while (rc == MZ_OK && z.avail_in && z.avail_out) {  // (MZ_SYNC_FLUSH, as the game: stops where the input does)
+				rc = mz_inflate(&z, MZ_SYNC_FLUSH);
+			}
+			const auto got = static_cast<std::size_t>(z.total_out);
+			const bool inputLeft = z.avail_in != 0;
+			mz_inflateEnd(&z);
+			char b[200];
+			if (got > a_cf.length2) {
+				std::snprintf(b, sizeof(b), "zlib data damaged: inflates to more than the %u bytes the save says", a_cf.length2);
+			} else if (rc == MZ_STREAM_END) {
+				std::snprintf(b, sizeof(b), "zlib data damaged: inflates to %zu bytes, not the %u the save says%s", got, a_cf.length2,
+					inputLeft ? " (and bytes follow the stream)" : "");
+			} else if (rc == MZ_DATA_ERROR && got == a_cf.length2) {
+				std::snprintf(b, sizeof(b), "zlib data damaged: all %u bytes unpack but the checksum does not match", a_cf.length2);
+			} else if (rc == MZ_DATA_ERROR) {
+				std::snprintf(b, sizeof(b), "zlib data damaged: bad data after %zu of %u bytes", got, a_cf.length2);
+			} else {
+				std::snprintf(b, sizeof(b), "zlib data damaged: cut short after %zu of %u bytes", got, a_cf.length2);
+			}
+			return b;
+		}
+	}
+
+	bool TryBody(const ChangeForm& a_cf, std::vector<std::uint8_t>& a_out, std::string* a_why)
+	{
+		if (a_cf.length2 == 0) {
+			a_out = a_cf.data;
+			return true;
+		}
+		a_out.assign(a_cf.length2, 0);
+		mz_ulong len = static_cast<mz_ulong>(a_cf.length2);
+		if (mz_uncompress(a_out.data(), &len, a_cf.data.data(), static_cast<mz_ulong>(a_cf.data.size())) == MZ_OK && len == a_cf.length2) {
+			return true;
+		}
+		a_out.clear();
+		if (a_why) {
+			*a_why = ZlibProblem(a_cf);
+		}
+		return false;
+	}
+
 	std::vector<std::uint8_t> Body(const ChangeForm& a_cf)
 	{
-		if (a_cf.length2 > 0) {
-			return DecompressZlib(a_cf.data.data(), a_cf.data.size(), a_cf.length2);
+		std::vector<std::uint8_t> out;
+		std::string               why;
+		if (!TryBody(a_cf, out, &why)) {
+			throw BodyError("change form could not be read: " + why);
 		}
-		return a_cf.data;
+		return out;
+	}
+
+	std::string BodyProblem(const ChangeForm& a_cf)
+	{
+		std::vector<std::uint8_t> b;
+		std::string               why;
+		return TryBody(a_cf, b, &why) ? std::string() : why;
+	}
+
+	std::vector<DamagedForm> DamagedForms(const SaveFile& a_save, const std::vector<DamagedForm>* a_only)
+	{
+		std::vector<DamagedForm>  out;
+		if (a_only && a_only->empty()) {
+			return out;
+		}
+		std::set<std::uint32_t> only;
+		if (a_only) {
+			for (const auto& d : *a_only) {
+				only.insert(d.formID);
+			}
+		}
+		std::vector<std::uint8_t> b;
+		for (std::size_t i = 0; i < a_save.changeForms.size(); ++i) {
+			const auto& c = a_save.changeForms[i];
+			if (a_only && (c.length2 == 0 || !only.contains(a_save.formIDOf(c.refID)))) {
+				continue;
+			}
+			std::string why;
+			if (c.length2 > 0 && !TryBody(c, b, &why)) {
+				out.push_back({ i, a_save.formIDOf(c.refID), why });
+			}
+		}
+		return out;
 	}
 
 	void SetBody(ChangeForm& a_cf, const std::vector<std::uint8_t>& a_body)
@@ -3633,10 +3725,9 @@ namespace ess::cf
 			return out;
 		}
 		std::vector<std::uint8_t> body;
-		try {
-			body = Body(a_cf);
-		} catch (const std::exception& e) {
-			out.error = std::string("could not decompress: ") + e.what();
+		if (std::string why; !TryBody(a_cf, body, &why)) {
+			out.damaged = true;
+			out.error = "could not be read: " + why;
 			return out;
 		}
 		out.bodySize = body.size();
@@ -4083,6 +4174,9 @@ namespace ess::cf
 				continue;
 			}
 			const auto d = Decode(a_save, c);
+			if (d.damaged) {
+				continue;  // its body cannot be read (zlib data damaged): left as it is
+			}
 			bool       any = false;
 			auto       body = Body(c);
 			for (const auto& e : d.charged) {
@@ -4152,6 +4246,9 @@ namespace ess::cf
 				continue;
 			}
 			const auto d = Decode(a_save, c);
+			if (d.damaged) {
+				continue;  // its body cannot be read (zlib data damaged): left as it is
+			}
 			auto       body = Body(c);
 			bool       any = false;
 			for (const auto& ps : d.pathFollowerStates) {
@@ -5305,7 +5402,10 @@ namespace ess::cf
 			return "this save has no player change form";
 		}
 		const int pt = InitialType(player->refID, player->changeFlags);
-		const auto pb = Body(*player);
+		std::vector<std::uint8_t> pb;
+		if (std::string why; !TryBody(*player, pb, &why)) {
+			return "the player's record could not be read (" + why + "): nothing changed";
+		}
 		if ((pt != 4 && pt != 6) || pb.size() < 27) {
 			return "the save has no position for the player";
 		}

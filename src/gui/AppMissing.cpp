@@ -689,7 +689,7 @@ void App::drawMissingModal()
 			markEdited(Fmt(tr("Removed the leftovers of %zu mod(s) and %zu missing script(s)"), done, scriptsDone) + keptNote(kept));
 			_modsDirty = true;
 			doSave(target);
-			_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
+			_report = std::make_unique<ops::Report>(ops::Analyze(*_save, _report ? &_report->damaged : nullptr));
 			if (_error.empty()) {
 				_status = Fmt(tr("Removed the leftovers of %zu mod(s) and %zu missing script(s), and wrote "), done, scriptsDone) + platform::ToUtf8(target.filename()) +
 						  (skipped.empty() ? "" : tr("  (skipped: ") + skipped + ")");

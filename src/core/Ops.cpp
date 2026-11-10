@@ -1114,7 +1114,23 @@ namespace ess::ops
 		std::string MsgName(const Papyrus& p, const FunctionMessageData& d) { return p.str(d.scriptName) + "." + p.str(d.event); }
 	}
 
-	Report Analyze(SaveFile& s)
+	std::string DamagedFormsText(const SaveFile& s, const std::vector<cf::DamagedForm>& a_damaged, std::size_t a_max)
+	{
+		std::string list;
+		for (std::size_t i = 0; i < a_damaged.size() && i < a_max; ++i) {
+			const auto& d = a_damaged[i];
+			char        id[16];
+			std::snprintf(id, sizeof(id), "%08X", d.formID);
+			list += std::string(i ? "; " : "") + id + " (" + ChangeFormTypeName(s.changeForms[d.index].typeCode(), s.isFO4()) + ": " + d.why + ")";
+		}
+		if (a_damaged.size() > a_max) {
+			list += "; and " + std::to_string(a_damaged.size() - a_max) + " more";
+		}
+		return std::to_string(a_damaged.size()) + " change form(s) could not be decompressed: " + list +
+		       ". Their data is shown as unreadable and every check skips them; saving keeps their bytes exactly as they are.";
+	}
+
+	Report Analyze(SaveFile& s, const std::vector<cf::DamagedForm>* a_knownDamaged)
 	{
 		Report r;
 		r.changeForms = s.changeForms.size();
@@ -1123,6 +1139,13 @@ namespace ess::ops
 			cfTypes[ChangeFormTypeName(c.typeCode(), s.isFO4())]++;
 		}
 		r.changeFormsByType = Sorted(cfTypes);
+
+		// change forms whose compressed data cannot be read: shown as unreadable, skipped by every check, written back as
+		// they are (Skyrim LE 1.9.32 itself loads them without a word: it never checks the result of its inflate)
+		r.damaged = a_knownDamaged ? cf::DamagedForms(s, a_knownDamaged) : cf::DamagedForms(s);
+		if (!r.damaged.empty()) {
+			r.warnings.push_back(DamagedFormsText(s, r.damaged));
+		}
 
 		// spawned actors whose created base is not in the save (change forms only: checked even without script data)
 		r.ghosts = ghost::Find(s);

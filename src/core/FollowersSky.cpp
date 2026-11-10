@@ -404,7 +404,8 @@ namespace ess::skyf
 				}
 			}
 			// the teammate flag: the u32 right after the process level
-			const auto body = cf::Body(c);
+			std::vector<std::uint8_t> body;
+			cf::TryBody(c, body);  // a damaged body (zlib data) stays empty: flag not known
 			if (quick.levelAt && quick.levelAt + 8 <= body.size()) {
 				std::uint32_t bits;
 				std::memcpy(&bits, body.data() + quick.levelAt + 4, 4);

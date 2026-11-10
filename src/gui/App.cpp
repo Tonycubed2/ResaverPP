@@ -212,7 +212,7 @@ void App::markEdited(const std::string& a_what)
 	_rowsDirty = true;
 	_selected.clear();
 	_focus.reset();
-	_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
+	_report = std::make_unique<ops::Report>(ops::Analyze(*_save, _report ? &_report->damaged : nullptr));
 	_modsDirty = true;
 	_status = a_what + tr("  (not saved yet: File > Save As)");
 	if (startupLog) {
@@ -3503,7 +3503,7 @@ void App::killThreads(const std::set<ThreadID>& a_threads, const std::set<EID>& 
 			[this, a_threads, a_what] {
 				const auto t = ops::DeleteThreadsFully(*_save->papyrus(), a_threads);
 				markChanged(Fmt(tr("Stopped %s: %zu threads deleted"), a_what.c_str(), t));
-				_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
+				_report = std::make_unique<ops::Report>(ops::Analyze(*_save, _report ? &_report->damaged : nullptr));
 			});
 		return;
 	}
@@ -3526,7 +3526,7 @@ void App::killThreads(const std::set<ThreadID>& a_threads, const std::set<EID>& 
 			const auto i = ops::DeleteInstances(p, a_instances);
 			const auto f = ops::DeleteChangeForms(*_save, forms);
 			markChanged(Fmt(tr("Killed %s: %zu threads, %zu instances, %zu spawned objects"), a_what.c_str(), t, i, f));
-			_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
+			_report = std::make_unique<ops::Report>(ops::Analyze(*_save, _report ? &_report->damaged : nullptr));
 		});
 }
 
@@ -3774,7 +3774,7 @@ void App::detailMod(std::uint64_t k)
 							auto x = ops::PurgeScript(*_save, n, true);
 							markChanged(Fmt(tr("Killed %s everywhere: %zu threads, %zu instances, %zu spawned objects"), n.c_str(), x.threads, x.instances, x.forms) +
 										keptNote(x.kept));
-							_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
+							_report = std::make_unique<ops::Report>(ops::Analyze(*_save, _report ? &_report->damaged : nullptr));
 						});
 				}
 				ImGui::EndDisabled();
@@ -3880,7 +3880,7 @@ void App::drawRemoveModModal()
 		markEdited(tr("Removed ") + what);
 		_modsDirty = true;
 		doSave(target);
-		_report = std::make_unique<ops::Report>(ops::Analyze(*_save));
+		_report = std::make_unique<ops::Report>(ops::Analyze(*_save, _report ? &_report->damaged : nullptr));
 		if (_error.empty()) {
 			_status = tr("Removed ") + what + " (" + res.text() + tr(") and wrote ") + platform::ToUtf8(target.filename());
 		}

@@ -290,8 +290,9 @@ namespace ess::fo4ws
 				const auto it = byForm.find(form);
 				const bool workshop = it != byForm.end();
 				// links are counted on every reference and actor (their reference part)
-				const auto body = cf::Body(c);
-				const auto d = fo4cf::DecodeRefr(a_save, c, body);
+				std::vector<std::uint8_t> body;
+				// a damaged body (zlib data): DecodeRefr(a_save, c) says why it cannot be read
+				const auto d = cf::TryBody(c, body) ? fo4cf::DecodeRefr(a_save, c, body) : fo4cf::DecodeRefr(a_save, c);
 				if (workshop) {
 					auto& s = out[it->second];
 					s.hasChangeForm = true;
@@ -358,8 +359,8 @@ namespace ess::fo4ws
 		if (!cf) {
 			return "the save has no changed reference " + Hex(a_workshop) + " (its budget is the plugin's: nothing used)";
 		}
-		const auto body = cf::Body(*cf);
-		const auto d = fo4cf::DecodeRefr(a_save, *cf, body);
+		std::vector<std::uint8_t> body;
+		const auto d = cf::TryBody(*cf, body) ? fo4cf::DecodeRefr(a_save, *cf, body) : fo4cf::DecodeRefr(a_save, *cf);
 		if (!d.complete) {
 			return "reference " + Hex(a_workshop) + " cannot be read completely (" + d.error + "): nothing changed";
 		}

@@ -37,9 +37,12 @@
 #include <cmath>
 #include <cstdio>
 #include "core/CharEffects.h"
+#include "core/SaveBloat.h"
+#include "core/CompanionsFO4.h"
 #include "core/Compare.h"
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -5660,6 +5663,238 @@ void TestFreezeFix()
 // 1/3/5 (Miscellaneous, type 6: 1 only) and is under Completed when the quest is completed or the entry is of an earlier run.
 // RESAVERPP_IST2_SAVE = his Save103 (2997 journal entries; before the fix 1528 shown objectives of completed or stopped quests
 // were counted).
+// A change form whose zlib data does not unpack to its length2 (InfinityA1's Skyrim LE save, v66/v67: "zlib decompression
+// failed" every frame from quests::ReadJournal on the player's record). Such a form must be skipped by every reader, reported
+// (cf::DamagedForms, the analysis), never written from a body that could not be read, and saved back byte for byte.
+// Synthetic Skyrim LE + Fallout 4 saves always; real saves with RESAVERPP_DAMAGED_SAVES="file;dir" (any game: the player's
+// record and one other compressed form are damaged in memory, every check runs, the save is written and read back).
+namespace
+{
+	void DamagedBattery(SaveFile& s, const std::string& a_tag)
+	{
+		auto run = [&](const char* a_what, const std::function<void()>& a_f) {
+			try {
+				a_f();
+				Check(true, a_what);
+			} catch (const std::exception& e) {
+				std::printf("  %s: %s threw: %s\n", a_tag.c_str(), a_what, e.what());
+				Check(false, (std::string("damaged form: ") + a_what + " does not throw").c_str());
+			}
+		};
+		run("ops::Analyze", [&] { ops::Analyze(s); });
+		run("quests::ReadStates", [&] { quests::ReadStates(s); });
+		run("quests::ReadJournal", [&] { quests::ReadJournal(s); });
+		run("quests::ReadQuestLog", [&] { quests::ReadQuestLog(s); });
+		run("cf::FindChargedItems", [&] { cf::FindChargedItems(s); });
+		run("cf::CountStuckPathIdles", [&] {
+			for (const auto& c : s.changeForms) {
+				cf::CountStuckPathIdles(s, c);
+			}
+		});
+		run("cf::ListActors", [&] { cf::ListActors(s); });
+		run("cf::ListInventories", [&] { cf::ListInventories(s); });
+		run("cf::ReadPlayer", [&] { cf::ReadPlayer(s); });
+		run("cf::ReadPlayerActiveEffects", [&] {
+			std::string err;
+			cf::ReadPlayerActiveEffects(s, err);
+		});
+		run("cf::FindStuckPlayerMovement", [&] { cf::FindStuckPlayerMovement(s); });
+		run("bloat::Build", [&] { bloat::Build(s); });
+		run("chfx::Build", [&] { chfx::Build(s, {}); });
+		run("ghost::Find", [&] { ghost::Find(s); });
+		run("ops::LiveEffectInstances", [&] {
+			std::set<EID> all;
+			if (const auto* p = s.papyrus()) {
+				for (const auto& i : p->instances) {
+					all.insert(i.id);
+				}
+			}
+			ops::LiveEffectInstances(s, all);
+		});
+		run("cf::Decode (every form)", [&] {
+			for (const auto& c : s.changeForms) {
+				cf::Decode(s, c);
+			}
+		});
+		if (s.isFO4()) {
+			run("fo4world::List", [&] { fo4world::List(s); });
+			run("fo4ws::List / Check", [&] { fo4ws::Check(s); });
+			run("fo4comp::Read", [&] { fo4comp::Read(s); });
+			run("fo4cf::DecodeRefr / DecodeActor / DecodeNpc", [&] {
+				for (const auto& c : s.changeForms) {
+					fo4cf::DecodeRefr(s, c);
+					if (static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::ACHR) {
+						fo4cf::DecodeActor(s, c);
+					}
+					if (static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::NPC_) {
+						fo4cf::DecodeNpc(s, c);
+					}
+				}
+			});
+		} else {
+			run("skyf::ReadFollowers", [&] { skyf::ReadFollowers(s); });
+			run("skyf::ReadBeastForms", [&] { skyf::ReadBeastForms(s); });
+			// fixes over every form: skip the damaged ones, leave them as they are
+			run("cf::FixCharges / FixStuckPathIdles", [&] {
+				cf::FixCharges(s, 100, {});
+				cf::FixStuckPathIdles(s);
+			});
+		}
+	}
+
+	ChangeForm ZForm(std::uint32_t a_refData, ChangeFormType a_type, const std::vector<std::uint8_t>& a_body, int a_damage)
+	{
+		ChangeForm c;
+		c.refID.data = a_refData;
+		c.typeField = static_cast<std::uint8_t>(static_cast<std::uint8_t>(a_type) | (1 << 6));  // u16 lengths
+		c.data = CompressZlib(a_body);
+		c.length1 = static_cast<std::uint32_t>(c.data.size());
+		c.length2 = static_cast<std::uint32_t>(a_body.size());
+		if (a_damage == 1) {
+			++c.length2;  // inflates to fewer bytes than the save says
+		} else if (a_damage == 2) {
+			c.data[c.data.size() / 2] ^= 0x5A;  // bad deflate data or checksum
+		} else if (a_damage == 3) {
+			c.data.erase(c.data.end() - 6, c.data.end());  // cut short
+			c.length1 = static_cast<std::uint32_t>(c.data.size());
+		}
+		return c;
+	}
+}
+
+void TestDamagedChangeForms()
+{
+	for (const bool fo4 : { false, true }) {
+		auto s = MakeSave();
+		s->header.magic = fo4 ? "FO4_SAVEGAME" : "TESV_SAVEGAME";
+		s->header.version = fo4 ? 15 : 9;
+		std::vector<std::uint8_t> body(300);
+		for (std::size_t i = 0; i < body.size(); ++i) {
+			body[i] = static_cast<std::uint8_t>(i * 7);
+		}
+		s->changeForms.push_back(ZForm((1u << 22) | 0x14, ChangeFormType::ACHR, body, 1));  // the player
+		s->changeForms.push_back(ZForm((1u << 22) | 0x07, ChangeFormType::NPC_, body, 2));  // the player's base
+		s->changeForms.push_back(ZForm((1u << 22) | 0x1234, ChangeFormType::REFR, body, 3));
+		s->changeForms.push_back(ZForm((1u << 22) | 0x1235, ChangeFormType::REFR, body, 0));  // a good one
+		s->reindexChangeForms();
+		const std::string tag = fo4 ? "synthetic FO4" : "synthetic LE";
+		const auto        dmg = cf::DamagedForms(*s);
+		Check(dmg.size() == 3 && dmg[0].formID == 0x14 && dmg[1].formID == 0x07 && dmg[2].formID == 0x1234,
+			"damaged forms: the three damaged change forms are listed, the good one is not");
+		Check(dmg.size() == 3 && dmg[0].why.find("inflates to 300 bytes, not the 301") != std::string::npos &&
+				  dmg[2].why.find("cut short") != std::string::npos,
+			"damaged forms: says what is wrong");
+		std::vector<std::uint8_t> b;
+		Check(!cf::TryBody(s->changeForms[0], b) && b.empty() && cf::TryBody(s->changeForms[3], b) && b == body,
+			"damaged forms: TryBody false for a damaged form, the body for a good one");
+		bool threw = false;
+		try {
+			cf::Body(s->changeForms[0]);
+		} catch (const cf::BodyError&) {
+			threw = true;
+		}
+		Check(threw, "damaged forms: Body throws BodyError (an edit never writes a body it could not read)");
+		if (!fo4) {
+			const auto d = cf::Decode(*s, s->changeForms[0]);
+			Check(d.damaged && !d.complete && d.error.find("zlib data damaged") != std::string::npos, "damaged forms: Decode says why");
+			const auto r = ops::Analyze(*s);
+			Check(r.damaged.size() == 3 && !r.warnings.empty() && r.warnings[0].find("3 change form(s) could not be decompressed: 00000014 (ACHR") == 0,
+				"damaged forms: the analysis reports them");
+			const auto again = ops::Analyze(*s, &r.damaged);  // after an edit: only the known ones are checked again
+			Check(again.damaged.size() == 3 && again.damaged[1].formID == 0x07, "damaged forms: the analysis after an edit keeps them");
+			const auto before = s->changeForms[0].data;
+			Check(cf::MoveActorToPlayer(*s, s->changeForms[3]).find("could not be read") != std::string::npos ||
+					  s->changeForms[0].data == before,
+				"damaged forms: an edit needing the player's damaged record refuses, the record is untouched");
+		} else {
+			Check(fo4cf::DecodeRefr(*s, s->changeForms[0]).error.find("zlib data damaged") != std::string::npos,
+				"damaged forms: Fallout 4 DecodeRefr says why");
+			Check(fo4cf::SetPlayerCaps(*s, 5).find("could not be read") != std::string::npos, "damaged forms: Fallout 4 caps edit refuses");
+		}
+		DamagedBattery(*s, tag);
+	}
+
+	// real saves
+	std::vector<std::filesystem::path> files;
+	if (const char* env = std::getenv("RESAVERPP_DAMAGED_SAVES")) {
+		std::string all = env;
+		for (std::size_t p = 0; p <= all.size();) {
+			auto e = std::min(all.find(';', p), all.size());
+			const std::filesystem::path f = all.substr(p, e - p);
+			std::error_code ec;
+			if (std::filesystem::is_directory(f, ec)) {
+				for (const auto& x : std::filesystem::directory_iterator(f, ec)) {
+					if (x.path().extension() == ".ess" || x.path().extension() == ".fos") {
+						files.push_back(x.path());
+					}
+				}
+			} else if (!f.empty()) {
+				files.push_back(f);
+			}
+			p = e + 1;
+		}
+	}
+	if (files.empty()) {
+		std::printf("(damaged forms: RESAVERPP_DAMAGED_SAVES not set, real saves skipped)\n");
+	}
+	std::sort(files.begin(), files.end());
+	for (const auto& f : files) {
+		auto s = SaveFile::load(f);
+		const auto already = cf::DamagedForms(*s).size();
+		// damage the player's record (length2 one too big) and the middle compressed form (one byte of its stream)
+		std::size_t player = SIZE_MAX, other = SIZE_MAX, compressed = 0;
+		for (std::size_t i = 0; i < s->changeForms.size(); ++i) {
+			const auto& c = s->changeForms[i];
+			if (static_cast<ChangeFormType>(c.typeCode()) == ChangeFormType::ACHR && s->formIDOf(c.refID) == 0x14) {
+				player = i;
+			}
+			compressed += c.length2 > 0;
+		}
+		for (std::size_t i = 0, k = 0; i < s->changeForms.size(); ++i) {
+			if (s->changeForms[i].length2 > 0 && i != player && k++ == compressed / 2) {
+				other = i;
+			}
+		}
+		if (other == SIZE_MAX) {
+			std::printf("(damaged forms: %s has no zlib-compressed change form, skipped)\n", f.filename().string().c_str());
+			continue;
+		}
+		// (Skyrim SE / AE compresses the whole body with LZ4 and few forms with zlib: the player's may not be one)
+		const bool playerToo = player != SIZE_MAX && s->changeForms[player].length2 > 0;
+		if (playerToo) {
+			++s->changeForms[player].length2;  // fits the length width: it is only checked against the stream
+		}
+		auto& oc = s->changeForms[other];
+		oc.data[oc.data.size() / 2] ^= 0x5A;
+		const auto dmg = cf::DamagedForms(*s);
+		const std::size_t made = playerToo ? 2 : 1;
+		Check(dmg.size() == already + made, "damaged forms (real save): the damaged forms found");
+		DamagedBattery(*s, f.filename().string());
+		// written and read back: every change form byte for byte as in memory (the damaged ones too)
+		const auto expect = s->changeForms;
+		const auto tmp = std::filesystem::temp_directory_path() / ("rs_damaged" + f.extension().string());
+		bool       same = false;
+		try {
+			s->save(tmp);
+			auto back = SaveFile::load(tmp);
+			same = back->changeForms.size() == expect.size();
+			for (std::size_t i = 0; same && i < expect.size(); ++i) {
+				const auto& a = expect[i];
+				const auto& c = back->changeForms[i];
+				same = a.refID.data == c.refID.data && a.changeFlags == c.changeFlags && a.typeField == c.typeField && a.version == c.version &&
+				       a.length1 == c.length1 && a.length2 == c.length2 && a.data == c.data;
+			}
+			same = same && cf::DamagedForms(*back).size() == already + made;
+		} catch (const std::exception& e) {
+			std::printf("  %s: write / read back: %s\n", f.filename().string().c_str(), e.what());
+		}
+		std::filesystem::remove(tmp);
+		std::printf("damaged forms: %s: %zu compressed, damaged %s%08X, %zu found, written back %s\n", f.filename().string().c_str(), compressed,
+			playerToo ? "00000014 (player) and " : "", s->formIDOf(oc.refID), dmg.size(), same ? "byte for byte" : "CHANGED");
+		Check(same, "damaged forms (real save): written back byte for byte and found again");
+	}
+}
+
 void TestJournalLeftovers()
 {
 	using ess::quests::QuestState;
@@ -5800,6 +6035,7 @@ int main()
 	TestGhostActors();
 	TestGhostRemove();
 	TestJournalLeftovers();
+	TestDamagedChangeForms();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }
