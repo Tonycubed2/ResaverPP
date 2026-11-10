@@ -1704,7 +1704,7 @@ namespace MenuPage
 					Colored(p.closed > 0 && !p.test ? kRed : kYellow,
 						std::format("{}{}: failed {}, worked on retry {}, menu not opened {} (last at {})", p.movie, p.test ? " (TEST)" : "", p.failed,
 							p.recovered, p.closed, p.lastTime));
-					Tip(p.lastStep + "\nDetails (files, memory, the last 50 loads) are in ReSaverHelper.log. Please send that log (Troubleshooting "
+					Tip(p.lastStep + (p.lastHow.empty() ? "" : "\nWhat the guard did: " + p.lastHow) + "\nDetails (files, memory, the last 50 loads) are in ReSaverHelper.log. Please send that log (Troubleshooting "
 										 "tests > What to send).");
 				}
 			}

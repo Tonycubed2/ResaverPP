@@ -3,10 +3,11 @@
 // Menu load guard (version 16, Skyrim SE / AE; not on VR): a menu whose interface movie (Interface/<name>.swf) fails to
 // load no longer crashes the game, and ReSaverHelper.log says why the load failed.
 //
-// Why: every menu's constructor calls BSScaleformManager::LoadMovie (RELOCATION_ID(80302, 82325)) for its movie. When
-// that returns false the menu keeps no movie (uiMovie = null) and the game uses it anyway: MapMenu's constructor
+// Why: every menu loads its movie through BSScaleformManager::LoadMovie (RELOCATION_ID(80302, 82325)). When that
+// returns false the menu keeps no movie (uiMovie = null) and the game uses it anyway: MapMenu's constructor
 // crashes at once (+0x200 on 1.6.640 / 1.6.1170), the Journal crashes on opening (GFxMovieView::InvokeNoReturn with a
-// null movie). Seen by a tester on 1.6.640 under Proton; the reason for the failed load is not known.
+// null movie), the Skills menu (StatsMenu) a moment after opening (StatsMenu::ProcessMessage +0x939). Seen by a tester
+// on 1.6.640 under Proton; the reason for the failed loads is not known.
 //
 // What it does (all verified on the 1.6.1170 executable, see docs/CLAUDE-HANDOFF.md "Menu load guard"):
 // - LoadMovie is hooked at its entry. A failed load is logged with the step that failed (the game's file check,
@@ -15,13 +16,22 @@
 //   a C++ exception that the wrapper catches: the game's own unwind code destroys the half-built menu and frees its
 //   memory (the same cleanup it does when a constructor throws). The wrapper then gives the game a small stand-in menu
 //   that answers kIgnore to the "show" message, so UI::ProcessMessages drops it from the menu map: the menu simply
-//   does not open, and the next try creates it anew. A notification says so.
+//   does not open, and the next try creates it anew. A notice says so.
+// - Version 17: StatsMenu loads its movie later, in the game's background load task (BSScaleformMovieLoadTask) on
+//   another thread, so no creator is on the stack. When that load fails, the task's "loaded" call to the menu is
+//   skipped (StatsMenu then stays as while its movie loads, which it handles) and the menu is closed with kHide.
+// - Version 17: a menu whose own movie failed with no creator wrapper able to close it is refused its "show" message
+//   while it has no movie (its class's ProcessMessage is wrapped for that).
+// - Version 17: the notice is shown directly (HUD notification, or a message box while a menu has the game paused,
+//   per sNotify), and Scaleform's own log and file opener are watched so the log says what GFx reported and which
+//   file it opened during a failed load (bMenuLoadDiagnostics), with Scaleform's memory use.
 // - The F1 page (Troubleshooting tests > Helper and connection) and the report list the failures per movie.
 namespace MenuGuard
 {
 	// at plugin load (normal stage only, bMenuLoadGuard=1, SE/AE): reserves the hook trampoline
 	void Prepare();
 	// kPostLoad (every SKSE plugin is loaded, so their own hooks are in place): logs who else hooks LoadMovie, then hooks it
+	// (and the background load task; Scaleform's log and file opener if Scaleform is set up by then)
 	void Install();
 	// kDataLoaded and after every load / new game: wraps the menu creators not wrapped yet, logs the hook chain again
 	void WrapCreators(const char* a_when);
@@ -34,6 +44,7 @@ namespace MenuGuard
 		int         closed = 0;     // menus that could not open (all tries failed): shown the notice instead of crashing
 		bool        test = false;   // the last failure was a forced one (sTestFailMovies)
 		std::string lastStep;       // which step failed the last time
+		std::string lastHow;        // what the guard did the last time (version 17)
 		std::string lastTime;       // when (local time)
 	};
 	std::vector<Problem> Problems();
