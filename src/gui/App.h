@@ -1217,6 +1217,7 @@ private:
 	char                       _pvAVFilter[64]{}, _pvItemFilter[64]{}, _pvSpellFilter[64]{};
 	std::vector<ess::cf::ActiveEffectView> _pvFx;  // the player's active magic effects
 	std::string                _pvFxError;
+	ess::cf::StuckMovement     _pvStuck;  // the player's "walk to" movement saved busy (no furniture works)
 	std::set<std::size_t>      _pvFxPick;      // ticked for removal
 	char                       _pvFxFilter[64]{};
 	bool                       _pvFxAll = false;  // also the switched off ones and those that change no stat

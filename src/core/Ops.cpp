@@ -1273,6 +1273,11 @@ namespace ess::ops
 				r.warnings.push_back(buf);
 			}
 		}
+		if (!s.isFO4()) {
+			if (const auto stuck = cf::FindStuckPlayerMovement(s); stuck.found) {
+				r.warnings.push_back(cf::StuckMovementText(stuck));
+			}
+		}
 		r.floods = flood::Find(s);
 		for (const auto& f : r.floods) {
 			char fb[1024];

@@ -609,7 +609,7 @@ int main(int argc, char** argv)
 	std::string              batchFile, compareWith, reportFile, transplantFrom;
 	bool                     dryRun = false, spawned = false, spawnedGone = false, charged = false, allowDamaged = false;
 	bool                     pathIdles = false, fixPathIdles = false;
-	bool                     followersView = false, beastView = false, stuckStagesView = false, fixFollowerCount = false, fixAnimalCount = false;
+	bool                     followersView = false, beastView = false, stuckStagesView = false, fixFollowerCount = false, fixAnimalCount = false, clearStuckMovement = false;
 	std::vector<std::uint32_t> clearTeammates;
 	int                      fixCharges = 0;
 	bool                     questsView = false;
@@ -818,6 +818,8 @@ int main(int argc, char** argv)
 			fixFollowerCount = true;
 		} else if (a == "--fix-animal-count") {
 			fixAnimalCount = true;
+		} else if (a == "--clear-stuck-movement") {
+			clearStuckMovement = true;
 		} else if (a == "--clear-teammate") {
 			// one form id or several, separated by commas (hex, as --followers shows them)
 			const auto list = next();
@@ -922,7 +924,7 @@ int main(int argc, char** argv)
 				std::fprintf(stderr, "  - %s\n", pr.c_str());
 			}
 		}
-		const bool edits = !purge.empty() || unattached || undefined || termUndef || stranded || clearFloods || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty() || fixFollowerCount || fixAnimalCount || !clearTeammates.empty();
+		const bool edits = !purge.empty() || unattached || undefined || termUndef || stranded || clearFloods || nonexist || !removeMod.empty() || fixMcm || havok || purify || !batchFile.empty() || spawnedGone || fixCharges > 0 || fixPathIdles || removeFlagBit >= 0 || !removeExtraName.empty() || resetAiForm != 0 || !moveToPlayer.empty() || !renamePlugins.empty() || playerGold >= 0 || !fo4PerkEdits.empty() || fo4Level >= 0 || fo4Xp >= 0 || fo4TransplantWrite || !fo4Budgets.empty() || !playerSkills.empty() || !playerBounties.empty() || !playerEdits.empty() || !setProps.empty() || removeCrashActors || !deleteForms.empty() || !removeEffects.empty() || fixFollowerCount || fixAnimalCount || clearStuckMovement || !clearTeammates.empty();
 		std::vector<crashlog::Finding> crashFindings;
 		if (!crashLogFile.empty()) {
 			const auto log = crashlog::Read(crashLogFile);
@@ -2331,6 +2333,19 @@ int main(int argc, char** argv)
 					return 1;
 				}
 				std::printf("%s\n", done.c_str());
+			}
+		}
+		if (clearStuckMovement) {
+			const auto stuck = cf::FindStuckPlayerMovement(*save);
+			if (const auto why = cf::ClearStuckPlayerMovement(*save); !why.empty()) {
+				std::fprintf(stderr, "%s\n", why.c_str());
+				return 1;
+			}
+			if (stuck.hasGoal) {
+				std::printf("cleared the player's stuck movement (state %d, walking to %.0f, %.0f, %.0f): chairs, beds and crafting stations work again\n",
+					stuck.state, stuck.goal[0], stuck.goal[1], stuck.goal[2]);
+			} else {
+				std::printf("cleared the player's stuck movement (state %d): chairs, beds and crafting stations work again\n", stuck.state);
 			}
 		}
 		for (const auto id : clearTeammates) {

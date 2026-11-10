@@ -1168,6 +1168,7 @@ void App::drawPlayer()
 		_pvFxError.clear();
 		_pvFx = cf::ReadPlayerActiveEffects(*_save, _pvFxError);
 		_pvFxPick.clear();
+		_pvStuck = cf::FindStuckPlayerMovement(*_save);
 	}
 	if (!_pv.error.empty()) {
 		TextColored(theme::Warn(), tr("Cannot edit the player: ") + _pv.error);
@@ -1200,6 +1201,22 @@ void App::drawPlayer()
 		ImGui::EndDisabled();
 		return b;
 	};
+
+	// ---- repairs: only shown when something is wrong ----
+	if (_pvStuck.found) {
+		const bool hRep = ImGui::CollapsingHeader(trId("Repairs"), ImGuiTreeNodeFlags_DefaultOpen);
+		tips::Tip(tr("Problems found in the player's record, with a button that fixes each."));
+		if (hRep) {
+			TextColored(theme::Warn(), tr("Stuck movement: chairs, beds and crafting stations cannot be used."));
+			ImGui::TextWrapped("%s", cf::StuckMovementText(_pvStuck).c_str());
+			if (ImGui::Button(tr("Clear stuck movement"))) {
+				done(cf::ClearStuckPlayerMovement(*_save), tr("Cleared the player's stuck movement"));
+			}
+			tips::Tip(tr("Sets the \"walk to\" part of the player's movement back to idle, as a new character has it. Nothing else in "
+						 "the save changes. Save the result under a new name and load it."));
+			ImGui::Separator();
+		}
+	}
 
 	// ---- character ----
 	const bool hChar = ImGui::CollapsingHeader(trId("Character"), ImGuiTreeNodeFlags_DefaultOpen);

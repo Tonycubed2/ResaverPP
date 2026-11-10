@@ -132,6 +132,12 @@ namespace ess::cf
 		};
 		std::vector<PathStateAt> pathFollowerStates;
 
+		// the movement controller's MovementPathManagerArbiter (the part that walks the actor to a destination):
+		// its bytes in the body, its state (0 idle) and whether it holds a path request
+		std::pair<std::size_t, std::size_t> pathManager{ 0, 0 };
+		std::int32_t                        pathManagerState = 0;
+		bool                                pathManagerRequest = false;
+
 		bool                                hasActorData = false;
 		std::int32_t                        processLevel = -1;
 		std::size_t                         levelAt = 0;
@@ -303,6 +309,25 @@ namespace ess::cf
 	// factions and position stay. Never the player. Returns "" when done, else why not.
 	bool        CanResetAI(const ChangeForm& a_cf, const Decoded& a_decoded);
 	std::string ResetAI(const SaveFile& a_save, ChangeForm& a_cf);
+
+	// The player's movement controller can keep a "walk to" job that never finishes: its MovementPathManagerArbiter is
+	// saved busy (state not 0) with a path request and a path. The game walks the player onto furniture with that same
+	// part, so every chair, bed and crafting station then half-starts and stops: the furniture camera comes on, the body
+	// fights it, and moving frees the player. A save made in the same setup with a new character has it idle (state 0,
+	// no request, no path). ClearStuckPlayerMovement sets it back to that idle state and leaves everything else as it is.
+	struct StuckMovement
+	{
+		bool          found = false;   // the player's path manager is busy
+		std::int32_t  state = 0;
+		std::size_t   bytes = 0;       // the size of its saved data
+		bool          hasGoal = false;
+		float         goal[3]{};       // where it was walking to
+		std::uint32_t goalCell = 0;    // in which cell / worldspace (form id)
+		std::string   error;           // the player's record could not be read
+	};
+	StuckMovement FindStuckPlayerMovement(const SaveFile& a_save);
+	std::string   StuckMovementText(const StuckMovement& a_stuck);  // one line for reports and the GUI
+	std::string   ClearStuckPlayerMovement(SaveFile& a_save);        // "" when done, else why not
 
 	// Actors made from a leveled list or a template (random bandits, militia, spawned encounters...). The game builds
 	// their real base NPC (a created FF copy, never in the save) again from the original base and the template at

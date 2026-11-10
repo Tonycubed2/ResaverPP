@@ -2264,9 +2264,16 @@ namespace ess::cf
 			auto tweenerEntry = [&] { p.floats("VALUES", 13); };
 			if (a_name == "MovementHandlerArbiter") {
 			} else if (a_name == "MovementPathManagerArbiter") {
-				p.i32("STATE");
+				const auto at = p.r.pos();
+				p.out().pathManagerState = p.i32("STATE");
+				{
+					const auto idAt = p.r.pos();
+					p.out().pathManagerRequest = (p.version >= 0x4b ? p.r.u64() : p.r.u32()) != 0;
+					p.r.seek(idAt);
+				}
 				PathingObject(p, "REQUEST");
 				PathObject(p, "PATH");
+				p.out().pathManager = { at, p.r.pos() };
 			} else if (a_name == "MovementPlannerArbiter") {
 				p.u8("UNK24");
 			} else if (a_name == "MovementPostUpdateArbiter") {
@@ -5343,6 +5350,133 @@ namespace ess::cf
 				a_cf = saved;
 				return "could not reset its AI (" + why + "): nothing changed";
 			}
+		}
+		return {};
+	}
+
+	namespace
+	{
+		const Node* FindNode(const Node& a_node, const std::string& a_label)
+		{
+			if (a_node.label == a_label) {
+				return &a_node;
+			}
+			for (const auto& k : a_node.kids) {
+				if (const auto* f = FindNode(k, a_label)) {
+					return f;
+				}
+			}
+			return nullptr;
+		}
+
+		const Node* Kid(const Node* a_node, const std::string& a_label)
+		{
+			if (!a_node) {
+				return nullptr;
+			}
+			for (const auto& k : a_node->kids) {
+				if (k.label == a_label) {
+					return &k;
+				}
+			}
+			return nullptr;
+		}
+
+	}
+
+	StuckMovement FindStuckPlayerMovement(const SaveFile& a_save)
+	{
+		StuckMovement out;
+		if (a_save.isFO4()) {
+			return out;
+		}
+		const auto* cf = PlayerForm(a_save);
+		if (!cf) {
+			out.error = "the save has no player record";
+			return out;
+		}
+		const auto d = Decode(a_save, *cf);
+		if (!d.complete) {
+			out.error = "the player's record could not be read completely (" + d.error + ")";
+			return out;
+		}
+		if (d.pathManager.second <= d.pathManager.first || (d.pathManagerState == 0 && !d.pathManagerRequest)) {
+			return out;
+		}
+		out.found = true;
+		out.state = d.pathManagerState;
+		out.bytes = d.pathManager.second - d.pathManager.first;
+		// REQUEST > GOAL > LOCATION > POS, and its CELL/WORLD
+		const auto* goal = Kid(Kid(Kid(FindNode(d.root, "MovementPathManagerArbiter"), "REQUEST"), "GOAL"), "LOCATION");
+		if (const auto* pos = Kid(goal, "POS")) {
+			if (std::sscanf(pos->value.c_str(), "%f, %f, %f", &out.goal[0], &out.goal[1], &out.goal[2]) == 3) {
+				out.hasGoal = true;
+			}
+		}
+		if (const auto* cell = Kid(goal, "CELL/WORLD"); cell && cell->isRef) {
+			out.goalCell = cell->formID;
+		}
+		return out;
+	}
+
+	std::string StuckMovementText(const StuckMovement& a_stuck)
+	{
+		if (!a_stuck.found) {
+			return {};
+		}
+		char goal[160] = "";
+		if (a_stuck.hasGoal) {
+			std::snprintf(goal, sizeof(goal), ", still walking to %.0f, %.0f, %.0f%s", a_stuck.goal[0], a_stuck.goal[1], a_stuck.goal[2],
+				a_stuck.goalCell ? Fmt(" in %08X", a_stuck.goalCell).c_str() : "");
+		}
+		return Fmt("The player's movement is stuck: the \"walk to\" part of the player's movement controller was saved busy (state %d%s). "
+				   "The game walks the player onto furniture with it, so no chair, bed or crafting station can be used: the furniture "
+				   "camera comes on, the body fights it and moving frees the player. Fix: --clear-stuck-movement (GUI: Edit player > "
+				   "Repairs).",
+			a_stuck.state, goal);
+	}
+
+	std::string ClearStuckPlayerMovement(SaveFile& a_save)
+	{
+		if (a_save.isFO4()) {
+			return "this repair is for Skyrim saves: nothing changed";
+		}
+		ChangeForm* cf = nullptr;
+		for (auto& c : a_save.changeForms) {
+			if (IsPlayerActor(c)) {
+				cf = &c;
+				break;
+			}
+		}
+		if (!cf) {
+			return "the save has no player record: nothing changed";
+		}
+		const auto d = Decode(a_save, *cf);
+		if (!d.complete) {
+			return "the player's record could not be read completely (" + d.error + "): nothing changed";
+		}
+		if (d.pathManager.second <= d.pathManager.first) {
+			return "the player has no movement controller data: nothing changed";
+		}
+		if (d.pathManagerState == 0 && !d.pathManagerRequest) {
+			return "the player's movement is not stuck: nothing changed";
+		}
+		// idle, as the game saves it: state 0, no request, no path (their ids 0)
+		const std::size_t         idBytes = cf->version >= 0x4b ? 8 : 4;
+		std::vector<std::uint8_t> idle(4 + 2 * idBytes, 0);
+		const auto                before = *cf;
+		auto                      body = Body(*cf);
+		body.erase(body.begin() + static_cast<std::ptrdiff_t>(d.pathManager.first), body.begin() + static_cast<std::ptrdiff_t>(d.pathManager.second));
+		body.insert(body.begin() + static_cast<std::ptrdiff_t>(d.pathManager.first), idle.begin(), idle.end());
+		SetBody(*cf, body);
+		const auto after = Decode(a_save, *cf);
+		// everything else must read back the same: a later part that refers to the removed request or path by its id
+		// would no longer read, and is refused here
+		if (!after.complete || after.pathManagerState != 0 || after.pathManagerRequest || after.movement.second == 0 ||
+			after.combat.second - after.combat.first != d.combat.second - d.combat.first ||
+			after.aiProcess != d.aiProcess) {
+			*cf = before;
+			return "the result would not read back correctly: nothing changed";
 		}
 		return {};
 	}
