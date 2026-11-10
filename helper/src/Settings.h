@@ -13,6 +13,12 @@ namespace Settings
 		bool        rescueHotkey = true;      // bRescueHotkey: holding Ctrl saves, restores controls, gathers followers
 		int         rescueHoldSeconds = 8;    // iRescueHoldSeconds: how long Ctrl must be held
 		std::string gatherSkip;               // sGatherSkip: form ids (hex, comma separated) Gather followers leaves alone
+		// version 16, the menu load guard (MenuGuard.h); read when the game starts
+		bool        menuLoadGuard = true;     // bMenuLoadGuard: hook LoadMovie, retry failed loads, close a menu without its movie
+		int         menuLoadRetries = 2;      // iMenuLoadRetries: tries after a failed load (0 to 5; the 2nd and later wait 50 ms)
+		bool        logAllMovieLoads = false; // bLogAllMovieLoads: one log line per movie load (else only failures and the last 50)
+		std::string testFailMovies;           // sTestFailMovies: TEST ONLY - movie names whose load is made to fail on purpose
+		std::string testFailMode = "first";   // sTestFailMode: first = only the first try fails, all = every try fails
 	};
 
 	Values&               Get();

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 # DLL name: ReSaverHelper.dll - the live-game companion of ReSaver++ (ReSaver Plus)
-project(ReSaverHelper VERSION 15.0.0 LANGUAGES CXX)
+project(ReSaverHelper VERSION 16.0.0 LANGUAGES CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
@@ -50,4 +50,5 @@ target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF 
 # the F1 page's Save As dialog (SaveDialog.cpp: IFileSaveDialog, SHGetKnownFolderPath FOLDERID_Desktop): ole32, uuid.
 # SKSE Menu Framework is NOT linked: src/SKSEMenuFramework.h finds SKSEMenuFramework.dll at run time, so the helper
 # loads and works the same without it.
-target_link_libraries(${PROJECT_NAME} PRIVATE advapi32 shell32 ole32 uuid)
+# the menu load guard's process state (GetProcessMemoryInfo): psapi
+target_link_libraries(${PROJECT_NAME} PRIVATE advapi32 shell32 ole32 uuid psapi)

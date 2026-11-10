@@ -10,6 +10,7 @@ set(headers ${headers}
     src/GhostRemove.h
     src/LiveInfo.h
     src/MenuPage.h
+    src/MenuGuard.h
     src/SaveDialog.h
     src/SKSEMenuFramework.h
 )

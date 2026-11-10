@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include "Game.h"
+#include "MenuGuard.h"
 #include "MenuPage.h"
 #include "Protocol.h"
 #include "Rescue.h"
@@ -17,7 +18,7 @@ namespace
 	//   2: + the SKSE message listener (it ignores every message)
 	//   3: + the listener tracks loads / new games (no threads)
 	//   4: + the ReSaver Plus connection thread (no Ctrl hotkey thread)
-	//   5 or -1: everything (normal)
+	//   5 or -1: everything (normal), including the menu load guard (version 16, its hooks)
 	// Read straight from the file before anything else runs, so stage 0 really does nothing.
 	int g_diag = -1;
 
@@ -71,6 +72,8 @@ namespace
 			// now, so SKSEMenuFramework.dll is found if it is installed; without it nothing more happens.
 			if (!Diag(5)) {
 				MenuPage::Register();
+				// version 16: hooked after every plugin has put its own hooks in, so the log shows who else hooks LoadMovie
+				MenuGuard::Install();
 			}
 			break;
 		case SKSE::MessagingInterface::kDataLoaded:
@@ -79,6 +82,7 @@ namespace
 			}
 			if (!Diag(5)) {
 				Rescue::StartHotkey();
+				MenuGuard::WrapCreators("after the game data loaded");
 			}
 			break;
 		case SKSE::MessagingInterface::kPreLoadGame:
@@ -88,9 +92,15 @@ namespace
 			if (a_msg->data) {  // true when the load succeeded
 				Game::OnGameLoaded();
 			}
+			if (!Diag(5)) {
+				MenuGuard::WrapCreators("after a save load");  // menus other mods registered later
+			}
 			break;
 		case SKSE::MessagingInterface::kNewGame:
 			Game::SetInGame(true);
+			if (!Diag(5)) {
+				MenuGuard::WrapCreators("new game");
+			}
 			break;
 		default:
 			break;
@@ -118,6 +128,9 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	if (auto messaging = SKSE::GetMessagingInterface(); !messaging || !messaging->RegisterListener(OnMessage)) {
 		spdlog::error("SKSE messaging unavailable; the helper cannot start");
 		return false;
+	}
+	if (!Diag(5)) {
+		MenuGuard::Prepare();  // version 16: the hook trampoline is reserved while SKSE loads plugins
 	}
 	return true;
 }

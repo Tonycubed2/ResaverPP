@@ -39,8 +39,11 @@ refresh the quest journal (brings back quests and objectives the journal stopped
 - Log: Documents\My Games\Skyrim Special Edition\SKSE\ReSaverHelper.log
 - In-game page (version 15): a "ReSaver Plus" page in SKSE Menu Framework's Mod Control Panel (F1), when that mod
   is installed. Optional: without it the helper works exactly as before. See "The in-game page (F1)" below.
-- What it does not do: it patches no game code (no hooks, no trampoline writes; the DLL does not even import
-  VirtualProtect), listens to no game events (no death, combat, hit or animation event sinks) and touches no
+- Menu load guard (version 16, SE/AE): when a menu's interface file does not load, the menu does not open (with a
+  notice) instead of crashing the game, and ReSaverHelper.log says why the load failed. See "Menu load guard" below.
+- What it does not do: apart from the menu load guard (version 16: one hook on the game's movie loading, three on the
+  calls inside it, and the menu creators wrapped; `bMenuLoadGuard=0` leaves all of that out), it patches no game
+  code, listens to no game events (no death, combat, hit or animation event sinks) and touches no
   physics, ragdoll, Havok or animation graph. On its own it only waits on the pipe and, from version 12, checks
   every 0.1 s whether Ctrl is held (the rescue hotkey). Everything else happens only when you ask in ReSaver Plus,
   on the in-game page, when Ctrl is held for 8 seconds, or after a load with `bRefreshJournalOnLoad=1`, and is
@@ -76,8 +79,46 @@ and test; then 1, 2, 3, 4. Each stage stops the helper after one more step of wh
 - 2: + the SKSE message listener (it ignores every message)
 - 3: + the listener follows game loads and new games (no threads)
 - 4: + the ReSaver Plus connection thread (no Ctrl hotkey thread)
+- 5 (or no line): everything, including the menu load guard's hooks (version 16)
 
 Remove the line (or set 5) to run normally. ReSaver Plus cannot talk to the helper below stage 4.
+
+## Menu load guard (version 16)
+
+Every menu (Map, Journal, Inventory...) loads its interface file, `Interface\<name>.swf` (or
+`Interface\Exported\<name>.gfx`), when it opens. If that load fails, the game uses the menu anyway and crashes: the
+Map at once (SkyrimSE.exe+9250A0 on 1.6.640), the Journal when it shows (GFxMovieView::InvokeNoReturn). This has
+been seen on 1.6.640 under Proton with SkyUI, InfinityUI and Map Marker Framework, a few times per session, for files
+that loaded fine earlier in the same session. The cause is not known yet; the guard is there to stop the crash and
+to find the cause.
+
+What it does (Skyrim SE and AE; not VR):
+
+- Every failed load is written to ReSaverHelper.log: which step failed (the game's file check found no file; GFx
+  could not read the file; the movie could not be created from it), how long it took, the files on disk (size,
+  whether they open) and what the game's own file system finds, the memory of the game process and of the PC, open
+  handles, video memory, and the last 50 interface files loaded. At start it also logs which other mods hook the
+  movie loading (for example Map Marker Framework).
+- The load is tried again (`iMenuLoadRetries`, 2 by default: at once, then after 50 ms). The log says whether a
+  retry worked.
+- If every try fails, the menu does not open and a notification says "ReSaverHelper: MapMenu could not load its
+  interface file (Map.swf); see ReSaverHelper.log". The game goes on; open the menu again to try again.
+- The F1 page (Troubleshooting tests > Helper and connection) and the report count the failures per file.
+
+Settings in ReSaverHelper.ini (read when the game starts):
+
+- `bMenuLoadGuard=1`: 0 = off: no hooks at all, the game behaves as without the helper.
+- `iMenuLoadRetries=2`: tries after a failed load, 0 to 5 (the second and later wait 50 ms).
+- `bLogAllMovieLoads=0`: 1 = one log line for every interface file loaded (normally only failures, with the last
+  50 loads listed at each failure, to keep the log small).
+- Test only, leave empty in normal play: `sTestFailMovies=` lists interface file names (without .swf, separated by
+  commas, any case, e.g. `Map,Quest_Journal`) whose load is made to fail on purpose, to see the guard work.
+  `sTestFailMode=first` fails only the first try (the retry works, the menu opens); `all` fails every try (the menu
+  does not open, the notice shows). Forced failures are marked "TEST: forced failure" in the log, "(TEST)" on the
+  F1 page and "- test" in the notice.
+
+When it happens, please send ReSaverHelper.log (and the save, if a menu would not open), as soon as you can: the
+log is rewritten each time the game starts.
 
 ## The in-game page (F1) (version 15)
 
@@ -147,7 +188,9 @@ have a search box above them: only the rows containing that text are shown.
     Skyrim.esm in front of you; Kill the creature; Kill the one I look at (the crosshair target, or the console's
     selected reference).
   - Helper and connection: helper, game and menu framework versions, whether ReSaver Plus is connected, bListen,
-    bRescueHotkey, and where the logs are.
+    bRescueHotkey, "Menu load problems" (version 16: whether the guard is on, and per interface file how often it
+    failed, worked on a retry, or the menu could not open; hover a line for the step that failed), and where the logs
+    are. The report (Write a report, What to send > Save...) has the same lines.
   - What to send: the list of files to attach, with their full paths, a Copy button, and Save...: one text file
     with the list and the report, saved where you choose (the Windows Save As dialog, starting on your Desktop as
     ReSaverHelper-report-<date>.txt).

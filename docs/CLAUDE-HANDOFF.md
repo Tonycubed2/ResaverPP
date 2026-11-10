@@ -1102,6 +1102,58 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 
 ## 10. Open items
 
+- Menu load guard, helper 16 (2026-11-09, branch menuguard, not built, not tested in game; Tony builds in VS2022). For
+  SkyrimIstari's Map crash (crash-2026-11-09-18-06-43, 1.6.640 +0x9250A0 = 53093+0x200) and the two Journal crashes. Files:
+  helper/src/MenuGuard.{h,cpp} (new), Settings, main.cpp, MenuPage.cpp (F1 "Menu load problems" + report), Protocol.h (16),
+  CMakeLists (16.0.0, links psapi), ReSaverHelper.ini, README "Menu load guard".
+  - Verified on the 1.6.1170 exe (scratchpad/skyf/exe, objdump; Address Library 1170 + 640 bins via crashtools/addrlib.py):
+    - LoadMovie 82325 (SE 80302, CommonLib) 0x140fb0110-0x140fb0588, prologue `48 8B C4 48 89 50 10` (7 bytes copied to the
+      gateway, position independent). Fails in 3 places only: both FileExists (82411 / SE 80087, 0x140fb49a0) calls at +0xaf
+      ("Interface/%s.swf") and +0xdc ("Interface/Exported/%s.gfx") false; GFxLoader::CreateMovie (84640 / SE 80620,
+      0x141034e30, flags 0x82) at +0x124 null; movieDef vtbl+0xC0 (CreateInstance) null. Each writes null to the out
+      pointer (old view released via vtbl+0x228) and returns false. So a forced test failure = view reset + return false.
+    - MapMenu ctor 53093 (1.6.640 0x924ea0): LoadMovie at +0x1d1 into this+0x10, `je` skips one call, then +0x1fc/+0x200
+      `mov rcx,[rsi+0x10]; mov rax,[rcx]` unconditionally. MMF 2.2 (source: github Exit-9B/MapMarkerFramework, Patch.cpp)
+      write_call's exactly ctor+0x1D1 (its LoadMovie_Map calls the original, sets up only on success). Creator 53139:
+      MemoryManager alloc 0x30598 (TLS context 0x46), call ctor.
+    - JournalMenu: the out-of-line ctor 53313 (0x140994240) has no caller; the real creator is 53342 (0x140995cd0, ctor
+      inlined, alloc 0xE8, LoadMovie "Quest_Journal" at +0x127; on failure it skips everything after, incl. sink registration,
+      and returns the menu with uiMovie null -> crash later in ProcessMessage kShow).
+    - All three frames use VCRUNTIME140 __CxxFrameHandler3 (UNW_FLAG_UHANDLER, FuncInfo magic 0x19930522, 0 try blocks).
+      Unwind maps at the LoadMovie call: MapMenu ctor state 12 -> member dtors (+0x30540 .. +0x30), IMenu dtor 82305; creator
+      53139 state 1 -> free via MemoryManager vtbl+0x60 (0x14011c370), state 0 -> restore TLS heap context (0x140141e90).
+      Journal creator 53342 state 7 -> members +0x98/+0x80/+0x48/+0x40/+0x30, IMenu dtor, free, restore context. Nothing before
+      LoadMovie registers `this` anywhere (MapMenu: 0x140629440 takes no args; Journal: only member ctors).
+    - UI::ProcessMessages 82082: create only for kShow (msg type 1; other types to a menu not in the map are dropped);
+      `call rax` (entry.create) at 0x140fa45d8, then UNCONDITIONAL `[rbx]` vtbl+0x10 PostCreate -> a creator must never
+      return null. Then map insert, "on stack?" 0x140fa5ce0, ProcessMessage(kShow); result 1 (kIgnore) -> if not
+      kAlwaysOpen 0x140fa5c40: menuMap entry menu set to null (after 0x140faf1d0 = fxDelegate unregister only if +0x28
+      non-null), local GPtr released -> object freed. Never on menuStack, no open event.
+  - Design: entry detour of LoadMovie (E9 via SKSE trampoline; gateway = the 7 bytes + jmp back; if another mod already put
+    E9 / FF25 / mov rax,jmp rax there, that target is our "original"). Step hooks: write_call on the E8s inside LoadMovie
+    whose target is exactly FileExists (2) / CreateMovie (1) (bounds from RtlLookupFunctionEntry; not installed unless
+    exactly 2+1 found). Retries (iMenuLoadRetries, 2nd+ after 50 ms). Every menuMap creator replaced by a 24-byte thunk
+    (`mov rcx,i; mov rax,CreatorWrapper; jmp rax`, own VirtualAlloc RWX block) at kDataLoaded and after each load / new game.
+    When all tries fail, the movie is the menu's own (a_view == &menu->uiMovie), a wrapper is on the thread and
+    RtlVirtualUnwind finds unwind data for every frame up to it, the hook throws MovieLoadAbort; the wrapper catches it
+    and returns `new LoadFailedMenu` (IMenu, ProcessMessage -> kIgnore, no movie) + Game::Notify("hud") (Papyrus
+    Debug.Notification: shown once the game is unpaused). Otherwise false goes back to the game as before.
+  - Diagnostics in ReSaverHelper.log: per failure the step, GetLastError, loose files (GetFileAttributesEx + CreateFile
+    GENERIC_READ, error codes; through USVFS when MO2 runs it), FileExists + BSResourceNiBinaryStream good()/lastError,
+    GlobalMemoryStatusEx, GetProcessMemoryInfo (commit/private/WS), GetProcessHandleCount, VRAM (Renderer::GetDevice ->
+    IDXGIDevice -> adapter -> IDXGIAdapter3::QueryVideoMemoryInfo), ring of the last 50 loads. At start and after
+    kDataLoaded: LoadMovie entry bytes + jump chain with module names, MapMenu ctor+0x1D1 and Journal creator+0x127 call
+    targets (AE only), other E8s in LoadMovie calling into other modules.
+  - INI: bMenuLoadGuard=1, iMenuLoadRetries=2, bLogAllMovieLoads=0, sTestFailMovies= (test only, e.g. Map,Quest_Journal),
+    sTestFailMode=first|all. Syntax-checked with scratchpad/f1check/chk.sh (clang 18, CommonLib 6.7.0 headers).
+  - Unverified: 1.6.640 bytes (no exe here; only that the ids exist and the crash offset matches 1170's layout: the runtime
+    checks refuse to hook on unexpected bytes and log them); SE 1.5.97 entirely (ids from CommonLib; prologue / call counts
+    checked at run time); VR not supported (guard off). Exceptions through game frames under Wine/Proton's unwinder not
+    tested. Menus other than Map / Journal rely on the compiler's unwind tables (not each checked). A failed LoadingMenu /
+    HUDMenu would simply not show. InfinityUI 2.0.3 is closed source: how it hooks is unknown; the start-up log will show.
+    Cause of SkyrimIstari's failures still unknown (InfinityUI logged nothing for the failed loads; MMF logged
+    "Failed to create movie from MapMarkers\Resources\brumaresources.swf" at HUD setup in that session).
+
 - SkyrimIstari's journal refresh crash + "quests not closed out properly" (9 Nov 2026, 1.6.640 Proton, v65, helper 14;
   branch ist2, not published). Files: scratchpad/ist2/cRASHED (Save103, crash-2026-11-08-23-19-51.log, Collect-logs folder).
   - The crash (23:19:51, 3 min after the refresh ended at 23:16:44): 82665+0x11 GFxMovieView::InvokeNoReturn, rcx=0, from

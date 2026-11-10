@@ -46,7 +46,19 @@ namespace Settings
 			"; seconds Ctrl must be held (3 to 60)\n"
 			"iRescueHoldSeconds=8\n"
 			"; characters Gather followers leaves alone: form ids as the console shows them, separated by commas\n"
-			"sGatherSkip=\n";
+			"sGatherSkip=\n"
+			"; Menu load guard (read when the game starts): when a menu's interface file (Interface\\<name>.swf) does not load,\n"
+			"; the helper logs why, tries again, and if it still fails the menu does not open (with a notice) instead of\n"
+			"; crashing the game. 0 = off (no hooks at all).\n"
+			"bMenuLoadGuard=1\n"
+			"; how many more tries after a failed load (0 to 5; the second and later wait 50 ms)\n"
+			"iMenuLoadRetries=2\n"
+			"; 1 = one log line for every interface file loaded (else only failures, with the last 50 loads)\n"
+			"bLogAllMovieLoads=0\n"
+			"; TEST ONLY - leave empty. Interface file names whose load is made to fail on purpose (e.g. Map,Quest_Journal),\n"
+			"; to try the guard. sTestFailMode: first = only the first try fails (the retry works), all = every try fails.\n"
+			"sTestFailMovies=\n"
+			"sTestFailMode=first\n";
 	}
 
 	Values& Get() { return g_values; }
@@ -91,6 +103,24 @@ namespace Settings
 			} catch (...) {
 				return false;
 			}
+		} else if (n == "bmenuloadguard") {
+			g_values.menuLoadGuard = ParseBool(v);
+		} else if (n == "imenuloadretries") {
+			try {
+				g_values.menuLoadRetries = std::clamp(std::stoi(v), 0, 5);
+			} catch (...) {
+				return false;
+			}
+		} else if (n == "blogallmovieloads") {
+			g_values.logAllMovieLoads = ParseBool(v);
+		} else if (n == "stestfailmovies") {
+			g_values.testFailMovies = v;
+		} else if (n == "stestfailmode") {
+			const auto m = Lower(v);
+			if (m != "first" && m != "all") {
+				return false;
+			}
+			g_values.testFailMode = m;
 		} else {
 			return false;
 		}
@@ -120,6 +150,21 @@ namespace Settings
 		}
 		if (n == "sgatherskip") {
 			return g_values.gatherSkip;
+		}
+		if (n == "bmenuloadguard") {
+			return g_values.menuLoadGuard ? "1" : "0";
+		}
+		if (n == "imenuloadretries") {
+			return std::to_string(g_values.menuLoadRetries);
+		}
+		if (n == "blogallmovieloads") {
+			return g_values.logAllMovieLoads ? "1" : "0";
+		}
+		if (n == "stestfailmovies") {
+			return g_values.testFailMovies;
+		}
+		if (n == "stestfailmode") {
+			return g_values.testFailMode;
 		}
 		return {};
 	}
@@ -152,6 +197,9 @@ namespace Settings
 		}
 		spdlog::info("Settings: sNotify={} bRefreshJournalOnLoad={} iRefreshDelaySeconds={} bListen={} bRescueHotkey={} iRescueHoldSeconds={}",
 			g_values.notify, g_values.refreshOnLoad, g_values.refreshDelay, g_values.listen, g_values.rescueHotkey, g_values.rescueHoldSeconds);
+		spdlog::info("Settings: bMenuLoadGuard={} iMenuLoadRetries={} bLogAllMovieLoads={}{}", g_values.menuLoadGuard, g_values.menuLoadRetries,
+			g_values.logAllMovieLoads, g_values.testFailMovies.empty() ? std::string() :
+		                                   std::format(" TEST: sTestFailMovies={} sTestFailMode={}", g_values.testFailMovies, g_values.testFailMode));
 	}
 
 	bool Save()
@@ -175,7 +223,8 @@ namespace Settings
 				lines.push_back(d.substr(a, b - a));
 			}
 		}
-		for (const char* key : { "sNotify", "bRefreshJournalOnLoad", "iRefreshDelaySeconds", "bListen", "bRescueHotkey", "iRescueHoldSeconds", "sGatherSkip" }) {
+		for (const char* key : { "sNotify", "bRefreshJournalOnLoad", "iRefreshDelaySeconds", "bListen", "bRescueHotkey", "iRescueHoldSeconds", "sGatherSkip", "bMenuLoadGuard", "iMenuLoadRetries",
+				 "bLogAllMovieLoads", "sTestFailMovies", "sTestFailMode" }) {
 			bool found = false;
 			for (auto& l : lines) {
 				const auto t = Trim(l);

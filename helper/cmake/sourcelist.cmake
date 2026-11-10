@@ -9,5 +9,6 @@ set(sources ${sources}
     src/GhostRemove.cpp
     src/LiveInfo.cpp
     src/MenuPage.cpp
+    src/MenuGuard.cpp
     src/SaveDialog.cpp
 )

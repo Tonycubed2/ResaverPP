@@ -4,6 +4,7 @@
 #include "Game.h"
 #include "GhostRemove.h"
 #include "LiveInfo.h"
+#include "MenuGuard.h"
 #include "Protocol.h"
 #include "Rescue.h"
 #include "Server.h"
@@ -1301,6 +1302,7 @@ namespace MenuPage
 			std::string r = std::format("SKSE Menu Framework: version {} (API {})\n", SKSEMenuFramework::GetMenuFrameworkVersion(),
 				SKSEMenuFramework::GetMenuFrameworkAPIVersion());
 			r += std::format("ReSaver Plus connected: {}\n", Server::Connected() ? "yes" : "no");
+			r += MenuGuard::ReportText();  // version 16
 			return r;
 		}
 
@@ -1689,6 +1691,26 @@ namespace MenuPage
 			Line(std::format("Ctrl hold rescue: {}", s.rescueHotkey ? std::format("on (hold Ctrl {} s)", s.rescueHoldSeconds) : std::string("off (bRescueHotkey=0)")));
 			Line(std::format("Messages: {}", s.notify == "box" ? "message box" : s.notify == "none" ? "none" : "top-left notification"));
 			Line(std::string("Journal refresh after loading: ") + (s.refreshOnLoad ? "on" : "off"));
+			im::Spacing();
+			// version 16: menus whose interface file did not load (MenuGuard.h)
+			im::SeparatorText("Menu load problems");
+			Line("Menu load guard: " + MenuGuard::StatusLine());
+			Tip("When a menu's interface file (Interface\\<name>.swf) does not load, the helper tries again; if it still fails, the "
+				"menu does not open (with a notice) instead of crashing the game. bMenuLoadGuard / iMenuLoadRetries in ReSaverHelper.ini.");
+			if (const auto probs = MenuGuard::Problems(); probs.empty()) {
+				Dim("None since the game started.");
+			} else {
+				for (const auto& p : probs) {
+					Colored(p.closed > 0 && !p.test ? kRed : kYellow,
+						std::format("{}{}: failed {}, worked on retry {}, menu not opened {} (last at {})", p.movie, p.test ? " (TEST)" : "", p.failed,
+							p.recovered, p.closed, p.lastTime));
+					Tip(p.lastStep + "\nDetails (files, memory, the last 50 loads) are in ReSaverHelper.log. Please send that log (Troubleshooting "
+										 "tests > What to send).");
+				}
+			}
+			if (!s.testFailMovies.empty()) {
+				Colored(kYellow, "TEST: sTestFailMovies=" + s.testFailMovies + " (sTestFailMode=" + s.testFailMode + ") makes these loads fail on purpose.");
+			}
 			im::Spacing();
 			im::SeparatorText("Where the logs are");
 			const auto dir = LiveInfo::LogFolder();
