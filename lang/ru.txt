@@ -13729,3 +13729,30 @@ tr "%zu переведённых текст(ов) не используются:
 
 en "The program fills the codes in the order they appear, so a code moved or changed would show the wrong value or crash. Reword the translation so its codes come in the English order."
 tr "Программа подставляет коды в том порядке, в каком они стоят, поэтому перемещённый или изменённый код покажет неверное значение или вызовет сбой. Переформулируйте перевод так, чтобы коды шли в английском порядке."
+
+en "Reset %zu damaged form(s) to how their mods define them"
+tr "Сбросить %zu повреждённых форм(ы) к тому, как их задают моды"
+
+en "%zu of them are quests: their progress starts over."
+tr "%zu из них — квесты: их прохождение начнётся заново."
+
+en "Your own character is damaged too: that one is left alone (resetting it would reset you)."
+tr "Ваш собственный персонаж тоже повреждён: его форма не трогается (её сброс сбросил бы вас)."
+
+en "%zu were made during play (FF forms): left alone, since deleting one removes the object itself."
+tr "%zu созданы во время игры (формы FF): не трогаются, так как удаление такой формы удаляет сам объект."
+
+en "Keep the original save."
+tr "Сохраните исходное сохранение."
+
+en "Reset damaged forms"
+tr "Сброс повреждённых форм"
+
+en "Deletes their saved changes, so the game builds each one again from its plugin, as if it had never been touched in play: an NPC's position, inventory and whether it is alive, a door's lock, a container's contents go back to how the mod sets them up. The damaged data is gone with it."
+tr "Удаляет их сохранённые изменения, и игра заново строит каждую форму из её плагина, как будто её не трогали в игре: положение NPC, его инвентарь и жив ли он, замок двери, содержимое контейнера возвращаются к тому, как их задаёт мод. Повреждённые данные исчезают вместе с ними."
+
+en "Delete the saved changes of %zu damaged form(s)? The game builds them again from their mods on the next load.\n\nOnly the save in memory changes: write it with File > Save As under a new name."
+tr "Удалить сохранённые изменения %zu повреждённых форм(ы)? При следующей загрузке игра заново построит их из модов.\n\nМеняется только сохранение в памяти: запишите его через Файл > Сохранить как под новым именем."
+
+en "Reset %zu damaged form(s)"
+tr "Сбросить %zu повреждённых форм(ы)"

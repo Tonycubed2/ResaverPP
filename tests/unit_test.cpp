@@ -5812,6 +5812,19 @@ void TestDamagedChangeForms()
 			Check(fo4cf::SetPlayerCaps(*s, 5).find("could not be read") != std::string::npos, "damaged forms: Fallout 4 caps edit refuses");
 		}
 		DamagedBattery(*s, tag);
+		if (!fo4) {
+			// the Save check's "Reset damaged forms": every damaged form but the player's (00000014 / 00000007) is deleted
+			std::set<std::uint32_t> reset;
+			for (const auto& d : cf::DamagedForms(*s)) {
+				if (d.formID != 0x14 && d.formID != 0x7 && (d.formID >> 24) != 0xFF) {
+					reset.insert(s->changeForms[d.index].refID.data);
+				}
+			}
+			const auto n = ops::DeleteChangeForms(*s, reset);
+			const auto left = cf::DamagedForms(*s);
+			Check(n == 1 && s->changeForms.size() == 3 && left.size() == 2 && left[0].formID == 0x14 && left[1].formID == 0x07,
+				"damaged forms: resetting them deletes the damaged non-player form only; the player's two stay as they were");
+		}
 	}
 
 	// real saves

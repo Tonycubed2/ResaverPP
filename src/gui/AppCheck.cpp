@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cctype>
 #include <optional>
+#include <set>
 #include <cstdio>
 
 using namespace ess;
@@ -205,6 +206,53 @@ std::vector<App::CheckItem> App::computeCheckItems()
 			_showCheck = false;
 		};
 		it.options.push_back(std::move(o));
+
+		// reset them: delete their change forms, so the game builds each again from its plugin. Not the player
+		// (00000014 / 00000007: that would reset the character) and not created FF forms (they exist only in the
+		// save: deleting one removes the object itself).
+		std::set<std::uint32_t> reset;
+		std::size_t             player = 0, created = 0, quests = 0;
+		for (const auto& d : _report->damaged) {
+			if (d.formID == 0x14 || d.formID == 0x7) {
+				++player;
+			} else if ((d.formID >> 24) == 0xFF) {
+				++created;
+			} else {
+				reset.insert(_save->changeForms[d.index].refID.data);
+				if (std::string_view(ChangeFormTypeName(_save->changeForms[d.index].typeCode(), fo4())) == "QUST") {
+					++quests;
+				}
+			}
+		}
+		if (!reset.empty()) {
+			CheckOption r;
+			r.label = Fmt(tr("Reset %zu damaged form(s)"), reset.size());
+			r.risk = Risk::kCaution;
+			std::string why = tr("Deletes their saved changes, so the game builds each one again from its plugin, as if it had never been "
+								 "touched in play: an NPC's position, inventory and whether it is alive, a door's lock, a container's "
+								 "contents go back to how the mod sets them up. The damaged data is gone with it.");
+			if (quests) {
+				why += " " + Fmt(tr("%zu of them are quests: their progress starts over."), quests);
+			}
+			if (player) {
+				why += " " + std::string(tr("Your own character is damaged too: that one is left alone (resetting it would reset you)."));
+			}
+			if (created) {
+				why += " " + Fmt(tr("%zu were made during play (FF forms): left alone, since deleting one removes the object itself."), created);
+			}
+			why += " " + std::string(tr("Keep the original save."));
+			r.why = why;
+			r.act = [this, reset] {
+				confirm(tr("Reset damaged forms"),
+					Fmt(tr("Delete the saved changes of %zu damaged form(s)? The game builds them again from their mods on the next load.\n\n"
+						   "Only the save in memory changes: write it with File > Save As under a new name."),
+						reset.size()),
+					[this, reset] {
+						markEdited(Fmt(tr("Reset %zu damaged form(s) to how their mods define them"), ops::DeleteChangeForms(*_save, reset)));
+					});
+			};
+			it.options.push_back(std::move(r));
+		}
 		v.push_back(std::move(it));
 	}
 

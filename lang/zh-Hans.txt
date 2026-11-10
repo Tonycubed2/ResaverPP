@@ -13723,3 +13723,30 @@ tr "在 %s 时：%s"
 # main.cpp:651  ImGui::TextWrapped("%s", tr("Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."));
 en "Please report this on the mod page with the file ReSaverPP-startup.log (next to ReSaverPP.exe, or in %TEMP%)."
 tr "请在模组页面上连同 ReSaverPP-startup.log 文件报告此问题（位于 ReSaverPP.exe 旁，或 %TEMP% 中）。"
+
+en "Reset %zu damaged form(s) to how their mods define them"
+tr ""
+
+en "%zu of them are quests: their progress starts over."
+tr ""
+
+en "Your own character is damaged too: that one is left alone (resetting it would reset you)."
+tr ""
+
+en "%zu were made during play (FF forms): left alone, since deleting one removes the object itself."
+tr ""
+
+en "Keep the original save."
+tr ""
+
+en "Reset damaged forms"
+tr ""
+
+en "Deletes their saved changes, so the game builds each one again from its plugin, as if it had never been touched in play: an NPC's position, inventory and whether it is alive, a door's lock, a container's contents go back to how the mod sets them up. The damaged data is gone with it."
+tr ""
+
+en "Delete the saved changes of %zu damaged form(s)? The game builds them again from their mods on the next load.\n\nOnly the save in memory changes: write it with File > Save As under a new name."
+tr ""
+
+en "Reset %zu damaged form(s)"
+tr ""
