@@ -295,8 +295,10 @@ namespace
 		if (auto fn = reinterpret_cast<RtlGetVersionFn>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlGetVersion"))) {
 			fn(&vi);
 		}
-		Log(std::string("ReSaver++ ") + RESAVERPP_VERSION + " starting; Windows " + std::to_string(vi.dwMajorVersion) + "." + std::to_string(vi.dwMinorVersion) +
-			" build " + std::to_string(vi.dwBuildNumber) + "; exe " + platform::ToUtf8(std::filesystem::path(exe)));
+		// Windows 11 still reports 10.0: build 22000 and later is Windows 11
+		const std::string ver = std::to_string(vi.dwMajorVersion) + "." + std::to_string(vi.dwMinorVersion) + " build " + std::to_string(vi.dwBuildNumber);
+		const std::string winName = (vi.dwMajorVersion == 10 && vi.dwBuildNumber >= 22000) ? "Windows 11 (" + ver + ")" : "Windows " + ver;
+		Log(std::string("ReSaver++ ") + RESAVERPP_VERSION + " starting; " + winName + "; exe " + platform::ToUtf8(std::filesystem::path(exe)));
 #else
 		// (tests on Linux: RESAVERPP_STARTUP_LOG=<file> writes the same log)
 		if (const char* p = std::getenv("RESAVERPP_STARTUP_LOG")) {
