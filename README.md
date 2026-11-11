@@ -1,7 +1,8 @@
 # ReSaver++
 
 A C++ port of ReSaver (FallrimTools, by Mark Fairchild) for **Skyrim Special Edition / Anniversary
-Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
+Edition / VR** saves, also Skyrim Legendary Edition, Fallout 4 and **Starfield** saves (see "Starfield" below).
+Apache License 2.0, see `LICENSE` and `NOTICE.md` (the optional ReSaverHelper SKSE plugin has its own license).
 
 ## What it does
 
@@ -130,6 +131,48 @@ Edition / VR** saves. Apache License 2.0, see `LICENSE` and `NOTICE.md`.
   listing and reading files, writing text files (backed up first). The chat's text can be selected with
   the mouse and copied. Edits always go to a new save;
   "Ask me before changes" (on by default) asks for your OK before each change.
+
+## Starfield
+
+ReSaver Plus opens Starfield saves (`.sfs`) too. Choose Starfield in Options > Settings > Game (or just open a
+`.sfs`): the saves folder is `Documents\My Games\Starfield\Saves` and the game folder is found in your Steam
+libraries. Checked with Starfield 1.16.244 (and saves made with 1.9.71).
+
+What works:
+
+- Open and browse a `.sfs`: File > Open, the saves folder as pictures or a list, drop a save on the window, watch
+  the saves folder. Header, plugins, change forms, global data and the Papyrus section are shown.
+- Plugins: full, light and medium plugins (medium form ids `FD:xx`), with the Creations details the save keeps.
+- Change forms with names: the forms are named from the game's own plugins and strings files
+  (`00012345 EditorID 'Name' [TYPE]`), read straight from the game folder (Starfield's BA2 archives, the
+  `.strings` files, your language); no mods folder scan is needed. Tools > Read plugin names reads them again.
+- Papyrus: scripts, script instances with their variables, references, arrays, active scripts (threads with every
+  stack frame), function messages, suspended stacks, queued unbinds, in the same views as for Skyrim.
+- Save check (Tools > Save check, F2), Analysis and Report.
+- Cleanups (Clean menu): remove unattached instances, remove undefined elements, terminate undefined threads,
+  purge a script; delete change forms.
+- Mods no longer installed: the save's plugins the game does not load any more (compared with the game's own
+  plugin list: `%LOCALAPPDATA%\Starfield\plugins.txt`, `Starfield.ccc` and the Data folders) are listed with what
+  they left in the save (change forms, scripts, instances, threads), and removed after you confirm (Clean > Mods
+  no longer installed..., the Mods view, the Save check). The game's own base files are never removed, and objects
+  made during play are left alone.
+- Writing saves the game loads: an edited save is written as a NEW save next to the old one, in the game's own
+  format (the container is packed again, every size and offset is rebuilt); an unedited save writes back
+  byte-for-byte identical. Edited saves were loaded in the game and tested there.
+- Command line: `resaverpp-cli save.sfs` (the report), `--describe`, `--forms [TYPE]`, `--names`, `--name <id>`,
+  `--delete-form <id>`, `--remove-unattached`, `--remove-undefined`, `--terminate-undefined`,
+  `--mods-not-installed`, `--remove-not-installed [--also-disabled]`, `--game <folder>` / `--data <Data folder>`,
+  `-o new.sfs`.
+
+What is not there (yet):
+
+- Editing the contents of records (change form data, inventories, quests, followers): change forms can be
+  viewed and deleted, not edited. The Skyrim and Fallout 4 pages (Quests, Followers, Character effects and the
+  other game-specific tools) are hidden for Starfield saves.
+- An SFSE helper: there is no in-game helper for Starfield, so nothing is done in the running game, and the SFSE
+  co-save (`.sfse`) is not read or written.
+- A mod manager setup: Starfield uses the game's Data folders and plugins.txt only (no MO2 / Vortex profile).
+- Names for placed references of plugins the save does not use, and noticing a renamed plugin.
 
 ## Programs
 

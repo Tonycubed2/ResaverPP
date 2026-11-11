@@ -1,9 +1,15 @@
 name: Add a new file to Nexus Mods
 
 # Manual: Actions tab -> "Add a new file to Nexus Mods" -> Run workflow.
-# Uploads a zip that is already in this repository (e.g. helper/release/ReSaverHelper.zip) as an
-# entirely NEW file on the mod page (optional / main / miscellaneous). New versions of that file
-# afterwards: "Upload to Nexus Mods"-style update with its own File ID.
+# Creates an entirely NEW file on a mod page (main / optional / miscellaneous) through the v3 API.
+#   build = false (default): uploads a zip that is already in this repository (e.g. helper/release/ReSaverHelper.zip).
+#   build = true: builds ReSaver Plus from main exactly as "Upload to Nexus Mods" (nexus-upload.yml) does - tests,
+#     MinGW-w64 build, the same ReSaverPP.zip (ReSaverPP.exe + resaverpp-cli.exe + LICENSE/NOTICE/README, layout flat
+#     or data-tools; never resaverpp.ini) - and uploads that; the zip input is ignored. This is how the first file
+#     of a new page is made (e.g. the Starfield page). New versions of the file afterwards: nexus-upload.yml with
+#     the File ID this run prints and the same mod_id.
+# mod_id is the page's "Unique Mod ID" (Files tab -> Advanced -> API), not the number in the page's address:
+# every v3 call takes it (the game is part of that id, so no game domain is needed here).
 #
 # Needs the NEXUSMODS_API_KEY secret in the "nexus" environment.
 
@@ -11,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       zip:
-        description: "Path of the zip in this repository"
+        description: "Path of the zip in this repository (ignored when build = true)"
         required: true
         default: "helper/release/ReSaverHelper.zip"
       name:
@@ -19,7 +25,7 @@ on:
         required: true
         default: "ReSaverHelper"
       version:
-        description: "File version"
+        description: "File version (build = true: must be the version in CMakeLists.txt)"
         required: true
       category:
         description: "main, optional or miscellaneous"
@@ -37,6 +43,18 @@ on:
         description: "Nexus Unique Mod ID (Files tab -> Advanced -> API)"
         required: false
         default: "7318624468677"
+      build:
+        description: "true = build ReSaver Plus from main (as nexus-upload.yml) and upload that zip instead of a repository zip"
+        required: false
+        default: "false"
+      layout:
+        description: "build = true only: zip layout flat (files at the top) or data-tools (Data/Tools/ReSaverPP/...)"
+        required: false
+        default: "flat"
+      dry_run:
+        description: "true = check everything (and build), create nothing on Nexus"
+        required: false
+        default: "false"
 
 permissions:
   contents: read
@@ -46,15 +64,120 @@ jobs:
     runs-on: ubuntu-24.04
     environment: nexus
     steps:
+      - name: Check settings
+        env:
+          HAS_KEY: ${{ secrets.NEXUSMODS_API_KEY != '' }}
+          KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          MOD_ID: ${{ inputs.mod_id }}
+          NAME: ${{ inputs.name }}
+          CATEGORY: ${{ inputs.category }}
+          MM: ${{ inputs.mod_manager }}
+          BUILD: ${{ inputs.build }}
+        run: |
+          if [ "$HAS_KEY" != "true" ]; then echo "::error::Secret NEXUSMODS_API_KEY is missing in the nexus environment"; exit 1; fi
+          [ -n "$MOD_ID" ] || { echo "::error::mod_id is empty"; exit 1; }
+          case "$CATEGORY" in main|optional|miscellaneous) ;; *) echo "::error::category must be main, optional or miscellaneous"; exit 1 ;; esac
+          case "$MM" in true|false) ;; *) echo "::error::mod_manager must be true or false"; exit 1 ;; esac
+          case "$BUILD" in true|false) ;; *) echo "::error::build must be true or false"; exit 1 ;; esac
+          # the page must answer to this Unique Mod ID (v3 lists the page's files even before the page is published)
+          code=$(curl -sS -o v3.json -w '%{http_code}' -H "apikey: $KEY" -H "User-Agent: ReSaverPP-release" "https://api.nexusmods.com/v3/mods/$MOD_ID/files")
+          [ "$code" = 200 ] || { echo "::error::Nexus did not list the files of mod $MOD_ID (HTTP $code): $(head -c 300 v3.json). Is it the Unique Mod ID (Files tab -> Advanced -> API)?"; exit 1; }
+          echo "::notice::mod $MOD_ID has these files now: $(jq -c '[.data.mod_files[]? | {id, name}]' v3.json)"
+          if jq -e --arg n "$NAME" '[.data.mod_files[]? | select(.name == $n)] | length > 0' v3.json > /dev/null; then
+            echo "::warning::a file named \"$NAME\" is already on mod $MOD_ID: this run makes a SECOND one (use nexus-upload.yml with its File ID to add a version instead)"
+          fi
+
       - name: Check out main
         uses: actions/checkout@v4
         with:
           ref: main
 
+      # ---- build = true: the same steps as nexus-upload.yml ----
+
+      - name: Check the version number matches
+        if: ${{ inputs.build == 'true' }}
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          grep -q "project(ReSaverPP VERSION ${VERSION} " CMakeLists.txt || { echo "::error::CMakeLists.txt is not version ${VERSION}"; exit 1; }
+
+      # apt on the runner sometimes hangs for a long time on a slow mirror: each try is cut off after
+      # 4 minutes and retried, so a stuck mirror costs minutes, not the whole run
+      - name: Install MinGW-w64
+        if: ${{ inputs.build == 'true' }}
+        timeout-minutes: 15
+        run: |
+          for i in 1 2 3; do
+            if sudo timeout 240 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q &&
+               sudo timeout 240 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q mingw-w64 ninja-build; then
+              exit 0
+            fi
+            echo "::warning::apt try $i failed or timed out, retrying"
+            sleep 10
+          done
+          exit 1
+
+      # the regression tests (no save files needed) must pass before anything is built for release
+      - name: Run tests
+        if: ${{ inputs.build == 'true' }}
+        run: |
+          cmake -S . -B build-test -G Ninja -DCMAKE_BUILD_TYPE=Release -DRESAVERPP_GUI=OFF -DRESAVERPP_TESTS=ON
+          cmake --build build-test -j4
+          ctest --test-dir build-test --output-on-failure
+
+      - name: Build
+        if: ${{ inputs.build == 'true' }}
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64.cmake -DCMAKE_BUILD_TYPE=Release -DRESAVERPP_TESTS=OFF
+          cmake --build build -j4
+          for f in build/ReSaverPP.exe build/resaverpp-cli.exe; do
+            if [ ! -f "$f" ]; then echo "::error::MISSING $f - not uploading"; exit 1; fi
+          done
+
+      - name: Package
+        if: ${{ inputs.build == 'true' }}
+        env:
+          LAYOUT: ${{ inputs.layout }}
+        run: |
+          case "$LAYOUT" in
+          flat|"")
+            zip -j -q ReSaverPP.zip build/ReSaverPP.exe build/resaverpp-cli.exe LICENSE NOTICE.md README.md ;;
+          data-tools)
+            mkdir -p pkg/Data/Tools/ReSaverPP
+            cp build/ReSaverPP.exe build/resaverpp-cli.exe LICENSE NOTICE.md README.md pkg/Data/Tools/ReSaverPP/
+            (cd pkg && zip -r -q -X ../ReSaverPP.zip Data) ;;
+          *) echo "::error::unknown layout '$LAYOUT' (flat or data-tools)"; exit 1 ;;
+          esac
+          unzip -l ReSaverPP.zip
+
+      - name: Keep the zip (Actions run -> Artifacts)
+        if: ${{ inputs.build == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReSaverPP-${{ inputs.version }}
+          path: ReSaverPP.zip
+
+      # ---- both ways ----
+
+      - name: Choose and check the zip
+        id: zip
+        env:
+          BUILD: ${{ inputs.build }}
+          REPO_ZIP: ${{ inputs.zip }}
+        run: |
+          if [ "$BUILD" = "true" ]; then z=ReSaverPP.zip; else z="$REPO_ZIP"; fi
+          [ -f "$z" ] || { echo "::error::$z is not there"; exit 1; }
+          # the user's settings file (paths, keys) must never be shipped
+          if unzip -Z1 "$z" | grep -qi '\(^\|/\)resaverpp\.ini$'; then echo "::error::$z contains resaverpp.ini - not uploading"; exit 1; fi
+          echo "::notice::uploading $z ($(stat -c %s "$z") bytes)"
+          echo "path=$z" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then echo "::notice::dry run: everything checked, nothing created on Nexus"; fi
+
       - name: Upload and create the file
+        if: ${{ inputs.dry_run != 'true' }}
         env:
           KEY: ${{ secrets.NEXUSMODS_API_KEY }}
-          ZIP: ${{ inputs.zip }}
+          ZIP: ${{ steps.zip.outputs.path }}
           NAME: ${{ inputs.name }}
           VERSION: ${{ inputs.version }}
           CATEGORY: ${{ inputs.category }}
@@ -67,7 +190,7 @@ jobs:
           fail() { echo "::error::$1"; exit 1; }
           api=https://api.nexusmods.com/v3
           hdr=(-H "apikey: $KEY" -H "User-Agent: ReSaverPP-release")
-          [ -f "$ZIP" ] || fail "$ZIP is not in the repository"
+          [ -f "$ZIP" ] || fail "$ZIP is not there"
           size=$(stat -c %s "$ZIP")
           fname=$(basename "$ZIP")
           # 1-2. multipart upload, the same way as Nexus' own upload action
@@ -111,3 +234,6 @@ jobs:
           code=$(curl -sS -o file.json -w '%{http_code}' -X POST "${hdr[@]}" -H "Content-Type: application/json" --data "$body" "$api/mod-files") || fail "curl /mod-files failed"
           [ "${code:0:1}" = "2" ] || fail "Nexus refused the new file (HTTP $code): $(head -c 400 file.json)"
           echo "::notice::New file created: $(jq -c '.data // .' file.json | head -c 400)"
+          # the File ID later versions need (nexus-upload.yml file_id): the page's file list, as nexus-upload.yml checks it
+          code=$(curl -sS -o v3.json -w '%{http_code}' "${hdr[@]}" "$api/mods/$MOD_ID/files")
+          echo "::notice::files of mod $MOD_ID now (HTTP $code): $(jq -c '[.data.mod_files[]? | {id, name}]' v3.json 2>/dev/null | head -c 600) - the File ID for nexus-upload.yml is the id next to \"$NAME\""

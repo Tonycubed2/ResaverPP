@@ -1533,3 +1533,21 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
   state) is only a proposal (Docs artifact "Clean Reload: mod proposal"); Tony has not said to build it.
 
 - Decision (Tony, 2026-11-08): the helpers' rescue hotkey stays Ctrl held 8 s (bRescueHotkey/iRescueHoldSeconds). Do not propose changing it.
+
+## 11. Starfield release prep (2026-11-11, branch sfrelease; docs and workflows only, nothing published)
+
+- README: "Starfield" section (what works / what is not there); title line names LE, Fallout 4 and Starfield.
+  NOTICE: StarfieldSaveTool (Nexus Mods) credited as research reference (no code), format worked out from the game's
+  files/exe for interoperability; helper licenses.
+- Helper licenses: `helper/` statically links CommonLibSSE NG 6.7.0 (GPL-3.0-or-later WITH Modding Exception AND GPL-3.0
+  Linking Exception) -> helper README says GPL-3.0-or-later with those exceptions; `helper/LICENSE` = CommonLib's COPYING,
+  `helper/EXCEPTIONS.md` = its EXCEPTIONS.md. `helper-le/` (SKSE 1.7.3 libSKSE, no CommonLib) and `helper-f4/` (links no
+  CommonLibF4/F4SE code; own F4SE.h declarations + Address Library ids) stay Apache-2.0. The SE helper zip should carry
+  LICENSE + EXCEPTIONS.md from its next build on.
+- Starfield page: domain `starfield`; mod id / Unique Mod ID / File ID not known yet. `nexus-new-file.yml` has
+  `build: "true"` (builds and packs ReSaverPP.zip exactly as nexus-upload.yml, refuses a zip with resaverpp.ini) and
+  `dry_run`; it checks the Unique Mod ID with GET /v3/mods/<uid>/files first and prints the page's files (with the new
+  File ID) at the end. `nexus-changelog.yml` has a `mod_id` input. v3 calls take only the Unique Mod ID
+  (= game_id << 32 | mod id on that game: SE 1704/196293, LE 110/122557, FO4 1151/110975); `nexus-ids.yml` with
+  domain `starfield` prints it. Dispatch templates: scratchpad `dispSF-new.json`, `dispSF-changelog.json`,
+  `dispSF-update.json`; texts in scratchpad `sf-release-texts.md`.

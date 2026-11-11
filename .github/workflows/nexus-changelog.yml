@@ -6,6 +6,7 @@ name: Add Nexus changelog
 # Uses, in the "nexus" environment:
 #   secret   NEXUSMODS_API_KEY
 #   variable NEXUSMODS_MOD_ID   - optional; "Unique Mod ID" from Files tab -> Advanced (default 7318624468677)
+# The mod_id input (another page's Unique Mod ID, e.g. the Starfield page) wins over the variable.
 
 on:
   workflow_dispatch:
@@ -16,6 +17,10 @@ on:
       changelog:
         description: "Changelog text (plain text; use ' | ' to separate lines)"
         required: true
+      mod_id:
+        description: "Nexus Unique Mod ID (Files tab -> Advanced -> API); empty = variable NEXUSMODS_MOD_ID or the SE page"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -28,7 +33,7 @@ jobs:
       - name: Post changelog
         env:
           KEY: ${{ secrets.NEXUSMODS_API_KEY }}
-          MOD_ID: ${{ vars.NEXUSMODS_MOD_ID || '7318624468677' }}
+          MOD_ID: ${{ inputs.mod_id || vars.NEXUSMODS_MOD_ID || '7318624468677' }}
           VERSION: ${{ inputs.version }}
           TEXT: ${{ inputs.changelog }}
         run: |

@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       domain:
-        description: "Game domain (skyrim, skyrimspecialedition, fallout4)"
+        description: "Game domain (skyrim, skyrimspecialedition, fallout4, starfield)"
         required: true
         default: "skyrim"
       mod:

@@ -66,7 +66,10 @@ From the Developer Command Prompt for VS 2022, in this folder:
 
 The DLL is `build\release-msvc\ReSaverHelper.dll`.
 
-Apache License 2.0, like ReSaver++.
+License: GPL-3.0-or-later WITH Modding Exception AND GPL-3.0 Linking Exception (with Corresponding Source), the
+license of CommonLibSSE NG 6.7.0, which the helper is statically linked with (CommonLibSSE NG asks that a plugin
+linking it is GPL-3.0-or-later). The GPL text is `LICENSE` and the two exceptions are `EXCEPTIONS.md`, both in this
+folder; the complete source is this folder. ReSaver++ itself (the program) stays Apache License 2.0.
 
 ## Diagnostic stages (version 14)
 
