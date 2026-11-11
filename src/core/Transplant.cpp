@@ -657,4 +657,120 @@ namespace ess::transplant
 		}
 		return v;
 	}
+
+	// ---- what a quest's stage would do (StageSafety.h) ---------------------------------------------
+
+	int StageToRun(const Change& a_ch, int a_completionStage)
+	{
+		if (!a_ch.quest || a_ch.markOnly || a_ch.journalOnly) {
+			return -1;
+		}
+		return a_ch.complete ? a_completionStage : a_ch.quest->stage;
+	}
+
+	bool StartsQuest(const Change& a_ch, const Snapshot& a_good)
+	{
+		if (!a_ch.quest || a_ch.markOnly) {
+			return false;
+		}
+		const auto it = a_good.quests.find(FormKey{ Lower(a_ch.quest->plugin), a_ch.quest->local });
+		return it == a_good.quests.end() || !it->second.running;
+	}
+
+	void ApplyStageCheck(Change& a_ch, const stagesafety::Report& a_r)
+	{
+		if (!a_ch.quest || a_ch.markOnly) {
+			return;
+		}
+		if (a_ch.stageCheck == Change::StageCheck::kNotAsked) {
+			a_ch.baseLabel = a_ch.label;
+			a_ch.baseWhy = a_ch.why;
+			a_ch.baseRisk = a_ch.risk;
+		}
+		using S = stagesafety::Report::State;
+		a_ch.stageCheck = a_r.state == S::kUnsafe ? Change::StageCheck::kUnsafe : a_r.state == S::kSafe ? Change::StageCheck::kSafe : Change::StageCheck::kNotChecked;
+		a_ch.stageWhy = a_r.state == S::kUnsafe ? a_r.what() : a_r.notChecked;
+		a_ch.stageNotes = a_r.notes();
+		a_ch.stageLoses.clear();
+		if (!a_r.rewards.empty()) {
+			std::string s;
+			for (const auto& x : a_r.rewards) {
+				s += (s.empty() ? "" : ", ") + x;
+			}
+			a_ch.stageLoses += "rewards it would give: " + s;
+		}
+		if (!a_r.followUps.empty()) {
+			std::string s;
+			for (const auto& x : a_r.followUps) {
+				s += (s.empty() ? "" : ", ") + x;
+			}
+			a_ch.stageLoses += (a_ch.stageLoses.empty() ? "" : "; ") + std::string("quests it would start or move on: ") + s;
+		}
+		a_ch.runStage = false;
+		if (a_ch.stageCheck == Change::StageCheck::kUnsafe && !a_ch.complete) {
+			a_ch.tick = false;  // ticking it runs it anyway
+		}
+		RelabelStageCheck(a_ch);
+	}
+
+	void RelabelStageCheck(Change& a_ch)
+	{
+		if (!a_ch.quest || a_ch.stageCheck == Change::StageCheck::kNotAsked) {
+			return;
+		}
+		const auto& q = *a_ch.quest;
+		const auto  name = !q.name.empty() ? q.name : !q.edid.empty() ? q.edid : Fmt("%06X", q.local);
+		a_ch.label = a_ch.baseLabel;
+		a_ch.why = a_ch.baseWhy;
+		a_ch.risk = a_ch.baseRisk;
+		switch (a_ch.stageCheck) {
+		case Change::StageCheck::kSafe:
+			a_ch.why += "\n\nChecked: what its stage script does (and the quests it starts) does not move you, play a scene, switch your controls "
+						"off or start a fight.";
+			if (!a_ch.stageLoses.empty()) {
+				a_ch.why += " It gives / starts: " + a_ch.stageLoses + ".";
+			}
+			if (!a_ch.stageNotes.empty()) {
+				a_ch.why += " Quests it starts begin as they normally do: " + a_ch.stageNotes + ".";
+			}
+			break;
+		case Change::StageCheck::kNotChecked:
+			a_ch.label += " (stage not checked)";
+			a_ch.risk = std::max(a_ch.risk, 1);
+			a_ch.why += "\n\nNot checked: " + a_ch.stageWhy + ". So it is not known whether its stage moves you or plays a scene: untick it if "
+						"you are not sure.";
+			break;
+		case Change::StageCheck::kUnsafe:
+			{
+				const auto kind = Lower(a_ch.stageWhy.substr(0, a_ch.stageWhy.find(':')));
+				const auto loses = a_ch.stageLoses.empty() ? std::string() : " Not given / not started: " + a_ch.stageLoses + ".";
+				if (a_ch.complete && !a_ch.runStage) {
+					a_ch.label = name + " - only mark as done (its last stage " + kind + ")";
+					a_ch.risk = 1;
+					a_ch.why = "Its last stage would do what a transplant must not repeat: " + a_ch.stageWhy +
+							   ".\n\nSo it is only marked as done: completed, its objectives shown in the journal as they were. The quest is not started "
+							   "and no stage is run." +
+							   loses + " Tick \"run its last stage anyway\" to run it (risky).";
+				} else if (a_ch.complete) {
+					a_ch.label = name + " - complete it, RISKY: its last stage " + kind;
+					a_ch.risk = 2;
+					a_ch.why = "You chose to run its last stage anyway. It will: " + a_ch.stageWhy + ".";
+				} else if (a_ch.journalOnly) {
+					a_ch.label = name + " - not started: starting it " + kind;
+					a_ch.risk = 2;
+					a_ch.why = "Starting this quest runs its start-up stage, which would: " + a_ch.stageWhy +
+							   ".\n\nLeft unticked. Ticking it starts the quest anyway (risky).";
+				} else {
+					a_ch.label = a_ch.baseLabel + " - not run: it " + kind;
+					a_ch.risk = 2;
+					a_ch.why = "This stage would do what a transplant must not repeat: " + a_ch.stageWhy +
+							   ".\n\nLeft unticked (the quest was not finished in the bad save, so it cannot just be marked as done). Ticking it runs "
+							   "the stage anyway (risky)." +
+							   loses;
+				}
+			}
+			break;
+		default: break;
+		}
+	}
 }

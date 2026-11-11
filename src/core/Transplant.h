@@ -8,6 +8,7 @@
 #pragma once
 
 #include "Save.h"
+#include "StageSafety.h"
 
 #include <array>
 #include <filesystem>
@@ -130,6 +131,22 @@ namespace ess::transplant
 		bool          background = false;  // a quest the journal never showed (radiant, scenes, mod setup)
 		bool          journalOnly = false; // only show it in the journal (no stage to set: the good save is as far)
 		bool          markOnly = false;    // never start it or run a stage: only mark it completed (the Helgen intro)
+		// what its stage would do in the game (StageSafety.h; set by ApplyStageCheck once the plugins and scripts are read)
+		enum class StageCheck
+		{
+			kNotAsked,    // not checked yet
+			kSafe,        // read: it does not move you, play a scene...
+			kUnsafe,      // read: it would (stageWhy): by default not run (completed: only marked as done)
+			kNotChecked,  // its script could not be found or read (stageWhy): run as before, labelled
+		} stageCheck = StageCheck::kNotAsked;
+		std::string stageWhy;           // kUnsafe: what it would do; kNotChecked: why it was not checked
+		std::string stageLoses;         // kUnsafe: what running it would have given (rewards, follow-up quests)
+		std::string stageNotes;         // scenes / fights of quests it starts (that quest starting normally: not counted)
+		bool        runStage = false;   // kUnsafe and completed: the user chose to run its stage anyway (risky)
+		std::string baseLabel, baseWhy; // label, why and risk as Diff made them (before the check)
+		int         baseRisk = 0;
+		// mark as done only, objectives shown, nothing started or staged: an unsafe completed quest the user did not choose to run
+		bool        safeMark() const { return stageCheck == StageCheck::kUnsafe && complete && !runStage; }
 	};
 
 	// Unbound (MQ101, Skyrim.esm 0003372B: EDID checked in Skyrim.esm), the Helgen intro: starting it or running one of its
@@ -137,4 +154,16 @@ namespace ess::transplant
 	bool IsIntroQuest(const Quest& a_q);
 
 	std::vector<Change> Diff(const Snapshot& a_good, const Snapshot& a_bad);
+
+	// The stage a quest change sets in the game: the completion stage (a_completionStage, from the plugins; -1 unknown) for a
+	// quest completed in the bad save, else the bad save's stage; -1 for none (only shown in the journal / marked as done)
+	int StageToRun(const Change& a_ch, int a_completionStage);
+	// The quest is not running in the good game, so setting its stage (or showing its objectives) starts it first
+	bool StartsQuest(const Change& a_ch, const Snapshot& a_good);
+	// Puts a stage check's result on a quest change (label, why, risk, tick). An unsafe stage is not run by default: a quest
+	// completed in the bad save is only marked as done (runStage lets the user run it anyway); any other unsafe change is
+	// unticked (ticking it runs it anyway). A stage that could not be checked keeps what it did, labelled "not checked".
+	// Call again after the user changes runStage (label and why follow it).
+	void ApplyStageCheck(Change& a_ch, const stagesafety::Report& a_report);
+	void RelabelStageCheck(Change& a_ch);
 }

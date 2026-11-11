@@ -465,6 +465,7 @@ static int BsaMain(int argc, char** argv)
 
 // resaverpp-cli --analyze-logs [<My Games folder>] [--days <n>]
 int CosaveMain(int argc, char** argv);  // CosaveCli.cpp
+int StageCheckMain(int argc, char** argv);  // StageCheckCli.cpp
 
 static int AnalyzeLogsMain(int argc, char** argv)
 {
@@ -592,6 +593,9 @@ int main(int argc, char** argv)
 	}
 	if (std::string(argv[1]) == "--cosave") {
 		return CosaveMain(argc, argv);
+	}
+	if (std::string(argv[1]) == "--stage-check") {
+		return StageCheckMain(argc, argv);
 	}
 	if (IsFo4CompanionsCommand(argc, argv)) {
 		return Fo4CompanionsMain(argc, argv);

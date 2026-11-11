@@ -14096,3 +14096,34 @@ tr "Удалить %zu изменённых форм, которые игра п
 # AppStarfield.cpp:637  [this, raws] { markEdited(Fmt(tr("Removed %zu change form(s) whose type changed"), ops::DeleteChangeForms(*_save, raws))); });
 en "Removed %zu change form(s) whose type changed"
 tr "Удалено изменённых форм со сменившимся типом: %zu"
+
+
+en "marked as done; its last stage was not run (it would move you or play a scene)"
+tr "отмечен как выполненный; его последняя стадия не запущена (она бы переместила вас или запустила сцену)"
+
+en "! Quests whose stage would move you or play a scene (not run)"
+tr "! Задания, стадия которых переместила бы вас или запустила сцену (не запускаются)"
+
+en "Tick everything that can be brought over (things whose mod is not in the game stay unticked, and so do quest stages that would move you or play a scene)."
+tr "Отметить всё, что можно перенести (то, чьего мода нет в игре, остаётся без отметки, как и стадии заданий, которые переместили бы вас или запустили сцену)."
+
+en "run its last stage anyway (risky)"
+tr "всё равно запустить последнюю стадию (рискованно)"
+
+en "Run the quest's last stage in the game after all, for its rewards and follow-up quests. It does what the line below says (moves you, plays a scene...), which a transplant should not repeat. Unticked: the quest is only marked as done."
+tr "Всё-таки запустить последнюю стадию задания в игре ради наград и следующих заданий. Она сделает то, что написано в строке ниже (переместит вас, запустит сцену...), а перенос не должен это повторять. Без отметки задание только отмечается как выполненное."
+
+en "Its stage would: "
+tr "Его стадия бы: "
+
+en "Stage not checked: "
+tr "Стадия не проверена: "
+
+en "Not given / not started when only marked as done: "
+tr "Не выдаётся / не запускается, если только отметить как выполненное: "
+
+en "Tick everything in this group (not the quest stages that would move you or play a scene)."
+tr "Отметить всё в этой группе (кроме стадий заданий, которые переместили бы вас или запустили сцену)."
+
+en "Checking what each quest's stage does (reading your plugins and scripts)..."
+tr "Проверка того, что делает стадия каждого задания (чтение ваших плагинов и скриптов)..."

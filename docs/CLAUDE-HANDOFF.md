@@ -1354,6 +1354,48 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
   Starfield VM's pause rule for stranded threads, flood clearing's stack states in Starfield, ContentCatalog.txt /
   Starfield.ccc formats, the My Games\Starfield\Data folder for Creations, 1.9.71 exe.
 
+- Transplant stage check (2026-11-11, v72). Crestfallenheir (3 transplants): completing "Pieces of
+  the Past" played Dagon's "Before you go, mortal" scene; completing "The Mind of Madness" teleported him into the Pelagius
+  Wing (locked, near hardlock). Fix, no list of exceptions: `core/StageSafety.*` (`ess::stagesafety::Check`) reads what a
+  quest's stage would run before Transplant runs it: the QUST VMAD fragments of that stage (every log entry's fragment) in
+  their .pex, walked instruction by instruction (callmethod / callstatic / callparent / cast / propget), following its own
+  SetStage (that stage) and Stop() (shut-down stages, INDX 0x04), Start / SetStage of other quests named by a VMAD property
+  (their start-up stages, INDX 0x02, and that stage; 3 quests deep) and calls into non-game scripts (4 calls deep; the game's
+  own classes are not walked into). The player = Game.GetPlayer() or a property whose VMAD value is 00000014. Counted as
+  unsafe: player MoveTo / MoveToNode / SetPosition / TranslateTo..., Kill / SetRestrained / SetDontMove on the player,
+  Game.DisablePlayerControls, SetPlayerAIDriven(true), FadeOutGame(true), EnableFastTravel(false), SetInChargen(any true),
+  ShowRaceMenu, PlayBink at any depth; Scene.Start / ForceStart (type is or extends Scene), StartCombat, PlaceActorAtMe /
+  PlaceAtMe(ActorBase) in the quest itself (in a quest it starts they are that quest starting normally: noted, not
+  counted: MQ102/MQ103 start their next quest's intro scene). Rewards (AddItem/AddPerk/AddSpell... on the player,
+  Game.AddPerkPoints...) and follow-up quests are listed so the user knows what "only mark as done" leaves out. Verified in
+  SkyrimSE.exe 1.6.1170: Papyrus SetCurrentStageID (native 0xa46fd0) starts a stopped quest (0x3c9bf0) before the stage
+  (0x3c9d00), so the quest's start-up stages are checked when the good game does not run it (`tp::StartsQuest`);
+  CompleteQuest (native 0xa46900 -> 0x3c9570) only sets flag 2, clears 0x800 and sends the event: no stage runs; questobj
+  without "start" writes the journal list directly (no Papyrus). Real scripts (Skyrim.esm + Update.esm + Skyrim - Misc.bsa,
+  `resaverpp-cli --stage-check <Data> Skyrim.esm,Update.esm <EDID[:stage]>|--all [--starts]`): DA07 stage 100 plays a scene
+  `DA07DagonEndScene.Start()` (gives Razor), stage 150 `Da07DagonRejectedScene.Start()`; DA15 stage 200 ->
+  `DA15Return.SetStage(0)` -> its stage 0 `SetStage(10)` -> stage 10 `Game.GetPlayer().MoveTo(Alias_DA15BluePalaceReturnMarker
+  .GetRef())`; MQ101 stage 900 -> SetStage(500) -> KeepScene5A/5B.Start(). Of the 300 quests of Skyrim.esm + Update.esm with a
+  completion stage (338 with Dawnguard.esm: the same 14): 14 unsafe (CW01A/B map table scene, CWFortSiegeCapital/Fort
+  surrender scene, DA07, DA09 moves you + controls off, DA14 moves you to the inn, DA14Start, DA15, MG07 -> MG08 start-up
+  moves you, MQ101, MQ202, MQ301, MQ302), 0 not checked (DA11IntroScene's VMAD names a Fragment_1 its script lacks: the game
+  runs nothing, counted safe); MQ102-105, C00, DA01, DB01, MS01... safe. With --starts (quests not running) 4 more (CWMission03/04, MG04, MG08).
+  - Transplant: `Change::stageCheck` (kSafe / kUnsafe / kNotChecked), `stageWhy`, `stageLoses`, `stageNotes`, `runStage`;
+    `tp::ApplyStageCheck` / `RelabelStageCheck` / `StageToRun` / `StartsQuest`. Unsafe + completed in the bad save: "Name -
+    only mark as done (its last stage moves you)", ticked, `safeMark()`: COMPLETE then questobj "" (no start, no stage);
+    checkbox "run its last stage anyway (risky)" per row. Unsafe and not completed (stage N, or show-in-journal that starts
+    it): unticked, ticking runs it anyway; "Tick all/everything" leave them unticked. Script not found / unreadable / quest
+    not in the plugins: runs as before, "(stage not checked)", caution. GUI (`AppTransplant.cpp` drawTransplant) checks after
+    Diff once `_db`/`_save` and the script scan are ready (50 ms per frame), reasons on their own line under each row, unsafe
+    quests grouped under "! Quests whose stage would move you or play a scene (not run)". The Unbound special case (2910442,
+    markOnly) stays. Tests: rs_unit TestStageSafety (in-memory .pex with the real DA07 / DA15 / DA15Return instructions;
+    with RESAVERPP_SKY_DATA=<Skyrim SE Data folder> also the real scripts: DA07, DA15, MQ101 unsafe; MQ102-105, C00, DA01,
+    DB01, MS01 safe).
+  - Not done: the cell a MoveTo target is in (the alias's fill is not read: the message names the alias / property).
+  - GUI check: RESAVERPP_TEST_OPEN="transplant:bad.txt|good.txt" + RESAVERPP_TEST_TPFILTER=" - " (new: fills the list's search,
+    which opens the groups) with sources= the Data folder in resaverpp.ini and a Skyrim save open: scratchpad tpsafe-run,
+    screenshot tpsafe-shots/c.png (DA07 / DA15 "only mark as done" with their reasons, MQ102 / MQ103 / DB01 "complete it").
+
 - Damaged change forms (2026-11-10, branch zlibfix, not published). InfinityA1 (Skyrim LE, Win 11 26200): v66/v67 open his
   newest save, then "Something went wrong: zlib decompression failed" every frame. Reproduced (Vortex's LE test saves,
   scratchpad zfix/saves: c_player.ess = player ACHR length2 + 1): the only escaping path was quests::ReadJournal ->

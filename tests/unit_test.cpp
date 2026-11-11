@@ -24,6 +24,7 @@
 #include "core/ChangeFormData.h"
 #include "core/FollowersSky.h"
 #include "core/Transplant.h"
+#include "core/StageSafety.h"
 #include "core/TransplantFO4.h"
 #include "core/WorkshopFO4.h"
 #include "core/WorldItemsFO4.h"
@@ -417,6 +418,384 @@ namespace
 			"plugins.txt LE: no marks, every listed plugin is enabled");
 		fs::remove(se);
 		fs::remove(le);
+	}
+
+	// ---- Transplant's stage check (StageSafety.h) ---------------------------------------------------------------------
+	// A compiled script built in memory: the instructions are the ones the real vanilla scripts have (QF_DA07_000240B8
+	// Fragment_54, QF_DA15_0002AC68 Fragment_17, QF_DA15Return_0010FF8F Fragment_6 / Fragment_5, disassembled from Skyrim -
+	// Misc.bsa with resaverpp-cli).
+	struct PexMaker
+	{
+		ess::pex::File f;
+		PexMaker(const std::string& a_name, const std::string& a_parent)
+		{
+			f.objects.emplace_back();
+			f.objects[0].name = s(a_name);
+			f.objects[0].parent = s(a_parent);
+			f.objects[0].states.emplace_back();
+			f.objects[0].states[0].name = s("");
+		}
+		std::uint16_t s(const std::string& a_text)
+		{
+			for (std::size_t i = 0; i < f.strings.size(); ++i) {
+				if (f.strings[i] == a_text) {
+					return static_cast<std::uint16_t>(i);
+				}
+			}
+			f.strings.push_back(a_text);
+			return static_cast<std::uint16_t>(f.strings.size() - 1);
+		}
+		ess::pex::Value id(const std::string& a_name)
+		{
+			ess::pex::Value v;
+			v.type = 1;
+			v.s = s(a_name);
+			return v;
+		}
+		static ess::pex::Value num(int a_i)
+		{
+			ess::pex::Value v;
+			v.type = 3;
+			v.i = a_i;
+			return v;
+		}
+		static ess::pex::Value boolean(bool a_b)
+		{
+			ess::pex::Value v;
+			v.type = 5;
+			v.b = a_b;
+			return v;
+		}
+		// an auto property and its variable
+		void prop(const std::string& a_name, const std::string& a_type)
+		{
+			ess::pex::Variable var;
+			var.name = s("::" + a_name + "_var");
+			var.type = s(a_type);
+			f.objects[0].variables.push_back(var);
+			ess::pex::Property p;
+			p.name = s(a_name);
+			p.type = s(a_type);
+			p.flags = 7;
+			p.autoVar = var.name;
+			f.objects[0].properties.push_back(p);
+		}
+		ess::pex::Function& fn(const std::string& a_name, const std::vector<std::pair<std::string, std::string>>& a_locals)
+		{
+			ess::pex::NamedFunction nf;
+			nf.name = s(a_name);
+			for (const auto& [n, t] : a_locals) {
+				nf.fn.locals.push_back({ s(n), s(t) });
+			}
+			f.objects[0].states[0].functions.push_back(nf);
+			return f.objects[0].states[0].functions.back().fn;
+		}
+		// callmethod name receiver dest args...
+		ess::pex::Instruction call(const std::string& a_name, const std::string& a_recv, const std::string& a_dest, std::vector<ess::pex::Value> a_args)
+		{
+			ess::pex::Instruction in;
+			in.op = 23;
+			in.args = { id(a_name), id(a_recv), id(a_dest), num(static_cast<int>(a_args.size())) };
+			in.args.insert(in.args.end(), a_args.begin(), a_args.end());
+			return in;
+		}
+		ess::pex::Instruction callStatic(const std::string& a_class, const std::string& a_name, const std::string& a_dest, std::vector<ess::pex::Value> a_args)
+		{
+			ess::pex::Instruction in;
+			in.op = 25;
+			in.args = { id(a_class), id(a_name), id(a_dest), num(static_cast<int>(a_args.size())) };
+			in.args.insert(in.args.end(), a_args.begin(), a_args.end());
+			return in;
+		}
+		ess::pex::Instruction cast(const std::string& a_dest, ess::pex::Value a_src)
+		{
+			ess::pex::Instruction in;
+			in.op = 14;
+			in.args = { id(a_dest), a_src };
+			return in;
+		}
+	};
+
+	ess::quests::QuestDef MakeQuestDef(const std::string& a_edid, const std::string& a_script, std::vector<std::tuple<int, int, std::string>> a_stages)
+	{
+		ess::quests::QuestDef d;
+		d.edid = a_edid;
+		d.fragmentScript = a_script;
+		for (const auto& [index, flags, fragment] : a_stages) {
+			ess::quests::Stage st;
+			st.index = static_cast<std::uint16_t>(index);
+			st.flags = static_cast<std::uint8_t>(flags & 0xFF);
+			if (flags & 0x100) {  // (test) a journal entry that completes the quest
+				ess::quests::LogEntry le;
+				le.flags = 1;
+				st.logs.push_back(le);
+			}
+			d.stages.push_back(st);
+			if (!fragment.empty()) {
+				ess::quests::Fragment fr;
+				fr.stage = static_cast<std::uint16_t>(index);
+				fr.function = fragment;
+				d.fragments.push_back(fr);
+			}
+		}
+		return d;
+	}
+
+	void TestStageSafety()
+	{
+		namespace ss = ess::stagesafety;
+		namespace tp = ess::transplant;
+		std::map<std::uint32_t, ess::quests::QuestDef> defs;
+		std::map<std::string, std::unique_ptr<PexMaker>> scripts;
+		auto addScript = [&](std::unique_ptr<PexMaker> a_p) {
+			std::string n = a_p->f.str(a_p->f.objects[0].name);
+			std::transform(n.begin(), n.end(), n.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			scripts[n] = std::move(a_p);
+		};
+		ss::Env env;
+		env.quest = [&](std::uint32_t id) -> const ess::quests::QuestDef* {
+			auto it = defs.find(id);
+			return it == defs.end() ? nullptr : &it->second;
+		};
+		env.script = [&](const std::string& a_name) -> const ess::pex::File* {
+			std::string n = a_name;
+			std::transform(n.begin(), n.end(), n.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			if (n == "qf_broken") {
+				throw std::runtime_error("bad file");
+			}
+			auto it = scripts.find(n);
+			return it == scripts.end() ? nullptr : &it->second->f;
+		};
+
+		// Pieces of the Past (DA07): stage 100 starts Dagon's end scene ("Before you go, mortal...") and gives the Razor
+		{
+			auto p = std::make_unique<PexMaker>("QF_DA07_000240B8", "Quest");
+			p->prop("DA07DagonEndScene", "scene");
+			p->prop("Razor", "weapon");
+			p->prop("AchievementsQuest", "achievementsscript");
+			auto& fn = p->fn("Fragment_54", { { "::NoneVar", "None" }, { "::temp15", "Bool" }, { "::temp16", "actor" }, { "::temp17", "form" } });
+			fn.code.push_back(p->call("IncDaedricQuests", "::AchievementsQuest_var", "::NoneVar", {}));
+			fn.code.push_back(p->cast("::temp15", PexMaker::num(1)));
+			fn.code.push_back(p->call("SetObjectiveCompleted", "self", "::NoneVar", { PexMaker::num(75), p->id("::temp15") }));
+			fn.code.push_back(p->call("Start", "::DA07DagonEndScene_var", "::NoneVar", {}));
+			fn.code.push_back(p->callStatic("game", "GetPlayer", "::temp16", {}));
+			fn.code.push_back(p->cast("::temp17", p->id("::Razor_var")));
+			fn.code.push_back(p->call("additem", "::temp16", "::NoneVar", { p->id("::temp17"), PexMaker::num(1), PexMaker::boolean(false) }));
+			fn.code.push_back(p->call("Stop", "self", "::NoneVar", {}));
+			addScript(std::move(p));
+			auto d = MakeQuestDef("DA07", "QF_DA07_000240B8", { { 90, 0, "" }, { 100, 0x100, "Fragment_54" } });
+			ess::quests::Property ach;
+			ach.name = "AchievementsQuest";
+			ach.type = 1;
+			ach.form = 0x000FC85D;
+			d.properties.push_back(ach);
+			defs[0x000240B8] = d;
+		}
+		const auto da07 = ss::Check(0x000240B8, 100, false, env);
+		Check(da07.state == ss::Report::State::kUnsafe && !da07.findings.empty() && da07.findings[0].kind == ss::Kind::kScene &&
+				  da07.findings[0].call == "DA07DagonEndScene.Start()" && da07.findings[0].where == "DA07 stage 100",
+			"stage check: Pieces of the Past's last stage plays Dagon's scene");
+		Check(da07.rewards.size() == 1 && da07.rewards[0] == "additem(Razor, 1)", "stage check: the reward it would give is listed (the Razor)");
+		Check(da07.firstKind() == "plays a scene", "stage check: what it does, in a few words");
+
+		// The Mind of Madness (DA15): stage 200 starts DA15Return, whose stage 0 sets stage 10, which moves the player to the
+		// Blue Palace marker (the Pelagius Wing)
+		{
+			auto p = std::make_unique<PexMaker>("QF_DA15_0002AC68", "Quest");
+			p->prop("DA15Return", "quest");
+			auto& fn = p->fn("Fragment_17", { { "::NoneVar", "None" }, { "::temp1", "Bool" } });
+			fn.code.push_back(p->call("SetObjectiveCompleted", "self", "::NoneVar", { PexMaker::num(100), PexMaker::boolean(true) }));
+			fn.code.push_back(p->call("SetStage", "::DA15Return_var", "::temp1", { PexMaker::num(0) }));
+			fn.code.push_back(p->call("stop", "self", "::NoneVar", {}));
+			addScript(std::move(p));
+			auto d = MakeQuestDef("DA15", "QF_DA15_0002AC68", { { 200, 0x100, "Fragment_17" } });
+			ess::quests::Property ret;
+			ret.name = "DA15Return";
+			ret.type = 1;
+			ret.form = 0x0010FF8F;
+			d.properties.push_back(ret);
+			defs[0x0002AC68] = d;
+
+			auto r = std::make_unique<PexMaker>("QF_DA15Return_0010FF8F", "Quest");
+			r->prop("Alias_DA15BluePalaceReturnMarker", "referencealias");
+			r->prop("RealWabbajack", "weapon");
+			auto& f6 = r->fn("Fragment_6", { { "::temp3", "Bool" } });
+			f6.code.push_back(r->callStatic("utility", "Wait", "::NoneVar", { PexMaker::num(5) }));
+			f6.code.push_back(r->call("setstage", "self", "::temp3", { PexMaker::num(10) }));
+			auto& f5 = r->fn("Fragment_5", { { "::temp0", "actor" }, { "::temp1", "form" }, { "::temp2", "objectreference" }, { "::NoneVar", "None" } });
+			f5.code.push_back(r->callStatic("game", "GetPlayer", "::temp0", {}));
+			f5.code.push_back(r->cast("::temp1", r->id("::RealWabbajack_var")));
+			f5.code.push_back(r->call("additem", "::temp0", "::NoneVar", { r->id("::temp1"), PexMaker::num(1), PexMaker::boolean(true) }));
+			f5.code.push_back(r->callStatic("game", "EnablePlayerControls", "::NoneVar", { PexMaker::boolean(true) }));
+			f5.code.push_back(r->callStatic("game", "GetPlayer", "::temp0", {}));
+			f5.code.push_back(r->call("GetRef", "::Alias_DA15BluePalaceReturnMarker_var", "::temp2", {}));
+			f5.code.push_back(r->call("moveto", "::temp0", "::NoneVar", { r->id("::temp2"), PexMaker::num(0), PexMaker::num(0), PexMaker::num(0), PexMaker::boolean(true) }));
+			addScript(std::move(r));
+			defs[0x0010FF8F] = MakeQuestDef("DA15Return", "QF_DA15Return_0010FF8F", { { 0, 0, "Fragment_6" }, { 10, 0, "Fragment_5" }, { 200, 0, "" } });
+		}
+		const auto da15 = ss::Check(0x0002AC68, 200, false, env);
+		Check(da15.state == ss::Report::State::kUnsafe && !da15.findings.empty() && da15.findings[0].kind == ss::Kind::kMovesPlayer &&
+				  da15.findings[0].call == "Game.GetPlayer().moveto(Alias_DA15BluePalaceReturnMarker.GetRef(), 0, 0, 0)",
+			"stage check: The Mind of Madness's follow-up moves the player");
+		Check(da15.findings.size() == 1 && da15.findings[0].where == "DA15 stage 200 > DA15Return.SetStage(0) > DA15Return stage 0 > setstage(10) > DA15Return stage 10",
+			"stage check: the chain is followed (other quest's stage, then its own SetStage)");
+		Check(da15.followUps.size() == 1 && da15.followUps[0] == "DA15Return.SetStage(0)" && da15.rewards.size() == 1, "stage check: follow-up and reward listed");
+
+		// an ordinary quest: rewards, objectives, a follow-up quest whose stage 10 plays its intro scene (that quest starting
+		// as it normally does: noted, not counted)
+		{
+			auto p = std::make_unique<PexMaker>("QF_Side01_00012345", "Quest");
+			p->prop("Gold001", "miscobject");
+			p->prop("Side02", "quest");
+			p->prop("PlayerRef", "actor");
+			auto& fn = p->fn("Fragment_9", { { "::NoneVar", "None" }, { "::temp0", "form" }, { "::temp1", "Bool" } });
+			fn.code.push_back(p->cast("::temp0", p->id("::Gold001_var")));
+			fn.code.push_back(p->call("AddItem", "::PlayerRef_var", "::NoneVar", { p->id("::temp0"), PexMaker::num(500) }));
+			fn.code.push_back(p->call("CompleteAllObjectives", "self", "::NoneVar", {}));
+			fn.code.push_back(p->call("SetStage", "::Side02_var", "::temp1", { PexMaker::num(10) }));
+			addScript(std::move(p));
+			auto d = MakeQuestDef("Side01", "QF_Side01_00012345", { { 100, 0x100, "Fragment_9" } });
+			for (auto [n, f] : { std::pair{ "Gold001", 0xFu }, std::pair{ "Side02", 0x12346u }, std::pair{ "PlayerRef", 0x14u } }) {
+				ess::quests::Property pr;
+				pr.name = n;
+				pr.type = 1;
+				pr.form = f;
+				d.properties.push_back(pr);
+			}
+			defs[0x12345] = d;
+			auto q2 = std::make_unique<PexMaker>("QF_Side02_00012346", "Quest");
+			q2->prop("IntroScene", "scene");
+			auto& f2 = q2->fn("Fragment_1", { { "::NoneVar", "None" } });
+			f2.code.push_back(q2->call("Start", "::IntroScene_var", "::NoneVar", {}));
+			addScript(std::move(q2));
+			defs[0x12346] = MakeQuestDef("Side02", "QF_Side02_00012346", { { 10, 0, "Fragment_1" } });
+		}
+		const auto side = ss::Check(0x12345, 100, true, env);
+		Check(side.state == ss::Report::State::kSafe && side.what().empty() && side.findings.size() == 1 && side.findings[0].followUp &&
+				  !side.notes().empty(),
+			"stage check: an ordinary quest's last stage is safe (its follow-up's own scene is only noted)");
+		Check(side.rewards.size() == 1 && side.rewards[0] == "AddItem(Gold001, 500)" && side.followUps.size() == 1,
+			"stage check: the player through a PlayerRef property (form 14) gets the reward");
+
+		// a start-up stage (INDX flag 0x02) that moves the player: only when the quest is started by the transplant
+		{
+			auto p = std::make_unique<PexMaker>("QF_Start01_00022222", "Quest");
+			auto& f0 = p->fn("Fragment_0", { { "::temp0", "actor" }, { "::NoneVar", "None" } });
+			f0.code.push_back(p->callStatic("game", "GetPlayer", "::temp0", {}));
+			f0.code.push_back(p->call("SetPosition", "::temp0", "::NoneVar", { PexMaker::num(0), PexMaker::num(0), PexMaker::num(0) }));
+			f0.code.push_back(p->callStatic("game", "DisablePlayerControls", "::NoneVar", { PexMaker::boolean(true) }));
+			f0.code.push_back(p->callStatic("game", "EnableFastTravel", "::NoneVar", { PexMaker::boolean(true) }));  // switching it ON is fine
+			p->fn("Fragment_5", {});
+			addScript(std::move(p));
+			defs[0x22222] = MakeQuestDef("Start01", "QF_Start01_00022222", { { 0, 0x02, "Fragment_0" }, { 50, 0x100, "Fragment_5" } });
+		}
+		Check(ss::Check(0x22222, 50, false, env).state == ss::Report::State::kSafe, "stage check: a running quest's start-up stage does not run again");
+		const auto st = ss::Check(0x22222, 50, true, env);
+		Check(st.state == ss::Report::State::kUnsafe && st.findings.size() == 2 && st.findings[0].kind == ss::Kind::kMovesPlayer &&
+				  st.findings[1].kind == ss::Kind::kControls && st.findings[0].where == "Start01 stage 0 (start-up stage)",
+			"stage check: starting the quest runs its start-up stage (moves you, controls off; fast travel switched on is fine)");
+
+		// scripts that cannot be read: not checked; a fragment the record names but the script lacks runs nothing
+		defs[0x33333] = MakeQuestDef("Gone01", "QF_Gone01_00033333", { { 10, 0x100, "Fragment_1" } });
+		defs[0x44444] = MakeQuestDef("Broken01", "QF_Broken", { { 10, 0x100, "Fragment_1" } });
+		const auto gone = ss::Check(0x33333, 10, false, env);
+		Check(gone.state == ss::Report::State::kNotChecked && gone.notChecked.find("QF_Gone01_00033333.pex was not found") != std::string::npos,
+			"stage check: a missing stage script is 'not checked'");
+		Check(ss::Check(0x44444, 10, false, env).state == ss::Report::State::kNotChecked, "stage check: an unreadable stage script is 'not checked'");
+		Check(ss::Check(0x55555, 10, false, env).state == ss::Report::State::kNotChecked, "stage check: a quest not in the plugins is 'not checked'");
+		Check(ss::Check(0x22222, 77, false, env).state == ss::Report::State::kSafe, "stage check: a stage without a fragment runs nothing");
+
+		// what Transplant makes of it
+		{
+			tp::Quest q;
+			q.plugin = "Skyrim.esm";
+			q.edid = "DA07";
+			q.name = "Pieces of the Past";
+			q.local = 0x240B8;
+			q.completed = true;
+			tp::Change c;
+			c.cat = tp::Category::kQuests;
+			c.quest = &q;
+			c.complete = true;
+			c.label = "Pieces of the Past - complete it";
+			c.risk = 1;
+			c.tick = true;
+			tp::ApplyStageCheck(c, da07);
+			Check(c.safeMark() && c.tick && c.risk == 1 && c.label == "Pieces of the Past - only mark as done (its last stage plays a scene)" &&
+					  c.why.find("Not given / not started: rewards it would give: additem(Razor, 1)") != std::string::npos,
+				"transplant: an unsafe completed quest is only marked as done, with why and what it leaves out");
+			c.runStage = true;
+			tp::RelabelStageCheck(c);
+			Check(!c.safeMark() && c.risk == 2 && c.label.find("RISKY") != std::string::npos, "transplant: run its last stage anyway (risky)");
+			c.runStage = false;
+			tp::RelabelStageCheck(c);
+			Check(c.safeMark() && c.label.find("only mark as done") != std::string::npos, "transplant: back to marking only");
+			Check(tp::StageToRun(c, 100) == 100, "transplant: a completed quest runs its completion stage");
+
+			tp::Quest r = q;
+			r.completed = false;
+			r.running = true;
+			r.stage = 10;
+			tp::Change cr;
+			cr.cat = tp::Category::kQuests;
+			cr.quest = &r;
+			cr.label = "Start01 - stage 10 (now 0)";
+			cr.tick = true;
+			tp::ApplyStageCheck(cr, st);
+			Check(!cr.tick && cr.risk == 2 && !cr.safeMark() && cr.label.find("not run: it moves you") != std::string::npos,
+				"transplant: an unsafe stage of an unfinished quest is left unticked");
+			tp::Change cn = cr;
+			cn.stageCheck = tp::Change::StageCheck::kNotAsked;
+			cn.label = "Gone01 - complete it";
+			cn.risk = 0;
+			cn.tick = true;
+			tp::ApplyStageCheck(cn, gone);
+			Check(cn.tick && cn.risk == 1 && cn.label == "Gone01 - complete it (stage not checked)", "transplant: a stage not checked keeps running, labelled");
+			tp::Snapshot good;
+			Check(tp::StartsQuest(cr, good), "transplant: a quest the good game does not run is started by its stage");
+			tp::Quest gq = r;
+			good.quests[tp::FormKey{ "skyrim.esm", 0x240B8 }] = gq;
+			Check(!tp::StartsQuest(cr, good), "transplant: a running quest is not started again");
+		}
+
+		// the real scripts (Skyrim SE Data folder: Skyrim.esm, Update.esm, Skyrim - Misc.bsa): RESAVERPP_SKY_DATA
+		if (const char* data = std::getenv("RESAVERPP_SKY_DATA")) {
+			ess::PluginDB::Input in;
+			in.full = { "Skyrim.esm", "Update.esm" };
+			in.sources.scan(data);
+			ess::PluginDB::Progress prog;
+			ess::PluginDB           db;
+			db.load(in, prog);
+			std::map<std::string, std::unique_ptr<ess::pex::File>> cache;
+			ss::Env real;
+			real.quest = [&](std::uint32_t id) { return db.quest(id); };
+			real.script = [&](const std::string& a_name) -> const ess::pex::File* {
+				std::string key = a_name;
+				std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				auto& slot = cache[key];
+				if (!slot) {
+					if (const auto px = in.sources.findPex(a_name)) {
+						slot = std::make_unique<ess::pex::File>(ess::pex::Read(ess::ScriptSources::readPex(*px)));
+					}
+				}
+				return slot.get();
+			};
+			auto check = [&](std::uint32_t a_id) {
+				const auto* d = db.quest(a_id);
+				const auto  stages = d ? d->completionStages() : std::vector<std::uint16_t>{};
+				return ss::Check(a_id, stages.empty() ? -1 : stages.front(), false, real);
+			};
+			const auto rDA07 = check(0x000240B8), rDA15 = check(0x0002AC68), rMQ101 = check(0x0003372B);
+			Check(rDA07.unsafe() && rDA07.what().find("plays a scene: DA07DagonEndScene.Start() (DA07 stage 100)") == 0, "real scripts: DA07 (Pieces of the Past) stage 100 plays Dagon's scene");
+			Check(rDA15.unsafe() && rDA15.findings[0].kind == ss::Kind::kMovesPlayer && rDA15.findings[0].where.find("DA15Return stage 10") != std::string::npos,
+				"real scripts: DA15 (The Mind of Madness) stage 200 moves the player through DA15Return");
+			Check(rMQ101.unsafe(), "real scripts: MQ101 (Unbound) is unsafe");
+			for (const std::uint32_t id : { 0x0004E50Du /*MQ102*/, 0x000D0800u /*MQ103*/, 0x0002610Cu /*MQ104*/, 0x000242BAu /*MQ105*/, 0x0004B2D9u /*C00*/,
+					 0x00028AD6u /*DA01*/, 0x0001EA50u /*DB01*/, 0x00018B4Bu /*MS01*/ }) {
+				const auto r = check(id);
+				Check(r.state == ss::Report::State::kSafe, ("real scripts: an ordinary quest's last stage is safe: " + (db.quest(id) ? db.quest(id)->edid : std::to_string(id))).c_str());
+			}
+		}
 	}
 
 	void TestTransplant()
@@ -6034,6 +6413,7 @@ int main()
 	TestPapyrusRoundTrip();
 	TestEditedName();
 	TestTransplant();
+	TestStageSafety();
 	TestSaveArchive();
 	TestPluginsTxtFormats();
 	TestPluginProperty();
