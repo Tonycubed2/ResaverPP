@@ -530,6 +530,8 @@ private:
 		int                                       game = 0;
 		std::filesystem::path                     gameFolder, pluginsTxt;
 		std::string                               source, sourceUnknown;
+		bool                                      sf = false;  // a Starfield save: its own rules (AppMissing.cpp)
+		std::vector<std::filesystem::path>        sfDataDirs;
 	};
 	struct MissingResult;
 	MissingInputs missingInputs() const;
@@ -573,6 +575,7 @@ private:
 	// sanity checks: the load order or the mods scan does not match this save (wrong profile, stale
 	// plugins.txt, wrong mods folder). Then nothing is ticked and a warning says why.
 	bool                    _orderSuspect = false, _scanSuspect = false;
+	std::size_t             _sfNotFound = 0;  // Starfield: plugins.txt enables plugins no Data folder has (mods kept elsewhere)
 	std::size_t             _activeInSave = 0, _activeFound = 0, _activeChecked = 0;
 	std::filesystem::path   _missingFile;
 	struct MissingResult
@@ -584,6 +587,8 @@ private:
 		bool                                             orderSuspect = false, scanSuspect = false, installKnown = false;
 		std::size_t                                      activeInSave = 0, activeFound = 0, activeChecked = 0;
 		std::filesystem::path                            missingFile;
+		std::shared_ptr<const ess::loadorder::StarfieldOrder> sfOrder;  // Starfield: what the game loads
+		std::size_t                                      sfNotFound = 0;   // Starfield: plugins.txt enables files no Data folder has
 	};
 
 	// Quests page and the live link to the running game (AppQuests.cpp)
@@ -736,6 +741,8 @@ private:
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	// a Fallout 4 save is open: the tools built on Skyrim's data (its change forms, plugins, mods, logs) are off
 	bool        fo4() const { return _save && _save->isFO4(); }
+	std::string namesStatusSF() const;  // Starfield: what the plugin names reading has done (AppStarfield.cpp)
+	void        openMissingSF();        // Starfield: Mods no longer installed
 	bool        sf() const { return _save && _save->isSF(); }  // a Starfield save: its own views (AppStarfield.cpp), the rest hidden
 	bool        sfPapyrus() const;                             // ... and its script data is read
 	static bool SfAllowed(Sc a_which, bool a_papyrus);         // the shortcuts that work on a Starfield save
@@ -1328,6 +1335,11 @@ private:
 	bool                                    _removeOpen = false;
 	std::string                             _removeMod;
 	ess::modremove::Options                 _removeOpt;
+	// the options for MakePlan: _removeOpt, and for a Starfield save its plugin files (to check masters)
+	ess::modremove::Options removeOptions() const;
+	// Starfield: the Data folders (the game's, then My Games\Starfield\Data) and what the game loads (from the last check)
+	std::vector<std::filesystem::path>                     sfDataDirs() const;
+	std::shared_ptr<const ess::loadorder::StarfieldOrder>  _sfOrder;
 	std::unique_ptr<ess::modremove::Plan>   _removePlan;
 	bool                              _scanPathPopup = false;
 

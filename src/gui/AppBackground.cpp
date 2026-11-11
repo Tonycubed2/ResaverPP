@@ -396,7 +396,11 @@ void App::finishOpen(OpenJob& a_job)
 			// another save opened while the mods are still being read: that scan goes on (it is the same mods folder and
 			// profile) and checks this save when it is done; starting it again only made the wait longer
 		} else if (_save->isSF()) {
-			// (Starfield: its mods are not read)
+			// Starfield: no mods folder; the names are read from the game's Data folders (in the background)
+			if (_autoNames) {
+				watchdog::Step st("startNames (Starfield)");
+				startNames();
+			}
 		} else if (!_sourcesPath.empty() && (!_sources->scanned() || profileSwitched)) {
 			watchdog::Step st("scanSources");
 			scanSources(platform::FromUtf8(_sourcesPath));  // checks again for missing mods when done
@@ -406,9 +410,9 @@ void App::finishOpen(OpenJob& a_job)
 		}
 		// the load order is known now: the banner shows at once (which mods are still installed is
 		// known when the scan of the mods is done; that can take a while inside Mod Organizer)
-		if (!_save->isSF()) {
+		{
 			watchdog::Step st("checkMissingPlugins");
-			checkMissingPlugins();
+			checkMissingPlugins();  // (Starfield: against the game's Data folders and plugins.txt)
 		}
 		_status = tr("Loaded ") + platform::ToUtf8(a_path.filename()) + (_save->isFO4() ? tr("  (Fallout 4 save)") : _save->isSF() ? tr("  (Starfield save)") : "");
 		if (profileSwitched) {

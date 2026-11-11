@@ -52,6 +52,9 @@ namespace ess::mods
 		for (std::size_t i = 0; i < a_save.plugins.lite.size(); ++i) {
 			row(a_save.plugins.lite[i], Kind::kLight, static_cast<int>(i));
 		}
+		for (std::size_t i = 0; i < a_save.plugins.medium.size(); ++i) {
+			row(a_save.plugins.medium[i], Kind::kMedium, static_cast<int>(i));
+		}
 		const std::string kCreatedName = "(spawned in game)";
 		const std::string kUnattachedName = "(attached to nothing)";
 		const std::string kGlobalName = "(no object / unknown mod)";

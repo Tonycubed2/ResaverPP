@@ -121,6 +121,31 @@ std::string App::formText(std::uint32_t a_formID) const
 
 std::string App::gameLanguage() const
 {
+	if (sf() || _game == 3) {
+		// Starfield: sLanguage in StarfieldCustom.ini / StarfieldPrefs.ini (Documents\My Games\Starfield), then the game's own
+		// Starfield.ini; its strings files are <plugin>_en.strings, _de, _fr, ... (Starfield - Localization.ba2)
+		std::vector<std::filesystem::path> inis;
+		if (const auto saves = platform::DefaultSavesFolder(3); !saves.empty()) {
+			inis = { saves.parent_path() / "StarfieldCustom.ini", saves.parent_path() / "StarfieldPrefs.ini" };
+		}
+		inis.push_back(gameFolder() / "Starfield.ini");
+		for (const auto& ini : inis) {
+			std::ifstream f(ini);
+			for (std::string line; std::getline(f, line);) {
+				const auto low = Lower(line);
+				if (low.rfind("slanguage=", 0) == 0) {
+					auto v = Lower(line.substr(10));
+					while (!v.empty() && (v.back() == '\r' || v.back() == ' ')) {
+						v.pop_back();
+					}
+					if (!v.empty()) {
+						return v;
+					}
+				}
+			}
+		}
+		return "en";
+	}
 	// sLanguage from the MO2 profile's Skyrim.ini (Fallout4.ini / Fallout4Custom.ini, then Documents\My Games\Fallout4's),
 	// else English ("en" for Fallout 4: its strings files are Fallout4_en.STRINGS)
 	std::vector<std::filesystem::path> inis;
@@ -160,6 +185,46 @@ std::string App::gameLanguage() const
 
 void App::startNames(bool a_force)
 {
+	if (_save && sf()) {
+		// Starfield: the plugins are read from the game's Data folders (no mods folder, no scan)
+		const auto dirs = sfDataDirs();
+		if (dirs.empty()) {
+			return;
+		}
+		const auto key = platform::ToUtf8(_path) + "|sf|" + platform::ToUtf8(dirs.front());
+		if (!a_force && key == _dbKey) {
+			return;
+		}
+		if (_dbProgress) {
+			_dbProgress->cancel = true;
+		}
+		if (_dbThread.joinable()) {
+			watchdog::Step st("waiting for the previous plugin names reading to stop");
+			_dbThread.join();
+		}
+		_dbKey = key;
+		_dbDone = false;
+		_dbProgress = std::make_unique<PluginDB::Progress>();
+		_dbBuilding = std::make_unique<PluginDB>();
+		auto in = std::make_shared<PluginDB::Input>();
+		if (_wanted && _wantedSave == _save.get() && _wantedGen == _editGen) {
+			in->full = _save->plugins.full;  // (the forms the save refers to were worked out when it was opened)
+			in->lite = _save->plugins.lite;
+			in->wantedShared = _wanted;
+		} else {
+			watchdog::Step st("PrepareInput (the forms the save refers to)");
+			PrepareInput(*_save, *in);
+		}
+		in->sf = true;
+		in->medium = _save->plugins.medium;
+		in->sfDataDirs = dirs;
+		in->language = gameLanguage();
+		_dbThread = std::thread([this, in] {
+			_dbBuilding->load(*in, *_dbProgress);
+			_dbDone = true;
+		});
+		return;
+	}
 	if (!_save || !_sources->scanned()) {
 		return;
 	}
@@ -211,11 +276,20 @@ void App::pollNames()
 			_db = std::move(_dbBuilding);
 			_rowsDirty = true;
 			invalidateCheck();
-			if (_save) {
+			if (_save && !_save->isSF()) {
 				startAnalysis(kAnFx | (_save->isFO4() ? 0u : kAnSkyf));  // these use the names: worked out again on a worker
 			}
 			_status = Fmt(tr("Read %zu of %zu plugins: %zu named forms%s"), _db->pluginsRead, _db->plugins().size(), _db->size(),
 				_db->missing.empty() ? "" : Fmt(tr(" (%zu plugins not found)"), _db->missing.size()).c_str());
+			if (_db->starfield()) {
+				_status += Fmt(tr("  (%.1f s)"), (_db->sfMsStrings + _db->sfMsPlugins) / 1000.0);
+				if (startupLog) {
+					startupLog(Fmt("Starfield names: %zu of %zu plugins, %zu forms, %.0f MB, strings %.0f ms (%zu files, %zu archives), plugins %.0f ms, "
+								   "ids not placed %zu, overrides of unknown forms %zu",
+						_db->pluginsRead, _db->plugins().size(), _db->size(), _db->sfBytes / 1048576.0, _db->sfMsStrings, _db->sfStringsFiles,
+						_db->sfArchivesRead, _db->sfMsPlugins, _db->sfUnresolved, _db->sfOrphanOverrides));
+				}
+			}
 		}
 		_dbBuilding.reset();
 	}

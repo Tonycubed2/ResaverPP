@@ -13903,3 +13903,115 @@ tr "ReSaver Plus читает заголовок, плагины, формы и�
 
 en " (%zu kept: a script variable still names them)"
 tr " (%zu оставлено: на них всё ещё ссылается переменная скрипта)"
+
+# App.cpp:3315  case mods::Kind::kMedium: return tr("medium plugin");
+en "medium plugin"
+tr "средний плагин"
+
+# App.cpp:3349  ImGui::TextDisabled("%s", tr("Starfield: scripts are credited to the plugin whose object runs them (mods folders are not scanned)."));
+en "Starfield: scripts are credited to the plugin whose object runs them (mods folders are not scanned)."
+tr "Starfield: скрипты относятся к плагину, чей объект их выполняет (папки модов не сканируются)."
+
+# App.cpp:3352  ImGui::TextWrapped(tr("%zu plugin(s) of this save are not loaded by your game."), _missing.size());
+en "%zu plugin(s) of this save are not loaded by your game."
+tr "Плагинов этого сохранения, которые ваша игра не загружает: %zu."
+
+# App.cpp:3355  if (ImGui::SmallButton(tr("Mods no longer installed..."))) {
+en "Mods no longer installed..."
+tr "Удалённые моды..."
+
+# App.cpp:3503  TextColored(theme::Warn(), r.name + tr("  (not loaded)"));
+en "  (not loaded)"
+tr "  (не загружается)"
+
+# App.cpp:3595  : r.kind == mods::Kind::kMedium ? Fmt(tr(", FD:%02X"), r.index).c_str()
+en ", FD:%02X"
+tr ", FD:%02X"
+
+# AppMissing.cpp:225  out.missingSource = order->pluginsTxtFound ? tr("your load order (plugins.txt)") : tr("your game (no plugins.txt: only its own files load)");
+en "your load order (plugins.txt)"
+tr "вашем порядке загрузки (plugins.txt)"
+
+# AppMissing.cpp:225  out.missingSource = order->pluginsTxtFound ? tr("your load order (plugins.txt)") : tr("your game (no plugins.txt: only its own files load)");
+en "your game (no plugins.txt: only its own files load)"
+tr "вашей игре (plugins.txt нет: загружаются только её собственные файлы)"
+
+# AppMissing.cpp:525  TextColored(theme::Dim(), tr("Starfield: the game always loads its own files (Starfield.esm, Shattered Space, the official Creations it "
+en "Starfield: the game always loads its own files (Starfield.esm, Shattered Space, the official Creations it ships); any other plugin loads only when plugins.txt enables it and its file is in the game's Data folder (or My Games\\Starfield\\Data)."
+tr "Starfield: игра всегда загружает свои собственные файлы (Starfield.esm, Shattered Space, официальные Creations, которые она поставляет); любой другой плагин загружается, только если plugins.txt его включает и его файл есть в папке Data игры (или в My Games\\Starfield\\Data)."
+
+# AppMissing.cpp:529  TextColored(theme::Bad(), Fmt(tr("plugins.txt enables %zu plugin(s) that are in no Data folder: a mod manager probably keeps your mods "
+en "plugins.txt enables %zu plugin(s) that are in no Data folder: a mod manager probably keeps your mods elsewhere, so ReSaver Plus cannot tell which mods are really gone. Nothing is ticked."
+tr "plugins.txt включает плагины, которых нет ни в одной папке Data (%zu): вероятно, менеджер модов хранит ваши моды в другом месте, поэтому ReSaver Plus не может определить, какие моды действительно удалены. Ничего не отмечено."
+
+# AppStarfield.cpp:107  return Fmt(tr("reading the plugins (%zu of %zu MB)..."), done, total);
+en "reading the plugins (%zu of %zu MB)..."
+tr "чтение плагинов (%zu из %zu МБ)..."
+
+# AppStarfield.cpp:110  return Fmt(tr("%zu forms named from %zu of %zu plugins (%.1f s)"), _db->size(), _db->pluginsRead, _db->plugins().size(),
+en "%zu forms named from %zu of %zu plugins (%.1f s)"
+tr "названия %zu форм из %zu из %zu плагинов (%.1f с)"
+
+# AppStarfield.cpp:112  (_db->missing.empty() ? std::string() : Fmt(tr(", %zu not found"), _db->missing.size()));
+en ", %zu not found"
+tr ", не найдено: %zu"
+
+# AppStarfield.cpp:115  return tr("not read: the Starfield folder is not known (Options > Settings)");
+en "not read: the Starfield folder is not known (Options > Settings)"
+tr "не прочитаны: папка Starfield не известна (Параметры > Настройки)"
+
+# AppStarfield.cpp:117  return tr("not read yet (Tools > Read plugin names)");
+en "not read yet (Tools > Read plugin names)"
+tr "ещё не прочитаны (Инструменты > Прочитать имена из плагинов)"
+
+# AppStarfield.cpp:202  KV(tr("Names"), namesStatusSF());
+en "Names"
+tr "Названия"
+
+# AppStarfield.cpp:208  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
+en "Not loaded"
+tr "Не загружаются"
+
+# AppStarfield.cpp:208  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
+en "%zu plugin(s) of this save are not in %s (%zu not installed)"
+tr "%zu плагин(ов) этого сохранения нет в %s (не установлено: %zu)"
+
+# AppStarfield.cpp:259  if (ImGui::Button(Fmt(tr("Mods no longer installed (%zu)"), _missing.size()).c_str(), ImVec2(w, 0))) {
+en "Mods no longer installed (%zu)"
+tr "Удалённые моды (%zu)"
+
+# AppStarfield.cpp:263  tips::Tip(tr("The plugins this save used that your game no longer loads, with what each left behind, and removing their leftovers into a "
+en "The plugins this save used that your game no longer loads, with what each left behind, and removing their leftovers into a new save file. Nothing changes until you confirm."
+tr "Плагины, которые использовало это сохранение и которые ваша игра больше не загружает, с тем, что каждый оставил, и удаление этих остатков в новый файл сохранения. Пока вы не подтвердите, ничего не меняется."
+
+# AppStarfield.cpp:269  tips::Tip(tr("Every plugin of the save with the scripts on its objects, their instances and running threads."));
+en "Every plugin of the save with the scripts on its objects, their instances and running threads."
+tr "Каждый плагин сохранения со скриптами на его объектах, их экземплярами и работающими потоками."
+
+# AppStarfield.cpp:272  ImGui::TextDisabled("%s", (tr("Names: ") + namesStatusSF()).c_str());
+en "Names: "
+tr "Названия: "
+
+# AppStarfield.cpp:408  TextColoredSF(theme::Warn(), m.installed ? tr("Installed but not enabled in plugins.txt: the game does not load it.")
+en "Installed but not enabled in plugins.txt: the game does not load it."
+tr "Установлен, но не включён в plugins.txt: игра его не загружает."
+
+# AppStarfield.cpp:409  : tr("Not installed: the game does not load it. What it left is listed in Mods no longer installed."));
+en "Not installed: the game does not load it. What it left is listed in Mods no longer installed."
+tr "Не установлен: игра его не загружает. То, что от него осталось, показано в «Удалённые моды»."
+
+# AppStarfield.cpp:421  ImGui::TextDisabled(tr("%zu of them found in the plugin file (names)."), named);
+en "%zu of them found in the plugin file (names)."
+tr "Из них найдено в файле плагина (названия): %zu."
+
+# AppStarfield.cpp:444  KV(tr("Name"), !d.empty() ? d : _db ? tr("(not in the plugin files)") : namesStatusSF());
+en "(not in the plugin files)"
+tr "(нет в файлах плагинов)"
+
+# AppStarfield.cpp:446  KV(tr("Base object"), Fmt("%08X  ", f->base) + _db->describe(f->base));
+en "Base object"
+tr "Базовый объект"
+
+# AppTools.cpp:285  _status += Fmt(tr("  (%.1f s)"), (_db->sfMsStrings + _db->sfMsPlugins) / 1000.0);
+en "  (%.1f s)"
+tr "  (%.1f с)"

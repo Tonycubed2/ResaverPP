@@ -3,6 +3,8 @@
 // with a safety check first. The plan is computed without touching the save; Apply() performs it.
 #pragma once
 
+#include "LoadOrder.h"
+#include "Mods.h"
 #include "Ops.h"
 #include "Save.h"
 #include "ScriptSources.h"
@@ -12,6 +14,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace ess::modremove
@@ -19,7 +22,9 @@ namespace ess::modremove
 	struct Options
 	{
 		bool otherObjects = true;    // also remove the mod's own scripts from objects of other mods / vanilla
-		bool spawnedObjects = true;  // delete spawned (FF) objects whose only scripts are being removed
+		bool spawnedObjects = true;  // delete spawned (FF) objects whose only scripts are being removed (never in Starfield)
+		// Starfield: its plugin files (loadorder::StarfieldOrder::files), to check which plugins need the removed one as a master
+		const std::unordered_map<std::string, std::filesystem::path>* sfFiles = nullptr;
 	};
 
 	struct Plan
@@ -72,6 +77,18 @@ namespace ess::modremove
 	};
 	// The save must be unchanged since MakePlan.
 	Result Apply(SaveFile& a_save, const Plan& a_plan);
+
+	// Starfield: the save's plugins (full, light, medium) the game will not load next time (not in a_order.active), with what
+	// each left in the save (change forms by the plugin of their form id, incl. FE light and FD medium ids; scripts, instances
+	// and threads from the Mods table when given)
+	struct Leftover
+	{
+		std::string plugin;
+		bool        installed = false;  // its file is in a Data folder (not enabled in plugins.txt)
+		std::size_t changeForms = 0, scripts = 0, instances = 0, threads = 0;
+		bool        nothing() const { return changeForms == 0 && scripts == 0 && threads == 0; }
+	};
+	std::vector<Leftover> StarfieldNotLoaded(const SaveFile& a_save, const loadorder::StarfieldOrder& a_order, const mods::Table* a_mods);
 
 	// Master files listed in a plugin's TES4 header (lowercase). Throws on unreadable files.
 	std::vector<std::string> ReadMasters(const std::filesystem::path& a_plugin);

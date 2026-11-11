@@ -25,6 +25,7 @@ namespace ess::mods
 	{
 		kPlugin,
 		kLight,
+		kMedium,      // Starfield medium plugin (FD:xx)
 		kCreated,     // objects spawned during play (FF......)
 		kUnattached,  // instances attached to nothing
 		kGlobal,      // threads with no owning object (quests, global functions) and no known provider
@@ -35,7 +36,7 @@ namespace ess::mods
 	{
 		std::string                      name;
 		Kind                             kind = Kind::kPlugin;
-		int                              index = -1;  // load index (full) or FE index (light)
+		int                              index = -1;  // load index (full), FE index (light) or FD index (medium)
 		std::map<std::string, ScriptRow> scripts;     // keyed by lowercase script name
 		std::size_t                      scriptCount = 0, instanceCount = 0, threadCount = 0;  // engine-type bindings excluded
 		std::size_t                      providedInSave = 0;  // distinct scripts in this save whose .pex this mod provides

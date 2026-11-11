@@ -12,6 +12,7 @@
 #include "ScriptSources.h"
 
 #include <atomic>
+#include <filesystem>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -34,6 +35,14 @@ namespace ess
 			std::shared_ptr<const ScriptSources> shared;   // or this one when set (the window's, not copied)
 			const ScriptSources&              src() const { return shared ? *shared : sources; }
 			std::string                       language = "english";  // Fallout 4: "en" (Fallout4_en.strings)
+			// Starfield (PluginDBSF.cpp): the plugins are looked up in sfDataDirs (the game's Data folder first, then
+			// Documents\My Games\Starfield\Data), strings files loose in their Strings folders or in their .ba2 archives;
+			// medium plugins (FD:xx) come from medium; language "en"
+			bool                               sf = false;
+			std::vector<std::string>           medium;
+			std::vector<std::filesystem::path> sfDataDirs;
+			// only the first bytes of a compressed record are unpacked (its names are at the start; see PluginDBSF.cpp)
+			std::size_t                        sfPrefix = 64 * 1024;
 			bool                              fo4 = false;  // Fallout 4 plugins: names, editor IDs, quests (QUST in
 			                                                // Fallout 4's layout) and the magic effect / spell data
 			                                                // (MGEF, SPEL, ENCH, ALCH, INGR effects)
@@ -157,8 +166,19 @@ namespace ess
 		}
 		std::vector<std::string> errors;
 		std::size_t              pluginsRead = 0, recordsRead = 0;
+		// Starfield: form ids in the plugins that name no plugin of the load order (should be 0: a check that the
+		// master / light / medium index rules read every id right), overrides of forms no earlier plugin defines, and the
+		// time spent (ms), split in reading the strings files and the plugins
+		std::size_t              sfUnresolved = 0, sfOrphanOverrides = 0, sfStringsFiles = 0, sfArchivesRead = 0;
+		std::uint64_t            sfBytes = 0;
+		double                   sfMsStrings = 0, sfMsPlugins = 0, sfMsInflate = 0;
+		std::size_t              sfInflated = 0;  // compressed records read
+		std::vector<std::string> sfSamples;  // the first of those ids (for the log)
+		bool                     starfield() const { return _sf; }
 
 	private:
+		void loadStarfield(const Input& a_in, Progress& a_progress);
+		bool _sf = false;
 		std::set<std::string> _readOk;  // lower-case names of the plugins read completely
 		std::string str(std::uint32_t off) const { return off == UINT32_MAX ? std::string() : std::string(_pool.data() + off); }
 		std::uint32_t addString(const std::string& s);
@@ -176,6 +196,14 @@ namespace ess
 	class SaveFile;
 	// Fills Input::full/lite/wantedRefs from a save (every form the save refers to).
 	void PrepareInput(const SaveFile& a_save, PluginDB::Input& a_in);
+
+	// A .strings file (u32 count, u32 data size, count x (id, offset), zero-terminated texts): id -> text as stored
+	std::unordered_map<std::uint32_t, std::string> ReadStringsTable(const std::vector<std::uint8_t>& a_data);
+
+	// Starfield: the plugins the game itself ships and always loads (the save marks every other file as a Creation:
+	// FORMAT "isCreation = !IsBaseGameFile"; these 14 are the ones with 0 in Tony's and another player's saves, 1.16.244), lowercase
+	const std::vector<std::string>& StarfieldBaseFiles();
+	bool IsStarfieldBaseFile(const std::string& a_lower);
 
 	// Text from a plugin or strings file: kept if valid UTF-8, otherwise read as Windows-1252.
 	std::string GameTextToUtf8(const std::string& a_text);

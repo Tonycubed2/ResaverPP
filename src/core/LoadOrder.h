@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace ess::loadorder
@@ -26,6 +27,26 @@ namespace ess::loadorder
 
 	// the plugins Fallout 4 loads without listing them in plugins.txt, in the game's order (lowercase)
 	const std::vector<std::string>& Fallout4Masters();
+
+	// Starfield: what the game loads next time and where the plugin files are.
+	//  - its own files (StarfieldBaseFiles: the ones the save does not mark as Creations) are always loaded: Tony's install
+	//    has no plugins.txt and its saves list exactly those 14;
+	//  - %LOCALAPPDATA%\Starfield\plugins.txt, when there is one: lines with '*' are enabled (the format Fallout 4 uses;
+	//    NOT seen on a real install: [U]);
+	//  - a plugin whose file is in none of the Data folders (the game's Data, then Documents\My Games\Starfield\Data) is
+	//    not loaded.
+	struct StarfieldOrder
+	{
+		bool                                                   pluginsTxtFound = false;
+		std::filesystem::path                                  pluginsTxt;
+		std::set<std::string>                                  active;  // lowercase
+		std::unordered_map<std::string, std::filesystem::path> files;   // lowercase plugin name -> its file
+		bool installed(const std::string& a_lower) const { return files.contains(a_lower); }
+	};
+	StarfieldOrder ReadStarfield(const std::filesystem::path& a_pluginsTxt, const std::vector<std::filesystem::path>& a_dataDirs);
+	// the Data folders of a Starfield install: <game>\Data, then <My Games\Starfield>\Data when it exists (a_myGames empty:
+	// %USERPROFILE%\Documents\My Games\Starfield)
+	std::vector<std::filesystem::path> StarfieldDataDirs(const std::filesystem::path& a_gameFolder, const std::filesystem::path& a_myGames = {});
 
 	// The game's own plugins.txt (%LOCALAPPDATA%\Skyrim Special Edition\plugins.txt, or Skyrim VR\plugins.txt).
 	// a_le: the save is Legendary Edition, so its plugins.txt (%LOCALAPPDATA%\\Skyrim) comes first
