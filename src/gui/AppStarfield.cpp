@@ -5,6 +5,7 @@
 #include "App.h"
 
 #include <cstdlib>
+#include <cctype>
 #include <cstring>
 #include <utility>
 
@@ -568,6 +569,10 @@ void App::detailChangeFormSF(std::uint64_t k)
 		KV(tr("Form references"), std::to_string(c->sfRefs.size()));
 		KV(tr("Strings"), std::to_string(c->sfStrings.size()));
 		ImGui::EndTable();
+	}
+	// the player's actor values (FindActorValuesSF)
+	if (c->typeCode() == 1 && fid == 0x14) {
+		drawActorValuesSF(c->refID);
 	}
 	// a reference with an inventory (the player, followers, NPCs, containers, ships): its items (DecodeReferenceSF, read
 	// in Starfield.exe 1.16.244); a stack's count can be changed in place
@@ -1273,4 +1278,126 @@ void App::drawPlayerLevelSF()
 	ImGui::TextDisabled("%s", tr("Sets the level and the experience the game keeps for you (and the load menu's). Only these change: nothing else "
 								 "the game does at a level-up happens (no skill point is added). Keep the original save."));
 	ImGui::PopTextWrapPos();
+}
+
+// the player's saved actor values: base values (editable where saved) and the three modifiers (shown)
+void App::drawActorValuesSF(const RefID& a_ref)
+{
+	static const ess::SaveFile* cachedFor = nullptr;
+	static std::uint64_t        cachedGen = UINT64_MAX;
+	static SfActorValues        av;
+	static char                 filter[64] = "";
+	if (!ImGui::CollapsingHeader(trId("Actor values"))) {
+		return;
+	}
+	if (!_db || !_db->loaded()) {
+		ImGui::PushTextWrapPos(0);
+		ImGui::TextDisabled("%s", tr("Needs the names from your plugins: Tools > Read plugin names."));
+		ImGui::PopTextWrapPos();
+		return;
+	}
+	const auto* c = _save->findChangeForm(a_ref);
+	if (!c) {
+		return;
+	}
+	if (cachedFor != _save.get() || cachedGen != static_cast<std::uint64_t>(_editGen)) {
+		cachedFor = _save.get();
+		cachedGen = static_cast<std::uint64_t>(_editGen);
+		av = FindActorValuesSF(*_save, *c, [this](std::uint32_t f) {
+			if (const auto* d = _db->find(f)) {
+				return _db->type(*d) == "AVIF";
+			}
+			return f > 0 && f < 0x800;
+		});
+	}
+	if (!av.ok) {
+		ImGui::TextDisabled("%s", (tr("Not found: ") + av.error).c_str());
+		return;
+	}
+	ImGui::PushTextWrapPos(0);
+	ImGui::TextDisabled("%s", tr("The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers "
+								 "(three per value) only when not 0. Saved base values can be changed (press Enter). Use with care: keep the original save."));
+	ImGui::PopTextWrapPos();
+	ImGui::SetNextItemWidth(240);
+	ImGui::InputTextWithHint("##avf", tr("filter"), filter, sizeof(filter));
+	auto name = [&](std::size_t refIndex) {
+		const auto f = _save->formIDOf(c->sfRefs[refIndex]);
+		auto n = _db->describe(f);
+		if (n.empty()) {
+			n = Fmt(tr("(engine value %X)"), f);
+		}
+		return std::make_pair(f, n);
+	};
+	auto match = [&](const std::string& n) {
+		if (!filter[0]) {
+			return true;
+		}
+		std::string a = n, b = filter;
+		for (auto& ch : a) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+		for (auto& ch : b) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+		return a.find(b) != std::string::npos;
+	};
+	auto valueAt = [&](std::size_t off) {
+		float v = 0;
+		std::memcpy(&v, c->data.data() + off, 4);
+		return v;
+	};
+	if (ImGui::BeginTable("##av", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY, ImVec2(0, 360))) {
+		ImGui::TableSetupScrollFreeze(0, 1);
+		ImGui::TableSetupColumn(tr("Actor value"), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(tr("Base"), ImGuiTableColumnFlags_WidthFixed, 110);
+		ImGui::TableSetupColumn(tr("Modifier 1"), ImGuiTableColumnFlags_WidthFixed, 80);
+		ImGui::TableSetupColumn(tr("Modifier 2"), ImGuiTableColumnFlags_WidthFixed, 80);
+		ImGui::TableSetupColumn(tr("Modifier 3"), ImGuiTableColumnFlags_WidthFixed, 80);
+		ImGui::TableHeadersRow();
+		// one row per actor value: its base (list 1) and its modifiers (list 2), matched by form
+		std::map<std::uint32_t, std::pair<const SfActorValue*, const SfActorValue*>> rows;
+		std::map<std::uint32_t, std::string> names;
+		for (const auto& e : av.base) {
+			const auto [f, n] = name(e.refIndex);
+			rows[f].first = &e;
+			names[f] = n;
+		}
+		for (const auto& e : av.modifiers) {
+			const auto [f, n] = name(e.refIndex);
+			rows[f].second = &e;
+			names[f] = n;
+		}
+		std::vector<std::pair<std::string, std::uint32_t>> order;
+		for (const auto& [f, n] : names) {
+			if (match(n)) {
+				order.emplace_back(n, f);
+			}
+		}
+		std::sort(order.begin(), order.end());
+		ImGui::BeginDisabled(_readOnly);
+		for (const auto& [n, f] : order) {
+			const auto& [b, m] = rows[f];
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(n.c_str());
+			ImGui::TableNextColumn();
+			if (b && b->value[0] != SIZE_MAX) {
+				float v = valueAt(b->value[0]);
+				ImGui::PushID(static_cast<int>(f));
+				ImGui::SetNextItemWidth(-1);
+				if (ImGui::InputFloat("##b", &v, 0, 0, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue)) {
+					if (auto* cf = _save->findChangeForm(a_ref); cf && SetActorValueSF(*cf, b->value[0], v)) {
+						markChanged(Fmt(tr("%s set to %.2f"), n.c_str(), v));
+					}
+				}
+				ImGui::PopID();
+			} else {
+				ImGui::TextDisabled("%s", tr("default"));
+			}
+			for (int k = 0; k < 3; ++k) {
+				ImGui::TableNextColumn();
+				if (m && m->value[k] != SIZE_MAX) {
+					ImGui::Text("%.2f", valueAt(m->value[k]));
+				}
+			}
+		}
+		ImGui::EndDisabled();
+		ImGui::EndTable();
+	}
 }

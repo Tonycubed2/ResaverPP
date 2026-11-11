@@ -249,6 +249,24 @@ namespace ess
 		float       experience = 0;
 	};
 	SfPlayerXP FindPlayerXPSF(const SaveFile& a_save, const ChangeForm& a_player, const std::function<bool(std::uint32_t)>& a_isActorValue);
+	// an actor's saved actor values (0x1419aec20): base values that differ from the default (value[0]) and the three
+	// modifiers (value[0..2], each saved when not 0); offsets in the actor's data, SIZE_MAX when not saved
+	struct SfActorValue
+	{
+		std::size_t refIndex = 0;  // the AVIF: sfRefs[refIndex]
+		std::size_t value[3] = { SIZE_MAX, SIZE_MAX, SIZE_MAX };
+	};
+	struct SfActorValues
+	{
+		bool                      ok = false;
+		std::string               error;
+		std::size_t               fits = 0;
+		std::size_t               listOffset = 0;
+		std::vector<SfActorValue> base, modifiers;
+	};
+	SfActorValues FindActorValuesSF(const SaveFile& a_save, const ChangeForm& a_actor, const std::function<bool(std::uint32_t)>& a_isActorValue);
+	// a saved value changed in place
+	bool SetActorValueSF(ChangeForm& a_actor, std::size_t a_offset, float a_value);
 	// sets the level and the XP into it (0 .. what the level needs); also the header's level / XP (the load menu)
 	bool SetPlayerLevelSF(SaveFile& a_save, std::uint16_t a_level, float a_xpIntoLevel, const std::function<bool(std::uint32_t)>& a_isActorValue,
 		std::string* a_why = nullptr);

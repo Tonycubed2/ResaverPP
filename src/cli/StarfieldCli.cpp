@@ -68,6 +68,7 @@ int StarfieldMain(int argc, char** argv)
 	bool              quests = false, components = false;
 	std::uint32_t     inventoryOf = 0;
 	std::string       ofType;
+	bool              actorValues = false;
 	bool              describe = false, forms = false, report = false, unattached = false, undefined = false, termUndef = false;
 	std::set<std::uint32_t> deleteForms;
 	// names (--game / --data) and mods no longer installed
@@ -89,6 +90,8 @@ int StarfieldMain(int argc, char** argv)
 			out = next();
 		} else if (a == "--describe") {
 			describe = true;
+		} else if (a == "--actor-values") {
+			actorValues = true;
 		} else if (a == "--of-type") {
 			ofType = next();
 		} else if (a == "--components") {
@@ -154,7 +157,7 @@ int StarfieldMain(int argc, char** argv)
 				"%s: not available for Starfield saves (they support: -o <out.sfs>, --describe, --report, --check, --forms [TYPE], --delete-form <form id>, "
 				"--remove-unattached, --remove-undefined, --terminate-undefined, --remove-stranded-threads, --clear-floods, --remove-retyped, "
 				"--game <Starfield folder> | --data <Data folder>, --names, "
-				"--name <form id>, --inventory <form id>, --components, --of-type <TYPE>, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
+				"--name <form id>, --inventory <form id>, --components, --of-type <TYPE>, --actor-values, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
 				a.c_str());
 			return 1;
 		}
@@ -237,6 +240,37 @@ int StarfieldMain(int argc, char** argv)
 			}
 			return 0;
 		};
+		if (actorValues && db) {
+			for (const auto& c : save->changeForms) {
+				if (c.typeCode() != 1 || save->formIDOf(c.refID) != 0x14) {
+					continue;
+				}
+				const auto av = FindActorValuesSF(*save, c, [&](std::uint32_t f) {
+					if (const auto* d = db->find(f)) {
+						return db->type(*d) == "AVIF";
+					}
+					return f > 0 && f < 0x800;
+				});
+				std::printf("player actor values: %s (%zu base, %zu modified)\n", av.ok ? "found" : av.error.c_str(), av.base.size(), av.modifiers.size());
+				auto val = [&](std::size_t o) {
+					float v = 0;
+					if (o != SIZE_MAX) {
+						std::memcpy(&v, c.data.data() + o, 4);
+					}
+					return v;
+				};
+				for (const auto& e : av.base) {
+					const auto f = save->formIDOf(c.sfRefs[e.refIndex]);
+					if (e.value[0] != SIZE_MAX) {
+						std::printf("  base %08X %-40s %.3f\n", f, db->describe(f).c_str(), val(e.value[0]));
+					}
+				}
+				for (const auto& e : av.modifiers) {
+					const auto f = save->formIDOf(c.sfRefs[e.refIndex]);
+					std::printf("  mod  %08X %-40s %.3f %.3f %.3f\n", f, db->describe(f).c_str(), val(e.value[0]), val(e.value[1]), val(e.value[2]));
+				}
+			}
+		}
 		if (!ofType.empty() && db) {
 			for (const auto id : db->ofType(ofType)) {
 				std::printf("%08X  %s\n", id, db->describe(id).c_str());

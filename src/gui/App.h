@@ -756,6 +756,7 @@ private:
 	void        drawAddItemSF(const ess::RefID& a_ref);  // (AppStarfield.cpp)
 	void        drawShipsSF();                           // (AppStarfield.cpp)
 	void        drawPlayerLevelSF();                     // (AppStarfield.cpp)
+	void        drawActorValuesSF(const ess::RefID& a_ref);  // (AppStarfield.cpp)
 	static bool SfAllowed(Sc a_which, bool a_papyrus);         // the shortcuts that work on a Starfield save
 	void        drawCategoriesSF();
 	void        drawOverviewSF();

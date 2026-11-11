@@ -858,27 +858,23 @@ namespace ess
 		return total;
 	}
 
-	SfPlayerXP FindPlayerXPSF(const SaveFile& a_save, const ChangeForm& a_player, const std::function<bool(std::uint32_t)>& a_isActorValue)
+	SfActorValues FindActorValuesSF(const SaveFile& a_save, const ChangeForm& a_actor, const std::function<bool(std::uint32_t)>& a_isActorValue)
 	{
 		// The actor values (Actor +0x260, 0x1419aec20) come after the AI process in Actor::SaveGame, which is not read; the
-		// list is found instead by what it must look like: four 0x1419ae290 blocks (u8 0x0c, u8 bits 0..2, a f32 per bit),
-		// then two lists (vsval n, n bits, n x (FORMID, f32 if its bit); vsval m, 3m bits, m x (FORMID, f32 per bit)) whose
-		// forms, taken in a row from the record's reference list, are every one an actor value (a_isActorValue). Exactly one
-		// place may fit; Experience (AVIF 0x2C9) must be one of its values. (In 21 saves of two players exactly one fit,
-		// and Experience minus the header's XP gave the game's XP for the level each time.)
-		SfPlayerXP out;
-		const auto& d = a_player.data;
-		const auto& refs = a_player.sfRefs;
+		// lists are found instead by what they must look like: four 0x1419ae290 blocks (u8 0x0c, u8 bits 0..2, a f32 per
+		// bit), then two lists (vsval n, n bits, n x (FORMID, f32 if its bit: the base value, written when it differs from
+		// the actor value's default, AVIF +0x178); vsval m, 3m bits, m x (FORMID, f32 per bit: three modifiers, written when
+		// not 0)) whose forms, taken in a row from the record's reference list, are every one an actor value
+		// (a_isActorValue). Exactly one place may fit. (In 21 saves of two players exactly one fit for the player, and
+		// Experience minus the header's XP gave the game's XP for the level each time.)
+		SfActorValues out;
+		const auto& d = a_actor.data;
+		const auto& refs = a_actor.sfRefs;
 		std::vector<std::uint32_t> pre(refs.size() + 1, 0);
 		for (std::size_t i = 0; i < refs.size(); ++i) {
 			pre[i + 1] = pre[i] + (a_isActorValue(a_save.formIDOf(refs[i])) ? 1u : 0u);
 		}
-		struct Fit
-		{
-			std::size_t base = 0;
-			std::vector<std::size_t> slots;  // per list-1 entry: offset of its f32, or SIZE_MAX
-		};
-		std::vector<Fit> fits;
+		std::vector<SfActorValues> fits;
 		for (std::size_t p = 0; p + 8 < d.size(); ++p) {
 			if (d[p] != 0x0c) {
 				continue;
@@ -897,20 +893,21 @@ namespace ess
 				if (!shape) {
 					continue;
 				}
+				SfActorValues f;
+				f.listOffset = r.p;
 				const auto n1 = r.vsval();
 				if (!n1 || n1 > 4000) {
 					continue;
 				}
 				const auto b1 = r.p;
 				r.skip((n1 + 7) / 8);
-				Fit f;
 				for (std::uint32_t i = 0; i < n1; ++i) {
+					SfActorValue e;
 					if ((d[b1 + (i >> 3)] >> (i & 7)) & 1) {
-						f.slots.push_back(r.p);
+						e.value[0] = r.p;
 						r.skip(4);
-					} else {
-						f.slots.push_back(SIZE_MAX);
 					}
+					f.base.push_back(e);
 				}
 				const auto n2 = r.vsval();
 				if (n2 > 4000) {
@@ -918,35 +915,61 @@ namespace ess
 				}
 				const auto b2 = r.p;
 				r.skip((3 * static_cast<std::size_t>(n2) + 7) / 8);
-				for (std::uint32_t i = 0; i < 3 * n2; ++i) {
-					if ((d[b2 + (i >> 3)] >> (i & 7)) & 1) {
-						r.skip(4);
+				for (std::uint32_t i = 0; i < n2; ++i) {
+					SfActorValue e;
+					for (std::uint32_t k = 0; k < 3; ++k) {
+						const auto j = 3 * i + k;
+						if ((d[b2 + (j >> 3)] >> (j & 7)) & 1) {
+							e.value[k] = r.p;
+							r.skip(4);
+						}
 					}
+					f.modifiers.push_back(e);
 				}
 				const std::size_t n = n1 + n2;
 				for (std::size_t base = 0; base + n <= refs.size(); ++base) {
 					if (pre[base + n] - pre[base] == n) {
-						f.base = base;
-						fits.push_back(f);
+						auto g = f;
+						for (std::size_t k = 0; k < g.base.size(); ++k) {
+							g.base[k].refIndex = base + k;
+						}
+						for (std::size_t k = 0; k < g.modifiers.size(); ++k) {
+							g.modifiers[k].refIndex = base + g.base.size() + k;
+						}
+						fits.push_back(std::move(g));
 					}
 				}
 			} catch (const std::exception&) {
 			}
 		}
-		out.fits = fits.size();
 		if (fits.size() != 1) {
+			out.fits = fits.size();
 			out.error = fits.empty() ? "the actor values were not found" : "the actor values fit in more than one place";
 			return out;
 		}
-		const auto& f = fits.front();
-		for (std::size_t k = 0; k < f.slots.size(); ++k) {
-			if (a_save.formIDOf(refs[f.base + k]) == 0x2C9) {
-				if (f.slots[k] == SIZE_MAX) {
+		out = std::move(fits.front());
+		out.fits = 1;
+		out.ok = true;
+		return out;
+	}
+
+	SfPlayerXP FindPlayerXPSF(const SaveFile& a_save, const ChangeForm& a_player, const std::function<bool(std::uint32_t)>& a_isActorValue)
+	{
+		SfPlayerXP out;
+		const auto av = FindActorValuesSF(a_save, a_player, a_isActorValue);
+		out.fits = av.fits;
+		if (!av.ok) {
+			out.error = av.error;
+			return out;
+		}
+		for (const auto& e : av.base) {
+			if (a_save.formIDOf(a_player.sfRefs[e.refIndex]) == 0x2C9) {
+				if (e.value[0] == SIZE_MAX) {
 					out.error = "Experience has no value saved";
 					return out;
 				}
-				out.xpOffset = f.slots[k];
-				std::memcpy(&out.experience, d.data() + out.xpOffset, 4);
+				out.xpOffset = e.value[0];
+				std::memcpy(&out.experience, a_player.data.data() + out.xpOffset, 4);
 				out.ok = true;
 				return out;
 			}
@@ -1007,6 +1030,15 @@ namespace ess
 		a_save.header.playerLevel = a_level;
 		a_save.header.currentXP = a_xpIntoLevel;
 		a_save.header.neededXP = need;
+		return true;
+	}
+
+	bool SetActorValueSF(ChangeForm& a_actor, std::size_t a_offset, float a_value)
+	{
+		if (a_offset == SIZE_MAX || a_offset + 4 > a_actor.data.size() || !std::isfinite(a_value)) {
+			return false;
+		}
+		std::memcpy(a_actor.data.data() + a_offset, &a_value, 4);
 		return true;
 	}
 
