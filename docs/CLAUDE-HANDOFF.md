@@ -1039,9 +1039,8 @@ project; you do the coding, building, delivering and publishing.
     libraryfolders.vdf); no mods folder / MO2 / Vortex). Own categories (Plugins with FD:xx medium and Creations,
     Change Forms, `Cat::kGlobals` Global Data, the Papyrus lists), overview, main screen, Clean/Tools menus, Save check
     (Papyrus part of `computeCheckItems`, the rest returns early for `sf()`). `App::shortcut` refuses anything not in
-    `SfAllowed`; tool windows close on open; no background analysis, scan, profile match or missing-plugins check.
-    Plugin names/records from Starfield .esm files are NOT read (FULL names are localized in BA2 string tables): rows
-    show form ids with the plugin name from the save.
+    `SfAllowed`; tool windows close on open; no background analysis, scan or profile match (names and the missing-plugins check: see below).
+    Plugin names: see "Starfield names and mods no longer installed" below.
   - Tests: `rs_unit` TestStarfield (`tests/sf_test.inc`): container pack/unpack incl. a stored-raw chunk, edited-name
     format (`..._<date>edited_73_1_4.sfs`), then `RESAVERPP_SF_SAVES` (.sfs paths, `;`): read clean, byte-identical
     body, container rebuilt and re-read, change forms deleted (whole run, first, last, one inside a run) and re-read,
@@ -1050,6 +1049,75 @@ project; you do the coding, building, delivering and publishing.
     no change) and `..._20261111021801unattached_73_1_4.sfs` (32 unattached script instances removed: ReferenceAlias /
     RefCollectionAlias / Form-type objects bound to form 0 with no data; 2 named by variables kept). Not yet loaded in
     the game: the game's LOADER was never read, so whether it accepts a rewritten save is the open question.
+
+- **Starfield names and mods no longer installed** (2026-11-11, branch sfnames). Forms of a Starfield save are named
+  "EDID 'Name' [TYPE]" from the game's own plugins (change forms list/detail, Papyrus views through `formLabel`, form
+  references, Mods view), and the save's plugins the game no longer loads are listed with their leftovers and cleaned like
+  Skyrim/Fallout 4 (Save check item, Clean > Mods no longer installed..., Mods view, home button).
+  - Verified on Tony's install (Starfield 1.16.244, F:\SteamLibrary\steamapps\common\Starfield; no plugins.txt, no My
+    Games\Starfield\Data): records/groups are Fallout 4's (flag 0x40000 = u32 size + zlib); TES4 flags 0x80 localized,
+    0x100 light, 0x400 medium (SFBGS003/SFBGS006 = the saves' 2 medium plugins; BlueprintShips-* also have 0x800, they are
+    full plugins in the save). **Form ids inside a plugin**: top byte 00..FC = index among the plugin's FULL masters
+    (own records = number of full masters), FD xx yyyy = medium master xx (own: xx = number of medium masters), FE xxx yyy
+    = light master xxx (own: number of light masters). Seen in SFBGS003 (own FD00xxxx), SFBGS004/Constellation (FE000xxx),
+    SFBGS047 (light; masters starfield, sfbgs004 (light), sfbgs00d: own FE001xxx, sfbgs00d's ids 01xxxxxx),
+    BlueprintShips-SFBGS050 (own 03xxxxxx with 3 full masters). Check counters: `sfUnresolved` (ids the rule cannot place)
+    = 0 on all 14 plugins, `sfOrphanOverrides` = 1 (SFBGS050's PROJ 0107ACB5 overrides a form SFBGS00D does not have:
+    checked with a Python scan, a dangling override in Bethesda's file, not a rule error). Runtime ids: full idx<<24,
+    light FE+idx<<12, medium FD+idx<<16 (the save's lists). CONFIRMED by the game's loader (scratchpad `sf2/LOADER.md`
+    section 5, Starfield.exe 0x1405b8653 / 0x1405b62a0), which adds: ids 1..0x7FF are absolute (handled); masters with
+    flag 0x200 (and not 0x100/0x400, with masters) are not counted among the full masters (handled for masters the save
+    does not list; where exactly they go is [U]; none in Tony's files); ".esl" forces light unless 0x200.
+  - Strings: FULL of a localized plugin = u32 id into `<plugin>_<lang>.strings` (count, size, id/offset table, zero-ended
+    texts, like Skyrim). Starfield/Constellation/OldMars/BlueprintShips-Starfield have "<plugin> - Localization.ba2", but the
+    SFBGS* Creations keep theirs in "<plugin> - Main.ba2", ShatteredSpace in "ShatteredSpace - Main02.ba2" and
+    BlueprintShips-SFBGS050 inside "SFBGS050 - Main.ba2": so loose `Data\Strings` first, then every GNRL archive of the
+    Data folders (localization, then named after a plugin, then others, bulk sound/voice/mesh ones last; stops when every
+    plugin has its file; DX10 archives not opened). Language: sLanguage of StarfieldCustom.ini / StarfieldPrefs.ini /
+    <game>\Starfield.ini, default "en", then English, then any.
+  - BA2 (`Bsa.cpp`): Starfield v2 = Fallout 4's layout + 8 header bytes (u32 1, u32 0); v3 (the game's DX10 texture
+    archives) + 12 (u32 1, u32 0, u32 compression: 3 = LZ4 block). The exe (LOADER.md 5): version <= 3; GNRL files are
+    zlib in every version (the field is only used for textures): LZ4 only for DX10. Verified: all strings files read; all 654 textures of
+    "Starfield - LODTextures02.ba2" (v3) extracted with LZ4 to their exact sizes. Names use '/' (read as '\\').
+  - Code: `src/core/PluginDBSF.cpp` (`PluginDB::load` with `Input::sf`, `medium`, `sfDataDirs`, `sfPrefix`): plugins
+    streamed 8 MB at a time; unwanted placed refs and LAND/NAVM/NAVI skipped without reading their data; compressed records
+    unpacked only for their first 64 KB (`InflatePrefix`: Starfield.esm's SFTR/PNDT/CELL are ~2 GB unpacked; the names of all
+    326,412 change forms of Save1471 are identical with whole records, RESAVERPP_SF_FULL_RECORDS=1 in the CLI); plugins are
+    read masters first (the save lists full/light/medium apart; how the game interleaves light/medium plugins that do not
+    depend on each other is [U], it only matters when two override the same form). `StarfieldBaseFiles()` = the 14 files
+    the saves mark isCreation=0 (Tony's and Freya's saves): always loaded, never removable.
+  - Timing (names of Save1471, 14 plugins, 2.42 GB): container 2.9-3.3 s (8.1 s before the 64 KB prefix: 6.6 s was
+    unpacking 44k records); Tony's PC through the device's Linux VM (static CLI): 7.4 s wall, 1.8 s CPU, 308 MB peak (the
+    rest is the VM's file mount; 11.5 s before the prefix change). 1,383,964 forms.
+    GUI: `startNames()` for Starfield (no mods scan needed) on the existing names thread (`_dbThread`, progress in MB),
+    started when the save opens (names=1), Tools > Read plugin names (again); status line shows the time.
+    No disk cache (not needed at these timings).
+  - Load order (`loadorder::ReadStarfield`, `StarfieldDataDirs`): active = base files present + `*` lines of
+    %LOCALAPPDATA%\Starfield\plugins.txt whose file is in <game>\Data or <My Games\Starfield>\Data. The plugins.txt
+    format is the exe's (LOADER.md 5: '#' lines skipped, leading '*' = active; the exe reads it twice, all lines then '*'
+    ones: whether unmarked lines load is [U], treated as not loaded); Data\Starfield.ccc (read by the exe; one name a line
+    assumed, [U]) adds its plugins; ContentCatalog.txt (read by the exe, format [U]) is not read; the My Games Data folder
+    for Creations is [U] (not on Tony's PC). If plugins.txt enables files no Data folder
+    has (a mod manager outside Data), `_sfNotFound` > 0 and nothing is ticked. No Starfield.esm found = game folder wrong:
+    nothing listed.
+  - Cleanup: `modremove::StarfieldNotLoaded` (change forms by plugin of their form id incl. FE/FD, scripts/instances/threads
+    from `mods::Build`, which now has `Kind::kMedium` rows), `MakePlan` knows medium plugins, refuses base files, checks
+    masters with `Options::sfFiles`, never deletes created (FF) objects for Starfield (also Kill in the Mods view);
+    `Apply` as before. AppMissing: Starfield branch of `ComputeMissing`, `removeOptions()`, modal texts.
+  - CLI (`StarfieldCli.cpp`): `--game <folder>` / `--data <Data>`, `--names`, `--name <id>`, `--language`, `--forms` (with
+    names), `--mods-not-installed`, `--remove-not-installed [--also-disabled] -o out.sfs`, `--plugins-txt`.
+  - Tests (`TestStarfieldNames`, tests/sf_test.inc): synthetic plugins (full/light/medium/full-with-all, compressed record,
+    v2 BA2 strings, loose strings, German then English, unresolved id) and load order; with `RESAVERPP_SF_DATA` (Data folder)
+    + `RESAVERPP_SF_SAVES`: 8 known forms checked against a Python reader run on Tony's PC (`C:\dllmaker\sfdev\extract.py`,
+    which also matched 19,230 change forms of Save1471 by EDID/FULL; 1 differs because a later plugin overrides it),
+    99% of change forms named, every not-installed plugin of the save cleaned, written, re-read clean (`RESAVERPP_SF_OUT`
+    keeps them). 20 Freya saves against Tony's 14 files: 307 not installed, 120-124 cleaned each; all 20 written saves read
+    by `sf2/tools/summary.py` to "= file size". Scratchpad `sfdata/Data` holds Tony's Data files (Starfield.esm and
+    ShatteredSpace.esm reassembled from 390 MB parts, md5 checked) + `Strings/` extracted from the Main archives.
+  - Not done / open: names for placed refs of plugins not in the save's wanted set (only the save's own); Starfield quests,
+    inventories, followers (Skyrim/FO4 views stay hidden); renamed-plugin detection for Starfield; EditedSaveName adds the
+    tag at the end for Autosave/Quicksave names (only "Save..." names get it after the date); the game's loader has still
+    not been checked against an edited save.
 
 ## 2. Where things are
 

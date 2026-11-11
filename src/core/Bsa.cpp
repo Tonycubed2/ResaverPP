@@ -121,7 +121,8 @@ namespace ess
 	//            then per chunk: u64 offset, u32 packed size (0 = stored), u32 size, u16 first mip, u16 last mip,
 	//            u32 0xBAADF00D                                                                  (24 bytes)
 	// Compressed data is zlib.
-	// Starfield (checked on its 1.16.244 archives): version 2 (GNRL and DX10) has 8 more header bytes (u32 1, u32 0), version
+	// Starfield (checked on its 1.16.244 archives and Starfield.exe's reader 0x1427de4a0: version <= 3, 8 more bytes from
+	// version 2, a u32 compression from version 3): version 2 (GNRL and DX10) has 8 more header bytes (u32 1, u32 0), version
 	// 3 (its DX10 texture archives) 12 (u32 1, u32 0, u32 compression: 3 = LZ4 blocks); the records are Fallout 4's (GNRL 36
 	// bytes, DX10 24 + 24 per chunk, tile mode 8 in the last byte); names use '/' ("strings/starfield_en.strings").
 	void BsaArchive::openBa2(std::ifstream& a_f)
@@ -363,7 +364,9 @@ namespace ess
 				if (!a_packed) {
 					return raw;
 				}
-				if (_compression == 3) {  // Starfield v3: an LZ4 block (no frame)
+				// Starfield v3: compression 3 = LZ4 blocks for TEXTURES only; general files are zlib in every version
+				// (Starfield.exe 1.16.244: GNRL read 0x1427e29b0 always uses "ZIP ", DX10 0x14248ebf0 tests the field)
+				if (_compression == 3 && _textureArchive) {
 					std::vector<std::uint8_t> out(a_size);
 					const int n = LZ4_decompress_safe(reinterpret_cast<const char*>(raw.data()), reinterpret_cast<char*>(out.data()),
 						static_cast<int>(raw.size()), static_cast<int>(out.size()));

@@ -340,9 +340,10 @@ void App::rebuildRowsSF(const std::function<void(std::uint64_t, std::string, std
 				continue;
 			}
 			const std::string name = _db && c.refID.type() != RefID::Type::kCreated ? _db->describe(fid) : std::string();
+			// (the name first: the list is narrow, and the name is what a row is looked for by)
 			add(c.refID.data,
-				Fmt("%s  %08X  %-28s  flags %08X  %zu bytes", s.cfTypeName(c), fid, plugin.c_str(), c.changeFlags, c.data.size()) +
-					(name.empty() ? "" : "  " + name),
+				Fmt("%s  %08X  %-22s  ", s.cfTypeName(c), fid, plugin.c_str()) + (name.empty() ? "" : name + "  ") +
+					Fmt("(%zu bytes, flags %08X)", c.data.size(), c.changeFlags),
 				0, true, c.data.size(), c.data.size() + 3 * c.sfRefs.size() + 2 * c.sfStrings.size());
 		}
 		break;

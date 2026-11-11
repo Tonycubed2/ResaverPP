@@ -186,6 +186,18 @@ namespace ess::loadorder
 				o.active.insert(b);
 			}
 		}
+		// Starfield.ccc in the Data folder (the exe reads it: 0x142cc7d10; one plugin a line like Skyrim.ccc [U: format])
+		for (const auto& dir : a_dataDirs) {
+			std::ifstream ccc(dir / "Starfield.ccc");
+			for (std::string line; std::getline(ccc, line);) {
+				line = Lower(Trim(line));
+				if (!line.empty() && line[0] != '#' && o.installed(line)) {
+					o.active.insert(line);
+				}
+			}
+			break;  // (the game's Data folder only)
+		}
+		// plugins.txt: the exe's reader 0x140425310 skips '#' lines, a leading '*' marks active
 		std::ifstream f(a_pluginsTxt);
 		if (f) {
 			o.pluginsTxtFound = true;
