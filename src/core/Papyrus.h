@@ -1,5 +1,5 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
-// Papyrus (global data type 1001) section of a Skyrim SE/AE save.
+// Papyrus (global data type 1001) section of a Skyrim SE/AE, Fallout 4 or Starfield save (Starfield: PapyrusSF.cpp).
 #pragma once
 
 #include "ByteIO.h"
@@ -115,6 +115,16 @@ namespace ess
 		TStr                    name = 0;
 		TStr                    parent = 0;
 		std::vector<MemberDesc> members;
+		std::vector<TStr>       guards;  // Starfield: the script's guard names (none in Skyrim and Fallout 4)
+	};
+
+	// Starfield: one guard's saved state in an object's data (Starfield.exe 1.16.244 0x1428364f0 / 0x142837c10):
+	// u32 owner, u32 n + n x u32, u32 m + m x u32. The lists' meaning is not known; kept as read.
+	struct ObjectGuard
+	{
+		std::uint32_t              owner = 0;
+		std::vector<std::uint32_t> first;
+		std::vector<std::uint32_t> second;
 	};
 
 	struct InstanceData  // shared by script instances and references
@@ -124,6 +134,9 @@ namespace ess
 		std::uint32_t         unknown1 = 0;
 		std::uint32_t         unknown2 = 0;  // present when flag & 4
 		std::vector<Variable> vars;
+		// Starfield (Object::Save 0x142803340, compact): the flag byte decides what is saved: state only without 0x20
+		// (0 when absent), unknown1 (the lock count) only with 0x40, unknown2 with 0x04, guards with 0x80
+		std::vector<ObjectGuard> guards;
 	};
 
 	struct ScriptInstance
@@ -209,6 +222,9 @@ namespace ess
 		std::string               typeCode;   // QuestStage, SceneResults, ... (kinds 1 and 3)
 		std::vector<std::uint8_t> payload;    // fragment-type specific data, kept verbatim
 		std::optional<Variable>   variable;   // kinds 2 and 3
+		// Starfield (GameVM 0x141fb3570): kind 1 = an event callback (typeCode + payload), kind 2 = a latent callback
+		// (payload = u32 + u8, 0x141fb0b40); both end with this u32 (the callback's +0x18)
+		std::uint32_t             sfTail = 0;
 		bool                      terminal() const { return typeCode == "TerminalRunResults"; }
 	};
 
@@ -245,9 +261,13 @@ namespace ess
 	struct FunctionMessage
 	{
 		std::uint8_t                       flag = 0;
-		std::optional<ThreadID>            id;  // present when flag <= 2
+		std::optional<ThreadID>            id;  // present when flag <= 2 (Starfield: always)
 		std::uint8_t                       flags = 0;
 		std::optional<FunctionMessageData> data;
+		// Starfield (0x1428c7bb0): u32 sfUnknown (message +0x10), u8 flag (+0xd0), u8 sfUnknownByte (+0xc0), u32 thread
+		// id (id), u8 flags (1 = data follows)
+		std::uint32_t sfUnknown = 0;
+		std::uint8_t  sfUnknownByte = 0;
 	};
 
 	struct SuspendedStack
@@ -263,6 +283,35 @@ namespace ess
 		std::uint32_t unknown = 0;
 	};
 
+	// Starfield: an object handle as the game saves it (0x141f50ec0): u16 kind, u16 hi, then for kinds 0, 1 and 2 a
+	// 3-byte form reference (value = its 24 bits), for any other kind a u32 (the handle's low 32 bits for kind 3, else 0)
+	struct ObjectHandle
+	{
+		std::uint16_t kind = 0;
+		std::uint16_t hi = 0;
+		std::uint32_t value = 0;
+		bool          isRef() const { return kind <= 2; }
+	};
+
+	// Starfield: the events a form relays to script objects (EventRelays, 0x14287e8c0): per event its name and the
+	// object (script instance) ids registered for it
+	struct EventRelay
+	{
+		struct Event
+		{
+			TStr             name = 0;
+			std::vector<EID> objects;
+		};
+		ObjectHandle       handle;
+		std::vector<Event> events;
+	};
+
+	// Starfield: a finished latent call's result waiting for its thread (FreezeStatusPendingLatentsAndGuards)
+	struct PendingLatent
+	{
+		std::uint32_t id = 0;
+		Variable      value;
+	};
 	class Papyrus
 	{
 	public:
@@ -313,7 +362,25 @@ namespace ess
 		std::vector<EID>             unknownIDs;
 		std::vector<QueuedUnbind>    unbinds;
 		std::optional<std::uint16_t> saveFileVersion;
-		std::vector<std::uint8_t>    tail;  // "other data" block, kept verbatim
+		std::vector<std::uint8_t>    tail;  // "other data" block, kept verbatim (Starfield: the GameVM part, from its u16 version)
+
+		// ---- Starfield (global data 1001 of a .sfs; see PapyrusSF.cpp and docs/CLAUDE-HANDOFF.md) ----
+		// readStarfield() reads the section into the model above (instances/references share one "object data" list,
+		// threads are the stacks, unknownIDs is ResetStatus); write() writes it back in the Starfield layout when set.
+		bool                                               starfield = false;
+		static constexpr std::uint16_t                     kStarfieldVMVersion = 10;  // InternalVMVersion
+		void                                               readStarfield(Reader& r);   // r: exactly the 1001 data
+		void                                               writeStarfield(Writer& w) const;
+		std::vector<EID>                                   objectDataOrder;  // instance and reference data, as saved
+		std::vector<PendingLatent>                         pendingLatents;
+		std::vector<std::uint32_t>                         freezeU32s;  // the u32 list after the pending latents
+		std::vector<EventRelay>                            eventRelays;
+		std::vector<std::pair<std::uint32_t, std::uint32_t>> guardGlobal1, guardGlobal2;  // GuardGlobalData
+		// the GameVM part's version (first u16 of tail): 37 in 1.9.71 saves, 38 in 1.16.244; -1 when there is none
+		int                                                gameVMVersion() const
+		{
+			return starfield && tail.size() >= 2 ? (tail[0] | (tail[1] << 8)) : -1;
+		}
 
 		// The game writes the per-element data blocks in its own order; keep it so an
 		// unmodified save writes back byte-for-byte identical.
@@ -342,6 +409,7 @@ namespace ess
 
 	private:
 		void readInner(Reader& r, ReadStage& a_stage);
+		void readStarfieldInner(Reader& r, ReadStage& a_stage);
 		std::unordered_map<TStr, std::size_t> _scriptIdx;
 		std::unordered_map<EID, std::size_t>      _instIdx, _refIdx, _arrIdx, _structIdx;
 		std::unordered_map<ThreadID, std::size_t> _activeIdx;
@@ -349,4 +417,9 @@ namespace ess
 
 	// One thread's saved data as Papyrus::write writes it (with w's width flags): for measuring a thread's size.
 	void WriteThreadData(Writer& w, ThreadID a_id, const ActiveScriptData& a_data);
+	// ... in the Starfield layout
+	void WriteThreadDataSF(Writer& w, ThreadID a_id, const ActiveScriptData& a_data);
+	// A variable in the Starfield layout (None: the type byte only, Bool: u8; Starfield.exe 0x14280b1c0)
+	Variable ReadVariableSF(Reader& r);
+	void     WriteVariableSF(Writer& w, const Variable& v);
 }

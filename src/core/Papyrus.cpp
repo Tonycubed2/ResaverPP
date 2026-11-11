@@ -792,6 +792,17 @@ namespace ess
 				str(m.name);
 				str(m.type);
 			}
+			for (TStr g : sc.guards) {
+				str(g);
+			}
+		}
+		for (const auto& e : eventRelays) {  // Starfield
+			for (const auto& ev : e.events) {
+				str(ev.name);
+			}
+		}
+		for (const auto& l : pendingLatents) {
+			vars({ l.value });
 		}
 		for (const auto& sd : structs) {
 			str(sd.name);
@@ -877,6 +888,7 @@ namespace ess
 				v.push_back(x.id);
 			}
 			dups("reference", v);
+			dups("object data", objectDataOrder);  // Starfield
 			dups("reference data", referenceDataOrder);
 			v.clear();
 			for (const auto& a : arrays) {
@@ -898,11 +910,12 @@ namespace ess
 			dups("thread data", activeDataOrder);
 		}
 		std::size_t noData = 0;
+		// (Starfield saves data only for the objects that have some: an instance or reference without it is normal)
 		for (const auto& i : instances) {
-			noData += i.data ? 0 : 1;
+			noData += i.data || starfield ? 0 : 1;
 		}
 		for (const auto& x : references) {
-			noData += x.data ? 0 : 1;
+			noData += x.data || starfield ? 0 : 1;
 		}
 		for (const auto& a : arrays) {
 			noData += a.hasData ? 0 : 1;
@@ -921,6 +934,10 @@ namespace ess
 
 	void Papyrus::write(Writer& w) const
 	{
+		if (starfield) {
+			writeStarfield(w);  // PapyrusSF.cpp
+			return;
+		}
 		if (invalid) {
 			// the game's "flagged invalid" block goes back as it was; script data put into it would be ignored by
 			// the game, so it is refused instead of being lost without a word

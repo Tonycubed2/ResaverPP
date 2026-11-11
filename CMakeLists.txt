@@ -95,6 +95,8 @@ if (RESAVERPP_TESTS)
 	target_link_libraries(rs_bloat_test PRIVATE rs_core)
 	add_executable(rs_text_test tests/text_test.cpp)
 	target_link_libraries(rs_text_test PRIVATE rs_core)
+	add_executable(rs_sfpap_test tests/sf_papyrus_test.cpp)  # Starfield Papyrus section (real saves: RESAVERPP_SF_SAVES)
+	target_link_libraries(rs_sfpap_test PRIVATE rs_core)
 
 	# ---- CTest ------------------------------------------------------------------------------
 	enable_testing()
@@ -106,6 +108,8 @@ if (RESAVERPP_TESTS)
 	# text encodings of game text: UTF-8 / GBK / Big5 / Shift-JIS / 949 / 1251 / 1252, writing back, the PDF's CJK font
 	add_test(NAME text COMMAND rs_text_test)
 	add_test(NAME cosave COMMAND rs_cosave_test)
+	# Starfield Papyrus (global data 1001): synthetic, then real saves with RESAVERPP_SF_SAVES (.sfs files or folders, ';')
+	add_test(NAME sf_papyrus COMMAND rs_sfpap_test)
 	# save bloat by mod and the load order check (real saves / plugins: RESAVERPP_FO4_SAVES, RESAVERPP_SKYRIM_SAVES, RESAVERPP_FO4_DATA)
 	add_test(NAME bloat COMMAND rs_bloat_test)
 	# Fallout 4 active effects through the command line (real saves: RESAVERPP_FO4_SAVES)
