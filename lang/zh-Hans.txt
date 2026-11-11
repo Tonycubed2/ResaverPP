@@ -14668,3 +14668,30 @@ tr "勾选所有可带过来的内容（模组不在此游戏中的保持不勾�
 
 en "Tick everything in this group."
 tr "勾选此分组中的全部内容。"
+
+en "Your character's saved record: the name, level and XP, face and body, all editable."
+tr "你的角色的存档记录：名字、等级和经验、脸部和身体，均可编辑。"
+
+en "Face and body (%zu numbers)"
+tr "脸部和身体（%zu 个数值）"
+
+en "The face the save keeps for this character, as the character creator wrote it: numbered sliders, blends of face shapes by region, and named shapes (body and face). Type a number and press Enter; the game reads them at the next load. Keep the original save."
+tr "存档为该角色保存的脸部数据，即角色创建器写入的内容：编号滑块、按区域混合的脸型，以及命名的形状（身体和脸部）。输入数字并按回车；游戏会在下次读档时读取。请保留原始存档。"
+
+en "Slider"
+tr "滑块"
+
+en "Blend"
+tr "混合"
+
+en "Shape"
+tr "形状"
+
+en "slider %u"
+tr "滑块 %u"
+
+en "%s (blend %u)"
+tr "%s（混合 %u）"
+
+en "Face: %s %g -> %g"
+tr "脸部：%s %g -> %g"

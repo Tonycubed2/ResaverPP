@@ -336,7 +336,7 @@ void App::drawHomeSF()
 			}
 		}
 	}
-	tips::Tip(tr("Your character's saved record: the name (editable)."));
+	tips::Tip(tr("Your character's saved record: the name, level and XP, face and body, all editable."));
 	static bool testShips = std::getenv("RESAVERPP_TEST_SFSHIPS") != nullptr;  // screenshots: opens the ships window
 	if (ImGui::Button(tr("Ships..."), ImVec2(w, 0)) || std::exchange(testShips, false)) {
 		_showShipsSF = true;
@@ -679,6 +679,54 @@ void App::detailChangeFormSF(std::uint64_t k)
 			}
 			if (n.ok && s.formIDOf(c->refID) == 0x7) {
 				drawPlayerLevelSF();
+			}
+			if (n.ok && !n.face.empty() && ImGui::TreeNodeEx(Fmt(tr("Face and body (%zu numbers)###facesf"), n.face.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+				ImGui::PushTextWrapPos(0);
+				ImGui::TextDisabled("%s", tr("The face the save keeps for this character, as the character creator wrote it: numbered sliders, "
+											 "blends of face shapes by region, and named shapes (body and face). Type a number and press Enter; "
+											 "the game reads them at the next load. Keep the original save."));
+				ImGui::PopTextWrapPos();
+				ImGui::BeginDisabled(_readOnly);
+				if (ImGui::BeginTable("##face", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV,
+						ImVec2(0, 320))) {
+					ImGui::TableSetupScrollFreeze(0, 1);
+					ImGui::TableSetupColumn(tr("Kind"), ImGuiTableColumnFlags_WidthFixed, 110);
+					ImGui::TableSetupColumn(tr("Name"), ImGuiTableColumnFlags_WidthStretch);
+					ImGui::TableSetupColumn(tr("Value"), ImGuiTableColumnFlags_WidthFixed, 130);
+					ImGui::TableHeadersRow();
+					for (std::size_t i = 0; i < n.face.size(); ++i) {
+						const auto& v = n.face[i];
+						const std::string nm = v.name < c->sfStrings.size() && c->sfStrings[v.name] < s.sfStrings.size()
+						                           ? text::ToUtf8(s.sfStrings[c->sfStrings[v.name]])
+						                           : std::string();
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
+						ImGui::TableNextColumn();
+						if (v.group == 1) {
+							ImGui::Text(tr("slider %u"), v.key);
+						} else if (v.group == 2) {
+							ImGui::Text(tr("%s (blend %u)"), nm.c_str(), v.key);
+						} else {
+							ImGui::TextUnformatted(nm.c_str());
+						}
+						ImGui::TableNextColumn();
+						float x = 0;
+						std::memcpy(&x, c->data.data() + v.offset, 4);
+						ImGui::PushID(static_cast<int>(i));
+						ImGui::SetNextItemWidth(-1);
+						float want = x;
+						if (ImGui::InputFloat("##v", &want, 0, 0, "%.4g", ImGuiInputTextFlags_EnterReturnsTrue) && want != x) {
+							if (auto* cf = _save->findChangeForm(c->refID); cf && SetFaceValueSF(*cf, v.offset, want)) {
+								markChanged(Fmt(tr("Face: %s %g -> %g"), v.group == 1 ? Fmt(tr("slider %u"), v.key).c_str() : nm.c_str(), x, want));
+							}
+						}
+						ImGui::PopID();
+					}
+					ImGui::EndTable();
+				}
+				ImGui::EndDisabled();
+				ImGui::TreePop();
 			}
 		}
 	}
@@ -1129,6 +1177,7 @@ void App::drawShipsSF()
 		rowsFor = _save.get();
 		rowsGen = static_cast<std::uint64_t>(_editGen);
 		rows.clear();
+		const auto shipNames = ShipNamesSF(s);
 		for (const auto& c : s.changeForms) {
 			if (c.typeCode() != 0 || c.version != 153) {
 				continue;
@@ -1163,7 +1212,11 @@ void App::drawShipsSF()
 			for (const auto& it : d.items) {
 				r.total += it.total();
 			}
-			r.name = gbfm ? _db->name(*bf) : std::string();
+			if (const auto it = shipNames.find(fid); it != shipNames.end()) {
+				r.name = it->second;  // the name the player gave it
+			} else if (gbfm) {
+				r.name = _db->name(*bf);
+			}
 			if (r.name.empty()) {
 				r.name = gbfm ? _db->describe(base) : tr("(built or changed in the ship builder)");
 			}

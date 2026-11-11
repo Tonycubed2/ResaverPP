@@ -14726,3 +14726,30 @@ tr "  (работают инструменты очистки, списки ск
 
 en "A script made each of them as a copy of another character's temporary leveled base (PlaceAtMe of GetLeveledActorBase). The game never saves that temporary base and deletes it with the character it belongs to, so this save names a base it does not contain. When it loads, the game gives that id to whatever has it then: nothing (the character has no base) or another character's base (it loads as that one, and can delete that one's base). The result differs from load to load: some loads crash (in Actor::LoadGame, in SPID, or when a script error names the character) and some do not.\nThe fix is in the mod that spawns them: it must use GetActorBase. ReSaver Plus does not remove them: the player's record and scripts still name them. In the game, right after loading: open the console, type prid and the id, then disable and markfordelete; save, and open the new save here to check.\nCharacters:"
 tr "Каждого из них скрипт создал как копию временной уровневой основы другого персонажа (PlaceAtMe с GetLeveledActorBase). Игра никогда не сохраняет эту временную основу и удаляет её вместе с персонажем, которому она принадлежит, поэтому сохранение ссылается на основу, которой в нём нет. При загрузке игра отдаёт этот номер тому, у кого он в тот момент есть: никому (у персонажа нет основы) или основе другого персонажа (он загружается как тот персонаж и может удалить его основу). Результат меняется от загрузки к загрузке: одни загрузки падают (в Actor::LoadGame, в SPID или когда ошибка скрипта называет этого персонажа), другие нет.\nИсправлять нужно мод, который их создаёт: он должен использовать GetActorBase. ReSaver Plus их не удаляет: на них всё ещё ссылаются запись игрока и скрипты. В игре сразу после загрузки: откройте консоль, введите prid и номер, затем disable и markfordelete; сохраните игру и откройте новое сохранение здесь для проверки.\nПерсонажи:"
+
+en "Your character's saved record: the name, level and XP, face and body, all editable."
+tr "Сохранённая запись вашего персонажа: имя, уровень и опыт, лицо и тело — всё можно изменить."
+
+en "Face and body (%zu numbers)"
+tr "Лицо и тело (чисел: %zu)"
+
+en "The face the save keeps for this character, as the character creator wrote it: numbered sliders, blends of face shapes by region, and named shapes (body and face). Type a number and press Enter; the game reads them at the next load. Keep the original save."
+tr "Лицо, которое сохранение хранит для этого персонажа, в том виде, в каком его записал редактор персонажа: пронумерованные ползунки, смешивание форм лица по областям и именованные формы (тела и лица). Введите число и нажмите Enter; игра прочитает его при следующей загрузке. Сохраните оригинал сохранения."
+
+en "Slider"
+tr "Ползунок"
+
+en "Blend"
+tr "Смешивание"
+
+en "Shape"
+tr "Форма"
+
+en "slider %u"
+tr "ползунок %u"
+
+en "%s (blend %u)"
+tr "%s (смешивание %u)"
+
+en "Face: %s %g -> %g"
+tr "Лицо: %s %g -> %g"

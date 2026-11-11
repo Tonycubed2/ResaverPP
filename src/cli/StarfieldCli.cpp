@@ -66,7 +66,7 @@ int StarfieldMain(int argc, char** argv)
 	const std::string in = argv[1];
 	std::string       out, formsType;
 	bool              quests = false, components = false;
-	std::uint32_t     inventoryOf = 0;
+	std::uint32_t     inventoryOf = 0, faceOf = 0;
 	std::string       ofType;
 	bool              actorValues = false;
 	bool              describe = false, forms = false, report = false, unattached = false, undefined = false, termUndef = false;
@@ -96,6 +96,8 @@ int StarfieldMain(int argc, char** argv)
 			ofType = next();
 		} else if (a == "--components") {
 			components = true;
+		} else if (a == "--face") {
+			faceOf = static_cast<std::uint32_t>(std::strtoul(next().c_str(), nullptr, 16));
 		} else if (a == "--inventory") {
 			inventoryOf = static_cast<std::uint32_t>(std::strtoul(next().c_str(), nullptr, 16));
 		} else if (a == "--quests") {
@@ -157,7 +159,7 @@ int StarfieldMain(int argc, char** argv)
 				"%s: not available for Starfield saves (they support: -o <out.sfs>, --describe, --report, --check, --forms [TYPE], --delete-form <form id>, "
 				"--remove-unattached, --remove-undefined, --terminate-undefined, --remove-stranded-threads, --clear-floods, --remove-retyped, "
 				"--game <Starfield folder> | --data <Data folder>, --names, "
-				"--name <form id>, --inventory <form id>, --components, --of-type <TYPE>, --actor-values, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
+				"--name <form id>, --inventory <form id>, --face <NPC_ form id>, --components, --of-type <TYPE>, --actor-values, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
 				a.c_str());
 			return 1;
 		}
@@ -278,6 +280,7 @@ int StarfieldMain(int argc, char** argv)
 		}
 		if (components) {
 			// every reference with component data (ships, outposts...): its base and the base's record type
+			const auto shipNames = ShipNamesSF(*save);
 			for (const auto& c : save->changeForms) {
 				if (c.typeCode() > 1 || c.version != 153) {
 					continue;
@@ -291,6 +294,9 @@ int StarfieldMain(int argc, char** argv)
 				const auto* bf = db && b ? db->find(b) : nullptr;
 				std::printf("%08X  %s  components %u  items %zu  base %08X %s  %s\n", fid, save->cfTypeName(c), r.components == 0xFFFFFFFFu ? 0u : r.components,
 					r.items.size(), b, bf ? db->type(*bf).c_str() : "????", db ? (db->describe(fid) + " / " + db->describe(b)).c_str() : "");
+				if (const auto it = shipNames.find(fid); it != shipNames.end()) {
+					std::printf("          named \"%s\"\n", it->second.c_str());
+				}
 			}
 		}
 		if (inventoryOf) {
@@ -303,6 +309,22 @@ int StarfieldMain(int argc, char** argv)
 				for (const auto& it : r.items) {
 					const auto f = it.refIndex < c.sfRefs.size() ? save->formIDOf(c.sfRefs[it.refIndex]) : 0;
 					std::printf("  %08X  x%llu  (%zu stacks)  %s\n", f, static_cast<unsigned long long>(it.total()), it.stacks.size(), db ? db->describe(f).c_str() : "");
+				}
+			}
+		}
+		if (faceOf) {
+			// an NPC_'s saved face numbers (DecodeNpcSF): group, key, name, value
+			for (const auto& c : save->changeForms) {
+				if (c.typeCode() != 9 || save->formIDOf(c.refID) != faceOf) {
+					continue;
+				}
+				const auto n = DecodeNpcSF(c);
+				std::printf("%08X: %s, %zu face numbers\n", faceOf, n.ok ? "read" : ("not read: " + n.error).c_str(), n.face.size());
+				for (const auto& v : n.face) {
+					float x;
+					std::memcpy(&x, c.data.data() + v.offset, 4);
+					const bool named = v.name < c.sfStrings.size() && c.sfStrings[v.name] < save->sfStrings.size();
+					std::printf("  %d  %6u  %-40s %g\n", v.group, v.key, named ? save->sfStrings[c.sfStrings[v.name]].c_str() : "-", x);
 				}
 			}
 		}

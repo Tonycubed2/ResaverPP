@@ -14668,3 +14668,30 @@ tr ""
 
 en "Tick everything in this group."
 tr ""
+
+en "Your character's saved record: the name, level and XP, face and body, all editable."
+tr ""
+
+en "Face and body (%zu numbers)"
+tr ""
+
+en "The face the save keeps for this character, as the character creator wrote it: numbered sliders, blends of face shapes by region, and named shapes (body and face). Type a number and press Enter; the game reads them at the next load. Keep the original save."
+tr ""
+
+en "Slider"
+tr ""
+
+en "Blend"
+tr ""
+
+en "Shape"
+tr ""
+
+en "slider %u"
+tr ""
+
+en "%s (blend %u)"
+tr ""
+
+en "Face: %s %g -> %g"
+tr ""

@@ -346,6 +346,42 @@ void TestStarfield()
 					s->header.playerName = name0;
 					break;
 				}
+				// a face number of the player changed, written and read back
+				for (auto& c : s->changeForms) {
+					if (c.typeCode() != 9 || s->formIDOf(c.refID) != 0x7) {
+						continue;
+					}
+					const auto n = DecodeNpcSF(c);
+					if (!n.ok || n.face.empty()) {
+						break;
+					}
+					const auto data0 = c.data;
+					const auto off = n.face.back().offset;
+					Check(SetFaceValueSF(c, off, 0.625f), "sf face: value set");
+					const auto out = fs::temp_directory_path() / ("rs_sfface_" + name);
+					try {
+						s->write(out, false);
+						auto back = SaveFile::load(out);
+						bool ok = false;
+						for (const auto& b : back->changeForms) {
+							if (b.typeCode() == 9 && back->formIDOf(b.refID) == 0x7) {
+								const auto nb = DecodeNpcSF(b);
+								float x = 0;
+								if (nb.ok && nb.face.size() == n.face.size()) {
+									std::memcpy(&x, b.data.data() + nb.face.back().offset, 4);
+								}
+								ok = x == 0.625f;
+							}
+						}
+						Check(ok, "sf face: the new value reads back");
+					} catch (const std::exception& ex) {
+						fail(std::string("face edit does not write: ") + ex.what());
+					}
+					std::error_code ec;
+					fs::remove(out, ec);
+					c.data = data0;
+					break;
+				}
 			}
 			std::size_t nn = 0, nok = 0;
 			std::string firstNpc;

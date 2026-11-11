@@ -193,7 +193,9 @@ namespace ess
 			if (f & 0x8) {
 				r.skip(7);
 			}
+			std::size_t strings = 0;
 			if (f & 0x20) {  // the name: a string (string list)
+				++strings;
 				if (a_out) {
 					a_out->hasName = true;
 				}
@@ -220,19 +222,37 @@ namespace ess
 				if (a_out) {
 					a_out->faceOffset = r.p;
 				}
+				const auto add = [&](int a_group, std::uint32_t a_key, std::size_t a_name) {
+					if (a_out) {
+						a_out->face.push_back({ a_group, a_key, a_name, r.p });
+					}
+					r.skip(4);
+				};
 				const auto n1 = r.count(r.vsval(), 5);  // (vsval key, f32)
 				for (std::uint32_t i = 0; i < n1; ++i) {
-					r.vsval();
-					r.skip(4);
+					const auto key = r.vsval();
+					add(1, key, SIZE_MAX);
 				}
 				const auto n2 = r.count(r.vsval(), 2);  // 0x140cefdb0: (vsval key, vsval j, j x (string, f32))
 				for (std::uint32_t i = 0; i < n2; ++i) {
-					r.vsval();
-					r.skip(4ull * r.count(r.vsval(), 4));
+					const auto key = r.vsval();
+					const auto j = r.count(r.vsval(), 4);
+					for (std::uint32_t k = 0; k < j; ++k) {
+						add(2, key, strings++);
+					}
 				}
 				r.u8();  // then 6 strings
-				r.skip(4ull * r.count(r.vsval(), 4));  // (string, f32)
-				r.skip(12ull * r.u8());  // u8 n, n x (u32, 3 strings, u32, u32)
+				strings += 6;
+				const auto n5 = r.count(r.vsval(), 4);  // (string, f32)
+				for (std::uint32_t k = 0; k < n5; ++k) {
+					add(3, 0, strings++);
+				}
+				const auto n6 = r.u8();  // u8 n, n x (u32, 3 strings, u32, u32)
+				r.skip(12ull * n6);
+				strings += 3ull * n6;
+			}
+			if (a_out) {
+				a_out->strings = strings;
 			}
 			if (f & 0x80) {
 				r.u8();
@@ -728,6 +748,8 @@ namespace ess
 				out.error = std::to_string(a_cf.data.size() - r.p) + " bytes after the end";
 			} else if (r.refs != a_cf.sfRefs.size()) {
 				out.error = "the data names " + std::to_string(r.refs) + " forms, the list holds " + std::to_string(a_cf.sfRefs.size());
+			} else if (out.strings != a_cf.sfStrings.size()) {
+				out.error = "the data writes " + std::to_string(out.strings) + " strings, the list holds " + std::to_string(a_cf.sfStrings.size());
 			} else {
 				out.ok = true;
 			}
@@ -735,6 +757,15 @@ namespace ess
 			out.error = e.what();
 		}
 		return out;
+	}
+
+	bool SetFaceValueSF(ChangeForm& a_cf, std::size_t a_offset, float a_value)
+	{
+		if (!std::isfinite(a_value) || a_offset + 4 > a_cf.data.size()) {
+			return false;
+		}
+		std::memcpy(a_cf.data.data() + a_offset, &a_value, 4);
+		return true;
 	}
 
 	bool RenameNpcSF(SaveFile& a_save, ChangeForm& a_cf, const std::string& a_name)
@@ -1050,4 +1081,66 @@ namespace ess
 		std::memcpy(a_cf.data.data() + a_stack.countOffset, &a_count, 4);
 		return true;
 	}
+
+	std::map<std::uint32_t, std::string> ShipNamesSF(const SaveFile& a_save)
+	{
+		std::map<std::uint32_t, std::string> out;
+		const GlobalData* g = nullptr;
+		for (const auto& t : a_save.table1) {
+			if (t.type == 4) {
+				g = &t;
+				break;
+			}
+		}
+		if (!g) {
+			return out;
+		}
+		const auto& d = g->raw;
+		const auto  u32 = [&](std::size_t a_p) {
+			std::uint32_t v;
+			std::memcpy(&v, d.data() + a_p, 4);
+			return v;
+		};
+		const auto refOf = [](std::uint32_t a_v) {
+			RefID r;
+			r.data = a_v & 0xFFFFFF;
+			return r;
+		};
+		for (std::size_t p = 0; p + 4 <= d.size(); ++p) {
+			const auto n = u32(p);
+			if (n == 0 || n > 127 || p + 4 + n + 18 > d.size()) {
+				continue;
+			}
+			bool text = true;
+			for (std::size_t i = 0; i < n && text; ++i) {
+				text = d[p + 4 + i] >= 0x20 && d[p + 4 + i] < 0x7F;
+			}
+			if (!text) {
+				continue;
+			}
+			const auto q = p + 4 + n;
+			const auto ship = u32(q + 4), a = u32(q + 10), b = u32(q + 14);
+			if ((ship | a | b) >> 24) {
+				continue;
+			}
+			const auto* cf = const_cast<SaveFile&>(a_save).findChangeForm(refOf(ship));
+			if (!cf || !IsReferenceChangeFormSF(cf->typeCode())) {
+				continue;
+			}
+			const auto fid = a_save.formIDOf(refOf(ship));
+			const auto fa = a_save.formIDOf(refOf(a)), fb = a_save.formIDOf(refOf(b));
+			bool baseMatches = false;
+			for (const auto& base : BaseObjectsSF(fid, *cf)) {
+				const auto bf = a_save.formIDOf(base);
+				baseMatches = baseMatches || (bf && (bf == fa || bf == fb));
+			}
+			if (!baseMatches) {
+				continue;
+			}
+			out[fid] = std::string(reinterpret_cast<const char*>(d.data() + p + 4), n);
+			p = q + 17;
+		}
+		return out;
+	}
 }
+

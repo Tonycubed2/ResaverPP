@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -227,8 +228,22 @@ namespace ess
 		std::size_t factionsOffset = SIZE_MAX, factionRefs = 0, factions = 0;  // 0x40: n x (FORMID, u8 rank)
 		std::size_t faceOffset = SIZE_MAX;  // 0x800: the face data (0x140cdd070)
 		bool        hasName = false;  // 0x20: its name is in the string list
+		// the face's numbers (0x140cdd070), each an f32 at offset in the data. group 1: (key, value) with no name; group 2:
+		// per key, (name, value) pairs; group 3: (name, value) pairs. name = index into the record's string list, or
+		// SIZE_MAX (group 1). Strings counted: the record's string list must hold exactly what the layout writes.
+		struct FaceValue
+		{
+			int           group = 0;
+			std::uint32_t key = 0;
+			std::size_t   name = SIZE_MAX;
+			std::size_t   offset = 0;
+		};
+		std::vector<FaceValue> face;
+		std::size_t            strings = 0;  // strings the data writes (checked against the list)
 	};
 	SfNpcData DecodeNpcSF(const ChangeForm& a_cf);
+	// a face number changed in place (SfNpcData::face[i].offset)
+	bool SetFaceValueSF(ChangeForm& a_cf, std::size_t a_offset, float a_value);
 	class SaveFile;
 	// renames an NPC_ (the player is NPC_ 0x7; its header name follows); false when the record has no name to change
 	bool RenameNpcSF(SaveFile& a_save, ChangeForm& a_cf, const std::string& a_name);
@@ -270,6 +285,11 @@ namespace ess
 	// sets the level and the XP into it (0 .. what the level needs); also the header's level / XP (the load menu)
 	bool SetPlayerLevelSF(SaveFile& a_save, std::uint16_t a_level, float a_xpIntoLevel, const std::function<bool(std::uint32_t)>& a_isActorValue,
 		std::string* a_why = nullptr);
+	// Starfield: the names the player gave ships (global data type 4, table 1), by the ship reference's form ID. A name
+	// record is `u32 length, name, i32, u32 ship (3-byte reference ID), u16, u32 (reference ID), u32 (reference ID)`; the
+	// surrounding layout of that block is not decoded, so a record counts only when its ship is a reference in the save
+	// whose base object is one of the two IDs after it (true for every record in the 24 saves checked, 0 false hits).
+	std::map<std::uint32_t, std::string> ShipNamesSF(const SaveFile& a_save);
 	// adds an item (a_formID in the save's load order, as formIDOf gives) to a reference's inventory: one stack of a_count
 	bool AddInventoryItemSF(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_formID, std::uint32_t a_count, std::string* a_why = nullptr);
 	// changes one stack's count in place (the data keeps its size and its forms)
