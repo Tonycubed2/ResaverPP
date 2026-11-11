@@ -9,3 +9,4 @@ out/
 *.bak
 .vs/
 CMakeUserPresets.json
+__pycache__/
