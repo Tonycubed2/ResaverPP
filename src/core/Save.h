@@ -230,6 +230,11 @@ namespace ess
 	class SaveFile;
 	// renames an NPC_ (the player is NPC_ 0x7; its header name follows); false when the record has no name to change
 	bool RenameNpcSF(SaveFile& a_save, ChangeForm& a_cf, const std::string& a_name);
+	// the save's reference to a form (Starfield.esm IDs below 0x400000 as they are, others through the form table,
+	// added there when missing)
+	RefID RefIDForFormSF(SaveFile& a_save, std::uint32_t a_formID);
+	// adds an item (a_formID in the save's load order, as formIDOf gives) to a reference's inventory: one stack of a_count
+	bool AddInventoryItemSF(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_formID, std::uint32_t a_count, std::string* a_why = nullptr);
 	// changes one stack's count in place (the data keeps its size and its forms)
 	bool SetInventoryCountSF(ChangeForm& a_cf, const SfInventoryStack& a_stack, std::uint32_t a_count);
 

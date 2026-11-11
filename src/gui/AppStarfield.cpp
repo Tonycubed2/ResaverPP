@@ -5,6 +5,7 @@
 #include "App.h"
 
 #include <cstdlib>
+#include <cstring>
 #include <utility>
 
 #include "Platform.h"
@@ -574,11 +575,13 @@ void App::detailChangeFormSF(std::uint64_t k)
 				ImGui::PopTextWrapPos();
 			} else if (r.items.empty()) {
 				ImGui::TextDisabled("%s", tr("Empty."));
+				drawAddItemSF(c->refID);
 			} else {
 				ImGui::PushTextWrapPos(0);
 				ImGui::TextDisabled("%s", tr("Every item the save keeps for it, in stacks (a stack is a group with the same mods, damage, "
-											 "name...). Change a count and save: the game loads that many. Adding new items comes later."));
+											 "name...). Change a count and save: the game loads that many."));
 				ImGui::PopTextWrapPos();
+				drawAddItemSF(c->refID);
 				ImGui::BeginDisabled(_readOnly);
 				if (ImGui::BeginTable("##inv", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp)) {
 					ImGui::TableSetupColumn(tr("Item"), ImGuiTableColumnFlags_WidthStretch);
@@ -980,4 +983,100 @@ void App::checkItemsSF(std::vector<CheckItem>& a_items)
 		it.options.push_back(std::move(r));
 		a_items.push_back(std::move(it));
 	}
+}
+
+// "Add an item" under an inventory: search the plugins' names, pick a form of a type the save already carries as an
+// item somewhere (so only real items are offered), give a count, add (AddInventoryItemSF)
+void App::drawAddItemSF(const RefID& a_ref)
+{
+	static const ess::SaveFile*  typesFor = nullptr;
+	static std::set<std::string> itemTypes;
+	static char                  text[128] = "";
+	static std::vector<std::uint32_t> found;
+	static std::uint32_t         pick = 0;
+	static std::uint32_t         count = 1;
+	static std::string           result;
+	if (!ImGui::TreeNode(tr("Add an item"))) {
+		return;
+	}
+	if (!_db || !_db->loaded()) {
+		ImGui::PushTextWrapPos(0);
+		ImGui::TextDisabled("%s", tr("Needs the item names from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings)."));
+		ImGui::PopTextWrapPos();
+		ImGui::TreePop();
+		return;
+	}
+	const auto& s = *_save;
+	if (typesFor != _save.get()) {
+		// the record types of every item any inventory of this save holds
+		typesFor = _save.get();
+		itemTypes.clear();
+		for (const auto& c : s.changeForms) {
+			if (c.typeCode() > 1 || c.version != 153 || !(c.changeFlags & 0x8000020u)) {
+				continue;
+			}
+			const auto d = DecodeReferenceSF(s.formIDOf(c.refID), c);
+			for (const auto& it : d.items) {
+				if (it.refIndex < c.sfRefs.size()) {
+					if (const auto* f = _db->find(s.formIDOf(c.sfRefs[it.refIndex]))) {
+						itemTypes.insert(_db->type(*f));
+					}
+				}
+			}
+		}
+		found.clear();
+		pick = 0;
+		result.clear();
+	}
+	ImGui::BeginDisabled(_readOnly);
+	ImGui::SetNextItemWidth(300);
+	if (ImGui::InputTextWithHint("##find", tr("name, editor ID or form ID"), text, sizeof(text))) {
+		found.clear();
+		pick = 0;
+		if (std::strlen(text) >= 2) {
+			for (const auto id : _db->search(text, 2000)) {
+				const auto* f = _db->find(id);
+				if (f && itemTypes.count(_db->type(*f))) {
+					found.push_back(id);
+					if (found.size() >= 200) {
+						break;
+					}
+				}
+			}
+		}
+	}
+	if (!found.empty() && ImGui::BeginListBox("##found", ImVec2(-1, 160))) {
+		for (const auto id : found) {
+			const auto label = Fmt("%08X  %s", id, _db->describe(id).c_str());
+			if (ImGui::Selectable(label.c_str(), pick == id)) {
+				pick = id;
+			}
+		}
+		ImGui::EndListBox();
+	} else if (std::strlen(text) >= 2 && found.empty()) {
+		ImGui::TextDisabled("%s", tr("No item found with that text."));
+	}
+	ImGui::SetNextItemWidth(130);
+	ImGui::InputScalar(tr("count"), ImGuiDataType_U32, &count);
+	count = std::clamp<std::uint32_t>(count, 1, 1000000000u);
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!pick);
+	if (ImGui::Button(tr("Add"))) {
+		std::string why;
+		if (auto* cf = _save->findChangeForm(a_ref); cf && AddInventoryItemSF(*_save, *cf, pick, count, &why)) {
+			result = Fmt(tr("Added %u x %s."), count, _db->describe(pick).c_str());
+			markChanged(result);
+		} else {
+			result = tr("Not added: ") + why;
+		}
+	}
+	ImGui::EndDisabled();
+	ImGui::EndDisabled();
+	if (!result.empty()) {
+		ImGui::TextWrapped("%s", result.c_str());
+	}
+	ImGui::PushTextWrapPos(0);
+	ImGui::TextDisabled("%s", tr("The item is added as one plain stack (no mods, full condition), as the game makes a new item. Keep the original save."));
+	ImGui::PopTextWrapPos();
+	ImGui::TreePop();
 }

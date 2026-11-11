@@ -752,6 +752,89 @@ namespace ess
 		return true;
 	}
 
+	RefID RefIDForFormSF(SaveFile& a_save, std::uint32_t a_formID)
+	{
+		RefID id;
+		if ((a_formID >> 24) == 0xFF) {
+			id.data = (2u << 22) | (a_formID & 0x3FFFFF);  // made in game
+			return id;
+		}
+		if (a_formID < 0x400000) {
+			id.data = (1u << 22) | a_formID;  // Starfield.esm, small enough to be written as it is
+			return id;
+		}
+		for (std::size_t i = 0; i < a_save.formIDs.size(); ++i) {
+			if (a_save.formIDs[i] == a_formID) {
+				id.data = static_cast<std::uint32_t>(i + 1);
+				return id;
+			}
+		}
+		if (a_save.formIDs.size() + 1 >= 0x400000) {
+			id.data = 3u << 22;  // (no room: invalid)
+			return id;
+		}
+		a_save.formIDs.push_back(a_formID);
+		id.data = static_cast<std::uint32_t>(a_save.formIDs.size());
+		return id;
+	}
+
+	bool AddInventoryItemSF(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_formID, std::uint32_t a_count, std::string* a_why)
+	{
+		auto why = [&](const char* m) {
+			if (a_why) {
+				*a_why = m;
+			}
+			return false;
+		};
+		const auto fid = a_save.formIDOf(a_cf.refID);
+		const auto r = DecodeReferenceSF(fid, a_cf);
+		if (!r.ok) {
+			return why("its data cannot be read");
+		}
+		if (!r.hasInventory) {
+			return why("the save keeps no inventory for it");
+		}
+		if (!a_count || !a_formID) {
+			return why("nothing to add");
+		}
+		for (const auto& it : r.items) {
+			if (it.refIndex < a_cf.sfRefs.size() && a_save.formIDOf(a_cf.sfRefs[it.refIndex]) == a_formID) {
+				return why("it already has that item: change its count instead");
+			}
+		}
+		const auto id = RefIDForFormSF(a_save, a_formID);
+		if (id.type() == RefID::Type::kInvalid) {
+			return why("the save's form table is full");
+		}
+		// the item count (vsval) at the start of the inventory, written again one higher (its width can grow)
+		Rd cnt{ a_cf.data, r.inventoryBegin };
+		const auto n = cnt.vsval();
+		const auto oldLen = cnt.p - r.inventoryBegin;
+		std::vector<std::uint8_t> nv;
+		const std::uint32_t v = (n + 1) << 2;
+		if (n + 1 < 0x40) {
+			nv = { static_cast<std::uint8_t>(v) };
+		} else if (n + 1 < 0x4000) {
+			nv = { static_cast<std::uint8_t>(v | 1), static_cast<std::uint8_t>(v >> 8) };
+		} else {
+			const std::uint32_t w = v | 2;
+			nv = { static_cast<std::uint8_t>(w), static_cast<std::uint8_t>(w >> 8), static_cast<std::uint8_t>(w >> 16), static_cast<std::uint8_t>(w >> 24) };
+		}
+		// the new item, as the game's own item constructor (0x14063e5c0 / 0x140646290) leaves it: one stack without extra
+		// data holding the count, +0x20 = 0, +0x24 = 0xFE (worked out by the game when it needs it, 0x1405280c0)
+		std::vector<std::uint8_t> item = { 1 << 2, 0 };
+		for (int k = 0; k < 4; ++k) {
+			item.push_back(static_cast<std::uint8_t>(a_count >> (8 * k)));
+		}
+		item.insert(item.end(), { 0, 0, 0, 0, 0xFE });
+		a_cf.data.insert(a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.inventoryEnd), item.begin(), item.end());
+		a_cf.data.erase(a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.inventoryBegin),
+			a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.inventoryBegin + oldLen));
+		a_cf.data.insert(a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.inventoryBegin), nv.begin(), nv.end());
+		a_cf.sfRefs.insert(a_cf.sfRefs.begin() + static_cast<std::ptrdiff_t>(r.inventoryRefEnd), id);
+		return true;
+	}
+
 	bool SetInventoryCountSF(ChangeForm& a_cf, const SfInventoryStack& a_stack, std::uint32_t a_count)
 	{
 		if (a_stack.countOffset + 4 > a_cf.data.size()) {

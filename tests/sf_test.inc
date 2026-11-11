@@ -187,6 +187,68 @@ void TestStarfield()
 					c.data = data0;
 					break;
 				}
+				// an item added to the player's inventory (one taken from another inventory of the save), written and read back
+				for (auto& c : s->changeForms) {
+					if (c.typeCode() != 1 || s->formIDOf(c.refID) != 0x14) {
+						continue;
+					}
+					const auto before = DecodeReferenceSF(0x14, c);
+					std::set<std::uint32_t> have;
+					for (const auto& it : before.items) {
+						have.insert(s->formIDOf(c.sfRefs[it.refIndex]));
+					}
+					std::uint32_t pick = 0;
+					for (const auto& o : s->changeForms) {
+						if (pick || o.typeCode() != 0 || o.version != 153 || !(o.changeFlags & 0x20)) {
+							continue;
+						}
+						const auto d = DecodeReferenceSF(s->formIDOf(o.refID), o);
+						for (const auto& it : d.items) {
+							const auto f = s->formIDOf(o.sfRefs[it.refIndex]);
+							if (!have.count(f) && (f >> 24) != 0xFF) {
+								pick = f;
+								break;
+							}
+						}
+					}
+					if (!pick) {
+						break;
+					}
+					const auto data0 = c.data;
+					const auto refs0 = c.sfRefs;
+					const auto ids0 = s->formIDs;
+					std::string why;
+					if (!AddInventoryItemSF(*s, c, pick, 5, &why)) {
+						fail("item not added: " + why);
+					}
+					Check(!AddInventoryItemSF(*s, c, pick, 5, &why), "sf inventory: the same item is not added twice");
+					const auto out = fs::temp_directory_path() / ("rs_sfadd_" + name);
+					try {
+						s->write(out, false);
+						auto back = SaveFile::load(out);
+						bool ok = false;
+						for (const auto& b : back->changeForms) {
+							if (b.typeCode() == 1 && back->formIDOf(b.refID) == 0x14) {
+								const auto a = DecodeReferenceSF(0x14, b);
+								ok = a.ok && a.items.size() == before.items.size() + 1 && back->formIDOf(b.sfRefs[a.items.back().refIndex]) == pick &&
+									 a.items.back().total() == 5 && b.sfRefs.size() == refs0.size() + 1;
+								for (std::size_t i = 0; ok && i < before.items.size(); ++i) {
+									ok = a.items[i].total() == before.items[i].total() &&
+										 back->formIDOf(b.sfRefs[a.items[i].refIndex]) == s->formIDOf(refs0[before.items[i].refIndex]);
+								}
+							}
+						}
+						Check(ok, "sf inventory: the added item reads back, the others as they were");
+					} catch (const std::exception& ex) {
+						fail(std::string("add item does not write: ") + ex.what());
+					}
+					std::error_code ec;
+					fs::remove(out, ec);
+					c.data = data0;
+					c.sfRefs = refs0;
+					s->formIDs = ids0;
+					break;
+				}
 				// the player renamed, written and read back: the record's first string and the header carry the new name
 				for (auto& c : s->changeForms) {
 					if (c.typeCode() != 9 || s->formIDOf(c.refID) != 0x7) {
