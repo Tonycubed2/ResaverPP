@@ -60,6 +60,12 @@ namespace ess::ops
 		if (const auto* s = p.findScript(a_script)) {
 			return IsScriptUndefined(p, *s);
 		}
+		// Starfield saves a script's definition only when an object of it (or of a script extending it) has saved data:
+		// in the 4 saves read, ~20,000 instances per save name a script not defined in the save and none of them has
+		// data. A missing definition says nothing there.
+		if (p.starfield) {
+			return false;
+		}
 		return !IsNativeScriptName(p.str(a_script));
 	}
 

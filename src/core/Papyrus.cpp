@@ -153,8 +153,11 @@ namespace ess
 		}
 
 		// Papyrus opcode argument counts (negative = that many fixed args + variable tail).
+		// 41 (ArrayRFindStruct) takes 5 like 40 (ArrayFindStruct): the opcode table in Fallout4.exe (name + operand
+		// descriptor per opcode; 1.10.163, 1.10.984 and 1.11.240 alike) gives both "SSQAI"; ReSaver had 3. Every other
+		// count matches that table (Starfield.exe's own table matches its save writer's decoder 0x14288b690 throughout).
 		constexpr int kOpcodeArgs[48] = {
-			0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 1, 2, 2, -3, -2, -3, 1, 3, 3, 3, 2, 2, 3, 3, 4, 4, 3, 1, 3, 3, 5, 3, 3, 3, 1, 3, 1, 6
+			0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 1, 2, 2, -3, -2, -3, 1, 3, 3, 3, 2, 2, 3, 3, 4, 4, 3, 1, 3, 3, 5, 5, 3, 3, 1, 3, 1, 6
 		};
 
 		Param ReadParam(Reader& r)
@@ -792,6 +795,17 @@ namespace ess
 				str(m.name);
 				str(m.type);
 			}
+			for (TStr g : sc.guards) {
+				str(g);
+			}
+		}
+		for (const auto& e : eventRelays) {  // Starfield
+			for (const auto& ev : e.events) {
+				str(ev.name);
+			}
+		}
+		for (const auto& l : pendingLatents) {
+			vars({ l.value });
 		}
 		for (const auto& sd : structs) {
 			str(sd.name);
@@ -877,6 +891,7 @@ namespace ess
 				v.push_back(x.id);
 			}
 			dups("reference", v);
+			dups("object data", objectDataOrder);  // Starfield
 			dups("reference data", referenceDataOrder);
 			v.clear();
 			for (const auto& a : arrays) {
@@ -898,11 +913,12 @@ namespace ess
 			dups("thread data", activeDataOrder);
 		}
 		std::size_t noData = 0;
+		// (Starfield saves data only for the objects that have some: an instance or reference without it is normal)
 		for (const auto& i : instances) {
-			noData += i.data ? 0 : 1;
+			noData += i.data || starfield ? 0 : 1;
 		}
 		for (const auto& x : references) {
-			noData += x.data ? 0 : 1;
+			noData += x.data || starfield ? 0 : 1;
 		}
 		for (const auto& a : arrays) {
 			noData += a.hasData ? 0 : 1;
@@ -921,6 +937,10 @@ namespace ess
 
 	void Papyrus::write(Writer& w) const
 	{
+		if (starfield) {
+			writeStarfield(w);  // PapyrusSF.cpp
+			return;
+		}
 		if (invalid) {
 			// the game's "flagged invalid" block goes back as it was; script data put into it would be ignored by
 			// the game, so it is refused instead of being lost without a word

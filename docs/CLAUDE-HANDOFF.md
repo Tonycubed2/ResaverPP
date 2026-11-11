@@ -938,6 +938,54 @@ project; you do the coding, building, delivering and publishing.
     the cursor) not tried. Syntax check: f1check/chk-uuid.sh (chk.sh plus -D__uuidof(x)=..., only because mingw's COM
     headers have no uuid declarations in MSVC mode; SaveDialog.cpp itself uses the named IIDs, not __uuidof).
 
+- **Starfield Papyrus** (2026-11-10, branch starfield-papyrus; the .sfs container/body/change forms, the game enum and the
+  GUI are the parallel branch starfield). `src/core/PapyrusSF.cpp` reads and writes global data type 1001 of a Starfield
+  save into the same `ess::Papyrus` model as Skyrim/Fallout 4, so the views, `check()` and the Ops.h edits work on it.
+  Source of truth: scratchpad `sf2/FORMAT.md` (writers read in Starfield.exe 1.16.244; disassembly in `sf2/disasm/`) and
+  the Python reference `sf2/tools/papyrus.py`.
+  - API: `Papyrus p; Reader r(data, size); p.readStarfield(r);` with r spanning exactly the 1001 data (the u32 size of the
+    global entry is the caller's). It sets `p.starfield = true` and the reader's width flags itself (u32 strings, u64
+    ids); the save's form version (110/153) is not needed. `p.write(w)` then writes the Starfield layout (it dispatches
+    on `starfield` to `writeStarfield`); the caller patches the entry's size. `p.gameVMVersion()` = 37 (1.9.71) / 38
+    (1.16.244). Free helpers: `ReadVariableSF` / `WriteVariableSF`, `WriteThreadDataSF` (size of one thread, as
+    `WriteThreadData` for SaveBloat). Header 0xFFFF (VM not frozen) = `invalid`, kept as read; any header other than 10
+    is refused (FormatError).
+  - Model mapping: strings, scripts (+ `Script::guards`), structs, instances (handle kind in `unknown2bits`, hi in
+    `unknown`; kinds 0..2: refID + flag in `unknownByte`; other kinds: the u32's bytes in refID + `unknownByte`, the flag
+    in `unknownFO4Byte`, i.e. Fallout 4's kind-3 layout), references, struct instances, arrays, threads (stacks). Object
+    data is ONE list (count first) of instances and references that have data (an instance without data is normal):
+    `InstanceData::flag` decides the fields (state unless 0x20, `unknown1` = lock count with 0x40, `unknown2` with 0x04,
+    `guards` with 0x80); the saved order is `objectDataOrder` (instance/reference orders are filled too). Threads:
+    major/minor = the two leading bytes, `unknownVar` = return value, `flag` (1: `unknown2` = caller stack, 2: the byte
+    after the frames = `unknown5`), `unknown3` = callback kind (0 none, 1 event callback: `fragment->typeCode` +
+    payload (QuestStage 6, SceneResults 3, ScenePhaseResults/SceneActionResults 7, TopicInfo/TerminalRunResults/
+    TerminalOpenView 0 bytes), 2 latent callback: payload u32+u8), both + `fragment->sfTail` u32; `attached` = the
+    object id (always). Function messages: `sfUnknown` u32, `flag`, `sfUnknownByte`, `id` (thread, always), `flags`
+    (has data). Freeze status = `unk1`/`unk2` as before, then `pendingLatents` and `freezeU32s`; ResetStatus =
+    `unknownIDs`; `unbinds`; `eventRelays` (handle + events with object ids); `guardGlobal1/2`; `tail` = GameVM part.
+  - Variables differ from Fallout 4 (None = type byte only, Bool = u8); opcodes 0..50 with 47 ArrayGetAllMatchingStructs,
+    48/49 Lock/UnlockGuards (variadic), 50 TryLockGuards; parameter type 9 is a string index. The counts are the
+    exe's opcode table (name + operand descriptor at 0x144a5a9c8), which matches the save writer's decoder 0x14288b690.
+  - Edits: when instances/references are deleted, `writeStarfield` drops their ids from the event relays (every relay
+    id in the 4 saves is a script instance) and drops an event / relay left empty by that (one that was empty stays).
+    Not adjusted: unbinds, thread `attached` ids and variables naming deleted objects (as for Fallout 4), pending latents
+    of deleted threads (none in any save: meaning of their id not proven).
+  - Ops.cpp: `IsInstanceUndefined` is false in a Starfield save when the script has no definition: the game writes a
+    definition only for scripts of objects with data (and their parents): ~20,000 instances per save name an undefined
+    script and none has data. (`IsMemberless`, a view filter, still flags instances without data whose script has
+    members; in Starfield that is normal.)
+  - Fallout 4 side effect (separate commit): opcode 41 ArrayRFindStruct takes 5 arguments (Fallout4.exe 1.10.163 /
+    1.10.984 / 1.11.240 opcode tables: "SSQAI"), ReSaver had 3.
+  - Tests: `rs_sfpap_test` (ctest `sf_papyrus`): synthetic section with every Starfield-only part, then
+    `RESAVERPP_SF_SAVES` (.sfs/.raw files or folders, `;`): it finds 1001 itself (test-only BCPS + body walk with miniz),
+    round trip must be byte-identical (all 4 saves in `sf2/saves`: yes), then 12 edits (delete instances incl. relay
+    ones, references, arrays, a script with guards, terminate/remove all threads, remove a function message, stranded
+    threads, unbinds, unattached, undefined, data added to a dataless instance) each written, re-read, `check()`-clean and
+    rewritten identically. `RESAVERPP_SF_SAVES=../sf2/saves ./rs_sfpap_test` from a scratchpad build dir (11 s).
+  - Unknown / not modelled: the GameVM part (raw), meaning of object data flags 0x02/0x08, `sfUnknown`/`sfUnknownByte`,
+    `freezeU32s`, guard lists, `guardGlobal*`; u16 string-index mode of the writers (never seen; not supported). Only
+    writers were read: the game's loader has not been checked against an edited save.
+
 ## 2. Where things are
 
 - GitHub: `Tonycubed2/ResaverPP` (public), branch `main`. Other threads also push here, so ALWAYS
@@ -1049,6 +1097,7 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
 ## 8. Code map (src/)
 
 - `core/Save.*`, `core/Papyrus.*`, `core/ChangeFormData.*`: save reading/writing. Round trip must be byte-identical.
+  `core/PapyrusSF.cpp`: Starfield's Papyrus section in the same model (section 1, "Starfield Papyrus").
   Note: an active script thread whose first frame is native (fnFlags & 2) has no trailing unknown5 byte
   (fixed in v35; the reader looks ahead and seeks back).
 - `core/PluginDB.*` (plugin records, names, `ofType`), `core/LoadOrder.*` (plugins.txt: SE uses `*` marks;
