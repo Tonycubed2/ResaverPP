@@ -31,8 +31,8 @@ namespace ess::loadorder
 	// Starfield: what the game loads next time and where the plugin files are.
 	//  - its own files (StarfieldBaseFiles: the ones the save does not mark as Creations) are always loaded: Tony's install
 	//    has no plugins.txt and its saves list exactly those 14;
-	//  - %LOCALAPPDATA%\Starfield\plugins.txt, when there is one: lines with '*' are enabled (the format Fallout 4 uses;
-	//    NOT seen on a real install: [U]);
+	//  - %LOCALAPPDATA%\Starfield\plugins.txt, when there is one: lines with '*' are enabled (Starfield.exe's reader
+	//    0x140425310; whether unmarked lines load is [U]); plugins Data\Starfield.ccc names (format [U]);
 	//  - a plugin whose file is in none of the Data folders (the game's Data, then Documents\My Games\Starfield\Data) is
 	//    not loaded.
 	struct StarfieldOrder

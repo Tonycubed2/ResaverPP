@@ -2,7 +2,8 @@
 // Starfield plugins for names (PluginDB::load with Input::sf): editor ID, display name, record type, and the base object of
 // the placed references the save mentions.
 //
-// What was checked on Starfield 1.16.244's own files (Tony's install, docs/CLAUDE-HANDOFF.md "Starfield names"):
+// What was checked on Starfield 1.16.244's own files (Tony's install, docs/CLAUDE-HANDOFF.md "Starfield names"), and
+// confirmed by the game's own plugin loader (scratchpad sf2/LOADER.md section 5: Starfield.exe 0x1405b8653, 0x1405b62a0):
 //  - records, groups and subrecords are Fallout 4's (24-byte headers, flag 0x40000 = u32 size + zlib, XXXX for long
 //    subrecords); TES4 flags 0x80 localized, 0x100 light, 0x400 medium (SFBGS003 / SFBGS006, the save's 2 medium plugins);
 //  - FORM IDS INSIDE A PLUGIN: the top byte is not a plain master index. 00..FC = index among the plugin's FULL masters
@@ -515,16 +516,23 @@ namespace ess
 		std::uint64_t doneBytes = 0;
 
 		// a master's kind: from the save's lists; one the save does not have (cannot load, but read the file then)
-		auto masterSlot = [&](const std::string& a_master, Kind& a_kind) -> const Slot* {
+		// (Starfield.exe 0x1405b70ac: ".esl" forces light unless 0x200; 0x200 is cleared with 0x100 / 0x400 or no masters)
+		auto masterSlot = [&](const std::string& a_master, Kind& a_kind, bool& a_overlay) -> const Slot* {
+			a_overlay = false;
 			if (auto it = slots.find(Lower(a_master)); it != slots.end()) {
 				a_kind = it->second.kind;
 				return &it->second;
 			}
-			a_kind = Kind::kFull;
-			if (auto it = files.find(Lower(a_master)); it != files.end()) {
+			const auto low = Lower(a_master);
+			a_kind = low.ends_with(".esl") ? Kind::kLight : Kind::kFull;
+			if (auto it = files.find(low); it != files.end()) {
 				Stream s(it->second);
 				const auto h = ReadHeader(s);
 				a_kind = (h.flags & 0x100) ? Kind::kLight : (h.flags & 0x400) ? Kind::kMedium : Kind::kFull;
+				a_overlay = (h.flags & 0x200) && !(h.flags & 0x500) && !h.masters.empty();
+				if (low.ends_with(".esl") && !a_overlay) {
+					a_kind = Kind::kLight;
+				}
 			}
 			return nullptr;
 		};
@@ -559,11 +567,19 @@ namespace ess
 				std::vector<const Slot*> fullM, lightM, mediumM;
 				for (const auto& m : hdr.masters) {
 					Kind k;
-					const auto* s = masterSlot(m, k);
+					bool overlay = false;
+					const auto* s = masterSlot(m, k, overlay);
+					if (overlay) {
+						continue;  // (0x200: not counted among the full masters; the exe's wording is [U] about where they go)
+					}
 					(k == Kind::kLight ? lightM : k == Kind::kMedium ? mediumM : fullM).push_back(s);
 				}
 				// (null in a list: a master the save does not load; ids of it resolve to nothing)
 				auto toRuntime = [&](std::uint32_t raw, std::uint32_t& out) {
+					if (raw >= 1 && raw <= 0x7FF) {  // (the exe: ids 1..0x7FF are absolute, the engine's own forms)
+						out = raw;
+						return true;
+					}
 					const auto top = raw >> 24;
 					const Slot* s = nullptr;
 					if (top == 0xFE) {
