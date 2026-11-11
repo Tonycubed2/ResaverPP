@@ -1297,7 +1297,7 @@ void App::drawMenu()
 			_homePanel = false;
 		}
 		tips::Tip(tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."));
-		ImGui::MenuItem(tr("Find NPCs (where they are, bring one to you)..."), nullptr, &_showActors, !fo4() && !sf());
+		ImGui::MenuItem(tr("Find NPCs (where they are, bring one to you)..."), nullptr, &_showActors, !fo4());
 		if (fo4()) {
 			ImGui::MenuItem(tr("Settlements (build budget)..."), nullptr, &_showSettlements);
 			tips::Tip(tr("Every settlement with its build budget, population and happiness; reset the used budget of a settlement whose "

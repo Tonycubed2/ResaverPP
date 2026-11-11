@@ -113,6 +113,7 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kPapyrusLog:
 	case Sc::kSavesMgr:
 	case Sc::kLeftovers:  // (cf::ListInventories / RemoveInventoryItems read Starfield's inventories)
+	case Sc::kActors:     // (cf::ListActors reads Starfield's positions; Move to me is not for Starfield yet)
 	// Starfield's own versions
 	case Sc::kPlayer:  // the character (NPC_ 7): name, level and XP, face
 	case Sc::kQuests:  // the quests window
@@ -130,8 +131,6 @@ const char* App::SfNotYet(Sc a_which)
 	case Sc::kOrphans:
 		return N_("Not for Starfield saves yet: Starfield keeps many objects made in play (ships, outposts) in another part of the save, so a "
 				  "script on one of them can look orphaned when it is not.");
-	case Sc::kActors:
-		return N_("Not for Starfield saves yet: it reads Skyrim's actor data.");
 	case Sc::kHavok:
 		return N_("Not for Starfield saves yet: Starfield's physics data is laid out differently.");
 	case Sc::kPurify:

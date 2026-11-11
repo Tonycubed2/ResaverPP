@@ -5358,6 +5358,31 @@ namespace ess::cf
 	std::vector<ActorPlace> ListActors(const SaveFile& a_save)
 	{
 		std::vector<ActorPlace> out;
+		if (a_save.isSF()) {
+			// Starfield: the reference part's initial data (DecodeReferenceSF); the position is read before anything that
+			// could stop the decoder, so actors whose later parts are not read keep theirs
+			for (const auto& c : a_save.changeForms) {
+				if (c.typeCode() != 1 || c.version != 153) {
+					continue;
+				}
+				ActorPlace a;
+				a.refRaw = c.refID.data;
+				a.formID = a_save.formIDOf(c.refID);
+				a.isPlayer = a.formID == 0x14;
+				const auto r = DecodeReferenceSF(a.formID, c);
+				auto refAt = [&](std::size_t i) { return i < c.sfRefs.size() ? a_save.formIDOf(c.sfRefs[i]) : 0u; };
+				if (r.hasPosition) {
+					a.hasPosition = true;
+					a.cell = refAt(r.cellRef);
+					std::memcpy(a.pos, r.pos, 12);
+					std::memcpy(a.rot, r.rot, 12);
+					a.baseObject = r.baseRef != SIZE_MAX ? refAt(r.baseRef) : 0;
+					a.startCell = r.startCellRef != SIZE_MAX ? refAt(r.startCellRef) : 0;
+				}
+				out.push_back(a);
+			}
+			return out;
+		}
 		for (const auto& c : a_save.changeForms) {
 			if (static_cast<ChangeFormType>(c.typeCode()) != ChangeFormType::ACHR) {
 				continue;
@@ -5401,6 +5426,9 @@ namespace ess::cf
 
 	std::string MoveActorToPlayer(SaveFile& a_save, ChangeForm& a_cf)
 	{
+		if (a_save.isSF()) {
+			return "not for Starfield saves yet: moving an actor also needs its saved AI reset, and Starfield's AI data is not decoded yet";
+		}
 		if (static_cast<ChangeFormType>(a_cf.typeCode()) != ChangeFormType::ACHR) {
 			return "this is not an actor";
 		}

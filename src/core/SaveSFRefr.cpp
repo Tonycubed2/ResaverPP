@@ -587,14 +587,26 @@ namespace ess
 			return n ? n : 0xFFFFFFFFu;
 		}
 
-		void Position(Rd& r)
+		void Position(Rd& r, SfReferenceData* a_out = nullptr)
 		{
 			// 0x141835450: u8 flags, FORMID cell, 3 x f32, a f32 per rotation bit 0..2, then one byte unless bit 3 or 4
 			const auto fl = r.u8();
+			if (a_out) {
+				a_out->hasPosition = true;
+				a_out->cellRef = r.refs;
+			}
 			r.fid();
+			r.need(12);
+			if (a_out) {
+				std::memcpy(a_out->pos, r.d.data() + r.p, 12);
+			}
 			r.skip(12);
 			for (int k = 0; k < 3; ++k) {
 				if (fl & (1 << k)) {
+					r.need(4);
+					if (a_out) {
+						std::memcpy(&a_out->rot[k], r.d.data() + r.p, 4);
+					}
 					r.skip(4);
 				}
 			}
@@ -656,16 +668,18 @@ namespace ess
 			// 1. initial data (0x141832fd0)
 			switch (InitialDataTypeSF(a_formID, code, f)) {
 			case 5:
-				Position(r);
+				Position(r, &out);
+				out.baseRef = r.refs;
 				r.fid();
 				break;
 			case 6:
-				Position(r);
+				Position(r, &out);
+				out.startCellRef = r.refs;
 				r.fid();
 				r.skip(4);
 				break;
 			case 4:
-				Position(r);
+				Position(r, &out);
 				break;
 			case 7:
 				r.fid();

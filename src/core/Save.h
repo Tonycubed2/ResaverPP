@@ -217,6 +217,11 @@ namespace ess
 		std::size_t   inventoryBegin = 0, inventoryEnd = 0;  // bytes
 		std::size_t   inventoryRefBegin = 0, inventoryRefEnd = 0;  // indices into sfRefs
 		std::size_t   referenceEnd = 0, referenceRefs = 0, referenceStrings = 0;
+		// where it is (initial data types 4, 5, 6): the cell or worldspace is sfRefs[cellRef]; type 5 names its base
+		// (sfRefs[baseRef]), type 6 the cell its plugin put it in (sfRefs[startCellRef]); SIZE_MAX when not saved
+		bool          hasPosition = false;
+		std::size_t   cellRef = SIZE_MAX, baseRef = SIZE_MAX, startCellRef = SIZE_MAX;
+		float         pos[3]{}, rot[3]{};
 		std::uint32_t components = 0;  // component data (0x1421592f0): its component count; 0 none; 0xFFFFFFFF present, no component
 		std::vector<SfInventoryItem> items;
 	};

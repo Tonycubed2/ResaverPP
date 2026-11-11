@@ -176,7 +176,7 @@ void App::drawActors()
 				tips::Tip(tr("Open this actor's change form: its saved data, extra data and the NPC fixes."));
 				if (!r.place.isPlayer) {
 					ImGui::SameLine();
-					ImGui::BeginDisabled(!r.place.hasPosition);
+					ImGui::BeginDisabled(!r.place.hasPosition || sf());
 					if (ImGui::SmallButton(tr("Move to me"))) {
 						const auto raw = r.place.refRaw;
 						const auto name = r.name;
@@ -200,7 +200,10 @@ void App::drawActors()
 							});
 					}
 					ImGui::EndDisabled();
-					if (r.place.hasPosition) {
+					if (sf()) {
+						tips::Tip(tr("Not for Starfield saves yet: moving an actor also needs its saved AI reset, and Starfield's AI data is not "
+								  "decoded yet. In game: open the console, type prid followed by its form id, then moveto player."));
+					} else if (r.place.hasPosition) {
 						tips::Tip(tr("Put this actor in front of you and reset its AI. For a lost or stuck follower."));
 					} else {
 						tips::Tip(tr("The game never moved this actor, so the save has no position to change. In game: open the console, "
