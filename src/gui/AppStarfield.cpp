@@ -336,6 +336,11 @@ void App::drawHomeSF()
 		}
 	}
 	tips::Tip(tr("Your character's saved record: the name (editable)."));
+	static bool testShips = std::getenv("RESAVERPP_TEST_SFSHIPS") != nullptr;  // screenshots: opens the ships window
+	if (ImGui::Button(tr("Ships..."), ImVec2(w, 0)) || std::exchange(testShips, false)) {
+		_showShipsSF = true;
+	}
+	tips::Tip(tr("Every ship and station the save keeps, with its cargo: open one to change or add cargo."));
 	if (sfPapyrus()) {
 		if (ImGui::Button(trc("home", "Remove unattached instances"), ImVec2(w, 0))) {
 			shortcut(Sc::kRemoveUnattached);
@@ -1079,4 +1084,118 @@ void App::drawAddItemSF(const RefID& a_ref)
 	ImGui::TextDisabled("%s", tr("The item is added as one plain stack (no mods, full condition), as the game makes a new item. Keep the original save."));
 	ImGui::PopTextWrapPos();
 	ImGui::TreePop();
+}
+
+// the ships (and stations) the save keeps: references whose base object is a GBFM (ships, starstations: read from the
+// plugins), and references with component data whose base was made in play (ships built or changed in the ship
+// builder; their base is not in any plugin). Their inventory is their cargo.
+void App::drawShipsSF()
+{
+	struct Row
+	{
+		RefID         ref;
+		std::uint32_t fid = 0, base = 0;
+		std::string   name;
+		std::size_t   items = 0;
+		std::uint64_t total = 0;
+		bool          built = false, readable = false;
+	};
+	static const ess::SaveFile* rowsFor = nullptr;
+	static std::uint64_t        rowsGen = UINT64_MAX;
+	static std::vector<Row>     rows;
+	ImGui::SetNextWindowSize(ImVec2(820, 520), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin(trId("Ships"), &_showShipsSF, ImGuiWindowFlags_NoCollapse)) {
+		ImGui::End();
+		return;
+	}
+	const auto& s = *_save;
+	if (!_db || !_db->loaded()) {
+		ImGui::PushTextWrapPos(0);
+		ImGui::TextDisabled("%s", tr("Needs the names from your plugins to tell ships from other objects: Tools > Read plugin names (the Starfield folder "
+									 "must be set in Options > Settings)."));
+		ImGui::PopTextWrapPos();
+		ImGui::End();
+		return;
+	}
+	if (rowsFor != _save.get() || rowsGen != static_cast<std::uint64_t>(_editGen)) {
+		rowsFor = _save.get();
+		rowsGen = static_cast<std::uint64_t>(_editGen);
+		rows.clear();
+		for (const auto& c : s.changeForms) {
+			if (c.typeCode() != 0 || c.version != 153) {
+				continue;
+			}
+			const auto fid = s.formIDOf(c.refID);
+			std::uint32_t base = 0;
+			if (const auto* f = _db->find(fid); f && f->base) {
+				base = f->base;
+			} else {
+				for (const auto& b : BaseObjectsSF(fid, c)) {
+					base = s.formIDOf(b);
+					break;
+				}
+			}
+			const auto* bf = base ? _db->find(base) : nullptr;
+			const bool  gbfm = bf && _db->type(*bf) == "GBFM";
+			const bool  maybeBuilt = !bf && (base >> 24) == 0xFF;
+			if (!gbfm && !maybeBuilt) {
+				continue;
+			}
+			const auto d = DecodeReferenceSF(fid, c);
+			if (!gbfm && !d.components) {
+				continue;  // (a made-in-play base without component data: not a ship)
+			}
+			Row r;
+			r.ref = c.refID;
+			r.fid = fid;
+			r.base = base;
+			r.built = !gbfm;
+			r.readable = d.ok;
+			r.items = d.items.size();
+			for (const auto& it : d.items) {
+				r.total += it.total();
+			}
+			r.name = gbfm ? _db->name(*bf) : std::string();
+			if (r.name.empty()) {
+				r.name = gbfm ? _db->describe(base) : tr("(built or changed in the ship builder)");
+			}
+			rows.push_back(std::move(r));
+		}
+		std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.items > b.items; });
+	}
+	ImGui::TextWrapped(tr("%zu ships and stations. Open one to see and change its cargo (its inventory), or add to it."), rows.size());
+	if (ImGui::BeginTable("##ships", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable,
+			ImVec2(0, -1))) {
+		ImGui::TableSetupScrollFreeze(0, 1);
+		ImGui::TableSetupColumn(tr("Ship"), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(tr("Reference"), ImGuiTableColumnFlags_WidthFixed, 80);
+		ImGui::TableSetupColumn(tr("Cargo items"), ImGuiTableColumnFlags_WidthFixed, 90);
+		ImGui::TableSetupColumn(tr("Total"), ImGuiTableColumnFlags_WidthFixed, 90);
+		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70);
+		ImGui::TableHeadersRow();
+		for (std::size_t i = 0; i < rows.size(); ++i) {
+			const auto& r = rows[i];
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(r.name.c_str());
+			ImGui::TableNextColumn();
+			ImGui::Text("%08X", r.fid);
+			ImGui::TableNextColumn();
+			if (r.readable) {
+				ImGui::Text("%zu", r.items);
+			} else {
+				ImGui::TextDisabled("%s", tr("not read"));
+			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%llu", static_cast<unsigned long long>(r.total));
+			ImGui::TableNextColumn();
+			ImGui::PushID(static_cast<int>(i));
+			if (ImGui::SmallButton(tr("Open"))) {
+				select(Cat::kChangeForms, r.ref.data);
+			}
+			ImGui::PopID();
+		}
+		ImGui::EndTable();
+	}
+	ImGui::End();
 }

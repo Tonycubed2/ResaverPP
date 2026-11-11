@@ -511,10 +511,10 @@ namespace ess
 		}
 
 		// 0x1421592f0: the reference's component data (ships, outposts, ...): u8 has; then the components
-		void Components(Rd& r)
+		std::uint32_t Components(Rd& r)
 		{
 			if (!r.u8()) {
-				return;
+				return 0;
 			}
 			const auto n = r.count(r.u32(), 5);
 			r.fid(n);
@@ -553,6 +553,7 @@ namespace ess
 				r.skip(4);
 			}
 			r.u8();
+			return n ? n : 0xFFFFFFFFu;
 		}
 
 		void Position(Rd& r)
@@ -684,7 +685,7 @@ namespace ess
 			if (f & 0x10000000u) {
 				Block(r);
 			}
-			Components(r);
+			out.components = Components(r);
 			out.referenceEnd = r.p;
 			out.referenceRefs = r.refs;
 			if (actor) {

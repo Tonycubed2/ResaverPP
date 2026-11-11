@@ -212,6 +212,7 @@ namespace ess
 		std::size_t   inventoryBegin = 0, inventoryEnd = 0;  // bytes
 		std::size_t   inventoryRefBegin = 0, inventoryRefEnd = 0;  // indices into sfRefs
 		std::size_t   referenceEnd = 0, referenceRefs = 0;
+		std::uint32_t components = 0;  // component data (0x1421592f0): its component count; 0 none; 0xFFFFFFFF present, no component
 		std::vector<SfInventoryItem> items;
 	};
 	SfReferenceData DecodeReferenceSF(std::uint32_t a_formID, const ChangeForm& a_cf);

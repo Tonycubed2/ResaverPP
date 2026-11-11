@@ -320,6 +320,7 @@ private:
 	struct CosaveView;
 	std::shared_ptr<CosaveView> _cosaveView;
 	bool                        _showCosave = false;
+	bool                        _showShipsSF = false;  // Starfield: the ships window (AppStarfield.cpp)
 	CosaveView&                 cosaveView();  // read again when the save or its edits change; the DLL search runs on its own thread
 	void                        drawCosave();
 	void                        drawCosaveSF();  // Starfield: the .sfse is only kept (AppCosave.cpp)
@@ -753,6 +754,7 @@ private:
 	bool        sfPapyrus() const;                             // ... and its script data is read
 	std::string sfBaseName(std::uint32_t a_formID, const ess::ChangeForm& a_cf) const;  // (AppStarfield.cpp)
 	void        drawAddItemSF(const ess::RefID& a_ref);  // (AppStarfield.cpp)
+	void        drawShipsSF();                           // (AppStarfield.cpp)
 	static bool SfAllowed(Sc a_which, bool a_papyrus);         // the shortcuts that work on a Starfield save
 	void        drawCategoriesSF();
 	void        drawOverviewSF();

@@ -65,7 +65,8 @@ int StarfieldMain(int argc, char** argv)
 	}
 	const std::string in = argv[1];
 	std::string       out, formsType;
-	bool              quests = false;
+	bool              quests = false, components = false;
+	std::uint32_t     inventoryOf = 0;
 	bool              describe = false, forms = false, report = false, unattached = false, undefined = false, termUndef = false;
 	std::set<std::uint32_t> deleteForms;
 	// names (--game / --data) and mods no longer installed
@@ -87,6 +88,10 @@ int StarfieldMain(int argc, char** argv)
 			out = next();
 		} else if (a == "--describe") {
 			describe = true;
+		} else if (a == "--components") {
+			components = true;
+		} else if (a == "--inventory") {
+			inventoryOf = static_cast<std::uint32_t>(std::strtoul(next().c_str(), nullptr, 16));
 		} else if (a == "--quests") {
 			quests = true;
 		} else if (a == "--forms") {
@@ -146,7 +151,7 @@ int StarfieldMain(int argc, char** argv)
 				"%s: not available for Starfield saves (they support: -o <out.sfs>, --describe, --report, --check, --forms [TYPE], --delete-form <form id>, "
 				"--remove-unattached, --remove-undefined, --terminate-undefined, --remove-stranded-threads, --clear-floods, --remove-retyped, "
 				"--game <Starfield folder> | --data <Data folder>, --names, "
-				"--name <form id>, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
+				"--name <form id>, --inventory <form id>, --components, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
 				a.c_str());
 			return 1;
 		}
@@ -216,6 +221,47 @@ int StarfieldMain(int argc, char** argv)
 			for (const auto id : nameIDs) {
 				const auto* f = db->find(id);
 				std::printf("%08X  %s  (%s)\n", id, db->describe(id).c_str(), f ? db->pluginName(*f).c_str() : save->pluginOf(id).c_str());
+			}
+		}
+		auto baseOf = [&](std::uint32_t a_fid, const ChangeForm& c) -> std::uint32_t {
+			if (db) {
+				if (const auto* f = db->find(a_fid); f && f->base) {
+					return f->base;
+				}
+			}
+			for (const auto& b : BaseObjectsSF(a_fid, c)) {
+				return save->formIDOf(b);
+			}
+			return 0;
+		};
+		if (components) {
+			// every reference with component data (ships, outposts...): its base and the base's record type
+			for (const auto& c : save->changeForms) {
+				if (c.typeCode() > 1 || c.version != 153) {
+					continue;
+				}
+				const auto fid = save->formIDOf(c.refID);
+				const auto r = DecodeReferenceSF(fid, c);
+				if (!r.ok || !r.components) {
+					continue;
+				}
+				const auto  b = baseOf(fid, c);
+				const auto* bf = db && b ? db->find(b) : nullptr;
+				std::printf("%08X  %s  components %u  items %zu  base %08X %s  %s\n", fid, save->cfTypeName(c), r.components == 0xFFFFFFFFu ? 0u : r.components,
+					r.items.size(), b, bf ? db->type(*bf).c_str() : "????", db ? (db->describe(fid) + " / " + db->describe(b)).c_str() : "");
+			}
+		}
+		if (inventoryOf) {
+			for (const auto& c : save->changeForms) {
+				if (c.typeCode() > 1 || save->formIDOf(c.refID) != inventoryOf) {
+					continue;
+				}
+				const auto r = DecodeReferenceSF(inventoryOf, c);
+				std::printf("%08X: %s, %zu items\n", inventoryOf, r.ok ? "read" : ("not read: " + r.error).c_str(), r.items.size());
+				for (const auto& it : r.items) {
+					const auto f = it.refIndex < c.sfRefs.size() ? save->formIDOf(c.sfRefs[it.refIndex]) : 0;
+					std::printf("  %08X  x%llu  (%zu stacks)  %s\n", f, static_cast<unsigned long long>(it.total()), it.stacks.size(), db ? db->describe(f).c_str() : "");
+				}
 			}
 		}
 		if (quests) {
