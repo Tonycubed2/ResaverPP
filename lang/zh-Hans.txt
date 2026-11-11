@@ -14015,3 +14015,33 @@ tr ""
 
 en "could not be marked as done (nothing else was changed)"
 tr ""
+
+en "marked as done; its last stage was not run (it would move you or play a scene)"
+tr ""
+
+en "! Quests whose stage would move you or play a scene (not run)"
+tr ""
+
+en "Tick everything that can be brought over (things whose mod is not in the game stay unticked, and so do quest stages that would move you or play a scene)."
+tr ""
+
+en "run its last stage anyway (risky)"
+tr ""
+
+en "Run the quest's last stage in the game after all, for its rewards and follow-up quests. It does what the line below says (moves you, plays a scene...), which a transplant should not repeat. Unticked: the quest is only marked as done."
+tr ""
+
+en "Its stage would: "
+tr ""
+
+en "Stage not checked: "
+tr ""
+
+en "Not given / not started when only marked as done: "
+tr ""
+
+en "Tick everything in this group (not the quest stages that would move you or play a scene)."
+tr ""
+
+en "Checking what each quest's stage does (reading your plugins and scripts)..."
+tr ""

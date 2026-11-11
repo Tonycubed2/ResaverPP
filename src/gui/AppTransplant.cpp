@@ -13,12 +13,14 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <map>
 #include <set>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 
 using namespace ess;
 namespace tp = ess::transplant;
@@ -363,6 +365,7 @@ void App::transplantStep()
 	const bool  complete = ch.complete;
 	const bool  journalOnly = ch.journalOnly;
 	const bool  markOnly = ch.markOnly;  // the Helgen intro: never started or staged, only marked completed
+	const bool  safeMark = ch.safeMark();  // its last stage would move the player / play a scene: only marked completed
 	const bool  markRefused = _tpMarkRefused && complete;  // only quests completed in the bad save
 	const bool  before = !q->objectives.empty() && helperAtLeast(9);
 	// after the stage / mark: show the quest's objectives as the bad save had them, so the journal lists it
@@ -376,7 +379,7 @@ void App::transplantStep()
             done(a_ok || ok, a_why + (a_why.empty() ? "" : ", ") + (ok ? tr("objectives shown in the journal") : tr("objectives not shown: ") + LiveLink::Field(r, 1)));
         });
 	};
-	auto        run = [this, q, complete, markRefused, journalOnly, markOnly, before, shown, done](std::uint32_t a_id) {
+	auto        run = [this, q, complete, markRefused, journalOnly, markOnly, safeMark, before, shown, done](std::uint32_t a_id) {
         const int stage = complete ? completionStageOf(*q) : q->stage;
         // marks the quest completed: no stage script, no rewards, follow-up quests not started
         auto      mark = [this, a_id, shown](const std::string& a_before) {
@@ -420,6 +423,16 @@ void App::transplantStep()
             _live.request({ "COMPLETE", Fmt("%08X", a_id), "none", "" }, [done](const LiveLink::Reply& r) {
                 const bool ok = LiveLink::Ok(r) && LiveLink::Field(r, 0) != "0";
                 done(ok, ok ? tr("marked as done, its scenes not played") : tr("could not be marked as done (nothing else was changed)"));
+            });
+            return;
+        }
+        if (safeMark) {
+            // CompleteQuest only (no start, no stage: SkyrimSE.exe's CompleteQuest runs no stage), then the objectives are written
+            // into the journal list directly (questobj without "start": no Papyrus runs)
+            _live.request({ "COMPLETE", Fmt("%08X", a_id), "none", "" }, [shown](const LiveLink::Reply& r) {
+                const bool ok = LiveLink::Ok(r) && LiveLink::Field(r, 0) != "0";
+                shown(ok, ok ? tr("marked as done; its last stage was not run (it would move you or play a scene)")
+                             : tr("could not be marked as done (nothing else was changed)"));
             });
             return;
         }
@@ -591,6 +604,9 @@ std::string App::transplantGroup(const tp::Change& a_ch) const
 	}
 	if (a_ch.cat == tp::Category::kLook || a_ch.cat == tp::Category::kAppearance) {
 		return {};
+	}
+	if (a_ch.quest && a_ch.stageCheck == tp::Change::StageCheck::kUnsafe) {
+		return tr("! Quests whose stage would move you or play a scene (not run)");
 	}
 	if (a_ch.quest) {
 		return a_ch.background ? tr("~ Background quests (not in the journal): normally leave these unticked") : a_ch.quest->plugin;
@@ -765,6 +781,68 @@ void App::drawTransplant()
 		_tpResults.clear();
 		_tpDirty = false;
 	}
+	if (const char* f = std::getenv("RESAVERPP_TEST_TPFILTER"); f && !_tpFilter[0]) {
+		std::snprintf(_tpFilter, sizeof(_tpFilter), "%s", f);  // (test) filter the list, which opens the groups
+	}
+	// what each quest's stage would do in the game: checked once the plugins and scripts are read (StageSafety.h)
+	bool stagesPending = false;
+	if (!_tpRunning && _tpBad.valid && _tpGood.valid) {
+		const std::string noPlugins = "the plugins are not read (open a save of this character in ReSaver Plus first)";
+		for (const auto& c : _tpChanges) {
+			stagesPending |= c.quest && !c.markOnly &&
+			                 (c.stageCheck == tp::Change::StageCheck::kNotAsked || (_db && _save && c.stageCheck == tp::Change::StageCheck::kNotChecked && c.stageWhy == noPlugins));
+		}
+		const bool dbReady = _db && _save;
+		if (stagesPending && (dbReady ? ensureSourcesScanned() : !namesLoading())) {
+			std::map<std::pair<std::string, std::uint32_t>, std::uint32_t> idOf;  // (plugin, local) -> form ID in the open save's load order
+			if (dbReady) {
+				for (const auto& [id, def] : _db->questDefs()) {
+					const auto local = (id >> 24) == 0xFE ? (id & 0xFFF) : (id & 0xFFFFFF);
+					idOf[{ Lower(_save->pluginOf(id)), local }] = id;
+				}
+			}
+			std::map<std::string, std::unique_ptr<pex::File>> scripts;  // read once for all the quests
+			stagesafety::Env                                  env;
+			if (dbReady) {
+				env.quest = [this](std::uint32_t id) { return _db->quest(id); };
+				env.script = [this, &scripts](const std::string& a_name) -> const pex::File* {
+					const auto key = Lower(a_name);
+					if (auto it = scripts.find(key); it != scripts.end()) {
+						return it->second.get();
+					}
+					auto& slot = scripts[key];
+					if (const auto px = _sources->findPex(a_name)) {
+						slot = std::make_unique<pex::File>(pex::Read(ScriptSources::readPex(*px)));
+					}
+					return slot.get();
+				};
+			}
+			// a few at a time (each reads its scripts from the mods' archives): the window keeps drawing meanwhile
+			const auto   start = std::chrono::steady_clock::now();  // (ImGui::GetTime() stays the same for a whole frame)
+			bool         more = false;
+			for (auto& c : _tpChanges) {
+				const bool todo = c.quest && !c.markOnly &&
+				                  (c.stageCheck == tp::Change::StageCheck::kNotAsked || (dbReady && c.stageCheck == tp::Change::StageCheck::kNotChecked && c.stageWhy == noPlugins));
+				if (!todo) {
+					continue;
+				}
+				if (std::chrono::steady_clock::now() - start > std::chrono::milliseconds(50)) {
+					more = true;
+					break;
+				}
+				stagesafety::Report r;
+				if (!dbReady) {
+					r.notChecked = noPlugins;
+				} else if (auto it = idOf.find({ Lower(c.quest->plugin), c.quest->local }); it == idOf.end()) {
+					r.notChecked = "the quest is not in the plugins read for the open save";
+				} else {
+					r = stagesafety::Check(it->second, tp::StageToRun(c, completionStageOf(*c.quest)), tp::StartsQuest(c, _tpGood), env);
+				}
+				tp::ApplyStageCheck(c, r);
+			}
+			stagesPending = more;
+		}
+	}
 	if (!_tpBad.valid || !_tpGood.valid) {
 		if (_tpBad.valid) {
 			ImGui::SeparatorText(tr("What the bad save has (this is what can be brought over)"));
@@ -801,10 +879,11 @@ void App::drawTransplant()
 	ImGui::BeginDisabled(_tpRunning);
 	if (ImGui::SmallButton(tr("Tick everything"))) {
 		for (auto& c : _tpChanges) {
-			c.tick = c.available;
+			c.tick = c.available && !(c.stageCheck == tp::Change::StageCheck::kUnsafe && !c.complete);
 		}
 	}
-	tips::Tip(tr("Tick everything that can be brought over (things whose mod is not in the game stay unticked)."));
+	tips::Tip(tr("Tick everything that can be brought over (things whose mod is not in the game stay unticked, and so do quest stages that "
+				 "would move you or play a scene)."));
 	ImGui::SameLine();
 	if (ImGui::SmallButton(tr("Untick everything"))) {
 		for (auto& c : _tpChanges) {
@@ -843,10 +922,31 @@ void App::drawTransplant()
 			ImGui::SameLine();
 			ImGui::TextDisabled("%s", ch.detail.c_str());
 		}
+		if (ch.stageCheck == tp::Change::StageCheck::kUnsafe && ch.complete) {
+			ImGui::SameLine(0, 16);
+			ImGui::BeginDisabled(!ch.available || _tpRunning);
+			if (ImGui::Checkbox(tr("run its last stage anyway (risky)"), &ch.runStage)) {
+				tp::RelabelStageCheck(ch);
+			}
+			ImGui::EndDisabled();
+			tips::Tip(tr("Run the quest's last stage in the game after all, for its rewards and follow-up quests. It does what the line below "
+						 "says (moves you, plays a scene...), which a transplant should not repeat. Unticked: the quest is only marked as done."));
+		}
 		if (auto it = results.find(i); it != results.end()) {
 			ImGui::SameLine();
 			TextColored(it->second->ok ? theme::Good() : theme::Bad(),
 				it->second->ok ? (it->second->why.empty() ? tr("done") : tr("done: ") + it->second->why) : tr("not done: ") + it->second->why);
+		}
+		if (ch.stageCheck == tp::Change::StageCheck::kUnsafe || ch.stageCheck == tp::Change::StageCheck::kNotChecked) {
+			// why, on its own line: what the stage would do (or why it could not be checked), and what marking it leaves out
+			ImGui::Indent(ImGui::GetTextLineHeight() * 2.6f);
+			std::string why = ch.stageCheck == tp::Change::StageCheck::kUnsafe ? std::string(tr("Its stage would: ")) + ch.stageWhy
+																				: std::string(tr("Stage not checked: ")) + ch.stageWhy;
+			if (ch.stageCheck == tp::Change::StageCheck::kUnsafe && ch.complete && !ch.stageLoses.empty() && !ch.runStage) {
+				why += std::string("\n") + tr("Not given / not started when only marked as done: ") + ch.stageLoses;
+			}
+			Wrapped(ch.stageCheck == tp::Change::StageCheck::kUnsafe ? theme::Bad() : theme::Caution(), why);
+			ImGui::Unindent(ImGui::GetTextLineHeight() * 2.6f);
 		}
 		ImGui::PopID();
 	};
@@ -854,10 +954,11 @@ void App::drawTransplant()
 		ImGui::BeginDisabled(_tpRunning);
 		if (ImGui::SmallButton(tr("Tick all"))) {
 			for (auto i : a_in) {
-				_tpChanges[i].tick = _tpChanges[i].available;
+				const auto& c = _tpChanges[i];
+				_tpChanges[i].tick = c.available && !(c.stageCheck == tp::Change::StageCheck::kUnsafe && !c.complete);
 			}
 		}
-		tips::Tip(tr("Tick everything in this group."));
+		tips::Tip(tr("Tick everything in this group (not the quest stages that would move you or play a scene)."));
 		ImGui::SameLine();
 		if (ImGui::SmallButton(tr("Untick all"))) {
 			for (auto i : a_in) {
@@ -876,6 +977,9 @@ void App::drawTransplant()
 	};
 
 	ImGui::BeginChild("##tplist", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 2.4f), ImGuiChildFlags_Borders);
+	if (stagesPending) {
+		Wrapped(theme::Caution(), tr("Checking what each quest's stage does (reading your plugins and scripts)..."));
+	}
 	if (_tpChecking) {
 		Wrapped(theme::Caution(), tr("Checking the game's journal (switch to Skyrim for a moment if it takes long)..."));
 	} else if (_tpChecked) {
