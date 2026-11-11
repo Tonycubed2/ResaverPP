@@ -181,12 +181,10 @@ namespace Game
 			return false;
 		}
 		try {
+			// (the game calls it as (console, format, ...) with the pointer kept at id 938528; the function itself never
+			// reads that first argument (0x141ea1e10 overwrites rcx before any use), so it is passed as the game passes it,
+			// null or not. "%s" so a '%' in the command is not read as a format.)
 			void* console = *reinterpret_cast<void**>(g_consolePtr);
-			if (!console) {
-				spdlog::error("console: the game's console is not there yet; not run: {}", a_command);
-				return false;
-			}
-			// (the game calls it as (console, format, ...); "%s" so a '%' in the command is not read as a format)
 			using ExecuteCommand_t = void (*)(void*, const char*, ...);
 			reinterpret_cast<ExecuteCommand_t>(g_executeCommand)(console, "%s", a_command.c_str());
 			spdlog::info("console: {}", a_command);
