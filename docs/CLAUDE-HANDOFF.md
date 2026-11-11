@@ -985,6 +985,54 @@ project; you do the coding, building, delivering and publishing.
   - Unknown / not modelled: the GameVM part (raw), meaning of object data flags 0x02/0x08, `sfUnknown`/`sfUnknownByte`,
     `freezeU32s`, guard lists, `guardGlobal*`; u16 string-index mode of the writers (never seen; not supported). Only
     writers were read: the game's loader has not been checked against an edited save.
+- **Starfield saves (.sfs)** (2026-11-10, branch starfield, merged with starfield-papyrus above). Source of truth:
+  scratchpad `sf2/FORMAT.md` (Starfield.exe 1.16.244 writers read; 4 saves of Tony's character Bronx, form versions 110
+  (1.9.71) and 153 (1.16.244), all parsing to the last byte), Python reference `sf2/tools/sfs.py` / `summary.py`.
+  - Core `src/core/SaveSF.cpp` (+ Save.h/Save.cpp hooks): `SaveFile::load` sees "BCPS" (or a bare "SFS_SAVEGAME") and
+    calls `loadSF`. Container: `UnpackBCPS` / `PackBCPS` (`SfContainer`: chunk size, alignment, level, codec "ZIP " only,
+    the 3 uninitialised bytes at 0x41 and the u64 at 0x10 kept; chunks recompressed with miniz at the save's level, a
+    chunk zlib cannot shrink is stored raw, gaps filled with "padding\0"; no checksum anywhere). Inner file: header
+    (`Header::isSF`, engine version in `version`, u8 `sfSaveVersion`, the 12 bytes after the file time kept in `sfRest`,
+    no screenshot), form version, game version, `sfCreatedVersion`, plugin block (full u8 / light u16 / medium u32
+    counts, then u16 1 kept as `sfHasTail/sfTail`; per entry the Creations details `SfExtra` at form version 140+ - the
+    exact version where they start is NOT known (110: none, 153: yes); the other reading is tried when the first does
+    not fill the block), FLT (25 u32; `unused[1]` = field 11 = change form type list offset, rewritten), 3 global
+    tables (`GlobalData::sfKind` by type: 0/2 offsets of string table / created-ID section, {1,3,101,102,1000} vsval
+    string-index list + sized data, {4,6,15,1001} and the mask-8 types sized, the rest type only), change forms
+    (`sfFlags`, optional version / change flags (default 0x80008000), vsval counts, `sfRefs` 3-byte refIDs,
+    `sfStrings` u16, raw data; `typeField` = the type from the run list), form ID array, unknown table 3, type runs
+    (recomputed from consecutive forms on write), string table `sfStrings`, created-ID section `sfCreated` (raw).
+    `buildBody()` for Starfield = the whole inner file with every size/offset/count recomputed; round trip is
+    byte-identical for all 4 saves (Papyrus included). Type names: `ChangeFormTypeNameSF` / `SaveFile::cfTypeName`
+    (1.16.244 table; the 1.9.71 saves use the same codes with plausible counts, but that exe was not read: [U]).
+    Medium plugin form ids FD + 8-bit index + 16-bit id (`pluginOf`): from data only (Save1471's form ID array uses
+    FD00/FD01 with 2 medium plugins) [D]. Papyrus 1001: `Papyrus::readStarfield`; if it throws, the bytes are kept raw
+    (`GlobalData::sfRawPapyrus`, `SaveFile::sfPapyrusError`) and the GUI shows Papyrus as "not read".
+  - No co-save (.sfse) is read or written. Deleting change forms needs nothing else (counts, runs, offsets are rebuilt);
+    created (FF) forms' change forms can be deleted too but what that does to the created-ID section is [U].
+  - Ops: `Analyze` skips the Skyrim change form checks (damaged/ghosts/stuck/stranded/created-without-form) for
+    Starfield; `RemoveUnattachedInstances` keeps unattached instances a variable still names (`NamedObjectIDs`,
+    `CleanResult::keptNamed`: Save1471 has 34 unattached, 2 named); live-effect detection returns "unread" (keep).
+  - CLI (`src/cli/StarfieldCli.cpp`, runs first for .sfs): `--describe`, `--report`, `--forms [TYPE]`,
+    `--delete-form <id>`, `--remove-unattached`, `--remove-undefined`, `--terminate-undefined`, `-o`. Everything else is
+    refused for .sfs.
+  - GUI (`src/gui/AppStarfield.cpp`): game setup 3 = Starfield (`_setups[4]`, `saves_dir_sf`, `last_dir_sf`, `game_sf`
+    in the ini; saves `Documents\My Games\Starfield\Saves`, sLocalSavePath from StarfieldPrefs/StarfieldCustom.ini
+    [U whether Starfield honours it]; game folder from the Steam libraries (finds F:\SteamLibrary via
+    libraryfolders.vdf); no mods folder / MO2 / Vortex). Own categories (Plugins with FD:xx medium and Creations,
+    Change Forms, `Cat::kGlobals` Global Data, the Papyrus lists), overview, main screen, Clean/Tools menus, Save check
+    (Papyrus part of `computeCheckItems`, the rest returns early for `sf()`). `App::shortcut` refuses anything not in
+    `SfAllowed`; tool windows close on open; no background analysis, scan, profile match or missing-plugins check.
+    Plugin names/records from Starfield .esm files are NOT read (FULL names are localized in BA2 string tables): rows
+    show form ids with the plugin name from the save.
+  - Tests: `rs_unit` TestStarfield (`tests/sf_test.inc`): container pack/unpack incl. a stored-raw chunk, edited-name
+    format (`..._<date>edited_73_1_4.sfs`), then `RESAVERPP_SF_SAVES` (.sfs paths, `;`): read clean, byte-identical
+    body, container rebuilt and re-read, change forms deleted (whole run, first, last, one inside a run) and re-read,
+    unattached cleanup + terminate undefined written and re-read. Screenshots: scratchpad `sfshot/run.sh`.
+  - Test saves made for Tony (scratchpad `sf2/out/`): `Save1471_..._20261111021801roundtrip_73_1_4.sfs` (written back,
+    no change) and `..._20261111021801unattached_73_1_4.sfs` (32 unattached script instances removed: ReferenceAlias /
+    RefCollectionAlias / Form-type objects bound to form 0 with no data; 2 named by variables kept). Not yet loaded in
+    the game: the game's LOADER was never read, so whether it accepts a rewritten save is the open question.
 
 ## 2. Where things are
 
