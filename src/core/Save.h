@@ -114,6 +114,7 @@ namespace ess
 	// whether a plugin entry carries the Creations details
 	bool IsBaseGameFileSF(std::string_view a_name);
 
+
 	struct ChangeForm
 	{
 		RefID                     refID;
@@ -131,6 +132,22 @@ namespace ess
 
 		std::uint8_t typeCode() const { return typeField & 0x3F; }
 	};
+
+	// Starfield: a placed reference's change form (types REFR, ACHR, PMIS, PGRE, PBEA, PFLA, PHZD, PBAR, PCON, PARW, PPLA,
+	// PEMI: the exe's reference test 0x140b36310, engine types 0x4A..0x55). Its "initial data" (writer 0x141832fd0, type
+	// chosen by 0x141832f00 from the form ID and the change flags) comes first and is what the game needs to make the
+	// reference again: 5 = made in game (FF) without flag 0x8000, 6 = flags 0x2000008, 4 = flags 0x6, 7 = flag 0x8000.
+	// Every form ID written goes to the change form's reference list (0x141868de0) in writing order:
+	//   type 5: [0] the cell or worldspace, [1] the base object (GetBaseObject 0x140b4cd10); position and angle in the data
+	//   type 6: [0] the cell or worldspace, [1] the cell or worldspace it was placed in by its plugin (vfunc +0x320)
+	//   types 4 and 7: [0] the cell / location, no base object
+	// then TESForm::SaveGame (0x1405df980) adds the form's own ID, and TESObjectREFR::SaveGame (0x140b29700) adds the base
+	// object (the reference's +0x98) when change flag 0x80 is set and the form is not an actor (ACHR).
+	bool IsReferenceChangeFormSF(std::uint8_t a_code);
+	int  InitialDataTypeSF(std::uint32_t a_formID, std::uint8_t a_code, std::uint32_t a_changeFlags);
+	// the base objects a reference's change form names, best first (GetBaseObject's, then the +0x98 one); empty when it
+	// names none (a reference of a plugin whose base did not change, or initial data without one)
+	std::vector<RefID> BaseObjectsSF(std::uint32_t a_formID, const ChangeForm& a_cf);
 
 	// Starfield's "BCPS" container: the whole save in zlib chunks (FORMAT: container)
 	struct SfContainer

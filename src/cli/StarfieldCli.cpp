@@ -221,10 +221,21 @@ int StarfieldMain(int argc, char** argv)
 				if (!formsType.empty() && formsType != t) {
 					continue;
 				}
-				const auto fid = save->formIDOf(c.refID);
+				const auto  fid = save->formIDOf(c.refID);
+				std::string name = db ? db->describe(fid) : std::string();
+				if (db && name.empty()) {
+					// a reference made in game (or one whose base changed): named by its base object
+					for (const auto& b : BaseObjectsSF(fid, c)) {
+						const auto bf = save->formIDOf(b);
+						if (const auto d = db->describe(bf); !d.empty()) {
+							name = "base " + d;
+							break;
+						}
+					}
+				}
 				std::printf("%06X  form %08X  %-4s  %-28s flags %08X  version %u  refs %zu  strings %zu  data %zu%s%s\n", c.refID.data, fid, t,
-					save->pluginOf(fid).c_str(), c.changeFlags, c.version, c.sfRefs.size(), c.sfStrings.size(), c.data.size(), db ? "  " : "",
-					db ? db->describe(fid).c_str() : "");
+					save->pluginOf(fid).c_str(), c.changeFlags, c.version, c.sfRefs.size(), c.sfStrings.size(), c.data.size(), name.empty() ? "" : "  ",
+					name.c_str());
 			}
 		}
 		if (report) {

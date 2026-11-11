@@ -14123,3 +14123,11 @@ tr ""
 # AppGallery.cpp  line(Fmtg(tr("Level %u"), e.level), ...)
 en "Level %u"
 tr "等级 %u"
+
+# AppStarfield.cpp
+en "base"
+tr "基础"
+
+# AppStarfield.cpp
+en "not in the save (the game makes this object again from its cell, e.g. a generated place)"
+tr "不在存档中（游戏会根据其单元格重新生成此对象，例如生成的地点）"

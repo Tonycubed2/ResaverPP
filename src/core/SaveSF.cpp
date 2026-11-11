@@ -18,6 +18,57 @@
 
 namespace ess
 {
+	bool IsReferenceChangeFormSF(std::uint8_t a_code)
+	{
+		switch (a_code) {
+		case 0: case 1: case 2: case 3: case 4: case 5:  // REFR ACHR PMIS PGRE PBEA PFLA
+		case 38: case 39: case 40: case 45: case 53: case 54:  // PHZD PBAR PCON PARW PPLA PEMI
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	int InitialDataTypeSF(std::uint32_t a_formID, std::uint8_t a_code, std::uint32_t a_changeFlags)
+	{
+		// 0x141832f00 (references only; the QUST / other-form cases of that function do not concern these)
+		if (!IsReferenceChangeFormSF(a_code)) {
+			return 0;
+		}
+		const bool f8000 = (a_changeFlags >> 15) & 1;
+		if (static_cast<std::uint32_t>(a_formID + 0x1000000u) <= 0xFFFFFEu && !f8000) {
+			return 5;
+		}
+		if (a_changeFlags & 0x2000008u) {
+			return 6;
+		}
+		if (a_changeFlags & 6u) {
+			return 4;
+		}
+		return f8000 ? 7 : 0;
+	}
+
+	std::vector<RefID> BaseObjectsSF(std::uint32_t a_formID, const ChangeForm& a_cf)
+	{
+		std::vector<RefID> out;
+		const auto code = a_cf.typeCode();
+		const int  it = InitialDataTypeSF(a_formID, code, a_cf.changeFlags);
+		if (!IsReferenceChangeFormSF(code)) {
+			return out;
+		}
+		const std::size_t initRefs = (it == 5 || it == 6) ? 2 : (it == 4 || it == 7) ? 1 : 0;
+		if (it == 5 && a_cf.sfRefs.size() > 1) {
+			out.push_back(a_cf.sfRefs[1]);
+		}
+		if ((a_cf.changeFlags & 0x80) && code != 1 && a_cf.sfRefs.size() > initRefs + 1) {
+			const auto& b = a_cf.sfRefs[initRefs + 1];
+			if (out.empty() || !(out.front() == b)) {
+				out.push_back(b);
+			}
+		}
+		return out;
+	}
+
 	const char* ChangeFormTypeNameSF(std::uint8_t a_code)
 	{
 		// exe 1.16.244: change form type table 0x144a53290 mapped through the form type table 0x1458ceb00

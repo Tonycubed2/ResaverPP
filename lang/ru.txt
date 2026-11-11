@@ -14131,3 +14131,11 @@ tr "Проверка того, что делает стадия каждого �
 # AppGallery.cpp  line(Fmtg(tr("Level %u"), e.level), ...)
 en "Level %u"
 tr "Уровень %u"
+
+# AppStarfield.cpp
+en "base"
+tr "база"
+
+# AppStarfield.cpp
+en "not in the save (the game makes this object again from its cell, e.g. a generated place)"
+tr "нет в сохранении (игра создаёт этот объект заново по его ячейке, например в сгенерированном месте)"

@@ -747,6 +747,7 @@ private:
 	void        openMissingSF();        // Starfield: Mods no longer installed
 	bool        sf() const { return _save && _save->isSF(); }  // a Starfield save: its own views (AppStarfield.cpp), the rest hidden
 	bool        sfPapyrus() const;                             // ... and its script data is read
+	std::string sfBaseName(std::uint32_t a_formID, const ess::ChangeForm& a_cf) const;  // (AppStarfield.cpp)
 	static bool SfAllowed(Sc a_which, bool a_papyrus);         // the shortcuts that work on a Starfield save
 	void        drawCategoriesSF();
 	void        drawOverviewSF();

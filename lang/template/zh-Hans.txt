@@ -14103,3 +14103,11 @@ tr ""
 # AppGallery.cpp  line(Fmtg(tr("Level %u"), e.level), ...)
 en "Level %u"
 tr ""
+
+# AppStarfield.cpp
+en "base"
+tr ""
+
+# AppStarfield.cpp
+en "not in the save (the game makes this object again from its cell, e.g. a generated place)"
+tr ""

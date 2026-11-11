@@ -781,3 +781,86 @@ void TestStarfieldNames()
 	}
 	std::printf("(starfield names: %zu save(s) named, %zu cleaned of mods not installed)\n", namedSaves, cleaned);
 }
+
+// Starfield with a mod manager: the plugin kind of a file (renames keep the kind), the game's own files in a profile's
+// plugins.txt, renames of medium plugins
+void TestStarfieldModManager()
+{
+	const auto dir = fs::temp_directory_path() / "rs_sf_mm";
+	std::error_code ec;
+	fs::remove_all(dir, ec);
+	fs::create_directories(dir, ec);
+	auto plugin = [&](const std::string& a_name, std::uint32_t a_flags, const char* a_magic = "TES4") {
+		std::ofstream o(dir / a_name, std::ios::binary);
+		o.write(a_magic, 4);
+		const std::uint32_t v[2] = { 0, a_flags };
+		o.write(reinterpret_cast<const char*>(v), sizeof(v));
+		return dir / a_name;
+	};
+	Check(loadorder::StarfieldPluginKind(plugin("Full.esm", 0x1)) == 0, "sf mm: a plain master is full");
+	Check(loadorder::StarfieldPluginKind(plugin("Light.esm", 0x101)) == 1, "sf mm: flag 0x100 is light");
+	Check(loadorder::StarfieldPluginKind(plugin("Medium.esm", 0x401)) == 2, "sf mm: flag 0x400 is medium");
+	Check(loadorder::StarfieldPluginKind(plugin("Small.esl", 0)) == 1, "sf mm: a .esl file is light");
+	Check(loadorder::StarfieldPluginKind(plugin("Overlay.esm", 0x201)) == -1, "sf mm: an overlay file is not told");
+	Check(loadorder::StarfieldPluginKind(plugin("Bad.esm", 0, "XXXX")) == -1, "sf mm: not a plugin");
+	Check(loadorder::StarfieldPluginKind(dir / "None.esm") == -1, "sf mm: no file");
+	{
+		std::ofstream o(dir / "plugins.txt");
+		o << "# comment\n*Mod.esm\nOff.esp\n";
+	}
+	const auto a = loadorder::Read(dir / "plugins.txt", {}, 3);
+	Check(a.known && a.plugins.contains("starfield.esm") && a.plugins.contains("mod.esm") && !a.plugins.contains("off.esp") &&
+			  !a.plugins.contains("skyrim.esm"),
+		"sf mm: a profile's plugins.txt: the enabled plugins and the game's own files, no Skyrim ones");
+	auto s = MakeSave();
+	s->header.magic = "SFS_SAVEGAME";
+	s->plugins.full = { "Starfield.esm", "Mod.esp" };
+	s->plugins.medium = { "Med.esm" };
+	{
+		const ops::RenameFinder f(*s, { "Med.esm", "Med.esp", "Mod.esm" });
+		Check(f.find("Med.esl") == std::vector<std::string>({ "Med.esp" }), "sf mm: a medium plugin of the save is not offered as a new name");
+	}
+	Check(ops::RenamePlugin(*s, "Med.esm", "Med.esp").empty() && s->plugins.medium.front() == "Med.esp", "sf mm: a medium plugin's entry is renamed");
+	Check(!ops::RenamePlugin(*s, "Mod.esp", "Starfield.esm").empty() && s->plugins.full[1] == "Mod.esp", "sf mm: never renamed to one of the game's own files");
+	fs::remove_all(dir, ec);
+}
+
+// Starfield: the base object of a reference made in game (the initial data writer 0x141832fd0, verified in Starfield.exe 1.16.244)
+void TestStarfieldRefBase()
+{
+	Check(InitialDataTypeSF(0xFF0158FA, 0, 0x9A00118B) == 5, "sf base: made in game without 0x8000: initial data 5");
+	Check(InitialDataTypeSF(0xFF07131A, 0, 0x02008100) == 6, "sf base: 0x2000008 with 0x8000: 6");
+	Check(InitialDataTypeSF(0xFF018A70, 0, 0x88008080) == 7, "sf base: 0x8000 alone: 7");
+	Check(InitialDataTypeSF(0x0001234, 0, 0x00000002) == 4, "sf base: a plugin's reference moved: 4");
+	Check(InitialDataTypeSF(0x0001234, 0, 0x00000000) == 0, "sf base: a plugin's reference, nothing: 0");
+	Check(InitialDataTypeSF(0xFF0158FA, 8, 0x9A00118B) == 0, "sf base: not a reference (QUST)");
+	auto cf = [](std::uint8_t a_type, std::uint32_t a_flags, std::vector<std::uint32_t> a_refs) {
+		ChangeForm c;
+		c.typeField = a_type;
+		c.changeFlags = a_flags;
+		for (auto r : a_refs) {
+			RefID id;
+			id.data = r;
+			c.sfRefs.push_back(id);
+		}
+		return c;
+	};
+	{
+		const auto c = cf(0, 0x9A00118B, { 0x8187FB, 0x6E754E, 0x8158FA, 0x8158F9 });  // cell, base, self, +0x98 base
+		const auto b = BaseObjectsSF(0xFF0158FA, c);
+		Check(b.size() == 2 && b[0].data == 0x6E754E && b[1].data == 0x8158F9, "sf base: type 5: GetBaseObject's, then the changed base");
+	}
+	{
+		const auto c = cf(0, 0x02008100, { 0x67CFA2, 0x67CFA2, 0x87131A, 0x4F1982 });  // cell, editor cell, self, ...
+		Check(BaseObjectsSF(0xFF07131A, c).empty(), "sf base: type 6 names cells, not a base");
+	}
+	{
+		const auto c = cf(0, 0x88008080, { 0x86B0FC, 0x818A70, 0x832CBB });  // location, self, +0x98 base
+		const auto b = BaseObjectsSF(0xFF018A70, c);
+		Check(b.size() == 1 && b[0].data == 0x832CBB, "sf base: type 7 with 0x80: the changed base after the own id");
+	}
+	{
+		const auto c = cf(1, 0x88008080, { 0x86B0FC, 0x818A70, 0x832CBB });
+		Check(BaseObjectsSF(0xFF018A70, c).empty(), "sf base: an actor's 0x80 base is not written there");
+	}
+}

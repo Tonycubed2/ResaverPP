@@ -101,6 +101,24 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	}
 }
 
+std::string App::sfBaseName(std::uint32_t a_formID, const ChangeForm& a_cf) const
+{
+	// a reference made in game: "base <its base object's name>" when the save records the base (BaseObjectsSF)
+	if (!_db || !IsReferenceChangeFormSF(a_cf.typeCode())) {
+		return {};
+	}
+	for (const auto& b : BaseObjectsSF(a_formID, a_cf)) {
+		const auto bf = _save->formIDOf(b);
+		if ((bf >> 24) == 0xFF) {
+			continue;
+		}
+		if (auto d = _db->describe(bf); !d.empty()) {
+			return std::string(tr("base")) + " " + d;
+		}
+	}
+	return {};
+}
+
 bool App::sfPapyrus() const { return sf() && !_save->sfPapyrusRaw() && _save->papyrus(); }
 
 std::string App::namesStatusSF() const
@@ -345,7 +363,7 @@ void App::rebuildRowsSF(const std::function<void(std::uint64_t, std::string, std
 			if (!_pluginFilter.empty() && (c.refID.type() == RefID::Type::kCreated || plugin != _pluginFilter)) {
 				continue;
 			}
-			const std::string name = _db && c.refID.type() != RefID::Type::kCreated ? _db->describe(fid) : std::string();
+			const std::string name = _db ? (c.refID.type() != RefID::Type::kCreated ? _db->describe(fid) : sfBaseName(fid, c)) : std::string();
 			// (the name first: the list is narrow, and the name is what a row is looked for by)
 			add(c.refID.data,
 				Fmt("%s  %08X  %-22s  ", s.cfTypeName(c), fid, plugin.c_str()) + (name.empty() ? "" : name + "  ") +
@@ -446,6 +464,18 @@ void App::detailChangeFormSF(std::uint64_t k)
 	ImGui::Text("%s  %08X", s.cfTypeName(*c), fid);
 	if (BeginKV("cf")) {
 		KV(tr("Plugin"), s.pluginOf(fid));
+		if (c->refID.type() == RefID::Type::kCreated && IsReferenceChangeFormSF(c->typeCode())) {
+			// made in game: the save names its base object only for some (BaseObjectsSF)
+			const auto bases = BaseObjectsSF(fid, *c);
+			if (bases.empty()) {
+				KV(tr("Base object"), tr("not in the save (the game makes this object again from its cell, e.g. a generated place)"));
+			}
+			for (const auto& b : bases) {
+				const auto bf = s.formIDOf(b);
+				const auto d = _db && (bf >> 24) != 0xFF ? _db->describe(bf) : std::string();
+				KV(tr("Base object"), Fmt("%08X  ", bf) + (!d.empty() ? d : s.pluginOf(bf)));
+			}
+		}
 		if (c->refID.type() != RefID::Type::kCreated) {
 			const auto d = _db ? _db->describe(fid) : std::string();
 			KV(tr("Name"), !d.empty() ? d : _db ? tr("(not in the plugin files)") : namesStatusSF());
