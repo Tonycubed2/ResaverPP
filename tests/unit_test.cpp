@@ -5908,6 +5908,8 @@ void TestDamagedChangeForms()
 	}
 }
 
+#include "sf_test.inc"
+
 void TestJournalLeftovers()
 {
 	using ess::quests::QuestState;
@@ -6049,6 +6051,7 @@ int main()
 	TestGhostRemove();
 	TestJournalLeftovers();
 	TestDamagedChangeForms();
+	TestStarfield();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

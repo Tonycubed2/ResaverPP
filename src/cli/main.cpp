@@ -503,6 +503,8 @@ static int AnalyzeLogsMain(int argc, char** argv)
 #	include <shellapi.h>
 #endif
 
+int StarfieldMain(int argc, char** argv);  // StarfieldCli.cpp
+
 int main(int argc, char** argv)
 {
 #ifdef _WIN32
@@ -556,6 +558,9 @@ int main(int argc, char** argv)
 				return 2;
 			}
 		}
+	}
+	if (const int r = StarfieldMain(argc, argv); r >= 0) {  // Starfield saves (StarfieldCli.cpp)
+		return r;
 	}
 	if (std::string(argv[1]) == "--plugin-property" && (argc == 6 || argc == 7)) {
 		// resaverpp-cli --plugin-property <plugin> <record id> <script> <property> [<value id>]: read (or set) an object

@@ -16,6 +16,8 @@
 
 namespace ess
 {
+	std::vector<std::uint8_t> BuildBodySF(const SaveFile& a_save);  // SaveSF.cpp
+
 	const char* ChangeFormTypeName(std::uint8_t a_code, bool a_fo4)
 	{
 		if (a_fo4) {
@@ -92,13 +94,36 @@ namespace ess
 			magic = "TESV_SAVEGAME";
 		} else if (head.rfind("FO4_SAVEGAME", 0) == 0) {
 			magic = "FO4_SAVEGAME";
+		} else if (head.rfind("SFS_SAVEGAME", 0) == 0) {
+			magic = "SFS_SAVEGAME";
 		} else {
-			throw FormatError("not a Skyrim or Fallout 4 save (bad magic)", 0);
+			throw FormatError("not a Skyrim, Fallout 4 or Starfield save (bad magic)", 0);
 		}
-		r.seek(magic.size());
+		r.seek(r.pos() + magic.size());
 		const auto headerSize = r.u32();
 		const auto start = r.pos();
 		version = r.u32();
+		if (isSF()) {
+			// Starfield (exe 1.16.244 0x14182fd70): engine version, u8 save version, no screenshot
+			sfSaveVersion = r.u8();
+			saveNumber = r.u32();
+			playerName = r.wstring();
+			playerLevel = r.u32();
+			location = r.wstring();
+			gameDate = r.wstring();
+			race = r.wstring();
+			sex = r.u16();
+			currentXP = r.f32();
+			neededXP = r.f32();
+			fileTime = r.u64();
+			if (r.pos() - start > headerSize) {
+				throw FormatError("header size mismatch", r.pos());
+			}
+			sfRest = r.bytes(headerSize - (r.pos() - start));
+			shotWidth = shotHeight = 0;
+			compression = Compression::kNone;
+			return;
+		}
 		if (isFO4() ? version < 11 : (version < 8 || (version > 9 && version < 12))) {
 			throw FormatError("unsupported save version " + std::to_string(version), magic.size() + 4);
 		}
@@ -124,6 +149,10 @@ namespace ess
 
 	std::uint32_t Header::partialSize() const
 	{
+		if (isSF()) {
+			return static_cast<std::uint32_t>(4 + 1 + 4 + (2 + playerName.size()) + 4 + (2 + location.size()) + (2 + gameDate.size()) + (2 + race.size()) +
+											  2 + 4 + 4 + 8 + sfRest.size());
+		}
 		return static_cast<std::uint32_t>(4 + 4 + (2 + playerName.size()) + 4 + (2 + location.size()) + (2 + gameDate.size()) +
 										  (2 + race.size()) + 2 + 4 + 4 + 8 + 4 + 4 + (hasCompressionField() ? 2 : 0));
 	}
@@ -138,6 +167,9 @@ namespace ess
 		w.raw(magic.data(), magic.size());
 		w.u32(partialSize());
 		w.u32(version);
+		if (isSF()) {
+			w.u8(sfSaveVersion);
+		}
 		w.u32(saveNumber);
 		w.wstring(playerName);
 		w.u32(playerLevel);
@@ -148,6 +180,10 @@ namespace ess
 		w.f32(currentXP);
 		w.f32(neededXP);
 		w.u64(fileTime);
+		if (isSF()) {
+			w.bytes(sfRest);
+			return;
+		}
 		w.u32(shotWidth);
 		w.u32(shotHeight);
 		if (hasCompressionField()) {
@@ -327,6 +363,9 @@ namespace ess
 		save->path = a_path;
 
 		const auto file = ReadFile(a_path);
+		if (file.size() >= 12 && (std::memcmp(file.data(), "BCPS", 4) == 0 || std::memcmp(file.data(), "SFS_SAVEGAME", 12) == 0)) {
+			return loadSF(a_path, file, a_stage);  // Starfield (SaveSF.cpp)
+		}
 		Reader     hr(file.data(), file.size());
 		a_stage = "the header";
 		save->header.read(hr);
@@ -483,6 +522,9 @@ namespace ess
 
 	std::vector<std::uint8_t> SaveFile::buildBody() const
 	{
+		if (isSF()) {
+			return BuildBodySF(*this);  // Starfield: the whole SFS_SAVEGAME data (header included), offsets recomputed
+		}
 		const std::size_t base = header.totalSize();
 
 		const auto widths = WidthsOf(*this);
@@ -554,6 +596,9 @@ namespace ess
 
 	std::vector<std::uint8_t> SaveFile::serialize() const
 	{
+		if (isSF()) {
+			return serializeSF();
+		}
 		const auto body = buildBody();
 		Writer     out;
 		header.write(out);
@@ -587,7 +632,7 @@ namespace ess
 	{
 		WriteResult     res;
 		std::error_code ec;
-		const auto      co = CosavePath(a_path, isFO4());
+		const auto      co = CosavePath(a_path, isFO4());  // (Starfield: no co-save is read or written)
 		auto            tmp = a_path;
 		tmp += ".tmp";
 		auto tmpCo = co;
@@ -605,6 +650,9 @@ namespace ess
 				WriteFile(tmpCo, cosave);
 			}
 			auto check = SaveFile::load(tmp);
+			if (isSF() && !check->problems.empty()) {
+				throw std::runtime_error("the written save does not read back cleanly: " + check->problems.front());
+			}
 			if (!check->papyrus()) {
 				throw std::runtime_error("the written save has no Papyrus section");
 			}
@@ -615,7 +663,7 @@ namespace ess
 
 		// 2. back up what is there, as one generation for both files
 		const bool hadEss = std::filesystem::exists(a_path, ec);
-		const bool hadCo = std::filesystem::exists(co, ec);
+		const bool hadCo = !isSF() && std::filesystem::exists(co, ec);
 		if (a_backup && (hadEss || hadCo)) {
 			std::string suffix = ".bak";
 			for (int n = 2;; ++n) {
@@ -707,6 +755,12 @@ namespace ess
 		if (top == 0xFF) {
 			return "Created";
 		}
+		if (top == 0xFD && isSF()) {
+			// Starfield medium plugins: FD, an 8-bit index, a 16-bit form id (data: the indices in Save1471's form ID array fit
+			// its 2 medium plugins)
+			const std::uint32_t med = (a_formID >> 16) & 0xFF;
+			return med < plugins.medium.size() ? plugins.medium[med] : "?";
+		}
 		if (top == 0xFE) {
 			const std::uint32_t lite = (a_formID >> 12) & 0xFFF;
 			return lite < plugins.lite.size() ? plugins.lite[lite] : "?";
@@ -740,17 +794,29 @@ namespace ess
 		const auto& h = a_save.header;
 		add("game: %s%s%s", a_save.gameTitle(), a_save.gameVersion.empty() ? "" : " ", a_save.gameVersion.c_str());
 		add("format: %s, save version %u, form version %u, %s, header %u bytes, screenshot %ux%u", h.magic.c_str(), h.version,
-			static_cast<unsigned>(a_save.formVersion), h.compression == Compression::kLZ4 ? "LZ4" : h.compression == Compression::kZlib ? "zlib" : "uncompressed",
+			static_cast<unsigned>(a_save.formVersion), a_save.isSF() ? "zlib chunks (BCPS)" : h.compression == Compression::kLZ4 ? "LZ4" : h.compression == Compression::kZlib ? "zlib" : "uncompressed",
 			h.partialSize(), h.shotWidth, h.shotHeight);
 		add("character: %s, level %u, %s, %s, save number %u", h.playerName.c_str(), h.playerLevel, h.location.c_str(), h.race.c_str(), h.saveNumber);
 		add("body: %zu bytes; co-save (%s): %zu bytes", a_save.originalBodySize, a_save.cosaveExt(), a_save.cosave.size());
-		add("plugins: %zu full, %zu light%s", a_save.plugins.full.size(), a_save.plugins.lite.size(), a_save.plugins.hasLite ? "" : " (no light plugin list)");
+		if (a_save.isSF()) {
+			const auto& c = a_save.sfContainer;
+			add("starfield: engine version %u, save version %u, created with %s; container %s (%zu chunks of 0x%llx, %zu stored raw, level %u)",
+				h.version, static_cast<unsigned>(h.sfSaveVersion), a_save.sfCreatedVersion.c_str(), c.present ? "BCPS" : "none (bare data)", c.chunks,
+				static_cast<unsigned long long>(c.chunkSize), c.storedChunks, static_cast<unsigned>(c.level));
+			add("plugins: %zu full, %zu light, %zu medium%s", a_save.plugins.full.size(), a_save.plugins.lite.size(), a_save.plugins.medium.size(),
+				a_save.plugins.sfExtras ? " (with Creations details)" : "");
+		} else {
+			add("plugins: %zu full, %zu light%s", a_save.plugins.full.size(), a_save.plugins.lite.size(), a_save.plugins.hasLite ? "" : " (no light plugin list)");
+		}
 		if (a_detail) {
 			for (std::size_t i = 0; i < a_save.plugins.full.size(); ++i) {
 				add("  %02zX %s", i, a_save.plugins.full[i].c_str());
 			}
 			for (std::size_t i = 0; i < a_save.plugins.lite.size(); ++i) {
 				add("  FE%03zX %s", i, a_save.plugins.lite[i].c_str());
+			}
+			for (std::size_t i = 0; i < a_save.plugins.medium.size(); ++i) {
+				add("  FD%02zX %s", i, a_save.plugins.medium[i].c_str());
 			}
 		}
 		const auto& t = a_save.flt;
@@ -767,11 +833,16 @@ namespace ess
 		tables("global data 1 (type:bytes)", a_save.table1);
 		tables("global data 2", a_save.table2);
 		tables("global data 3", a_save.table3);
-		add("form IDs: %zu; visited worldspaces: %zu; data after them: %zu bytes", a_save.formIDs.size(), a_save.visitedWorldspaces.size(), a_save.unknown3.size());
+		if (a_save.isSF()) {
+			add("form IDs: %zu; strings: %zu; unknown table 3: %zu bytes; created-ID section: %zu bytes", a_save.formIDs.size(), a_save.sfStrings.size(),
+				a_save.sfUnknownTable3.size(), a_save.sfCreated.size());
+		} else {
+			add("form IDs: %zu; visited worldspaces: %zu; data after them: %zu bytes", a_save.formIDs.size(), a_save.visitedWorldspaces.size(), a_save.unknown3.size());
+		}
 		{
 			std::map<std::string, std::size_t> byType;
 			for (const auto& c : a_save.changeForms) {
-				++byType[ChangeFormTypeName(c.typeCode(), a_save.isFO4())];
+				++byType[a_save.cfTypeName(c)];
 			}
 			std::string s;
 			for (const auto& [k, v] : byType) {
@@ -779,7 +850,13 @@ namespace ess
 			}
 			add("change forms: %zu (%s)", a_save.changeForms.size(), s.c_str());
 		}
-		if (const auto* p = a_save.papyrus(); p && p->invalid) {
+		if (a_save.sfPapyrusRaw()) {
+			for (const auto& g : a_save.table3) {
+				if (g.sfRawPapyrus) {
+					add("Papyrus: %zu bytes, not read (kept as it is)", g.raw.size());
+				}
+			}
+		} else if (const auto* p = a_save.papyrus(); p && p->invalid) {
 			add("Papyrus: FLAGGED INVALID by the game (header 0xFFFF, %zu byte(s) after it): its script engine was not paused when it "
 				"saved, so it wrote no script data; loading this save, the game ignores Papyrus entirely",
 				p->tail.size());
@@ -820,6 +897,48 @@ namespace ess
 		std::uint8_t  head[17];
 		if (!f.read(reinterpret_cast<char*>(head), 17)) {
 			return false;
+		}
+		if (std::memcmp(head, "BCPS", 4) == 0) {
+			// Starfield: the header is in the first chunk of the container
+			try {
+				std::vector<std::uint8_t> c(0x48);
+				std::memcpy(c.data(), head, 17);
+				if (!f.read(reinterpret_cast<char*>(c.data() + 17), 0x48 - 17)) {
+					return false;
+				}
+				std::uint64_t table = 0, data = 0, total = 0, chunk = 0;
+				std::memcpy(&table, c.data() + 8, 8);
+				std::memcpy(&data, c.data() + 0x18, 8);
+				std::memcpy(&total, c.data() + 0x20, 8);
+				std::memcpy(&chunk, c.data() + 0x30, 8);
+				std::uint32_t first = 0;
+				if (table != 0x48 || !chunk || chunk > (1u << 26) || data > (1u << 20) || !f.read(reinterpret_cast<char*>(&first), 4) || !first ||
+					first > chunk) {
+					return false;
+				}
+				// unpack only the first chunk: a container of that one chunk
+				const std::size_t ulen = static_cast<std::size_t>(std::min<std::uint64_t>(chunk, total));
+				std::vector<std::uint8_t> in(first);
+				f.seekg(static_cast<std::streamoff>(data));
+				if (!f.read(reinterpret_cast<char*>(in.data()), first)) {
+					return false;
+				}
+				std::vector<std::uint8_t> out;
+				if (first == ulen) {
+					out = std::move(in);
+				} else {
+					out.resize(ulen);
+					mz_ulong len = static_cast<mz_ulong>(ulen);
+					if (mz_uncompress(out.data(), &len, in.data(), first) != MZ_OK || len != ulen) {
+						return false;
+					}
+				}
+				Reader r(out.data(), out.size());
+				a_header.read(r);
+				return a_header.isSF();
+			} catch (...) {
+				return false;
+			}
 		}
 		// "TESV_SAVEGAME" (13) or "FO4_SAVEGAME" (12), then the header size
 		std::size_t magicLen = 0;
@@ -877,10 +996,15 @@ namespace ess
 		}
 		const auto stem = a_save.stem().u8string();
 		const std::string s(stem.begin(), stem.end());
-		// ..._<14 digits><old tag?>_<digits>_<digits>
+		// ..._<14 digits><old tag?>_<digits>_<digits> (Starfield: three number fields after the date, "_73_1_4")
+		std::string lowExt = a_save.extension().string();
+		for (auto& c : lowExt) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		const int   wantFields = lowExt == ".sfs" ? 3 : 2;
 		std::size_t tail = s.size();
 		int         fields = 0;
-		while (fields < 2 && tail > 0) {
+		while (fields < wantFields && tail > 0) {
 			const auto us = s.rfind('_', tail - 1);
 			if (us == std::string::npos) {
 				break;
@@ -897,7 +1021,7 @@ namespace ess
 		}
 		std::string head, rest;  // head: up to and with the date; rest: "_<level>_<n>"
 		bool        gameName = false;
-		if (fields == 2 && s.rfind("Save", 0) == 0) {
+		if (fields == wantFields && s.rfind("Save", 0) == 0) {
 			const auto us = s.rfind('_', tail - 1);
 			if (us != std::string::npos && tail - us - 1 >= 14) {
 				const auto date = s.substr(us + 1, 14);
@@ -916,7 +1040,7 @@ namespace ess
 			for (auto& c : ext) {
 				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 			}
-			p.replace_filename(std::filesystem::path(std::u8string(name.begin(), name.end()) + (ext == ".fos" ? u8".fos" : u8".ess")));
+			p.replace_filename(std::filesystem::path(std::u8string(name.begin(), name.end()) + (ext == ".fos" ? u8".fos" : ext == ".sfs" ? u8".sfs" : u8".ess")));
 			return p;
 		};
 		auto p = make(1);

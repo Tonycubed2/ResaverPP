@@ -1,0 +1,727 @@
+// ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
+// Starfield .sfs saves: the "BCPS" container and the SFS_SAVEGAME data inside it.
+//
+// The layout was read from Starfield.exe 1.16.244.0 (the writers) and checked on four saves (form versions 110 and 153,
+// every count/offset/size landing exactly); see docs/CLAUDE-HANDOFF.md, "Starfield", for the layout and what is verified.
+// Unknown parts (global data payloads, change form data, the created-ID section) are kept as raw bytes.
+#include "Save.h"
+
+#include <algorithm>
+#include <cstring>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
+
+#include "miniz.h"
+
+namespace ess
+{
+	const char* ChangeFormTypeNameSF(std::uint8_t a_code)
+	{
+		// exe 1.16.244: change form type table 0x144a53290 mapped through the form type table 0x1458ceb00
+		static const char* names[] = { "REFR", "ACHR", "PMIS", "PGRE", "PBEA", "PFLA", "CELL", "INFO", "QUST", "NPC_", "ACTI", "TACT", "ARMO",
+			"BOOK", "CONT", "DOOR", "INGR", "LIGH", "MISC", "STAT", "MSTT", "FURN", "WEAP", "AMMO", "KEYM", "ALCH", "IDLM", "NOTE", "CLAS", "FACT",
+			"PACK", "NAVM", "WOOP", "MGEF", "SMQN", "SCEN", "LCTN", "RELA", "PHZD", "PBAR", "PCON", "FLST", "LVLN", "LVLI", "LVSP", "PARW", "ENCH",
+			"TERM", "INNR", "AFFE", "LVLP", "LVSC", "LVLB", "PPLA", "PEMI", "PCMT", "PCCN", "PCBN", "GPOF" };
+		return a_code < std::size(names) ? names[a_code] : "????";
+	}
+
+	bool SaveFile::sfPapyrusRaw() const
+	{
+		for (const auto& g : table3) {
+			if (g.sfRawPapyrus) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	namespace
+	{
+		std::uint64_t Get64(const std::uint8_t* p)
+		{
+			std::uint64_t v;
+			std::memcpy(&v, p, 8);
+			return v;
+		}
+		std::uint32_t Get32(const std::uint8_t* p)
+		{
+			std::uint32_t v;
+			std::memcpy(&v, p, 4);
+			return v;
+		}
+		void Put64(std::vector<std::uint8_t>& a_v, std::size_t a_at, std::uint64_t a_x) { std::memcpy(a_v.data() + a_at, &a_x, 8); }
+		void Put32(std::vector<std::uint8_t>& a_v, std::size_t a_at, std::uint32_t a_x) { std::memcpy(a_v.data() + a_at, &a_x, 4); }
+
+		bool PowerOfTwo(std::uint64_t v) { return v && !(v & (v - 1)); }
+
+		// the game's variable-size count (exe 0x14140c7a0): low 2 bits the width (0 u8, 1 u16, 2 u32), value = raw >> 2
+		std::uint32_t ReadVsval(Reader& r)
+		{
+			r.need(1);
+			switch (*r.here() & 3) {
+			case 0:
+				return r.u8() >> 2;
+			case 1:
+				return r.u16() >> 2;
+			case 2:
+				return r.u32() >> 2;
+			default:
+				throw FormatError("invalid count (width 3)", r.pos());
+			}
+		}
+		void WriteVsval(Writer& w, std::uint32_t v)
+		{
+			if (v < 0x40) {
+				w.u8(static_cast<std::uint8_t>(v << 2));
+			} else if (v < 0x4000) {
+				w.u16(static_cast<std::uint16_t>((v << 2) | 1));
+			} else if (v < 0x40000000) {
+				w.u32((v << 2) | 2);
+			} else {
+				throw std::runtime_error("count too large for the save format");
+			}
+		}
+
+		// global data layouts by type (exe 0x1418236c0 masks, 0x141824a60 dispatcher, 0x141825820 old-style writer)
+		GlobalData::SfKind KindOf(std::uint32_t t)
+		{
+			using K = GlobalData::SfKind;
+			if (t == 0 || t == 2) {
+				return K::kOffset;
+			}
+			if (t == 1 || t == 3 || t == 101 || t == 102 || t == 1000) {
+				return K::kStrings;
+			}
+			if (t == 4 || t == 6 || t == 15 || t == 1001) {
+				return K::kSized;
+			}
+			if ((t >= 5 && t <= 16) || t == 100 || t == 103 || t == 105 || t == 106 || (t >= 108 && t <= 111) || (t >= 113 && t <= 124) ||
+				(t >= 1002 && t <= 1007)) {
+				return K::kSized;
+			}
+			return K::kTypeOnly;  // (104, 107, 112, 1009, ...: the writer puts the type only)
+		}
+
+		GlobalData ReadGlobalSF(Reader& r)
+		{
+			GlobalData g;
+			g.type = r.u32();
+			g.sfKind = KindOf(g.type);
+			switch (g.sfKind) {
+			case GlobalData::SfKind::kOffset:
+				g.sfOffset = r.u32();
+				break;
+			case GlobalData::SfKind::kStrings:
+				{
+					const auto n = ReadVsval(r);
+					r.need(std::size_t(n) * 2);
+					g.sfStrings.reserve(n);
+					for (std::uint32_t i = 0; i < n; ++i) {
+						g.sfStrings.push_back(r.u16());
+					}
+					g.raw = r.bytes(r.u32());
+					break;
+				}
+			case GlobalData::SfKind::kSized:
+				g.raw = r.bytes(r.u32());
+				break;
+			case GlobalData::SfKind::kTypeOnly:
+				break;
+			}
+			if (g.type == 1001) {
+				// Papyrus: kept as raw bytes; an empty stand-in keeps the views that list Papyrus data empty
+				g.sfRawPapyrus = true;
+				g.papyrus = std::make_unique<Papyrus>();
+			}
+			return g;
+		}
+
+		void WriteGlobalSF(Writer& w, const GlobalData& g, std::uint32_t a_offset)
+		{
+			w.u32(g.type);
+			switch (g.sfKind) {
+			case GlobalData::SfKind::kOffset:
+				w.u32(a_offset);
+				break;
+			case GlobalData::SfKind::kStrings:
+				WriteVsval(w, static_cast<std::uint32_t>(g.sfStrings.size()));
+				for (auto s : g.sfStrings) {
+					w.u16(s);
+				}
+				w.u32(static_cast<std::uint32_t>(g.raw.size()));
+				w.bytes(g.raw);
+				break;
+			case GlobalData::SfKind::kSized:
+				w.u32(static_cast<std::uint32_t>(g.raw.size()));
+				w.bytes(g.raw);
+				break;
+			case GlobalData::SfKind::kTypeOnly:
+				break;
+			}
+		}
+
+		constexpr std::uint32_t kDefaultChangeFlags = 0x80008000u;  // a change form without the flags field (exe 0x14185dff0)
+
+		ChangeForm ReadChangeFormSF(Reader& r, std::uint8_t a_formVersion)
+		{
+			ChangeForm c;
+			const auto at = r.pos();
+			c.sfFlags = r.u8();
+			if (c.sfFlags & ~0x3B) {
+				throw FormatError("change form with unknown header flags " + std::to_string(c.sfFlags), at);
+			}
+			c.version = (c.sfFlags & 1) ? r.u8() : a_formVersion;
+			c.refID = RefID::read(r);
+			c.changeFlags = (c.sfFlags & 2) ? r.u32() : kDefaultChangeFlags;
+			const auto nRefs = (c.sfFlags & 8) ? ReadVsval(r) : 0;
+			const auto nStrings = (c.sfFlags & 0x10) ? ReadVsval(r) : 0;
+			const auto nData = (c.sfFlags & 0x20) ? ReadVsval(r) : 0;
+			r.need(std::size_t(nRefs) * 3);
+			c.sfRefs.reserve(nRefs);
+			for (std::uint32_t i = 0; i < nRefs; ++i) {
+				c.sfRefs.push_back(RefID::read(r));
+			}
+			r.need(std::size_t(nStrings) * 2);
+			c.sfStrings.reserve(nStrings);
+			for (std::uint32_t i = 0; i < nStrings; ++i) {
+				c.sfStrings.push_back(r.u16());
+			}
+			c.data = r.bytes(nData);
+			c.length1 = nData;
+			return c;
+		}
+
+		void WriteChangeFormSF(Writer& w, const ChangeForm& c, std::uint8_t a_formVersion)
+		{
+			std::uint8_t fl = c.sfFlags;
+			if (c.version != a_formVersion) {
+				fl |= 1;
+			}
+			if (c.changeFlags != kDefaultChangeFlags) {
+				fl |= 2;
+			}
+			fl |= c.sfRefs.empty() ? 0 : 8;
+			fl |= c.sfStrings.empty() ? 0 : 0x10;
+			fl |= c.data.empty() ? 0 : 0x20;
+			w.u8(fl);
+			if (fl & 1) {
+				w.u8(c.version);
+			}
+			c.refID.write(w);
+			if (fl & 2) {
+				w.u32(c.changeFlags);
+			}
+			if (fl & 8) {
+				WriteVsval(w, static_cast<std::uint32_t>(c.sfRefs.size()));
+			}
+			if (fl & 0x10) {
+				WriteVsval(w, static_cast<std::uint32_t>(c.sfStrings.size()));
+			}
+			if (fl & 0x20) {
+				WriteVsval(w, static_cast<std::uint32_t>(c.data.size()));
+			}
+			for (const auto& id : c.sfRefs) {
+				id.write(w);
+			}
+			for (auto s : c.sfStrings) {
+				w.u16(s);
+			}
+			w.bytes(c.data);
+		}
+
+		PluginInfo::SfExtra ReadPluginSF(Reader& r, std::string& a_name, bool a_extras)
+		{
+			PluginInfo::SfExtra e;
+			a_name = r.wstring();
+			if (a_extras) {
+				e.isCreation = r.u8();
+				if (e.isCreation) {
+					e.title = r.wstring();
+					e.id = r.wstring();
+					e.version = r.wstring();
+					e.achievementFriendly = r.u8();
+				}
+			}
+			return e;
+		}
+
+		void WritePluginSF(Writer& w, const std::string& a_name, const PluginInfo::SfExtra& e, bool a_extras)
+		{
+			w.wstring(a_name);
+			if (a_extras) {
+				w.u8(e.isCreation);
+				if (e.isCreation) {
+					w.wstring(e.title);
+					w.wstring(e.id);
+					w.wstring(e.version);
+					w.u8(e.achievementFriendly);
+				}
+			}
+		}
+
+		// the plugin info block (exe 0x141812990, entry 0x1418125d0): u8 n full, u16 n light, u32 n medium, u16 1
+		bool ReadPluginsSF(const std::uint8_t* a_p, std::size_t a_n, bool a_extras, PluginInfo& a_out)
+		{
+			PluginInfo pi;
+			try {
+				Reader r(a_p, a_n);
+				pi.sfExtras = a_extras;
+				pi.hasLite = pi.hasMedium = true;
+				const auto nFull = r.u8();
+				for (unsigned i = 0; i < nFull; ++i) {
+					pi.full.emplace_back();
+					pi.sfFull.push_back(ReadPluginSF(r, pi.full.back(), a_extras));
+				}
+				const auto nLite = r.u16();
+				for (unsigned i = 0; i < nLite; ++i) {
+					pi.lite.emplace_back();
+					pi.sfLite.push_back(ReadPluginSF(r, pi.lite.back(), a_extras));
+				}
+				const auto nMedium = r.u32();
+				if (nMedium > a_n) {
+					return false;
+				}
+				for (std::uint32_t i = 0; i < nMedium; ++i) {
+					pi.medium.emplace_back();
+					pi.sfMedium.push_back(ReadPluginSF(r, pi.medium.back(), a_extras));
+				}
+				if (r.remaining() == 2) {
+					pi.sfHasTail = true;
+					pi.sfTail = r.u16();
+				}
+				if (r.remaining() != 0) {
+					return false;
+				}
+			} catch (const FormatError&) {
+				return false;
+			}
+			a_out = std::move(pi);
+			return true;
+		}
+	}
+
+	// ---- container --------------------------------------------------------------------------------------------
+
+	std::vector<std::uint8_t> UnpackBCPS(const std::vector<std::uint8_t>& a_file, SfContainer& a_info)
+	{
+		// exe 0x1428ef9c0 (reader checks), 0x141859ba0 (a chunk as long as its block is stored raw)
+		if (a_file.size() < 0x48 || std::memcmp(a_file.data(), "BCPS", 4) != 0) {
+			throw FormatError("not a Starfield save container (no BCPS)", 0);
+		}
+		const auto* d = a_file.data();
+		if (Get32(d + 4) != 1) {
+			throw FormatError("unsupported BCPS container version " + std::to_string(Get32(d + 4)), 4);
+		}
+		const auto table = Get64(d + 0x08);
+		a_info.unk10 = Get64(d + 0x10);
+		const auto dataOffset = Get64(d + 0x18);
+		const auto total = Get64(d + 0x20);
+		a_info.maxSize = Get64(d + 0x28);
+		a_info.chunkSize = Get64(d + 0x30);
+		a_info.alignment = Get64(d + 0x38);
+		a_info.level = d[0x40];
+		std::memcpy(a_info.pad, d + 0x41, 3);
+		std::memcpy(a_info.codec, d + 0x44, 4);
+		a_info.present = true;
+		const auto a = a_info.alignment;
+		if (!PowerOfTwo(a) || a_info.unk10 % a || dataOffset % a || !PowerOfTwo(a_info.chunkSize) || (a_info.chunkSize & 0xFFFF) ||
+			a_info.maxSize < a_info.chunkSize) {
+			throw FormatError("BCPS container header is not valid", 0x10);
+		}
+		if (std::memcmp(a_info.codec, "ZIP ", 4) != 0) {
+			throw FormatError("BCPS container codec '" + std::string(a_info.codec, 4) + "' is not supported (only ZIP)", 0x44);
+		}
+		if (total > (std::uint64_t(1) << 32)) {
+			throw FormatError("BCPS container too large", 0x20);
+		}
+		const auto n = static_cast<std::size_t>((total + a_info.chunkSize - 1) / a_info.chunkSize);
+		if (table + 4 * n > a_file.size()) {
+			throw FormatError("BCPS chunk table past the end of the file", table);
+		}
+		a_info.chunks = n;
+		a_info.storedChunks = 0;
+		std::vector<std::uint8_t> out(static_cast<std::size_t>(total));
+		std::uint64_t             p = dataOffset;
+		for (std::size_t i = 0; i < n; ++i) {
+			const std::uint32_t s = Get32(d + table + 4 * i);
+			const auto          ulen = static_cast<std::size_t>(std::min<std::uint64_t>(a_info.chunkSize, total - i * a_info.chunkSize));
+			if (s == 0 || s > ulen || p + s > a_file.size()) {
+				throw FormatError("BCPS chunk " + std::to_string(i) + " has an invalid size", table + 4 * i);
+			}
+			auto* dst = out.data() + i * a_info.chunkSize;
+			if (s == ulen) {
+				std::memcpy(dst, d + p, s);
+				++a_info.storedChunks;
+			} else {
+				mz_ulong len = static_cast<mz_ulong>(ulen);
+				if (mz_uncompress(dst, &len, d + p, s) != MZ_OK || len != ulen) {
+					throw FormatError("BCPS chunk " + std::to_string(i) + " does not unpack (zlib)", p);
+				}
+			}
+			p += (s + a - 1) / a * a;
+		}
+		return out;
+	}
+
+	std::vector<std::uint8_t> PackBCPS(const std::vector<std::uint8_t>& a_inner, const SfContainer& a_info)
+	{
+		// the game's writer (0x1428eef80 / 0x1428f0650): header, chunk size table, then each chunk at the next multiple
+		// of the alignment, the gaps filled with "padding\0"; no checksum anywhere
+		const std::size_t cs = static_cast<std::size_t>(a_info.chunkSize);
+		const std::size_t a = static_cast<std::size_t>(a_info.alignment);
+		const std::size_t n = (a_inner.size() + cs - 1) / cs;
+		std::vector<std::vector<std::uint8_t>> packed(n);
+		{
+			const unsigned          workers = std::max(1u, std::min(8u, std::thread::hardware_concurrency()));
+			std::vector<std::thread> pool;
+			std::exception_ptr       failed;
+			std::mutex               m;
+			for (unsigned t = 0; t < workers; ++t) {
+				pool.emplace_back([&, t] {
+					for (std::size_t i = t; i < n; i += workers) {
+						const auto* src = a_inner.data() + i * cs;
+						const auto  ulen = std::min(cs, a_inner.size() - i * cs);
+						mz_ulong    len = mz_compressBound(static_cast<mz_ulong>(ulen));
+						std::vector<std::uint8_t> c(len);
+						if (mz_compress2(c.data(), &len, src, static_cast<mz_ulong>(ulen), a_info.level) != MZ_OK) {
+							std::lock_guard l(m);
+							failed = std::make_exception_ptr(std::runtime_error("zlib compression failed"));
+							return;
+						}
+						if (len >= ulen) {
+							c.assign(src, src + ulen);  // stored raw: its size equals the block's
+						} else {
+							c.resize(len);
+						}
+						packed[i] = std::move(c);
+					}
+				});
+			}
+			for (auto& th : pool) {
+				th.join();
+			}
+			if (failed) {
+				std::rethrow_exception(failed);
+			}
+		}
+		auto alignUp = [&](std::size_t v) { return (v + a - 1) / a * a; };
+		static const char kPad[8] = { 'p', 'a', 'd', 'd', 'i', 'n', 'g', 0 };
+		auto pad = [&](std::vector<std::uint8_t>& v, std::size_t to) {
+			for (std::size_t k = 0; v.size() < to; ++k) {
+				v.push_back(static_cast<std::uint8_t>(kPad[k % 8]));
+			}
+		};
+		std::vector<std::uint8_t> out(0x48, 0);
+		std::memcpy(out.data(), "BCPS", 4);
+		Put32(out, 4, 1);
+		Put64(out, 0x08, 0x48);
+		Put64(out, 0x10, a_info.unk10);
+		const std::size_t dataOffset = alignUp(0x48 + 4 * n);
+		Put64(out, 0x18, dataOffset);
+		Put64(out, 0x20, a_inner.size());
+		Put64(out, 0x28, a_info.maxSize);
+		Put64(out, 0x30, a_info.chunkSize);
+		Put64(out, 0x38, a_info.alignment);
+		out[0x40] = a_info.level;
+		std::memcpy(out.data() + 0x41, a_info.pad, 3);
+		std::memcpy(out.data() + 0x44, a_info.codec, 4);
+		for (const auto& c : packed) {
+			const auto s = static_cast<std::uint32_t>(c.size());
+			out.insert(out.end(), reinterpret_cast<const std::uint8_t*>(&s), reinterpret_cast<const std::uint8_t*>(&s) + 4);
+		}
+		pad(out, dataOffset);
+		for (const auto& c : packed) {
+			out.insert(out.end(), c.begin(), c.end());
+			pad(out, alignUp(out.size()));
+		}
+		return out;
+	}
+
+	// ---- reading ----------------------------------------------------------------------------------------------
+
+	std::unique_ptr<SaveFile> SaveFile::loadSF(const std::filesystem::path& a_path, const std::vector<std::uint8_t>& a_file, const char*& a_stage)
+	{
+		auto save = std::make_unique<SaveFile>();
+		save->path = a_path;
+		std::vector<std::uint8_t> unpacked;
+		const std::vector<std::uint8_t>* innerP = &a_file;
+		if (a_file.size() >= 4 && std::memcmp(a_file.data(), "BCPS", 4) == 0) {
+			a_stage = "the Starfield container (unpacking it)";
+			unpacked = UnpackBCPS(a_file, save->sfContainer);
+			innerP = &unpacked;
+		}
+		const auto& in = *innerP;
+		save->originalBodySize = in.size();
+		Reader r(in.data(), in.size());
+		a_stage = "the header";
+		save->header.read(r);
+		if (!save->isSF()) {
+			throw FormatError("the container does not hold a Starfield save", 0);
+		}
+
+		a_stage = "the plugin list";
+		save->formVersion = r.u8();
+		save->gameVersion = r.wstring();
+		save->sfCreatedVersion = r.wstring();
+		{
+			const auto infoSize = r.u32();
+			r.need(infoSize);
+			// names only at form version 110, with the Creations details at 153 (exe 1.16.244); where between them it
+			// changed is not known: the other reading is tried when the first does not fill the block exactly
+			const bool first = save->formVersion >= 140;
+			if (!ReadPluginsSF(r.here(), infoSize, first, save->plugins) && !ReadPluginsSF(r.here(), infoSize, !first, save->plugins)) {
+				throw FormatError("the plugin list does not match its size", r.pos());
+			}
+			r.seek(r.pos() + infoSize);
+		}
+
+		a_stage = "the file location table";
+		auto& t = save->flt;
+		t.formIDArrayCountOffset = r.u32();
+		t.unknownTable3Offset = r.u32();
+		t.table1Offset = r.u32();
+		t.table2Offset = r.u32();
+		t.changeFormsOffset = r.u32();
+		t.table3Offset = r.u32();
+		t.table1Count = r.u32();
+		t.table2Count = r.u32();
+		t.table3Count = r.u32();  // (true counts, as Fallout 4)
+		t.changeFormCount = r.u32();
+		for (auto& u : t.unused) {
+			u = r.u32();
+		}
+		const std::uint32_t runsOffset = t.unused[1];
+
+		// each section must start where the table says, right after the one before
+		auto expect = [&](std::uint32_t a_offset, const char* a_what) {
+			if (r.pos() != a_offset) {
+				save->problems.push_back(std::string(a_what) + " does not start where the previous section ends (" +
+										 std::to_string(static_cast<long long>(a_offset) - static_cast<long long>(r.pos())) + " byte(s) unaccounted for)");
+				r.seek(a_offset);
+			}
+		};
+		expect(t.table1Offset, "global data table 1");
+		a_stage = "global data table 1";
+		for (std::uint32_t i = 0; i < t.table1Count; ++i) {
+			save->table1.push_back(ReadGlobalSF(r));
+		}
+		expect(t.table2Offset, "global data table 2");
+		a_stage = "global data table 2";
+		for (std::uint32_t i = 0; i < t.table2Count; ++i) {
+			save->table2.push_back(ReadGlobalSF(r));
+		}
+		expect(t.changeFormsOffset, "the change forms");
+		a_stage = "the change forms";
+		save->changeForms.reserve(t.changeFormCount);
+		for (std::uint32_t i = 0; i < t.changeFormCount; ++i) {
+			save->changeForms.push_back(ReadChangeFormSF(r, save->formVersion));
+		}
+		expect(t.table3Offset, "global data table 3");
+		a_stage = "global data table 3 (Papyrus)";
+		for (std::uint32_t i = 0; i < t.table3Count; ++i) {
+			save->table3.push_back(ReadGlobalSF(r));
+		}
+		expect(t.formIDArrayCountOffset, "the form ID array");
+		a_stage = "the form ID array";
+		{
+			const auto n = r.u32();
+			r.need(std::size_t(n) * 4);
+			save->formIDs.reserve(n);
+			for (std::uint32_t i = 0; i < n; ++i) {
+				save->formIDs.push_back(r.u32());
+			}
+		}
+		expect(t.unknownTable3Offset, "unknown table 3");
+		a_stage = "unknown table 3";
+		save->sfUnknownTable3 = r.bytes(r.u32());
+		expect(runsOffset, "the change form type list");
+		a_stage = "the change form type list";
+		{
+			const auto runs = ReadVsval(r);
+			std::size_t i = 0;
+			for (std::uint32_t k = 0; k < runs; ++k) {
+				const auto type = r.u8();
+				const auto count = ReadVsval(r);
+				if (type > 0x3F) {
+					save->problems.push_back("change form type " + std::to_string(type) + " is out of range");
+				}
+				if (count > save->changeForms.size() - i) {
+					throw FormatError("the change form type list covers more forms than the save has", r.pos());
+				}
+				for (std::uint32_t j = 0; j < count; ++j) {
+					save->changeForms[i++].typeField = type;
+				}
+			}
+			if (i != save->changeForms.size()) {
+				throw FormatError("the change form type list covers " + std::to_string(i) + " of " + std::to_string(save->changeForms.size()) + " forms",
+					r.pos());
+			}
+		}
+		const GlobalData* g0 = nullptr;
+		const GlobalData* g2 = nullptr;
+		for (const auto& g : save->table1) {
+			if (g.sfKind == GlobalData::SfKind::kOffset) {
+				(g.type == 0 ? g0 : g2) = &g;
+			}
+		}
+		if (!g0 || !g2) {
+			throw FormatError("global data types 0 and 2 (string table and created-ID section) are missing", r.pos());
+		}
+		expect(g0->sfOffset, "the string table");
+		a_stage = "the string table";
+		{
+			const auto n = r.u16();
+			save->sfStrings.reserve(n);
+			for (unsigned i = 0; i < n; ++i) {
+				save->sfStrings.push_back(r.wstring());
+			}
+		}
+		expect(g2->sfOffset, "the created-ID section");
+		a_stage = "the created-ID section";
+		save->sfCreated = r.bytes(r.remaining());
+
+		a_stage = "the checks after reading";
+		const auto nStrings = save->sfStrings.size();
+		std::size_t badStrings = 0;
+		for (const auto& c : save->changeForms) {
+			for (auto s : c.sfStrings) {
+				badStrings += s >= nStrings;
+			}
+		}
+		for (const auto* tb : { &save->table1, &save->table2, &save->table3 }) {
+			for (const auto& g : *tb) {
+				for (auto s : g.sfStrings) {
+					badStrings += s >= nStrings;
+				}
+			}
+		}
+		if (badStrings) {
+			save->problems.push_back(std::to_string(badStrings) + " string index(es) past the string table");
+		}
+		save->reindexChangeForms();
+		return save;
+	}
+
+	// ---- writing ----------------------------------------------------------------------------------------------
+
+	std::vector<std::uint8_t> SaveFile::serializeSF() const
+	{
+		auto inner = buildBody();
+		return sfContainer.present ? PackBCPS(inner, sfContainer) : inner;
+	}
+
+	namespace
+	{
+		std::vector<std::uint8_t> BuildSF(const SaveFile& s)
+		{
+			Writer w;
+			s.header.write(w);
+			w.u8(s.formVersion);
+			w.wstring(s.gameVersion);
+			w.wstring(s.sfCreatedVersion);
+			{
+				const auto& pl = s.plugins;
+				auto        extra = [&](const std::vector<PluginInfo::SfExtra>& a_v, std::size_t i) {
+                    static const PluginInfo::SfExtra none;
+                    return i < a_v.size() ? a_v[i] : none;
+				};
+				if (pl.full.size() > 0xFF || pl.lite.size() > 0xFFFF) {
+					throw std::runtime_error("too many plugins for the save format");
+				}
+				Writer pw;
+				pw.u8(static_cast<std::uint8_t>(pl.full.size()));
+				for (std::size_t i = 0; i < pl.full.size(); ++i) {
+					WritePluginSF(pw, pl.full[i], extra(pl.sfFull, i), pl.sfExtras);
+				}
+				pw.u16(static_cast<std::uint16_t>(pl.lite.size()));
+				for (std::size_t i = 0; i < pl.lite.size(); ++i) {
+					WritePluginSF(pw, pl.lite[i], extra(pl.sfLite, i), pl.sfExtras);
+				}
+				pw.u32(static_cast<std::uint32_t>(pl.medium.size()));
+				for (std::size_t i = 0; i < pl.medium.size(); ++i) {
+					WritePluginSF(pw, pl.medium[i], extra(pl.sfMedium, i), pl.sfExtras);
+				}
+				if (pl.sfHasTail) {
+					pw.u16(pl.sfTail);
+				}
+				w.u32(static_cast<std::uint32_t>(pw.size()));
+				w.bytes(pw.buf);
+			}
+			const std::size_t fltAt = w.size();
+			for (int i = 0; i < 25; ++i) {
+				w.u32(0);  // patched below
+			}
+			// types 0 and 2 hold the offsets of the string table and the created-ID section: patched at the end
+			std::vector<std::pair<std::size_t, std::uint32_t>> offsetSlots;  // (position of the u32, type)
+			auto table = [&](const std::vector<GlobalData>& a_t) {
+				for (const auto& g : a_t) {
+					if (g.sfKind == GlobalData::SfKind::kOffset) {
+						offsetSlots.emplace_back(w.size() + 4, g.type);
+					}
+					WriteGlobalSF(w, g, 0);
+				}
+			};
+			const auto t1 = static_cast<std::uint32_t>(w.size());
+			table(s.table1);
+			const auto t2 = static_cast<std::uint32_t>(w.size());
+			table(s.table2);
+			const auto cf = static_cast<std::uint32_t>(w.size());
+			for (const auto& c : s.changeForms) {
+				WriteChangeFormSF(w, c, s.formVersion);
+			}
+			const auto t3 = static_cast<std::uint32_t>(w.size());
+			table(s.table3);
+			const auto fid = static_cast<std::uint32_t>(w.size());
+			w.u32(static_cast<std::uint32_t>(s.formIDs.size()));
+			for (auto id : s.formIDs) {
+				w.u32(id);
+			}
+			const auto u3 = static_cast<std::uint32_t>(w.size());
+			w.u32(static_cast<std::uint32_t>(s.sfUnknownTable3.size()));
+			w.bytes(s.sfUnknownTable3);
+			// the type list: runs of forms of one type, in file order
+			const auto runsAt = static_cast<std::uint32_t>(w.size());
+			{
+				std::vector<std::pair<std::uint8_t, std::uint32_t>> runs;
+				for (const auto& c : s.changeForms) {
+					if (runs.empty() || runs.back().first != c.typeField) {
+						runs.emplace_back(c.typeField, 0);
+					}
+					++runs.back().second;
+				}
+				WriteVsval(w, static_cast<std::uint32_t>(runs.size()));
+				for (const auto& [type, count] : runs) {
+					w.u8(type);
+					WriteVsval(w, count);
+				}
+			}
+			const auto strAt = static_cast<std::uint32_t>(w.size());
+			if (s.sfStrings.size() > 0xFFFF) {
+				throw std::runtime_error("too many strings for the save format");
+			}
+			w.u16(static_cast<std::uint16_t>(s.sfStrings.size()));
+			for (const auto& str : s.sfStrings) {
+				w.wstring(str);
+			}
+			const auto createdAt = static_cast<std::uint32_t>(w.size());
+			w.bytes(s.sfCreated);
+
+			for (const auto& [at, type] : offsetSlots) {
+				w.patch32(at, type == 0 ? strAt : createdAt);
+			}
+			const std::uint32_t vals[10] = { fid, u3, t1, t2, cf, t3, static_cast<std::uint32_t>(s.table1.size()),
+				static_cast<std::uint32_t>(s.table2.size()), static_cast<std::uint32_t>(s.table3.size()),
+				static_cast<std::uint32_t>(s.changeForms.size()) };
+			for (int i = 0; i < 10; ++i) {
+				w.patch32(fltAt + 4 * i, vals[i]);
+			}
+			for (int i = 0; i < 15; ++i) {
+				w.patch32(fltAt + 40 + 4 * i, i == 1 ? runsAt : s.flt.unused[i]);
+			}
+			return std::move(w.buf);
+		}
+	}
+
+	std::vector<std::uint8_t> BuildBodySF(const SaveFile& a_save) { return BuildSF(a_save); }
+}

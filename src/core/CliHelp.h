@@ -10,6 +10,9 @@ namespace ess
 		return
 			"ReSaver++ version " RESAVERPP_VERSION " command line (Skyrim SE/AE/VR and Legendary Edition saves)\n"
 			"usage: resaverpp-cli <save.ess> [actions] [-o <out.ess>]\n"
+			"       resaverpp-cli <save.sfs> [--describe] [--forms [TYPE]] [--delete-form <form id>]... [-o <out.sfs>]\n"
+			"                 Starfield: what the save is made of, its change forms (of one type: REFR, ACHR, QUST...), delete\n"
+			"                 change forms, write it back (-o alone: the same save written again)\n"
 			"       resaverpp-cli <script.pex>       disassemble a compiled script\n"
 			"       resaverpp-cli <script.pex> --psc decompile it to Papyrus source\n"
 			"       resaverpp-cli --merged-patch <out.esp> --sources <mods folder> [--profile <folder>] [--game <folder>]\n"
