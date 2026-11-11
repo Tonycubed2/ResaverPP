@@ -114,6 +114,7 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kSavesMgr:
 	case Sc::kLeftovers:  // (cf::ListInventories / RemoveInventoryItems read Starfield's inventories)
 	case Sc::kActors:     // (cf::ListActors reads Starfield's positions; Move to me is not for Starfield yet)
+	case Sc::kLoadOrderCheck:  // (locheck::Game::kStarfield)
 	// Starfield's own versions
 	case Sc::kPlayer:  // the character (NPC_ 7): name, level and XP, face
 	case Sc::kQuests:  // the quests window
@@ -135,8 +136,6 @@ const char* App::SfNotYet(Sc a_which)
 		return N_("Not for Starfield saves yet: Starfield's physics data is laid out differently.");
 	case Sc::kPurify:
 		return N_("Not for Starfield saves yet: Starfield's form lists are laid out differently.");
-	case Sc::kLoadOrderCheck:
-		return N_("Not for Starfield yet: it checks Skyrim's and Fallout 4's plugin limits.");
 	case Sc::kBloat:
 	case Sc::kCompare:
 		return N_("Not for Starfield saves yet: it reads Skyrim's and Fallout 4's change forms.");

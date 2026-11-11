@@ -14806,3 +14806,18 @@ tr ""
 
 en "Not available for Starfield saves: it is for Skyrim (or Fallout 4) only."
 tr ""
+
+en "Not for Starfield saves yet: moving an actor also needs its saved AI reset, and Starfield's AI data is not decoded yet. In game: open the console, type prid followed by its form id, then moveto player."
+tr ""
+
+en "Plugin names are not read yet (Tools > Read plugin names), so items whose plugin is still loaded but no longer has them are not found; items of plugins no longer installed are."
+tr ""
+
+en "Starfield loads at most %zu full plugins (slots 00 to FC), %zu medium plugins (flag 0x400: slot FD; the game keeps the last four hex digits of their form numbers) and %zu light plugins (.esl or flag 0x100: slot FE; the last three). New forms of one plugin whose kept digits are the same land on each other."
+tr ""
+
+en "Medium plugins: %zu of %zu"
+tr ""
+
+en "medium master"
+tr ""

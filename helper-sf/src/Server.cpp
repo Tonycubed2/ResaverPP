@@ -209,7 +209,8 @@ namespace Server
 				spdlog::error("Server: could not build owner-only pipe security; not listening");
 				return;
 			}
-			spdlog::info("Server: listening on \\\\.\\pipe\\ReSaverHelper");
+			spdlog::info("Server: listening on \\\\.\\pipe\\ReSaverHelper (game process {})", GetCurrentProcessId());
+			bool busyLogged = false;
 			while (true) {
 				if (!Settings::Get().listen) {
 					std::this_thread::sleep_for(2s);
@@ -218,9 +219,24 @@ namespace Server
 				HANDLE pipe = CreateNamedPipeW(proto::kPipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1,
 					64 * 1024, 64 * 1024, 0, &sa);
 				if (pipe == INVALID_HANDLE_VALUE) {
-					spdlog::error("Server: CreateNamedPipe failed ({})", GetLastError());
+					const auto err = GetLastError();
+					if (err == ERROR_PIPE_BUSY) {
+						// another running copy of the game (a second Starfield.exe with this plugin) already serves the pipe:
+						// said once, then this copy waits quietly for it to go away
+						if (!busyLogged) {
+							spdlog::warn("Server: another running copy of the game already serves the pipe; this one (process {}) waits",
+								GetCurrentProcessId());
+							busyLogged = true;
+						}
+					} else {
+						spdlog::error("Server: CreateNamedPipe failed ({})", err);
+					}
 					std::this_thread::sleep_for(5s);
 					continue;
+				}
+				if (busyLogged) {
+					spdlog::info("Server: the other copy of the game is gone; this one (process {}) serves the pipe now", GetCurrentProcessId());
+					busyLogged = false;
 				}
 				const bool connected = ConnectNamedPipe(pipe, nullptr) ? true : (GetLastError() == ERROR_PIPE_CONNECTED);
 				if (connected) {

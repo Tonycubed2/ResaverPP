@@ -49,6 +49,9 @@ namespace ess::loadorder
 	// without 0x100 / 0x400, which takes no slot of its own when it has masters)
 	int StarfieldPluginKind(const std::filesystem::path& a_file);
 	StarfieldOrder ReadStarfield(const std::filesystem::path& a_pluginsTxt, const std::vector<std::filesystem::path>& a_dataDirs);
+	// the same, in order (the Load order check): the game's own files that are installed, Starfield.ccc's, then plugins.txt's
+	// active lines (also those whose file is not installed, so the check can say so); each once
+	std::vector<std::string> StarfieldListed(const std::filesystem::path& a_pluginsTxt, const std::vector<std::filesystem::path>& a_dataDirs);
 	// Starfield: plugins whose kind (full / light / medium) is not the one the save has them as. When a save loads, each
 	// saved form id is turned into today's (TESFile::AdjustFormID 0x1405b78c0, LOADER.md 2.5, PROVEN): a light plugin keeps
 	// the low 12 bits of the id, a medium one the low 16, a full one 24. So a plugin made light (or medium) after the save

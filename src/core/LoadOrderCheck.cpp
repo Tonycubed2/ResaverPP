@@ -74,6 +74,17 @@ namespace ess::locheck
 			l.extendedRangeHedr = 1.709f;  // xEdit wbDefinitionsTES5: HardcodedRangeMinVersion 1.709 (a Creation Kit / xEdit
 			                               // rule: the game's loader takes any 12-bit id of a light file)
 			break;
+		case Game::kStarfield:
+			// the save's three plugin lists (FORMAT 2.2) and TESFile::AdjustFormID (Starfield.exe 0x1405b78c0, LOADER.md 2.5):
+			// a light plugin keeps the low 12 bits of a form id (FE xxx yyy), a medium one the low 16 (FD xx yyyy), a full one
+			// 24 (00..FC; FD medium, FE light, FF made in game)
+			l.maxFull = 253;
+			l.maxLight = 4096;
+			l.maxMedium = 256;
+			l.light = true;
+			l.maxHedr = 1000.0f;           // (no header version limit checked for Starfield)
+			l.extendedRangeHedr = 0.0f;    // (no low-id rule checked for Starfield)
+			break;
 		case Game::kSkyrimLE:
 			l.maxFull = 255;  // 0x00..0xFE; 0xFF created
 			l.maxLight = 0;
@@ -109,8 +120,15 @@ namespace ess::locheck
 		// Legendary Edition: the header flag alone (TESV.exe 1.9.32.0 IsMaster 0x4446d0 = flags & 1; its file opener does not
 		// look at the extension)
 		p.esm = (flags & 1) || (a_game != Game::kSkyrimLE && (low.ends_with(".esm") || p.eslExt));
-		p.eslFlag = (flags & 0x200) != 0;
-		p.light = limits.light && (p.eslFlag || p.eslExt);
+		if (a_game == Game::kStarfield) {
+			// Starfield.exe 0x1405b70ac (StarfieldPluginKind): light = flag 0x100 or .esl, medium = flag 0x400
+			p.eslFlag = (flags & 0x100) != 0;
+			p.light = p.eslFlag || p.eslExt;
+			p.medium = !p.light && (flags & 0x400) != 0;
+		} else {
+			p.eslFlag = (flags & 0x200) != 0;
+			p.light = limits.light && (p.eslFlag || p.eslExt);
+		}
 		std::vector<std::uint8_t> d(U32(h + 4));
 		if (!f.read(reinterpret_cast<char*>(d.data()), static_cast<std::streamsize>(d.size()))) {
 			throw std::runtime_error("the plugin header is cut off");
@@ -148,6 +166,7 @@ namespace ess::locheck
 		}
 		const bool extended = p.hedr >= limits.extendedRangeHedr - 1e-4f && !p.masters.empty();
 		const auto self = static_cast<std::uint32_t>(p.masters.size());
+		std::set<std::uint32_t> kept;  // Starfield: the low bits the game keeps (AdjustFormID)
 		while (f.read(reinterpret_cast<char*>(h), 24)) {
 			if (std::memcmp(h, "GRUP", 4) == 0) {
 				continue;  // step into the group
@@ -157,7 +176,10 @@ namespace ess::locheck
 				const auto obj = id & 0xFFFFFF;
 				++p.newRecords;
 				p.maxObjectID = std::max(p.maxObjectID, obj);
-				p.overRange += obj > 0xFFF ? 1 : 0;
+				p.overRange += obj > (p.medium ? 0xFFFFu : 0xFFFu) ? 1 : 0;
+				if (a_game == Game::kStarfield && !kept.insert(obj & (p.medium ? 0xFFFFu : 0xFFFu)).second) {
+					++p.collisions;
+				}
 				p.underFloor += (!extended && obj < 0x800) ? 1 : 0;
 			}
 			f.seekg(U32(h + 4), std::ios::cur);
@@ -187,7 +209,8 @@ namespace ess::locheck
 		r.limits = LimitsFor(a_opt.game);
 		const auto& L = r.limits;
 		const bool  fo4 = a_opt.game == Game::kFallout4;
-		const char* gameName = fo4 ? "Fallout 4" : a_opt.game == Game::kSkyrimLE ? "Skyrim Legendary Edition" : "Skyrim Special Edition";
+		const bool  sf = a_opt.game == Game::kStarfield;
+		const char* gameName = sf ? "Starfield" : fo4 ? "Fallout 4" : a_opt.game == Game::kSkyrimLE ? "Skyrim Legendary Edition" : "Skyrim Special Edition";
 		auto add = [&](Severity s, const std::string& plugin, const std::string& text) { r.findings.push_back({ s, plugin, text }); };
 
 		std::map<std::string, std::size_t> pos;
@@ -213,7 +236,7 @@ namespace ess::locheck
 				try {
 					// records are read only for light plugins (their numbers matter); a header tells if it is light
 					p = ReadHeader(*path, false, a_opt.game);
-					if (p.light) {
+					if (p.light || p.medium) {
 						p = ReadHeader(*path, true, a_opt.game);
 					}
 				} catch (const std::exception& e) {
@@ -243,8 +266,9 @@ namespace ess::locheck
 			if (p.path.empty()) {
 				p.slot = -1;
 			} else {
-				p.slot = static_cast<int>(p.light ? r.light : r.full);
-				(p.light ? r.light : r.full)++;
+				auto& n = p.light ? r.light : p.medium ? r.medium : r.full;
+				p.slot = static_cast<int>(n);
+				++n;
 			}
 		}
 
@@ -253,7 +277,7 @@ namespace ess::locheck
 			std::string over;
 			std::size_t k = 0;
 			for (const auto& p : r.plugins) {
-				if (!p.light && p.slot >= static_cast<int>(L.maxFull)) {
+				if (!p.light && !p.medium && p.slot >= static_cast<int>(L.maxFull)) {
 					over += (k++ ? ", " : "") + p.name;
 					if (k >= 8) {
 						over += ", ...";
@@ -264,6 +288,10 @@ namespace ess::locheck
 			add(Severity::kError, "", std::string(gameName) + " loads at most " + std::to_string(L.maxFull) + " full plugins (.esm/.esp not flagged light), "
 			                          "and this load order has " + std::to_string(r.full) + ". The ones beyond the limit (" + over + ") do not get "
 			                          "a slot: make some of them light (ESL flag, after compacting their form IDs in xEdit) or merge them.");
+		}
+		if (L.maxMedium && r.medium > L.maxMedium) {
+			add(Severity::kError, "", std::string(gameName) + " loads at most " + std::to_string(L.maxMedium) + " medium plugins, and this load order has " +
+			                          std::to_string(r.medium) + ".");
 		}
 		if (L.light && r.light > L.maxLight) {
 			add(Severity::kError, "", std::string(gameName) + " loads at most " + std::to_string(L.maxLight) + " light plugins, and this load order has " +
@@ -280,7 +308,11 @@ namespace ess::locheck
 				auto it = pos.find(Lower(m));
 				if (it == pos.end()) {
 					add(Severity::kError, p.name, p.name + " needs " + m + ", which is not in the load order. The game cannot load " + p.name +
-					                                  (fo4 ? " (Fallout 4 leaves it out, or stops at the loading screen)." : " (Skyrim crashes at the start)."));
+					                                  (sf    ? " (Starfield leaves it out)."
+					                                   : fo4 ? " (Fallout 4 leaves it out, or stops at the loading screen)."
+					                                         : " (Skyrim crashes at the start)."));
+				} else if (sf) {
+					// (the order Starfield loads in, masters first or not, is not checked in Starfield.exe: no late-master finding)
 				} else if (r.plugins[it->second].loadPos > p.loadPos) {
 					r.findings.push_back({ Severity::kError, p.name,
 						p.name + " needs " + m + ", but " + m + " loads after it. A master must load before the plugins that use it: move " + m +
@@ -315,6 +347,20 @@ namespace ess::locheck
 				add(Severity::kWarning, p.name, p.name + " is a light plugin (" + (p.eslExt ? std::string(".esl") : std::string("ESL flag")) +
 				                                    "), but Legendary Edition has no light plugins.");
 			}
+			// Starfield: a medium plugin's new forms must fit in 16 bits, a light one's in 12
+			if (sf && (p.light || p.medium)) {
+				// the game keeps the low bits only (TESFile::AdjustFormID): numbers above the range are harmless as long as no two
+				// new forms keep the same low bits (Bethesda's own SFBGS047.esm numbers 0x1000..0x102A)
+				if (p.collisions) {
+					add(Severity::kError, p.name, p.name + " is " + (p.medium ? "medium (flag 0x400)" : p.eslExt ? "light (.esl)" : "light (flag 0x100)") +
+					                                  " and " + std::to_string(p.collisions) + " of its " + std::to_string(p.newRecords) +
+					                                  " new forms end in the same last " + (p.medium ? "four" : "three") +
+					                                  " hex digits as another of its new forms (highest " + Hex(p.maxObjectID) +
+					                                  "). The game keeps only those digits, so these forms land on each other. Compact it in xEdit "
+					                                  "or remove the flag.");
+				}
+				continue;
+			}
 			// light plugins: their new forms must fit in 12 bits
 			if (p.light) {
 				if (p.overRange) {
@@ -334,7 +380,10 @@ namespace ess::locheck
 		}
 
 		char sum[256];
-		if (L.light) {
+		if (sf) {
+			std::snprintf(sum, sizeof(sum), "%zu plugins: %zu full of %zu, %zu medium of %zu, %zu light of %zu%s.", r.plugins.size(), r.full, L.maxFull,
+				r.medium, L.maxMedium, r.light, L.maxLight, r.missing ? (", " + std::to_string(r.missing) + " not found").c_str() : "");
+		} else if (L.light) {
 			std::snprintf(sum, sizeof(sum), "%zu plugins: %zu full of %zu, %zu light of %zu%s.", r.plugins.size(), r.full, L.maxFull, r.light, L.maxLight,
 				r.missing ? (", " + std::to_string(r.missing) + " not found").c_str() : "");
 		} else {
@@ -582,6 +631,8 @@ namespace ess::locheck
 				std::snprintf(slot, sizeof(slot), "--");
 			} else if (p.light) {
 				std::snprintf(slot, sizeof(slot), "FE %03X", p.slot);
+			} else if (p.medium) {
+				std::snprintf(slot, sizeof(slot), "FD %02X", p.slot);
 			} else {
 				std::snprintf(slot, sizeof(slot), "%02X", p.slot);
 			}

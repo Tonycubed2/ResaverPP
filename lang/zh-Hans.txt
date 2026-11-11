@@ -14806,3 +14806,18 @@ tr "暂不适用于 Starfield：它读取的是 Skyrim 和 Fallout 4 的插件�
 
 en "Not available for Starfield saves: it is for Skyrim (or Fallout 4) only."
 tr "不适用于 Starfield 存档：仅适用于 Skyrim（或 Fallout 4）。"
+
+en "Not for Starfield saves yet: moving an actor also needs its saved AI reset, and Starfield's AI data is not decoded yet. In game: open the console, type prid followed by its form id, then moveto player."
+tr "暂不适用于 Starfield 存档：移动角色还需要重置其保存的 AI，而 Starfield 的 AI 数据尚未解码。在游戏中：打开控制台，输入 prid 加表单 ID，然后输入 moveto player。"
+
+en "Plugin names are not read yet (Tools > Read plugin names), so items whose plugin is still loaded but no longer has them are not found; items of plugins no longer installed are."
+tr "尚未读取插件名称（工具 > 读取插件名称），因此找不到插件仍在加载但已不包含的物品；已卸载插件的物品可以找到。"
+
+en "Starfield loads at most %zu full plugins (slots 00 to FC), %zu medium plugins (flag 0x400: slot FD; the game keeps the last four hex digits of their form numbers) and %zu light plugins (.esl or flag 0x100: slot FE; the last three). New forms of one plugin whose kept digits are the same land on each other."
+tr "Starfield 最多加载 %zu 个完整插件（槽位 00 到 FC）、%zu 个中型插件（标志 0x400：槽位 FD；游戏保留其表单编号的最后四位十六进制数）和 %zu 个轻量插件（.esl 或标志 0x100：槽位 FE；最后三位）。同一插件中保留位相同的新表单会互相覆盖。"
+
+en "Medium plugins: %zu of %zu"
+tr "中型插件：%zu / %zu"
+
+en "medium master"
+tr "中型主文件"

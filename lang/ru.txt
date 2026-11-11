@@ -14864,3 +14864,18 @@ tr "Пока не для Starfield: инструмент читает плаги
 
 en "Not available for Starfield saves: it is for Skyrim (or Fallout 4) only."
 tr "Недоступно для сохранений Starfield: только для Skyrim (или Fallout 4)."
+
+en "Not for Starfield saves yet: moving an actor also needs its saved AI reset, and Starfield's AI data is not decoded yet. In game: open the console, type prid followed by its form id, then moveto player."
+tr "Пока не для сохранений Starfield: при перемещении персонажа нужно также сбросить его сохранённый ИИ, а данные ИИ Starfield ещё не расшифрованы. В игре: откройте консоль, введите prid и ID формы, затем moveto player."
+
+en "Plugin names are not read yet (Tools > Read plugin names), so items whose plugin is still loaded but no longer has them are not found; items of plugins no longer installed are."
+tr "Имена из плагинов ещё не прочитаны (Инструменты > Прочитать имена из плагинов), поэтому предметы, плагин которых загружен, но их больше не содержит, не находятся; предметы удалённых плагинов находятся."
+
+en "Starfield loads at most %zu full plugins (slots 00 to FC), %zu medium plugins (flag 0x400: slot FD; the game keeps the last four hex digits of their form numbers) and %zu light plugins (.esl or flag 0x100: slot FE; the last three). New forms of one plugin whose kept digits are the same land on each other."
+tr "Starfield загружает не более %zu полных плагинов (слоты 00–FC), %zu средних плагинов (флаг 0x400: слот FD; игра сохраняет последние четыре шестнадцатеричные цифры номеров их форм) и %zu лёгких плагинов (.esl или флаг 0x100: слот FE; последние три). Новые формы одного плагина с одинаковыми сохраняемыми цифрами накладываются друг на друга."
+
+en "Medium plugins: %zu of %zu"
+tr "Средние плагины: %zu из %zu"
+
+en "medium master"
+tr "средний мастер"

@@ -529,7 +529,10 @@ void App::drawBloat()
 
 namespace
 {
-	locheck::Game GameOf(int a_game, bool a_le) { return a_game == 2 ? locheck::Game::kFallout4 : a_le ? locheck::Game::kSkyrimLE : locheck::Game::kSkyrimSE; }
+	locheck::Game GameOf(int a_game, bool a_le)
+	{
+		return a_game == 3 ? locheck::Game::kStarfield : a_game == 2 ? locheck::Game::kFallout4 : a_le ? locheck::Game::kSkyrimLE : locheck::Game::kSkyrimSE;
+	}
 
 	bool HasLateMasters(const locheck::Result& a_r)
 	{
@@ -698,11 +701,16 @@ void App::drawLoadOrderCheck()
 	auto&      st = bloatState();
 	const bool le = _save && _save->isLE();
 	const std::filesystem::path pluginsTxt =
-		_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_game, le);
-	const auto game = GameOf(_game, le);
+		_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(sf() ? 3 : _game, le);
+	const auto game = sf() ? locheck::Game::kStarfield : GameOf(_game, le);
 	const auto lim = locheck::LimitsFor(game);
 
-	if (game == locheck::Game::kFallout4) {
+	if (game == locheck::Game::kStarfield) {
+		ImGui::TextWrapped(tr("Starfield loads at most %zu full plugins (slots 00 to FC), %zu medium plugins (flag 0x400: slot FD; the game keeps the "
+		                   "last four hex digits of their form numbers) and %zu light plugins (.esl or flag 0x100: slot FE; the last three). New forms "
+		                   "of one plugin whose kept digits are the same land on each other."),
+			lim.maxFull, lim.maxMedium, lim.maxLight);
+	} else if (game == locheck::Game::kFallout4) {
 		ImGui::TextWrapped(tr("Fallout 4 loads at most %zu full plugins (.esm and .esp without the light flag; load order slots 00 to FD) and %zu light "
 		                   "plugins (.esl, or any plugin with the light flag: they share slot FE). A light plugin may only number its own forms "
 		                   "up to FFF. A plugin made with a newer header version than %.2f is not loaded at all."),
@@ -716,7 +724,7 @@ void App::drawLoadOrderCheck()
 	}
 	ImGui::TextDisabled(tr("Load order: %s"), platform::ToUtf8(pluginsTxt).c_str());
 
-	const bool noMods = _sourcesPath.empty() && !_sources->scanned() && gameFolder().empty();
+	const bool noMods = sf() ? gameFolder().empty() : (_sourcesPath.empty() && !_sources->scanned() && gameFolder().empty());
 	if (noMods) {
 		Colored(theme::Warn(), tr("ReSaver Plus does not know where your mods are yet: set your mods folder (Mod Organizer) or game folder in "
 		                       "Options > Settings, then come back here."));
@@ -740,8 +748,27 @@ void App::drawLoadOrderCheck()
 		const auto gf = gameFolder();
 		locheck::Options o;
 		o.game = game;
-		const int g = _game == 2 ? 2 : -1;
-		std::thread([job, src, gf, o, pluginsTxt, g]() mutable {
+		const int  g = _game == 2 ? 2 : -1;
+		const bool isSf = game == locheck::Game::kStarfield;
+		const auto sfDirs = isSf ? loadorder::StarfieldDataDirs(gf) : std::vector<std::filesystem::path>{};
+		std::thread([job, src, gf, o, pluginsTxt, g, isSf, sfDirs]() mutable {
+			if (isSf) {
+				// Starfield: its own list (StarfieldListed) and its Data folders (the game's, My Games\Starfield\Data)
+				o.loadOrder = loadorder::StarfieldListed(pluginsTxt, sfDirs);
+				job->plugins = o.loadOrder.size();
+				o.findPlugin = [sfDirs](const std::string& a_name) -> std::optional<std::filesystem::path> {
+					for (const auto& d : sfDirs) {
+						std::error_code ec;
+						if (const auto f = d / a_name; std::filesystem::exists(f, ec)) {
+							return f;
+						}
+					}
+					return std::nullopt;
+				};
+				job->result = locheck::Check(o);
+				job->done = true;
+				return;
+			}
 			o.loadOrder = merge::ReadLoadOrder(pluginsTxt, gf, g);  // (not on the window's thread)
 			job->plugins = o.loadOrder.size();
 			o.findPlugin = [src, gf](const std::string& a_name) -> std::optional<std::filesystem::path> {
@@ -785,6 +812,10 @@ void App::drawLoadOrderCheck()
 	ImGui::Spacing();
 	if (lim.light) {
 		ImGui::Text(tr("Full plugins: %zu of %zu"), r.full, lim.maxFull);
+		if (lim.maxMedium) {
+			ImGui::SameLine(0, ImGui::GetFontSize() * 3);
+			ImGui::Text(tr("Medium plugins: %zu of %zu"), r.medium, lim.maxMedium);
+		}
 		ImGui::SameLine(0, ImGui::GetFontSize() * 3);
 		ImGui::Text(tr("Light plugins: %zu of %zu"), r.light, lim.maxLight);
 	} else {
@@ -838,6 +869,8 @@ void App::drawLoadOrderCheck()
 				ImGui::TextDisabled("--");
 			} else if (p.light) {
 				ImGui::Text("FE %03X", p.slot);
+			} else if (p.medium) {
+				ImGui::Text("FD %02X", p.slot);
 			} else {
 				ImGui::Text("%02X", p.slot);
 			}
@@ -850,7 +883,11 @@ void App::drawLoadOrderCheck()
 				ImGui::PopStyleColor();
 			}
 			ImGui::TableNextColumn();
-			std::string kind = p.path.empty() ? tr("not found") : p.light ? (p.esm ? tr("light master") : tr("light")) : p.esm ? tr("master") : tr("plugin");
+			std::string kind = p.path.empty() ? tr("not found")
+			                   : p.light      ? (p.esm ? tr("light master") : tr("light"))
+			                   : p.medium     ? (p.esm ? tr("medium master") : tr("medium"))
+			                   : p.esm        ? tr("master")
+			                                  : tr("plugin");
 			if (p.eslFlag && !p.eslExt) {
 				kind += tr(" (flag)");
 			}
@@ -860,7 +897,7 @@ void App::drawLoadOrderCheck()
 				ImGui::Text("%.2f", static_cast<double>(p.hedr));
 			}
 			ImGui::TableNextColumn();
-			if (p.light && p.newRecords) {
+			if ((p.light || p.medium) && p.newRecords) {
 				ImGui::Text(tr("%zu (up to %03X)"), p.newRecords, p.maxObjectID);
 			}
 			ImGui::TableNextColumn();

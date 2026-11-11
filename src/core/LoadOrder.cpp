@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <set>
 #include <vector>
 
 namespace ess::loadorder
@@ -307,4 +308,40 @@ namespace ess::loadorder
 		}
 		return o;
 	}
+
+	std::vector<std::string> StarfieldListed(const std::filesystem::path& a_pluginsTxt, const std::vector<std::filesystem::path>& a_dataDirs)
+	{
+		const auto o = ReadStarfield(a_pluginsTxt, a_dataDirs);
+		std::vector<std::string> out;
+		std::set<std::string>    seen;
+		auto add = [&](const std::string& a_name) {
+			if (seen.insert(Lower(a_name)).second) {
+				out.push_back(a_name);
+			}
+		};
+		for (const auto& b : StarfieldBaseFiles()) {
+			if (o.installed(b)) {
+				add(o.files.at(b).filename().string());
+			}
+		}
+		for (const auto& dir : a_dataDirs) {
+			std::ifstream ccc(dir / "Starfield.ccc");
+			for (std::string line; std::getline(ccc, line);) {
+				line = Trim(line);
+				if (!line.empty() && line[0] != '#' && o.installed(Lower(line))) {
+					add(line);
+				}
+			}
+			break;
+		}
+		std::ifstream f(a_pluginsTxt);
+		for (std::string line; std::getline(f, line);) {
+			line = Trim(line);
+			if (!line.empty() && line[0] == '*') {
+				add(Trim(line.substr(1)));
+			}
+		}
+		return out;
+	}
 }
+

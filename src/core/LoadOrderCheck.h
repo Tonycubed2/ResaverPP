@@ -53,13 +53,15 @@ namespace ess::locheck
 	{
 		kSkyrimSE,  // SE/AE (and VR with light support)
 		kSkyrimLE,
-		kFallout4
+		kFallout4,
+		kStarfield  // full 00..FC, medium FD xx (flag 0x400), light FE xxx (flag 0x100 or .esl): StarfieldPluginKind (LoadOrder.h)
 	};
 
 	struct Limits
 	{
 		std::size_t   maxFull = 254;
 		std::size_t   maxLight = 4096;
+		std::size_t   maxMedium = 0;         // Starfield: medium plugins (slot FD)
 		bool          light = true;          // the game has light plugins
 		float         maxHedr = 1.0f;        // newest header version the game loads
 		float         extendedRangeHedr = 1.0f;  // header version from which light plugins may number from 0x001
@@ -71,14 +73,15 @@ namespace ess::locheck
 		std::string              name;
 		std::filesystem::path    path;  // empty: not found
 		std::string              error;  // could not be read
-		bool                     esm = false, eslFlag = false, eslExt = false, light = false;
+		bool                     esm = false, eslFlag = false, eslExt = false, light = false, medium = false;
 		float                    hedr = 0;
 		std::uint16_t            formVersion = 0;  // the header record's version
 		std::vector<std::string> masters;
 		int                      slot = -1;        // load index (full) or light index, in the order the game loads (GameOrder)
 		int                      loadPos = -1;     // position in the order the game loads (GameOrder), -1 not found
 		std::size_t              newRecords = 0;   // records the plugin adds (counted for light plugins only)
-		std::size_t              overRange = 0;    // ... numbered above 0xFFF
+		std::size_t              overRange = 0;    // ... numbered above 0xFFF (a medium plugin: 0xFFFF)
+		std::size_t              collisions = 0;   // Starfield: ... whose kept low bits are another new form's (they land on it)
 		std::size_t              underFloor = 0;   // ... numbered below 0x800 where that is not allowed
 		std::uint32_t            maxObjectID = 0;
 	};
@@ -102,7 +105,7 @@ namespace ess::locheck
 		Game                    game = Game::kFallout4;
 		Limits                  limits;
 		std::vector<PluginInfo> plugins;  // in load order
-		std::size_t             full = 0, light = 0, missing = 0;
+		std::size_t             full = 0, light = 0, medium = 0, missing = 0;
 		std::vector<Finding>    findings;  // errors first
 		bool                    hasErrors() const;
 		std::size_t             count(Severity a_s) const;
