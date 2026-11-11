@@ -187,8 +187,59 @@ void TestStarfield()
 					c.data = data0;
 					break;
 				}
+				// the player renamed, written and read back: the record's first string and the header carry the new name
+				for (auto& c : s->changeForms) {
+					if (c.typeCode() != 9 || s->formIDOf(c.refID) != 0x7) {
+						continue;
+					}
+					const auto strings0 = s->sfStrings;
+					const auto list0 = c.sfStrings;
+					const auto name0 = s->header.playerName;
+					Check(RenameNpcSF(*s, c, "Test Name"), "sf character: renamed");
+					const auto out = fs::temp_directory_path() / ("rs_sfname_" + name);
+					try {
+						s->write(out, false);
+						auto back = SaveFile::load(out);
+						bool ok = back->header.playerName == "Test Name";
+						for (const auto& b : back->changeForms) {
+							if (b.typeCode() == 9 && back->formIDOf(b.refID) == 0x7) {
+								ok = ok && !b.sfStrings.empty() && back->sfStrings[b.sfStrings[0]] == "Test Name" && DecodeNpcSF(b).ok;
+							}
+						}
+						Check(ok, "sf character: the new name reads back");
+					} catch (const std::exception& ex) {
+						fail(std::string("rename does not write: ") + ex.what());
+					}
+					std::error_code ec;
+					fs::remove(out, ec);
+					s->sfStrings = strings0;
+					c.sfStrings = list0;
+					s->header.playerName = name0;
+					break;
+				}
 			}
-			std::printf("  sf %s: %zu references decode; %zu of %zu actors (the rest name a leveled base, extra 0x2b)\n", name.c_str(), rn - rbad, aok, an);
+			std::size_t nn = 0, nok = 0;
+			std::string firstNpc;
+			for (const auto& c : s->changeForms) {
+				if (c.typeCode() == 9 && c.version == 153) {
+					++nn;
+					const auto d = DecodeNpcSF(c);
+					nok += d.ok;
+					if (!d.ok && firstNpc.empty()) {
+						char b[64];
+						std::snprintf(b, sizeof(b), "%08X ", s->formIDOf(c.refID));
+						firstNpc = b + d.error;
+					}
+				}
+			}
+			if (nok != nn) {
+				fail(std::to_string(nn - nok) + " of " + std::to_string(nn) + " NPC_ records do not decode (first: " + firstNpc + ")");
+			}
+			// (16 actors of the 90,166 in the sample hold extra 0x66, a running AI package's data, not read yet)
+			if (an && aok * 1000 < an * 999) {
+				fail(std::to_string(an - aok) + " of " + std::to_string(an) + " actors do not decode");
+			}
+			std::printf("  sf %s: %zu references, %zu of %zu actors, %zu NPC_ records decode\n", name.c_str(), rn - rbad, aok, an, nok);
 		}
 		++n;
 		const auto  file = SfReadAll(f);

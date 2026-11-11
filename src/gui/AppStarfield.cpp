@@ -324,6 +324,17 @@ void App::drawHomeSF()
 		}
 	}
 	tips::Tip(tr("Your character's items and credits as the save keeps them, with their counts (editable)."));
+	ImGui::SameLine();
+	static bool testChar = std::getenv("RESAVERPP_TEST_SFCHAR") != nullptr;  // screenshots: opens the player's character
+	if (ImGui::Button(tr("Your character..."), ImVec2(w, 0)) || std::exchange(testChar, false)) {
+		for (const auto& c : _save->changeForms) {
+			if (c.typeCode() == 9 && _save->formIDOf(c.refID) == 0x7) {
+				select(Cat::kChangeForms, c.refID.data);
+				break;
+			}
+		}
+	}
+	tips::Tip(tr("Your character's saved record: the name (editable)."));
 	if (sfPapyrus()) {
 		if (ImGui::Button(trc("home", "Remove unattached instances"), ImVec2(w, 0))) {
 			shortcut(Sc::kRemoveUnattached);
@@ -617,6 +628,41 @@ void App::detailChangeFormSF(std::uint64_t k)
 				}
 				ImGui::EndDisabled();
 				ImGui::TextDisabled("%s", tr("Type a number and press Enter (1 to 1,000,000,000)."));
+			}
+		}
+	}
+	// a character (NPC_; the player is 0x7): its name, changeable (RenameNpcSF)
+	if (c->typeCode() == 9) {
+		const auto n = DecodeNpcSF(*c);
+		if (ImGui::CollapsingHeader(trId("Character"), ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (!n.ok) {
+				ImGui::PushTextWrapPos(0);
+				ImGui::TextDisabled("%s", (tr("Not read: ") + n.error).c_str());
+				ImGui::PopTextWrapPos();
+			} else if (!n.hasName || c->sfStrings.empty() || c->sfStrings[0] >= s.sfStrings.size()) {
+				ImGui::TextDisabled("%s", tr("The save keeps no name for this character (its plugin's name applies)."));
+			} else {
+				const auto cur = text::ToUtf8(s.sfStrings[c->sfStrings[0]]);
+				ImGui::Text(tr("Name: %s"), cur.c_str());
+				static char buf[256];
+				static RefID bufFor;
+				if (!(bufFor == c->refID)) {
+					bufFor = c->refID;
+					std::snprintf(buf, sizeof(buf), "%s", cur.c_str());
+				}
+				ImGui::BeginDisabled(_readOnly);
+				ImGui::SetNextItemWidth(260);
+				ImGui::InputText("##name", buf, sizeof(buf));
+				ImGui::SameLine();
+				if (ImGui::Button(tr("Rename")) && buf[0] && cur != buf) {
+					const auto raw = c->refID;
+					const std::string want = buf;
+					if (auto* cf = _save->findChangeForm(raw); cf && RenameNpcSF(*_save, *cf, text::FromUtf8(want, s.sfStrings[c->sfStrings[0]]))) {
+						markChanged(Fmt(tr("Renamed to %s"), want.c_str()));
+					}
+				}
+				ImGui::EndDisabled();
+				tips::Tip(tr("The name the game shows for this character. For your own character, the name in the load menu changes too."));
 			}
 		}
 	}

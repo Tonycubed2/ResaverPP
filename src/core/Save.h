@@ -215,6 +215,21 @@ namespace ess
 		std::vector<SfInventoryItem> items;
 	};
 	SfReferenceData DecodeReferenceSF(std::uint32_t a_formID, const ChangeForm& a_cf);
+	// Starfield: an NPC_ change form (TESNPC::SaveGame 0x140cdf140, version 153), read to its end; the same layout is
+	// inside an actor's extra 0x2b (a leveled actor's base). Offsets of the parts a later editor needs.
+	struct SfNpcData
+	{
+		bool        ok = false;
+		std::string error;
+		std::size_t statsOffset = SIZE_MAX;  // change flag 0x2: 16 bytes (TESActorBase +0xe8 +8)
+		std::size_t factionsOffset = SIZE_MAX, factionRefs = 0, factions = 0;  // 0x40: n x (FORMID, u8 rank)
+		std::size_t faceOffset = SIZE_MAX;  // 0x800: the face data (0x140cdd070)
+		bool        hasName = false;  // 0x20: its name is in the string list
+	};
+	SfNpcData DecodeNpcSF(const ChangeForm& a_cf);
+	class SaveFile;
+	// renames an NPC_ (the player is NPC_ 0x7; its header name follows); false when the record has no name to change
+	bool RenameNpcSF(SaveFile& a_save, ChangeForm& a_cf, const std::string& a_name);
 	// changes one stack's count in place (the data keeps its size and its forms)
 	bool SetInventoryCountSF(ChangeForm& a_cf, const SfInventoryStack& a_stack, std::uint32_t a_count);
 

@@ -162,6 +162,91 @@ namespace ess
 			}
 		}
 
+		// TESNPC::SaveGame 0x140cdf140 (an NPC_ change form, or the leveled base inside extra 0x2b), a_flags its change flags
+		void Npc(Rd& r, std::uint32_t f, SfNpcData* a_out)
+		{
+			// TESActorBase::SaveGame 0x140cc5ce0
+			r.fid();  // TESForm::SaveGame: the form's own ID
+			if (f & 0x1) {
+				r.skip(6);
+			}
+			if (f & 0x2) {  // 0x1405d5a10: 16 bytes (+0xe8 +8)
+				if (a_out) {
+					a_out->statsOffset = r.p;
+				}
+				r.skip(16);
+			}
+			if (f & 0x40) {  // factions: vsval n, n x (FORMID, u8 rank)
+				const auto n = r.count(r.vsval(), 1);
+				if (a_out) {
+					a_out->factionsOffset = r.p;
+					a_out->factionRefs = r.refs;
+					a_out->factions = n;
+				}
+				r.fid(n);
+				r.skip(n);
+			}
+			if (f & 0x10) {
+				r.fid(r.vsval());
+			}
+			if (f & 0x8) {
+				r.skip(7);
+			}
+			if (f & 0x20) {  // the name: a string (string list)
+				if (a_out) {
+					a_out->hasName = true;
+				}
+			}
+			if (f & 0x1000000) {
+				r.u8();
+			}
+			if (f & 0x100) {
+				r.u8();
+			}
+			if (f & 0x200) {
+				r.skip(8);
+			}
+			if (f & 0x400) {
+				r.fid();
+			}
+			if (f & 0x2000000) {
+				r.fid(2);
+			}
+			if (f & 0x800) {  // face: u8, FORMID, vsval n FORMIDs, then 0x140cdd070
+				r.u8();
+				r.fid();
+				r.fid(r.vsval());
+				if (a_out) {
+					a_out->faceOffset = r.p;
+				}
+				const auto n1 = r.count(r.vsval(), 5);  // (vsval key, f32)
+				for (std::uint32_t i = 0; i < n1; ++i) {
+					r.vsval();
+					r.skip(4);
+				}
+				const auto n2 = r.count(r.vsval(), 2);  // 0x140cefdb0: (vsval key, vsval j, j x (string, f32))
+				for (std::uint32_t i = 0; i < n2; ++i) {
+					r.vsval();
+					r.skip(4ull * r.count(r.vsval(), 4));
+				}
+				r.u8();  // then 6 strings
+				r.skip(4ull * r.count(r.vsval(), 4));  // (string, f32)
+				r.skip(12ull * r.u8());  // u8 n, n x (u32, 3 strings, u32, u32)
+			}
+			if (f & 0x80) {
+				r.u8();
+			}
+			if (f & 0x4000) {  // u32 n, n x f32, then 12 bytes
+				r.skip(4ull * r.count(r.u32(), 4) + 12);
+			}
+			if (f & 0x1000) {
+				r.fid();
+			}
+			if (f & 0x2000) {
+				r.fid();
+			}
+		}
+
 		void Extra(Rd& r, std::uint8_t t)
 		{
 			switch (t) {
@@ -205,8 +290,48 @@ namespace ess
 			case 0x92: case 0x53: r.fid(); r.skip(4); return;
 			case 0x29: r.fid(); r.skip(25); return;
 			case 0x36: r.fid(); r.skip(1); return;
-			case 0x2f: r.fid(); r.skip(2); return;
-			case 0xa5: r.fid(2); r.skip(5); return;  // ExtraInteraction: u32 type (Passenger 1, Mount 0), 2 forms, u8 (their +0x68 save is empty)  // (virtual writer at the extra's +0x18; 2 bytes and a form in every save)
+			case 0x2f: r.fid(); r.skip(2); return;  // (virtual writer at the extra's +0x18; 2 bytes and a form in every save)
+			case 0xa5: r.fid(2); r.skip(5); return;  // ExtraInteraction: u32 type (Passenger 1, Mount 0), 2 forms, u8 (their +0x68 save is empty)
+			case 0x17: r.fid(2); r.skip(7); return;  // FORMID, FORMID, u32, u8 x3
+			case 0x7c: r.fid(2); r.skip(32); return;  // 0x14031ad70: 4 x 8 bytes, FORMID, FORMID
+			case 0x16: r.fid(2); r.skip(16); return;  // FORMID, 12 bytes + FORMID (0x140acc660), u32
+			case 0xb3: r.fid(r.vsval()); return;  // 0x14053a200: vsval n FORMIDs
+			case 0x71: {  // vsval n, n x (FORMID, 8 bytes, u8)
+				const auto n = r.count(r.vsval(), 9);
+				r.fid(n);
+				r.skip(9ull * n);
+				return;
+			}
+			case 0x19: {  // vsval n (patched in), n x (FORMID, u8)
+				const auto n = r.count(r.vsval(), 1);
+				r.fid(n);
+				r.skip(n);
+				return;
+			}
+			case 0x41: {  // vsval n, n x 0x141a154d0 (u8 flags, f32 if bit 0)
+				const auto n = r.count(r.vsval(), 1);
+				for (std::uint32_t i = 0; i < n; ++i) {
+					if (r.u8() & 1) {
+						r.skip(4);
+					}
+				}
+				return;
+			}
+			case 0x2b: {  // a leveled actor: FORMID; vsval 15, bits, FORMID per bit; FORMID base, u32 its change flags, its NPC_ data
+				r.fid();
+				const auto n = r.count(r.vsval(), 0);
+				const auto b = r.p;
+				r.skip((n + 7) / 8);
+				for (std::uint32_t i = 0; i < n; ++i) {
+					if ((r.d[b + (i >> 3)] >> (i & 7)) & 1) {
+						r.fid();
+					}
+				}
+				r.fid();
+				const auto f = r.u32();
+				Npc(r, f, nullptr);
+				return;
+			}
 			case 0x22: r.svsval(); return;
 			// lists
 			case 0x84: {  // vsval n, n x (FORMID, u8)
@@ -371,7 +496,8 @@ namespace ess
 				return;
 			}
 			default:
-				// 0x2b (a leveled actor's base: a whole NPC_ change form inside) and types no save has shown yet
+				// 0x66 (a running AI package's own data: CustomActorPackageData 0x141ad3080 / GuardActorPackageData
+				// 0x141ad5a50, not read yet) and types no save has shown yet
 				throw Unknown("extra data type " + std::to_string(t));
 			}
 		}
@@ -580,6 +706,50 @@ namespace ess
 			out.items.clear();
 		}
 		return out;
+	}
+
+	SfNpcData DecodeNpcSF(const ChangeForm& a_cf)
+	{
+		SfNpcData out;
+		if (a_cf.typeCode() != 9) {
+			out.error = "not an NPC_";
+			return out;
+		}
+		if (a_cf.version != 153) {
+			out.error = "saved by an older game version (" + std::to_string(a_cf.version) + "); the game converts it on load";
+			return out;
+		}
+		Rd r{ a_cf.data };
+		try {
+			Npc(r, a_cf.changeFlags, &out);
+			if (r.p != a_cf.data.size()) {
+				out.error = std::to_string(a_cf.data.size() - r.p) + " bytes after the end";
+			} else if (r.refs != a_cf.sfRefs.size()) {
+				out.error = "the data names " + std::to_string(r.refs) + " forms, the list holds " + std::to_string(a_cf.sfRefs.size());
+			} else {
+				out.ok = true;
+			}
+		} catch (const std::exception& e) {
+			out.error = e.what();
+		}
+		return out;
+	}
+
+	bool RenameNpcSF(SaveFile& a_save, ChangeForm& a_cf, const std::string& a_name)
+	{
+		// the name (change flag 0x20) is the first string an NPC_ record writes (TESActorBase::SaveGame 0x140cc5ce0, before
+		// any face string): the record's string list entry 0. The new name goes to the end of the save's string table
+		// (an entry other forms may share stays as it is).
+		const auto d = DecodeNpcSF(a_cf);
+		if (!d.ok || !d.hasName || a_cf.sfStrings.empty() || a_name.empty() || a_save.sfStrings.size() >= 0xFFFF) {
+			return false;
+		}
+		a_save.sfStrings.push_back(a_name);
+		a_cf.sfStrings[0] = static_cast<std::uint16_t>(a_save.sfStrings.size() - 1);
+		if (a_save.formIDOf(a_cf.refID) == 0x7) {
+			a_save.header.playerName = a_name;  // (the name the game's load menu shows)
+		}
+		return true;
 	}
 
 	bool SetInventoryCountSF(ChangeForm& a_cf, const SfInventoryStack& a_stack, std::uint32_t a_count)
