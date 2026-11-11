@@ -2614,6 +2614,21 @@ void TestAiGame()
 		Check(ag::CliRefusal(ag::Game::kFallout4, { "x.fos", ok }).empty(), (std::string("ai: works on Fallout 4: ") + ok).c_str());
 	}
 	Check(ag::CliRefusal(ag::Game::kSkyrimSE, { "x.ess", "--player", "--reset-havok" }).empty(), "ai: nothing is refused for Skyrim");
+	// Starfield: its own lesson, an allow-list of the Starfield command line, its helper's commands, the other games' tools refused
+	Check(ag::FromFlags(false, false, false, true) == ag::Game::kStarfield && std::string(ag::Name(ag::Game::kStarfield)) == "Starfield",
+		"ai: a Starfield save is Starfield");
+	Check(ag::Lesson(ag::Game::kStarfield).find("WHAT WORKS ON A STARFIELD SAVE") != std::string::npos &&
+			  ag::Lesson(ag::Game::kStarfield).find("SKSE") == std::string::npos,
+		"ai: the Starfield lesson");
+	Check(ag::CliRefusal(ag::Game::kStarfield, { "x.sfs", "--names", "--game", "F:\\Starfield", "--sf-set-count", "14:0000000F:500", "-o", "y.sfs" }).empty(),
+		"ai: Starfield edits are allowed");
+	Check(ag::CliRefusal(ag::Game::kStarfield, { "x.sfs", "--player" }).find("--player") != std::string::npos, "ai: Skyrim options refused for Starfield");
+	Check(ag::CliRefusal(ag::Game::kStarfield, { "x.sfs", "--sf-set-av-mod", "0005ACD4:damage:-5" }).empty(), "ai: a negative value is not an option");
+	Check(ag::HelperRefusal("SF", "QUEST").empty() && !ag::HelperRefusal("SF", "GATHER").empty() && !ag::HelperRefusal("SF", "APPLY").empty(),
+		"ai: the Starfield helper's commands");
+	Check(!ag::ToolRefusal(ag::Game::kStarfield, "fo4_player").empty() && !ag::ToolRefusal(ag::Game::kStarfield, "analyze_logs").empty() &&
+			  ag::ToolRefusal(ag::Game::kStarfield, "run_cli").empty() && ag::ToolRefusal(ag::Game::kFallout4, "fo4_player").empty(),
+		"ai: other games' tools refused for Starfield");
 	Check(ag::HelperIsFo4("F4") && ag::HelperIsFo4("F4NG") && ag::HelperIsFo4("F4AE") && !ag::HelperIsFo4("SE") && !ag::HelperIsFo4("AE") &&
 			  !ag::HelperIsFo4("LE"),
 		"ai: the Fallout 4 helper from HELLO's game field");

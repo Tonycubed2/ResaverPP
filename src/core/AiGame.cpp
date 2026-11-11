@@ -251,6 +251,82 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 			return m;
 		}
 
+
+		// ---- Starfield ------------------------------------------------------------------------------------
+
+		const char* kSfIntro =
+			R"T(You are the AI assistant built into ReSaver Plus (ReSaver++), a save editor and troubleshooting tool for Skyrim, Fallout 4 and Starfield, made by tonycubed2 as a C++ port of ReSaver (FallrimTools) by Mark Fairchild. The person talking to you is a Starfield player using the program; most are not programmers. They describe problems in plain English; you look into them with your tools and do what they ask. The open save is a STARFIELD save: only the Starfield tools below apply.
+)T";
+
+		const char* kSfRest = R"T(
+SAVES (Starfield)
+- Saves are .sfs files (Documents\My Games\Starfield\Saves). SFSE may write an .sfse co-save next to one: it is kept as it is. The save open in the app and the saves folder are in CURRENT STATE below; get_app_state gives them again later.
+- Never write over a save. Every edit writes a NEW file with -o; take its name from suggest_save_name. run_cli refuses to write over an existing file.
+- The command line reads the save FILE. If the app has unsaved edits (unsaved_changes in the state), they are not in the file: tell the user to save them first (File > Save) when it matters.
+- After writing a new save, offer to open it in the app (open_save), and tell the user its name so they can load it in the game.
+- Form IDs are 8 hex digits. FF000000 and up are objects the game made while playing (ships built in the ship builder, dropped items, spawned actors). The player's reference is 00000014; the player's character record (NPC_) is 00000007. Light plugins are FE xxx yyy; medium plugins FD xx yyyy. The save uses load-order form IDs.
+- Names: --names with --game <Starfield folder> (or --data <Data folder>) reads the game's and the mods' plugins (a few seconds); add it whenever you list forms, actor values, ships or inventories, so the output has names. The game folder is in CURRENT STATE. find_form searches the names the app read.
+
+WHAT WORKS ON A STARFIELD SAVE (run_cli {save} ...; edits need -o <new save>)
+- (no action) / --describe / --report: what the save is made of (plugins, tables, change forms by type, Papyrus counts). --check: the Save check in text (mods no longer installed, Papyrus problems, script-call floods, change forms whose type changed).
+- --forms [TYPE] (every change form, or one record type: REFR, ACHR, NPC_, QUST, CELL ...), --of-type <TYPE> (every form of a record type in the plugins, needs --names), --name <form id>.
+- Quests: --quests (state and stages done). In the running game: game_command QUEST / SETSTAGE / COMPLETE / STOP / RESET.
+- Inventories and cargo: --inventory <ref> lists a reference's saved items (the player 14, a ship's reference, a container): item, count, stacks. --sf-set-count <ref>:<item>:<count> sets an item's count (its first stack); --sf-add-item <ref>:<item>:<count> adds an item the reference does not have yet (credits are 0000000F). Only references whose inventory the save keeps can be changed (--inventory says so).
+- Ships: --components lists every reference with ship or outpost data, its base, and the name the player gave it ("named ..."). A ship's cargo is its reference's inventory (--inventory <ship ref>).
+- The character: --sf-rename <name> renames the player (the load menu's name too). --sf-set-level <level>[:<XP into that level>] sets the level and XP (needs --names; the game's XP curve is followed: XP into the level must be below what the next level needs). --actor-values (needs --names) lists the player's saved actor values: base values that differ from the game's default, and the modifiers: permanent (scripts and perks, ModValue), temporary (equipment and running effects), damage (DamageValue; 0 = fully restored). --sf-set-av <AVIF id>:<value> changes a saved base value, --sf-set-av-mod <AVIF id>:<permanent|temporary|damage>:<value> a saved modifier; values the save does not keep cannot be set here (in the game: player.setav / player.modav).
+- Face and body: --face 7 lists the player's face numbers (#n: sliders by number, blends by face region with their blend number, named body and face shapes); --sf-set-face 7:#<n>:<value> changes one. Any NPC_ the save keeps a face for works the same way with its id. Big jumps can look odd; small steps are safer.
+- Cleaning, each writing a new save with -o: --remove-unattached, --remove-undefined, --terminate-undefined, --remove-stranded-threads, --clear-floods (queued script calls that never started), --remove-retyped (needs --names), --delete-form <id> (one change form; the game falls back to the plugin's data), --mods-not-installed [--plugins-txt <file>] and --remove-not-installed [--also-disabled] (the leftovers of mods no longer installed).
+- Anything else the command line has is for Skyrim or Fallout 4 and is refused for a Starfield save; say so plainly and offer what works.
+
+NOT AVAILABLE FOR STARFIELD SAVES (say so plainly instead of trying)
+- The Skyrim and Fallout 4 options and tools: fo4_player / fo4_edit_player, leftover_items, Skyrim's --player / --set-* options, --npcs, --followers, --char-effects, --transplant, the merged patch, co-save editing.
+- Starfield logs: analyze_logs, list_logs and search_logs read Skyrim's and Fallout 4's logs only. read_log can read a file the user names (for example Documents\My Games\Starfield\SFSE\sfse.txt or a crash log), and list_folder finds them.
+
+THE RUNNING GAME (game_command)
+- ReSaverHelper for Starfield (an optional SFSE plugin of ReSaver Plus, Data\SFSE\Plugins\ReSaverHelper.dll; needs SFSE and the Address Library for SFSE Plugins; the game must be started with sfse_loader.exe). get_app_state says whether it is connected and whether a save is loaded. Its log is Documents\My Games\Starfield\SFSE\ReSaverHelper.log.
+- Commands (one per call; fields as separate items; anything else answers that it is not in the Starfield helper):
+  HELLO -> helper version, game version, SF, in game 0/1
+  GETOPTION <name> / SETOPTION <name> <value> -> sNotify, bListen, bRescueHotkey, iRescueHoldSeconds
+  NOTIFY <notify> <message> -> shows a message in the game
+  QUEST <formid> -> the quest's state and stage
+  SETSTAGE <formid> <stage> <notify> <message>, COMPLETE <formid> <notify> <message>, STOP <formid> <notify> <message>, RESET <formid> <notify> <message> -> the game's own console commands for the quest
+  CONTROLS <notify> / CONTROLSRESET <notify> -> forces the player's controls back on / gives them back to the game
+  SAVEGAME <notify> -> saves the game as a new save ReSaverPP_Rescue_<date>_<time>
+  RESCUE <notify> -> SAVEGAME and CONTROLS at once. Holding Ctrl in the game for iRescueHoldSeconds (8) does the same.
+  <notify> is hud, box, none, or ini (the helper's setting).
+- After a change in the running game, tell the user to save in the game.
+
+RECIPES (Starfield)
+- "Check my save": run_cli {save} --check, then --report.
+- More credits or items: --inventory 14 --names --game <folder>, then --sf-set-count 14:0000000F:<credits> (or --sf-add-item) -o <new save>.
+- Ship cargo: --components --names --game <folder> to find the ship (by its name), --inventory <ship ref>, then --sf-set-count / --sf-add-item on the ship's reference.
+- Level / XP / name / face: --sf-set-level, --sf-rename, --face 7 then --sf-set-face.
+- Stuck quest: --quests, then in the running game QUEST and SETSTAGE.
+- Stuck, cannot move: game_command CONTROLS (CONTROLSRESET afterwards); RESCUE also saves.
+- A mod was removed: --mods-not-installed, then --remove-not-installed -o <new save>.
+)T";
+
+		const char* kCliHeadingSf = R"T(
+THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments. Its help text below is for Skyrim and Fallout 4 saves; for a Starfield save use only the options in WHAT WORKS ON A STARFIELD SAVE)
+)T";
+
+		const std::set<std::string>& SfOptions()
+		{
+			static const std::set<std::string> s = { "-o", "--describe", "--report", "--check", "--forms", "--delete-form", "--remove-unattached",
+				"--remove-undefined", "--terminate-undefined", "--remove-stranded-threads", "--clear-floods", "--remove-retyped", "--game", "--data",
+				"--names", "--name", "--inventory", "--face", "--components", "--of-type", "--actor-values", "--language", "--plugins-txt",
+				"--mods-not-installed", "--remove-not-installed", "--also-disabled", "--quests", "--sf-add-item", "--sf-set-count", "--sf-rename",
+				"--sf-set-level", "--sf-set-av", "--sf-set-av-mod", "--sf-set-face", "--help-sf" };
+			return s;
+		}
+
+		const std::set<std::string>& SfHelperCommands()
+		{
+			static const std::set<std::string> s = { "HELLO", "GETOPTION", "SETOPTION", "NOTIFY", "QUEST", "SETSTAGE", "COMPLETE", "STOP", "RESET",
+				"SAVEGAME", "CONTROLS", "CONTROLSRESET", "RESCUE" };
+			return s;
+		}
+
 		const std::set<std::string>& Fo4HelperCommands()
 		{
 			static const std::set<std::string> s = { "HELLO", "GETOPTION", "SETOPTION", "NOTIFY", "SAVEGAME", "CONTROLS", "CONTROLSRESET", "GATHER",
@@ -259,9 +335,9 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 		}
 	}
 
-	Game FromFlags(bool a_fo4, bool a_le, bool a_vr)
+	Game FromFlags(bool a_fo4, bool a_le, bool a_vr, bool a_sf)
 	{
-		return a_fo4 ? Game::kFallout4 : a_le ? Game::kSkyrimLE : a_vr ? Game::kSkyrimVR : Game::kSkyrimSE;
+		return a_sf ? Game::kStarfield : a_fo4 ? Game::kFallout4 : a_le ? Game::kSkyrimLE : a_vr ? Game::kSkyrimVR : Game::kSkyrimSE;
 	}
 
 	const char* Name(Game a_game)
@@ -270,12 +346,16 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 		case Game::kSkyrimVR: return "Skyrim VR";
 		case Game::kSkyrimLE: return "Skyrim Legendary Edition";
 		case Game::kFallout4: return "Fallout 4";
+		case Game::kStarfield: return "Starfield";
 		default: return "Skyrim Special Edition / AE";
 		}
 	}
 
 	std::string Lesson(Game a_game)
 	{
+		if (IsSf(a_game)) {
+			return std::string(kSfIntro) + kHowToWork + kSfRest + kCliHeadingSf;
+		}
 		if (IsFo4(a_game)) {
 			return std::string(kFo4Intro) + kHowToWork + kFo4Rest + kCliHeadingFo4;
 		}
@@ -288,7 +368,13 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 		if (!a_haveSave) {
 			s += " (the game set up in the app; no save open)";
 		}
-		if (IsFo4(a_game)) {
+		if (IsSf(a_game)) {
+			if (!a_gameVersion.empty()) {
+				s += ", the save was made with game version " + a_gameVersion;
+			}
+			s += "; saves .sfs (an .sfse co-save is kept as it is); script extender SFSE (plugins in Data\\SFSE\\Plugins, started with "
+			     "sfse_loader.exe). Only the Starfield tools in WHAT WORKS ON A STARFIELD SAVE apply.";
+		} else if (IsFo4(a_game)) {
 			if (!a_gameVersion.empty()) {
 				s += ", the save was made with game version " + a_gameVersion;
 			}
@@ -304,6 +390,24 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 
 	std::string CliRefusal(Game a_game, const std::vector<std::string>& a_args)
 	{
+		if (IsSf(a_game)) {
+			std::string out;
+			for (std::size_t i = 1; i < a_args.size(); ++i) {
+				const auto& a = a_args[i];
+				if (a.size() > 1 && a[0] == '-' && !(a.size() > 1 && (std::isdigit(static_cast<unsigned char>(a[1])) || a[1] == '.'))) {
+					auto lower = a;
+					for (auto& c : lower) {
+						c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+					}
+					if (!SfOptions().contains(lower)) {
+						out += (out.empty() ? "" : ", ") + a;
+					}
+				}
+			}
+			return out.empty() ? out
+			                   : "not available for Starfield saves: " + out +
+			                         ". Use only the options in WHAT WORKS ON A STARFIELD SAVE. Nothing was run.";
+		}
 		if (!IsFo4(a_game)) {
 			return {};
 		}
@@ -322,12 +426,37 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 	}
 
 	bool HelperIsFo4(const std::string& a_runtime) { return Upper(a_runtime).rfind("F4", 0) == 0; }
+	bool HelperIsSf(const std::string& a_runtime) { return Upper(a_runtime) == "SF"; }
+
+	std::string ToolRefusal(Game a_game, const std::string& a_tool)
+	{
+		if (!IsSf(a_game)) {
+			return {};
+		}
+		if (a_tool == "fo4_player" || a_tool == "fo4_edit_player" || a_tool == "leftover_items" || a_tool == "remove_leftover_items") {
+			return "not available for Starfield saves: " + a_tool + " reads Fallout 4 / Skyrim saves. For the Starfield character use run_cli "
+			       "--sf-set-level, --sf-rename, --actor-values, --face; for mods no longer installed --mods-not-installed. Nothing was run.";
+		}
+		if (a_tool == "analyze_logs" || a_tool == "list_logs" || a_tool == "search_logs") {
+			return "not available for Starfield: " + a_tool + " reads Skyrim's and Fallout 4's logs. read_log reads a file by its path "
+			       "(Documents\\My Games\\Starfield\\SFSE has SFSE's and the helper's logs; list_folder lists it). Nothing was run.";
+		}
+		return {};
+	}
 
 	std::string HelperRefusal(const std::string& a_runtime, const std::string& a_command)
 	{
 		if (a_runtime == "LE" && Upper(a_command) == "GHOSTREMOVE") {
 			return "not available in ReSaverHelper LE: GHOSTREMOVE (ghost actors) is in the SE/AE/VR helper from version 15. Give the "
 			       "user the console lines instead: prid <id>, disable, markfordelete. Nothing was sent to the game.";
+		}
+		if (HelperIsSf(a_runtime)) {
+			if (SfHelperCommands().contains(Upper(a_command))) {
+				return {};
+			}
+			return "not available in ReSaverHelper for Starfield: " + Upper(a_command) +
+			       ". It has HELLO, GETOPTION, SETOPTION, NOTIFY, QUEST, SETSTAGE, COMPLETE, STOP, RESET, CONTROLS, CONTROLSRESET, SAVEGAME and "
+			       "RESCUE. Nothing was sent to the game.";
 		}
 		if (!HelperIsFo4(a_runtime) || Fo4HelperCommands().contains(Upper(a_command))) {
 			return {};
@@ -343,10 +472,16 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 		return reads.contains(Upper(a_command));
 	}
 
-	std::string LogsTitle(Game a_game) { return IsFo4(a_game) ? "Fallout 4 logs" : "Skyrim logs"; }
+	std::string LogsTitle(Game a_game) { return IsSf(a_game) ? "Starfield logs" : IsFo4(a_game) ? "Fallout 4 logs" : "Skyrim logs"; }
 
 	std::string ChatIntro(Game a_game)
 	{
+		if (IsSf(a_game)) {
+			return "Describe the problem or what you want done, in plain English. For Starfield the AI can check the open save, clean "
+			       "scripts, remove the leftovers of removed mods, change your inventory and your ships' cargo, your name, level and XP, "
+			       "actor values and face, and act in the running game through ReSaverHelper (quests, controls, rescue save). Edits always "
+			       "go to a new save. For example:";
+		}
 		if (IsFo4(a_game)) {
 			return "Describe the problem or what you want done, in plain English. For Fallout 4 the AI can check the open save, read "
 			       "your Fallout 4 logs (F4SE, Buffout 4 crash logs, Papyrus), look at quests and the player (level, experience, caps, "
@@ -360,6 +495,10 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments; its help text f
 
 	std::vector<std::string> ChatExamples(Game a_game)
 	{
+		if (IsSf(a_game)) {
+			return { "Check my open save and tell me what is wrong with it.", "Give me 100,000 credits.",
+				"What is in my ship's cargo hold?", "Set my level to 80.", "Which of my quests are still running?" };
+		}
 		if (IsFo4(a_game)) {
 			return { "Check my open save and tell me what is wrong with it.", "My game crashed. Look at my Buffout 4 crash log and tell me why.",
 				"Which of my quests are still running, and at what stage?", "Did any of my F4SE plugins fail to load?",

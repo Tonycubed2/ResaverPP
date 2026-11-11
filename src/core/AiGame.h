@@ -15,12 +15,16 @@ namespace ess::aigame
 		kSkyrimSE,  // Skyrim Special Edition / Anniversary Edition
 		kSkyrimVR,
 		kSkyrimLE,  // Legendary Edition
-		kFallout4
+		kFallout4,
+		kStarfield
 	};
 	// the open save's game (a_fo4 / a_le from the save, a_vr from the app's game setup)
-	Game        FromFlags(bool a_fo4, bool a_le, bool a_vr);
+	Game        FromFlags(bool a_fo4, bool a_le, bool a_vr, bool a_sf = false);
 	const char* Name(Game a_game);  // "Skyrim Special Edition / AE", "Skyrim VR", "Skyrim Legendary Edition", "Fallout 4"
 	inline bool IsFo4(Game a_game) { return a_game == Game::kFallout4; }
+	inline bool IsSf(Game a_game) { return a_game == Game::kStarfield; }
+	// a tool of the chat that does not work for this game: "" when it does, else the answer for the AI
+	std::string ToolRefusal(Game a_game, const std::string& a_tool);
 
 	// The lesson book: who the AI is, how to work, the saves, the running game, the logs and recipes, for this game;
 	// ends with the heading the command line's help text follows.
@@ -36,6 +40,7 @@ namespace ess::aigame
 
 	// The connected ReSaverHelper's game, from HELLO's game field: F4 / F4NG / F4AE are the Fallout 4 helper
 	bool        HelperIsFo4(const std::string& a_runtime);
+	bool        HelperIsSf(const std::string& a_runtime);  // SF: the Starfield helper (SFSE)
 	// game_command: "" when the connected helper has a_command, else the answer for the AI
 	std::string HelperRefusal(const std::string& a_runtime, const std::string& a_command);
 	// the commands that only read (no approval needed)

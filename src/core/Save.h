@@ -265,7 +265,9 @@ namespace ess
 	};
 	SfPlayerXP FindPlayerXPSF(const SaveFile& a_save, const ChangeForm& a_player, const std::function<bool(std::uint32_t)>& a_isActorValue);
 	// an actor's saved actor values (0x1419aec20): base values that differ from the default (value[0]) and the three
-	// modifiers (value[0..2], each saved when not 0); offsets in the actor's data, SIZE_MAX when not saved
+	// modifiers (value[0..2], each saved when not 0); offsets in the actor's data, SIZE_MAX when not saved. The modifiers
+	// are in the game's modifier order: 0 permanent (Papyrus ModValue passes 0: 0x1420774c0), 1 temporary (equipment and
+	// effects), 2 damage (DamageValue passes 2: 0x14206b424)
 	struct SfActorValue
 	{
 		std::size_t refIndex = 0;  // the AVIF: sfRefs[refIndex]

@@ -14695,3 +14695,15 @@ tr "%s（混合 %u）"
 
 en "Face: %s %g -> %g"
 tr "脸部：%s %g -> %g"
+
+en "In the game while it runs, through the Starfield ReSaverHelper: quests, your controls back, a rescue save."
+tr "在运行中的游戏里，通过 Starfield 版 ReSaverHelper：任务、恢复操控、救援存档。"
+
+en "Chat with an AI engine that can use everything ReSaver Plus does for Starfield: describe it in plain English."
+tr "与 AI 引擎聊天，它能使用 ReSaver Plus 为 Starfield 提供的全部功能：用简单的话描述即可。"
+
+en "The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers only when not 0: Permanent (scripts and perks, ModValue), Temporary (equipment and active effects) and Damage (DamageValue; 0 = fully restored). Saved numbers can be changed (press Enter). Use with care: keep the original save."
+tr "存档为你保存的数值。基础值只有在不同于游戏默认值时才会保存；修正值只有不为 0 时才保存：永久（脚本和天赋，ModValue）、临时（装备和生效中的效果）和伤害（DamageValue；0 = 完全恢复）。已保存的数字可以修改（按回车）。请谨慎：保留原始存档。"
+
+en "%s: %s modifier set to %.2f"
+tr "%s：%s 修正值设为 %.2f"

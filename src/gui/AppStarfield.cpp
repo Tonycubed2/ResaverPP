@@ -342,6 +342,10 @@ void App::drawHomeSF()
 		_showShipsSF = true;
 	}
 	tips::Tip(tr("Every ship and station the save keeps, with its cargo: open one to change or add cargo."));
+	if (ImGui::Button(tr("Ask the AI..."), ImVec2(w, 0))) {
+		_showAi = true;
+	}
+	tips::Tip(tr("Chat with an AI engine that can use everything ReSaver Plus does for Starfield: describe it in plain English."));
 	if (sfPapyrus()) {
 		if (ImGui::Button(trc("home", "Remove unattached instances"), ImVec2(w, 0))) {
 			shortcut(Sc::kRemoveUnattached);
@@ -1369,7 +1373,8 @@ void App::drawActorValuesSF(const RefID& a_ref)
 	}
 	ImGui::PushTextWrapPos(0);
 	ImGui::TextDisabled("%s", tr("The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers "
-								 "(three per value) only when not 0. Saved base values can be changed (press Enter). Use with care: keep the original save."));
+								 "only when not 0: Permanent (scripts and perks, ModValue), Temporary (equipment and active effects) and Damage "
+								 "(DamageValue; 0 = fully restored). Saved numbers can be changed (press Enter). Use with care: keep the original save."));
 	ImGui::PopTextWrapPos();
 	ImGui::SetNextItemWidth(240);
 	ImGui::InputTextWithHint("##avf", tr("filter"), filter, sizeof(filter));
@@ -1399,9 +1404,9 @@ void App::drawActorValuesSF(const RefID& a_ref)
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableSetupColumn(tr("Actor value"), ImGuiTableColumnFlags_WidthStretch);
 		ImGui::TableSetupColumn(tr("Base"), ImGuiTableColumnFlags_WidthFixed, 110);
-		ImGui::TableSetupColumn(tr("Modifier 1"), ImGuiTableColumnFlags_WidthFixed, 80);
-		ImGui::TableSetupColumn(tr("Modifier 2"), ImGuiTableColumnFlags_WidthFixed, 80);
-		ImGui::TableSetupColumn(tr("Modifier 3"), ImGuiTableColumnFlags_WidthFixed, 80);
+		ImGui::TableSetupColumn(tr("Permanent"), ImGuiTableColumnFlags_WidthFixed, 90);
+		ImGui::TableSetupColumn(tr("Temporary"), ImGuiTableColumnFlags_WidthFixed, 90);
+		ImGui::TableSetupColumn(tr("Damage"), ImGuiTableColumnFlags_WidthFixed, 90);
 		ImGui::TableHeadersRow();
 		// one row per actor value: its base (list 1) and its modifiers (list 2), matched by form
 		std::map<std::uint32_t, std::pair<const SfActorValue*, const SfActorValue*>> rows;
@@ -1443,10 +1448,19 @@ void App::drawActorValuesSF(const RefID& a_ref)
 			} else {
 				ImGui::TextDisabled("%s", tr("default"));
 			}
+			static const char* kModNames[3] = { "Permanent", "Temporary", "Damage" };
 			for (int k = 0; k < 3; ++k) {
 				ImGui::TableNextColumn();
 				if (m && m->value[k] != SIZE_MAX) {
-					ImGui::Text("%.2f", valueAt(m->value[k]));
+					float v = valueAt(m->value[k]);
+					ImGui::PushID(static_cast<int>(f) * 4 + k + 1);
+					ImGui::SetNextItemWidth(-1);
+					if (ImGui::InputFloat("##m", &v, 0, 0, "%.2f", ImGuiInputTextFlags_EnterReturnsTrue)) {
+						if (auto* cf = _save->findChangeForm(a_ref); cf && SetActorValueSF(*cf, m->value[k], v)) {
+							markChanged(Fmt(tr("%s: %s modifier set to %.2f"), n.c_str(), tr(kModNames[k]), v));
+						}
+					}
+					ImGui::PopID();
 				}
 			}
 		}

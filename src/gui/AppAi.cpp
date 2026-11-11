@@ -599,7 +599,7 @@ void App::aiSend(const std::string& a_text)
 std::string App::aiSystemPrompt()
 {
 	namespace ag = ess::aigame;
-	const auto  game = _save ? ag::FromFlags(_save->isFO4(), _save->isLE(), _vr) : ag::FromFlags(fo4Game(), false, _vr);
+	const auto  game = _save ? ag::FromFlags(_save->isFO4(), _save->isLE(), _vr, _save->isSF()) : ag::FromFlags(fo4Game(), false, _vr, sfGame());
 	std::string s = ag::Lesson(game);
 	s += ess::CliUsage();
 	s += "\nCURRENT STATE (when this message was sent)\n";
@@ -607,7 +607,7 @@ std::string App::aiSystemPrompt()
 		const auto& h = _save->header;
 		s += "- open save: " + platform::ToUtf8(_path) + "\n";
 		s += "- character: " + h.playerName + ", level " + std::to_string(h.playerLevel) + ", in " + h.location + "\n";
-		s += ag::GameLine(game, _save->isFO4() ? _save->gameVersion : std::string(), true);
+		s += ag::GameLine(game, _save->isFO4() || _save->isSF() ? _save->gameVersion : std::string(), true);
 		s += std::string("- unsaved_changes: ") + (_dirty ? "true (the file does not have them yet)" : "false") + "\n";
 	} else {
 		s += "- no save is open in the app (open_save opens one; list_saves lists them)\n";
@@ -619,14 +619,14 @@ std::string App::aiSystemPrompt()
 	s += "- game folder (--game): " + (gameFolder().empty() ? std::string("not found") : platform::ToUtf8(gameFolder())) + "\n";
 	const auto li = _live.info();
 	if (li.connected) {
-		s += "- running game: connected (ReSaverHelper " + li.helperVersion + ", " + (ag::HelperIsFo4(li.runtime) ? "Fallout 4 " : "") + "game " +
+		s += "- running game: connected (ReSaverHelper " + li.helperVersion + ", " + (ag::HelperIsFo4(li.runtime) ? "Fallout 4 " : ag::HelperIsSf(li.runtime) ? "Starfield " : "") + "game " +
 		     li.gameVersion + " " + li.runtime + ", " + (li.inGame ? "a save is loaded" : "at the main menu, no save loaded") + ")\n";
-		if (ag::HelperIsFo4(li.runtime) != ag::IsFo4(game)) {
+		if (ag::HelperIsFo4(li.runtime) != ag::IsFo4(game) || ag::HelperIsSf(li.runtime) != ag::IsSf(game)) {
 			s += "  (the running game is not the game of the open save)\n";
 		}
 	} else {
 		s += std::string("- running game: not connected (the game is not running, or ReSaverHelper.dll is not installed") +
-		     (ag::IsFo4(game) ? " in Data\\F4SE\\Plugins" : "") + ")\n";
+		     (ag::IsFo4(game) ? " in Data\\F4SE\\Plugins" : ag::IsSf(game) ? " in Data\\SFSE\\Plugins, or the game was not started with sfse_loader.exe" : "") + ")\n";
 	}
 	// the user's own notes for the AI
 	std::ifstream notes(platform::ExeFolder() / "ReSaverPP AI notes.txt");
@@ -651,7 +651,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 	struct State
 	{
 		std::filesystem::path              save, savesDir, gameDir;
-		bool                               haveSave = false, dirty = false, le = false, fo4 = false;
+		bool                               haveSave = false, dirty = false, le = false, fo4 = false, sf = false;
 		ess::aigame::Game                  game = ess::aigame::Game::kSkyrimSE;
 		std::string                        sources, profile, character, gameVersion;
 		std::vector<std::filesystem::path> myGames;
@@ -663,8 +663,9 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		st.dirty = _dirty;
 		st.le = _save && _save->isLE();
 		st.fo4 = _save && _save->isFO4();
-		st.game = _save ? ess::aigame::FromFlags(st.fo4, st.le, _vr) : ess::aigame::FromFlags(fo4Game(), false, _vr);
-		st.gameVersion = st.fo4 ? _save->gameVersion : std::string();
+		st.sf = _save && _save->isSF();
+		st.game = _save ? ess::aigame::FromFlags(st.fo4, st.le, _vr, st.sf) : ess::aigame::FromFlags(fo4Game(), false, _vr, sfGame());
+		st.gameVersion = st.fo4 || st.sf ? _save->gameVersion : std::string();
 		st.savesDir = savesFolder();
 		st.gameDir = gameFolder();
 		st.sources = _sourcesPath;
@@ -690,13 +691,18 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 	};
 	auto pathArg = [&](const std::string& a) { return platform::FromUtf8(a == "{save}" ? platform::ToUtf8(st.save) : a); };
 
+	if (const auto why = ess::aigame::ToolRefusal(st.game, name); !why.empty()) {
+		a_shown = name + " (not for " + ess::aigame::Name(st.game) + ")";
+		return fail(why);
+	}
+
 	if (name == "get_app_state") {
 		a_shown = "looked at what is open";
 		std::string o;
 		o += "open save: " + (st.haveSave ? platform::ToUtf8(st.save) + " (" + st.character + ")" : std::string("none")) + "\n";
 		o += std::string("game: ") + ess::aigame::Name(st.game) + (st.haveSave ? "" : " (the game set up in the app; no save open)") +
 		     (st.gameVersion.empty() ? std::string() : ", save made with game version " + st.gameVersion) +
-		     (st.fo4 ? "; the Fallout 4 tools are listed in WHAT WORKS ON A FALLOUT 4 SAVE" : "") + "\n";
+		     (st.fo4 ? "; the Fallout 4 tools are listed in WHAT WORKS ON A FALLOUT 4 SAVE" : st.sf ? "; the Starfield tools are listed in WHAT WORKS ON A STARFIELD SAVE" : "") + "\n";
 		o += std::string("unsaved_changes: ") + (st.dirty ? "true" : "false") + "\n";
 		o += "saves folder: " + platform::ToUtf8(st.savesDir) + "\n";
 		o += "mods folder (--sources): " + (st.sources.empty() ? std::string("not set") : st.sources) + "\n";
@@ -738,9 +744,11 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 				g = ess::aigame::Game::kFallout4;
 			} else if (ext == ".ess") {
 				g = ess::aigame::Game::kSkyrimSE;
+			} else if (ext == ".sfs") {
+				g = ess::aigame::Game::kStarfield;
 			}
 			if (const auto why = ess::aigame::CliRefusal(g, a); !why.empty()) {
-				a_shown = "resaverpp-cli (not run: not for Fallout 4)";
+				a_shown = std::string("resaverpp-cli (not run: not for ") + ess::aigame::Name(g) + ")";
 				return fail(why);
 			}
 		}
@@ -820,7 +828,9 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 
 	if (name == "list_saves") {
 		a_shown = "listed the saves";
-		const std::string want = st.fo4 || (!st.haveSave && ess::aigame::IsFo4(st.game)) ? ".fos" : ".ess";
+		const std::string want = st.sf || (!st.haveSave && ess::aigame::IsSf(st.game))     ? ".sfs"
+		                         : st.fo4 || (!st.haveSave && ess::aigame::IsFo4(st.game)) ? ".fos"
+		                                                                                   : ".ess";
 		struct S
 		{
 			std::filesystem::path           p;
@@ -874,7 +884,10 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		}
 		a_shown = shown;
 		if (!st.live.connected) {
-			return fail(ess::aigame::IsFo4(st.game)
+			return fail(ess::aigame::IsSf(st.game)
+			                ? "the game is not connected: Starfield is not running through sfse_loader.exe, or ReSaverHelper.dll is not "
+			                  "installed in Data\\SFSE\\Plugins (it needs SFSE and the Address Library for SFSE Plugins)"
+			            : ess::aigame::IsFo4(st.game)
 			                ? "the game is not connected: Fallout 4 is not running through F4SE, or ReSaverHelper.dll is not installed (it is "
 			                  "an optional file on ReSaver Plus's Fallout 4 page on Nexus, installed like any F4SE plugin)"
 			                : "the game is not connected: it is not running, or ReSaverHelper.dll is not installed (it is an optional file "
@@ -1997,7 +2010,7 @@ void App::drawAiChat()
 	if (empty) {
 		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
 		ImGui::PushTextWrapPos(0);
-		const auto game = _save ? ess::aigame::FromFlags(_save->isFO4(), _save->isLE(), _vr) : ess::aigame::FromFlags(fo4Game(), false, _vr);
+		const auto game = _save ? ess::aigame::FromFlags(_save->isFO4(), _save->isLE(), _vr, _save->isSF()) : ess::aigame::FromFlags(fo4Game(), false, _vr, sfGame());
 		ImGui::TextUnformatted(ess::aigame::ChatIntro(game).c_str());
 		ImGui::PopTextWrapPos();
 		ImGui::PopStyleColor();

@@ -14753,3 +14753,15 @@ tr "%s (смешивание %u)"
 
 en "Face: %s %g -> %g"
 tr "Лицо: %s %g -> %g"
+
+en "In the game while it runs, through the Starfield ReSaverHelper: quests, your controls back, a rescue save."
+tr "В запущенной игре через ReSaverHelper для Starfield: задания, возврат управления, спасательное сохранение."
+
+en "Chat with an AI engine that can use everything ReSaver Plus does for Starfield: describe it in plain English."
+tr "Чат с ИИ, который может использовать всё, что ReSaver Plus умеет для Starfield: опишите задачу простыми словами."
+
+en "The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers only when not 0: Permanent (scripts and perks, ModValue), Temporary (equipment and active effects) and Damage (DamageValue; 0 = fully restored). Saved numbers can be changed (press Enter). Use with care: keep the original save."
+tr "Значения, которые сохранение хранит для вас. Базовое значение сохраняется, только если оно отличается от значения игры по умолчанию; модификаторы — только если не равны 0: Постоянный (скрипты и перки, ModValue), Временный (снаряжение и активные эффекты) и Урон (DamageValue; 0 = полностью восстановлено). Сохранённые числа можно изменить (нажмите Enter). Осторожно: сохраните оригинал сохранения."
+
+en "%s: %s modifier set to %.2f"
+tr "%s: модификатор «%s» = %.2f"

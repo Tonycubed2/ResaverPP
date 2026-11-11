@@ -1356,6 +1356,19 @@ void App::drawMenu()
 		tips::Tip(tr("Read plugin names every time a save is opened."));
 		ImGui::EndMenu();
 	}
+	if (sf() && ImGui::BeginMenu(trId("AI and logs"))) {
+		// Starfield: the chat (its own lesson book and tools, core/AiGame) and the running game; the log tools read Skyrim's and Fallout 4's
+		ImGui::MenuItem(tr("Work on the running game (no save needed)..."), nullptr, &_showLiveGame);
+		tips::Tip(tr("In the game while it runs, through the Starfield ReSaverHelper: quests, your controls back, a rescue save."));
+		ImGui::MenuItem(tr("Ask the AI..."), nullptr, &_showAi);
+		tips::Tip(tr("Chat with an AI engine that can use everything ReSaver Plus does for Starfield: describe it in plain English."));
+		if (ImGui::MenuItem(tr("AI engine settings..."))) {
+			_showAi = true;
+			_aiShowSettings = true;
+		}
+		tips::Tip(tr("Which AI engine the chat uses (Claude, ChatGPT, Gemini, OpenRouter, or a free one on your PC), its key and model."));
+		ImGui::EndMenu();
+	}
 	if (!sf() && ImGui::BeginMenu(trId("AI and logs"))) {
 		ImGui::MenuItem(tr("Work on the running game (no save needed)..."), nullptr, &_showLiveGame);
 		tips::Tip(tr("In the game while it runs, through ReSaverHelper: gather your followers, get your controls back, save the game."));

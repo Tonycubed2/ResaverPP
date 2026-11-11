@@ -69,6 +69,9 @@ int StarfieldMain(int argc, char** argv)
 	std::uint32_t     inventoryOf = 0, faceOf = 0;
 	std::string       ofType;
 	bool              actorValues = false;
+	// edits (each needs -o): inventory, the player's name, level / XP, actor values, face
+	std::vector<std::string> sfAddItem, sfSetCount, sfSetAv, sfSetAvMod, sfSetFace;
+	std::string              sfRename, sfSetLevel;
 	bool              describe = false, forms = false, report = false, unattached = false, undefined = false, termUndef = false;
 	std::set<std::uint32_t> deleteForms;
 	// names (--game / --data) and mods no longer installed
@@ -96,6 +99,23 @@ int StarfieldMain(int argc, char** argv)
 			ofType = next();
 		} else if (a == "--components") {
 			components = true;
+		} else if (a == "--sf-add-item") {
+			sfAddItem.push_back(next());
+		} else if (a == "--sf-set-count") {
+			sfSetCount.push_back(next());
+		} else if (a == "--sf-rename") {
+			sfRename = next();
+		} else if (a == "--sf-set-level") {
+			sfSetLevel = next();
+			names = true;
+		} else if (a == "--sf-set-av") {
+			sfSetAv.push_back(next());
+			names = true;
+		} else if (a == "--sf-set-av-mod") {
+			sfSetAvMod.push_back(next());
+			names = true;
+		} else if (a == "--sf-set-face") {
+			sfSetFace.push_back(next());
 		} else if (a == "--face") {
 			faceOf = static_cast<std::uint32_t>(std::strtoul(next().c_str(), nullptr, 16));
 		} else if (a == "--inventory") {
@@ -150,6 +170,15 @@ int StarfieldMain(int argc, char** argv)
 						"  --game <folder> | --data <Data> [--language en] --names   name the forms from the game's plugins\n"
 						"  --remove-retyped                delete change forms whose type in the plugins changed (the game skips them)\n"
 						"  --mods-not-installed [--plugins-txt f], --remove-not-installed [--also-disabled]\n"
+						"  --inventory <ref>, --face <NPC_>, --components, --actor-values, --quests   read a reference's cargo, a face, ships, the\n"
+						"                                  player's actor values, the quests\n"
+						"  --sf-add-item <ref>:<item>:<count>     add an item to a reference's inventory (player 14, a ship's reference)\n"
+						"  --sf-set-count <ref>:<item>:<count>    set an item's count (its first stack)\n"
+						"  --sf-rename <name>                     rename the player (the load menu's name too)\n"
+						"  --sf-set-level <level>[:<xp into it>]  the player's level and XP (needs --game / --data)\n"
+						"  --sf-set-av <AVIF id>:<value>          a saved base actor value of the player (needs --game / --data)\n"
+						"  --sf-set-av-mod <AVIF id>:<permanent|temporary|damage>:<value>   a saved modifier (needs --game / --data)\n"
+						"  --sf-set-face <NPC_ id>:<#n>:<value>   a face number, #n as --face lists it (player: 7)\n"
 						"  -o <out.sfs>                    write (an .sfse next to the input is written next to the output)\n");
 			return 0;
 		} else if (a == "--delete-form") {
@@ -159,7 +188,8 @@ int StarfieldMain(int argc, char** argv)
 				"%s: not available for Starfield saves (they support: -o <out.sfs>, --describe, --report, --check, --forms [TYPE], --delete-form <form id>, "
 				"--remove-unattached, --remove-undefined, --terminate-undefined, --remove-stranded-threads, --clear-floods, --remove-retyped, "
 				"--game <Starfield folder> | --data <Data folder>, --names, "
-				"--name <form id>, --inventory <form id>, --face <NPC_ form id>, --components, --of-type <TYPE>, --actor-values, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
+				"--name <form id>, --inventory <form id>, --face <NPC_ form id>, --components, --of-type <TYPE>, --actor-values, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled], "
+				"--sf-add-item, --sf-set-count, --sf-rename, --sf-set-level, --sf-set-av, --sf-set-av-mod, --sf-set-face; --help-sf explains them)\n",
 				a.c_str());
 			return 1;
 		}
@@ -269,7 +299,7 @@ int StarfieldMain(int argc, char** argv)
 				}
 				for (const auto& e : av.modifiers) {
 					const auto f = save->formIDOf(c.sfRefs[e.refIndex]);
-					std::printf("  mod  %08X %-40s %.3f %.3f %.3f\n", f, db->describe(f).c_str(), val(e.value[0]), val(e.value[1]), val(e.value[2]));
+					std::printf("  mod  %08X %-40s permanent %.3f temporary %.3f damage %.3f\n", f, db->describe(f).c_str(), val(e.value[0]), val(e.value[1]), val(e.value[2]));
 				}
 			}
 		}
@@ -320,11 +350,12 @@ int StarfieldMain(int argc, char** argv)
 				}
 				const auto n = DecodeNpcSF(c);
 				std::printf("%08X: %s, %zu face numbers\n", faceOf, n.ok ? "read" : ("not read: " + n.error).c_str(), n.face.size());
-				for (const auto& v : n.face) {
-					float x;
+				for (std::size_t k = 0; k < n.face.size(); ++k) {
+					const auto& v = n.face[k];
+					float       x;
 					std::memcpy(&x, c.data.data() + v.offset, 4);
 					const bool named = v.name < c.sfStrings.size() && c.sfStrings[v.name] < save->sfStrings.size();
-					std::printf("  %d  %6u  %-40s %g\n", v.group, v.key, named ? save->sfStrings[c.sfStrings[v.name]].c_str() : "-", x);
+					std::printf("  #%-3zu %s  %6u  %-40s %g\n", k, v.group == 1 ? "slider" : v.group == 2 ? "blend " : "shape ", v.key, named ? save->sfStrings[c.sfStrings[v.name]].c_str() : "-", x);
 				}
 			}
 		}
@@ -534,6 +565,151 @@ int StarfieldMain(int argc, char** argv)
 			const auto r = ops::RemoveUndefinedElements(*save);
 			std::printf("removed/terminated %zu undefined element(s)%s\n", r.removed, r.kept.empty() ? "" : (", kept " + std::to_string(r.kept.size())).c_str());
 			edited = true;
+		}
+		{
+			// Starfield edits (the same code as the app's windows)
+			auto split = [](const std::string& a_s) {
+				std::vector<std::string> v;
+				std::size_t              p = 0;
+				for (;;) {
+					const auto e = a_s.find(':', p);
+					v.push_back(a_s.substr(p, e == std::string::npos ? std::string::npos : e - p));
+					if (e == std::string::npos) {
+						break;
+					}
+					p = e + 1;
+				}
+				return v;
+			};
+			auto hex = [](const std::string& a_s) { return static_cast<std::uint32_t>(std::stoul(a_s, nullptr, 16)); };
+			auto cfOf = [&](std::uint32_t a_fid, int a_code) -> ChangeForm* {
+				for (auto& c : save->changeForms) {
+					if (save->formIDOf(c.refID) == a_fid && (a_code < 0 ? c.typeCode() <= 1 : c.typeCode() == a_code)) {
+						return &c;
+					}
+				}
+				return nullptr;
+			};
+			auto bad = [&](const std::string& a_what) {
+				std::fprintf(stderr, "%s\n", a_what.c_str());
+				return 1;
+			};
+			auto isAV = [&](std::uint32_t f) {
+				if (db) {
+					if (const auto* d = db->find(f)) {
+						return db->type(*d) == "AVIF";
+					}
+				}
+				return f > 0 && f < 0x800;
+			};
+			for (const auto& e : sfAddItem) {
+				const auto v = split(e);
+				if (v.size() != 3) {
+					return bad("--sf-add-item <ref>:<item>:<count>");
+				}
+				auto* c = cfOf(hex(v[0]), -1);
+				std::string why;
+				if (!c) {
+					return bad(v[0] + ": no reference change form in this save");
+				}
+				if (!AddInventoryItemSF(*save, *c, hex(v[1]), static_cast<std::uint32_t>(std::stoul(v[2])), &why)) {
+					return bad("not added: " + why);
+				}
+				std::printf("added %s x%s to %s\n", v[1].c_str(), v[2].c_str(), v[0].c_str());
+				edited = true;
+			}
+			for (const auto& e : sfSetCount) {
+				const auto v = split(e);
+				if (v.size() != 3) {
+					return bad("--sf-set-count <ref>:<item>:<count>");
+				}
+				const auto fid = hex(v[0]), item = hex(v[1]);
+				auto*      c = cfOf(fid, -1);
+				if (!c) {
+					return bad(v[0] + ": no reference change form in this save");
+				}
+				const auto r = DecodeReferenceSF(fid, *c);
+				bool       done = false;
+				for (const auto& it : r.items) {
+					if (it.refIndex < c->sfRefs.size() && save->formIDOf(c->sfRefs[it.refIndex]) == item && !it.stacks.empty()) {
+						done = SetInventoryCountSF(*c, it.stacks.front(), static_cast<std::uint32_t>(std::stoul(v[2])));
+						break;
+					}
+				}
+				if (!done) {
+					return bad(v[1] + ": not in " + v[0] + "'s saved inventory (--inventory " + v[0] + " lists it)");
+				}
+				std::printf("%s: %s count set to %s\n", v[0].c_str(), v[1].c_str(), v[2].c_str());
+				edited = true;
+			}
+			if (!sfRename.empty()) {
+				auto* c = cfOf(0x7, 9);
+				if (!c || !RenameNpcSF(*save, *c, sfRename)) {
+					return bad("not renamed: the save keeps no name for the player");
+				}
+				std::printf("player renamed to %s\n", sfRename.c_str());
+				edited = true;
+			}
+			if (!sfSetLevel.empty()) {
+				const auto  v = split(sfSetLevel);
+				std::string why;
+				if (!SetPlayerLevelSF(*save, static_cast<std::uint16_t>(std::stoul(v[0])), v.size() > 1 ? std::stof(v[1]) : 0.0f, isAV, &why)) {
+					return bad("level not set: " + why);
+				}
+				std::printf("player level set to %s%s\n", v[0].c_str(), v.size() > 1 ? (", XP into it " + v[1]).c_str() : "");
+				edited = true;
+			}
+			if (!sfSetAv.empty() || !sfSetAvMod.empty()) {
+				auto* pc = cfOf(0x14, 1);
+				if (!pc) {
+					return bad("the player (14) has no actor record in this save");
+				}
+				const auto av = FindActorValuesSF(*save, *pc, isAV);
+				if (!av.ok) {
+					return bad("actor values not found: " + av.error);
+				}
+				auto find = [&](const std::vector<SfActorValue>& a_list, std::uint32_t a_f) -> const SfActorValue* {
+					for (const auto& x : a_list) {
+						if (x.refIndex < pc->sfRefs.size() && save->formIDOf(pc->sfRefs[x.refIndex]) == a_f) {
+							return &x;
+						}
+					}
+					return nullptr;
+				};
+				for (const auto& e : sfSetAv) {
+					const auto v = split(e);
+					const auto* x = v.size() == 2 ? find(av.base, hex(v[0])) : nullptr;
+					if (!x || x->value[0] == SIZE_MAX || !SetActorValueSF(*pc, x->value[0], std::stof(v[1]))) {
+						return bad(e + ": not a saved base value of the player (--actor-values lists them)");
+					}
+					std::printf("%s base set to %s\n", v[0].c_str(), v[1].c_str());
+					edited = true;
+				}
+				for (const auto& e : sfSetAvMod) {
+					const auto v = split(e);
+					const int  k = v.size() == 3 ? (v[1] == "permanent" ? 0 : v[1] == "temporary" ? 1 : v[1] == "damage" ? 2 : -1) : -1;
+					const auto* x = k >= 0 ? find(av.modifiers, hex(v[0])) : nullptr;
+					if (!x || x->value[k] == SIZE_MAX || !SetActorValueSF(*pc, x->value[k], std::stof(v[2]))) {
+						return bad(e + ": not a saved modifier of the player (--actor-values lists them; a modifier of 0 is not saved)");
+					}
+					std::printf("%s %s modifier set to %s\n", v[0].c_str(), v[1].c_str(), v[2].c_str());
+					edited = true;
+				}
+			}
+			for (const auto& e : sfSetFace) {
+				const auto v = split(e);
+				if (v.size() != 3 || v[1].empty() || v[1][0] != '#') {
+					return bad("--sf-set-face <NPC_ id>:<#n>:<value>");
+				}
+				auto* c = cfOf(hex(v[0]), 9);
+				const auto n = c ? DecodeNpcSF(*c) : SfNpcData{};
+				const auto k = static_cast<std::size_t>(std::stoul(v[1].substr(1)));
+				if (!n.ok || k >= n.face.size() || !SetFaceValueSF(*c, n.face[k].offset, std::stof(v[2]))) {
+					return bad(e + ": no such face number (--face " + v[0] + " lists them)");
+				}
+				std::printf("%s face %s set to %s\n", v[0].c_str(), v[1].c_str(), v[2].c_str());
+				edited = true;
+			}
 		}
 		std::size_t removed = 0;
 		if (!deleteForms.empty()) {
