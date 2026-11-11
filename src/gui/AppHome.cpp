@@ -162,7 +162,8 @@ void App::shortcut(Sc a_which)
 		confirm(tr("Remove unattached instances"), Fmt(tr("Delete %zu script instances that are attached to nothing?"), _report ? _report->unattached : 0),
 			[this] {
 				const auto r = ops::RemoveUnattachedInstances(*_save);
-				markEdited(Fmt(tr("Removed %zu unattached instances"), r.removed) + keptNote(r.kept));
+				markEdited(Fmt(tr("Removed %zu unattached instances"), r.removed) + keptNote(r.kept) +
+						   (r.keptNamed ? Fmt(tr(" (%zu kept: a script variable still names them)"), r.keptNamed) : std::string()));
 			});
 		break;
 	case Sc::kRemoveUndefined:

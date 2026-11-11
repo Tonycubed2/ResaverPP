@@ -177,7 +177,8 @@ namespace ess
 		std::vector<std::uint8_t>  sfUnknownTable3;   // its data (u32 count, 0 in every save seen)
 		std::vector<std::string>   sfStrings;         // the global string table (change forms and global data index it)
 		std::vector<std::uint8_t>  sfCreated;         // the created-ID section at the end, kept as read
-		bool                       sfPapyrusRaw() const;  // Papyrus kept as raw bytes (not read yet)
+		bool                       sfPapyrusRaw() const;  // Papyrus kept as raw bytes (it could not be read: sfPapyrusError)
+		std::string                sfPapyrusError;        // why the Papyrus section could not be read (it is kept as it is)
 		PluginInfo                plugins;
 		FileLocationTable         flt;
 		std::vector<GlobalData>   table1, table2, table3;

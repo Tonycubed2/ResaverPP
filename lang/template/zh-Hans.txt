@@ -13874,3 +13874,6 @@ tr ""
 
 en "ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data (Papyrus) is kept exactly as it is, so there is nothing to check or clean in it yet."
 tr ""
+
+en " (%zu kept: a script variable still names them)"
+tr ""

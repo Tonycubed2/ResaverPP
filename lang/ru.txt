@@ -13900,3 +13900,6 @@ tr "Starfield: данные скриптов пока не читаются"
 
 en "ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data (Papyrus) is kept exactly as it is, so there is nothing to check or clean in it yet."
 tr "ReSaver Plus читает заголовок, плагины, формы изменений и глобальные данные этого сохранения и записывает его обратно. Данные скриптов (Papyrus) сохраняются как есть, поэтому проверять и чистить в них пока нечего."
+
+en " (%zu kept: a script variable still names them)"
+tr " (%zu оставлено: на них всё ещё ссылается переменная скрипта)"

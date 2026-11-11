@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <functional>
 #include <set>
 #include <cstdio>
 #include <map>
@@ -404,6 +405,9 @@ namespace ess::ops
 		bool LiveUniqueIDs(const SaveFile& s, const ChangeForm& a_cf, std::set<std::uint16_t>& a_ids, bool& a_someUnread)
 		{
 			a_someUnread = false;
+			if (s.isSF()) {
+				return false;  // Starfield: its actors' data is not decoded (so every candidate is kept)
+			}
 			if (s.isFO4()) {
 				const auto a = fo4cf::DecodeActor(s, a_cf);
 				if (a.effectsRange.begin == 0 && !a.complete) {
@@ -516,6 +520,64 @@ namespace ess::ops
 		return s;
 	}
 
+	std::set<EID> NamedObjectIDs(const Papyrus& p)
+	{
+		std::set<EID> out;
+		std::function<void(const Variable&)> var = [&](const Variable& v) {
+			if (v.type == VType::kRef) {
+				out.insert(v.value);
+			}
+			if (v.inner) {
+				var(*v.inner);
+			}
+		};
+		auto vars = [&](const std::vector<Variable>& a_v) {
+			for (const auto& v : a_v) {
+				var(v);
+			}
+		};
+		auto msg = [&](const std::optional<FunctionMessageData>& d) {
+			if (d) {
+				var(d->unknownVar);
+				vars(d->vars);
+			}
+		};
+		for (const auto& i : p.instances) {
+			if (i.data) {
+				vars(i.data->vars);
+			}
+		}
+		for (const auto& r : p.references) {
+			if (r.data) {
+				vars(r.data->vars);
+			}
+		}
+		for (const auto& si : p.structInstances) {
+			vars(si.vars);
+		}
+		for (const auto& a : p.arrays) {
+			vars(a.vars);
+		}
+		for (const auto& t : p.activeScripts) {
+			if (t.data) {
+				var(t.data->unknownVar);
+				for (const auto& f : t.data->frames) {
+					var(f.owner);
+					vars(f.vars);
+				}
+			}
+		}
+		for (const auto& m : p.functionMessages) {
+			msg(m.data);
+		}
+		for (const auto* list : { &p.suspended1, &p.suspended2 }) {
+			for (const auto& st : *list) {
+				msg(st.data);
+			}
+		}
+		return out;
+	}
+
 	CleanResult RemoveUnattachedInstances(SaveFile& s)
 	{
 		CleanResult r;
@@ -527,6 +589,13 @@ namespace ess::ops
 		for (const auto& i : p->instances) {
 			if (IsUnattached(i)) {
 				ids.insert(i.id);
+			}
+		}
+		if (s.isSF()) {
+			// Starfield: one that a variable still names stays (what the game does with a variable naming a deleted object
+			// was not checked for Starfield)
+			for (const auto id : NamedObjectIDs(*p)) {
+				r.keptNamed += ids.erase(id);
 			}
 		}
 		r.kept = KeepLiveEffectInstances(s, ids);  // an unattached instance names no actor: none is kept in practice
@@ -1221,7 +1290,7 @@ namespace ess::ops
 			if (IsInstanceUndefined(p, i.script)) {
 				++r.undefinedInstances;
 			}
-			if (IsCreatedWithoutForm(s, i)) {
+			if (!s.isSF() && IsCreatedWithoutForm(s, i)) {  // (Starfield: created objects without change forms not checked)
 				++r.createdWithoutForm;
 			}
 		}

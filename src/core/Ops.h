@@ -120,7 +120,10 @@ namespace ess::ops
 	{
 		std::size_t               removed = 0;
 		std::vector<KeptInstance> kept;
+		std::size_t               keptNamed = 0;  // Starfield: unattached instances a variable still names, left in place
 	};
+	// every object id a variable names (instances' and references' data, structs, arrays, threads, queued calls)
+	std::set<EID> NamedObjectIDs(const Papyrus& p);
 	// Remove unattached instances / undefined elements on a save: as the Papyrus versions, but an ActiveMagicEffect
 	// instance whose effect is still running stays (and its script definition with it).
 	CleanResult RemoveUnattachedInstances(SaveFile& s);

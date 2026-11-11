@@ -621,8 +621,8 @@ void App::rebuildRows()
 				}
 				const bool unatt = ops::IsUnattached(i);
 				const bool undef = ops::IsInstanceUndefined(p, i.script);
-				const bool missing = ops::IsCreatedWithoutForm(*_save, i);
-				const bool memberless = (F.memberless || anyShow) && ops::IsMemberless(p, i);
+				const bool missing = !sf() && ops::IsCreatedWithoutForm(*_save, i);  // (Starfield: not checked)
+				const bool memberless = (F.memberless || anyShow) && !sf() && ops::IsMemberless(p, i);
 				const bool zeroed = F.zeroedCanary && ops::HasCanary(p, i) && ops::CanaryValue(p, i) == 0;
 				const bool hasForm = F.withScripts && _save->findChangeForm(i.refID);
 				std::string t = instanceLabel(i);
@@ -1664,7 +1664,7 @@ void App::drawList()
 			}
 			tips::Tip(tr("End the selected running scripts. They stop the moment the game resumes them; the scripts and their data stay."));
 		}
-		if (_cat == Cat::kInstances) {
+		if (_cat == Cat::kInstances && !sf()) {
 			ImGui::SameLine();
 			if (ImGui::Button(tr("Delete + their spawned objects"))) {
 				std::set<EID>           ids;

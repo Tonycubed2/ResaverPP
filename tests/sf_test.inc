@@ -77,7 +77,8 @@ void TestStarfield()
 		SfContainer info;
 		const auto  inner = UnpackBCPS(file, info);
 		Check(s->isSF() && s->problems.empty(), "sf: reads with no problems");
-		Check(s->sfPapyrusRaw() && s->papyrus() && s->papyrus()->instances.empty(), "sf: Papyrus kept raw (empty stand-in)");
+		Check(!s->sfPapyrusRaw() && s->papyrus() && s->papyrus()->starfield && s->papyrus()->instances.size() > 80000,
+			"sf: Papyrus read (PapyrusSF)");
 		Check(s->buildBody() == inner, "sf: the data is byte-identical when built again");
 		Check(s->plugins.full.size() >= 1 && s->plugins.full[0] == "Starfield.esm", "sf: Starfield.esm first");
 		Check(s->table1.size() == 17 && s->table2.size() == 21 && (s->table3.size() == 7 || s->table3.size() == 9), "sf: global data counts");
@@ -106,6 +107,32 @@ void TestStarfield()
 		}
 		auto again = SaveFile::load(out);
 		Check(again->problems.empty() && again->buildBody() == inner, "sf: written save reads back identical");
+		// the script cleanups the Starfield GUI offers: written, read back clean
+		{
+			auto       edit = SaveFile::load(out);
+			const auto before = edit->papyrus()->instances.size();
+			const auto r = ops::RemoveUnattachedInstances(*edit);
+			ops::TerminateUndefinedThreads(*edit->papyrus());
+			const auto named = ops::NamedObjectIDs(*edit->papyrus());
+			bool       anyNamedGone = false;
+			for (const auto& i : edit->papyrus()->instances) {
+				anyNamedGone |= ops::IsUnattached(i) && !named.contains(i.id);
+			}
+			Check(r.removed > 0 && !anyNamedGone && edit->papyrus()->instances.size() == before - r.removed,
+				"sf: unattached instances removed, the ones a variable names kept");
+			const auto bytes = edit->serialize();
+			const auto out2 = fs::temp_directory_path() / ("rs_sf_clean_" + std::to_string(n) + ".sfs");
+			{
+				std::ofstream o(out2, std::ios::binary);
+				o.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+			}
+			auto back = SaveFile::load(out2);
+			Check(back->problems.empty() && !back->sfPapyrusRaw() && back->papyrus()->instances.size() == before - r.removed &&
+					  back->buildBody() == edit->buildBody(),
+				"sf: cleaned save reads back clean and identical");
+			std::error_code ec2;
+			fs::remove(out2, ec2);
+		}
 		// deleting change forms: a whole run of one type, one form inside a run, the first and the last form
 		{
 			auto&       cfs = again->changeForms;

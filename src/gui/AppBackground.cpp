@@ -329,6 +329,7 @@ void App::finishOpen(OpenJob& a_job)
 			goHome();
 			_showSkyFollowers = _showMerge = _showSettlements = _showCompanionsF4 = _showF4World = _showLiveGame = false;
 			_showAi = _showSkyrimLogs = _showCollect = _showBsa = false;
+			_filters = Filters{};  // (the change form and memberless filters do not apply to it)
 		}
 		if (_save->isFO4()) {
 			// Fallout 4: its own setup (mods folder, game folder, profile, load order); the tools that need the

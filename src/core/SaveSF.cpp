@@ -103,7 +103,7 @@ namespace ess
 			return K::kTypeOnly;  // (104, 107, 112, 1009, ...: the writer puts the type only)
 		}
 
-		GlobalData ReadGlobalSF(Reader& r)
+		GlobalData ReadGlobalSF(Reader& r, std::string* a_papyrusError = nullptr)
 		{
 			GlobalData g;
 			g.type = r.u32();
@@ -130,9 +130,24 @@ namespace ess
 				break;
 			}
 			if (g.type == 1001) {
-				// Papyrus: kept as raw bytes; an empty stand-in keeps the views that list Papyrus data empty
-				g.sfRawPapyrus = true;
+				// Papyrus (PapyrusSF.cpp). If it cannot be read, it is kept as raw bytes and written back as it was; an empty
+				// stand-in keeps the views that list Papyrus data empty
 				g.papyrus = std::make_unique<Papyrus>();
+				try {
+					Reader pr(g.raw.data(), g.raw.size());
+					g.papyrus->readStarfield(pr);
+					if (pr.remaining()) {
+						throw FormatError(std::to_string(pr.remaining()) + " byte(s) after the script data", pr.pos());
+					}
+					g.raw.clear();
+					g.raw.shrink_to_fit();
+				} catch (const std::exception& e) {
+					if (a_papyrusError) {
+						*a_papyrusError = e.what();
+					}
+					g.papyrus = std::make_unique<Papyrus>();
+					g.sfRawPapyrus = true;
+				}
 			}
 			return g;
 		}
@@ -153,6 +168,13 @@ namespace ess
 				w.bytes(g.raw);
 				break;
 			case GlobalData::SfKind::kSized:
+				if (g.papyrus && !g.sfRawPapyrus) {
+					Writer pw;
+					g.papyrus->write(pw);  // (the Starfield layout: Papyrus::starfield)
+					w.u32(static_cast<std::uint32_t>(pw.size()));
+					w.bytes(pw.buf);
+					break;
+				}
 				w.u32(static_cast<std::uint32_t>(g.raw.size()));
 				w.bytes(g.raw);
 				break;
@@ -520,7 +542,7 @@ namespace ess
 		expect(t.table3Offset, "global data table 3");
 		a_stage = "global data table 3 (Papyrus)";
 		for (std::uint32_t i = 0; i < t.table3Count; ++i) {
-			save->table3.push_back(ReadGlobalSF(r));
+			save->table3.push_back(ReadGlobalSF(r, &save->sfPapyrusError));
 		}
 		expect(t.formIDArrayCountOffset, "the form ID array");
 		a_stage = "the form ID array";
@@ -600,6 +622,12 @@ namespace ess
 			save->problems.push_back(std::to_string(badStrings) + " string index(es) past the string table");
 		}
 		save->reindexChangeForms();
+		if (auto* p = save->papyrus(); p && !save->sfPapyrusRaw()) {
+			p->reindex();
+			for (auto& msg : p->check()) {
+				save->problems.push_back("Papyrus: " + msg);
+			}
+		}
 		return save;
 	}
 
