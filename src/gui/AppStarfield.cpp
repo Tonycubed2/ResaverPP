@@ -60,6 +60,13 @@ namespace
 		}
 	}
 
+	void TextColoredSF(std::uint32_t col, const std::string& s)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Text, col);
+		ImGui::TextWrapped("%s", s.c_str());
+		ImGui::PopStyleColor();
+	}
+
 	std::string HexDump(const std::vector<std::uint8_t>& a_v, std::size_t a_max)
 	{
 		std::string hex;
@@ -80,6 +87,8 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kTerminateUndefined:
 	case Sc::kPurge:
 	case Sc::kAnalysis:
+	case Sc::kMods:
+	case Sc::kMissingMods:
 		return a_papyrus;  // (they work on the script data)
 	case Sc::kReport:
 	case Sc::kBsa:
@@ -90,6 +99,32 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 }
 
 bool App::sfPapyrus() const { return sf() && !_save->sfPapyrusRaw() && _save->papyrus(); }
+
+std::string App::namesStatusSF() const
+{
+	if (namesLoading()) {
+		const auto done = _dbProgress ? _dbProgress->done.load() : 0, total = _dbProgress ? _dbProgress->total.load() : 0;
+		return Fmt(tr("reading the plugins (%zu of %zu MB)..."), done, total);
+	}
+	if (_db && _db->starfield()) {
+		return Fmt(tr("%zu forms named from %zu of %zu plugins (%.1f s)"), _db->size(), _db->pluginsRead, _db->plugins().size(),
+				   (_db->sfMsStrings + _db->sfMsPlugins) / 1000.0) +
+			   (_db->missing.empty() ? std::string() : Fmt(tr(", %zu not found"), _db->missing.size()));
+	}
+	if (gameFolder().empty()) {
+		return tr("not read: the Starfield folder is not known (Options > Settings)");
+	}
+	return tr("not read yet (Tools > Read plugin names)");
+}
+
+void App::openMissingSF()
+{
+	_missingDismissed = false;
+	for (auto& m : _missing) {
+		m.planned = false;
+	}
+	_missingOpen = true;
+}
 
 void App::drawCategoriesSF()
 {
@@ -120,6 +155,9 @@ void App::drawCategoriesSF()
 	item(Cat::kPlugins, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Plugins"));
 	item(Cat::kChangeForms, _save->changeForms.size(), N_("Change Forms"));
 	item(Cat::kGlobals, _save->table1.size() + _save->table2.size() + _save->table3.size(), N_("Global Data"));
+	if (sfPapyrus()) {
+		item(Cat::kMods, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Mods"), !_missing.empty());
+	}
 	ImGui::SeparatorText(tr("Papyrus"));
 	if (!sfPapyrus()) {
 		ImGui::PushTextWrapPos(0);
@@ -161,6 +199,14 @@ void App::drawOverviewSF()
 		KV(tr("Body size"), Fmt(tr("%.1f MB"), s.originalBodySize / 1048576.0));
 		KV(tr("Change forms"), std::to_string(s.changeForms.size()));
 		KV(tr("Form IDs"), std::to_string(s.formIDs.size()));
+		KV(tr("Names"), namesStatusSF());
+		if (!_missing.empty()) {
+			std::size_t gone = 0;
+			for (const auto& m : _missing) {
+				gone += !m.installed;
+			}
+			KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
+		}
 		ImGui::EndTable();
 	}
 	ImGui::Spacing();
@@ -209,8 +255,21 @@ void App::drawHomeSF()
 			shortcut(Sc::kTerminateUndefined);
 		}
 		tips::Tip(tr("End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy."));
+		ImGui::BeginDisabled(_missing.empty());
+		if (ImGui::Button(Fmt(tr("Mods no longer installed (%zu)"), _missing.size()).c_str(), ImVec2(w, 0))) {
+			openMissingSF();
+		}
+		ImGui::EndDisabled();
+		tips::Tip(tr("The plugins this save used that your game no longer loads, with what each left behind, and removing their leftovers into a "
+					 "new save file. Nothing changes until you confirm."));
+		ImGui::SameLine();
+		if (ImGui::Button(tr("Mods"), ImVec2(w, 0))) {
+			select(Cat::kMods, 0);
+		}
+		tips::Tip(tr("Every plugin of the save with the scripts on its objects, their instances and running threads."));
 	}
 	ImGui::Spacing();
+	ImGui::TextDisabled("%s", (tr("Names: ") + namesStatusSF()).c_str());
 	ImGui::PushTextWrapPos(0);
 	ImGui::TextDisabled("%s", tr("The Skyrim and Fallout 4 tools (mods, quests, players, followers, logs, the running game) do not work on Starfield saves "
 								 "and are not shown."));
@@ -234,6 +293,9 @@ void App::drawMenuSF()
 		if (ImGui::MenuItem(tr("Purge a script..."))) {
 			shortcut(Sc::kPurge);
 		}
+		if (ImGui::MenuItem(tr("Mods no longer installed..."), nullptr, false, !_missing.empty())) {
+			openMissingSF();
+		}
 		ImGui::EndMenu();
 	}
 	if (!pap && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
@@ -246,6 +308,10 @@ void App::drawMenuSF()
 		ImGui::MenuItem(tr("Analysis"), nullptr, &_showAnalysis, pap);
 		if (ImGui::MenuItem(tr("Report..."))) {
 			shortcut(Sc::kReport);
+		}
+		ImGui::Separator();
+		if (ImGui::MenuItem(_db ? tr("Read plugin names again") : tr("Read plugin names"), nullptr, false, !namesLoading() && !gameFolder().empty())) {
+			startNames(true);
 		}
 		ImGui::EndMenu();
 	}
@@ -273,9 +339,11 @@ void App::rebuildRowsSF(const std::function<void(std::uint64_t, std::string, std
 			if (!_pluginFilter.empty() && (c.refID.type() == RefID::Type::kCreated || plugin != _pluginFilter)) {
 				continue;
 			}
+			const std::string name = _db && c.refID.type() != RefID::Type::kCreated ? _db->describe(fid) : std::string();
 			add(c.refID.data,
-				Fmt("%s  %08X  %-28s  flags %08X  %zu bytes", s.cfTypeName(c), fid, plugin.c_str(), c.changeFlags, c.data.size()), 0, true, c.data.size(),
-				c.data.size() + 3 * c.sfRefs.size() + 2 * c.sfStrings.size());
+				Fmt("%s  %08X  %-28s  flags %08X  %zu bytes", s.cfTypeName(c), fid, plugin.c_str(), c.changeFlags, c.data.size()) +
+					(name.empty() ? "" : "  " + name),
+				0, true, c.data.size(), c.data.size() + 3 * c.sfRefs.size() + 2 * c.sfStrings.size());
 		}
 		break;
 	case Cat::kGlobals:
@@ -335,6 +403,23 @@ void App::detailPluginSF(std::uint64_t k)
 		}
 	}
 	ImGui::Text(tr("%zu change forms belong to this plugin."), forms);
+	for (const auto& m : _missing) {
+		if (m.plugin == list[i]) {
+			TextColoredSF(theme::Warn(), m.installed ? tr("Installed but not enabled in plugins.txt: the game does not load it.")
+													 : tr("Not installed: the game does not load it. What it left is listed in Mods no longer installed."));
+		}
+	}
+	if (_db) {
+		std::size_t named = 0;
+		for (const auto& c : _save->changeForms) {
+			const auto fid = _save->formIDOf(c.refID);
+			const auto top = fid >> 24;
+			if ((medium ? (top == 0xFD && ((fid >> 16) & 0xFF) == i) : lite ? (top == 0xFE && ((fid >> 12) & 0xFFF) == i) : top == i) && _db->find(fid)) {
+				++named;
+			}
+		}
+		ImGui::TextDisabled(tr("%zu of them found in the plugin file (names)."), named);
+	}
 	if (ImGui::SmallButton(tr("Show its change forms"))) {
 		_pluginFilter = list[i];
 		select(Cat::kChangeForms, 0);
@@ -354,6 +439,13 @@ void App::detailChangeFormSF(std::uint64_t k)
 	ImGui::Text("%s  %08X", s.cfTypeName(*c), fid);
 	if (BeginKV("cf")) {
 		KV(tr("Plugin"), s.pluginOf(fid));
+		if (c->refID.type() != RefID::Type::kCreated) {
+			const auto d = _db ? _db->describe(fid) : std::string();
+			KV(tr("Name"), !d.empty() ? d : _db ? tr("(not in the plugin files)") : namesStatusSF());
+			if (const auto* f = _db ? _db->find(fid) : nullptr; f && f->base) {
+				KV(tr("Base object"), Fmt("%08X  ", f->base) + _db->describe(f->base));
+			}
+		}
 		KV(tr("RefID"), Fmt("%06X (%s)", c->refID.data,
 							c->refID.type() == RefID::Type::kCreated   ? tr("created in game")
 							: c->refID.type() == RefID::Type::kDefault ? "Starfield.esm"
@@ -376,7 +468,13 @@ void App::detailChangeFormSF(std::uint64_t k)
 		std::string t;
 		for (std::size_t i = 0; i < c->sfRefs.size() && i < 400; ++i) {
 			const auto f = s.formIDOf(c->sfRefs[i]);
-			t += Fmt("%08X  %s\n", f, s.pluginOf(f).c_str());
+			t += Fmt("%08X  %s", f, s.pluginOf(f).c_str());
+			if (_db && (f >> 24) != 0xFF) {
+				if (const auto d = _db->describe(f); !d.empty()) {
+					t += "  " + d;
+				}
+			}
+			t += "\n";
 		}
 		ImGui::TextUnformatted(t.c_str());
 	}

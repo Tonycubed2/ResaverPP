@@ -3312,6 +3312,7 @@ namespace
 		switch (k) {
 		case mods::Kind::kPlugin: return tr("plugin");
 		case mods::Kind::kLight: return tr("light plugin (ESL)");
+		case mods::Kind::kMedium: return tr("medium plugin");
 		case mods::Kind::kCreated: return tr("objects spawned during play (FF......)");
 		case mods::Kind::kUnattached: return tr("instances attached to nothing");
 		case mods::Kind::kGlobal: return tr("threads with no object and no known mod");
@@ -3343,7 +3344,19 @@ void App::drawModsList()
 	tips::Tip(tr("Hide the base game's, the official DLC's and the Creation Club's plugins, so only your mods are listed. In the script "
 			  "lists the game's own scripts are marked * and hidden the same way."));
 
-	if (ImGui::Button(_sources->empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
+	if (sf()) {
+		// Starfield: no mods folder to scan; scripts go to the plugin of the object they are on
+		ImGui::TextDisabled("%s", tr("Starfield: scripts are credited to the plugin whose object runs them (mods folders are not scanned)."));
+		if (!_missing.empty()) {
+			ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
+			ImGui::TextWrapped(tr("%zu plugin(s) of this save are not loaded by your game."), _missing.size());
+			ImGui::PopStyleColor();
+			ImGui::SameLine();
+			if (ImGui::SmallButton(tr("Mods no longer installed..."))) {
+				openMissingSF();
+			}
+		}
+	} else if (ImGui::Button(_sources->empty() ? tr("Find script sources (.pex)...") : tr("Rescan script sources..."))) {
 		if (platform::HasNativeDialogs()) {
 			if (auto p = platform::PickFolderDialog(tr("Pick your Mod Organizer \"mods\" folder (or the game's Data folder)"))) {
 				scanSources(*p);
@@ -3353,9 +3366,12 @@ void App::drawModsList()
 			_scanPathPopup = true;
 		}
 	}
+	if (!sf()) {
 	tips::Tip(tr("Point ReSaver++ at your mods (Mod Organizer 'mods' folder or Data) so each script is credited to the mod that ships it, and missing mods are spotted. Nothing is changed."));
 	ImGui::SameLine();
-	if (_sources->empty()) {
+	}
+	if (sf()) {
+	} else if (_sources->empty()) {
 		ImGui::TextDisabled("%s", tr("not scanned: scripts are credited to the mod whose object runs them"));
 	} else {
 		ImGui::TextDisabled(tr("%s  (%zu mods, %zu scripts)"), _sourcesPath.c_str(), _sources->modsScanned, _sources->pexFound);
@@ -3390,7 +3406,7 @@ void App::drawModsList()
 		const auto needle = Lower(_filter);
 		// plugins with enchanted / charged items in some inventory are listed too (their items show in the detail)
 		std::set<std::string> withCharged;
-		if (_save && _modsOnlyScripts) {
+		if (_save && _modsOnlyScripts && !sf()) {  // (Starfield: inventories are not read)
 			for (const auto& c : chargedItems()) {
 				withCharged.insert(Lower(_save->pluginOf(c.inv.item)));
 				if (c.inv.ench) {
@@ -3407,8 +3423,9 @@ void App::drawModsList()
 			if (!needle.empty() && Lower(r.name).find(needle) == std::string::npos) {
 				continue;
 			}
-			if (_hideGameScripts && (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight) &&
-				(modremove::IsBaseGamePluginName(Lower(r.name)) || modremove::IsCreationClubPlugin(Lower(r.name)) || Lower(r.name) == "_resourcepack.esl")) {
+			if (_hideGameScripts && (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight || r.kind == mods::Kind::kMedium) &&
+				(sf() ? IsStarfieldBaseFile(Lower(r.name))
+					  : (modremove::IsBaseGamePluginName(Lower(r.name)) || modremove::IsCreationClubPlugin(Lower(r.name)) || Lower(r.name) == "_resourcepack.esl"))) {
 				continue;  // the game's own plugins
 			}
 			_modOrder.push_back(i);
@@ -3442,7 +3459,7 @@ void App::drawModsList()
 			const bool  asc = sp.SortDirection == ImGuiSortDirection_Ascending;
 			auto        key = [&](const mods::ModRow& r) -> long long {
                 switch (sp.ColumnIndex) {
-                case 0: return r.kind == mods::Kind::kPlugin ? r.index : r.kind == mods::Kind::kLight ? 1000 + r.index : 100000 + static_cast<int>(r.kind);
+                case 0: return r.kind == mods::Kind::kPlugin ? r.index : r.kind == mods::Kind::kMedium ? 500 + r.index : r.kind == mods::Kind::kLight ? 1000 + r.index : 100000 + static_cast<int>(r.kind);
                 case 2: return static_cast<long long>(r.scriptCount);
                 case 3: return static_cast<long long>(r.instanceCount);
                 case 4: return static_cast<long long>(r.threadCount);
@@ -3471,15 +3488,19 @@ void App::drawModsList()
 			ImGui::TableNextRow();
 			ImGui::TableSetColumnIndex(0);
 			ImGui::PushID(static_cast<int>(idx));
-			std::string load = r.kind == mods::Kind::kPlugin ? Fmt("%02X", r.index) : r.kind == mods::Kind::kLight ? Fmt("FE:%03X", r.index) : "";
+			std::string load = r.kind == mods::Kind::kPlugin ? Fmt("%02X", r.index) : r.kind == mods::Kind::kLight ? Fmt("FE:%03X", r.index)
+							 : r.kind == mods::Kind::kMedium ? Fmt("FD:%02X", r.index) : "";
 			const bool  sel = _focus && *_focus == idx;
 			if (ImGui::Selectable(load.empty() ? "--" : load.c_str(), sel, ImGuiSelectableFlags_SpanAllColumns)) {
 				_focus = idx;
 			}
 			tips::Tip(tr("Click to see this mod's scripts and what they are doing."));
 			ImGui::TableSetColumnIndex(1);
-			if (r.kind != mods::Kind::kPlugin && r.kind != mods::Kind::kLight) {
+			const bool notLoaded = sf() && std::any_of(_missing.begin(), _missing.end(), [&](const MissingMod& m) { return m.plugin == r.name; });
+			if (r.kind != mods::Kind::kPlugin && r.kind != mods::Kind::kLight && r.kind != mods::Kind::kMedium) {
 				TextColored(theme::Dim(), r.name);
+			} else if (notLoaded) {
+				TextColored(theme::Warn(), r.name + tr("  (not loaded)"));
 			} else {
 				ImGui::TextUnformatted(r.name.c_str());
 			}
@@ -3537,6 +3558,9 @@ void App::killThreads(const std::set<ThreadID>& a_threads, const std::set<EID>& 
 	// spawned objects: their instances are deleted together with the object itself
 	std::set<std::uint32_t> forms;
 	for (auto id : a_instances) {
+		if (sf()) {
+			break;  // (Starfield: created objects are not deleted, what that does to its created-ID section is not known)
+		}
 		if (const auto* i = _save->papyrus()->findInstance(id); i && i->refID.type() == RefID::Type::kCreated) {
 			forms.insert(i->refID.data);
 		}
@@ -3566,7 +3590,10 @@ void App::detailMod(std::uint64_t k)
 	const auto& r = _mods->rows[k];
 	ImGui::TextUnformatted(r.name.c_str());
 	ImGui::TextDisabled("%s%s", KindLabel(r.kind),
-		r.kind == mods::Kind::kPlugin ? Fmt(tr(", load index %02X"), r.index).c_str() : r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str() : "");
+		r.kind == mods::Kind::kPlugin  ? Fmt(tr(", load index %02X"), r.index).c_str()
+		: r.kind == mods::Kind::kLight ? Fmt(tr(", FE:%03X"), r.index).c_str()
+		: r.kind == mods::Kind::kMedium ? Fmt(tr(", FD:%02X"), r.index).c_str()
+										: "");
 	if (!_sources->empty() && (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight)) {
 		auto it = _sources->pluginFolder.find(Lower(r.name));
 		if (it != _sources->pluginFolder.end()) {
@@ -3617,14 +3644,14 @@ void App::detailMod(std::uint64_t k)
 		_reportOpen = true;
 	}
 	tips::Tip(tr("Write a report: every mod with its scripts and instances, and the anomalies found (text or PDF)."));
-	if (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight || r.kind == mods::Kind::kFolder) {
+	if (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight || r.kind == mods::Kind::kMedium || r.kind == mods::Kind::kFolder) {
 		ImGui::SameLine();
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.18f, 0.18f, 1.0f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.70f, 0.24f, 0.24f, 1.0f));
 		if (ImGui::Button(tr("Remove mod from save..."))) {
 			_removeMod = r.name;
 			_removeOpen = true;
-			_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources->empty() ? nullptr : _sources.get(), _removeOpt));
+			_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources->empty() ? nullptr : _sources.get(), removeOptions()));
 		}
 		ImGui::PopStyleColor(2);
 		tips::Tip(tr("Safety check first, then removes its scripts, threads, queued calls and the saved state of its forms,\n"
@@ -3835,7 +3862,7 @@ void App::detailMod(std::uint64_t k)
 			}
 		}
 	}
-	if (r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight) {
+	if ((r.kind == mods::Kind::kPlugin || r.kind == mods::Kind::kLight) && !sf()) {
 		drawModCharged(r.name);
 	}
 }
@@ -3861,16 +3888,18 @@ void App::drawRemoveModModal()
 	}
 	const auto& plan = *_removePlan;
 	bool        replan = false;
-	replan |= ImGui::Checkbox(tr("Also remove its scripts from other mods' objects (scripts only this mod provides)"), &_removeOpt.otherObjects);
-	tips::Tip(tr("Also remove this mod's scripts where they are attached to objects of other mods (only scripts nothing else provides)."));
-	replan |= ImGui::Checkbox(tr("Delete spawned objects that only carried its scripts"), &_removeOpt.spawnedObjects);
-	tips::Tip(tr("Delete in-game-created objects whose only purpose was to carry this mod's scripts."));
+	if (!sf()) {  // (Starfield: no mods scan, and created objects are never deleted)
+		replan |= ImGui::Checkbox(tr("Also remove its scripts from other mods' objects (scripts only this mod provides)"), &_removeOpt.otherObjects);
+		tips::Tip(tr("Also remove this mod's scripts where they are attached to objects of other mods (only scripts nothing else provides)."));
+		replan |= ImGui::Checkbox(tr("Delete spawned objects that only carried its scripts"), &_removeOpt.spawnedObjects);
+		tips::Tip(tr("Delete in-game-created objects whose only purpose was to carry this mod's scripts."));
+	}
 	if (replan) {
-		_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources->empty() ? nullptr : _sources.get(), _removeOpt));
+		_removePlan = std::make_unique<modremove::Plan>(modremove::MakePlan(*_save, _removeMod, _sources->empty() ? nullptr : _sources.get(), removeOptions()));
 		ImGui::EndPopup();
 		return;
 	}
-	if (_sources->empty()) {
+	if (_sources->empty() && !sf()) {
 		TextColored(theme::Warn(), tr("Tip: use \"Find script sources (.pex)...\" first, so masters, DLLs and its scripts on other objects are checked."));
 	}
 	ImGui::Separator();

@@ -12,6 +12,9 @@
 #include "core/LoadOrder.h"
 #include "core/ModRemove.h"
 #include "core/Ops.h"
+#include "core/PluginDB.h"
+
+#include <fstream>
 
 #include "imgui.h"
 
@@ -156,9 +159,33 @@ bool App::matchProfileToSave(const ProfileMatch* a_pre)
 	return true;
 }
 
+std::vector<std::filesystem::path> App::sfDataDirs() const
+{
+	const auto saves = platform::DefaultSavesFolder(3);
+	return loadorder::StarfieldDataDirs(gameFolder(), saves.empty() ? std::filesystem::path() : saves.parent_path());
+}
+
+modremove::Options App::removeOptions() const
+{
+	auto o = _removeOpt;
+	o.sfFiles = sf() && _sfOrder ? &_sfOrder->files : nullptr;
+	return o;
+}
+
 App::MissingInputs App::missingInputs() const
 {
 	MissingInputs in;
+	if (sf()) {
+		// Starfield: the game's own files, plugins.txt in %LOCALAPPDATA%\Starfield, the plugin files in its Data folders
+		in.sf = true;
+		in.game = 3;
+		in.gameFolder = gameFolder();
+		in.sfDataDirs = sfDataDirs();
+		in.pluginsTxt = loadorder::GamePluginsTxt(3);
+		in.source = tr("your load order");
+		in.sourceUnknown = tr("your load order");
+		return in;
+	}
 	in.sources = _sources;
 	in.installKnown = _sources->scanned() && !scanning();
 	in.game = _game;
@@ -183,6 +210,48 @@ void App::ComputeMissing(const SaveFile& a_save, const MissingInputs& a_in, cons
 	out = MissingResult{};
 	out.missingSource = a_in.source;
 	out.installKnown = a_in.installKnown;
+	if (a_in.sf) {
+		// Starfield: a plugin of the save the game will not load (not one of its own files, not enabled in plugins.txt, or its
+		// file in no Data folder). No mods folder, no profiles; scripts are not scanned (no "missing scripts" here).
+		auto order = std::make_shared<loadorder::StarfieldOrder>(loadorder::ReadStarfield(a_in.pluginsTxt, a_in.sfDataDirs));
+		out.sfOrder = order;
+		// the game folder is right when its own master is there; otherwise nothing can be told (nothing listed)
+		out.installKnown = order->installed("starfield.esm");
+		if (!out.installKnown) {
+			out.missingSource = a_in.sourceUnknown;
+			return;
+		}
+		out.missingFile = order->pluginsTxtFound ? order->pluginsTxt : a_in.sfDataDirs.front();
+		out.missingSource = order->pluginsTxtFound ? tr("your load order (plugins.txt)") : tr("your game (no plugins.txt: only its own files load)");
+		// plugins.txt enables plugins that no Data folder has: a mod manager keeps them elsewhere (Mod Organizer's virtual
+		// folder), so "not installed" cannot be trusted: nothing is ticked
+		if (order->pluginsTxtFound) {
+			std::ifstream f(order->pluginsTxt);
+			for (std::string line; std::getline(f, line);) {
+				while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) {
+					line.pop_back();
+				}
+				if (line.size() > 1 && line[0] == '*' && !order->installed(Lower(line.substr(1)))) {
+					++out.sfNotFound;
+				}
+			}
+		}
+		out.scanSuspect = out.sfNotFound > 0;
+		const auto left = modremove::StarfieldNotLoaded(a_save, *order, a_mods());
+		for (const auto& l : left) {
+			MissingMod m;
+			m.plugin = l.plugin;
+			m.installed = l.installed;
+			m.changeForms = l.changeForms;
+			m.scripts = l.scripts;
+			m.instances = l.instances;
+			m.threads = l.threads;
+			m.selected = !l.installed && !l.nothing() && !out.scanSuspect && !IsStarfieldBaseFile(Lower(l.plugin));
+			out.missing.push_back(std::move(m));
+		}
+		out.removeMissingScripts = false;
+		return;
+	}
 	std::optional<watchdog::Step> step;
 	step.emplace("reading the load order");
 	const auto active = loadorder::Read(a_in.pluginsTxt, a_in.gameFolder, a_in.game);
@@ -362,6 +431,8 @@ void App::applyMissing(MissingResult&& a_r)
 	_activeChecked = a_r.activeChecked;
 	_missingFile = std::move(a_r.missingFile);
 	_installKnown = a_r.installKnown;
+	_sfOrder = std::move(a_r.sfOrder);
+	_sfNotFound = a_r.sfNotFound;
 	invalidateCheck();
 }
 
@@ -450,7 +521,16 @@ void App::drawMissingModal()
 					   "same safety checks, and writes a NEW save file: the original is not changed."),
 		_missingSource.c_str());
 	TextColored(theme::Dim(), tr("A mod that is only disabled for a test, or enabled in another profile, will need its data again: leave it unticked."));
-	if (!_installKnown && scanning()) {
+	if (sf()) {
+		TextColored(theme::Dim(), tr("Starfield: the game always loads its own files (Starfield.esm, Shattered Space, the official Creations it "
+								  "ships); any other plugin loads only when plugins.txt enables it and its file is in the game's Data folder (or "
+								  "My Games\\Starfield\\Data)."));
+		if (_sfNotFound) {
+			TextColored(theme::Bad(), Fmt(tr("plugins.txt enables %zu plugin(s) that are in no Data folder: a mod manager probably keeps your mods "
+										  "elsewhere, so ReSaver Plus cannot tell which mods are really gone. Nothing is ticked."),
+										  _sfNotFound));
+		}
+	} else if (!_installKnown && scanning()) {
 		TextColored(theme::Warn(), tr("Still scanning your mods: until it is done ReSaver++ cannot tell uninstalled mods from disabled ones, so nothing "
 								   "is ticked. The list updates by itself when the scan is done."));
 	} else if (!_installKnown) {
@@ -458,7 +538,7 @@ void App::drawMissingModal()
 						   "nothing is ticked."));
 	}
 	TextColored(theme::Dim(), tr("Load order read from: ") + platform::ToUtf8(_missingFile) +
-								  (_installKnown ? tr("    Mods folder: ") + _sourcesPath : std::string()));
+								  (_installKnown && !sf() ? tr("    Mods folder: ") + _sourcesPath : std::string()));
 	if (_orderSuspect) {
 		const auto inSave = _save ? _save->plugins.full.size() + _save->plugins.lite.size() : 0;
 		if (_mo2) {
@@ -488,7 +568,7 @@ void App::drawMissingModal()
 									   _sources->errors.size()) +
 									   list);
 	}
-	if (_scanSuspect) {
+	if (_scanSuspect && !sf()) {
 		TextColored(theme::Bad(), Fmt(tr("The mods scan found only %zu of the %zu plugins your load order enables, so it probably looked in the wrong "
 									  "folder. Nothing is ticked: check the mods folder in Options > Settings."),
 									  _activeFound, _activeChecked));
@@ -506,7 +586,7 @@ void App::drawMissingModal()
 			auto& m = _missing[i];
 			// the safety check of each ticked mod, on the unchanged save
 			if (m.selected && !m.planned) {
-				const auto plan = modremove::MakePlan(*_save, m.plugin, _sources->scanned() ? _sources.get() : nullptr, _removeOpt);
+				const auto plan = modremove::MakePlan(*_save, m.plugin, _sources->scanned() ? _sources.get() : nullptr, removeOptions());
 				m.planned = true;
 				m.blocked = !plan.canApply();
 				m.planText = plan.summary();
@@ -651,7 +731,7 @@ void App::drawMissingModal()
 			if (!m.selected) {
 				continue;
 			}
-			const auto plan = modremove::MakePlan(*_save, m.plugin, _sources->scanned() ? _sources.get() : nullptr, _removeOpt);
+			const auto plan = modremove::MakePlan(*_save, m.plugin, _sources->scanned() ? _sources.get() : nullptr, removeOptions());
 			if (!plan.canApply()) {
 				skipped += (skipped.empty() ? "" : ", ") + m.plugin;
 				continue;

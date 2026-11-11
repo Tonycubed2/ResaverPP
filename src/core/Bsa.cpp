@@ -121,6 +121,9 @@ namespace ess
 	//            then per chunk: u64 offset, u32 packed size (0 = stored), u32 size, u16 first mip, u16 last mip,
 	//            u32 0xBAADF00D                                                                  (24 bytes)
 	// Compressed data is zlib.
+	// Starfield (checked on its 1.16.244 archives): version 2 (GNRL and DX10) has 8 more header bytes (u32 1, u32 0), version
+	// 3 (its DX10 texture archives) 12 (u32 1, u32 0, u32 compression: 3 = LZ4 blocks); the records are Fallout 4's (GNRL 36
+	// bytes, DX10 24 + 24 per chunk, tile mode 8 in the last byte); names use '/' ("strings/starfield_en.strings").
 	void BsaArchive::openBa2(std::ifstream& a_f)
 	{
 		_ba2 = true;
@@ -137,8 +140,24 @@ namespace ess
 		h.seek(12);
 		const auto count = h.u32();
 		const auto names = h.u64();
-		if (_version != 1 && _version != 7 && _version != 8) {
-			throw std::runtime_error("unsupported BA2 version " + std::to_string(_version) + " (Fallout 4 uses 1, 7 and 8)");
+		if (_version != 1 && _version != 7 && _version != 8 && _version != 2 && _version != 3) {
+			throw std::runtime_error("unsupported BA2 version " + std::to_string(_version) + " (Fallout 4 uses 1, 7 and 8, Starfield 2 and 3)");
+		}
+		// Starfield: version 2 adds two u32 (1, 0 in every archive of Starfield 1.16.244) after the 24-byte header, version 3
+		// a third, the compression of the data: 0 zlib, 3 LZ4 blocks (3 in all of the game's v3 archives, its texture archives)
+		std::uint64_t recStart = 24;
+		if (_version == 2 || _version == 3) {
+			std::uint8_t ext[12]{};
+			if (!a_f.read(reinterpret_cast<char*>(ext), _version == 3 ? 12 : 8)) {
+				throw std::runtime_error("BA2 header cut short");
+			}
+			recStart = _version == 3 ? 36 : 32;
+			if (_version == 3) {
+				std::memcpy(&_compression, ext + 8, 4);
+				if (_compression != 0 && _compression != 3) {
+					throw std::runtime_error("unsupported BA2 compression " + std::to_string(_compression));
+				}
+			}
 		}
 		if (std::memcmp(type, "GNRL", 4) == 0) {
 			_textureArchive = false;
@@ -153,7 +172,7 @@ namespace ess
 			throw std::runtime_error("BA2 header is damaged");
 		}
 		// the records: read in one go (GNRL: 36 bytes each; DX10: 24 + 24 per chunk, read as they come)
-		a_f.seekg(24);
+		a_f.seekg(static_cast<std::streamoff>(recStart));
 		const std::uint64_t recEnd = names ? names : fileSize;
 		_entries.reserve(count);
 		if (!_textureArchive) {
@@ -341,7 +360,19 @@ namespace ess
 				if (!f.read(reinterpret_cast<char*>(raw.data()), static_cast<std::streamsize>(raw.size()))) {
 					throw std::runtime_error("short read in archive");
 				}
-				return a_packed ? DecompressZlib(raw.data(), raw.size(), a_size) : raw;
+				if (!a_packed) {
+					return raw;
+				}
+				if (_compression == 3) {  // Starfield v3: an LZ4 block (no frame)
+					std::vector<std::uint8_t> out(a_size);
+					const int n = LZ4_decompress_safe(reinterpret_cast<const char*>(raw.data()), reinterpret_cast<char*>(out.data()),
+						static_cast<int>(raw.size()), static_cast<int>(out.size()));
+					if (n < 0 || static_cast<std::uint32_t>(n) != a_size) {
+						throw std::runtime_error("damaged LZ4 data in archive");
+					}
+					return out;
+				}
+				return DecompressZlib(raw.data(), raw.size(), a_size);
 			};
 			if (a_entry.texture < 0) {
 				return read(a_entry.offset, a_entry.packedSize, a_entry.size);

@@ -126,6 +126,8 @@ namespace ess
 
 	std::string GameTextToUtf8(const std::string& a_text) { return text::ToUtf8(a_text); }
 
+	std::unordered_map<std::uint32_t, std::string> ReadStringsTable(const std::vector<std::uint8_t>& a_data) { return ReadStrings(a_data); }
+
 
 	void PrepareInput(const SaveFile& a_save, PluginDB::Input& a_in)
 	{
@@ -168,6 +170,11 @@ namespace ess
 
 	void PluginDB::load(const Input& a_in, Progress& a_progress)
 	{
+		if (a_in.sf) {
+			loadStarfield(a_in, a_progress);
+			return;
+		}
+		_sf = false;
 		_forms.clear();
 		_cells.clear();
 		_cellAt.clear();

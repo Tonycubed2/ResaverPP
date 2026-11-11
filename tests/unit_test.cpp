@@ -40,6 +40,8 @@
 #include "core/SaveBloat.h"
 #include "core/CompanionsFO4.h"
 #include "core/Compare.h"
+#include "core/Mods.h"
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
@@ -6052,6 +6054,7 @@ int main()
 	TestJournalLeftovers();
 	TestDamagedChangeForms();
 	TestStarfield();
+	TestStarfieldNames();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

@@ -1,5 +1,6 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 #include "LoadOrder.h"
+#include "PluginDB.h"
 #include "Text.h"
 
 #include <cctype>
@@ -144,5 +145,61 @@ namespace ess::loadorder
 			}
 		}
 		return a;
+	}
+
+	std::vector<std::filesystem::path> StarfieldDataDirs(const std::filesystem::path& a_gameFolder, const std::filesystem::path& a_myGames)
+	{
+		std::vector<std::filesystem::path> v;
+		std::error_code                    ec;
+		if (!a_gameFolder.empty()) {
+			const auto d = std::filesystem::is_directory(a_gameFolder / "Data", ec) ? a_gameFolder / "Data" : a_gameFolder;
+			v.push_back(d);
+		}
+		// (Creations installed from the game's menu; the place is the community's, not seen on Tony's install: [U])
+		auto myGames = a_myGames;
+		if (myGames.empty()) {
+			if (const auto home = text::EnvPath("USERPROFILE"); !home.empty()) {
+				myGames = home / "Documents" / "My Games" / "Starfield";
+			}
+		}
+		if (!myGames.empty() && std::filesystem::is_directory(myGames / "Data", ec)) {
+			v.push_back(myGames / "Data");
+		}
+		return v;
+	}
+
+	StarfieldOrder ReadStarfield(const std::filesystem::path& a_pluginsTxt, const std::vector<std::filesystem::path>& a_dataDirs)
+	{
+		StarfieldOrder o;
+		for (const auto& dir : a_dataDirs) {
+			std::error_code ec;
+			for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
+				const auto u = e.path().filename().u8string();
+				const auto name = Lower(std::string(u.begin(), u.end()));
+				if ((name.ends_with(".esm") || name.ends_with(".esp") || name.ends_with(".esl")) && e.is_regular_file(ec)) {
+					o.files.emplace(name, e.path());
+				}
+			}
+		}
+		for (const auto& b : StarfieldBaseFiles()) {
+			if (o.installed(b)) {
+				o.active.insert(b);
+			}
+		}
+		std::ifstream f(a_pluginsTxt);
+		if (f) {
+			o.pluginsTxtFound = true;
+			o.pluginsTxt = a_pluginsTxt;
+			for (std::string line; std::getline(f, line);) {
+				line = Trim(line);
+				if (!line.empty() && line[0] == '*') {
+					const auto n = Lower(Trim(line.substr(1)));
+					if (o.installed(n)) {
+						o.active.insert(n);
+					}
+				}
+			}
+		}
+		return o;
 	}
 }

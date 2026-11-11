@@ -1,5 +1,5 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
-// Skyrim BSA archives (version 104 / 105) and Fallout 4 BA2 archives ("BTDX" version 1, 7, 8; GNRL general files
+// Skyrim BSA archives (version 104 / 105) and Fallout 4 / Starfield BA2 archives ("BTDX" version 1, 7, 8; Starfield 2, 3; GNRL general files
 // and DX10 textures): file listing and extraction.
 #pragma once
 
@@ -55,6 +55,7 @@ namespace ess
 
 		std::filesystem::path _path;
 		std::uint32_t         _version = 0, _flags = 0;
+		std::uint32_t         _compression = 0;  // BA2 version 3 (Starfield): 0 zlib, 3 LZ4 blocks
 		bool                  _ba2 = false, _textureArchive = false;
 		std::vector<Entry>    _entries;
 		std::vector<Texture>  _textures;

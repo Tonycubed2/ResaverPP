@@ -1,8 +1,15 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 // resaverpp-cli for Starfield saves (.sfs): what the save is made of, its change forms, deleting change forms, and
 // writing it back. The Skyrim / Fallout 4 options do not apply to these saves and are refused.
+#include "core/LoadOrder.h"
+#include "core/ModRemove.h"
+#include "core/Mods.h"
 #include "core/Ops.h"
+#include "core/PluginDB.h"
 #include "core/Save.h"
+#include "core/Text.h"
+
+#include <chrono>
 
 #include <cstdio>
 #include <cstdlib>
@@ -46,6 +53,11 @@ int StarfieldMain(int argc, char** argv)
 	std::string       out, formsType;
 	bool              describe = false, forms = false, report = false, unattached = false, undefined = false, termUndef = false;
 	std::set<std::uint32_t> deleteForms;
+	// names (--game / --data) and mods no longer installed
+	std::string                 gameDir, pluginsTxt, language = "en";
+	std::vector<std::string>    dataDirs;
+	std::vector<std::uint32_t>  nameIDs;
+	bool                        names = false, notInstalled = false, removeNotInstalled = false, alsoDisabled = false;
 	for (int i = 2; i < argc; ++i) {
 		const std::string a = argv[i];
 		auto              next = [&]() -> std::string {
@@ -72,12 +84,32 @@ int StarfieldMain(int argc, char** argv)
 			undefined = true;
 		} else if (a == "--terminate-undefined") {
 			termUndef = true;
+		} else if (a == "--game") {
+			gameDir = next();
+		} else if (a == "--data") {
+			dataDirs.push_back(next());
+		} else if (a == "--plugins-txt") {
+			pluginsTxt = next();
+		} else if (a == "--language") {
+			language = next();
+		} else if (a == "--names") {
+			names = true;
+		} else if (a == "--name") {
+			names = true;
+			nameIDs.push_back(static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)));
+		} else if (a == "--mods-not-installed") {
+			notInstalled = true;
+		} else if (a == "--remove-not-installed") {
+			notInstalled = removeNotInstalled = true;
+		} else if (a == "--also-disabled") {
+			alsoDisabled = true;
 		} else if (a == "--delete-form") {
 			deleteForms.insert(static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)));
 		} else {
 			std::fprintf(stderr,
 				"%s: not available for Starfield saves (they support: -o <out.sfs>, --describe, --report, --forms [TYPE], --delete-form <form id>, "
-				"--remove-unattached, --remove-undefined, --terminate-undefined)\n",
+				"--remove-unattached, --remove-undefined, --terminate-undefined, --game <Starfield folder> | --data <Data folder>, --names, "
+				"--name <form id>, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
 				a.c_str());
 			return 1;
 		}
@@ -93,6 +125,62 @@ int StarfieldMain(int argc, char** argv)
 		for (const auto& l : DescribeSave(*save, describe)) {
 			std::printf("%s\n", l.c_str());
 		}
+		// the Data folders: --data, else <--game>\Data (+ My Games\Starfield\Data)
+		std::vector<std::filesystem::path> dirs;
+		for (const auto& d : dataDirs) {
+			dirs.emplace_back(text::PathFrom(d));
+		}
+		if (dirs.empty() && !gameDir.empty()) {
+			dirs = loadorder::StarfieldDataDirs(text::PathFrom(gameDir));
+		}
+		if ((names || notInstalled) && dirs.empty()) {
+			std::fprintf(stderr, "--names / --mods-not-installed need --game <Starfield folder> or --data <Data folder>\n");
+			return 1;
+		}
+		std::unique_ptr<PluginDB> db;
+		if (names) {
+			PluginDB::Input in;
+			PrepareInput(*save, in);
+			in.sf = true;
+			in.medium = save->plugins.medium;
+			in.sfDataDirs = dirs;
+			in.language = language;
+			if (const char* full = std::getenv("RESAVERPP_SF_FULL_RECORDS"); full && *full) {
+				in.sfPrefix = SIZE_MAX;  // (check: every record unpacked whole)
+			}
+			PluginDB::Progress prog;
+			db = std::make_unique<PluginDB>();
+			const auto t0 = std::chrono::steady_clock::now();
+			db->load(in, prog);
+			const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+			std::printf("names: %zu of %zu plugins read, %zu forms named, %zu records, %.1f MB in %.0f ms (strings files %zu from %zu archives: %.0f ms; "
+						"plugins %.0f ms); ids not placed %zu, overrides of unknown forms %zu\n",
+				db->pluginsRead, db->plugins().size(), db->size(), db->recordsRead, db->sfBytes / 1048576.0, ms, db->sfStringsFiles, db->sfArchivesRead,
+				db->sfMsStrings, db->sfMsPlugins, db->sfUnresolved, db->sfOrphanOverrides);
+			std::printf("names: %zu compressed records inflated in %.0f ms\n", db->sfInflated, db->sfMsInflate);
+			for (const auto& m : db->sfSamples) {
+				std::printf("names: check: %s\n", m.c_str());
+			}
+			for (const auto& m : db->missing) {
+				std::printf("names: not found: %s\n", m.c_str());
+			}
+			for (const auto& e : db->errors) {
+				std::printf("names: error: %s\n", e.c_str());
+			}
+			std::size_t named = 0, cfs = 0;
+			for (const auto& c : save->changeForms) {
+				if (c.refID.type() == RefID::Type::kCreated) {
+					continue;
+				}
+				++cfs;
+				named += db->find(save->formIDOf(c.refID)) != nullptr;
+			}
+			std::printf("names: %zu of %zu change forms of plugins are found in the plugins\n", named, cfs);
+			for (const auto id : nameIDs) {
+				const auto* f = db->find(id);
+				std::printf("%08X  %s  (%s)\n", id, db->describe(id).c_str(), f ? db->pluginName(*f).c_str() : save->pluginOf(id).c_str());
+			}
+		}
 		if (forms) {
 			for (const auto& c : save->changeForms) {
 				const char* t = save->cfTypeName(c);
@@ -100,8 +188,9 @@ int StarfieldMain(int argc, char** argv)
 					continue;
 				}
 				const auto fid = save->formIDOf(c.refID);
-				std::printf("%06X  form %08X  %-4s  %-28s flags %08X  version %u  refs %zu  strings %zu  data %zu\n", c.refID.data, fid, t,
-					save->pluginOf(fid).c_str(), c.changeFlags, c.version, c.sfRefs.size(), c.sfStrings.size(), c.data.size());
+				std::printf("%06X  form %08X  %-4s  %-28s flags %08X  version %u  refs %zu  strings %zu  data %zu%s%s\n", c.refID.data, fid, t,
+					save->pluginOf(fid).c_str(), c.changeFlags, c.version, c.sfRefs.size(), c.sfStrings.size(), c.data.size(), db ? "  " : "",
+					db ? db->describe(fid).c_str() : "");
 			}
 		}
 		if (report) {
@@ -133,12 +222,48 @@ int StarfieldMain(int argc, char** argv)
 				}
 			}
 		}
-		const bool papyrusEdits = unattached || undefined || termUndef;
+		const bool papyrusEdits = unattached || undefined || termUndef || removeNotInstalled;
 		if (papyrusEdits && (!save->papyrus() || save->sfPapyrusRaw())) {
 			std::fprintf(stderr, "the script data of this save could not be read: %s\n", save->sfPapyrusError.c_str());
 			return 2;
 		}
 		bool edited = false;
+		if (notInstalled) {
+			const auto pt = !pluginsTxt.empty() ? text::PathFrom(pluginsTxt) : loadorder::GamePluginsTxt(3);
+			const auto order = loadorder::ReadStarfield(pt, dirs);
+			const auto table = save->papyrus() && !save->sfPapyrusRaw() ? mods::Build(*save, nullptr) : mods::Table{};
+			const auto left = modremove::StarfieldNotLoaded(*save, order, &table);
+			std::printf("load order: %zu plugin(s) active (%s), %zu plugin file(s) in the Data folders\n", order.active.size(),
+				order.pluginsTxtFound ? ("plugins.txt " + order.pluginsTxt.string()).c_str() : "no plugins.txt: the game's own files", order.files.size());
+			std::size_t gone = 0;
+			for (const auto& l : left) {
+				gone += !l.installed;
+				std::printf("not loaded: %-50s %-22s %zu forms, %zu scripts, %zu instances, %zu threads\n", l.plugin.c_str(),
+					l.installed ? "installed, not enabled" : "not installed", l.changeForms, l.scripts, l.instances, l.threads);
+			}
+			std::printf("%zu plugin(s) of the save are not loaded: %zu not installed\n", left.size(), gone);
+			if (removeNotInstalled) {
+				modremove::Options opt;
+				opt.sfFiles = &order.files;
+				std::size_t done = 0, refused = 0;
+				for (const auto& l : left) {
+					if (l.nothing() || (l.installed && !alsoDisabled)) {
+						continue;
+					}
+					const auto plan = modremove::MakePlan(*save, l.plugin, nullptr, opt);
+					if (!plan.canApply()) {
+						++refused;
+						std::printf("refused %s:\n%s\n", l.plugin.c_str(), plan.summary().c_str());
+						continue;
+					}
+					const auto r = modremove::Apply(*save, plan);
+					std::printf("removed %s: %s\n", l.plugin.c_str(), r.text().c_str());
+					++done;
+				}
+				std::printf("removed the leftovers of %zu plugin(s), %zu refused\n", done, refused);
+				edited = edited || done;
+			}
+		}
 		if (termUndef) {
 			std::printf("terminated %zu undefined thread(s)\n", ops::TerminateUndefinedThreads(*save->papyrus()));
 			edited = true;

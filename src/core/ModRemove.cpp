@@ -3,6 +3,7 @@
 
 #include "ByteIO.h"
 #include "Ops.h"
+#include "PluginDB.h"
 
 #include <algorithm>
 #include <cctype>
@@ -158,7 +159,8 @@ namespace ess::modremove
 		const auto lowerName = Lower(a_mod);
 
 		// ---- what is being removed: a plugin, or a script-only mod folder ("[folder]") --------
-		for (const auto* list : { &a_save.plugins.full, &a_save.plugins.lite }) {
+		const bool sf = a_save.isSF();
+		for (const auto* list : { &a_save.plugins.full, &a_save.plugins.lite, &a_save.plugins.medium }) {
 			for (const auto& pl : *list) {
 				if (Lower(pl) == lowerName) {
 					plan.isPlugin = true;
@@ -166,7 +168,7 @@ namespace ess::modremove
 			}
 		}
 		if (plan.isPlugin) {
-			if (IsVanillaPlugin(lowerName)) {
+			if (sf ? IsStarfieldBaseFile(lowerName) : IsVanillaPlugin(lowerName)) {
 				plan.blockers.push_back(a_mod + " is part of the base game or Creation Club content and cannot be removed.");
 				return plan;
 			}
@@ -434,11 +436,12 @@ namespace ess::modremove
 				}
 				if (Lower(a_save.pluginOf(a_save.formIDOf(cf.refID))) == lowerName) {
 					plan.changeForms.insert(cf.refID.data);
-					++plan.changeFormsByType[ChangeFormTypeName(cf.typeCode(), a_save.isFO4())];
+					++plan.changeFormsByType[a_save.cfTypeName(cf)];
 				}
 			}
 		}
-		if (a_opt.spawnedObjects) {
+		// (Starfield: what deleting a created form's change form does to the save's created-ID section is not known)
+		if (a_opt.spawnedObjects && !sf) {
 			// a spawned object goes only when every script on it is being removed
 			std::unordered_map<std::uint32_t, bool> allRemoved;
 			for (const auto& i : p->instances) {
@@ -459,7 +462,48 @@ namespace ess::modremove
 		}
 
 		// ---- safety checks ---------------------------------------------------------------------
-		if (plan.isPlugin) {
+		if (plan.isPlugin && sf) {
+			// Starfield: the plugins that stay and need this one as a master (read from the Data folders)
+			if (a_opt.sfFiles) {
+				for (const auto* list : { &a_save.plugins.full, &a_save.plugins.lite, &a_save.plugins.medium }) {
+					for (const auto& pl : *list) {
+						const auto low = Lower(pl);
+						if (low == lowerName || IsStarfieldBaseFile(low)) {
+							continue;
+						}
+						const auto it = a_opt.sfFiles->find(low);
+						if (it == a_opt.sfFiles->end()) {
+							++plan.uncheckedPlugins;  // not installed: the game does not load it either
+							continue;
+						}
+						try {
+							const auto masters = ReadMasters(it->second);
+							if (std::find(masters.begin(), masters.end(), lowerName) != masters.end()) {
+								plan.dependents.push_back(pl);
+							}
+						} catch (const std::exception&) {
+							++plan.uncheckedPlugins;
+						}
+					}
+				}
+				if (!plan.dependents.empty()) {
+					std::string list;
+					for (const auto& d : plan.dependents) {
+						list += "\n    " + d;
+					}
+					plan.blockers.push_back(Fmt("%zu installed plugin(s) of this save need %s as a master; the game cannot load them without it:",
+												plan.dependents.size(), a_mod.c_str()) +
+											list);
+				}
+				if (plan.uncheckedPlugins) {
+					plan.notes.push_back(Fmt("%zu plugin(s) of the save are not installed, so their masters were not checked (the game does not load them either).",
+						plan.uncheckedPlugins));
+				}
+			} else {
+				plan.warnings.push_back("Masters were not checked (the game's Data folder is not known). If an installed plugin needs " + a_mod +
+										" as a master, the game cannot load it.");
+			}
+		} else if (plan.isPlugin) {
 			if (haveSources) {
 				for (const auto* list : { &a_save.plugins.full, &a_save.plugins.lite }) {
 					for (const auto& pl : *list) {
@@ -565,9 +609,50 @@ namespace ess::modremove
 		if (plan.instances.empty() && plan.threads.empty() && plan.changeForms.empty()) {
 			plan.blockers.push_back("Nothing of " + a_mod + " was found in this save.");
 		}
-		plan.notes.push_back("The plugin list in the save is left as it is; the game drops a missing plugin's forms by itself when loading.");
+		plan.notes.push_back(sf ? "The plugin list in the save is left as it is (the game shows its own warning about missing Creations / plugins and drops their forms)."
+								: "The plugin list in the save is left as it is; the game drops a missing plugin's forms by itself when loading.");
 		plan.notes.push_back("Items, spells, perks or effects it gave the player are dropped by the game when the plugin is gone; nothing can restore what they changed.");
 		return plan;
+	}
+
+	std::vector<Leftover> StarfieldNotLoaded(const SaveFile& a_save, const loadorder::StarfieldOrder& a_order, const mods::Table* a_mods)
+	{
+		std::vector<Leftover>                        out;
+		std::unordered_map<std::string, std::size_t> index;
+		for (const auto* list : { &a_save.plugins.full, &a_save.plugins.lite, &a_save.plugins.medium }) {
+			for (const auto& p : *list) {
+				const auto low = Lower(p);
+				if (a_order.active.contains(low) || index.contains(low)) {
+					continue;
+				}
+				Leftover l;
+				l.plugin = p;
+				l.installed = a_order.installed(low);
+				index[low] = out.size();
+				out.push_back(std::move(l));
+			}
+		}
+		if (out.empty()) {
+			return out;
+		}
+		for (const auto& c : a_save.changeForms) {
+			if (c.refID.isZero() || c.refID.type() == RefID::Type::kCreated) {
+				continue;
+			}
+			if (auto it = index.find(Lower(a_save.pluginOf(a_save.formIDOf(c.refID)))); it != index.end()) {
+				++out[it->second].changeForms;
+			}
+		}
+		if (a_mods) {
+			for (const auto& r : a_mods->rows) {
+				if (auto it = index.find(Lower(r.name)); it != index.end()) {
+					out[it->second].scripts = r.scriptCount;
+					out[it->second].instances = r.instanceCount;
+					out[it->second].threads = r.threadCount;
+				}
+			}
+		}
+		return out;
 	}
 
 	std::string Plan::summary() const
