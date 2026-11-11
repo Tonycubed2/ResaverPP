@@ -114,6 +114,82 @@ void TestStarfield()
 				fail(std::to_string(qbad) + " of " + std::to_string(qn) + " quests do not decode");
 			}
 		}
+		{
+			// every reference's data (version 153) reads to its last byte with its reference list count; actors to the end
+			// of their reference part, the player's inventory included
+			std::size_t rn = 0, rbad = 0, an = 0, aok = 0;
+			bool        player = false;
+			std::string firstBad;
+			for (const auto& c : s->changeForms) {
+				if (c.typeCode() > 1 || c.version != 153) {
+					continue;
+				}
+				const auto fid = s->formIDOf(c.refID);
+				const auto r = DecodeReferenceSF(fid, c);
+				if (fid == 0x14 && !r.ok && std::getenv("RS_SF_DEBUG")) {
+					std::printf("  player: %s\n", r.error.c_str());
+				}
+				if (c.typeCode() == 1) {
+					++an;
+					aok += r.ok;
+					if (fid == 0x14) {
+						player = r.ok && r.hasInventory && !r.items.empty();
+					}
+					continue;
+				}
+				++rn;
+				// (3 created references in one save of the sample end 83 bytes early with change flag 0x2 alone: not read yet)
+				if (!r.ok && !(c.changeFlags == 0x2 && (fid >> 24) == 0xFF)) {
+					if (!rbad++) {
+						char b[64];
+						std::snprintf(b, sizeof(b), "%08X ", fid);
+						firstBad = b + r.error;
+					}
+				}
+			}
+			if (rbad) {
+				fail(std::to_string(rbad) + " of " + std::to_string(rn) + " references do not decode (first: " + firstBad + ")");
+			}
+			if (an && !player) {
+				fail("the player's inventory does not decode");
+			}
+			// a count changed, written and read back: that count only, everything else as it was
+			if (player && n == 0) {
+				for (auto& c : s->changeForms) {
+					if (c.typeCode() != 1 || s->formIDOf(c.refID) != 0x14) {
+						continue;
+					}
+					const auto before = DecodeReferenceSF(0x14, c);
+					const auto st = before.items.back().stacks.back();
+					const auto data0 = c.data;
+					Check(SetInventoryCountSF(c, st, st.count + 7), "sf inventory: player count set");
+					const auto out = fs::temp_directory_path() / ("rs_sfinv_" + name);
+					try {
+						s->write(out, false);
+						auto back = SaveFile::load(out);
+						bool same = false, others = true;
+						for (std::size_t i = 0; i < back->changeForms.size() && i < s->changeForms.size(); ++i) {
+							const auto& b = back->changeForms[i];
+							if (b.typeCode() == 1 && back->formIDOf(b.refID) == 0x14) {
+								const auto after = DecodeReferenceSF(0x14, b);
+								same = after.ok && after.items.size() == before.items.size() &&
+									   after.items.back().stacks.back().count == st.count + 7 && b.data.size() == data0.size();
+							} else {
+								others = others && b.data == s->changeForms[i].data && b.sfRefs.size() == s->changeForms[i].sfRefs.size();
+							}
+						}
+						Check(same && others, "sf inventory: the changed count reads back, nothing else changed");
+					} catch (const std::exception& ex) {
+						fail(std::string("inventory edit does not write: ") + ex.what());
+					}
+					std::error_code ec;
+					fs::remove(out, ec);
+					c.data = data0;
+					break;
+				}
+			}
+			std::printf("  sf %s: %zu references decode; %zu of %zu actors (the rest name a leveled base, extra 0x2b)\n", name.c_str(), rn - rbad, aok, an);
+		}
 		++n;
 		const auto  file = SfReadAll(f);
 		SfContainer info;
@@ -911,5 +987,40 @@ void TestStarfieldQuest()
 	Check(q.ok && q.flagsOffset == 6 && q.stages.size() == 2 && q.stages[1].offset == 20, "sf quest: after the form flags and +0x110");
 	c.data.resize(18);
 	Check(!DecodeQuestSF(c).ok, "sf quest: data too short");
+}
+
+void TestStarfieldInventory()
+{
+	// a plugin's container reference (type 4 initial data: change flag 0x2) with flag 0x20 (inventory): position struct
+	// (flags 0x10: no rotation, no trailing byte), then the form's own ID, then 2 items: credits (no extra data) in two
+	// stacks, and one item with a stack carrying extra 0x46 (1 byte); then the component byte 0
+	ChangeForm c;
+	c.typeField = 0;
+	c.version = 153;
+	c.changeFlags = 0x22;
+	c.data = { 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };  // position: flags, 3 x f32 (cell is a form)
+	const std::vector<std::uint8_t> inv = { 2 << 2,  // 2 items
+		2 << 2, 0, 5, 0, 0, 0, 0, 7, 0, 0, 0, 0x40, 0, 0, 0, 0xFE,  // credits: 2 stacks (no extras): 5, 7; u32 0x40, u8 0xFE
+		1 << 2, 1 << 2, 0x46, 9, 3, 0, 0, 0, 0x40, 0, 0, 0, 0xFE };  // 1 stack: 1 extra (0x46, 1 byte), count 3
+	c.data.insert(c.data.end(), inv.begin(), inv.end());
+	c.data.push_back(0);  // no component data
+	c.sfRefs.resize(4);   // cell, the form itself, credits, the other item
+	auto r = DecodeReferenceSF(0x00012345, c);
+	Check(r.ok && r.hasInventory && r.items.size() == 2, "sf inventory: two items");
+	if (r.items.size() == 2) {
+		Check(r.items[0].refIndex == 2 && r.items[0].stacks.size() == 2 && r.items[0].total() == 12 && r.items[1].refIndex == 3 &&
+				  r.items[1].stacks.size() == 1 && r.items[1].stacks[0].count == 3 && r.inventoryRefBegin == 2 && r.inventoryRefEnd == 4,
+			"sf inventory: items, stacks, counts and their forms");
+		Check(SetInventoryCountSF(c, r.items[1].stacks[0], 250) && DecodeReferenceSF(0x00012345, c).items[1].stacks[0].count == 250,
+			"sf inventory: a count changed in place");
+	}
+	c.sfRefs.resize(3);
+	Check(!DecodeReferenceSF(0x00012345, c).ok, "sf inventory: a reference list that does not match is refused");
+	c.sfRefs.resize(4);
+	c.data.push_back(0);
+	Check(!DecodeReferenceSF(0x00012345, c).ok, "sf inventory: a byte too many is refused");
+	c.data.pop_back();
+	c.data[13 + 1] = 0xFF;  // a stack count larger than the data
+	Check(!DecodeReferenceSF(0x00012345, c).ok, "sf inventory: an impossible count is refused, not looped over");
 }
 

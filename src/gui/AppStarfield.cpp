@@ -4,6 +4,9 @@
 // change form contents, plugin records, mods, logs, the running game) is left out for these saves.
 #include "App.h"
 
+#include <cstdlib>
+#include <utility>
+
 #include "Platform.h"
 #include "Theme.h"
 #include "Tips.h"
@@ -311,6 +314,16 @@ void App::drawHomeSF()
 		startSaveAsDialog();
 	}
 	tips::Tip(tr("Write your edits to a new save file and leave the original untouched. The safest way to try a cleanup."));
+	static bool testInv = std::getenv("RESAVERPP_TEST_SFINV") != nullptr;  // screenshots: opens the player's inventory
+	if (ImGui::Button(tr("Your inventory..."), ImVec2(w, 0)) || std::exchange(testInv, false)) {
+		for (const auto& c : _save->changeForms) {
+			if (c.typeCode() == 1 && _save->formIDOf(c.refID) == 0x14) {
+				select(Cat::kChangeForms, c.refID.data);
+				break;
+			}
+		}
+	}
+	tips::Tip(tr("Your character's items and credits as the save keeps them, with their counts (editable)."));
 	if (sfPapyrus()) {
 		if (ImGui::Button(trc("home", "Remove unattached instances"), ImVec2(w, 0))) {
 			shortcut(Sc::kRemoveUnattached);
@@ -538,6 +551,74 @@ void App::detailChangeFormSF(std::uint64_t k)
 		KV(tr("Form references"), std::to_string(c->sfRefs.size()));
 		KV(tr("Strings"), std::to_string(c->sfStrings.size()));
 		ImGui::EndTable();
+	}
+	// a reference with an inventory (the player, followers, NPCs, containers, ships): its items (DecodeReferenceSF, read
+	// in Starfield.exe 1.16.244); a stack's count can be changed in place
+	if (c->typeCode() <= 1 && (c->changeFlags & 0x8000020u)) {
+		const auto r = DecodeReferenceSF(fid, *c);
+		if (ImGui::CollapsingHeader(Fmt(tr("Inventory (%zu items)###inv"), r.items.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (!r.ok) {
+				ImGui::PushTextWrapPos(0);
+				ImGui::TextDisabled("%s", (tr("Not read: ") + r.error).c_str());
+				ImGui::PopTextWrapPos();
+			} else if (r.items.empty()) {
+				ImGui::TextDisabled("%s", tr("Empty."));
+			} else {
+				ImGui::PushTextWrapPos(0);
+				ImGui::TextDisabled("%s", tr("Every item the save keeps for it, in stacks (a stack is a group with the same mods, damage, "
+											 "name...). Change a count and save: the game loads that many. Adding new items comes later."));
+				ImGui::PopTextWrapPos();
+				ImGui::BeginDisabled(_readOnly);
+				if (ImGui::BeginTable("##inv", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp)) {
+					ImGui::TableSetupColumn(tr("Item"), ImGuiTableColumnFlags_WidthStretch);
+					ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, 80);
+					ImGui::TableSetupColumn(tr("Stack"), ImGuiTableColumnFlags_WidthFixed, 50);
+					ImGui::TableSetupColumn(tr("Count"), ImGuiTableColumnFlags_WidthFixed, 130);
+					ImGui::TableHeadersRow();
+					for (std::size_t i = 0; i < r.items.size(); ++i) {
+						const auto& it = r.items[i];
+						const auto  bf = it.refIndex < c->sfRefs.size() ? s.formIDOf(c->sfRefs[it.refIndex]) : 0;
+						std::string name = _db && (bf >> 24) != 0xFF ? _db->describe(bf) : std::string();
+						if (name.empty()) {
+							name = bf == 0xF ? std::string(tr("Credits")) : s.pluginOf(bf);
+						}
+						for (std::size_t k = 0; k < it.stacks.size(); ++k) {
+							const auto& st = it.stacks[k];
+							const bool  own = st.countOffset > st.extrasBegin + 1;  // the stack has extra data
+							ImGui::TableNextRow();
+							ImGui::TableNextColumn();
+							if (k == 0) {
+								ImGui::TextUnformatted(name.c_str());
+							}
+							ImGui::TableNextColumn();
+							if (k == 0) {
+								ImGui::Text("%08X", bf);
+							}
+							ImGui::TableNextColumn();
+							ImGui::Text("%zu%s", k + 1, own ? "*" : "");
+							if (own) {
+								tips::Tip(tr("This stack carries data of its own (mods, condition, a name, equipped...)."));
+							}
+							ImGui::TableNextColumn();
+							ImGui::PushID(static_cast<int>(i * 64 + k));
+							ImGui::SetNextItemWidth(-1);
+							std::uint32_t v = st.count;
+							if (ImGui::InputScalar("##n", ImGuiDataType_U32, &v, nullptr, nullptr, "%u", ImGuiInputTextFlags_EnterReturnsTrue) &&
+								v != st.count) {
+								v = std::clamp<std::uint32_t>(v, 1, 1000000000u);
+								if (auto* cf = _save->findChangeForm(c->refID); cf && SetInventoryCountSF(*cf, st, v)) {
+									markChanged(Fmt(tr("%s: count %u -> %u"), name.c_str(), st.count, v));
+								}
+							}
+							ImGui::PopID();
+						}
+					}
+					ImGui::EndTable();
+				}
+				ImGui::EndDisabled();
+				ImGui::TextDisabled("%s", tr("Type a number and press Enter (1 to 1,000,000,000)."));
+			}
+		}
 	}
 	// a quest: its state and stages (DecodeQuestSF, read in Starfield.exe 1.16.244), editable in place
 	if (c->typeCode() == 8) {

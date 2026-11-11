@@ -6455,6 +6455,7 @@ int main()
 	TestStarfieldModManager();
 	TestStarfieldRefBase();
 	TestStarfieldQuest();
+	TestStarfieldInventory();
 	std::printf("%d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

@@ -174,6 +174,50 @@ namespace ess
 	};
 	SfQuestData DecodeQuestSF(const ChangeForm& a_cf);  // a QUST change form (type code 8)
 
+	// Starfield: a reference's change form data (version 153), read by SaveSFRefr.cpp from the start to the end of its
+	// reference part: initial data, havok (0x4), the actor's head (ACHR), TESObjectREFR::SaveGame (form, extra data,
+	// inventory, 0x10000000 block, component data). For a REFR family record that is the whole data; an actor's AI
+	// process and the rest of Actor::SaveGame follow and are kept as they are.
+	// The inventory (change flags 0x8000020; 0x1406447c0) is the whole list: vsval items; per item FORMID base, vsval
+	// stacks, per stack its extra data and u32 count; then u32 and u8.
+	struct SfInventoryStack
+	{
+		std::uint32_t count = 0;
+		std::size_t   countOffset = 0;  // in the change form's data
+		std::size_t   extrasBegin = 0;
+		std::size_t   extraRefs = 0;  // forms its extra data names
+	};
+	struct SfInventoryItem
+	{
+		std::size_t                   refIndex = 0;  // the item's base object: sfRefs[refIndex]
+		std::size_t                   begin = 0, end = 0;
+		std::vector<SfInventoryStack> stacks;
+		std::uint32_t                 value20 = 0;  // (the item's +0x20 and +0x24; not known yet)
+		std::uint8_t                  value24 = 0;
+		std::uint64_t total() const
+		{
+			std::uint64_t n = 0;
+			for (const auto& s : stacks) {
+				n += s.count;
+			}
+			return n;
+		}
+	};
+	struct SfReferenceData
+	{
+		bool          ok = false;
+		std::string   error;
+		std::uint32_t actorFlags = 0;
+		bool          hasInventory = false;
+		std::size_t   inventoryBegin = 0, inventoryEnd = 0;  // bytes
+		std::size_t   inventoryRefBegin = 0, inventoryRefEnd = 0;  // indices into sfRefs
+		std::size_t   referenceEnd = 0, referenceRefs = 0;
+		std::vector<SfInventoryItem> items;
+	};
+	SfReferenceData DecodeReferenceSF(std::uint32_t a_formID, const ChangeForm& a_cf);
+	// changes one stack's count in place (the data keeps its size and its forms)
+	bool SetInventoryCountSF(ChangeForm& a_cf, const SfInventoryStack& a_stack, std::uint32_t a_count);
+
 	// Starfield's "BCPS" container: the whole save in zlib chunks (FORMAT: container)
 	struct SfContainer
 	{
