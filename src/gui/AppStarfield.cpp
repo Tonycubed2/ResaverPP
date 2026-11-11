@@ -672,6 +672,9 @@ void App::detailChangeFormSF(std::uint64_t k)
 				ImGui::EndDisabled();
 				tips::Tip(tr("The name the game shows for this character. For your own character, the name in the load menu changes too."));
 			}
+			if (n.ok && s.formIDOf(c->refID) == 0x7) {
+				drawPlayerLevelSF();
+			}
 		}
 	}
 	// a quest: its state and stages (DecodeQuestSF, read in Starfield.exe 1.16.244), editable in place
@@ -1198,4 +1201,76 @@ void App::drawShipsSF()
 		ImGui::EndTable();
 	}
 	ImGui::End();
+}
+
+// the player's level and XP (SetPlayerLevelSF): found among the actor values by their shape, which needs the plugins'
+// names to tell actor values (AVIF) from other forms
+void App::drawPlayerLevelSF()
+{
+	static const ess::SaveFile* cachedFor = nullptr;
+	static std::uint64_t        cachedGen = UINT64_MAX;
+	static SfPlayerXP           xp;
+	static int                  wantLevel = 0;
+	static float                wantXP = 0;
+	static std::string          result;
+	ImGui::SeparatorText(tr("Level and XP"));
+	const auto& h = _save->header;
+	ImGui::Text(tr("Level %u, XP %.0f of %.0f to the next level"), h.playerLevel, h.currentXP, h.neededXP);
+	if (!_db || !_db->loaded()) {
+		ImGui::PushTextWrapPos(0);
+		ImGui::TextDisabled("%s", tr("To change them, ReSaver Plus needs the names from your plugins: Tools > Read plugin names."));
+		ImGui::PopTextWrapPos();
+		return;
+	}
+	auto isAV = [this](std::uint32_t f) {
+		if (const auto* d = _db->find(f)) {
+			return _db->type(*d) == "AVIF";
+		}
+		return f > 0 && f < 0x800;  // (the engine's own actor values: in no plugin)
+	};
+	if (cachedFor != _save.get() || cachedGen != static_cast<std::uint64_t>(_editGen)) {
+		cachedFor = _save.get();
+		cachedGen = static_cast<std::uint64_t>(_editGen);
+		xp = SfPlayerXP{};
+		for (const auto& c : _save->changeForms) {
+			if (c.typeCode() == 1 && _save->formIDOf(c.refID) == 0x14) {
+				xp = FindPlayerXPSF(*_save, c, isAV);
+			}
+		}
+		wantLevel = static_cast<int>(h.playerLevel);
+		wantXP = h.currentXP;
+	}
+	if (!xp.ok) {
+		ImGui::TextDisabled("%s", (tr("Cannot be changed here: ") + xp.error).c_str());
+		return;
+	}
+	ImGui::TextDisabled(tr("Total experience saved: %.0f"), xp.experience);
+	ImGui::BeginDisabled(_readOnly);
+	ImGui::SetNextItemWidth(120);
+	ImGui::InputInt(tr("level"), &wantLevel);
+	wantLevel = std::clamp(wantLevel, 1, 1000);
+	const float need = XPForLevelSF(static_cast<unsigned>(wantLevel) + 1) - XPForLevelSF(static_cast<unsigned>(wantLevel));
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(140);
+	ImGui::InputFloat(tr("XP into it"), &wantXP, 0, 0, "%.0f");
+	wantXP = std::clamp(wantXP, 0.0f, std::max(0.0f, need - 1.0f));
+	ImGui::SameLine();
+	ImGui::TextDisabled(tr("(of %.0f)"), need);
+	if (ImGui::Button(tr("Set level and XP"))) {
+		std::string why;
+		if (SetPlayerLevelSF(*_save, static_cast<std::uint16_t>(wantLevel), wantXP, isAV, &why)) {
+			result = Fmt(tr("Level %d, XP %.0f."), wantLevel, wantXP);
+			markChanged(result);
+		} else {
+			result = tr("Not changed: ") + why;
+		}
+	}
+	ImGui::EndDisabled();
+	if (!result.empty()) {
+		ImGui::TextWrapped("%s", result.c_str());
+	}
+	ImGui::PushTextWrapPos(0);
+	ImGui::TextDisabled("%s", tr("Sets the level and the experience the game keeps for you (and the load menu's). Only these change: nothing else "
+								 "the game does at a level-up happens (no skill point is added). Keep the original save."));
+	ImGui::PopTextWrapPos();
 }

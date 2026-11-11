@@ -249,6 +249,73 @@ void TestStarfield()
 					s->formIDs = ids0;
 					break;
 				}
+				// the player's XP found among the actor values; a level change written and read back (needs the list of AVIF
+				// form IDs of the game's plugins: RESAVERPP_SF_AVIF, one hex ID a line; mods' forms are taken as actor values)
+				if (const char* avf = std::getenv("RESAVERPP_SF_AVIF"); avf && *avf) {
+					std::set<std::uint32_t> av;
+					std::ifstream in(avf);
+					for (std::string l; std::getline(in, l);) {
+						if (!l.empty()) {
+							av.insert(static_cast<std::uint32_t>(std::stoul(l, nullptr, 16)));
+						}
+					}
+					auto isAV = [&](std::uint32_t f) { return av.count(f) || (f > 0 && f < 0x800) || ((f >> 24) != 0 && (f >> 24) != 0xFF); };
+					const ChangeForm* pc = nullptr;
+					for (const auto& c : s->changeForms) {
+						if (c.typeCode() == 1 && s->formIDOf(c.refID) == 0x14) {
+							pc = &c;
+						}
+					}
+					if (pc) {
+						const auto xp = FindPlayerXPSF(*s, *pc, isAV);
+						if (!xp.ok || std::fabs(xp.experience - XPForLevelSF(s->header.playerLevel) - s->header.currentXP) > 1.0f) {
+							fail("player XP: " + (xp.ok ? std::string("does not match the header") : xp.error));
+						} else {
+							const auto data0 = pc->data;
+							const auto hdr0 = s->header;
+							std::vector<std::uint8_t> npc0;
+							for (const auto& c : s->changeForms) {
+								if (c.typeCode() == 9 && s->formIDOf(c.refID) == 0x7) {
+									npc0 = c.data;
+								}
+							}
+							std::string why;
+							const auto lv = static_cast<std::uint16_t>(s->header.playerLevel + 1);
+							if (!SetPlayerLevelSF(*s, lv, 100.0f, isAV, &why)) {
+								fail("level not set: " + why);
+							} else {
+								const auto out = fs::temp_directory_path() / ("rs_sflvl_" + name);
+								try {
+									s->write(out, false);
+									auto back = SaveFile::load(out);
+									const ChangeForm* bp = nullptr;
+									for (const auto& c : back->changeForms) {
+										if (c.typeCode() == 1 && back->formIDOf(c.refID) == 0x14) {
+											bp = &c;
+										}
+									}
+									const auto x2 = bp ? FindPlayerXPSF(*back, *bp, isAV) : SfPlayerXP{};
+									Check(back->header.playerLevel == lv && x2.ok && x2.experience == XPForLevelSF(lv) + 100.0f &&
+											  back->header.currentXP == 100.0f,
+										"sf xp: a new level and XP read back");
+								} catch (const std::exception& ex) {
+									fail(std::string("level change does not write: ") + ex.what());
+								}
+								std::error_code ec;
+								fs::remove(out, ec);
+							}
+							for (auto& c : s->changeForms) {
+								if (c.typeCode() == 1 && s->formIDOf(c.refID) == 0x14) {
+									c.data = data0;
+								}
+								if (c.typeCode() == 9 && s->formIDOf(c.refID) == 0x7) {
+									c.data = npc0;
+								}
+							}
+							s->header = hdr0;
+						}
+					}
+				}
 				// the player renamed, written and read back: the record's first string and the header carry the new name
 				for (auto& c : s->changeForms) {
 					if (c.typeCode() != 9 || s->formIDOf(c.refID) != 0x7) {
@@ -1100,6 +1167,19 @@ void TestStarfieldQuest()
 	Check(q.ok && q.flagsOffset == 6 && q.stages.size() == 2 && q.stages[1].offset == 20, "sf quest: after the form flags and +0x110");
 	c.data.resize(18);
 	Check(!DecodeQuestSF(c).ok, "sf quest: data too short");
+}
+
+void TestStarfieldXP()
+{
+	// the game's XP for a level (0x140d83030), as 21 saves gave it: Experience minus the header's XP
+	const std::pair<unsigned, float> known[] = { { 1, 0.0f }, { 2, 200.0f }, { 17, 12545.0f }, { 20, 17225.0f }, { 26, 28895.0f }, { 27, 31150.0f },
+		{ 34, 49460.0f }, { 39, 65335.0f }, { 43, 79760.0f }, { 45, 87570.0f }, { 47, 95780.0f }, { 48, 100035.0f }, { 50, 108850.0f },
+		{ 52, 118085.0f }, { 73, 241480.0f }, { 74, 248625.0f } };
+	bool ok = true;
+	for (const auto& [l, v] : known) {
+		ok = ok && XPForLevelSF(l) == v;
+	}
+	Check(ok, "sf xp: the XP for each level matches the game's");
 }
 
 void TestStarfieldInventory()

@@ -755,6 +755,7 @@ private:
 	std::string sfBaseName(std::uint32_t a_formID, const ess::ChangeForm& a_cf) const;  // (AppStarfield.cpp)
 	void        drawAddItemSF(const ess::RefID& a_ref);  // (AppStarfield.cpp)
 	void        drawShipsSF();                           // (AppStarfield.cpp)
+	void        drawPlayerLevelSF();                     // (AppStarfield.cpp)
 	static bool SfAllowed(Sc a_which, bool a_papyrus);         // the shortcuts that work on a Starfield save
 	void        drawCategoriesSF();
 	void        drawOverviewSF();

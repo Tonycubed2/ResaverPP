@@ -10,6 +10,7 @@
 // matched to its part of the list.
 #include "Save.h"
 
+#include <cmath>
 #include <cstring>
 #include <stdexcept>
 
@@ -833,6 +834,179 @@ namespace ess
 			a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.inventoryBegin + oldLen));
 		a_cf.data.insert(a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.inventoryBegin), nv.begin(), nv.end());
 		a_cf.sfRefs.insert(a_cf.sfRefs.begin() + static_cast<std::ptrdiff_t>(r.inventoryRefEnd), id);
+		return true;
+	}
+
+	float XPForLevelSF(unsigned a_level)
+	{
+		// 0x140d83030 (the save header's "XP needed" and the XP shown in the load menu use it): fXPStart for level 2, then
+		// each level adds a step that grows by powf(fXPBase, (level - 1) * fXPExpMult + 1), rounded to a multiple of 5
+		// (up from 2.5). fXPBase 75 and fXPStart 200 are the exe's defaults (registered at 0x14011fa40 / 0x14011faa0;
+		// Starfield.esm does not set them); fXPExpMult is 0.0015 in Starfield.esm (exe default 0.01). Checked against 21
+		// saves: levels 17 to 73 give the game's own numbers.
+		if (a_level <= 1) {
+			return 0.0f;
+		}
+		const float base = 75.0f, mult = 0.0015f, start = 200.0f;
+		float total = start, step = start;
+		for (unsigned l = 3; l <= a_level; ++l) {
+			step = std::pow(base, static_cast<float>(l - 1) * mult + 1.0f) + step;
+			const float rem = std::fmod(step, 5.0f);
+			step = std::floor(step - rem + (rem >= 2.5f ? 5.0f : 0.0f));
+			total += step;
+		}
+		return total;
+	}
+
+	SfPlayerXP FindPlayerXPSF(const SaveFile& a_save, const ChangeForm& a_player, const std::function<bool(std::uint32_t)>& a_isActorValue)
+	{
+		// The actor values (Actor +0x260, 0x1419aec20) come after the AI process in Actor::SaveGame, which is not read; the
+		// list is found instead by what it must look like: four 0x1419ae290 blocks (u8 0x0c, u8 bits 0..2, a f32 per bit),
+		// then two lists (vsval n, n bits, n x (FORMID, f32 if its bit); vsval m, 3m bits, m x (FORMID, f32 per bit)) whose
+		// forms, taken in a row from the record's reference list, are every one an actor value (a_isActorValue). Exactly one
+		// place may fit; Experience (AVIF 0x2C9) must be one of its values. (In 21 saves of two players exactly one fit,
+		// and Experience minus the header's XP gave the game's XP for the level each time.)
+		SfPlayerXP out;
+		const auto& d = a_player.data;
+		const auto& refs = a_player.sfRefs;
+		std::vector<std::uint32_t> pre(refs.size() + 1, 0);
+		for (std::size_t i = 0; i < refs.size(); ++i) {
+			pre[i + 1] = pre[i] + (a_isActorValue(a_save.formIDOf(refs[i])) ? 1u : 0u);
+		}
+		struct Fit
+		{
+			std::size_t base = 0;
+			std::vector<std::size_t> slots;  // per list-1 entry: offset of its f32, or SIZE_MAX
+		};
+		std::vector<Fit> fits;
+		for (std::size_t p = 0; p + 8 < d.size(); ++p) {
+			if (d[p] != 0x0c) {
+				continue;
+			}
+			Rd r{ d, p };
+			try {
+				bool shape = true;
+				for (int k = 0; k < 4 && shape; ++k) {
+					const auto v = r.u8();
+					const auto b = r.u8();
+					shape = v == 0x0c && !(b & ~7u);
+					if (shape) {
+						r.skip(4u * ((b & 1) + ((b >> 1) & 1) + ((b >> 2) & 1)));
+					}
+				}
+				if (!shape) {
+					continue;
+				}
+				const auto n1 = r.vsval();
+				if (!n1 || n1 > 4000) {
+					continue;
+				}
+				const auto b1 = r.p;
+				r.skip((n1 + 7) / 8);
+				Fit f;
+				for (std::uint32_t i = 0; i < n1; ++i) {
+					if ((d[b1 + (i >> 3)] >> (i & 7)) & 1) {
+						f.slots.push_back(r.p);
+						r.skip(4);
+					} else {
+						f.slots.push_back(SIZE_MAX);
+					}
+				}
+				const auto n2 = r.vsval();
+				if (n2 > 4000) {
+					continue;
+				}
+				const auto b2 = r.p;
+				r.skip((3 * static_cast<std::size_t>(n2) + 7) / 8);
+				for (std::uint32_t i = 0; i < 3 * n2; ++i) {
+					if ((d[b2 + (i >> 3)] >> (i & 7)) & 1) {
+						r.skip(4);
+					}
+				}
+				const std::size_t n = n1 + n2;
+				for (std::size_t base = 0; base + n <= refs.size(); ++base) {
+					if (pre[base + n] - pre[base] == n) {
+						f.base = base;
+						fits.push_back(f);
+					}
+				}
+			} catch (const std::exception&) {
+			}
+		}
+		out.fits = fits.size();
+		if (fits.size() != 1) {
+			out.error = fits.empty() ? "the actor values were not found" : "the actor values fit in more than one place";
+			return out;
+		}
+		const auto& f = fits.front();
+		for (std::size_t k = 0; k < f.slots.size(); ++k) {
+			if (a_save.formIDOf(refs[f.base + k]) == 0x2C9) {
+				if (f.slots[k] == SIZE_MAX) {
+					out.error = "Experience has no value saved";
+					return out;
+				}
+				out.xpOffset = f.slots[k];
+				std::memcpy(&out.experience, d.data() + out.xpOffset, 4);
+				out.ok = true;
+				return out;
+			}
+		}
+		out.error = "Experience is not among the actor values";
+		return out;
+	}
+
+	bool SetPlayerLevelSF(SaveFile& a_save, std::uint16_t a_level, float a_xpIntoLevel, const std::function<bool(std::uint32_t)>& a_isActorValue,
+		std::string* a_why)
+	{
+		auto why = [&](const char* m) {
+			if (a_why) {
+				*a_why = m;
+			}
+			return false;
+		};
+		ChangeForm* npc = nullptr;
+		ChangeForm* achr = nullptr;
+		for (auto& c : a_save.changeForms) {
+			const auto fid = a_save.formIDOf(c.refID);
+			if (c.typeCode() == 9 && fid == 0x7) {
+				npc = &c;
+			} else if (c.typeCode() == 1 && fid == 0x14) {
+				achr = &c;
+			}
+		}
+		if (!npc || !achr) {
+			return why("the save has no record of the player");
+		}
+		const auto n = DecodeNpcSF(*npc);
+		if (!n.ok || n.statsOffset == SIZE_MAX) {
+			return why("the player's level is not in the save");
+		}
+		const auto xp = FindPlayerXPSF(a_save, *achr, a_isActorValue);
+		if (!xp.ok) {
+			if (a_why) {
+				*a_why = xp.error;
+			}
+			return false;
+		}
+		std::uint16_t cur = 0;
+		std::memcpy(&cur, npc->data.data() + n.statsOffset + 6, 2);
+		// the XP curve of this game: the save's own numbers must agree with it (a mod changing the curve is refused)
+		if (std::fabs((xp.experience - XPForLevelSF(cur)) - a_save.header.currentXP) > 1.0f) {
+			return why("the save's XP does not follow the game's XP curve (a mod may change it)");
+		}
+		if (a_level < 1 || a_level > 1000) {
+			return why("level out of range");
+		}
+		const float need = XPForLevelSF(a_level + 1u) - XPForLevelSF(a_level);
+		if (a_xpIntoLevel < 0 || a_xpIntoLevel >= need) {
+			return why("the XP is more than the level holds");
+		}
+		const float total = XPForLevelSF(a_level) + a_xpIntoLevel;
+		std::memcpy(npc->data.data() + n.statsOffset + 6, &a_level, 2);
+		std::memcpy(achr->data.data() + xp.xpOffset, &total, 4);
+		a_save.header.playerLevel = a_level;
+		a_save.header.currentXP = a_xpIntoLevel;
+		a_save.header.neededXP = need;
 		return true;
 	}
 

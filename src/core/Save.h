@@ -5,6 +5,7 @@
 #include "Papyrus.h"
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -234,6 +235,23 @@ namespace ess
 	// the save's reference to a form (Starfield.esm IDs below 0x400000 as they are, others through the form table,
 	// added there when missing)
 	RefID RefIDForFormSF(SaveFile& a_save, std::uint32_t a_formID);
+	// Starfield: the player's level and XP. The level is NPC_ 0x7's (change flag 0x2 block, u16 at +6; the header's level
+	// comes from it, 0x1405d5990); the XP is the actor value Experience (AVIF 0x2C9) in the player's actor values, minus
+	// XPForLevelSF(level) (0x141a3c360). a_isActorValue: true for an AVIF form (the player's names) or an engine form
+	// (Starfield.esm, ID below 0x800).
+	float XPForLevelSF(unsigned a_level);
+	struct SfPlayerXP
+	{
+		bool        ok = false;
+		std::string error;
+		std::size_t fits = 0;
+		std::size_t xpOffset = 0;  // in the player's ACHR data
+		float       experience = 0;
+	};
+	SfPlayerXP FindPlayerXPSF(const SaveFile& a_save, const ChangeForm& a_player, const std::function<bool(std::uint32_t)>& a_isActorValue);
+	// sets the level and the XP into it (0 .. what the level needs); also the header's level / XP (the load menu)
+	bool SetPlayerLevelSF(SaveFile& a_save, std::uint16_t a_level, float a_xpIntoLevel, const std::function<bool(std::uint32_t)>& a_isActorValue,
+		std::string* a_why = nullptr);
 	// adds an item (a_formID in the save's load order, as formIDOf gives) to a reference's inventory: one stack of a_count
 	bool AddInventoryItemSF(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_formID, std::uint32_t a_count, std::string* a_why = nullptr);
 	// changes one stack's count in place (the data keeps its size and its forms)
