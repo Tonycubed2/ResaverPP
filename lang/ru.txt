@@ -14015,3 +14015,9 @@ tr "Базовый объект"
 # AppTools.cpp:285  _status += Fmt(tr("  (%.1f s)"), (_db->sfMsStrings + _db->sfMsPlugins) / 1000.0);
 en "  (%.1f s)"
 tr "  (%.1f с)"
+
+en "marked as done, its scenes not played"
+tr "отмечен как выполненный, его сцены не проиграны"
+
+en "could not be marked as done (nothing else was changed)"
+tr "не удалось отметить как выполненный (больше ничего не изменено)"

@@ -370,6 +370,18 @@ namespace ess::transplant
 
 	// ---- comparing ---------------------------------------------------------------------------------
 
+	bool IsIntroQuest(const Quest& a_q)
+	{
+		if (a_q.local != 0x03372B || a_q.plugin.size() != 10) {
+			return false;
+		}
+		std::string p = a_q.plugin;
+		for (auto& c : p) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		return p == "skyrim.esm";
+	}
+
 	std::vector<Change> Diff(const Snapshot& a_good, const Snapshot& a_bad)
 	{
 		std::vector<Change> v;
@@ -586,6 +598,22 @@ namespace ess::transplant
 		for (const auto& [k, q] : a_bad.quests) {
 			const auto  g = a_good.quests.find(k);
 			const bool  goodDone = g != a_good.quests.end() && g->second.completed;
+			if (IsIntroQuest(q)) {
+				// the Helgen intro: never started or staged here. Completed in the bad save: only marked completed.
+				if (q.completed && !goodDone) {
+					const auto ch = add(Category::kQuests, (q.name.empty() ? std::string("Unbound") : q.name) + " - mark as done (the Helgen intro is not played again)",
+						q.edid + "  -  " + q.plugin, 0,
+						"The Helgen intro (Unbound) was finished in the bad save. It is only marked completed: its stages and scenes are not "
+						"run, so you are not taken to the cart ride and saving stays on. Its follow-up (Before the Storm) is brought over on its own.",
+						{}, q.plugin);
+					v[ch].quest = &q;
+					v[ch].complete = true;
+					v[ch].markOnly = true;
+					v[ch].goodRuntime = g != a_good.quests.end() ? g->second.runtime : 0;
+					v[ch].tick = v[ch].available;
+				}
+				continue;
+			}
 			const int   goodStage = g != a_good.quests.end() ? g->second.stage : 0;
 			const auto  name = !q.name.empty() ? q.name : !q.edid.empty() ? q.edid : Fmt("%06X", q.local);
 			// a quest of the journal: the journal lists it (helper 9 snapshots list the journal), else it showed an

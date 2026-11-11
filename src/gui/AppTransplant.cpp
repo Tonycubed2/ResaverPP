@@ -362,6 +362,7 @@ void App::transplantStep()
 	const auto* q = ch.quest;
 	const bool  complete = ch.complete;
 	const bool  journalOnly = ch.journalOnly;
+	const bool  markOnly = ch.markOnly;  // the Helgen intro: never started or staged, only marked completed
 	const bool  markRefused = _tpMarkRefused && complete;  // only quests completed in the bad save
 	const bool  before = !q->objectives.empty() && helperAtLeast(9);
 	// after the stage / mark: show the quest's objectives as the bad save had them, so the journal lists it
@@ -375,7 +376,7 @@ void App::transplantStep()
             done(a_ok || ok, a_why + (a_why.empty() ? "" : ", ") + (ok ? tr("objectives shown in the journal") : tr("objectives not shown: ") + LiveLink::Field(r, 1)));
         });
 	};
-	auto        run = [this, q, complete, markRefused, journalOnly, before, shown, done](std::uint32_t a_id) {
+	auto        run = [this, q, complete, markRefused, journalOnly, markOnly, before, shown, done](std::uint32_t a_id) {
         const int stage = complete ? completionStageOf(*q) : q->stage;
         // marks the quest completed: no stage script, no rewards, follow-up quests not started
         auto      mark = [this, a_id, shown](const std::string& a_before) {
@@ -414,6 +415,14 @@ void App::transplantStep()
                 shown(true, f == "?" ? Fmt(tr("stage %d set; the game is still running its script"), stage) : Fmt(tr("stage %d set"), stage));
             });
         };
+        if (markOnly) {
+            // only CompleteQuest: no start, no stage, no objectives (any of those could play the intro)
+            _live.request({ "COMPLETE", Fmt("%08X", a_id), "none", "" }, [done](const LiveLink::Reply& r) {
+                const bool ok = LiveLink::Ok(r) && LiveLink::Field(r, 0) != "0";
+                done(ok, ok ? tr("marked as done, its scenes not played") : tr("could not be marked as done (nothing else was changed)"));
+            });
+            return;
+        }
         if (!before) {
             stageStep();
             return;

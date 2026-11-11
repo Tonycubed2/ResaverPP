@@ -462,6 +462,23 @@ namespace
 			"look\tReSaverPP_Allandor_20261024\tRaceMenu\n");
 		const auto g = tp::ReadSnapshot(good), b = tp::ReadSnapshot(bad);
 		Check(g.valid && b.valid && b.level == 15 && b.perks.size() == 2, "snapshots are read");
+		{
+			// the Helgen intro (Unbound, MQ101) finished in the bad save, not in the good one (a new game): only marked completed
+			const auto newGame = write("rs_tp_newgame.txt",
+				"RSH-SNAPSHOT\t1\t1.6.1170.0\tAllandor\n"
+				"plugin\tSkyrim.esm\n"
+				"player\t1\t0.0\t100.0\t0\n"
+				"quest\tSkyrim.esm\t03372B\t0003372B\tMQ101|Unbound\t1\t0\t10\t10\n");
+			const auto ng = tp::ReadSnapshot(newGame);
+			std::size_t intro = 0, introStaged = 0;
+			for (const auto& c : tp::Diff(ng, b)) {
+				if (c.quest && tp::IsIntroQuest(*c.quest)) {
+					++intro;
+					introStaged += !c.markOnly;
+				}
+			}
+			Check(ng.valid && intro == 1 && introStaged == 0, "transplant: the Helgen intro is only marked done, never started or staged");
+		}
 		const auto changes = tp::Diff(g, b);
 		auto find = [&](const std::string& a_label) -> const tp::Change* {
 			for (const auto& c : changes) {

@@ -129,7 +129,12 @@ namespace ess::transplant
 		std::uint32_t goodRuntime = 0;  // the quest's form ID in the good game (0: look it up)
 		bool          background = false;  // a quest the journal never showed (radiant, scenes, mod setup)
 		bool          journalOnly = false; // only show it in the journal (no stage to set: the good save is as far)
+		bool          markOnly = false;    // never start it or run a stage: only mark it completed (the Helgen intro)
 	};
+
+	// Unbound (MQ101, Skyrim.esm 0003372B: EDID checked in Skyrim.esm), the Helgen intro: starting it or running one of its
+	// stages plays the intro scene (cart ride, saving switched off until the dragon attack)
+	bool IsIntroQuest(const Quest& a_q);
 
 	std::vector<Change> Diff(const Snapshot& a_good, const Snapshot& a_bad);
 }
