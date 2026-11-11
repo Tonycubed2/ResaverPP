@@ -104,6 +104,10 @@ jobs:
               exit 0
             fi
             echo "::warning::apt try $i failed or timed out, retrying"
+            # the runner's own mirror (azure.archive.ubuntu.com) can be down for hours: from the second try on, Ubuntu's
+            # main archive is used instead
+            sudo sed -i 's#http://azure.archive.ubuntu.com/ubuntu#http://archive.ubuntu.com/ubuntu#g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
+            if [ -f /etc/apt/apt-mirrors.txt ]; then printf 'http://archive.ubuntu.com/ubuntu/\tpriority:1\nhttp://us.archive.ubuntu.com/ubuntu/\tpriority:2\n' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null; fi
             sleep 10
           done
           exit 1
