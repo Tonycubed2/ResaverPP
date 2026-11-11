@@ -99,6 +99,21 @@ void TestStarfield()
 			fail(std::string("does not read: ") + ex.what());
 			continue;
 		}
+		{
+			// every quest's state and stages decode within its data (DecodeQuestSF); without the later blocks the data ends there
+			std::size_t qn = 0, qbad = 0;
+			for (const auto& c : s->changeForms) {
+				if (c.typeCode() != 8) {
+					continue;
+				}
+				++qn;
+				const auto q = DecodeQuestSF(c);
+				qbad += !q.ok;
+			}
+			if (qbad) {
+				fail(std::to_string(qbad) + " of " + std::to_string(qn) + " quests do not decode");
+			}
+		}
 		++n;
 		const auto  file = SfReadAll(f);
 		SfContainer info;
@@ -877,3 +892,24 @@ void TestStarfieldRefBase()
 		Check(BaseObjectsSF(0xFF018A70, c).empty(), "sf base: an actor's 0x80 base is not written there");
 	}
 }
+
+void TestStarfieldQuest()
+{
+	ChangeForm c;
+	c.typeField = 8;
+	c.changeFlags = 0x80000002u;
+	// quest flags 0x3 (enabled, completed), vsval 2 stages: 10 done, 20 not done
+	c.data = { 0x03, 0, 0, 0, 2 << 2, 10, 0, 1, 20, 0, 0 };
+	auto q = DecodeQuestSF(c);
+	Check(q.ok && q.completed() && q.enabled() && q.flagsOffset == 0 && q.stages.size() == 2 && q.stages[0].index == 10 && q.stages[0].done &&
+			  q.stages[1].index == 20 && !q.stages[1].done && q.stages[1].offset == 10,
+		"sf quest: flags and stages");
+	c.changeFlags = 0x80000007u;  // + form flags (6 bytes) and +0x110 (4 bytes)
+	c.data.insert(c.data.begin(), 6, 0);
+	c.data.insert(c.data.begin() + 10, 4, 0);
+	q = DecodeQuestSF(c);
+	Check(q.ok && q.flagsOffset == 6 && q.stages.size() == 2 && q.stages[1].offset == 20, "sf quest: after the form flags and +0x110");
+	c.data.resize(18);
+	Check(!DecodeQuestSF(c).ok, "sf quest: data too short");
+}
+

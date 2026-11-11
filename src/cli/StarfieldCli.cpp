@@ -65,6 +65,7 @@ int StarfieldMain(int argc, char** argv)
 	}
 	const std::string in = argv[1];
 	std::string       out, formsType;
+	bool              quests = false;
 	bool              describe = false, forms = false, report = false, unattached = false, undefined = false, termUndef = false;
 	std::set<std::uint32_t> deleteForms;
 	// names (--game / --data) and mods no longer installed
@@ -86,6 +87,8 @@ int StarfieldMain(int argc, char** argv)
 			out = next();
 		} else if (a == "--describe") {
 			describe = true;
+		} else if (a == "--quests") {
+			quests = true;
 		} else if (a == "--forms") {
 			forms = true;
 			if (i + 1 < argc && argv[i + 1][0] != '-') {
@@ -213,6 +216,24 @@ int StarfieldMain(int argc, char** argv)
 			for (const auto id : nameIDs) {
 				const auto* f = db->find(id);
 				std::printf("%08X  %s  (%s)\n", id, db->describe(id).c_str(), f ? db->pluginName(*f).c_str() : save->pluginOf(id).c_str());
+			}
+		}
+		if (quests) {
+			// quests: enabled / completed and the stages done (DecodeQuestSF)
+			for (const auto& c : save->changeForms) {
+				if (c.typeCode() != 8) {
+					continue;
+				}
+				const auto fid = save->formIDOf(c.refID);
+				const auto q = DecodeQuestSF(c);
+				std::string done;
+				for (const auto& st : q.stages) {
+					if (st.done) {
+						done += (done.empty() ? "" : ",") + std::to_string(st.index);
+					}
+				}
+				std::printf("%08X  %-24s %s%s  stages done: %s%s%s\n", fid, save->pluginOf(fid).c_str(), !q.hasFlags ? "-        " : q.completed() ? "completed" : q.enabled() ? "running  " : "stopped  ",
+					q.ok ? "" : " (data short)", done.empty() ? "none" : done.c_str(), db ? "  " : "", db ? db->describe(fid).c_str() : "");
 			}
 		}
 		if (forms) {

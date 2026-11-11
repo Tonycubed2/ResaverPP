@@ -149,6 +149,31 @@ namespace ess
 	// names none (a reference of a plugin whose base did not change, or initial data without one)
 	std::vector<RefID> BaseObjectsSF(std::uint32_t a_formID, const ChangeForm& a_cf);
 
+	// Starfield: the start of a quest's change form (TESQuest::SaveGame 0x140d0f2e0, Starfield.exe 1.16.244), read up to the
+	// stages; the rest (objectives 0x20000000, running data 0x10000000, ...) is kept as it is:
+	//   change flag 0x1: u32 form flags, u16 (TESForm::SaveGame 0x1405df980)
+	//   0x2: u32 quest flags (TESQuest +0x114: 0x1 enabled, 0x2 completed: Quest.IsCompleted 0x1420cdc30 tests bit 1;
+	//        Quest.IsRunning 0x1420cdca0 is 0x1 set, 0x80 clear and nothing starting or stopping)
+	//   0x4: u32 (+0x110)
+	//   0x80000000: vsval count, then per stage u16 index (+0x10) and u8 whose bit 0 is "done" (+0x12; IsStageDone 0x140d0dbd0)
+	struct SfQuestStage
+	{
+		std::uint16_t index = 0;
+		bool          done = false;
+		std::size_t   offset = 0;  // of its flag byte in the change form's data
+	};
+	struct SfQuestData
+	{
+		bool                      ok = false;           // the data is long enough for every field above
+		bool                      hasFlags = false;
+		std::uint32_t             questFlags = 0;
+		std::size_t               flagsOffset = 0;
+		std::vector<SfQuestStage> stages;
+		bool completed() const { return hasFlags && (questFlags & 2); }
+		bool enabled() const { return hasFlags && (questFlags & 1); }
+	};
+	SfQuestData DecodeQuestSF(const ChangeForm& a_cf);  // a QUST change form (type code 8)
+
 	// Starfield's "BCPS" container: the whole save in zlib chunks (FORMAT: container)
 	struct SfContainer
 	{

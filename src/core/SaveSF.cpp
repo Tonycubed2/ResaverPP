@@ -69,6 +69,62 @@ namespace ess
 		return out;
 	}
 
+	SfQuestData DecodeQuestSF(const ChangeForm& a_cf)
+	{
+		SfQuestData q;
+		const auto& d = a_cf.data;
+		const auto  f = a_cf.changeFlags;
+		std::size_t p = 0;
+		auto        u32 = [&](std::size_t o) {
+			return static_cast<std::uint32_t>(d[o]) | (static_cast<std::uint32_t>(d[o + 1]) << 8) | (static_cast<std::uint32_t>(d[o + 2]) << 16) |
+				   (static_cast<std::uint32_t>(d[o + 3]) << 24);
+		};
+		if (f & 0x1) {
+			p += 6;
+		}
+		if (f & 0x2) {
+			if (p + 4 > d.size()) {
+				return q;
+			}
+			q.hasFlags = true;
+			q.flagsOffset = p;
+			q.questFlags = u32(p);
+			p += 4;
+		}
+		if (f & 0x4) {
+			p += 4;
+		}
+		if (f & 0x80000000u) {
+			// vsval (0x141868770): low 2 bits = width 1 / 2 / 4 bytes, value >> 2
+			if (p >= d.size()) {
+				return q;
+			}
+			const unsigned w = d[p] & 3;
+			const std::size_t len = w == 0 ? 1 : w == 1 ? 2 : 4;
+			if (w == 3 || p + len > d.size()) {
+				return q;
+			}
+			std::uint32_t v = 0;
+			for (std::size_t k = 0; k < len; ++k) {
+				v |= static_cast<std::uint32_t>(d[p + k]) << (8 * k);
+			}
+			p += len;
+			const std::size_t n = v >> 2;
+			if (p + 3 * n > d.size()) {
+				return q;
+			}
+			for (std::size_t k = 0; k < n; ++k, p += 3) {
+				SfQuestStage st;
+				st.index = static_cast<std::uint16_t>(d[p] | (d[p + 1] << 8));
+				st.done = d[p + 2] & 1;
+				st.offset = p + 2;
+				q.stages.push_back(st);
+			}
+		}
+		q.ok = p <= d.size();
+		return q;
+	}
+
 	const char* ChangeFormTypeNameSF(std::uint8_t a_code)
 	{
 		// exe 1.16.244: change form type table 0x144a53290 mapped through the form type table 0x1458ceb00

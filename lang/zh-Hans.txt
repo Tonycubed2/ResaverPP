@@ -14151,3 +14151,51 @@ tr "此存档创建后，某个插件被标记为轻量或中型（或取消了�
 # AppStarfield.cpp
 en "\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, or reinstall the mod's earlier version), or load a save made after the change. Renumbering (\"compacting\") a plugin's ids for the new kind does not help either: the save still holds the old numbers."
 tr "\n修复不在存档内：把插件恢复为存档时的类型（取消轻量 / 中型标记，或重新安装该模组的旧版本），或加载更改之后创建的存档。为新类型重新编号（「压缩」）插件 ID 也无济于事：存档中仍是旧编号。"
+
+# AppStarfield.cpp
+en "State: %s  (quest flags %08X)"
+tr "状态：%s（任务标志 %08X）"
+
+# AppStarfield.cpp
+en "Change the quest's completed flag"
+tr "更改任务的完成标志"
+
+# AppStarfield.cpp
+en "Set or clear the flag Quest.IsCompleted reads (bit 0x2 of the quest's saved flags).\n\nOnly the flag changes: no stage runs, no script is told, rewards are not given or taken, and the quest's objectives and aliases stay as they are. Use it to make a quest count as done (or not) for other quests and dialogue that check it. Keep the original save."
+tr "设置或清除 Quest.IsCompleted 读取的标志（任务已保存标志的 0x2 位）。\n\n只更改该标志：不会运行任何阶段，不会通知脚本，不会给予或收回奖励，任务的目标和别名保持不变。用它让任务对检查它的其他任务和对话来说算作已完成（或未完成）。请保留原始存档的副本。"
+
+# AppStarfield.cpp
+en "Quest marked completed"
+tr "任务已标记为完成"
+
+# AppStarfield.cpp
+en "Quest no longer marked completed"
+tr "任务不再标记为完成"
+
+# AppStarfield.cpp
+en "The completed flag the game and Quest.IsCompleted() read. Only this flag changes."
+tr "游戏和 Quest.IsCompleted() 读取的完成标志。只更改此标志。"
+
+# AppStarfield.cpp
+en "The save keeps no state for this quest (its plugin's start state applies)."
+tr "存档未保存此任务的状态（使用其插件的初始状态）。"
+
+# AppStarfield.cpp
+en "No stage is saved for this quest."
+tr "此任务没有保存任何阶段。"
+
+# AppStarfield.cpp
+en "Stages saved: %zu (ticked = done)"
+tr "已保存的阶段：%zu（勾选 = 已完成）"
+
+# AppStarfield.cpp
+en "Stage %u marked done"
+tr "阶段 %u 已标记为完成"
+
+# AppStarfield.cpp
+en "Stage %u marked not done"
+tr "阶段 %u 已标记为未完成"
+
+# AppStarfield.cpp
+en "Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."
+tr "勾选阶段只会将其标记为完成（Quest.IsStageDone）：不会运行其脚本片段。"

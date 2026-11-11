@@ -14159,3 +14159,51 @@ tr "После создания этого сохранения плагин б�
 # AppStarfield.cpp
 en "\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, or reinstall the mod's earlier version), or load a save made after the change. Renumbering (\"compacting\") a plugin's ids for the new kind does not help either: the save still holds the old numbers."
 tr "\nИсправление вне сохранения: верните плагину тип, который был у него при сохранении (снимите флаг лёгкого / среднего или переустановите прежнюю версию мода), или загрузите сохранение, сделанное после изменения. Перенумерация («сжатие») ID плагина под новый тип тоже не помогает: в сохранении остаются старые номера."
+
+# AppStarfield.cpp
+en "State: %s  (quest flags %08X)"
+tr "Состояние: %s  (флаги квеста %08X)"
+
+# AppStarfield.cpp
+en "Change the quest's completed flag"
+tr "Изменить флаг завершения квеста"
+
+# AppStarfield.cpp
+en "Set or clear the flag Quest.IsCompleted reads (bit 0x2 of the quest's saved flags).\n\nOnly the flag changes: no stage runs, no script is told, rewards are not given or taken, and the quest's objectives and aliases stay as they are. Use it to make a quest count as done (or not) for other quests and dialogue that check it. Keep the original save."
+tr "Устанавливает или снимает флаг, который читает Quest.IsCompleted (бит 0x2 сохранённых флагов квеста).\n\nМеняется только флаг: ни одна стадия не запускается, скрипты не уведомляются, награды не выдаются и не отнимаются, цели и псевдонимы квеста остаются как есть. Используйте это, чтобы квест считался выполненным (или нет) для других квестов и диалогов, которые это проверяют. Сохраните копию исходного сохранения."
+
+# AppStarfield.cpp
+en "Quest marked completed"
+tr "Квест отмечен как завершённый"
+
+# AppStarfield.cpp
+en "Quest no longer marked completed"
+tr "Квест больше не отмечен как завершённый"
+
+# AppStarfield.cpp
+en "The completed flag the game and Quest.IsCompleted() read. Only this flag changes."
+tr "Флаг завершения, который читают игра и Quest.IsCompleted(). Меняется только этот флаг."
+
+# AppStarfield.cpp
+en "The save keeps no state for this quest (its plugin's start state applies)."
+tr "Сохранение не хранит состояние этого квеста (действует начальное состояние из плагина)."
+
+# AppStarfield.cpp
+en "No stage is saved for this quest."
+tr "Для этого квеста не сохранено ни одной стадии."
+
+# AppStarfield.cpp
+en "Stages saved: %zu (ticked = done)"
+tr "Сохранено стадий: %zu (отмечено = выполнено)"
+
+# AppStarfield.cpp
+en "Stage %u marked done"
+tr "Стадия %u отмечена как выполненная"
+
+# AppStarfield.cpp
+en "Stage %u marked not done"
+tr "Стадия %u отмечена как невыполненная"
+
+# AppStarfield.cpp
+en "Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."
+tr "Отметка стадии только помечает её выполненной (Quest.IsStageDone): её фрагмент скрипта не запускается."

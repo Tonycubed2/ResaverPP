@@ -495,6 +495,69 @@ void App::detailChangeFormSF(std::uint64_t k)
 		KV(tr("Strings"), std::to_string(c->sfStrings.size()));
 		ImGui::EndTable();
 	}
+	// a quest: its state and stages (DecodeQuestSF, read in Starfield.exe 1.16.244), editable in place
+	if (c->typeCode() == 8) {
+		const auto q = DecodeQuestSF(*c);
+		if (q.ok && ImGui::CollapsingHeader(trId("Quest"), ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (q.hasFlags) {
+				ImGui::Text(tr("State: %s  (quest flags %08X)"), q.completed() ? tr("completed") : q.enabled() ? tr("running") : tr("not running"), q.questFlags);
+				ImGui::BeginDisabled(_readOnly);
+				bool done = q.completed();
+				if (ImGui::Checkbox(tr("Completed"), &done)) {
+					const auto raw = c->refID;
+					const auto off = q.flagsOffset;
+					const bool want = done;
+					confirm(tr("Change the quest's completed flag"),
+						tr("Set or clear the flag Quest.IsCompleted reads (bit 0x2 of the quest's saved flags).\n\nOnly the flag changes: no "
+						   "stage runs, no script is told, rewards are not given or taken, and the quest's objectives and aliases stay as "
+						   "they are. Use it to make a quest count as done (or not) for other quests and dialogue that check it. "
+						   "Keep the original save."),
+						[this, raw, off, want] {
+							auto* cf = _save->findChangeForm(raw);
+							if (!cf || off + 4 > cf->data.size()) {
+								return;
+							}
+							if (want) {
+								cf->data[off] |= 0x02;
+							} else {
+								cf->data[off] &= static_cast<std::uint8_t>(~0x02);
+							}
+							markChanged(want ? tr("Quest marked completed") : tr("Quest no longer marked completed"));
+						});
+				}
+				ImGui::EndDisabled();
+				tips::Tip(tr("The completed flag the game and Quest.IsCompleted() read. Only this flag changes."));
+			} else {
+				ImGui::TextDisabled("%s", tr("The save keeps no state for this quest (its plugin's start state applies)."));
+			}
+			if (q.stages.empty()) {
+				ImGui::TextDisabled("%s", tr("No stage is saved for this quest."));
+			} else {
+				ImGui::TextUnformatted(Fmt(tr("Stages saved: %zu (ticked = done)"), q.stages.size()).c_str());
+				ImGui::BeginDisabled(_readOnly);
+				for (const auto& st : q.stages) {
+					bool d = st.done;
+					ImGui::PushID(st.index);
+					if (ImGui::Checkbox(Fmt("%u", st.index).c_str(), &d)) {
+						auto* cf = _save->findChangeForm(c->refID);
+						if (cf && st.offset < cf->data.size()) {
+							if (d) {
+								cf->data[st.offset] |= 1;
+							} else {
+								cf->data[st.offset] &= static_cast<std::uint8_t>(~1);
+							}
+							markChanged(Fmt(d ? tr("Stage %u marked done") : tr("Stage %u marked not done"), st.index));
+						}
+					}
+					ImGui::PopID();
+					ImGui::SameLine();
+				}
+				ImGui::NewLine();
+				ImGui::EndDisabled();
+				ImGui::TextDisabled("%s", tr("Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."));
+			}
+		}
+	}
 	if (sfPapyrus()) {
 		std::size_t attached = 0;
 		for (const auto& i : _save->papyrus()->instances) {
