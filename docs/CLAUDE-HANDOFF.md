@@ -1069,7 +1069,8 @@ project; you do the coding, building, delivering and publishing.
     flag 0x200 (and not 0x100/0x400, with masters) are not counted among the full masters (handled for masters the save
     does not list; where exactly they go is [U]; none in Tony's files); ".esl" forces light unless 0x200.
   - Strings: FULL of a localized plugin = u32 id into `<plugin>_<lang>.strings` (count, size, id/offset table, zero-ended
-    texts, like Skyrim). Starfield/Constellation/OldMars/BlueprintShips-Starfield have "<plugin> - Localization.ba2", but the
+    texts, like Skyrim; the exe reads them the same way, LOADER.md 5). .DLSTRINGS entries have a u32 length before the
+    text (checked on files: all 208 of sfbgs003_en.dlstrings; the names work does not need them). Starfield/Constellation/OldMars/BlueprintShips-Starfield have "<plugin> - Localization.ba2", but the
     SFBGS* Creations keep theirs in "<plugin> - Main.ba2", ShatteredSpace in "ShatteredSpace - Main02.ba2" and
     BlueprintShips-SFBGS050 inside "SFBGS050 - Main.ba2": so loose `Data\Strings` first, then every GNRL archive of the
     Data folders (localization, then named after a plugin, then others, bulk sound/voice/mesh ones last; stops when every
