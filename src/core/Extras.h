@@ -27,7 +27,7 @@ namespace ess::extras
 		std::int64_t          modified = 0;  // file time, seconds since 1970
 	};
 	SaveInfo ReadSaveInfo(const std::filesystem::path& a_ess);
-	std::vector<SaveInfo> ListSaves(const std::filesystem::path& a_folder);  // every .ess / .fos in the folder, newest first
+	std::vector<SaveInfo> ListSaves(const std::filesystem::path& a_folder);  // every .ess / .fos / .sfs in the folder, newest first
 
 	// ---- save history ---------------------------------------------------------------------------
 	struct SaveStat

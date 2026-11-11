@@ -14740,3 +14740,69 @@ tr "%zu / %zu 个任务"
 
 en "Stages done"
 tr "已完成阶段"
+
+en "Your character (name, level and XP, face and body)..."
+tr "你的角色（名字、等级和经验、脸部和身体）..."
+
+en "Your inventory and actor values..."
+tr "你的物品栏和角色数值..."
+
+en "Ships and their cargo..."
+tr "飞船及其货舱..."
+
+en "No Papyrus log found. Starfield only writes one when logging is on: in StarfieldCustom.ini (Documents\\My Games\\Starfield) under [Papyrus] set bEnableLogging=1, bEnableTrace=1 and bLoadDebugInformation=1, play a while, then look again. The log is in Documents\\My Games\\Starfield\\Logs\\Script\\Papyrus.0.log."
+tr "未找到 Papyrus 日志。Starfield 只有在开启日志时才会写入：在 StarfieldCustom.ini（Documents\\My Games\\Starfield）的 [Papyrus] 下设置 bEnableLogging=1、bEnableTrace=1 和 bLoadDebugInformation=1，玩一会儿后再查看。日志位于 Documents\\My Games\\Starfield\\Logs\\Script\\Papyrus.0.log。"
+
+en "Pick old saves to delete. Each save's script extender file (.skse, .f4se for Fallout 4, .sfse for Starfield) goes with it. Deleted saves go to the Recycle Bin, so you can still get them back. The save that is open here is never deleted."
+tr "选择要删除的旧存档。每个存档的脚本扩展文件（.skse，Fallout 4 为 .f4se，Starfield 为 .sfse）会一起删除。删除的存档进入回收站，仍可找回。此处打开的存档永远不会被删除。"
+
+en "name, level and XP, face and body"
+tr "名字、等级和经验、脸部和身体"
+
+en "SFSE co-save"
+tr "SFSE 附属存档"
+
+en "Your inventory"
+tr "你的物品栏"
+
+en "items and credits, actor values"
+tr "物品和信用点、角色数值"
+
+en "Your character's items and credits as the save keeps them, with their counts (editable), and your saved actor values."
+tr "存档中你角色的物品和信用点及其数量（可编辑），以及已保存的角色数值。"
+
+en "your ships and their cargo"
+tr "你的飞船及其货舱"
+
+en "Not for Starfield saves yet: Starfield keeps many objects made in play (ships, outposts) in another part of the save, so a script on one of them can look orphaned when it is not."
+tr "暂不适用于 Starfield 存档：Starfield 把许多游戏中创建的物体（飞船、前哨）保存在存档的其他部分，因此其上的脚本可能看起来是孤立的，其实不是。"
+
+en "Not for Starfield saves yet: it reads Skyrim's inventories. Starfield inventories are shown and edited in Your inventory and Ships."
+tr "暂不适用于 Starfield 存档：它读取的是 Skyrim 的物品栏。Starfield 的物品栏在“你的物品栏”和“飞船”中显示和编辑。"
+
+en "Not for Starfield saves yet: it reads Skyrim's actor data."
+tr "暂不适用于 Starfield 存档：它读取的是 Skyrim 的角色数据。"
+
+en "Not for Starfield saves yet: Starfield's physics data is laid out differently."
+tr "暂不适用于 Starfield 存档：Starfield 的物理数据结构不同。"
+
+en "Not for Starfield saves yet: Starfield's form lists are laid out differently."
+tr "暂不适用于 Starfield 存档：Starfield 的表单列表结构不同。"
+
+en "Not for Starfield yet: it checks Skyrim's and Fallout 4's plugin limits."
+tr "暂不适用于 Starfield：它检查的是 Skyrim 和 Fallout 4 的插件上限。"
+
+en "Not for Starfield saves yet: it reads Skyrim's and Fallout 4's change forms."
+tr "暂不适用于 Starfield 存档：它读取的是 Skyrim 和 Fallout 4 的变更表单。"
+
+en "Not for Starfield yet: it reads Skyrim's and Fallout 4's crash logs."
+tr "暂不适用于 Starfield：它读取的是 Skyrim 和 Fallout 4 的崩溃日志。"
+
+en "Not for Starfield yet: it reads Skyrim's and Fallout 4's logs. The Papyrus log tool reads Starfield's."
+tr "暂不适用于 Starfield：它读取的是 Skyrim 和 Fallout 4 的日志。Papyrus 日志工具可读取 Starfield 的日志。"
+
+en "Not for Starfield yet: it reads Skyrim's and Fallout 4's plugins and archives."
+tr "暂不适用于 Starfield：它读取的是 Skyrim 和 Fallout 4 的插件和档案。"
+
+en "Not available for Starfield saves: it is for Skyrim (or Fallout 4) only."
+tr "不适用于 Starfield 存档：仅适用于 Skyrim（或 Fallout 4）。"

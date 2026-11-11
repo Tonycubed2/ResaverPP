@@ -14798,3 +14798,69 @@ tr "Заданий: %zu из %zu"
 
 en "Stages done"
 tr "Этапов пройдено"
+
+en "Your character (name, level and XP, face and body)..."
+tr "Ваш персонаж (имя, уровень и опыт, лицо и тело)..."
+
+en "Your inventory and actor values..."
+tr "Ваш инвентарь и значения характеристик..."
+
+en "Ships and their cargo..."
+tr "Корабли и их груз..."
+
+en "No Papyrus log found. Starfield only writes one when logging is on: in StarfieldCustom.ini (Documents\\My Games\\Starfield) under [Papyrus] set bEnableLogging=1, bEnableTrace=1 and bLoadDebugInformation=1, play a while, then look again. The log is in Documents\\My Games\\Starfield\\Logs\\Script\\Papyrus.0.log."
+tr "Журнал Papyrus не найден. Starfield пишет его, только когда журналирование включено: в StarfieldCustom.ini (Documents\\My Games\\Starfield) в разделе [Papyrus] задайте bEnableLogging=1, bEnableTrace=1 и bLoadDebugInformation=1, поиграйте немного и посмотрите снова. Журнал находится в Documents\\My Games\\Starfield\\Logs\\Script\\Papyrus.0.log."
+
+en "Pick old saves to delete. Each save's script extender file (.skse, .f4se for Fallout 4, .sfse for Starfield) goes with it. Deleted saves go to the Recycle Bin, so you can still get them back. The save that is open here is never deleted."
+tr "Выберите старые сохранения для удаления. Файл расширителя скриптов каждого сохранения (.skse, .f4se для Fallout 4, .sfse для Starfield) удаляется вместе с ним. Удалённые сохранения попадают в корзину, их можно вернуть. Открытое здесь сохранение никогда не удаляется."
+
+en "name, level and XP, face and body"
+tr "имя, уровень и опыт, лицо и тело"
+
+en "SFSE co-save"
+tr "Ко-сохранение SFSE"
+
+en "Your inventory"
+tr "Ваш инвентарь"
+
+en "items and credits, actor values"
+tr "предметы и кредиты, характеристики"
+
+en "Your character's items and credits as the save keeps them, with their counts (editable), and your saved actor values."
+tr "Предметы и кредиты вашего персонажа в том виде, в каком их хранит сохранение, с количеством (можно менять), и сохранённые значения характеристик."
+
+en "your ships and their cargo"
+tr "ваши корабли и их груз"
+
+en "Not for Starfield saves yet: Starfield keeps many objects made in play (ships, outposts) in another part of the save, so a script on one of them can look orphaned when it is not."
+tr "Пока не для сохранений Starfield: Starfield хранит многие объекты, созданные в игре (корабли, аванпосты), в другой части сохранения, поэтому скрипт на таком объекте может казаться осиротевшим, хотя это не так."
+
+en "Not for Starfield saves yet: it reads Skyrim's inventories. Starfield inventories are shown and edited in Your inventory and Ships."
+tr "Пока не для сохранений Starfield: инструмент читает инвентари Skyrim. Инвентари Starfield показываются и редактируются в разделах «Ваш инвентарь» и «Корабли»."
+
+en "Not for Starfield saves yet: it reads Skyrim's actor data."
+tr "Пока не для сохранений Starfield: инструмент читает данные персонажей Skyrim."
+
+en "Not for Starfield saves yet: Starfield's physics data is laid out differently."
+tr "Пока не для сохранений Starfield: данные физики Starfield устроены иначе."
+
+en "Not for Starfield saves yet: Starfield's form lists are laid out differently."
+tr "Пока не для сохранений Starfield: списки форм Starfield устроены иначе."
+
+en "Not for Starfield yet: it checks Skyrim's and Fallout 4's plugin limits."
+tr "Пока не для Starfield: инструмент проверяет ограничения плагинов Skyrim и Fallout 4."
+
+en "Not for Starfield saves yet: it reads Skyrim's and Fallout 4's change forms."
+tr "Пока не для сохранений Starfield: инструмент читает изменённые формы Skyrim и Fallout 4."
+
+en "Not for Starfield yet: it reads Skyrim's and Fallout 4's crash logs."
+tr "Пока не для Starfield: инструмент читает журналы сбоев Skyrim и Fallout 4."
+
+en "Not for Starfield yet: it reads Skyrim's and Fallout 4's logs. The Papyrus log tool reads Starfield's."
+tr "Пока не для Starfield: инструмент читает журналы Skyrim и Fallout 4. Инструмент журнала Papyrus читает журнал Starfield."
+
+en "Not for Starfield yet: it reads Skyrim's and Fallout 4's plugins and archives."
+tr "Пока не для Starfield: инструмент читает плагины и архивы Skyrim и Fallout 4."
+
+en "Not available for Starfield saves: it is for Skyrim (or Fallout 4) only."
+tr "Недоступно для сохранений Starfield: только для Skyrim (или Fallout 4)."

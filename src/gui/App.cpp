@@ -901,7 +901,7 @@ void App::draw()
 				ImGui::EndChild();
 				ImGui::BeginChild("##home", ImVec2(0, 0), ImGuiChildFlags_Borders);
 				watchdog::Section("drawHome");
-				sf() ? drawHomeSF() : drawHome();
+				drawHome();
 				ImGui::EndChild();
 				ImGui::EndGroup();
 			} else {
@@ -1199,24 +1199,24 @@ void App::drawMenu()
 		tips::Tip(tr("Close ReSaver++. You are asked first if there are unsaved edits."));
 		ImGui::EndMenu();
 	}
-	if (sf()) {
-		drawMenuSF();  // Starfield: its own Clean and Tools menus (AppStarfield.cpp)
-	} else if (ImGui::BeginMenu(trId("Clean"), _save != nullptr)) {
-		if (ImGui::MenuItem(tr("Remove unattached instances"))) {
+	// the Clean and Tools menus: the same for every game; an entry that does not work for the open save's game is greyed out
+	// (sfOk: Starfield, SfNotYet says why), and Starfield's own versions take its place (shortcut)
+	if (ImGui::BeginMenu(trId("Clean"), _save != nullptr)) {
+		if (ImGui::MenuItem(tr("Remove unattached instances"), nullptr, false, sfOk(Sc::kRemoveUnattached))) {
 			shortcut(Sc::kRemoveUnattached);
 		}
 		tips::Tip(tr("Delete script instances that are attached to no object (their object is gone). They do nothing but take space. Usually safe; back up your save first."));
-		if (ImGui::MenuItem(tr("Remove undefined elements"))) {
+		if (ImGui::MenuItem(tr("Remove undefined elements"), nullptr, false, sfOk(Sc::kRemoveUndefined))) {
 			shortcut(Sc::kRemoveUndefined);
 		}
 		tips::Tip(tr("Delete scripts whose .pex file is no longer installed (a removed mod), with their instances and references, and end threads running them. Back up your save first."));
-		if (ImGui::MenuItem(tr("Terminate undefined threads"))) {
+		if (ImGui::MenuItem(tr("Terminate undefined threads"), nullptr, false, sfOk(Sc::kTerminateUndefined))) {
 			shortcut(Sc::kTerminateUndefined);
 		}
 		tips::Tip(tr("End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy."));
 		{
 			const bool any = !_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty();
-			if (ImGui::MenuItem(tr("Mods and scripts no longer installed..."), nullptr, false, any)) {
+			if (ImGui::MenuItem(tr("Mods and scripts no longer installed..."), nullptr, false, sf() ? !_missing.empty() : any)) {
 				shortcut(Sc::kMissingMods);
 			}
 			if (!any && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
@@ -1224,72 +1224,87 @@ void App::drawMenu()
 												: tr("Your mods are not scanned yet (or are still being scanned)."));
 			}
 		}
-		if (ImGui::MenuItem(tr("Remove instances on missing spawned objects..."))) {
+		if (ImGui::MenuItem(tr("Remove instances on missing spawned objects..."), nullptr, false, sfOk(Sc::kOrphans))) {
 			shortcut(Sc::kOrphans);
 		}
 		tips::Tip(tr("Find script instances sitting on spawned (FF......) objects that no longer exist, and remove them."));
-		if (ImGui::MenuItem(tr("Leftover items from removed mods..."))) {
+		if (ImGui::MenuItem(tr("Leftover items from removed mods..."), nullptr, false, sfOk(Sc::kLeftovers))) {
 			shortcut(Sc::kLeftovers);
 		}
 		tips::Tip(tr("Items in the player's, NPCs' and containers' inventories whose mod is gone: find them and remove them."));
 		ImGui::Separator();
-		if (ImGui::MenuItem(tr("Fix SkyUI MCM registration jam..."), nullptr, false, !fo4())) {
+		if (ImGui::MenuItem(tr("Fix SkyUI MCM registration jam..."), nullptr, false, !fo4() && !sf())) {
 			shortcut(Sc::kMcm);
 		}
 		tips::Tip(tr("Clear a stuck SkyUI mod-menu (MCM) registration, the usual cause of mod menus that never appear."));
-		if (ImGui::MenuItem(tr("Reset Havok..."))) {
+		if (ImGui::MenuItem(tr("Reset Havok..."), nullptr, false, sfOk(Sc::kHavok))) {
 			shortcut(Sc::kHavok);
 		}
 		tips::Tip(tr("Clear the saved physics state of objects, so they settle again when loaded. Fixes objects that fly around or jitter."));
-		if (ImGui::MenuItem(tr("Purify FormLists..."))) {
+		if (ImGui::MenuItem(tr("Purify FormLists..."), nullptr, false, sfOk(Sc::kPurify))) {
 			shortcut(Sc::kPurify);
 		}
 		tips::Tip(tr("Remove entries in form lists that point at things that no longer exist (left by removed mods)."));
 		ImGui::Separator();
-		if (ImGui::MenuItem(tr("Batch Clean..."))) {
+		if (ImGui::MenuItem(tr("Batch Clean..."), nullptr, false, sfOk(Sc::kBatch))) {
 			shortcut(Sc::kBatch);
 		}
 		tips::Tip(tr("Run several cleanup steps in one go, with a preview of what each will remove."));
-		if (ImGui::MenuItem(tr("Purge a script..."))) {
+		if (ImGui::MenuItem(tr("Purge a script..."), nullptr, false, sfOk(Sc::kPurge))) {
 			shortcut(Sc::kPurge);
 		}
 		tips::Tip(tr("Remove everything of one script by name: its running threads, queued calls and instances. Use for a script that floods the save."));
 		ImGui::EndMenu();
 	}
-	if (!sf() && ImGui::BeginMenu(trId("Tools"), _save != nullptr)) {
+	if (ImGui::BeginMenu(trId("Tools"), _save != nullptr)) {
 		if (ImGui::MenuItem(tr("Save check..."), "F2", false, _save != nullptr)) {
 			_showCheck = true;
 		}
 		tips::Tip(tr("Everything ReSaver++ noticed about this save, and what can safely be done about it."));
-		ImGui::MenuItem(tr("Transplant progress from a bad save..."), nullptr, &_showTransplant);
+		ImGui::MenuItem(tr("Transplant progress from a bad save..."), nullptr, &_showTransplant, !sf());
 		tips::Tip(tr("Carry your progress (quests, stats, inventory...) from a broken save into a healthy older one."));
 		if (fo4()) {
 			ImGui::MenuItem(tr("World items and areas..."), nullptr, &_showF4World);
 			tips::Tip(tr("Items dropped or spawned in the world, by place and by mod, and remove them; or reset an area as the game's "
 						 "ResetInterior does."));
 		}
-		ImGui::MenuItem(tr("Analysis"), nullptr, &_showAnalysis);
+		ImGui::MenuItem(tr("Analysis"), nullptr, &_showAnalysis, sfOk(Sc::kAnalysis));
 		tips::Tip(tr("A text report of the save: which mods and scripts take the most space and run the most."));
-		if (ImGui::MenuItem(tr("Report..."))) {
+		if (ImGui::MenuItem(tr("Report..."), nullptr, false, sfOk(Sc::kReport))) {
 			shortcut(Sc::kReport);
 		}
 		tips::Tip(tr("Write a report of the save (mods, scripts, anomalies) as text or PDF, e.g. to share when asking for help."));
 		ImGui::Separator();
 		ImGui::MenuItem(tr("Find form by name / editor ID..."), nullptr, &_showLookup);
+		if (sf()) {
+			// Starfield's own: the character, inventory, quests, ships
+			if (ImGui::MenuItem(tr("Your character (name, level and XP, face and body)..."))) {
+				shortcut(Sc::kPlayer);
+			}
+			if (ImGui::MenuItem(tr("Your inventory and actor values..."))) {
+				shortcut(Sc::kInventorySF);
+			}
+			if (ImGui::MenuItem(tr("Quests..."))) {
+				shortcut(Sc::kQuests);
+			}
+			if (ImGui::MenuItem(tr("Ships and their cargo..."))) {
+				shortcut(Sc::kShipsSF);
+			}
+		}
 		tips::Tip(tr("Search the installed plugins for a form by its in-game name or editor ID, and see whether this save changed it."));
-		if (ImGui::MenuItem(fo4() ? tr("Edit player (level, caps, S.P.E.C.I.A.L., perks)...") : tr("Edit player (gold, skills, bounty)..."), nullptr, &_showPlayer)) {
+		if (!sf() && ImGui::MenuItem(fo4() ? tr("Edit player (level, caps, S.P.E.C.I.A.L., perks)...") : tr("Edit player (gold, skills, bounty)..."), nullptr, &_showPlayer)) {
 			_pvLoaded = false;
 			_homePanel = false;
 		}
 		tips::Tip(tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."));
-		ImGui::MenuItem(tr("Find NPCs (where they are, bring one to you)..."), nullptr, &_showActors, !fo4());
+		ImGui::MenuItem(tr("Find NPCs (where they are, bring one to you)..."), nullptr, &_showActors, !fo4() && !sf());
 		if (fo4()) {
 			ImGui::MenuItem(tr("Settlements (build budget)..."), nullptr, &_showSettlements);
 			tips::Tip(tr("Every settlement with its build budget, population and happiness; reset the used budget of a settlement whose "
 			          "build meter is full."));
 		}
 		tips::Tip(tr("Every NPC and creature with where the save has them. Find a lost follower and bring them next to you."));
-		ImGui::MenuItem(tr("Followers and beast form..."), nullptr, &_showSkyFollowers, !fo4());
+		ImGui::MenuItem(tr("Followers and beast form..."), nullptr, &_showSkyFollowers, !fo4() && !sf());
 		tips::Tip(tr("Your followers (dismissed, lost, \"you already have a follower\"), a werewolf or Vampire Lord form you are stuck in, "
 					 "and quests that were between stages, with the fixes."));
 		if (fo4()) {
@@ -1298,59 +1313,60 @@ void App::drawMenu()
 			          "console commands to make one your companion again."));
 		}
 		ImGui::Separator();
-		if (ImGui::MenuItem(tr("Save history (growth over time)..."))) {
+		if (ImGui::MenuItem(tr("Save history (growth over time)..."), nullptr, false, sfOk(Sc::kHistory))) {
 			shortcut(Sc::kHistory);
 		}
 		tips::Tip(tr("Script instances, spawned objects and size of each of this character's saves, and the mods whose numbers keep climbing."));
-		if (ImGui::MenuItem(tr("Crash log (what crashed)..."))) {
+		if (ImGui::MenuItem(tr("Crash log (what crashed)..."), nullptr, false, sfOk(Sc::kCrashLog))) {
 			shortcut(Sc::kCrashLog);
 		}
 		tips::Tip(tr("Read your newest crash log and find the objects it names in this save. A spawned or leveled NPC that crashes the "
 		          "game while the save loads can be removed here."));
-		if (ImGui::MenuItem(tr("Papyrus log..."))) {
+		if (ImGui::MenuItem(tr("Papyrus log..."), nullptr, false, sfOk(Sc::kPapyrusLog))) {
 			shortcut(Sc::kPapyrusLog);
 		}
 		tips::Tip(tr("Read Papyrus.0.log: errors grouped by script and mod, so you see which mod is spamming errors."));
-		if (ImGui::MenuItem(tr("Manage saves folder..."))) {
+		if (ImGui::MenuItem(tr("Manage saves folder..."), nullptr, false, sfOk(Sc::kSavesMgr))) {
 			shortcut(Sc::kSavesMgr);
 		}
 		tips::Tip(tr("All saves by character with size and date; delete old ones (with their .skse files) in bulk."));
-		if (ImGui::MenuItem(tr("Character effects (worn items, stuck effects)..."))) {
+		if (ImGui::MenuItem(tr("Character effects (worn items, stuck effects)..."), nullptr, false, sfOk(Sc::kCharEffects))) {
 			shortcut(Sc::kCharEffects);
 		}
 		tips::Tip(tr("A paper doll of what your character wears, every magic effect grouped by where it comes from, and the effects stuck "
 				  "on you (an enchantment of an item you no longer wear), with a button to remove them."));
-		if (ImGui::MenuItem(fo4() ? tr("F4SE co-save (.f4se)...") : tr("SKSE co-save (.skse)..."))) {
+		if (ImGui::MenuItem(sf() ? tr("SFSE co-save (.sfse)...") : fo4() ? tr("F4SE co-save (.f4se)...") : tr("SKSE co-save (.skse)..."))) {
 			shortcut(Sc::kCosave);
 		}
 		tips::Tip(tr("What each script extender plugin keeps in the save's co-save, which of them are no longer installed, PapyrusUtil's "
 				  "data by mod and key, and removing the data of plugins that are gone."));
-		if (ImGui::MenuItem(tr("Merged patch (combine mod conflicts)..."), nullptr, &_showMerge)) {
+		if (ImGui::MenuItem(tr("Merged patch (combine mod conflicts)..."), nullptr, &_showMerge, !sf())) {
 			_homePanel = false;
 		}
 		tips::Tip(tr("Read every plugin in your load order and build one patch that combines the changes of mods that edit the same "
 				  "leveled lists, containers, NPCs, keywords, form lists and outfits."));
-		if (ImGui::MenuItem(fo4() ? tr("File conflicts (loose files and BA2s)...") : tr("File conflicts (loose files and BSAs)..."), nullptr, &_showAssets)) {
+		if (ImGui::MenuItem(fo4() ? tr("File conflicts (loose files and BA2s)...") : tr("File conflicts (loose files and BSAs)..."), nullptr, &_showAssets, !sf())) {
 			_homePanel = false;
 		}
 		tips::Tip(tr("Which mods override which mods' files, loose and inside archives (BSAs), in the order the game uses them. "
 				  "Scripts overridden by another mod's copy are listed first."));
-		if (ImGui::MenuItem(tr("Analyze arrays block..."), nullptr, &_showArrays)) {
+		if (ImGui::MenuItem(tr("Analyze arrays block..."), nullptr, &_showArrays, sfOk(Sc::kArrays))) {
 			_arraysDirty = true;
 			_homePanel = false;
 		}
 		tips::Tip(tr("Look at the save's script arrays: which are biggest, and which nothing points at any more."));
-		if (ImGui::MenuItem(tr("Save bloat by mod..."))) {
+		if (ImGui::MenuItem(tr("Save bloat by mod..."), nullptr, false, sfOk(Sc::kBloat))) {
 			shortcut(Sc::kBloat);
 		}
 		tips::Tip(tr("What each mod takes in this save (scripts, changed and created forms, inventory entries), the biggest causes and how "
 		          "they grew since an older save."));
-		if (ImGui::MenuItem(tr("Load order check..."))) {
+		if (ImGui::MenuItem(tr("Load order check..."), nullptr, false, sfOk(Sc::kLoadOrderCheck))) {
 			shortcut(Sc::kLoadOrderCheck);
 		}
 		tips::Tip(tr("Full and light plugins against the game's limits, light plugins with form IDs out of range, missing or late masters, "
 		          "plugins the game will not load."));
-		if (ImGui::MenuItem(_db ? tr("Read plugin names again") : tr("Read plugin names"), nullptr, false, _sources->scanned() && !namesLoading())) {
+		if (ImGui::MenuItem(_db ? tr("Read plugin names again") : tr("Read plugin names"), nullptr, false,
+				(sf() ? !gameFolder().empty() : _sources->scanned()) && !namesLoading())) {
 			startNames(true);
 		}
 		tips::Tip(tr("Read your installed plugins so forms show their in-game names and editor IDs instead of bare numbers."));

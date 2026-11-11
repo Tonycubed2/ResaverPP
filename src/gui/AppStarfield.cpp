@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cctype>
 #include <cstring>
+#include <functional>
 #include <utility>
 
 #include "Platform.h"
@@ -90,21 +91,68 @@ namespace
 bool App::SfAllowed(Sc a_which, bool a_papyrus)
 {
 	switch (a_which) {
+	// the script data (Papyrus): the same code as Skyrim's
 	case Sc::kRemoveUnattached:
 	case Sc::kRemoveUndefined:
 	case Sc::kTerminateUndefined:
 	case Sc::kPurge:
+	case Sc::kBatch:
 	case Sc::kAnalysis:
+	case Sc::kArrays:
 	case Sc::kMods:
-	case Sc::kMissingMods:
-		return a_papyrus;  // (they work on the script data)
+		return a_papyrus;
+	// the same tools as Skyrim's, reading Starfield's files
+	case Sc::kMissingMods:  // (openMissingSF)
 	case Sc::kReport:
 	case Sc::kBsa:
 	case Sc::kCosave:
-	case Sc::kLiveGame:  // (the Starfield helper: quests and the rescue set)
+	case Sc::kLiveGame:
+	case Sc::kAskAi:
+	case Sc::kLookup:
+	case Sc::kHistory:
+	case Sc::kPapyrusLog:
+	case Sc::kSavesMgr:
+	// Starfield's own versions
+	case Sc::kPlayer:  // the character (NPC_ 7): name, level and XP, face
+	case Sc::kQuests:  // the quests window
+	case Sc::kInventorySF:
+	case Sc::kShipsSF:
 		return true;
 	default:
 		return false;
+	}
+}
+
+const char* App::SfNotYet(Sc a_which)
+{
+	switch (a_which) {
+	case Sc::kOrphans:
+		return N_("Not for Starfield saves yet: Starfield keeps many objects made in play (ships, outposts) in another part of the save, so a "
+				  "script on one of them can look orphaned when it is not.");
+	case Sc::kLeftovers:
+		return N_("Not for Starfield saves yet: it reads Skyrim's inventories. Starfield inventories are shown and edited in Your inventory "
+				  "and Ships.");
+	case Sc::kActors:
+		return N_("Not for Starfield saves yet: it reads Skyrim's actor data.");
+	case Sc::kHavok:
+		return N_("Not for Starfield saves yet: Starfield's physics data is laid out differently.");
+	case Sc::kPurify:
+		return N_("Not for Starfield saves yet: Starfield's form lists are laid out differently.");
+	case Sc::kLoadOrderCheck:
+		return N_("Not for Starfield yet: it checks Skyrim's and Fallout 4's plugin limits.");
+	case Sc::kBloat:
+	case Sc::kCompare:
+		return N_("Not for Starfield saves yet: it reads Skyrim's and Fallout 4's change forms.");
+	case Sc::kCrashLog:
+		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's crash logs.");
+	case Sc::kSkyrimLogs:
+	case Sc::kCollectLogs:
+		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's logs. The Papyrus log tool reads Starfield's.");
+	case Sc::kMerge:
+	case Sc::kFileConflicts:
+		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's plugins and archives.");
+	default:
+		return N_("Not available for Starfield saves: it is for Skyrim (or Fallout 4) only.");
 	}
 }
 
@@ -303,128 +351,7 @@ void App::drawOverviewSF()
 	}
 }
 
-void App::drawHomeSF()
-{
-	ImGui::SeparatorText(tr("Starfield save"));
-	const float w = 260;
-	if (ImGui::Button(tr("Save check..."), ImVec2(w, 0))) {
-		_showCheck = true;
-	}
-	tips::Tip(tr("Everything ReSaver++ noticed about this save, and what can safely be done about it."));
-	ImGui::SameLine();
-	if (ImGui::Button(tr("Save As..."), ImVec2(w, 0))) {
-		startSaveAsDialog();
-	}
-	tips::Tip(tr("Write your edits to a new save file and leave the original untouched. The safest way to try a cleanup."));
-	static bool testInv = std::getenv("RESAVERPP_TEST_SFINV") != nullptr;  // screenshots: opens the player's inventory
-	if (ImGui::Button(tr("Your inventory..."), ImVec2(w, 0)) || std::exchange(testInv, false)) {
-		for (const auto& c : _save->changeForms) {
-			if (c.typeCode() == 1 && _save->formIDOf(c.refID) == 0x14) {
-				select(Cat::kChangeForms, c.refID.data);
-				break;
-			}
-		}
-	}
-	tips::Tip(tr("Your character's items and credits as the save keeps them, with their counts (editable)."));
-	ImGui::SameLine();
-	static bool testChar = std::getenv("RESAVERPP_TEST_SFCHAR") != nullptr;  // screenshots: opens the player's character
-	if (ImGui::Button(tr("Your character..."), ImVec2(w, 0)) || std::exchange(testChar, false)) {
-		for (const auto& c : _save->changeForms) {
-			if (c.typeCode() == 9 && _save->formIDOf(c.refID) == 0x7) {
-				select(Cat::kChangeForms, c.refID.data);
-				break;
-			}
-		}
-	}
-	tips::Tip(tr("Your character's saved record: the name, level and XP, face and body, all editable."));
-	static bool testQuests = std::getenv("RESAVERPP_TEST_SFQUESTS") != nullptr;  // screenshots: opens the quests window
-	if (ImGui::Button(tr("Quests..."), ImVec2(w, 0)) || std::exchange(testQuests, false)) {
-		_showQuestsSF = true;
-	}
-	tips::Tip(tr("Every quest the save keeps: running, completed, stages done. Change it in the save, or in the running game through the helper."));
-	static bool testShips = std::getenv("RESAVERPP_TEST_SFSHIPS") != nullptr;  // screenshots: opens the ships window
-	if (ImGui::Button(tr("Ships..."), ImVec2(w, 0)) || std::exchange(testShips, false)) {
-		_showShipsSF = true;
-	}
-	tips::Tip(tr("Every ship and station the save keeps, with its cargo: open one to change or add cargo."));
-	if (ImGui::Button(tr("Ask the AI..."), ImVec2(w, 0))) {
-		_showAi = true;
-	}
-	tips::Tip(tr("Chat with an AI engine that can use everything ReSaver Plus does for Starfield: describe it in plain English."));
-	if (sfPapyrus()) {
-		if (ImGui::Button(trc("home", "Remove unattached instances"), ImVec2(w, 0))) {
-			shortcut(Sc::kRemoveUnattached);
-		}
-		tips::Tip(tr("Delete script instances that are attached to no object (their object is gone). They do nothing but take space. Usually safe."));
-		ImGui::SameLine();
-		if (ImGui::Button(trc("home", "Stop threads of missing scripts"), ImVec2(w, 0))) {
-			shortcut(Sc::kTerminateUndefined);
-		}
-		tips::Tip(tr("End running scripts whose .pex is no longer installed. They can never finish and keep the script engine busy."));
-		ImGui::BeginDisabled(_missing.empty());
-		if (ImGui::Button(Fmt(tr("Mods no longer installed (%zu)"), _missing.size()).c_str(), ImVec2(w, 0))) {
-			openMissingSF();
-		}
-		ImGui::EndDisabled();
-		tips::Tip(tr("The plugins this save used that your game no longer loads, with what each left behind, and removing their leftovers into a "
-					 "new save file. Nothing changes until you confirm."));
-		ImGui::SameLine();
-		if (ImGui::Button(tr("Mods"), ImVec2(w, 0))) {
-			select(Cat::kMods, 0);
-		}
-		tips::Tip(tr("Every plugin of the save with the scripts on its objects, their instances and running threads."));
-	}
-	ImGui::Spacing();
-	ImGui::TextDisabled("%s", (tr("Names: ") + namesStatusSF()).c_str());
-	ImGui::PushTextWrapPos(0);
-	ImGui::TextDisabled("%s", tr("The Skyrim and Fallout 4 tools (mods, quests, players, followers, logs, the running game) do not work on Starfield saves "
-								 "and are not shown."));
-	ImGui::PopTextWrapPos();
-}
 
-void App::drawMenuSF()
-{
-	const bool pap = sfPapyrus();
-	if (ImGui::BeginMenu(trId("Clean"), pap)) {
-		if (ImGui::MenuItem(tr("Remove unattached instances"))) {
-			shortcut(Sc::kRemoveUnattached);
-		}
-		if (ImGui::MenuItem(tr("Remove undefined elements"))) {
-			shortcut(Sc::kRemoveUndefined);
-		}
-		if (ImGui::MenuItem(tr("Terminate undefined threads"))) {
-			shortcut(Sc::kTerminateUndefined);
-		}
-		ImGui::Separator();
-		if (ImGui::MenuItem(tr("Purge a script..."))) {
-			shortcut(Sc::kPurge);
-		}
-		if (ImGui::MenuItem(tr("Mods no longer installed..."), nullptr, false, !_missing.empty())) {
-			openMissingSF();
-		}
-		ImGui::EndMenu();
-	}
-	if (!pap && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-		ImGui::SetTooltip("%s", tr("Starfield: the script data is not read yet, so there is nothing to clean."));
-	}
-	if (ImGui::BeginMenu(trId("Tools"))) {
-		if (ImGui::MenuItem(tr("Save check..."), "F2")) {
-			_showCheck = true;
-		}
-		ImGui::MenuItem(tr("Analysis"), nullptr, &_showAnalysis, pap);
-		if (ImGui::MenuItem(tr("Report..."))) {
-			shortcut(Sc::kReport);
-		}
-		if (ImGui::MenuItem(tr("SFSE co-save (.sfse)..."))) {
-			shortcut(Sc::kCosave);
-		}
-		ImGui::Separator();
-		if (ImGui::MenuItem(_db ? tr("Read plugin names again") : tr("Read plugin names"), nullptr, false, !namesLoading() && !gameFolder().empty())) {
-			startNames(true);
-		}
-		ImGui::EndMenu();
-	}
-}
 
 void App::rebuildRowsSF(const std::function<void(std::uint64_t, std::string, std::uint32_t, bool, std::uint64_t, std::uint64_t)>& add)
 {

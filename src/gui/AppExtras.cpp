@@ -532,7 +532,12 @@ void App::drawPapyrusLog()
 	}
 	tips::Tip(tr("Read the log again, e.g. after playing some more."));
 	if (!_plog.ok) {
-		if (_game == 2) {
+		if (sf()) {
+			TextColored(theme::Warn(), tr("No Papyrus log found. Starfield only writes one when logging is on: in StarfieldCustom.ini "
+									   "(Documents\\My Games\\Starfield) under [Papyrus] set bEnableLogging=1, bEnableTrace=1 and "
+									   "bLoadDebugInformation=1, play a while, then look again. The log is in "
+									   "Documents\\My Games\\Starfield\\Logs\\Script\\Papyrus.0.log."));
+		} else if (_game == 2) {
 			TextColored(theme::Warn(), tr("No Papyrus log found. Fallout 4 only writes one when logging is on: in Fallout4Custom.ini "
 									   "(Documents\\My Games\\Fallout4, or your Mod Organizer profile's) under [Papyrus] set bEnableLogging=1, "
 									   "bEnableTrace=1 and bLoadDebugInformation=1, play a while, then look again. The log is in "
@@ -998,7 +1003,7 @@ void App::drawSavesManager()
 	}
 	ImGui::NewLine();
 	ImGui::TextWrapped(tr("Saves folder: %s"), platform::ToUtf8(folder).c_str());
-	ImGui::TextWrapped("%s", tr("Pick old saves to delete. Each save's script extender file (.skse, or .f4se for Fallout 4) goes with it. Deleted saves go "
+	ImGui::TextWrapped("%s", tr("Pick old saves to delete. Each save's script extender file (.skse, .f4se for Fallout 4, .sfse for Starfield) goes with it. Deleted saves go "
 					   "to the Recycle Bin, so you can still get them back. The save that is open here is never deleted."));
 	std::uintmax_t total = 0;
 	std::map<std::string, std::vector<std::size_t>> byChar;  // newest first

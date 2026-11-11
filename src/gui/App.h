@@ -744,7 +744,8 @@ private:
 		kLiveGame, kGather,
 		kBloat, kLoadOrderCheck,  // AppF4Bloat.cpp
 		kCosave,                  // AppCosave.cpp
-		kCharEffects              // AppCharEffects.cpp
+		kCharEffects,             // AppCharEffects.cpp
+		kInventorySF, kShipsSF    // Starfield: the player's inventory, the ships window (AppStarfield.cpp)
 	};
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	// a Fallout 4 save is open: the tools built on Skyrim's data (its change forms, plugins, mods, logs) are off
@@ -760,10 +761,10 @@ private:
 	void        drawPlayerLevelSF();                     // (AppStarfield.cpp)
 	void        drawActorValuesSF(const ess::RefID& a_ref);  // (AppStarfield.cpp)
 	static bool SfAllowed(Sc a_which, bool a_papyrus);         // the shortcuts that work on a Starfield save
+	static const char* SfNotYet(Sc a_which);                   // why one does not (yet): the tip of its greyed-out button
+	bool        sfOk(Sc a_which) const { return !sf() || SfAllowed(a_which, sfPapyrus()); }  // a menu entry / button is on
 	void        drawCategoriesSF();
 	void        drawOverviewSF();
-	void        drawHomeSF();
-	void        drawMenuSF();  // its Clean and Tools menus
 	void        rebuildRowsSF(const std::function<void(std::uint64_t, std::string, std::uint32_t, bool, std::uint64_t, std::uint64_t)>& a_add);
 	void        detailPluginSF(std::uint64_t k);
 	void        detailChangeFormSF(std::uint64_t k);

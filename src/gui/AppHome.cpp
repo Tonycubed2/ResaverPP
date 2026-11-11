@@ -108,8 +108,27 @@ bool App::SkyrimOnly(Sc a_which)
 void App::shortcut(Sc a_which)
 {
 	if (sf() && !SfAllowed(a_which, sfPapyrus())) {
-		_status = tr("Not available for Starfield saves.");
+		_status = tr(SfNotYet(a_which));
 		return;
+	}
+	if (sf()) {
+		// Starfield's own versions of the same entries
+		auto selectForm = [this](std::uint32_t a_fid, std::uint8_t a_code) {
+			for (const auto& c : _save->changeForms) {
+				if (c.typeCode() == a_code && _save->formIDOf(c.refID) == a_fid) {
+					select(Cat::kChangeForms, c.refID.data);
+					return;
+				}
+			}
+		};
+		switch (a_which) {
+		case Sc::kPlayer: selectForm(0x7, 9); return;        // the character: name, level and XP, face and body
+		case Sc::kInventorySF: selectForm(0x14, 1); return;  // the player's reference: inventory, actor values
+		case Sc::kQuests: _showQuestsSF = true; return;
+		case Sc::kShipsSF: _showShipsSF = true; return;
+		case Sc::kMissingMods: openMissingSF(); return;
+		default: break;
+		}
 	}
 	if (fo4() && SkyrimOnly(a_which)) {
 		_status = std::string(tr("Not for Fallout 4 saves yet: ")) + tr(kSkyrimOnlyTip);
@@ -271,7 +290,7 @@ void App::drawHome()
 	const auto  n = [&](std::size_t v) { return r ? static_cast<long long>(v) : -1LL; };
 	const bool  anyMissing = !_missing.empty() || !_missingScripts.empty() || !_unfoundScripts.empty();
 
-	const std::vector<std::pair<const char*, std::vector<Button>>> saveGroups = {
+	std::vector<std::pair<const char*, std::vector<Button>>> saveGroups = {
 		{ tr("Clean"),
 			{
 				{ Sc::kRemoveUndefined, tr("Remove missing scripts"), tr("scripts of mods you removed"),
@@ -317,8 +336,11 @@ void App::drawHome()
 			} },
 		{ tr("Your game"),
 			{
-				{ Sc::kPlayer, tr("Edit player"), fo4() ? tr("caps, level, S.P.E.C.I.A.L., perks") : tr("gold, level, skills, stats, items, bounty"),
-					tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."), HomeRisk::kCaution, -1 },
+				{ Sc::kPlayer, tr("Edit player"),
+					sf() ? tr("name, level and XP, face and body") : fo4() ? tr("caps, level, S.P.E.C.I.A.L., perks") : tr("gold, level, skills, stats, items, bounty"),
+					sf() ? tr("Your character's saved record: the name, level and XP, face and body, all editable.")
+						 : tr("Edit your character: gold, level, skills, perk points, stats, inventory, spells and bounties."),
+					HomeRisk::kCaution, -1 },
 				{ Sc::kCharEffects, tr("Character effects"), tr("what you wear; effects stuck on you"),
 					tr("A paper doll of what your character wears with the effects each item gives, every effect grouped by where it comes "
 					"from, and the effects stuck on you (an enchantment of an item you no longer wear), with a button that removes them."),
@@ -337,7 +359,7 @@ void App::drawHome()
 				{ Sc::kSavesMgr, tr("Manage saves folder"), tr("delete old saves in bulk"),
 					tr("All saves by character with size and date; delete old ones (with their .skse files) in bulk, keeping the newest."),
 					HomeRisk::kCaution, -1 },
-				{ Sc::kCosave, fo4() ? tr("F4SE co-save") : tr("SKSE co-save"), tr("plugins' data; clean what is no longer installed"),
+				{ Sc::kCosave, sf() ? tr("SFSE co-save") : fo4() ? tr("F4SE co-save") : tr("SKSE co-save"), tr("plugins' data; clean what is no longer installed"),
 					tr("What each script extender plugin keeps in the save's co-save (.skse / .f4se), which of them are no longer "
 					"installed, PapyrusUtil's data by mod and key, and removing the data of plugins that are gone."),
 					HomeRisk::kCaution, -1 },
@@ -365,6 +387,22 @@ void App::drawHome()
 					tr("A text report of the save: which mods and scripts take the most space and run the most."), HomeRisk::kNone, -1 },
 			} },
 	};
+	if (sf()) {
+		// Starfield: its inventory and ships next to Edit player
+		for (auto& [title, buttons] : saveGroups) {
+			for (std::size_t i = 0; i < buttons.size(); ++i) {
+				if (buttons[i].which == Sc::kPlayer) {
+					buttons.insert(buttons.begin() + static_cast<std::ptrdiff_t>(i) + 1,
+						{ { Sc::kInventorySF, tr("Your inventory"), tr("items and credits, actor values"),
+							  tr("Your character's items and credits as the save keeps them, with their counts (editable), and your saved actor values."),
+							  HomeRisk::kCaution, -1 },
+							{ Sc::kShipsSF, tr("Ships"), tr("your ships and their cargo"),
+								tr("Every ship and station the save keeps, with its cargo: open one to change or add cargo."), HomeRisk::kCaution, -1 } });
+					break;
+				}
+			}
+		}
+	}
 	// the second tab: tools for the mods and the load order rather than the save
 	const std::vector<std::pair<const char*, std::vector<Button>>> modGroups = {
 		{ tr("Patch your load order"),
@@ -435,7 +473,7 @@ void App::drawHome()
 		ImGui::SeparatorText(title);
 		for (const auto& b : buttons) {
 			ImGui::PushID(static_cast<int>(b.which));
-			const bool notHere = fo4() && SkyrimOnly(b.which);  // a Fallout 4 save: Skyrim's tools are off
+			const bool notHere = (fo4() && SkyrimOnly(b.which)) || !sfOk(b.which);  // a Fallout 4 / Starfield save: tools not for it are off
 			const bool nothing = b.count == 0 || notHere;
 			std::string label = b.label;
 			if (b.count > 0) {
@@ -462,7 +500,7 @@ void App::drawHome()
 			}
 			ImGui::EndDisabled();
 			if (notHere) {
-				tips::Tip(tr(kSkyrimOnlyTip));
+				tips::Tip(sf() ? tr(SfNotYet(b.which)) : tr(kSkyrimOnlyTip));
 			} else if (nothing) {
 				tips::Tip(tr("Nothing to do: this save has none."));
 			} else {
@@ -491,5 +529,8 @@ void App::drawHome()
 			ImGui::EndTabItem();
 		}
 		ImGui::EndTabBar();
+	}
+	if (sf()) {
+		ImGui::TextDisabled("%s", (tr("Names: ") + namesStatusSF()).c_str());
 	}
 }

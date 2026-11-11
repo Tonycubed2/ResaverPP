@@ -69,7 +69,7 @@ namespace ess::extras
 			}
 			auto ext = it->path().extension().string();
 			std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-			if (ext == ".ess" || ext == ".fos") {
+			if (ext == ".ess" || ext == ".fos" || ext == ".sfs") {
 				out.push_back(ReadSaveInfo(it->path()));
 			}
 		}
