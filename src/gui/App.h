@@ -76,6 +76,7 @@ public:
 		kSuspended,
 		kUnbinds,
 		kQuests,
+		kGlobals,  // Starfield: the global data tables
 		kCount
 	};
 
@@ -735,6 +736,18 @@ private:
 	void        shortcut(Sc a_which);  // what the menu entry or the button does
 	// a Fallout 4 save is open: the tools built on Skyrim's data (its change forms, plugins, mods, logs) are off
 	bool        fo4() const { return _save && _save->isFO4(); }
+	bool        sf() const { return _save && _save->isSF(); }  // a Starfield save: its own views (AppStarfield.cpp), the rest hidden
+	bool        sfPapyrus() const;                             // ... and its script data is read
+	static bool SfAllowed(Sc a_which, bool a_papyrus);         // the shortcuts that work on a Starfield save
+	void        drawCategoriesSF();
+	void        drawOverviewSF();
+	void        drawHomeSF();
+	void        drawMenuSF();  // its Clean and Tools menus
+	void        rebuildRowsSF(const std::function<void(std::uint64_t, std::string, std::uint32_t, bool, std::uint64_t, std::uint64_t)>& a_add);
+	void        detailPluginSF(std::uint64_t k);
+	void        detailChangeFormSF(std::uint64_t k);
+	void        detailGlobalSF(std::uint64_t k);
+	std::vector<CheckItem> computeCheckItemsSF();  // before its script data is read
 	static bool SkyrimOnly(Sc a_which);
 	static constexpr const char* kSkyrimOnlyTip = N_("Skyrim saves only for now: this tool reads Skyrim's own data.");
 	void        drawHome();            // the shortcut buttons
@@ -1284,25 +1297,26 @@ private:
 	std::string _gamePath, _detectNote;
 	// Skyrim SE/AE, Skyrim VR or Fallout 4: each has its own mods folder, game folder and profile. The game of
 	// the opened save decides which set is active; the others are kept in _setups.
-	int  _game = 0;     // 0 Skyrim SE/AE (and LE), 1 Skyrim VR, 2 Fallout 4 (the numbers platform:: and loadorder:: use)
+	int  _game = 0;     // 0 Skyrim SE/AE (and LE), 1 Skyrim VR, 2 Fallout 4, 3 Starfield (the numbers platform:: and loadorder:: use)
 	bool _vr = false;   // _game == 1
 	struct GameSetup
 	{
 		std::string sourcesPath, gamePath, profile, mo2Ini;
 	};
-	GameSetup _setups[3];  // the games not in use (the one in use is in _sourcesPath, _gamePath, _profile, _mo2Ini)
+	GameSetup _setups[4];  // the games not in use (the one in use is in _sourcesPath, _gamePath, _profile, _mo2Ini)
 	void      setGame(int a_game);
 	bool      fo4Game() const { return _game == 2; }
-	const char* saveExtension() const { return _game == 2 ? ".fos" : ".ess"; }  // this game's saves
-	static bool IsSaveFile(const std::filesystem::path& a_file);                 // .ess or .fos
+	bool      sfGame() const { return _game == 3; }
+	const char* saveExtension() const { return _game == 3 ? ".sfs" : _game == 2 ? ".fos" : ".ess"; }  // this game's saves
+	static bool IsSaveFile(const std::filesystem::path& a_file);                 // .ess, .fos or .sfs
 	// saves folder chosen in Settings (empty: found by itself) and the folder a save was last opened from, per game
-	std::string        _savesDir[3], _lastDir[3];
+	std::string        _savesDir[4], _lastDir[4];
 	std::string&       savesDirSetting() { return _savesDir[_game]; }
 	const std::string& savesDirSetting() const { return _savesDir[_game]; }
 	std::string&       lastOpenDir() { return _lastDir[_game]; }
 	const std::string& lastOpenDir() const { return _lastDir[_game]; }
 	std::vector<std::filesystem::path> iniSaveFolders() const;  // sLocalSavePath of the game's Skyrim.ini / SkyrimCustom.ini (Fallout4.ini)
-	const char* gameName() const { return _game == 2 ? "Fallout 4" : _vr ? "Skyrim VR" : "Skyrim Special Edition"; }
+	const char* gameName() const { return _game == 3 ? "Starfield" : _game == 2 ? "Fallout 4" : _vr ? "Skyrim VR" : "Skyrim Special Edition"; }
 	std::string _compilerSetting, _compileOutDir, _compileFlags = "TESV_Papyrus_Flags.flg", _compileImports;
 	int         _compileOutMode = 0;  // 0 the script's mod, 1 MO2 overwrite, 2 custom folder
 	bool        _compileOptimize = false, _compileAnonymize = false, _compileBackup = true;

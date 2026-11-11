@@ -105,6 +105,10 @@ bool App::SkyrimOnly(Sc a_which)
 
 void App::shortcut(Sc a_which)
 {
+	if (sf() && !SfAllowed(a_which, sfPapyrus())) {
+		_status = tr("Not available for Starfield saves.");
+		return;
+	}
 	if (fo4() && SkyrimOnly(a_which)) {
 		_status = std::string(tr("Not for Fallout 4 saves yet: ")) + tr(kSkyrimOnlyTip);
 		return;

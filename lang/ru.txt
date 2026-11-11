@@ -13789,3 +13789,114 @@ tr "Остановка выбранных квестов"
 
 en "Tick quests in the list (the box in front of each), then stop them all in the running game, one after another."
 tr "Отметьте квесты в списке (флажок перед каждым), затем остановите их все в запущенной игре, один за другим."
+
+en "Global Data"
+tr "Глобальные данные"
+
+en "  (Starfield save)"
+tr "  (сохранение Starfield)"
+
+en "Show this game's saves folder (Skyrim Special Edition / Anniversary Edition, Skyrim VR, Fallout 4 or Starfield)."
+tr "Показать папку сохранений этой игры (Skyrim Special Edition / Anniversary Edition, Skyrim VR, Fallout 4 или Starfield)."
+
+en "Not available for Starfield saves."
+tr "Недоступно для сохранений Starfield."
+
+en "Pick the Starfield folder (the one with Starfield.exe)"
+tr "Выберите папку Starfield (ту, где лежит Starfield.exe)"
+
+en "Not read yet for Starfield: the script data is kept exactly as it is and written back unchanged."
+tr "Для Starfield пока не читается: данные скриптов сохраняются как есть и записываются обратно без изменений."
+
+en "  (playthrough started on %s)"
+tr "  (прохождение начато на версии %s)"
+
+en "engine version %u, save version %u, form version %u, %zu zlib chunks"
+tr "версия движка %u, версия сохранения %u, версия форм %u, блоков zlib: %zu"
+
+en "%zu full + %zu light + %zu medium"
+tr "%zu полных + %zu лёгких + %zu средних"
+
+en "Form IDs"
+tr "ID форм"
+
+en "Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes), the global data and the script data. The contents of change forms and global data are not decoded."
+tr "Сохранение Starfield. Показаны: заголовок, плагины, формы изменений (тип, плагин, размеры), глобальные данные и данные скриптов. Содержимое форм изменений и глобальных данных не расшифровывается."
+
+en "Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes) and the global data. The script data (Papyrus) is not read yet: it is written back exactly as it was."
+tr "Сохранение Starfield. Показаны: заголовок, плагины, формы изменений (тип, плагин, размеры) и глобальные данные. Данные скриптов (Papyrus) пока не читаются: они записываются обратно точно такими, какими были."
+
+en "%zu  (%zu unattached, %zu undefined)"
+tr "%zu  (%zu не прикреплённых, %zu неопределённых)"
+
+en "Starfield save"
+tr "Сохранение Starfield"
+
+en "The Skyrim and Fallout 4 tools (mods, quests, players, followers, logs, the running game) do not work on Starfield saves and are not shown."
+tr "Инструменты для Skyrim и Fallout 4 (моды, квесты, игрок, спутники, логи, запущенная игра) не работают с сохранениями Starfield и не показываются."
+
+en "Starfield: the script data is not read yet, so there is nothing to clean."
+tr "Starfield: данные скриптов пока не читаются, поэтому чистить нечего."
+
+en "string table offset"
+tr "смещение таблицы строк"
+
+en "created-ID section offset"
+tr "смещение раздела созданных ID"
+
+en "table %d  type %4u  %-14s  %zu bytes"
+tr "таблица %d  тип %4u  %-14s  %zu байт"
+
+en "Medium plugin, index FD:%02X"
+tr "Средний плагин, индекс FD:%02X"
+
+en "Creation"
+tr "Creation"
+
+en "Creation ID"
+tr "ID Creation"
+
+en "Achievement friendly"
+tr "Не отключает достижения"
+
+en "Show its change forms"
+tr "Показать его формы изменений"
+
+en "%zu bytes"
+tr "%zu байт"
+
+en "Form references"
+tr "Ссылки на формы"
+
+en "%zu script instance(s) attached."
+tr "Прикреплено экземпляров скриптов: %zu."
+
+en "Global data type %u (table %d)"
+tr "Глобальные данные, тип %u (таблица %d)"
+
+en "Layout"
+tr "Устройство"
+
+en "Points at"
+tr "Указывает на"
+
+en "the string table (written again on save)"
+tr "таблицу строк (пересчитывается при записи)"
+
+en "the created-ID section (written again on save)"
+tr "раздел созданных ID (пересчитывается при записи)"
+
+en "The script data: see the Papyrus lists."
+tr "Данные скриптов: см. списки Papyrus."
+
+en "The script data (Papyrus): not read yet, written back exactly as it is."
+tr "Данные скриптов (Papyrus): пока не читаются, записываются обратно как есть."
+
+en "Not decoded: kept and written back exactly as it is."
+tr "Не расшифровывается: сохраняется и записывается обратно как есть."
+
+en "Starfield: script data not read yet"
+tr "Starfield: данные скриптов пока не читаются"
+
+en "ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data (Papyrus) is kept exactly as it is, so there is nothing to check or clean in it yet."
+tr "ReSaver Plus читает заголовок, плагины, формы изменений и глобальные данные этого сохранения и записывает его обратно. Данные скриптов (Papyrus) сохраняются как есть, поэтому проверять и чистить в них пока нечего."

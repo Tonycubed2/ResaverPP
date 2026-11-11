@@ -777,9 +777,9 @@ void App::drawSettings()
 	ImGui::SeparatorText(tr("Game"));
 	{
 		int g = _game;
-		const char* games[] = { "Skyrim Special Edition / Anniversary Edition", "Skyrim VR", "Fallout 4" };
+		const char* games[] = { "Skyrim Special Edition / Anniversary Edition", "Skyrim VR", "Fallout 4", "Starfield" };
 		ImGui::SetNextItemWidth(380);
-		if (ImGui::Combo("##game", &g, games, 3)) {
+		if (ImGui::Combo("##game", &g, games, 4)) {
 			setGame(g);
 		}
 		tips::Tip(tr("Which game the folders below are for. Switches by itself to the game of the save you open."));
@@ -823,7 +823,8 @@ void App::drawSettings()
 	ImGui::TextWrapped(tr("Game folder: %s"), gameFolder().empty() ? tr("(not found)") : platform::ToUtf8(gameFolder()).c_str());
 	ImGui::SameLine();
 	if (ImGui::SmallButton(tr("Change...##game")) && platform::HasNativeDialogs()) {
-		if (auto p = platform::PickFolderDialog(_game == 2 ? tr("Pick the Fallout 4 folder (the one with Fallout4.exe)")
+		if (auto p = platform::PickFolderDialog(_game == 3   ? tr("Pick the Starfield folder (the one with Starfield.exe)")
+												: _game == 2 ? tr("Pick the Fallout 4 folder (the one with Fallout4.exe)")
 												: _vr      ? tr("Pick the Skyrim VR folder (the one with SkyrimVR.exe)")
 														   : tr("Pick the Skyrim folder (the one with SkyrimSE.exe, or TESV.exe for Legendary Edition)"))) {
 			_gamePath = platform::ToUtf8(*p);

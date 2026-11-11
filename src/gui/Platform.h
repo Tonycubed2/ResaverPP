@@ -13,7 +13,7 @@ namespace platform
 	bool                                 HasNativeDialogs();
 	std::optional<std::filesystem::path> OpenSaveDialog(const std::filesystem::path& a_startDir);
 	std::optional<std::filesystem::path> SaveAsDialog(const std::filesystem::path& a_suggested);
-	// a_game: 0 Skyrim SE/AE, 1 Skyrim VR, 2 Fallout 4 (the same numbers everywhere in the app)
+	// a_game: 0 Skyrim SE/AE, 1 Skyrim VR, 2 Fallout 4, 3 Starfield (the same numbers everywhere in the app)
 	std::filesystem::path                DefaultSavesFolder(int a_game = 0);  // Documents\My Games\<MyGamesName>\Saves
 	const char*                          MyGamesName(int a_game);  // "Skyrim Special Edition", "Skyrim VR", "Fallout4"
 	std::optional<std::filesystem::path> PickFolderDialog(const std::string& a_title);

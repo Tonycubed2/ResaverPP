@@ -47,6 +47,7 @@ namespace
 		case App::Cat::kSuspended: return N_("Suspended Stacks");
 		case App::Cat::kUnbinds: return N_("Queued Unbinds");
 		case App::Cat::kQuests: return N_("Quests");
+		case App::Cat::kGlobals: return N_("Global Data");
 		default: return "?";
 		}
 	}
@@ -519,7 +520,9 @@ void App::rebuildRows()
 		return !id.isZero() && id.type() != RefID::Type::kCreated && EqualsNoCase(_save->pluginOf(_save->formIDOf(id)), _pluginFilter);
 	};
 
-	switch (_cat) {
+	if (sf() && (_cat == Cat::kPlugins || _cat == Cat::kChangeForms || _cat == Cat::kGlobals)) {
+		rebuildRowsSF(add);  // Starfield (AppStarfield.cpp)
+	} else switch (_cat) {
 	case Cat::kPlugins:
 		for (std::size_t i = 0; i < _save->plugins.full.size(); ++i) {
 			add(i, Fmt("%02zX     %s", i, _save->plugins.full[i].c_str()), 0, true, i, i);
@@ -879,7 +882,11 @@ void App::draw()
 		          "ReSaverHelper in the game."));
 	} else {
 		watchdog::Section("drawCategories");
-		drawCategories();
+		if (sf()) {
+			drawCategoriesSF();
+		} else {
+			drawCategories();
+		}
 		ImGui::SameLine();
 		if (_cat == Cat::kOverview) {
 			if (anyToolOpen()) {
@@ -890,17 +897,17 @@ void App::draw()
 				const float topH = std::max(ImGui::GetContentRegionAvail().y * 0.5f, 200.0f);
 				ImGui::BeginChild("##overview", ImVec2(0, topH), ImGuiChildFlags_Borders);
 				watchdog::Section("drawOverview");
-				drawOverview();
+				sf() ? drawOverviewSF() : drawOverview();
 				ImGui::EndChild();
 				ImGui::BeginChild("##home", ImVec2(0, 0), ImGuiChildFlags_Borders);
 				watchdog::Section("drawHome");
-				drawHome();
+				sf() ? drawHomeSF() : drawHome();
 				ImGui::EndChild();
 				ImGui::EndGroup();
 			} else {
 				ImGui::BeginChild("##overview", ImVec2(0, 0), ImGuiChildFlags_Borders);
 				watchdog::Section("drawOverview");
-				drawOverview();
+				sf() ? drawOverviewSF() : drawOverview();
 				ImGui::EndChild();
 			}
 		} else {
@@ -1148,7 +1155,7 @@ void App::drawMenu()
 		tips::Tip(tr("The last 10 saves ReSaver Plus wrote over or edited, kept before every save it writes. See each one's screenshot and put "
 				  "one back. Works without a save open."));
 		ImGui::Separator();
-		if (ImGui::MenuItem(tr("Compare to another save..."), nullptr, false, _save != nullptr)) {
+		if (ImGui::MenuItem(tr("Compare to another save..."), nullptr, false, _save != nullptr && !sf())) {
 			shortcut(Sc::kCompare);
 		}
 		tips::Tip(tr("Compare this save with another one (e.g. an older, healthy save) to see which scripts, threads and change forms grew or appeared."));
@@ -1157,7 +1164,7 @@ void App::drawMenu()
 			setWatching(watch);
 		}
 		tips::Tip(tr("When the game writes a new save (quicksave, autosave...), open it here automatically. Handy for watching script load while you play."));
-		if (ImGui::BeginMenu(trId("Compression when saving"))) {
+		if (ImGui::BeginMenu(trId("Compression when saving"), !sf())) {
 			const char* comp[] = { tr("Keep the save's compression"), tr("LZ4 (game default)"), "zlib", tr("Uncompressed") };
 			for (int i = 0; i < 4; ++i) {
 				if (ImGui::MenuItem(comp[i], nullptr, _saveCompression == i - 1)) {
@@ -1168,12 +1175,12 @@ void App::drawMenu()
 			}
 			ImGui::EndMenu();
 		}
-		if (ImGui::MenuItem(tr("Export plugin list..."), nullptr, false, _save != nullptr)) {
+		if (ImGui::MenuItem(tr("Export plugin list..."), nullptr, false, _save != nullptr && !sf())) {
 			exportPluginList();
 		}
 		tips::Tip(tr("Write the save's load order (every plugin it was made with) to a text file, e.g. to share when asking for help."));
 		ImGui::Separator();
-		if (ImGui::MenuItem(tr("Open script (.pex)..."), nullptr, false, !fo4())) {
+		if (ImGui::MenuItem(tr("Open script (.pex)..."), nullptr, false, !fo4() && !sf())) {
 			shortcut(Sc::kOpenPex);
 		}
 		tips::Tip(tr("Open a compiled Papyrus script (.pex) and read its decompiled code, without a save."));
@@ -1184,7 +1191,9 @@ void App::drawMenu()
 		tips::Tip(tr("Close ReSaver++. You are asked first if there are unsaved edits."));
 		ImGui::EndMenu();
 	}
-	if (ImGui::BeginMenu(trId("Clean"), _save != nullptr)) {
+	if (sf()) {
+		drawMenuSF();  // Starfield: its own Clean and Tools menus (AppStarfield.cpp)
+	} else if (ImGui::BeginMenu(trId("Clean"), _save != nullptr)) {
 		if (ImGui::MenuItem(tr("Remove unattached instances"))) {
 			shortcut(Sc::kRemoveUnattached);
 		}
@@ -1239,7 +1248,7 @@ void App::drawMenu()
 		tips::Tip(tr("Remove everything of one script by name: its running threads, queued calls and instances. Use for a script that floods the save."));
 		ImGui::EndMenu();
 	}
-	if (ImGui::BeginMenu(trId("Tools"), _save != nullptr)) {
+	if (!sf() && ImGui::BeginMenu(trId("Tools"), _save != nullptr)) {
 		if (ImGui::MenuItem(tr("Save check..."), "F2", false, _save != nullptr)) {
 			_showCheck = true;
 		}
@@ -1343,7 +1352,7 @@ void App::drawMenu()
 		tips::Tip(tr("Read plugin names every time a save is opened."));
 		ImGui::EndMenu();
 	}
-	if (ImGui::BeginMenu(trId("AI and logs"))) {
+	if (!sf() && ImGui::BeginMenu(trId("AI and logs"))) {
 		ImGui::MenuItem(tr("Work on the running game (no save needed)..."), nullptr, &_showLiveGame);
 		tips::Tip(tr("In the game while it runs, through ReSaverHelper: gather your followers, get your controls back, save the game."));
 		if (ImGui::MenuItem(tr("Gather followers in the running game"))) {
@@ -1540,8 +1549,12 @@ void App::drawList()
 		}
 		tips::Tip(tr("Show only elements ReSaver++ flagged: undefined (mod removed), unattached, or otherwise suspect."));
 	}
-	ImGui::SameLine();
-	const bool filtersActive = drawFiltersButton();
+	const bool sfPlain = sf() && (_cat == Cat::kPlugins || _cat == Cat::kChangeForms || _cat == Cat::kGlobals);  // (no filters there)
+	bool       filtersActive = false;
+	if (!sfPlain) {
+		ImGui::SameLine();
+		filtersActive = drawFiltersButton();
+	}
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(110);
 	const char* sorts[] = { tr("Save order"), tr("Alphabetical"), tr("Size"), tr("Mass") };
@@ -1563,7 +1576,7 @@ void App::drawList()
 	if (filtersActive) {
 		TextColored(theme::Warn(), tr("Filters are active (see Filters)."));
 	}
-	if (_cat == Cat::kChangeForms && _rows.empty() && _filter[0]) {
+	if (_cat == Cat::kChangeForms && _rows.empty() && _filter[0] && !sf()) {
 		// a form ID the save has no change form for: a leveled actor's base NPC is rebuilt at every load and never
 		// saved; point at the actor that uses it
 		std::string t = _filter;
@@ -1610,7 +1623,7 @@ void App::drawList()
 	ImGui::TextDisabled(tr("%zu shown, %zu selected  (Ctrl/Shift-click to multi-select, Ctrl+A selects all shown)"), _rows.size(), _selected.size());
 
 	// actions
-	if (_cat == Cat::kPlugins) {
+	if (_cat == Cat::kPlugins && !sf()) {
 		const auto sel = selectedPlugins();
 		if (sel.size() > 1) {
 			pluginActions(sel);
@@ -1620,7 +1633,7 @@ void App::drawList()
 		}
 		tips::Tip(tr("Write the save's load order to a text file."));
 	}
-	const bool deletable = _cat != Cat::kStrings && _cat != Cat::kPlugins;
+	const bool deletable = _cat != Cat::kStrings && _cat != Cat::kPlugins && _cat != Cat::kGlobals;
 	if (deletable) {
 		ImGui::BeginDisabled(_rows.empty());
 		if (ImGui::Button(Fmt(tr("Delete all listed (%zu)"), _rows.size()).c_str())) {
@@ -1881,6 +1894,10 @@ void App::drawDetail()
 		return;
 	}
 	const auto k = *_focus;
+	if (sf() && (_cat == Cat::kPlugins || _cat == Cat::kChangeForms || _cat == Cat::kGlobals)) {
+		_cat == Cat::kPlugins ? detailPluginSF(k) : _cat == Cat::kChangeForms ? detailChangeFormSF(k) : detailGlobalSF(k);
+		return;
+	}
 	switch (_cat) {
 	case Cat::kPlugins: detailPlugin(k); break;
 	case Cat::kChangeForms: detailChangeForm(k); break;
@@ -2931,7 +2948,7 @@ void App::editPopup()
 
 void App::loadSettings()
 {
-	GameSetup se, vr, f4;
+	GameSetup se, vr, f4, sf;
 	_settingsLoaded = true;
 	int active = -1;  // (older ini files only have vr=)
 	i18n::SetLangFolder(platform::ToUtf8(platform::ExeFolder() / "lang"));  // lang/<code>.txt next to the exe override the built-in ones
@@ -2959,7 +2976,7 @@ void App::loadSettings()
 		} else if (line.rfind("hide_game_scripts=", 0) == 0) {
 			_hideGameScripts = line.substr(18) == "1";
 		} else if (line.rfind("active_game=", 0) == 0) {
-			active = std::clamp(std::atoi(line.c_str() + 12), 0, 2);
+			active = std::clamp(std::atoi(line.c_str() + 12), 0, 3);
 		} else if (line.rfind("sources_f4=", 0) == 0) {
 			f4.sourcesPath = line.substr(11);
 		} else if (line.rfind("profile_f4=", 0) == 0) {
@@ -2968,6 +2985,12 @@ void App::loadSettings()
 			f4.gamePath = line.substr(8);
 		} else if (line.rfind("mo2_ini_f4=", 0) == 0) {
 			f4.mo2Ini = line.substr(11);
+		} else if (line.rfind("game_sf=", 0) == 0) {
+			sf.gamePath = line.substr(8);
+		} else if (line.rfind("saves_dir_sf=", 0) == 0) {
+			_savesDir[3] = line.substr(13);
+		} else if (line.rfind("last_dir_sf=", 0) == 0) {
+			_lastDir[3] = line.substr(12);
 		} else if (line.rfind("saves_dir_f4=", 0) == 0) {
 			_savesDir[2] = line.substr(13);
 		} else if (line.rfind("last_dir_f4=", 0) == 0) {
@@ -3049,6 +3072,7 @@ void App::loadSettings()
 	_setups[0] = se;
 	_setups[1] = vr;
 	_setups[2] = f4;
+	_setups[3] = sf;
 	const auto& act = _setups[_game];
 	_sourcesPath = act.sourcesPath;
 	_profile = act.profile;
@@ -3066,7 +3090,7 @@ void App::loadSettings()
 void App::saveSettings()
 {
 	std::ofstream f(platform::SettingsFile(), std::ios::trunc);
-	GameSetup all[3] = { _setups[0], _setups[1], _setups[2] };
+	GameSetup all[4] = { _setups[0], _setups[1], _setups[2], _setups[3] };
 	all[_game] = GameSetup{ _sourcesPath, _gamePath, _profile, _mo2Ini };
 	const auto& se = all[0];
 	const auto& vr = all[1];
@@ -3079,6 +3103,9 @@ void App::saveSettings()
 	f << "game_f4=" << f4.gamePath << "\n";
 	f << "mo2_ini_f4=" << f4.mo2Ini << "\n";
 	f << "saves_dir_f4=" << _savesDir[2] << "\n";
+	f << "game_sf=" << all[3].gamePath << "\n";
+	f << "saves_dir_sf=" << _savesDir[3] << "\n";
+	f << "last_dir_sf=" << _lastDir[3] << "\n";
 	f << "last_dir_f4=" << _lastDir[2] << "\n";
 	f << "sources=" << se.sourcesPath << "\n";
 	f << "profile=" << se.profile << "\n";

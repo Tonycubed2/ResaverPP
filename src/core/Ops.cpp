@@ -1121,7 +1121,7 @@ namespace ess::ops
 			const auto& d = a_damaged[i];
 			char        id[16];
 			std::snprintf(id, sizeof(id), "%08X", d.formID);
-			list += std::string(i ? "; " : "") + id + " (" + ChangeFormTypeName(s.changeForms[d.index].typeCode(), s.isFO4()) + ": " + d.why + ")";
+			list += std::string(i ? "; " : "") + id + " (" + s.cfTypeName(s.changeForms[d.index]) + ": " + d.why + ")";
 		}
 		if (a_damaged.size() > a_max) {
 			list += "; and " + std::to_string(a_damaged.size() - a_max) + " more";
@@ -1136,19 +1136,31 @@ namespace ess::ops
 		r.changeForms = s.changeForms.size();
 		std::unordered_map<std::string, std::size_t> cfTypes;
 		for (const auto& c : s.changeForms) {
-			cfTypes[ChangeFormTypeName(c.typeCode(), s.isFO4())]++;
+			cfTypes[s.cfTypeName(c)]++;
 		}
 		r.changeFormsByType = Sorted(cfTypes);
+		if (s.isSF()) {
+			// Starfield: its change form data is not decoded (damaged forms, spawned actors, the player's movement: not
+			// checked); its Papyrus is checked once it is read
+			const auto* sp = s.papyrus();
+			if (!sp || s.sfPapyrusRaw()) {
+				return r;
+			}
+		}
 
 		// change forms whose compressed data cannot be read: shown as unreadable, skipped by every check, written back as
 		// they are (Skyrim LE 1.9.32 itself loads them without a word: it never checks the result of its inflate)
-		r.damaged = a_knownDamaged ? cf::DamagedForms(s, a_knownDamaged) : cf::DamagedForms(s);
+		if (!s.isSF()) {
+			r.damaged = a_knownDamaged ? cf::DamagedForms(s, a_knownDamaged) : cf::DamagedForms(s);
+		}
 		if (!r.damaged.empty()) {
 			r.warnings.push_back(DamagedFormsText(s, r.damaged));
 		}
 
 		// spawned actors whose created base is not in the save (change forms only: checked even without script data)
-		r.ghosts = ghost::Find(s);
+		if (!s.isSF()) {
+			r.ghosts = ghost::Find(s);
+		}
 		if (!r.ghosts.empty()) {
 			std::string list;
 			for (std::size_t i = 0; i < r.ghosts.size() && i < 8; ++i) {
@@ -1284,7 +1296,7 @@ namespace ess::ops
 				mcmThreads, registerMod, busy ? ", and SKI_ConfigManager was saved in its BUSY state" : "");
 			r.warnings.push_back(buf);
 		}
-		if (!s.isFO4() && !s.isLE()) {
+		if (!s.isFO4() && !s.isLE() && !s.isSF()) {
 			r.stranded = StrandedThreads(p).size();
 			if (r.stranded) {
 				std::snprintf(buf, sizeof(buf),
@@ -1296,7 +1308,7 @@ namespace ess::ops
 				r.warnings.push_back(buf);
 			}
 		}
-		if (!s.isFO4()) {
+		if (!s.isFO4() && !s.isSF()) {
 			r.stuck = cf::FindStuckPlayerMovement(s);
 			if (r.stuck.found) {
 				r.warnings.push_back(cf::StuckMovementText(r.stuck));

@@ -1697,6 +1697,15 @@ void App::viewRowScript(std::uint64_t a_key)
 void App::autoDetectPaths(bool a_force)
 {
 	std::error_code ec;
+	if (_game == 3) {
+		// Starfield: only its game folder (Steam ...\steamapps\common\Starfield); its mods are not read
+		if (_gamePath.empty() || a_force) {
+			if (const auto games = platform::SkyrimInstallFolders(3); !games.empty()) {
+				_gamePath = platform::ToUtf8(games.front());
+			}
+		}
+		return;
+	}
 	if (!a_force && !_sourcesPath.empty()) {
 		// already set: just read its Mod Organizer settings (cheap; the scan happens when needed)
 		if (!_mo2) {
@@ -1833,12 +1842,12 @@ bool App::scriptJobsBusy() const { return _compileJob && !_compileJob->done; }
 bool App::IsSaveFile(const std::filesystem::path& a_file)
 {
 	const auto e = Lower(platform::ToUtf8(a_file.extension()));
-	return e == ".ess" || e == ".fos";
+	return e == ".ess" || e == ".fos" || e == ".sfs";
 }
 
 void App::setGame(int a_game)
 {
-	a_game = std::clamp(a_game, 0, 2);
+	a_game = std::clamp(a_game, 0, 3);
 	if (a_game == _game) {
 		return;
 	}

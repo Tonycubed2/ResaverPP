@@ -50,6 +50,9 @@ namespace
 	// the game setup a save belongs to (App::setGame's number): Fallout 4, Skyrim VR (lists SkyrimVR.esm) or Skyrim
 	int GameOfSave(const SaveFile& a_save)
 	{
+		if (a_save.isSF()) {
+			return 3;
+		}
 		if (a_save.isFO4()) {
 			return 2;
 		}
@@ -240,7 +243,7 @@ void App::RunOpenJob(OpenJob& a_job)
 			a_job.w = static_cast<int>(h.shotWidth);
 			a_job.h = static_cast<int>(h.shotHeight);
 		}
-		a_job.describe = DescribeSave(*s, s->isFO4());
+		a_job.describe = DescribeSave(*s, s->isFO4() || s->isSF());
 		{
 			PluginDB::Input in;
 			PrepareInput(*s, in);
@@ -321,6 +324,12 @@ void App::finishOpen(OpenJob& a_job)
 		_openSize = a_job.size;
 		_openTime = a_job.time;
 		const int gameBefore = _game;
+		if (_save->isSF()) {
+			// Starfield: only its own views (AppStarfield.cpp); every other tool closes
+			goHome();
+			_showSkyFollowers = _showMerge = _showSettlements = _showCompanionsF4 = _showF4World = _showLiveGame = false;
+			_showAi = _showSkyrimLogs = _showCollect = _showBsa = false;
+		}
 		if (_save->isFO4()) {
 			// Fallout 4: its own setup (mods folder, game folder, profile, load order); the tools that need the
 			// save's change forms decoded (Skyrim only so far) close
@@ -364,7 +373,9 @@ void App::finishOpen(OpenJob& a_job)
 		// the Mods table, the missing mods, the enchanted items, the quests and the followers view: worked out on a worker
 		// from the file (the window shows the save meanwhile, with their progress)
 		(void)sameSetup;
-		if (startAnalysis(kAnMods | kAnMissing | kAnFirst | kAnFx | (_save->isFO4() ? 0u : kAnSkyf))) {
+		if (_save->isSF()) {
+			// Starfield: no mods, missing plugins, quests or followers (Skyrim's and Fallout 4's data)
+		} else if (startAnalysis(kAnMods | kAnMissing | kAnFirst | kAnFx | (_save->isFO4() ? 0u : kAnSkyf))) {
 			setMods(std::make_unique<mods::Table>());  // (empty until then: never the save shown before)
 			_modsDirty = true;
 		}
@@ -374,7 +385,7 @@ void App::finishOpen(OpenJob& a_job)
 		}
 		// Mod Organizer: use the profile this save was played with (the one remembered may be another)
 		bool profileSwitched = false;
-		{
+		if (!_save->isSF()) {
 			watchdog::Step st("matchProfileToSave");
 			profileSwitched = matchProfileToSave(sameSetup && _mo2 && a_job.mo2 && _profile == a_job.profile ? &a_job.profileMatch : nullptr);
 		}
@@ -383,6 +394,8 @@ void App::finishOpen(OpenJob& a_job)
 		if (sameScanRunning) {
 			// another save opened while the mods are still being read: that scan goes on (it is the same mods folder and
 			// profile) and checks this save when it is done; starting it again only made the wait longer
+		} else if (_save->isSF()) {
+			// (Starfield: its mods are not read)
 		} else if (!_sourcesPath.empty() && (!_sources->scanned() || profileSwitched)) {
 			watchdog::Step st("scanSources");
 			scanSources(platform::FromUtf8(_sourcesPath));  // checks again for missing mods when done
@@ -392,11 +405,11 @@ void App::finishOpen(OpenJob& a_job)
 		}
 		// the load order is known now: the banner shows at once (which mods are still installed is
 		// known when the scan of the mods is done; that can take a while inside Mod Organizer)
-		{
+		if (!_save->isSF()) {
 			watchdog::Step st("checkMissingPlugins");
 			checkMissingPlugins();
 		}
-		_status = tr("Loaded ") + platform::ToUtf8(a_path.filename()) + (_save->isFO4() ? tr("  (Fallout 4 save)") : "");
+		_status = tr("Loaded ") + platform::ToUtf8(a_path.filename()) + (_save->isFO4() ? tr("  (Fallout 4 save)") : _save->isSF() ? tr("  (Starfield save)") : "");
 		if (profileSwitched) {
 			_status += "  " + _detectNote;
 		}
@@ -409,7 +422,7 @@ void App::finishOpen(OpenJob& a_job)
 			// what the save is made of: everything for a Fallout 4 save (newer support, more questions), a summary
 			// for Skyrim
 			for (const auto& line : a_job.describe) {
-				startupLog(std::string(_save->isFO4() ? "  fo4 " : "  ") + line);
+				startupLog(std::string(_save->isFO4() ? "  fo4 " : _save->isSF() ? "  sf " : "  ") + line);
 			}
 			if (_report && !_report->damaged.empty()) {
 				startupLog("  " + ops::DamagedFormsText(*_save, _report->damaged, 50));

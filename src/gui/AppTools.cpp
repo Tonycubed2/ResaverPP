@@ -968,7 +968,8 @@ std::vector<std::filesystem::path> App::iniSaveFolders() const
 		return v;
 	}
 	const auto              myGames = saves.parent_path();
-	std::vector<std::filesystem::path> inis = _game == 2 ? std::vector<std::filesystem::path>{ myGames / "Fallout4.ini", myGames / "Fallout4Custom.ini" }
+	std::vector<std::filesystem::path> inis = _game == 3   ? std::vector<std::filesystem::path>{ myGames / "StarfieldPrefs.ini", myGames / "StarfieldCustom.ini" }
+											  : _game == 2 ? std::vector<std::filesystem::path>{ myGames / "Fallout4.ini", myGames / "Fallout4Custom.ini" }
 														 : std::vector<std::filesystem::path>{ myGames / "Skyrim.ini", myGames / "SkyrimCustom.ini", myGames / "SkyrimVR.ini" };
 	if (_mo2 && !_profile.empty()) {  // Mod Organizer profile-specific game ini files
 		const auto prof = _mo2->profilesDir / platform::FromUtf8(_profile);

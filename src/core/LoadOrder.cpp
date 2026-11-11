@@ -54,6 +54,9 @@ namespace ess::loadorder
 		if (a_game == 2) {
 			return base / "Fallout4" / "plugins.txt";
 		}
+		if (a_game == 3) {
+			return base / "Starfield" / "plugins.txt";
+		}
 		const bool a_vr = a_game == 1;
 		if (a_le) {
 			// a Legendary Edition save: its own plugins.txt, even when Special Edition is installed too

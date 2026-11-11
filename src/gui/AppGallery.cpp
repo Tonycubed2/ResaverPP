@@ -277,15 +277,15 @@ void App::drawGallery()
 	{
 		// whose saves: the folder of each game is found by itself (Settings: Saves folder)
 		int         gi = _game;
-		const char* names[] = { "Skyrim", "Skyrim VR", "Fallout 4" };
+		const char* names[] = { "Skyrim", "Skyrim VR", "Fallout 4", "Starfield" };
 		ImGui::SetNextItemWidth(130);
-		if (ImGui::Combo("##gallerygame", &gi, names, 3) && gi != _game) {
+		if (ImGui::Combo("##gallerygame", &gi, names, 4) && gi != _game) {
 			setGame(gi);
 			loadGallery(savesFolder());
 			ImGui::End();
 			return;
 		}
-		tips::Tip(tr("Show this game's saves folder (Skyrim Special Edition / Anniversary Edition, Skyrim VR or Fallout 4)."));
+		tips::Tip(tr("Show this game's saves folder (Skyrim Special Edition / Anniversary Edition, Skyrim VR, Fallout 4 or Starfield)."));
 		ImGui::SameLine();
 	}
 	if (ImGui::Button(tr("Other folder..."))) {

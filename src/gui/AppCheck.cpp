@@ -146,6 +146,9 @@ std::vector<App::CheckItem> App::computeCheckItems()
 		return v;
 	}
 	watchdog::Step checkStep("Save check items");
+	if (sf() && !sfPapyrus()) {
+		return computeCheckItemsSF();  // Starfield, its script data not read (AppStarfield.cpp)
+	}
 	auto* p = _save->papyrus();
 	const auto info = _live.info();
 
@@ -257,7 +260,7 @@ std::vector<App::CheckItem> App::computeCheckItems()
 	}
 
 	// threads nothing will resume (ops::StrandedThreads): verified in SkyrimSE.exe 1.6.1170 only
-	if (p && !p->invalid && !_save->isFO4() && !_save->isLE()) {
+	if (p && !p->invalid && !_save->isFO4() && !_save->isLE() && !sf()) {
 		std::optional<watchdog::Step> st(std::in_place, "stranded threads (ops::StrandedThreads)");
 		const auto stranded = ops::StrandedThreads(*p);
 		st.reset();
@@ -290,7 +293,8 @@ std::vector<App::CheckItem> App::computeCheckItems()
 
 	// the newest crash log came after this save and names one of its spawned or leveled actors
 	std::optional<watchdog::Step> cst(std::in_place, "crash log check");
-	const auto& cc = crashCheck();
+	static const CrashCheck noCrash;
+	const auto& cc = sf() ? noCrash : crashCheck();
 	cst.reset();
 	if (!cc.suspects.empty()) {
 		CheckItem it;
@@ -554,7 +558,7 @@ std::vector<App::CheckItem> App::computeCheckItems()
 		}
 
 		// instances on spawned objects that are gone
-		if (r.createdWithoutForm) {
+		if (r.createdWithoutForm && !sf()) {
 			CheckItem it;
 			it.level = Risk::kCaution;
 			it.title = Fmt(tr("%zu script instance(s) sit on spawned objects that no longer exist"), r.createdWithoutForm);
@@ -623,6 +627,12 @@ std::vector<App::CheckItem> App::computeCheckItems()
 			it.options.push_back(std::move(o));
 			v.push_back(std::move(it));
 		}
+	}
+
+	if (sf()) {
+		// Starfield: the rest is built on Skyrim's and Fallout 4's data
+		std::stable_sort(v.begin(), v.end(), [](const CheckItem& a, const CheckItem& b) { return static_cast<int>(a.level) > static_cast<int>(b.level); });
+		return v;
 	}
 
 	// spawned actors whose base is another actor's temporary leveled base, which the save does not have (ghost::Find)

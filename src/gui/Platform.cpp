@@ -34,14 +34,14 @@ namespace platform
 	// environment variable from getenv) is read in the Windows code page instead
 	std::filesystem::path FromUtf8(const std::string& a_utf8) { return ess::text::PathFrom(a_utf8); }
 
-	const char* MyGamesName(int a_game) { return a_game == 2 ? "Fallout4" : a_game == 1 ? "Skyrim VR" : "Skyrim Special Edition"; }
+	const char* MyGamesName(int a_game) { return a_game == 3 ? "Starfield" : a_game == 2 ? "Fallout4" : a_game == 1 ? "Skyrim VR" : "Skyrim Special Edition"; }
 
 	namespace
 	{
-		int g_game = 0;  // which game AddUnique / AddSteamLibraries look for: 0 Skyrim SE, 1 Skyrim VR, 2 Fallout 4
+		int g_game = 0;  // which game AddUnique / AddSteamLibraries look for: 0 Skyrim SE, 1 Skyrim VR, 2 Fallout 4, 3 Starfield
 
-		const char* GameExe() { return g_game == 2 ? "Fallout4.exe" : g_game == 1 ? "SkyrimVR.exe" : "SkyrimSE.exe"; }
-		const char* SteamDir() { return g_game == 2 ? "Fallout 4" : g_game == 1 ? "SkyrimVR" : "Skyrim Special Edition"; }
+		const char* GameExe() { return g_game == 3 ? "Starfield.exe" : g_game == 2 ? "Fallout4.exe" : g_game == 1 ? "SkyrimVR.exe" : "SkyrimSE.exe"; }
+		const char* SteamDir() { return g_game == 3 ? "Starfield" : g_game == 2 ? "Fallout 4" : g_game == 1 ? "SkyrimVR" : "Skyrim Special Edition"; }
 
 		bool IsGame(const std::filesystem::path& p)
 		{
@@ -109,6 +109,14 @@ namespace platform
 		g_game = a_game;
 		const bool a_vr = a_game == 1;
 		std::vector<std::filesystem::path> v;
+		if (a_game == 3) {
+			// Starfield: Steam (Steam ...\steamapps\common\Starfield, in any Steam library)
+			if (auto steam = RegString(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath"); !steam.empty()) {
+				AddSteamLibraries(v, steam);
+			}
+			AddSteamLibraries(v, "C:\\Program Files (x86)\\Steam");
+			return v;
+		}
 		if (a_game == 2) {
 			AddUnique(v, RegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Bethesda Softworks\\Fallout4", L"installed path"));
 			AddUnique(v, RegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Bethesda Softworks\\Fallout4", L"installed path"));
@@ -177,7 +185,7 @@ namespace platform
 		OPENFILENAMEW ofn{};
 		ofn.lStructSize = sizeof(ofn);
 		ofn.hwndOwner = GetActiveWindow();
-		ofn.lpstrFilter = L"Skyrim and Fallout 4 saves (*.ess, *.fos)\0*.ess;*.fos\0Skyrim saves (*.ess)\0*.ess\0Fallout 4 saves (*.fos)\0*.fos\0All files (*.*)\0*.*\0";
+		ofn.lpstrFilter = L"Skyrim, Fallout 4 and Starfield saves (*.ess, *.fos, *.sfs)\0*.ess;*.fos;*.sfs\0Skyrim saves (*.ess)\0*.ess\0Fallout 4 saves (*.fos)\0*.fos\0Starfield saves (*.sfs)\0*.sfs\0All files (*.*)\0*.*\0";
 		ofn.lpstrFile = file;
 		ofn.nMaxFile = static_cast<DWORD>(std::size(file));
 		ofn.lpstrInitialDir = dir.empty() ? nullptr : dir.c_str();
@@ -226,8 +234,9 @@ namespace platform
 		ofn.hwndOwner = GetActiveWindow();
 		// the same kind of save as the one suggested (Skyrim .ess or Fallout 4 .fos)
 		const bool fos = _wcsicmp(a_suggested.extension().wstring().c_str(), L".fos") == 0;
-		ofn.lpstrFilter = fos ? L"Fallout 4 saves (*.fos)\0*.fos\0" : L"Skyrim saves (*.ess)\0*.ess\0";
-		ofn.lpstrDefExt = fos ? L"fos" : L"ess";
+		const bool sfs = _wcsicmp(a_suggested.extension().wstring().c_str(), L".sfs") == 0;
+		ofn.lpstrFilter = sfs ? L"Starfield saves (*.sfs)\0*.sfs\0" : fos ? L"Fallout 4 saves (*.fos)\0*.fos\0" : L"Skyrim saves (*.ess)\0*.ess\0";
+		ofn.lpstrDefExt = sfs ? L"sfs" : fos ? L"fos" : L"ess";
 		ofn.lpstrFile = file;
 		ofn.nMaxFile = static_cast<DWORD>(std::size(file));
 		ofn.lpstrInitialDir = dir.empty() ? nullptr : dir.c_str();

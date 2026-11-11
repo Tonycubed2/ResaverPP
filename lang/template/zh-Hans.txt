@@ -13763,3 +13763,114 @@ tr ""
 
 en "Tick quests in the list (the box in front of each), then stop them all in the running game, one after another."
 tr ""
+
+en "Global Data"
+tr ""
+
+en "  (Starfield save)"
+tr ""
+
+en "Show this game's saves folder (Skyrim Special Edition / Anniversary Edition, Skyrim VR, Fallout 4 or Starfield)."
+tr ""
+
+en "Not available for Starfield saves."
+tr ""
+
+en "Pick the Starfield folder (the one with Starfield.exe)"
+tr ""
+
+en "Not read yet for Starfield: the script data is kept exactly as it is and written back unchanged."
+tr ""
+
+en "  (playthrough started on %s)"
+tr ""
+
+en "engine version %u, save version %u, form version %u, %zu zlib chunks"
+tr ""
+
+en "%zu full + %zu light + %zu medium"
+tr ""
+
+en "Form IDs"
+tr ""
+
+en "Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes), the global data and the script data. The contents of change forms and global data are not decoded."
+tr ""
+
+en "Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes) and the global data. The script data (Papyrus) is not read yet: it is written back exactly as it was."
+tr ""
+
+en "%zu  (%zu unattached, %zu undefined)"
+tr ""
+
+en "Starfield save"
+tr ""
+
+en "The Skyrim and Fallout 4 tools (mods, quests, players, followers, logs, the running game) do not work on Starfield saves and are not shown."
+tr ""
+
+en "Starfield: the script data is not read yet, so there is nothing to clean."
+tr ""
+
+en "string table offset"
+tr ""
+
+en "created-ID section offset"
+tr ""
+
+en "table %d  type %4u  %-14s  %zu bytes"
+tr ""
+
+en "Medium plugin, index FD:%02X"
+tr ""
+
+en "Creation"
+tr ""
+
+en "Creation ID"
+tr ""
+
+en "Achievement friendly"
+tr ""
+
+en "Show its change forms"
+tr ""
+
+en "%zu bytes"
+tr ""
+
+en "Form references"
+tr ""
+
+en "%zu script instance(s) attached."
+tr ""
+
+en "Global data type %u (table %d)"
+tr ""
+
+en "Layout"
+tr ""
+
+en "Points at"
+tr ""
+
+en "the string table (written again on save)"
+tr ""
+
+en "the created-ID section (written again on save)"
+tr ""
+
+en "The script data: see the Papyrus lists."
+tr ""
+
+en "The script data (Papyrus): not read yet, written back exactly as it is."
+tr ""
+
+en "Not decoded: kept and written back exactly as it is."
+tr ""
+
+en "Starfield: script data not read yet"
+tr ""
+
+en "ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data (Papyrus) is kept exactly as it is, so there is nothing to check or clean in it yet."
+tr ""
