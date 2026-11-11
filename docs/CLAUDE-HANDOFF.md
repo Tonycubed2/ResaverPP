@@ -984,7 +984,7 @@ project; you do the coding, building, delivering and publishing.
     rewritten identically. `RESAVERPP_SF_SAVES=../sf2/saves ./rs_sfpap_test` from a scratchpad build dir (11 s).
   - Unknown / not modelled: the GameVM part (raw), meaning of object data flags 0x02/0x08, `sfUnknown`/`sfUnknownByte`,
     `freezeU32s`, guard lists, `guardGlobal*`; u16 string-index mode of the writers (never seen; not supported). Only
-    writers were read: the game's loader has not been checked against an edited save.
+    writers were read. In-game test 2026-11-10: Tony loaded Save1471 written back unchanged and with the unattached-instances cleanup in Starfield 1.16.244; both played fine.
 - **Starfield: checked against the game's LOADER** (2026-11-11, branch sfloader). Source: scratchpad `sf2/LOADER.md`
   (Starfield.exe 1.16.244 loader functions read, every claim with an address). Results:
   - The loader goes by the HEADER's save version (`sfSaveVersion`; `SaveFile::sfVersion()`), not the form version, for
