@@ -153,8 +153,11 @@ namespace ess
 		}
 
 		// Papyrus opcode argument counts (negative = that many fixed args + variable tail).
+		// 41 (ArrayRFindStruct) takes 5 like 40 (ArrayFindStruct): the opcode table in Fallout4.exe (name + operand
+		// descriptor per opcode; 1.10.163, 1.10.984 and 1.11.240 alike) gives both "SSQAI"; ReSaver had 3. Every other
+		// count matches that table (Starfield.exe's own table matches its save writer's decoder 0x14288b690 throughout).
 		constexpr int kOpcodeArgs[48] = {
-			0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 1, 2, 2, -3, -2, -3, 1, 3, 3, 3, 2, 2, 3, 3, 4, 4, 3, 1, 3, 3, 5, 3, 3, 3, 1, 3, 1, 6
+			0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 1, 2, 2, -3, -2, -3, 1, 3, 3, 3, 2, 2, 3, 3, 4, 4, 3, 1, 3, 3, 5, 5, 3, 3, 1, 3, 1, 6
 		};
 
 		Param ReadParam(Reader& r)
