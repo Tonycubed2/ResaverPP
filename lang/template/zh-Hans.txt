@@ -14111,3 +14111,23 @@ tr ""
 # AppStarfield.cpp
 en "not in the save (the game makes this object again from its cell, e.g. a generated place)"
 tr ""
+
+# AppStarfield.cpp
+en "medium"
+tr ""
+
+# AppStarfield.cpp
+en "\n  - %s: %s in the save, %s now: %zu of its %zu ids do not fit (e.g. %08X)"
+tr ""
+
+# AppStarfield.cpp
+en "%zu plugin(s) changed kind since this save: their saved records land on other records"
+tr ""
+
+# AppStarfield.cpp
+en "A plugin was flagged light or medium (or the flag was removed) after this save was made. When a save loads, Starfield rebuilds every saved form id for today's plugins: a light plugin keeps only the last 3 hex digits of an id, a medium one the last 4 (Starfield.exe 1.16.244, TESFile::AdjustFormID). The save's ids of these plugins that are larger than that now point at other records of the plugin, or at none: placed objects, quests and NPC changes of the mod go to the wrong things."
+tr ""
+
+# AppStarfield.cpp
+en "\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, or reinstall the mod's earlier version), or load a save made after the change. Renumbering (\"compacting\") a plugin's ids for the new kind does not help either: the save still holds the old numbers."
+tr ""

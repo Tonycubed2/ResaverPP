@@ -822,6 +822,19 @@ void TestStarfieldModManager()
 	}
 	Check(ops::RenamePlugin(*s, "Med.esm", "Med.esp").empty() && s->plugins.medium.front() == "Med.esp", "sf mm: a medium plugin's entry is renamed");
 	Check(!ops::RenamePlugin(*s, "Mod.esp", "Starfield.esm").empty() && s->plugins.full[1] == "Mod.esp", "sf mm: never renamed to one of the game's own files");
+	// a plugin full in the save, light now: its ids above 0xFFF no longer fit; a medium one made full: all fit
+	{
+		loadorder::StarfieldOrder o;
+		o.files["mod.esp"] = plugin("Mod.esp", 0x100);  // light now
+		o.files["med.esm"] = plugin("Med.esm", 0x1);    // full now
+		o.files["same.esm"] = plugin("Same.esm", 0x1);  // full, as in the save
+		const std::vector<std::string> full = { "Starfield.esm", "Mod.esp", "Same.esm" }, lite, med = { "Med.esm" };
+		const auto k = loadorder::StarfieldKindChanges(full, lite, med, { 0x01000800, 0x01001234, 0x01000FFF, 0x02012345, 0xFD001234, 0xFF000001 }, o);
+		Check(k.size() == 2 && k[0].plugin == "Mod.esp" && k[0].was == 0 && k[0].now == 1 && k[0].ids == 3 && k[0].outOfRange == 1 &&
+				  k[0].example == 0x01001234,
+			"sf mm: full -> light: the ids above 0xFFF are found");
+		Check(k.size() == 2 && k[1].plugin == "Med.esm" && k[1].now == 0 && k[1].outOfRange == 0, "sf mm: medium -> full: every id fits");
+	}
 	fs::remove_all(dir, ec);
 }
 

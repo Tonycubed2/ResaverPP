@@ -197,6 +197,70 @@ namespace ess::loadorder
 		return Lower(std::string(u.begin(), u.end())) == ".esl" ? 1 : 0;
 	}
 
+	std::vector<SfKindChange> StarfieldKindChanges(const std::vector<std::string>& a_full, const std::vector<std::string>& a_lite,
+		const std::vector<std::string>& a_medium, const std::vector<std::uint32_t>& a_formIDs, const StarfieldOrder& a_order)
+	{
+		std::vector<SfKindChange> out;
+		// per list of the save: its plugins whose file has another kind now (-1 = cannot be told: left out)
+		std::vector<int> nowFull(a_full.size(), -2), nowLite(a_lite.size(), -2), nowMed(a_medium.size(), -2);
+		auto kindNow = [&](const std::string& a_name) {
+			const auto it = a_order.files.find(Lower(a_name));
+			return it == a_order.files.end() ? -1 : StarfieldPluginKind(it->second);
+		};
+		std::unordered_map<std::string, std::size_t> slot;  // "kind:index" -> out index
+		auto entry = [&](int a_was, std::size_t a_idx, const std::string& a_name, std::vector<int>& a_cache) -> SfKindChange* {
+			if (a_cache[a_idx] == -2) {
+				a_cache[a_idx] = kindNow(a_name);
+			}
+			const int now = a_cache[a_idx];
+			if (now < 0 || now == a_was) {
+				return nullptr;
+			}
+			const auto key = std::to_string(a_was) + ":" + std::to_string(a_idx);
+			auto       it = slot.find(key);
+			if (it == slot.end()) {
+				it = slot.emplace(key, out.size()).first;
+				SfKindChange k;
+				k.plugin = a_name;
+				k.was = a_was;
+				k.now = now;
+				out.push_back(std::move(k));
+			}
+			return &out[it->second];
+		};
+		for (const auto id : a_formIDs) {
+			const std::uint32_t top = id >> 24;
+			SfKindChange*       k = nullptr;
+			std::uint32_t       local = 0;
+			if (top == 0xFF || id == 0) {
+				continue;
+			}
+			if (top == 0xFE) {
+				const auto i = (id >> 12) & 0xFFF;
+				k = i < a_lite.size() ? entry(1, i, a_lite[i], nowLite) : nullptr;
+				local = id & 0xFFF;
+			} else if (top == 0xFD) {
+				const auto i = (id >> 16) & 0xFF;
+				k = i < a_medium.size() ? entry(2, i, a_medium[i], nowMed) : nullptr;
+				local = id & 0xFFFF;
+			} else {
+				k = top < a_full.size() ? entry(0, top, a_full[top], nowFull) : nullptr;
+				local = id & 0xFFFFFF;
+			}
+			if (!k) {
+				continue;
+			}
+			++k->ids;
+			const std::uint32_t limit = k->now == 1 ? 0xFFF : k->now == 2 ? 0xFFFF : 0xFFFFFF;
+			if (local > limit) {
+				if (k->outOfRange++ == 0) {
+					k->example = id;
+				}
+			}
+		}
+		return out;
+	}
+
 	StarfieldOrder ReadStarfield(const std::filesystem::path& a_pluginsTxt, const std::vector<std::filesystem::path>& a_dataDirs)
 	{
 		StarfieldOrder o;

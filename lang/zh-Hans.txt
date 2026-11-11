@@ -14131,3 +14131,23 @@ tr "基础"
 # AppStarfield.cpp
 en "not in the save (the game makes this object again from its cell, e.g. a generated place)"
 tr "不在存档中（游戏会根据其单元格重新生成此对象，例如生成的地点）"
+
+# AppStarfield.cpp
+en "medium"
+tr "中型"
+
+# AppStarfield.cpp
+en "\n  - %s: %s in the save, %s now: %zu of its %zu ids do not fit (e.g. %08X)"
+tr "\n  - %s：存档中为%s，现在为%s：其 %zu 个 ID（共 %zu 个）放不下（例如 %08X）"
+
+# AppStarfield.cpp
+en "%zu plugin(s) changed kind since this save: their saved records land on other records"
+tr "%zu 个插件在此存档后改变了类型：其已保存的记录会落到其他记录上"
+
+# AppStarfield.cpp
+en "A plugin was flagged light or medium (or the flag was removed) after this save was made. When a save loads, Starfield rebuilds every saved form id for today's plugins: a light plugin keeps only the last 3 hex digits of an id, a medium one the last 4 (Starfield.exe 1.16.244, TESFile::AdjustFormID). The save's ids of these plugins that are larger than that now point at other records of the plugin, or at none: placed objects, quests and NPC changes of the mod go to the wrong things."
+tr "此存档创建后，某个插件被标记为轻量或中型（或取消了该标记）。加载存档时，Starfield 会按当前插件重建每个已保存的表单 ID：轻量插件只保留 ID 的最后 3 位十六进制数，中型插件保留最后 4 位（Starfield.exe 1.16.244，TESFile::AdjustFormID）。这些插件在存档中超出该范围的 ID 现在指向该插件的其他记录或不指向任何记录：该模组的放置对象、任务和 NPC 更改会落到错误的对象上。"
+
+# AppStarfield.cpp
+en "\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, or reinstall the mod's earlier version), or load a save made after the change. Renumbering (\"compacting\") a plugin's ids for the new kind does not help either: the save still holds the old numbers."
+tr "\n修复不在存档内：把插件恢复为存档时的类型（取消轻量 / 中型标记，或重新安装该模组的旧版本），或加载更改之后创建的存档。为新类型重新编号（「压缩」）插件 ID 也无济于事：存档中仍是旧编号。"

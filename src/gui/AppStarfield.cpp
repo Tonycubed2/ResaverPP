@@ -8,6 +8,7 @@
 #include "Theme.h"
 #include "Tips.h"
 
+#include "core/LoadOrder.h"
 #include "core/Ops.h"
 #include "core/PluginDB.h"
 #include "core/Text.h"
@@ -618,6 +619,38 @@ void App::checkItemsSF(std::vector<CheckItem>& a_items)
 {
 	if (!_save || !sf()) {
 		return;
+	}
+	// plugins that are light or medium now but were not when the save was made (or the other way): ids that no longer fit
+	if (_sfOrder) {
+		const auto kinds = loadorder::StarfieldKindChanges(_save->plugins.full, _save->plugins.lite, _save->plugins.medium, _save->formIDs, *_sfOrder);
+		auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
+		std::string list;
+		std::size_t broken = 0, shown = 0;
+		for (const auto& k : kinds) {
+			if (k.outOfRange == 0) {
+				continue;
+			}
+			++broken;
+			if (++shown <= 10) {
+				list += Fmt(tr("\n  - %s: %s in the save, %s now: %zu of its %zu ids do not fit (e.g. %08X)"), k.plugin.c_str(), kindName(k.was), kindName(k.now),
+					k.outOfRange, k.ids, k.example);
+			}
+		}
+		if (broken > 0) {
+			CheckItem it;
+			it.level = Risk::kRisky;
+			it.title = Fmt(tr("%zu plugin(s) changed kind since this save: their saved records land on other records"), broken);
+			it.what = tr("A plugin was flagged light or medium (or the flag was removed) after this save was made. When a save loads, "
+						 "Starfield rebuilds every saved form id for today's plugins: a light plugin keeps only the last 3 hex digits of "
+						 "an id, a medium one the last 4 (Starfield.exe 1.16.244, TESFile::AdjustFormID). The save's ids of these plugins "
+						 "that are larger than that now point at other records of the plugin, or at none: placed objects, quests and NPC "
+						 "changes of the mod go to the wrong things.") +
+					  list +
+					  tr("\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, "
+						 "or reinstall the mod's earlier version), or load a save made after the change. Renumbering (\"compacting\") a "
+						 "plugin's ids for the new kind does not help either: the save still holds the old numbers.");
+			a_items.push_back(std::move(it));
+		}
 	}
 	// change forms whose type is not the one the plugins give the form now: the game skips their saved data
 	const auto& mm = sfTypeMismatches();
