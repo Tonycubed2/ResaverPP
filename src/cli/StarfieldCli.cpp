@@ -67,6 +67,7 @@ int StarfieldMain(int argc, char** argv)
 	std::string       out, formsType;
 	bool              quests = false, components = false;
 	std::uint32_t     inventoryOf = 0;
+	std::string       ofType;
 	bool              describe = false, forms = false, report = false, unattached = false, undefined = false, termUndef = false;
 	std::set<std::uint32_t> deleteForms;
 	// names (--game / --data) and mods no longer installed
@@ -88,6 +89,8 @@ int StarfieldMain(int argc, char** argv)
 			out = next();
 		} else if (a == "--describe") {
 			describe = true;
+		} else if (a == "--of-type") {
+			ofType = next();
 		} else if (a == "--components") {
 			components = true;
 		} else if (a == "--inventory") {
@@ -151,7 +154,7 @@ int StarfieldMain(int argc, char** argv)
 				"%s: not available for Starfield saves (they support: -o <out.sfs>, --describe, --report, --check, --forms [TYPE], --delete-form <form id>, "
 				"--remove-unattached, --remove-undefined, --terminate-undefined, --remove-stranded-threads, --clear-floods, --remove-retyped, "
 				"--game <Starfield folder> | --data <Data folder>, --names, "
-				"--name <form id>, --inventory <form id>, --components, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
+				"--name <form id>, --inventory <form id>, --components, --of-type <TYPE>, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
 				a.c_str());
 			return 1;
 		}
@@ -234,6 +237,11 @@ int StarfieldMain(int argc, char** argv)
 			}
 			return 0;
 		};
+		if (!ofType.empty() && db) {
+			for (const auto id : db->ofType(ofType)) {
+				std::printf("%08X  %s\n", id, db->describe(id).c_str());
+			}
+		}
 		if (components) {
 			// every reference with component data (ships, outposts...): its base and the base's record type
 			for (const auto& c : save->changeForms) {
