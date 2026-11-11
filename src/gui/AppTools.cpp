@@ -186,12 +186,15 @@ std::string App::gameLanguage() const
 void App::startNames(bool a_force)
 {
 	if (_save && sf()) {
-		// Starfield: the plugins are read from the game's Data folders (no mods folder, no scan)
+		// Starfield: the plugins are read from the game's Data folders and, with Mod Organizer, the profile's mods (no scan)
 		const auto dirs = sfDataDirs();
 		if (dirs.empty()) {
 			return;
 		}
-		const auto key = platform::ToUtf8(_path) + "|sf|" + platform::ToUtf8(dirs.front());
+		std::string key = platform::ToUtf8(_path) + "|sf";  // (every folder: a Mod Organizer profile switch changes them)
+		for (const auto& d : dirs) {
+			key += "|" + platform::ToUtf8(d);
+		}
 		if (!a_force && key == _dbKey) {
 			return;
 		}

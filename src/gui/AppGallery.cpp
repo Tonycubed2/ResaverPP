@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <cfloat>
 #include <cstdio>
 #include <ctime>
 #include <mutex>
@@ -376,7 +377,7 @@ void App::drawGallery()
 	std::filesystem::path clicked;
 
 	if (total == 0) {
-		ImGui::TextDisabled("%s", tr("No saves (.ess) in this folder. Use Other folder... or Browse for a file..."));
+		ImGui::TextDisabled("%s", Fmtg(tr("No saves (%s) in this folder. Use Other folder... or Browse for a file..."), saveExtension()).c_str());
 	} else if (!_galleryList) {
 		// pictures, newest first
 		ImGui::BeginChild("##gallery", ImVec2(0, 0));
@@ -401,6 +402,32 @@ void App::drawGallery()
 				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 				click = ImGui::ImageButton("##pic", static_cast<ImTextureID>(e.tex), ImVec2(cardW, picH));
 				ImGui::PopStyleVar();
+			} else if (e.read && e.ok) {
+				// no picture in the file (Starfield's .sfs keeps none: its save writer 0x14182fd70 writes no image, and the game
+				// keeps none next to the save): a card with the character, the place and the play time instead
+				click = ImGui::InvisibleButton("##card", ImVec2(cardW, picH));
+				auto*      dl = ImGui::GetWindowDrawList();
+				const bool hov = ImGui::IsItemHovered();
+				dl->AddRectFilled(at, ImVec2(at.x + cardW, at.y + picH), ImGui::GetColorU32(hov ? ImGuiCol_ButtonHovered : ImGuiCol_Button), 4.0f);
+				const float pad = 10.0f, wrap = cardW - 2 * pad;
+				float       y = at.y + pad;
+				auto line = [&](const std::string& a_t, ImU32 a_col, float a_scale) {
+					if (a_t.empty() || y > at.y + picH - pad) {
+						return;
+					}
+					ImFont*     f = ImGui::GetFont();
+					const float sz = ImGui::GetFontSize() * a_scale;
+					const ImVec2 ts = f->CalcTextSizeA(sz, FLT_MAX, wrap, a_t.c_str());
+					dl->PushClipRect(at, ImVec2(at.x + cardW, at.y + picH), true);
+					dl->AddText(f, sz, ImVec2(at.x + pad, y), a_col, a_t.c_str(), nullptr, wrap);
+					dl->PopClipRect();
+					y += ts.y + 4.0f;
+				};
+				line(e.name, ImGui::GetColorU32(ImGuiCol_Text), 1.35f);
+				line(Fmtg(tr("Level %u"), e.level), ImGui::GetColorU32(ImGuiCol_Text), 1.0f);
+				line(e.location, ImGui::GetColorU32(ImGuiCol_Text), 1.1f);
+				line(e.gameDate, ImGui::GetColorU32(ImGuiCol_TextDisabled), 0.9f);
+				line(e.race, ImGui::GetColorU32(ImGuiCol_TextDisabled), 0.9f);
 			} else {
 				click = ImGui::Button(e.read ? (e.ok ? tr("(no picture)") : tr("(not a save)")) : "...", ImVec2(cardW, picH));
 			}

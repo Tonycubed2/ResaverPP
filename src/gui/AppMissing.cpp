@@ -73,6 +73,9 @@ App::ProfileMatch App::ScoreProfiles(const SaveFile& a_save, const Mo2Instance& 
 	for (const auto& p : a_save.plugins.lite) {
 		savePlugins.push_back(Lower(p));
 	}
+	for (const auto& p : a_save.plugins.medium) {  // (Starfield)
+		savePlugins.push_back(Lower(p));
+	}
 	m.plugins = savePlugins.size();
 	if (savePlugins.size() < 10) {
 		m.tooFew = true;
@@ -162,7 +165,23 @@ bool App::matchProfileToSave(const ProfileMatch* a_pre)
 std::vector<std::filesystem::path> App::sfDataDirs() const
 {
 	const auto saves = platform::DefaultSavesFolder(3);
-	return loadorder::StarfieldDataDirs(gameFolder(), saves.empty() ? std::filesystem::path() : saves.parent_path());
+	auto       dirs = loadorder::StarfieldDataDirs(gameFolder(), saves.empty() ? std::filesystem::path() : saves.parent_path());
+	// Mod Organizer: the game sees the profile's enabled mods on top of its Data folder (MO2's virtual folder), so their
+	// plugins, strings and archives are found there: overwrite first, then the mods from the highest priority down (the
+	// first folder that has a file wins). (The game's Data folder stays first: Starfield.ccc is read from it.)
+	if (_mo2 && !_profile.empty()) {
+		std::error_code ec;
+		if (!_mo2->overwriteDir.empty() && std::filesystem::is_directory(_mo2->overwriteDir, ec)) {
+			dirs.push_back(_mo2->overwriteDir);
+		}
+		for (const auto& mod : LoadModList(_mo2->profilesDir / platform::FromUtf8(_profile))) {
+			const auto d = _mo2->modsDir / platform::FromUtf8(mod);
+			if (std::filesystem::is_directory(d, ec)) {
+				dirs.push_back(d);
+			}
+		}
+	}
+	return dirs;
 }
 
 modremove::Options App::removeOptions() const
@@ -181,8 +200,15 @@ App::MissingInputs App::missingInputs() const
 		in.game = 3;
 		in.gameFolder = gameFolder();
 		in.sfDataDirs = sfDataDirs();
-		in.pluginsTxt = loadorder::GamePluginsTxt(3);
-		in.source = tr("your load order");
+		if (_mo2 && !_profile.empty()) {
+			// Mod Organizer: the profile's plugins.txt is the load order the game gets
+			in.pluginsTxt = _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt";
+			in.source = tr("Mod Organizer profile \"") + _profile + "\"";
+			in.sfMo2 = true;
+		} else {
+			in.pluginsTxt = loadorder::GamePluginsTxt(3);
+			in.source = _vortex ? tr("your load order (Vortex)") : tr("your load order");
+		}
 		in.sourceUnknown = tr("your load order");
 		return in;
 	}
@@ -222,7 +248,8 @@ void App::ComputeMissing(const SaveFile& a_save, const MissingInputs& a_in, cons
 			return;
 		}
 		out.missingFile = order->pluginsTxtFound ? order->pluginsTxt : a_in.sfDataDirs.front();
-		out.missingSource = order->pluginsTxtFound ? tr("your load order (plugins.txt)") : tr("your game (no plugins.txt: only its own files load)");
+		out.missingSource = order->pluginsTxtFound ? (a_in.sfMo2 ? a_in.source : tr("your load order (plugins.txt)"))
+		                                           : tr("your game (no plugins.txt: only its own files load)");
 		// plugins.txt enables plugins that no Data folder has: a mod manager keeps them elsewhere (Mod Organizer's virtual
 		// folder), so "not installed" cannot be trusted: nothing is ticked
 		if (order->pluginsTxtFound) {
@@ -237,6 +264,28 @@ void App::ComputeMissing(const SaveFile& a_save, const MissingInputs& a_in, cons
 			}
 		}
 		out.scanSuspect = out.sfNotFound > 0;
+		// renamed rather than removed (Mod.esp -> Mod.esm, ...): a plugin the game loads now, of the same name and the
+		// same kind (full / light / medium: a save's form ids count within its list), offered as the new name
+		std::vector<std::string> enabledSf;
+		for (const auto& low : order->active) {
+			const auto it = order->files.find(low);
+			enabledSf.push_back(it != order->files.end() ? platform::ToUtf8(it->second.filename()) : low);
+		}
+		const ops::RenameFinder sfFinder(a_save, enabledSf);
+		auto kindInSave = [&](const std::string& a_plugin) {
+			const auto low = Lower(a_plugin);
+			for (const auto& p : a_save.plugins.lite) {
+				if (Lower(p) == low) {
+					return 1;
+				}
+			}
+			for (const auto& p : a_save.plugins.medium) {
+				if (Lower(p) == low) {
+					return 2;
+				}
+			}
+			return 0;
+		};
 		const auto left = modremove::StarfieldNotLoaded(a_save, *order, a_mods());
 		for (const auto& l : left) {
 			MissingMod m;
@@ -246,7 +295,13 @@ void App::ComputeMissing(const SaveFile& a_save, const MissingInputs& a_in, cons
 			m.scripts = l.scripts;
 			m.instances = std::max(l.instances, l.ownInstances);  // (engine-type bindings on its forms included)
 			m.threads = l.threads;
-			m.selected = !l.installed && !l.nothing() && !out.scanSuspect && !IsStarfieldBaseFile(Lower(l.plugin));
+			for (const auto& to : sfFinder.find(l.plugin)) {
+				const auto it = order->files.find(Lower(to));
+				if (it != order->files.end() && loadorder::StarfieldPluginKind(it->second) == kindInSave(l.plugin)) {
+					m.renamedTo.push_back(to);
+				}
+			}
+			m.selected = !l.installed && !l.nothing() && !out.scanSuspect && !IsStarfieldBaseFile(Lower(l.plugin)) && m.renamedTo.empty();
 			out.missing.push_back(std::move(m));
 		}
 		out.removeMissingScripts = false;

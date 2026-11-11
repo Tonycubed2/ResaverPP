@@ -6798,8 +6798,8 @@ en "%zu saves"
 tr "%zu 个存档"
 
 # AppGallery.cpp:379  ImGui::TextDisabled("%s", tr("No saves (.ess) in this folder. Use Other folder... or Browse for a file..."));
-en "No saves (.ess) in this folder. Use Other folder... or Browse for a file..."
-tr "此文件夹中没有存档（.ess）。请使用「其他文件夹……」或「浏览文件……」"
+en "No saves (%s) in this folder. Use Other folder... or Browse for a file..."
+tr "此文件夹中没有存档（%s）。请使用「其他文件夹……」或「浏览文件……」"
 
 # AppGallery.cpp:405  click = ImGui::Button(e.read ? (e.ok ? tr("(no picture)") : tr("(not a save)")) : "...", ImVec2(cardW, picH));
 en "(no picture)"
@@ -14119,3 +14119,7 @@ tr ""
 
 en "Checking what each quest's stage does (reading your plugins and scripts)..."
 tr ""
+
+# AppGallery.cpp  line(Fmtg(tr("Level %u"), e.level), ...)
+en "Level %u"
+tr "等级 %u"

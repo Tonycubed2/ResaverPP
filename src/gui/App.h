@@ -532,6 +532,7 @@ private:
 		std::filesystem::path                     gameFolder, pluginsTxt;
 		std::string                               source, sourceUnknown;
 		bool                                      sf = false;  // a Starfield save: its own rules (AppMissing.cpp)
+		bool                                      sfMo2 = false;  // (Starfield: pluginsTxt is a Mod Organizer profile's)
 		std::vector<std::filesystem::path>        sfDataDirs;
 	};
 	struct MissingResult;

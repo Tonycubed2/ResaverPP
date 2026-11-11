@@ -43,6 +43,10 @@ namespace ess::loadorder
 		std::unordered_map<std::string, std::filesystem::path> files;   // lowercase plugin name -> its file
 		bool installed(const std::string& a_lower) const { return files.contains(a_lower); }
 	};
+	// Starfield: which list of the save a plugin file goes in, from its TES4 header (Starfield.exe 0x1405b70ac): 0 full, 1
+	// light (flag 0x100, or a .esl file), 2 medium (0x400); -1 when it cannot be told (unreadable, or an overlay file: 0x200
+	// without 0x100 / 0x400, which takes no slot of its own when it has masters)
+	int StarfieldPluginKind(const std::filesystem::path& a_file);
 	StarfieldOrder ReadStarfield(const std::filesystem::path& a_pluginsTxt, const std::vector<std::filesystem::path>& a_dataDirs);
 	// the Data folders of a Starfield install: <game>\Data, then <My Games\Starfield>\Data when it exists (a_myGames empty:
 	// %USERPROFILE%\Documents\My Games\Starfield)

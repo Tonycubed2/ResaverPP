@@ -1697,15 +1697,8 @@ void App::viewRowScript(std::uint64_t a_key)
 void App::autoDetectPaths(bool a_force)
 {
 	std::error_code ec;
-	if (_game == 3) {
-		// Starfield: only its game folder (Steam ...\steamapps\common\Starfield); its mods are not read
-		if (_gamePath.empty() || a_force) {
-			if (const auto games = platform::SkyrimInstallFolders(3); !games.empty()) {
-				_gamePath = platform::ToUtf8(games.front());
-			}
-		}
-		return;
-	}
+	// (Starfield too: a Mod Organizer setup whose game is Starfield, Vortex's "starfield" staging folder, else its game
+	// folder from Steam; its Data folders, the profile's mods and plugins.txt are used by AppMissing.cpp / AppTools.cpp)
 	if (!a_force && !_sourcesPath.empty()) {
 		// already set: just read its Mod Organizer settings (cheap; the scan happens when needed)
 		if (!_mo2) {
@@ -1740,7 +1733,8 @@ void App::autoDetectPaths(bool a_force)
 	for (auto& m : FindMo2Instances({ platform::ExeFolder() })) {
 		const auto g = Lower(m.gameName);
 		const auto gp = Lower(platform::ToUtf8(m.gamePath));
-		const bool match = _game == 2 ? (g.empty() ? gp.find("fallout 4") != std::string::npos : (g == "fallout 4" || g == "fallout4"))
+		const bool match = _game == 3 ? (g.empty() ? gp.find("starfield") != std::string::npos : g == "starfield")
+		                   : _game == 2 ? (g.empty() ? gp.find("fallout 4") != std::string::npos : (g == "fallout 4" || g == "fallout4"))
 						   : _vr ? (g.empty() ? gp.find("skyrimvr") != std::string::npos || gp.find("skyrim vr") != std::string::npos
 											 : (g.find("skyrim vr") != std::string::npos || g == "skyrimvr"))
 							   : (g.empty() ? gp.find("skyrim special edition") != std::string::npos
@@ -1776,7 +1770,7 @@ void App::autoDetectPaths(bool a_force)
 					   }
 				   }
 				   if (const auto ad = text::EnvPath("APPDATA"); !ad.empty()) {
-					   return FindVortexDeployment(ad / "Vortex" / (_game == 2 ? "fallout4" : _vr ? "skyrimvr" : "skyrimse") / "mods");
+					   return FindVortexDeployment(ad / "Vortex" / (_game == 3 ? "starfield" : _game == 2 ? "fallout4" : _vr ? "skyrimvr" : "skyrimse") / "mods");
 				   }
 				   return std::nullopt;
 			   }()) {

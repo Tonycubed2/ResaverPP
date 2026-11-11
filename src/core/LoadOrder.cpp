@@ -4,6 +4,7 @@
 #include "Text.h"
 
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <vector>
@@ -124,6 +125,13 @@ namespace ess::loadorder
 			}
 		}
 		// always loaded, never listed in plugins.txt
+		if (a_game == 3) {
+			// Starfield: the game's own files (StarfieldBaseFiles, PluginDB.cpp)
+			for (const auto& p : StarfieldBaseFiles()) {
+				a.plugins.insert(p);
+			}
+			return a;
+		}
 		if (fo4) {
 			for (const auto& p : Fallout4Masters()) {
 				a.plugins.insert(p);
@@ -166,6 +174,27 @@ namespace ess::loadorder
 			v.push_back(myGames / "Data");
 		}
 		return v;
+	}
+
+	int StarfieldPluginKind(const std::filesystem::path& a_file)
+	{
+		std::ifstream f(a_file, std::ios::binary);
+		unsigned char h[12]{};
+		if (!f.read(reinterpret_cast<char*>(h), sizeof(h)) || std::string(reinterpret_cast<char*>(h), 4) != "TES4") {
+			return -1;
+		}
+		const std::uint32_t flags = h[8] | (h[9] << 8) | (h[10] << 16) | (static_cast<std::uint32_t>(h[11]) << 24);
+		if ((flags & 0x200) && !(flags & 0x500)) {
+			return -1;
+		}
+		if (flags & 0x100) {
+			return 1;
+		}
+		if (flags & 0x400) {
+			return 2;
+		}
+		const auto u = a_file.extension().u8string();
+		return Lower(std::string(u.begin(), u.end())) == ".esl" ? 1 : 0;
 	}
 
 	StarfieldOrder ReadStarfield(const std::filesystem::path& a_pluginsTxt, const std::vector<std::filesystem::path>& a_dataDirs)

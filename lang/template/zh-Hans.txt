@@ -6750,7 +6750,7 @@ en "%zu saves"
 tr ""
 
 # AppGallery.cpp:379  ImGui::TextDisabled("%s", tr("No saves (.ess) in this folder. Use Other folder... or Browse for a file..."));
-en "No saves (.ess) in this folder. Use Other folder... or Browse for a file..."
+en "No saves (%s) in this folder. Use Other folder... or Browse for a file..."
 tr ""
 
 # AppGallery.cpp:405  click = ImGui::Button(e.read ? (e.ok ? tr("(no picture)") : tr("(not a save)")) : "...", ImVec2(cardW, picH));
@@ -14098,4 +14098,8 @@ en "Tick everything in this group (not the quest stages that would move you or p
 tr ""
 
 en "Checking what each quest's stage does (reading your plugins and scripts)..."
+tr ""
+
+# AppGallery.cpp  line(Fmtg(tr("Level %u"), e.level), ...)
+en "Level %u"
 tr ""

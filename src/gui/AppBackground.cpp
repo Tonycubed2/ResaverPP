@@ -386,7 +386,7 @@ void App::finishOpen(OpenJob& a_job)
 		}
 		// Mod Organizer: use the profile this save was played with (the one remembered may be another)
 		bool profileSwitched = false;
-		if (!_save->isSF()) {
+		{
 			watchdog::Step st("matchProfileToSave");
 			profileSwitched = matchProfileToSave(sameSetup && _mo2 && a_job.mo2 && _profile == a_job.profile ? &a_job.profileMatch : nullptr);
 		}
@@ -396,7 +396,8 @@ void App::finishOpen(OpenJob& a_job)
 			// another save opened while the mods are still being read: that scan goes on (it is the same mods folder and
 			// profile) and checks this save when it is done; starting it again only made the wait longer
 		} else if (_save->isSF()) {
-			// Starfield: no mods folder; the names are read from the game's Data folders (in the background)
+			// Starfield: no mods scan; the names are read from the game's Data folders (and the Mod Organizer profile's
+			// mods) in the background
 			if (_autoNames) {
 				watchdog::Step st("startNames (Starfield)");
 				startNames();
@@ -621,7 +622,8 @@ void App::pollAnalysis()
 		return;
 	}
 	const unsigned left = next | (same && job->error.empty() ? 0u : job->what);
-	if ((left & kAnMissing) || (job->out.hasMissing && job->out.missingSources != _sources)) {
+	// (a Mod Organizer profile switched to after the analysis started: its plugins.txt is another one)
+	if ((left & kAnMissing) || (job->out.hasMissing && (job->out.missingSources != _sources || job->missingIn.pluginsTxt != missingInputs().pluginsTxt))) {
 		checkMissingPlugins();
 	}
 }

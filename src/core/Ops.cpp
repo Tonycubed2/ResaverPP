@@ -2,6 +2,7 @@
 #include "Ops.h"
 #include "ChangeFormData.h"
 #include "ChangeFormFO4.h"
+#include "PluginDB.h"
 
 #include <algorithm>
 #include <cctype>
@@ -1503,8 +1504,13 @@ namespace ess::ops
 		if (!PluginExt(a_to) || a_to.size() > 255 || a_to.find_first_of("\\/:*?\"<>|") != std::string::npos) {
 			return "\"" + a_to + "\" is not a plugin file name (.esp, .esm or .esl)";
 		}
+		// Starfield: a base game file's entry carries no Creations details in saves of version 120..139, so a save entry
+		// is never renamed to one (and the game loads its own files anyway)
+		if (s.isSF() && IsStarfieldBaseFile(LowerName(a_to))) {
+			return a_to + " is one of the game's own files";
+		}
 		std::string* entry = nullptr;
-		for (auto* list : { &s.plugins.full, &s.plugins.lite }) {
+		for (auto* list : { &s.plugins.full, &s.plugins.lite, &s.plugins.medium }) {
 			for (auto& p : *list) {
 				if (LowerName(p) == LowerName(a_to) && LowerName(p) != LowerName(a_from)) {
 					return "the save already has a plugin named " + a_to + ": nothing changed";
@@ -1524,7 +1530,7 @@ namespace ess::ops
 	RenameFinder::RenameFinder(const SaveFile& s, const std::vector<std::string>& a_installed)
 	{
 		std::set<std::string> inSave;
-		for (const auto* list : { &s.plugins.full, &s.plugins.lite }) {
+		for (const auto* list : { &s.plugins.full, &s.plugins.lite, &s.plugins.medium }) {
 			for (const auto& p : *list) {
 				inSave.insert(LowerName(p));
 			}
@@ -1557,7 +1563,7 @@ namespace ess::ops
 	std::vector<std::string> RenameCandidates(const SaveFile& s, const std::string& a_missing, const std::vector<std::string>& a_installed)
 	{
 		std::set<std::string> inSave;
-		for (const auto* list : { &s.plugins.full, &s.plugins.lite }) {
+		for (const auto* list : { &s.plugins.full, &s.plugins.lite, &s.plugins.medium }) {
 			for (const auto& p : *list) {
 				inSave.insert(LowerName(p));
 			}
