@@ -1028,6 +1028,10 @@ void App::draw()
 		watchdog::Section("drawCosave");
 		drawCosave();
 	}
+	if (_showQuestsSF && _save && _save->isSF()) {
+		watchdog::Section("drawQuestsSF");
+		drawQuestsSF();
+	}
 	if (_showShipsSF && _save && _save->isSF()) {
 		watchdog::Section("drawShipsSF");
 		drawShipsSF();

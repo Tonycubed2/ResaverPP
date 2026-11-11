@@ -14707,3 +14707,36 @@ tr ""
 
 en "%s: %s modifier set to %.2f"
 tr ""
+
+en "Quests..."
+tr ""
+
+en "Every quest the save keeps: running, completed, stages done. Change it in the save, or in the running game through the helper."
+tr ""
+
+en "Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). Until then they are listed by form ID."
+tr ""
+
+en "Running game: not connected (start Starfield with sfse_loader.exe to use the helper)."
+tr ""
+
+en "Running game: connected, at the main menu. Load a save in the game to use its quest commands."
+tr ""
+
+en "Running game: connected, a save is loaded. Open a quest for its commands."
+tr ""
+
+en "filter (name or form ID)"
+tr ""
+
+en "Not running"
+tr ""
+
+en "All"
+tr ""
+
+en "%zu of %zu quests"
+tr ""
+
+en "Stages done"
+tr ""

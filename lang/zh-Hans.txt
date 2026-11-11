@@ -14707,3 +14707,36 @@ tr "存档为你保存的数值。基础值只有在不同于游戏默认值时�
 
 en "%s: %s modifier set to %.2f"
 tr "%s：%s 修正值设为 %.2f"
+
+en "Quests..."
+tr "任务..."
+
+en "Every quest the save keeps: running, completed, stages done. Change it in the save, or in the running game through the helper."
+tr "存档保存的所有任务：进行中、已完成、已完成的阶段。可在存档中修改，或通过助手在运行中的游戏里修改。"
+
+en "Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). Until then they are listed by form ID."
+tr "任务名称来自你的插件：工具 > 读取插件名称（需在 选项 > 设置 中设置 Starfield 文件夹）。在此之前按表单 ID 列出。"
+
+en "Running game: not connected (start Starfield with sfse_loader.exe to use the helper)."
+tr "运行中的游戏：未连接（用 sfse_loader.exe 启动 Starfield 才能使用助手）。"
+
+en "Running game: connected, at the main menu. Load a save in the game to use its quest commands."
+tr "运行中的游戏：已连接，位于主菜单。请在游戏中读取存档以使用任务命令。"
+
+en "Running game: connected, a save is loaded. Open a quest for its commands."
+tr "运行中的游戏：已连接，已读取存档。打开任务查看其命令。"
+
+en "filter (name or form ID)"
+tr "筛选（名称或表单 ID）"
+
+en "Not running"
+tr "未进行"
+
+en "All"
+tr "全部"
+
+en "%zu of %zu quests"
+tr "%zu / %zu 个任务"
+
+en "Stages done"
+tr "已完成阶段"

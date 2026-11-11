@@ -337,6 +337,11 @@ void App::drawHomeSF()
 		}
 	}
 	tips::Tip(tr("Your character's saved record: the name, level and XP, face and body, all editable."));
+	static bool testQuests = std::getenv("RESAVERPP_TEST_SFQUESTS") != nullptr;  // screenshots: opens the quests window
+	if (ImGui::Button(tr("Quests..."), ImVec2(w, 0)) || std::exchange(testQuests, false)) {
+		_showQuestsSF = true;
+	}
+	tips::Tip(tr("Every quest the save keeps: running, completed, stages done. Change it in the save, or in the running game through the helper."));
 	static bool testShips = std::getenv("RESAVERPP_TEST_SFSHIPS") != nullptr;  // screenshots: opens the ships window
 	if (ImGui::Button(tr("Ships..."), ImVec2(w, 0)) || std::exchange(testShips, false)) {
 		_showShipsSF = true;
@@ -797,7 +802,7 @@ void App::detailChangeFormSF(std::uint64_t k)
 			}
 		}
 		// in the running game (the Starfield helper, an SFSE plugin): the game's own console commands for this quest
-		if (c->refID.type() != RefID::Type::kCreated && ImGui::CollapsingHeader(trId("In the running game"))) {
+		if (c->refID.type() != RefID::Type::kCreated && ImGui::CollapsingHeader(trId("In the running game"), ImGuiTreeNodeFlags_DefaultOpen)) {
 			const auto info = _live.info();
 			const bool ready = info.connected && info.inGame && liveSF() && helperAtLeast(11);
 			if (!ready) {
@@ -1149,6 +1154,131 @@ void App::drawAddItemSF(const RefID& a_ref)
 // the ships (and stations) the save keeps: references whose base object is a GBFM (ships, starstations: read from the
 // plugins), and references with component data whose base was made in play (ships built or changed in the ship
 // builder; their base is not in any plugin). Their inventory is their cargo.
+// Starfield: every quest the save keeps (DecodeQuestSF), with its name; Open shows it (state and stages editable, and the
+// running game's commands through the helper)
+void App::drawQuestsSF()
+{
+	struct Row
+	{
+		RefID         ref;
+		std::uint32_t fid = 0;
+		std::string   name;
+		int           state = 0;  // 0 not running, 1 running, 2 completed, -1 not saved
+		std::size_t   stagesDone = 0, stages = 0;
+	};
+	static const ess::SaveFile* rowsFor = nullptr;
+	static std::uint64_t        rowsGen = UINT64_MAX;
+	static const void*          rowsDb = nullptr;
+	static std::vector<Row>     rows;
+	static char                 filter[128] = "";
+	static int                  show = 1;  // 0 all, 1 running, 2 completed, 3 not running
+	ImGui::SetNextWindowSize(ImVec2(860, 560), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin(trId("Quests"), &_showQuestsSF, ImGuiWindowFlags_NoCollapse)) {
+		ImGui::End();
+		return;
+	}
+	const auto& s = *_save;
+	const void* dbNow = _db && _db->loaded() ? static_cast<const void*>(_db.get()) : nullptr;
+	if (rowsFor != _save.get() || rowsGen != static_cast<std::uint64_t>(_editGen) || rowsDb != dbNow) {
+		rowsFor = _save.get();
+		rowsGen = static_cast<std::uint64_t>(_editGen);
+		rowsDb = dbNow;
+		rows.clear();
+		for (const auto& c : s.changeForms) {
+			if (c.typeCode() != 8) {
+				continue;
+			}
+			Row r;
+			r.ref = c.refID;
+			r.fid = s.formIDOf(c.refID);
+			const auto q = DecodeQuestSF(c);
+			r.state = !q.hasFlags ? -1 : q.completed() ? 2 : q.enabled() ? 1 : 0;
+			r.stages = q.stages.size();
+			for (const auto& st : q.stages) {
+				r.stagesDone += st.done;
+			}
+			r.name = dbNow ? _db->describe(r.fid) : std::string();
+			if (r.name.empty()) {
+				r.name = s.pluginOf(r.fid);
+			}
+			rows.push_back(std::move(r));
+		}
+		std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.name < b.name; });
+	}
+	if (!dbNow) {
+		ImGui::PushTextWrapPos(0);
+		ImGui::TextDisabled("%s", tr("Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). "
+									 "Until then they are listed by form ID."));
+		ImGui::PopTextWrapPos();
+	}
+	{
+		const auto info = _live.info();
+		ImGui::TextDisabled("%s", !info.connected ? tr("Running game: not connected (start Starfield with sfse_loader.exe to use the helper).")
+								  : !info.inGame  ? tr("Running game: connected, at the main menu. Load a save in the game to use its quest commands.")
+												  : tr("Running game: connected, a save is loaded. Open a quest for its commands."));
+	}
+	ImGui::SetNextItemWidth(260);
+	ImGui::InputTextWithHint("##qf", tr("filter (name or form ID)"), filter, sizeof(filter));
+	ImGui::SameLine();
+	ImGui::RadioButton(tr("Running"), &show, 1);
+	ImGui::SameLine();
+	ImGui::RadioButton(tr("Completed"), &show, 2);
+	ImGui::SameLine();
+	ImGui::RadioButton(tr("Not running"), &show, 3);
+	ImGui::SameLine();
+	ImGui::RadioButton(tr("All"), &show, 0);
+	std::string f = filter;
+	for (auto& ch : f) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+	std::vector<std::size_t> shown;
+	for (std::size_t i = 0; i < rows.size(); ++i) {
+		const auto& r = rows[i];
+		if (show == 1 && r.state != 1) continue;
+		if (show == 2 && r.state != 2) continue;
+		if (show == 3 && r.state != 0 && r.state != -1) continue;
+		if (!f.empty()) {
+			std::string n = r.name + " " + Fmt("%08X", r.fid);
+			for (auto& ch : n) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+			if (n.find(f) == std::string::npos) continue;
+		}
+		shown.push_back(i);
+	}
+	ImGui::Text(tr("%zu of %zu quests"), shown.size(), rows.size());
+	if (ImGui::BeginTable("##quests", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable,
+			ImVec2(0, -1))) {
+		ImGui::TableSetupScrollFreeze(0, 1);
+		ImGui::TableSetupColumn(tr("Quest"), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, 80);
+		ImGui::TableSetupColumn(tr("State"), ImGuiTableColumnFlags_WidthFixed, 100);
+		ImGui::TableSetupColumn(tr("Stages done"), ImGuiTableColumnFlags_WidthFixed, 90);
+		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 70);
+		ImGui::TableHeadersRow();
+		ImGuiListClipper clip;
+		clip.Begin(static_cast<int>(shown.size()));
+		while (clip.Step()) {
+			for (int k = clip.DisplayStart; k < clip.DisplayEnd; ++k) {
+				const auto& r = rows[shown[static_cast<std::size_t>(k)]];
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(r.name.c_str());
+				ImGui::TableNextColumn();
+				ImGui::Text("%08X", r.fid);
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(r.state == 2 ? tr("completed") : r.state == 1 ? tr("running") : r.state == 0 ? tr("not running") : tr("not saved"));
+				ImGui::TableNextColumn();
+				ImGui::Text("%zu / %zu", r.stagesDone, r.stages);
+				ImGui::TableNextColumn();
+				ImGui::PushID(k);
+				if (ImGui::SmallButton(tr("Open"))) {
+					select(Cat::kChangeForms, r.ref.data);
+				}
+				ImGui::PopID();
+			}
+		}
+		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
 void App::drawShipsSF()
 {
 	struct Row

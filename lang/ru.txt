@@ -14765,3 +14765,36 @@ tr "Значения, которые сохранение хранит для в
 
 en "%s: %s modifier set to %.2f"
 tr "%s: модификатор «%s» = %.2f"
+
+en "Quests..."
+tr "Задания..."
+
+en "Every quest the save keeps: running, completed, stages done. Change it in the save, or in the running game through the helper."
+tr "Все задания, которые хранит сохранение: активные, завершённые, пройденные этапы. Меняйте их в сохранении или в запущенной игре через помощника."
+
+en "Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). Until then they are listed by form ID."
+tr "Названия заданий берутся из ваших плагинов: Инструменты > Прочитать имена из плагинов (папка Starfield должна быть указана в Параметры > Настройки). До этого они показаны по ID формы."
+
+en "Running game: not connected (start Starfield with sfse_loader.exe to use the helper)."
+tr "Запущенная игра: не подключена (запустите Starfield через sfse_loader.exe, чтобы использовать помощника)."
+
+en "Running game: connected, at the main menu. Load a save in the game to use its quest commands."
+tr "Запущенная игра: подключена, в главном меню. Загрузите сохранение в игре, чтобы использовать команды заданий."
+
+en "Running game: connected, a save is loaded. Open a quest for its commands."
+tr "Запущенная игра: подключена, сохранение загружено. Откройте задание, чтобы увидеть его команды."
+
+en "filter (name or form ID)"
+tr "фильтр (имя или ID формы)"
+
+en "Not running"
+tr "Не запущено"
+
+en "All"
+tr "Все"
+
+en "%zu of %zu quests"
+tr "Заданий: %zu из %zu"
+
+en "Stages done"
+tr "Этапов пройдено"
