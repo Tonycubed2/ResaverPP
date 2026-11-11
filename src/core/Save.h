@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace ess
@@ -54,7 +55,7 @@ namespace ess
 		std::vector<std::string> full;
 		std::vector<std::string> lite;
 		bool                     hasLite = false;
-		// Starfield: medium plugins (form ids FD xx yyyy) and, per plugin (form version 140+: names only before), the
+		// Starfield: medium plugins (form ids FD xx yyyy) and, per plugin (save version 120+: names only before), the
 		// Creations details the game writes for files that are not base game files
 		struct SfExtra
 		{
@@ -63,8 +64,13 @@ namespace ess
 			std::uint8_t achievementFriendly = 0;
 		};
 		std::vector<std::string>   medium;
-		bool                       hasMedium = false;
+		bool                       hasMedium = false;  // Starfield: the medium count is in the save (save version 108+)
 		bool                       sfExtras = false;  // entries carry SfExtra
+		// Starfield: how the entries carry SfExtra (the loader's plugin entry reader 0x141812e80, by the header's save
+		// version): 0 names only (< 120); 1 no flag byte, the details only for files that are not base game files
+		// (120..139; the achievement byte from 121: sfAchievementByte); 2 a flag byte, the details when it is set (140+)
+		std::uint8_t               sfExtraMode = 0;
+		bool                       sfAchievementByte = true;
 		std::vector<SfExtra>       sfFull, sfLite, sfMedium;
 		bool                       sfHasTail = false;  // the u16 after the lists (1 in every save seen)
 		std::uint16_t              sfTail = 0;
@@ -104,6 +110,9 @@ namespace ess
 	};
 	const char* ChangeFormTypeName(std::uint8_t a_code, bool a_fo4 = false);  // Fallout 4 numbers its types differently from 28 on
 	const char* ChangeFormTypeNameSF(std::uint8_t a_code);  // Starfield 1.16.244 (its own numbering: no APPA, TERM 47...)
+	// Starfield: the game's "base game file" test (exe 1.16.244 0x140425850), which decides at save versions 120..139
+	// whether a plugin entry carries the Creations details
+	bool IsBaseGameFileSF(std::string_view a_name);
 
 	struct ChangeForm
 	{
@@ -167,6 +176,9 @@ namespace ess
 		// Papyrus string indices are 16-bit: Skyrim LE, and Fallout 4 saves of form version 61 and older
 		bool                      str16() const { return isLE() || (isFO4() && formVersion <= 61); }
 		bool                      isSF() const { return header.isSF(); }
+		// Starfield: the header's save version, which the loader goes by for the plugin entries, the change form version
+		// default and the change form type list (its stream byte +0x110, set from the header: 0x141830755)
+		std::uint8_t              sfVersion() const { return header.sfSaveVersion ? header.sfSaveVersion : formVersion; }
 		const char*               cosaveExt() const { return isSF() ? ".sfse" : isFO4() ? ".f4se" : ".skse"; }
 		const char*               saveExt() const { return isSF() ? ".sfs" : isFO4() ? ".fos" : ".ess"; }
 		const char*               gameTitle() const { return isSF() ? "Starfield" : isFO4() ? "Fallout 4" : isLE() ? "Skyrim Legendary Edition" : "Skyrim Special Edition"; }

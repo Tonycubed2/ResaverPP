@@ -113,7 +113,8 @@ namespace ess
 			}
 		}
 
-		// Object::Save 0x142803340
+		// Object::Save 0x142803340 / Object::Load 0x142803cf0: flag 0x01 constructed, 0x02 valid, 0x08 initialized, 0x10 lock
+		// bit, 0x20 no state name, 0x40 u32 remainingPropsToInit (unknown1), 0x04 u32 owning stack id (unknown2), 0x80 guards
 		InstanceData ReadObjectData(Reader& r)
 		{
 			InstanceData d;

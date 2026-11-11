@@ -985,6 +985,24 @@ project; you do the coding, building, delivering and publishing.
   - Unknown / not modelled: the GameVM part (raw), meaning of object data flags 0x02/0x08, `sfUnknown`/`sfUnknownByte`,
     `freezeU32s`, guard lists, `guardGlobal*`; u16 string-index mode of the writers (never seen; not supported). Only
     writers were read: the game's loader has not been checked against an edited save.
+- **Starfield: checked against the game's LOADER** (2026-11-11, branch sfloader). Source: scratchpad `sf2/LOADER.md`
+  (Starfield.exe 1.16.244 loader functions read, every claim with an address). Results:
+  - The loader goes by the HEADER's save version (`sfSaveVersion`; `SaveFile::sfVersion()`), not the form version, for
+    the plugin entries, the change form default version and the type list. Plugin entries (0x141812e80): < 120 names
+    only; 120..139 no flag byte, details for files that are not base game files (`IsBaseGameFileSF`, the exe's list
+    and rule, 0x140425850), achievement byte from 121; 140+ a flag byte. Medium count only from 108 (0x141813993).
+    `PluginInfo::sfExtraMode` / `sfAchievementByte` / `hasMedium` hold the layout; before this, 120..139 and pre-108
+    saves did not open. FD medium ids (8-bit index + 16-bit) and FE light ids are now PROVEN (0x14180ade0).
+  - FLT: the loader uses [0],[3],[4],[6..8],[11] and [10] as a SEEK_CUR gap before table 3; table 1 must follow the
+    FLT, table 2 must end where the change forms start (they are read twice, the second time sequentially), table 3
+    follows the change forms. FLT[10] is now always written 0.
+  - Container: chunk table read from the first 64 KB (writer now refuses more than 16366 chunks); any size accepted.
+  - Papyrus loader: u32 string indices when the VM version >= 3; 0xFFFF section = save reported corrupt; missing object
+    ids (object data, variables -> None, unbinds, thread objects, relay targets) never fail the load, they only make
+    the game log "Errors occurred while loading the Papyrus save game data". Object data flags: 0x01 constructed,
+    0x02 valid, 0x08 initialized, 0x40 u32 remainingPropsToInit (not a lock count), 0x04 u32 owning stack.
+  - Created-ID section: a remap table (saved FF id -> current id), not cross-checked with the change forms: leave it as
+    is when deleting created change forms.
 - **Starfield saves (.sfs)** (2026-11-10, branch starfield, merged with starfield-papyrus above). Source of truth:
   scratchpad `sf2/FORMAT.md` (Starfield.exe 1.16.244 writers read; 4 saves of Tony's character Bronx, form versions 110
   (1.9.71) and 153 (1.16.244), all parsing to the last byte), Python reference `sf2/tools/sfs.py` / `summary.py`.
@@ -994,9 +1012,8 @@ project; you do the coding, building, delivering and publishing.
     chunk zlib cannot shrink is stored raw, gaps filled with "padding\0"; no checksum anywhere). Inner file: header
     (`Header::isSF`, engine version in `version`, u8 `sfSaveVersion`, the 12 bytes after the file time kept in `sfRest`,
     no screenshot), form version, game version, `sfCreatedVersion`, plugin block (full u8 / light u16 / medium u32
-    counts, then u16 1 kept as `sfHasTail/sfTail`; per entry the Creations details `SfExtra` at form version 140+ - the
-    exact version where they start is NOT known (110: none, 153: yes); the other reading is tried when the first does
-    not fill the block), FLT (25 u32; `unused[1]` = field 11 = change form type list offset, rewritten), 3 global
+    counts, then u16 1 kept as `sfHasTail/sfTail`; per entry the Creations details `SfExtra` by the header save version - see the LOADER entry above; other
+    layouts are tried (and reported as a problem) when the version's does not fill the block), FLT (25 u32; `unused[1]` = field 11 = change form type list offset, rewritten), 3 global
     tables (`GlobalData::sfKind` by type: 0/2 offsets of string table / created-ID section, {1,3,101,102,1000} vsval
     string-index list + sized data, {4,6,15,1001} and the mask-8 types sized, the rest type only), change forms
     (`sfFlags`, optional version / change flags (default 0x80008000), vsval counts, `sfRefs` 3-byte refIDs,

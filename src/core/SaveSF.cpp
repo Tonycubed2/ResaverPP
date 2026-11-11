@@ -252,61 +252,78 @@ namespace ess
 			w.bytes(c.data);
 		}
 
-		PluginInfo::SfExtra ReadPluginSF(Reader& r, std::string& a_name, bool a_extras)
+		// one plugin entry as the loader reads it (0x141812e80, a_mode as PluginInfo::sfExtraMode)
+		PluginInfo::SfExtra ReadPluginSF(Reader& r, std::string& a_name, std::uint8_t a_mode, bool a_achievement)
 		{
 			PluginInfo::SfExtra e;
 			a_name = r.wstring();
-			if (a_extras) {
+			if (a_mode == 2) {
 				e.isCreation = r.u8();
-				if (e.isCreation) {
-					e.title = r.wstring();
-					e.id = r.wstring();
-					e.version = r.wstring();
+			} else if (a_mode == 1) {
+				e.isCreation = IsBaseGameFileSF(a_name) ? 0 : 1;
+			}
+			if (a_mode != 0 && e.isCreation) {
+				e.title = r.wstring();
+				e.id = r.wstring();
+				e.version = r.wstring();
+				if (a_mode == 2 || a_achievement) {
 					e.achievementFriendly = r.u8();
 				}
 			}
 			return e;
 		}
 
-		void WritePluginSF(Writer& w, const std::string& a_name, const PluginInfo::SfExtra& e, bool a_extras)
+		void WritePluginSF(Writer& w, const std::string& a_name, const PluginInfo::SfExtra& e, std::uint8_t a_mode, bool a_achievement)
 		{
 			w.wstring(a_name);
-			if (a_extras) {
+			if (a_mode == 2) {
 				w.u8(e.isCreation);
-				if (e.isCreation) {
-					w.wstring(e.title);
-					w.wstring(e.id);
-					w.wstring(e.version);
+			} else if (a_mode == 1 && (e.isCreation != 0) == IsBaseGameFileSF(a_name)) {
+				// at these save versions the game decides by the name alone: an entry that does not follow the rule
+				// would be misread
+				throw std::runtime_error("plugin '" + a_name + "': its Creations details do not follow the game's base file rule");
+			}
+			if (a_mode != 0 && e.isCreation) {
+				w.wstring(e.title);
+				w.wstring(e.id);
+				w.wstring(e.version);
+				if (a_mode == 2 || a_achievement) {
 					w.u8(e.achievementFriendly);
 				}
 			}
 		}
 
-		// the plugin info block (exe 0x141812990, entry 0x1418125d0): u8 n full, u16 n light, u32 n medium, u16 1
-		bool ReadPluginsSF(const std::uint8_t* a_p, std::size_t a_n, bool a_extras, PluginInfo& a_out)
+		// the plugin info block (exe 0x141812990 writes it, 0x141813760 reads it): u8 n full, u16 n light, [save version
+		// 108+: u32 n medium], u16 (the loader skips it)
+		bool ReadPluginsSF(const std::uint8_t* a_p, std::size_t a_n, std::uint8_t a_mode, bool a_achievement, bool a_medium, PluginInfo& a_out)
 		{
 			PluginInfo pi;
 			try {
 				Reader r(a_p, a_n);
-				pi.sfExtras = a_extras;
-				pi.hasLite = pi.hasMedium = true;
+				pi.sfExtraMode = a_mode;
+				pi.sfExtras = a_mode != 0;
+				pi.sfAchievementByte = a_achievement;
+				pi.hasLite = true;
+				pi.hasMedium = a_medium;
 				const auto nFull = r.u8();
 				for (unsigned i = 0; i < nFull; ++i) {
 					pi.full.emplace_back();
-					pi.sfFull.push_back(ReadPluginSF(r, pi.full.back(), a_extras));
+					pi.sfFull.push_back(ReadPluginSF(r, pi.full.back(), a_mode, a_achievement));
 				}
 				const auto nLite = r.u16();
 				for (unsigned i = 0; i < nLite; ++i) {
 					pi.lite.emplace_back();
-					pi.sfLite.push_back(ReadPluginSF(r, pi.lite.back(), a_extras));
+					pi.sfLite.push_back(ReadPluginSF(r, pi.lite.back(), a_mode, a_achievement));
 				}
-				const auto nMedium = r.u32();
-				if (nMedium > a_n) {
-					return false;
-				}
-				for (std::uint32_t i = 0; i < nMedium; ++i) {
-					pi.medium.emplace_back();
-					pi.sfMedium.push_back(ReadPluginSF(r, pi.medium.back(), a_extras));
+				if (a_medium) {
+					const auto nMedium = r.u32();
+					if (nMedium > a_n) {
+						return false;
+					}
+					for (std::uint32_t i = 0; i < nMedium; ++i) {
+						pi.medium.emplace_back();
+						pi.sfMedium.push_back(ReadPluginSF(r, pi.medium.back(), a_mode, a_achievement));
+					}
 				}
 				if (r.remaining() == 2) {
 					pi.sfHasTail = true;
@@ -321,6 +338,39 @@ namespace ess
 			a_out = std::move(pi);
 			return true;
 		}
+	}
+
+	bool IsBaseGameFileSF(std::string_view a_name)
+	{
+		// exe 1.16.244: 0x140425850 with its lists 0x142cc7ec0 (0x145973580) and 0x142cc7f20 (0x145931158) and the
+		// "prefix-<listed name>" rule 0x142cc7fc0; names compared with _stricmp
+		static constexpr std::string_view kListed[] = { "Constellation.esm", "OldMars.esm", "ShatteredSpace.esm", "SFBGS050.esm", "SFBGS003.esm",
+			"SFBGS004.esm", "SFBGS006.esm", "SFBGS007.esm", "SFBGS008.esm", "SFBGS00D.esm", "SFBGS047.esm" };
+		static constexpr std::string_view kOthers[] = { "Starfield.esm", "TestData.esm", "BlueprintShips", "BlueprintShips-Starfield.esm",
+			"BlueprintShips-TestData.esm" };
+		auto same = [](std::string_view a, std::string_view b) {
+			if (a.size() != b.size()) {
+				return false;
+			}
+			for (std::size_t i = 0; i < a.size(); ++i) {
+				const auto x = static_cast<unsigned char>(a[i]), y = static_cast<unsigned char>(b[i]);
+				if ((x >= 'A' && x <= 'Z' ? x + 32 : x) != (y >= 'A' && y <= 'Z' ? y + 32 : y)) {
+					return false;
+				}
+			}
+			return true;
+		};
+		auto listed = [&](std::string_view n) {
+			return std::any_of(std::begin(kListed), std::end(kListed), [&](std::string_view k) { return same(n, k); });
+		};
+		if (a_name.empty()) {
+			return false;
+		}
+		if (listed(a_name) || std::any_of(std::begin(kOthers), std::end(kOthers), [&](std::string_view k) { return same(a_name, k); })) {
+			return true;
+		}
+		const auto dash = a_name.find('-');
+		return dash != std::string_view::npos && listed(a_name.substr(dash + 1));
 	}
 
 	// ---- container --------------------------------------------------------------------------------------------
@@ -393,6 +443,10 @@ namespace ess
 		const std::size_t cs = static_cast<std::size_t>(a_info.chunkSize);
 		const std::size_t a = static_cast<std::size_t>(a_info.alignment);
 		const std::size_t n = (a_inner.size() + cs - 1) / cs;
+		if (0x48 + 4 * n > 0x10000) {
+			// the reader takes the chunk table from the first 64 KB it reads (0x1428ef9c0)
+			throw std::runtime_error("the save is too large for the Starfield container");
+		}
 		std::vector<std::vector<std::uint8_t>> packed(n);
 		{
 			const unsigned          workers = std::max(1u, std::min(8u, std::thread::hardware_concurrency()));
@@ -489,10 +543,31 @@ namespace ess
 		{
 			const auto infoSize = r.u32();
 			r.need(infoSize);
-			// names only at form version 110, with the Creations details at 153 (exe 1.16.244); where between them it
-			// changed is not known: the other reading is tried when the first does not fill the block exactly
-			const bool first = save->formVersion >= 140;
-			if (!ReadPluginsSF(r.here(), infoSize, first, save->plugins) && !ReadPluginsSF(r.here(), infoSize, !first, save->plugins)) {
+			// the layout follows the header's save version (the loader keeps it at +0x110 of its stream: 0x141830755),
+			// not the form version (equal in every save seen). 0x141812e80: names only before 120; 120..139 no flag
+			// byte, the details for files that are not base game files (the achievement byte from 121); 140+ a flag
+			// byte. 0x141813760: the medium count from 108. If that does not fill the block, the other layouts are tried
+			const unsigned v = save->sfVersion();
+			const std::uint8_t mode = v >= 140 ? 2 : v >= 120 ? 1 : 0;
+			const bool         ach = v >= 121 || v < 120;
+			const bool         med = v >= 108;
+			struct Try
+			{
+				std::uint8_t mode;
+				bool         ach, med;
+			};
+			const Try tries[] = { { mode, ach, med }, { 2, true, true }, { 1, true, true }, { 1, false, true }, { 0, true, true }, { 0, true, false } };
+			bool      ok = false;
+			for (const auto& t : tries) {
+				if (ReadPluginsSF(r.here(), infoSize, t.mode, t.ach, t.med, save->plugins)) {
+					ok = true;
+					if (&t != &tries[0]) {
+						save->problems.push_back("the plugin list is not laid out as save version " + std::to_string(v) + " says (read another way)");
+					}
+					break;
+				}
+			}
+			if (!ok) {
 				throw FormatError("the plugin list does not match its size", r.pos());
 			}
 			r.seek(r.pos() + infoSize);
@@ -537,7 +612,7 @@ namespace ess
 		a_stage = "the change forms";
 		save->changeForms.reserve(t.changeFormCount);
 		for (std::uint32_t i = 0; i < t.changeFormCount; ++i) {
-			save->changeForms.push_back(ReadChangeFormSF(r, save->formVersion));
+			save->changeForms.push_back(ReadChangeFormSF(r, save->sfVersion()));
 		}
 		expect(t.table3Offset, "global data table 3");
 		a_stage = "global data table 3 (Papyrus)";
@@ -565,7 +640,7 @@ namespace ess
 			for (std::uint32_t k = 0; k < runs; ++k) {
 				const auto type = r.u8();
 				const auto count = ReadVsval(r);
-				if (type > 0x3F) {
+				if (type >= 59) {  // the loader maps codes below 0x3b through 0x144a53290, others to no type (0x141816231)
 					save->problems.push_back("change form type " + std::to_string(type) + " is out of range");
 				}
 				if (count > save->changeForms.size() - i) {
@@ -660,15 +735,19 @@ namespace ess
 				Writer pw;
 				pw.u8(static_cast<std::uint8_t>(pl.full.size()));
 				for (std::size_t i = 0; i < pl.full.size(); ++i) {
-					WritePluginSF(pw, pl.full[i], extra(pl.sfFull, i), pl.sfExtras);
+					WritePluginSF(pw, pl.full[i], extra(pl.sfFull, i), pl.sfExtraMode, pl.sfAchievementByte);
 				}
 				pw.u16(static_cast<std::uint16_t>(pl.lite.size()));
 				for (std::size_t i = 0; i < pl.lite.size(); ++i) {
-					WritePluginSF(pw, pl.lite[i], extra(pl.sfLite, i), pl.sfExtras);
+					WritePluginSF(pw, pl.lite[i], extra(pl.sfLite, i), pl.sfExtraMode, pl.sfAchievementByte);
 				}
-				pw.u32(static_cast<std::uint32_t>(pl.medium.size()));
-				for (std::size_t i = 0; i < pl.medium.size(); ++i) {
-					WritePluginSF(pw, pl.medium[i], extra(pl.sfMedium, i), pl.sfExtras);
+				if (pl.hasMedium) {
+					pw.u32(static_cast<std::uint32_t>(pl.medium.size()));
+					for (std::size_t i = 0; i < pl.medium.size(); ++i) {
+						WritePluginSF(pw, pl.medium[i], extra(pl.sfMedium, i), pl.sfExtraMode, pl.sfAchievementByte);
+					}
+				} else if (!pl.medium.empty()) {
+					throw std::runtime_error("medium plugins cannot be written to a save of this version");
 				}
 				if (pl.sfHasTail) {
 					pw.u16(pl.sfTail);
@@ -696,7 +775,7 @@ namespace ess
 			table(s.table2);
 			const auto cf = static_cast<std::uint32_t>(w.size());
 			for (const auto& c : s.changeForms) {
-				WriteChangeFormSF(w, c, s.formVersion);
+				WriteChangeFormSF(w, c, s.sfVersion());
 			}
 			const auto t3 = static_cast<std::uint32_t>(w.size());
 			table(s.table3);
@@ -744,8 +823,10 @@ namespace ess
 			for (int i = 0; i < 10; ++i) {
 				w.patch32(fltAt + 4 * i, vals[i]);
 			}
+			// FLT[10]: the loader skips that many bytes (SEEK_CUR) after the change forms before table 3 (0x141817607); table 3
+			// is written right after them, so 0 (the game's writer never sets it). FLT[11]: the type list
 			for (int i = 0; i < 15; ++i) {
-				w.patch32(fltAt + 40 + 4 * i, i == 1 ? runsAt : s.flt.unused[i]);
+				w.patch32(fltAt + 40 + 4 * i, i == 0 ? 0 : i == 1 ? runsAt : s.flt.unused[i]);
 			}
 			return std::move(w.buf);
 		}
