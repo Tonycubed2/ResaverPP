@@ -7295,8 +7295,8 @@ en "Your controls are switched back on."
 tr "你的操作控制已重新开启。"
 
 # AppLiveGame.cpp:134  ImGui::TextDisabled("%s", tr("No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin "
-en "No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin on the ReSaver Plus page; for Fallout 4, the F4SE one)."
-tr "无需打开存档：这些功能通过 ReSaverHelper 在游戏运行时直接作用（ReSaver Plus 页面上的可选 SKSE 插件；《辐射4》则用 F4SE 版本）。"
+en "No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin on the ReSaver Plus page; for Fallout 4 the F4SE one, for Starfield the SFSE one)."
+tr "无需打开存档：这些功能通过 ReSaverHelper 在游戏运行时直接作用（ReSaver Plus 页面上的可选 SKSE 插件；《辐射4》用 F4SE 版本，《星空》用 SFSE 版本）。"
 
 # AppLiveGame.cpp:142  Colored(theme::Caution(), tr("The link to the running game is switched off in Options > Settings."));
 en "The link to the running game is switched off in Options > Settings."
@@ -7307,8 +7307,8 @@ en "Switch it on"
 tr "开启它"
 
 # AppLiveGame.cpp:148  Colored(theme::Caution(), tr("Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, "
-en "Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, or Fallout 4 (with F4SE and the Address Library) with the Fallout 4 ReSaverHelper.dll in Data\\F4SE\\Plugins (or as a mod in Mod Organizer / Vortex); this window connects by itself once the game runs."
-tr "未连接到游戏。请安装 ReSaverHelper.dll 到 Data\\\\SKSE\\\\Plugins 后启动天际（通过 SKSE），或把《辐射4》的 ReSaverHelper.dll 放到 Data\\\\F4SE\\\\Plugins（或在 Mod Organizer / Vortex 中作为模组安装）后启动《辐射4》（通过 F4SE 和 Address Library）；游戏运行后此窗口会自动连接。"
+en "Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, or Fallout 4 (with F4SE and the Address Library) with the Fallout 4 ReSaverHelper.dll in Data\\F4SE\\Plugins (or as a mod in Mod Organizer / Vortex), or Starfield (with SFSE and the Address Library) with the Starfield ReSaverHelper.dll in Data\\SFSE\\Plugins; this window connects by itself once the game runs."
+tr "未连接到游戏。请安装 ReSaverHelper.dll 到 Data\\\\SKSE\\\\Plugins 后启动天际（通过 SKSE），或把《辐射4》的 ReSaverHelper.dll 放到 Data\\\\F4SE\\\\Plugins（或在 Mod Organizer / Vortex 中作为模组安装）后启动《辐射4》（通过 F4SE 和 Address Library），或把《星空》的 ReSaverHelper.dll 放到 Data\\\\SFSE\\\\Plugins 后启动《星空》（通过 SFSE 和 Address Library）；游戏运行后此窗口会自动连接。"
 
 # AppLiveGame.cpp:152  Colored(theme::Caution(), tr("Connected, but the game has ReSaverHelper version ") + info.helperVersion +
 en "Connected, but the game has ReSaverHelper version "
@@ -7359,8 +7359,8 @@ en "Switching your controls back on"
 tr "正在重新开启你的操作控制"
 
 # AppLiveGame.cpp:178  tips::Tip(fo4 ? tr("Fallout 4: ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. "
-en "Fallout 4: ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. Use \"Give the controls back to the game\" when the scene or mod that stuck them is over."
-tr "《辐射4》：ForceEnablePlayerControls——无论是什么脚本或场景禁用了你的控制，都会重新开启。当卡住控制的场景或模组结束后，请使用「把控制权交还给游戏」。"
+en "ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. Use \"Give the controls back to the game\" when the scene or mod that stuck them is over."
+tr "ForceEnablePlayerControls——无论是什么脚本或场景禁用了你的控制，都会重新开启。当卡住控制的场景或模组结束后，请使用「把控制权交还给游戏」。"
 
 # AppLiveGame.cpp:180  : tr("Switches the player's controls back on (EnablePlayerControls): moving, fighting, menus, activating, looking around, "
 en "Switches the player's controls back on (EnablePlayerControls): moving, fighting, menus, activating, looking around, sneaking, the journal. For a scene or a mod that left you unable to move."
@@ -7399,8 +7399,8 @@ en "Giving the controls back to the game"
 tr "正在把控制权交还给游戏"
 
 # AppLiveGame.cpp:196  tips::Tip(tr("Fallout 4: undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your "
-en "Fallout 4: undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your controls again as the game expects. Use it once the scene or mod that stuck them is over."
-tr "《辐射4》：撤销「恢复我的操作控制」（ResetForceEnabledPlayerControls），让场景和脚本可以按游戏的预期再次禁用你的控制。当卡住控制的场景或模组结束后使用。"
+en "Undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your controls again as the game expects. Use it once the scene or mod that stuck them is over."
+tr "撤销「恢复我的操作控制」（ResetForceEnabledPlayerControls），让场景和脚本可以按游戏的预期再次禁用你的控制。当卡住控制的场景或模组结束后使用。"
 
 # AppLiveGame.cpp:202  ImGui::SeparatorText(tr("Your followers"));
 en "Your followers"
@@ -14199,3 +14199,79 @@ tr "阶段 %u 已标记为未完成"
 # AppStarfield.cpp
 en "Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."
 tr "勾选阶段只会将其标记为完成（Quest.IsStageDone）：不会运行其脚本片段。"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Both: save, then controls"
+tr "两者：先存档，再恢复控制"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Saving and switching your controls on"
+tr "正在存档并恢复你的控制"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Saves the game (a new save), then forces your controls back on: the same as holding Ctrl in the game."
+tr "保存游戏（新存档），然后强制恢复你的控制：与在游戏中按住 Ctrl 相同。"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Asking the game..."
+tr "正在询问游戏……"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "In the game: %s, current stage %s, stages done: %s"
+tr "游戏中：%s，当前阶段 %s，已完成的阶段：%s"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "none"
+tr "无"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "%s - now %s, current stage %s"
+tr "%s——现在%s，当前阶段 %s"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Done in the game"
+tr "已在游戏中完成"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Sent to the game (not seen done yet: check again in a moment)"
+tr "已发送到游戏（尚未看到完成：稍后再检查一次）"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "In the running game"
+tr "在运行中的游戏里"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed."
+tr "未连接：请在安装了 SFSE 和《星空》版 ReSaverHelper.dll 的情况下启动《星空》。"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game connected is not Starfield."
+tr "连接的游戏不是《星空》。"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Read it from the game"
+tr "从游戏中读取"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Set stage (runs its script)"
+tr "设置阶段（会运行其脚本）"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Complete"
+tr "完成"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own completequest command for this quest."
+tr "游戏自带的 completequest 命令，作用于此任务。"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own stopquest command for this quest."
+tr "游戏自带的 stopquest 命令，作用于此任务。"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own resetquest command for this quest."
+tr "游戏自带的 resetquest 命令，作用于此任务。"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."
+tr "游戏自带的 setstage 命令：任务进入该阶段并运行该阶段的脚本（奖励、后续任务、场景）。"

@@ -100,7 +100,7 @@ void App::liveGameAction(const std::string& a_command, const std::string& a_what
 			_liveGameResult = tr("The game said: ") + LiveLink::Error(r);
 		} else if (a_command == "GATHER" && LiveLink::Field(r, 0) == "?") {
 			_liveGameResult = tr("Your companion and Dogmeat were called to you (if they are with you: Fallout 4 does not say who came).");
-		} else if (a_command == "CONTROLS" && liveFO4()) {
+		} else if (a_command == "CONTROLS" && (liveFO4() || liveSF())) {
 			_liveGameResult = tr("Your controls are forced back on (ForceEnablePlayerControls). \"Give the controls back to the game\" undoes it.");
 		} else if (a_command == "CONTROLSRESET") {
 			_liveGameResult = tr("Your controls are back to what the game and its scripts set.");
@@ -130,9 +130,10 @@ void App::drawLiveGame()
 		return;
 	}
 	const bool fo4 = liveFO4();
+	const bool sfg = liveSF();
 	ImGui::PushTextWrapPos(600);
 	ImGui::TextDisabled("%s", tr("No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin "
-						"on the ReSaver Plus page; for Fallout 4, the F4SE one)."));
+						"on the ReSaver Plus page; for Fallout 4 the F4SE one, for Starfield the SFSE one)."));
 	ImGui::PopTextWrapPos();
 	ImGui::Spacing();
 
@@ -147,7 +148,8 @@ void App::drawLiveGame()
 	} else if (!info.connected) {
 		Colored(theme::Caution(), tr("Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, "
 								  "or Fallout 4 (with F4SE and the Address Library) with the Fallout 4 ReSaverHelper.dll in Data\\F4SE\\Plugins "
-								  "(or as a mod in Mod Organizer / Vortex); this window connects by itself once the game runs."));
+								  "(or as a mod in Mod Organizer / Vortex), or Starfield (with SFSE and the Address Library) with the Starfield ReSaverHelper.dll in "
+								  "Data\\SFSE\\Plugins; this window connects by itself once the game runs."));
 	} else if (!helperAtLeast(kRescueHelper)) {
 		Colored(theme::Caution(), tr("Connected, but the game has ReSaverHelper version ") + info.helperVersion +
 									  tr(". These need version 12 or newer: update ReSaverHelper from the ReSaver Plus page") +
@@ -162,7 +164,7 @@ void App::drawLiveGame()
 
 	ImGui::BeginDisabled(!ready || _liveGameBusy);
 	const ImVec2 big(296, 0);
-	if (ImGui::Button(fo4 ? tr("Call my companion and Dogmeat") : tr("Gather followers"), big)) {
+	if (!sfg && ImGui::Button(fo4 ? tr("Call my companion and Dogmeat") : tr("Gather followers"), big)) {
 		liveListFollowers();
 	}
 	tips::Tip(fo4 ? tr("Fallout 4: your current companion and Dogmeat are teleported to you by the game's own follower system (the same "
@@ -171,11 +173,13 @@ void App::drawLiveGame()
 			  "to you, wherever they are: lost, stuck, left in another city or cell. They are placed in a half circle behind you. "
 			  "You get the list first: untick anyone who is not with you (a follower you left at home), and they are remembered "
 			  "for the hold-Ctrl rescue too (sGatherSkip in ReSaverHelper.ini)."));
-	ImGui::SameLine();
+	if (!sfg) {
+		ImGui::SameLine();
+	}
 	if (ImGui::Button(tr("Get my controls back"), big)) {
 		liveGameAction("CONTROLS", tr("Switching your controls back on"));
 	}
-	tips::Tip(fo4 ? tr("Fallout 4: ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. "
+	tips::Tip(fo4 || sfg ? tr("ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. "
 				   "Use \"Give the controls back to the game\" when the scene or mod that stuck them is over.")
 				 : tr("Switches the player's controls back on (EnablePlayerControls): moving, fighting, menus, activating, looking around, "
 			  "sneaking, the journal. For a scene or a mod that left you unable to move."));
@@ -184,16 +188,23 @@ void App::drawLiveGame()
 	}
 	tips::Tip(tr("Saves the game as a new save, ReSaverPP_Rescue_<date>_<time>: your other saves are not touched."));
 	ImGui::SameLine();
-	if (ImGui::Button(tr("All three: save, controls, followers"), big)) {
+	if (sfg) {
+		if (ImGui::Button(tr("Both: save, then controls"), big)) {
+			liveGameAction("RESCUE", tr("Saving and switching your controls on"));
+		}
+		tips::Tip(tr("Saves the game (a new save), then forces your controls back on: the same as holding Ctrl in the game."));
+	} else if (ImGui::Button(tr("All three: save, controls, followers"), big)) {
 		liveGameAction("RESCUE", tr("Saving, switching your controls on and bringing your followers"));
 	}
-	tips::Tip(tr("Saves the game (a new save), switches your controls back on and brings every follower next to you: the same as holding "
-			  "Ctrl in the game. The save is made first, so it is the game as it was before the followers moved."));
-	if (fo4) {
+	if (!sfg) {
+		tips::Tip(tr("Saves the game (a new save), switches your controls back on and brings every follower next to you: the same as holding "
+				  "Ctrl in the game. The save is made first, so it is the game as it was before the followers moved."));
+	}
+	if (fo4 || sfg) {
 		if (ImGui::Button(tr("Give the controls back to the game"), big)) {
 			liveGameAction("CONTROLSRESET", tr("Giving the controls back to the game"));
 		}
-		tips::Tip(tr("Fallout 4: undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your "
+		tips::Tip(tr("Undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your "
 				  "controls again as the game expects. Use it once the scene or mod that stuck them is over."));
 	}
 	ImGui::EndDisabled();

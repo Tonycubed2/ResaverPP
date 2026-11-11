@@ -7247,7 +7247,7 @@ en "Your controls are switched back on."
 tr ""
 
 # AppLiveGame.cpp:134  ImGui::TextDisabled("%s", tr("No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin "
-en "No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin on the ReSaver Plus page; for Fallout 4, the F4SE one)."
+en "No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin on the ReSaver Plus page; for Fallout 4 the F4SE one, for Starfield the SFSE one)."
 tr ""
 
 # AppLiveGame.cpp:142  Colored(theme::Caution(), tr("The link to the running game is switched off in Options > Settings."));
@@ -7259,7 +7259,7 @@ en "Switch it on"
 tr ""
 
 # AppLiveGame.cpp:148  Colored(theme::Caution(), tr("Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, "
-en "Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, or Fallout 4 (with F4SE and the Address Library) with the Fallout 4 ReSaverHelper.dll in Data\\F4SE\\Plugins (or as a mod in Mod Organizer / Vortex); this window connects by itself once the game runs."
+en "Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, or Fallout 4 (with F4SE and the Address Library) with the Fallout 4 ReSaverHelper.dll in Data\\F4SE\\Plugins (or as a mod in Mod Organizer / Vortex), or Starfield (with SFSE and the Address Library) with the Starfield ReSaverHelper.dll in Data\\SFSE\\Plugins; this window connects by itself once the game runs."
 tr ""
 
 # AppLiveGame.cpp:152  Colored(theme::Caution(), tr("Connected, but the game has ReSaverHelper version ") + info.helperVersion +
@@ -7311,7 +7311,7 @@ en "Switching your controls back on"
 tr ""
 
 # AppLiveGame.cpp:178  tips::Tip(fo4 ? tr("Fallout 4: ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. "
-en "Fallout 4: ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. Use \"Give the controls back to the game\" when the scene or mod that stuck them is over."
+en "ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. Use \"Give the controls back to the game\" when the scene or mod that stuck them is over."
 tr ""
 
 # AppLiveGame.cpp:180  : tr("Switches the player's controls back on (EnablePlayerControls): moving, fighting, menus, activating, looking around, "
@@ -7351,7 +7351,7 @@ en "Giving the controls back to the game"
 tr ""
 
 # AppLiveGame.cpp:196  tips::Tip(tr("Fallout 4: undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your "
-en "Fallout 4: undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your controls again as the game expects. Use it once the scene or mod that stuck them is over."
+en "Undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your controls again as the game expects. Use it once the scene or mod that stuck them is over."
 tr ""
 
 # AppLiveGame.cpp:202  ImGui::SeparatorText(tr("Your followers"));
@@ -14178,4 +14178,80 @@ tr ""
 
 # AppStarfield.cpp
 en "Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Both: save, then controls"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Saving and switching your controls on"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Saves the game (a new save), then forces your controls back on: the same as holding Ctrl in the game."
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Asking the game..."
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "In the game: %s, current stage %s, stages done: %s"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "none"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "%s - now %s, current stage %s"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Done in the game"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Sent to the game (not seen done yet: check again in a moment)"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "In the running game"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed."
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game connected is not Starfield."
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Read it from the game"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Set stage (runs its script)"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Complete"
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own completequest command for this quest."
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own stopquest command for this quest."
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own resetquest command for this quest."
+tr ""
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."
 tr ""

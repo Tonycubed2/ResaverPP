@@ -191,12 +191,23 @@ void App::liveSetStage(std::uint32_t a_formID, std::uint16_t a_stage, const std:
 bool App::helperAtLeast(int a_version) const
 {
 	const auto info = _live.info();
+	if (info.connected && info.runtime == "SF") {
+		// the Starfield helper (its own versions from 1): version 1 speaks Skyrim's 11 quest commands (QUEST, SETSTAGE,
+		// COMPLETE, STOP, RESET) and 12's rescue set without GATHER; nothing else
+		return (a_version == 11 || a_version == 12) && std::atoi(info.helperVersion.c_str()) >= 1;
+	}
 	if (info.connected && info.runtime.rfind("F4", 0) == 0) {
 		// the Fallout 4 helper speaks version 12's rescue set (no quests or journal: the Skyrim features below 12), then its
 		// own: 13 Transplant APPLY, 14 objectives, 15 the companion records
 		return a_version >= 12 && std::atoi(info.helperVersion.c_str()) >= a_version;
 	}
 	return info.connected && std::atoi(info.helperVersion.c_str()) >= a_version;
+}
+
+bool App::liveSF() const
+{
+	const auto info = _live.info();
+	return info.connected && info.runtime == "SF";
 }
 
 bool App::liveFO4() const

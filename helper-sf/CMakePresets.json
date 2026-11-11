@@ -1,0 +1,29 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "vs2022-x64",
+            "displayName": "Visual Studio 2022, 64-bit",
+            "description": "ReSaverHelper for Starfield (SFSE).",
+            "generator": "Visual Studio 17 2022",
+            "toolset": "v143",
+            "architecture": {
+                "value": "x64",
+                "strategy": "set"
+            },
+            "binaryDir": "${sourceDir}/build"
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "release",
+            "configurePreset": "vs2022-x64",
+            "configuration": "Release"
+        }
+    ]
+}

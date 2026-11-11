@@ -6726,8 +6726,8 @@ en " (a new save: nothing was overwritten)."
 tr " (новое сохранение: ничего не перезаписано)."
 
 # AppLiveGame.cpp:134  ImGui::TextDisabled("%s", tr("No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin "
-en "No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin on the ReSaver Plus page; for Fallout 4, the F4SE one)."
-tr "Открытое сохранение не нужно: всё это действует в запущенной игре через ReSaverHelper (необязательный плагин SKSE на странице ReSaver Plus; для Fallout 4 — плагин F4SE)."
+en "No save needs to be open: these act in the game while it runs, through ReSaverHelper (the optional SKSE plugin on the ReSaver Plus page; for Fallout 4 the F4SE one, for Starfield the SFSE one)."
+tr "Открытое сохранение не нужно: всё это действует в запущенной игре через ReSaverHelper (необязательный плагин SKSE на странице ReSaver Plus; для Fallout 4 — плагин F4SE, для Starfield — плагин SFSE)."
 
 # AppLiveGame.cpp:142  Colored(theme::Caution(), tr("The link to the running game is switched off in Options > Settings."));
 en "The link to the running game is switched off in Options > Settings."
@@ -6738,8 +6738,8 @@ en "Switch it on"
 tr "Включить"
 
 # AppLiveGame.cpp:148  Colored(theme::Caution(), tr("Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, "
-en "Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, or Fallout 4 (with F4SE and the Address Library) with the Fallout 4 ReSaverHelper.dll in Data\\F4SE\\Plugins (or as a mod in Mod Organizer / Vortex); this window connects by itself once the game runs."
-tr "Нет связи с игрой. Запустите Skyrim (с SKSE) с ReSaverHelper.dll в Data\\SKSE\\Plugins или Fallout 4 (с F4SE и Address Library) с ReSaverHelper.dll для Fallout 4 в Data\\F4SE\\Plugins (или как мод в Mod Organizer / Vortex); это окно подключится само, как только игра запустится."
+en "Not connected to the game. Start Skyrim (with SKSE) with ReSaverHelper.dll installed in Data\\SKSE\\Plugins, or Fallout 4 (with F4SE and the Address Library) with the Fallout 4 ReSaverHelper.dll in Data\\F4SE\\Plugins (or as a mod in Mod Organizer / Vortex), or Starfield (with SFSE and the Address Library) with the Starfield ReSaverHelper.dll in Data\\SFSE\\Plugins; this window connects by itself once the game runs."
+tr "Нет связи с игрой. Запустите Skyrim (с SKSE) с ReSaverHelper.dll в Data\\SKSE\\Plugins или Fallout 4 (с F4SE и Address Library) с ReSaverHelper.dll для Fallout 4 в Data\\F4SE\\Plugins (или как мод в Mod Organizer / Vortex), или Starfield (с SFSE и Address Library) с ReSaverHelper.dll для Starfield в Data\\SFSE\\Plugins; это окно подключится само, как только игра запустится."
 
 # AppLiveGame.cpp:152  Colored(theme::Caution(), tr("Connected, but the game has ReSaverHelper version ") + info.helperVersion +
 en "Connected, but the game has ReSaverHelper version "
@@ -6790,8 +6790,8 @@ en "Switching your controls back on"
 tr "Включаю управление"
 
 # AppLiveGame.cpp:178  tips::Tip(fo4 ? tr("Fallout 4: ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. "
-en "Fallout 4: ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. Use \"Give the controls back to the game\" when the scene or mod that stuck them is over."
-tr "Fallout 4: ForceEnablePlayerControls — управление включается, какие бы скрипты или сцены его ни отключили. Используйте «Вернуть управление игре», когда сцена или мод, из-за которых оно застряло, закончатся."
+en "ForceEnablePlayerControls - your controls are switched on whatever scripts or scenes disabled them. Use \"Give the controls back to the game\" when the scene or mod that stuck them is over."
+tr "ForceEnablePlayerControls — управление включается, какие бы скрипты или сцены его ни отключили. Используйте «Вернуть управление игре», когда сцена или мод, из-за которых оно застряло, закончатся."
 
 # AppLiveGame.cpp:180  : tr("Switches the player's controls back on (EnablePlayerControls): moving, fighting, menus, activating, looking around, "
 en "Switches the player's controls back on (EnablePlayerControls): moving, fighting, menus, activating, looking around, sneaking, the journal. For a scene or a mod that left you unable to move."
@@ -6830,8 +6830,8 @@ en "Giving the controls back to the game"
 tr "Возвращаю управление игре"
 
 # AppLiveGame.cpp:196  tips::Tip(tr("Fallout 4: undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your "
-en "Fallout 4: undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your controls again as the game expects. Use it once the scene or mod that stuck them is over."
-tr "Fallout 4: отменяет «Вернуть мне управление» (ResetForceEnabledPlayerControls), чтобы сцены и скрипты снова могли отключать управление, как этого ждёт игра. Используйте, когда сцена или мод, из-за которых оно застряло, закончатся."
+en "Undoes \"Get my controls back\" (ResetForceEnabledPlayerControls), so scenes and scripts can disable your controls again as the game expects. Use it once the scene or mod that stuck them is over."
+tr "Отменяет «Вернуть мне управление» (ResetForceEnabledPlayerControls), чтобы сцены и скрипты снова могли отключать управление, как этого ждёт игра. Используйте, когда сцена или мод, из-за которых оно застряло, закончатся."
 
 # AppLiveGame.cpp:202  ImGui::SeparatorText(tr("Your followers"));
 en "Your followers"
@@ -14207,3 +14207,79 @@ tr "Стадия %u отмечена как невыполненная"
 # AppStarfield.cpp
 en "Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."
 tr "Отметка стадии только помечает её выполненной (Quest.IsStageDone): её фрагмент скрипта не запускается."
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Both: save, then controls"
+tr "Оба: сохранить, затем управление"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Saving and switching your controls on"
+tr "Сохранение и включение управления"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Saves the game (a new save), then forces your controls back on: the same as holding Ctrl in the game."
+tr "Сохраняет игру (новое сохранение), затем принудительно включает управление: то же, что удержание Ctrl в игре."
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Asking the game..."
+tr "Запрос к игре..."
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "In the game: %s, current stage %s, stages done: %s"
+tr "В игре: %s, текущая стадия %s, выполненные стадии: %s"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "none"
+tr "нет"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "%s - now %s, current stage %s"
+tr "%s — сейчас %s, текущая стадия %s"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Done in the game"
+tr "Сделано в игре"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Sent to the game (not seen done yet: check again in a moment)"
+tr "Отправлено в игру (пока не видно результата: проверьте ещё раз через мгновение)"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "In the running game"
+tr "В запущенной игре"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed."
+tr "Нет связи: запустите Starfield с SFSE и установленным ReSaverHelper.dll для Starfield."
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game connected is not Starfield."
+tr "Подключённая игра — не Starfield."
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Read it from the game"
+tr "Прочитать из игры"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Set stage (runs its script)"
+tr "Установить стадию (запускает её скрипт)"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "Complete"
+tr "Завершить"
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own completequest command for this quest."
+tr "Собственная команда игры completequest для этого квеста."
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own stopquest command for this quest."
+tr "Собственная команда игры stopquest для этого квеста."
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own resetquest command for this quest."
+tr "Собственная команда игры resetquest для этого квеста."
+
+# AppStarfield.cpp / AppLiveGame.cpp
+en "The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."
+tr "Собственная команда игры setstage: квест переходит на эту стадию и выполняется её скрипт (награды, следующие квесты, сцены)."

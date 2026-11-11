@@ -96,6 +96,7 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kReport:
 	case Sc::kBsa:
 	case Sc::kCosave:
+	case Sc::kLiveGame:  // (the Starfield helper: quests and the rescue set)
 		return true;
 	default:
 		return false;
@@ -118,6 +119,49 @@ std::string App::sfBaseName(std::uint32_t a_formID, const ChangeForm& a_cf) cons
 		}
 	}
 	return {};
+}
+
+void App::liveQuestSF(const std::string& a_command, std::uint32_t a_formID, int a_stage)
+{
+	std::vector<std::string> cmd{ a_command, Fmt("%08X", a_formID) };
+	if (a_command == "SETSTAGE") {
+		cmd.push_back(std::to_string(a_stage));
+	}
+	if (a_command != "QUEST") {
+		cmd.push_back(liveNotifyMode());
+		cmd.push_back("");
+	}
+	_liveQuestSFResult = tr("Asking the game...");
+	_live.request(cmd, [this, a_command](const LiveLink::Reply& r) {
+		if (!LiveLink::Ok(r)) {
+			_liveQuestSFResult = tr("The game said: ") + LiveLink::Error(r);
+			return;
+		}
+		if (a_command == "QUEST") {
+			// OK <editor id> <flags> <current stage> <running> <completed> <index:done,...>
+			std::string done;
+			const auto  list = LiveLink::Field(r, 5);
+			for (std::size_t a = 0; a < list.size();) {
+				auto b = list.find(',', a);
+				if (b == std::string::npos) {
+					b = list.size();
+				}
+				const auto one = list.substr(a, b - a);
+				if (one.size() > 2 && one.substr(one.size() - 2) == ":1") {
+					done += (done.empty() ? "" : ", ") + one.substr(0, one.size() - 2);
+				}
+				a = b + 1;
+			}
+			_liveQuestSFResult = Fmt(tr("In the game: %s, current stage %s, stages done: %s"),
+				LiveLink::Field(r, 4) == "1" ? tr("completed") : LiveLink::Field(r, 3) == "1" ? tr("running") : tr("not running"),
+				LiveLink::Field(r, 2).c_str(), done.empty() ? tr("none") : done.c_str());
+			return;
+		}
+		// OK <1 done | ? not seen yet> <running> <completed> <current stage>
+		_liveQuestSFResult = Fmt(tr("%s - now %s, current stage %s"),
+			LiveLink::Field(r, 0) == "1" ? tr("Done in the game") : tr("Sent to the game (not seen done yet: check again in a moment)"),
+			LiveLink::Field(r, 2) == "1" ? tr("completed") : LiveLink::Field(r, 1) == "1" ? tr("running") : tr("not running"), LiveLink::Field(r, 3).c_str());
+	});
 }
 
 bool App::sfPapyrus() const { return sf() && !_save->sfPapyrusRaw() && _save->papyrus(); }
@@ -555,6 +599,50 @@ void App::detailChangeFormSF(std::uint64_t k)
 				ImGui::NewLine();
 				ImGui::EndDisabled();
 				ImGui::TextDisabled("%s", tr("Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."));
+			}
+		}
+		// in the running game (the Starfield helper, an SFSE plugin): the game's own console commands for this quest
+		if (c->refID.type() != RefID::Type::kCreated && ImGui::CollapsingHeader(trId("In the running game"))) {
+			const auto info = _live.info();
+			const bool ready = info.connected && info.inGame && liveSF() && helperAtLeast(11);
+			if (!ready) {
+				ImGui::PushTextWrapPos(0);
+				ImGui::TextDisabled("%s", !info.connected ? tr("Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed.")
+											  : !liveSF()   ? tr("The game connected is not Starfield.")
+															: tr("Load a save in the game first."));
+				ImGui::PopTextWrapPos();
+			}
+			ImGui::BeginDisabled(!ready || _live.busy());
+			if (ImGui::SmallButton(tr("Read it from the game"))) {
+				liveQuestSF("QUEST", fid, 0);
+			}
+			ImGui::SetNextItemWidth(90);
+			ImGui::InputInt(tr("stage"), &_liveQuestSFStage, 0, 0);
+			_liveQuestSFStage = std::clamp(_liveQuestSFStage, 0, 65535);
+			ImGui::SameLine();
+			if (ImGui::SmallButton(tr("Set stage (runs its script)"))) {
+				liveQuestSF("SETSTAGE", fid, _liveQuestSFStage);
+			}
+			tips::Tip(tr("The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."));
+			if (ImGui::SmallButton(tr("Complete"))) {
+				liveQuestSF("COMPLETE", fid, 0);
+			}
+			tips::Tip(tr("The game's own completequest command for this quest."));
+			ImGui::SameLine();
+			if (ImGui::SmallButton(tr("Stop"))) {
+				liveQuestSF("STOP", fid, 0);
+			}
+			tips::Tip(tr("The game's own stopquest command for this quest."));
+			ImGui::SameLine();
+			if (ImGui::SmallButton(tr("Reset"))) {
+				liveQuestSF("RESET", fid, 0);
+			}
+			tips::Tip(tr("The game's own resetquest command for this quest."));
+			ImGui::EndDisabled();
+			if (!_liveQuestSFResult.empty()) {
+				ImGui::PushTextWrapPos(0);
+				ImGui::TextUnformatted(_liveQuestSFResult.c_str());
+				ImGui::PopTextWrapPos();
 			}
 		}
 	}

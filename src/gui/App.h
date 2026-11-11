@@ -640,7 +640,11 @@ private:
 	void                                  liveStopBatch(std::shared_ptr<QuestStopBatch> a_batch);
 	void                                  liveReset(std::uint32_t a_formID, const std::string& a_name);  // helper 11: Quest.Reset
 	bool                                  helperAtLeast(int a_version) const;
-	bool                                  liveFO4() const;  // the running game is Fallout 4 (its helper: the rescue set only)
+	bool                                  liveFO4() const;
+	bool                                  liveSF() const;   // the running game is Starfield (its helper: quests and the rescue set)
+	void                                  liveQuestSF(const std::string& a_command, std::uint32_t a_formID, int a_stage);  // (AppStarfield.cpp)
+	std::string                           _liveQuestSFResult;
+	int                                   _liveQuestSFStage = 0;  // the running game is Fallout 4 (its helper: the rescue set only)
 	std::vector<ChainItem>                _chainRun;
 	std::size_t                           _chainPos = 0;
 	std::string                           liveNotifyMode() const;
