@@ -117,7 +117,7 @@ void TestStarfield()
 		{
 			// every reference's data (version 153) reads to its last byte with its reference list count; actors to the end
 			// of their reference part, the player's inventory included
-			std::size_t rn = 0, rbad = 0, an = 0, aok = 0;
+			std::size_t rn = 0, rbad = 0, an = 0, aok = 0, sbad = 0;
 			bool        player = false;
 			std::string firstBad;
 			for (const auto& c : s->changeForms) {
@@ -137,6 +137,13 @@ void TestStarfield()
 					}
 					continue;
 				}
+				// the strings: a REFR's data is the reference part only, so its string count is the whole list
+				if (r.ok && c.typeCode() == 0 && r.referenceStrings != c.sfStrings.size()) {
+					++sbad;
+					if (std::getenv("RS_SF_DEBUG") && sbad < 5) {
+						std::printf("  strings %08X: counted %zu, list %zu\n", fid, r.referenceStrings, c.sfStrings.size());
+					}
+				}
 				++rn;
 				// (3 created references in one save of the sample end 83 bytes early with change flag 0x2 alone: not read yet)
 				if (!r.ok && !(c.changeFlags == 0x2 && (fid >> 24) == 0xFF)) {
@@ -146,6 +153,9 @@ void TestStarfield()
 						firstBad = b + r.error;
 					}
 				}
+			}
+			if (sbad) {
+				fail(std::to_string(sbad) + " references whose strings do not add up");
 			}
 			if (rbad) {
 				fail(std::to_string(rbad) + " of " + std::to_string(rn) + " references do not decode (first: " + firstBad + ")");
@@ -345,6 +355,57 @@ void TestStarfield()
 					c.sfStrings = list0;
 					s->header.playerName = name0;
 					break;
+				}
+				// an item taken out of a container (REFR) and out of the player (ACHR): written, read back, gone, the rest kept
+				for (const std::uint8_t code : { std::uint8_t(0), std::uint8_t(1) }) {
+					for (auto& c : s->changeForms) {
+						if (c.typeCode() != code || c.version != 153 || (code == 1 && s->formIDOf(c.refID) != 0x14)) {
+							continue;
+						}
+						const auto fid = s->formIDOf(c.refID);
+						const auto r = DecodeReferenceSF(fid, c);
+						if (!r.ok || r.items.size() < 2) {
+							continue;
+						}
+						// an item with text when the record is a REFR (its strings must move too), else any
+						const SfInventoryItem* pick = nullptr;
+						for (const auto& it : r.items) {
+							if (code == 0 ? it.stringEnd > it.stringBegin : it.stringEnd == it.stringBegin) {
+								pick = &it;
+								break;
+							}
+						}
+						if (!pick) {
+							continue;
+						}
+						const auto item = s->formIDOf(c.sfRefs[pick->refIndex]);
+						const auto before = c;
+						std::size_t n = 0;
+						const auto  why = RemoveInventoryItemsSF(*s, c, { item }, &n);
+						Check(why.empty() && n == 1, code ? "sf leftovers: an item taken out of the player" : "sf leftovers: a named item taken out of a container");
+						const auto out = fs::temp_directory_path() / ("rs_sfleft_" + name);
+						try {
+							s->write(out, false);
+							auto back = SaveFile::load(out);
+							bool ok = false;
+							for (const auto& b : back->changeForms) {
+								if (b.refID == c.refID) {
+									const auto rb = DecodeReferenceSF(fid, b);
+									ok = rb.ok && rb.items.size() == r.items.size() - 1 && (code == 1 || rb.referenceStrings == b.sfStrings.size());
+									for (const auto& it : rb.items) {
+										ok = ok && back->formIDOf(b.sfRefs[it.refIndex]) != item;
+									}
+								}
+							}
+							Check(ok, "sf leftovers: the record reads back without the item");
+						} catch (const std::exception& ex) {
+							fail(std::string("item removal does not write: ") + ex.what());
+						}
+						std::error_code ec;
+						fs::remove(out, ec);
+						c = before;
+						break;
+					}
 				}
 				// a face number of the player changed, written and read back
 				for (auto& c : s->changeForms) {

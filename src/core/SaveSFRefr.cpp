@@ -28,6 +28,7 @@ namespace ess
 			const std::vector<std::uint8_t>& d;
 			std::size_t                      p = 0;
 			std::size_t                      refs = 0;
+			std::size_t                      strs = 0;  // strings the data writes (the string list), counted like refs
 			std::string*                     why = nullptr;
 
 			void need(std::size_t n)
@@ -117,7 +118,7 @@ namespace ess
 		void Sized(Rd& r)
 		{
 			const auto nref = r.u16();
-			r.u16();
+			r.strs += r.u16();
 			r.skip(r.vsval());
 			r.fid(nref);
 		}
@@ -129,7 +130,7 @@ namespace ess
 			std::uint16_t nref = 0;
 			if (v >= 4) {
 				nref = r.u16();
-				r.u16();
+				r.strs += r.u16();
 			}
 			r.skip(r.vsval());
 			r.fid(nref);
@@ -251,6 +252,7 @@ namespace ess
 				r.skip(12ull * n6);
 				strings += 3ull * n6;
 			}
+			r.strs += strings;
 			if (a_out) {
 				a_out->strings = strings;
 			}
@@ -397,7 +399,7 @@ namespace ess
 				}
 				return;
 			}
-			case 0x96: {  // 0x14054f5a0: u8 flags; 1/2/4 FORMID; 8 value (0x80: vsval, else u32); 0x10 u16; 0x20 vsval n x u32; 0x40 vsval n FORMIDs
+			case 0x96: {  // 0x14054f5a0: u8 flags; 1/2/4 FORMID; 8 value (0x80: vsval, else u32); 0x10 u16; no 2/4/8: a string; 0x20 vsval n x (string, u32); 0x40 vsval n x (string, FORMID)
 				const auto fl = r.u8();
 				for (unsigned b : { 1u, 2u, 4u }) {
 					if (fl & b) {
@@ -414,11 +416,18 @@ namespace ess
 				if (fl & 0x10) {
 					r.skip(2);
 				}
+				if (!(fl & (2 | 4 | 8))) {
+					++r.strs;  // a string (0x14054f725) when it has neither form 2, form 4 nor a value
+				}
 				if (fl & 0x20) {
-					r.skip(4ull * r.count(r.vsval(), 4));
+					const auto n = r.count(r.vsval(), 4);  // n x (string, u32)
+					r.strs += n;
+					r.skip(4ull * n);
 				}
 				if (fl & 0x40) {
-					r.fid(r.vsval());
+					const auto n = r.vsval();  // n x (string (inlined writer 0x14054f8ff), FORMID)
+					r.strs += n;
+					r.fid(n);
 				}
 				return;
 			}
@@ -446,7 +455,7 @@ namespace ess
 				return;
 			}
 			case 0xbe: case 0xca:  // vsval n, n strings (string list)
-				r.vsval();
+				r.strs += r.vsval();
 				return;
 			case 0xe7: {  // 0x14055dc10: vsval n, n x (FORMID, FORMID, u32)
 				const auto n = r.count(r.vsval(), 4);
@@ -486,6 +495,7 @@ namespace ess
 				}
 				r.fid(r.vsval());
 				r.u8();
+				++r.strs;  // a string (+0x70)
 				r.skip(4 + 12 + 8);
 				return;
 			}
@@ -601,6 +611,7 @@ namespace ess
 				SfInventoryItem it;
 				it.begin = r.p;
 				it.refIndex = r.refs;
+				it.stringBegin = r.strs;
 				r.fid();
 				const auto stacks = r.count(r.vsval(), 5);
 				for (std::uint32_t s = 0; s < stacks; ++s) {
@@ -616,6 +627,8 @@ namespace ess
 				it.value20 = r.u32();
 				it.value24 = r.u8();
 				it.end = r.p;
+				it.refEnd = r.refs;
+				it.stringEnd = r.strs;
 				if (a_items) {
 					a_items->push_back(std::move(it));
 				}
@@ -709,6 +722,7 @@ namespace ess
 			out.components = Components(r);
 			out.referenceEnd = r.p;
 			out.referenceRefs = r.refs;
+			out.referenceStrings = r.strs;
 			if (actor) {
 				// the actor's AI process and the rest of Actor::SaveGame (and the player's own part) follow: not read
 				out.ok = true;
@@ -1141,6 +1155,98 @@ namespace ess
 			p = q + 17;
 		}
 		return out;
+	}
+
+	std::vector<SfHeldItem> ListInventoriesSF(const SaveFile& a_save)
+	{
+		std::vector<SfHeldItem> out;
+		for (const auto& c : a_save.changeForms) {
+			if (c.typeCode() > 1 || c.version != 153 || !(c.changeFlags & 0x8000020)) {
+				continue;
+			}
+			const auto fid = a_save.formIDOf(c.refID);
+			const auto r = DecodeReferenceSF(fid, c);
+			if (!r.ok) {
+				continue;
+			}
+			for (const auto& it : r.items) {
+				SfHeldItem h;
+				h.holderRefRaw = c.refID.data;
+				h.holder = fid;
+				h.holderType = c.typeCode();
+				h.item = it.refIndex < c.sfRefs.size() ? a_save.formIDOf(c.sfRefs[it.refIndex]) : 0;
+				h.count = static_cast<std::int64_t>(it.total());
+				out.push_back(h);
+			}
+		}
+		return out;
+	}
+
+	std::string RemoveInventoryItemsSF(const SaveFile& a_save, ChangeForm& a_cf, const std::set<std::uint32_t>& a_items, std::size_t* a_removed)
+	{
+		const auto fid = a_save.formIDOf(a_cf.refID);
+		const auto r = DecodeReferenceSF(fid, a_cf);
+		if (!r.ok) {
+			return "its data cannot be read (" + r.error + "): nothing changed";
+		}
+		const bool actor = a_cf.typeCode() == 1;
+		// a REFR's data is its reference part: its strings must add up before any is taken out
+		if (!actor && r.referenceStrings != a_cf.sfStrings.size()) {
+			return "its strings do not add up: nothing changed";
+		}
+		std::vector<const SfInventoryItem*> gone;
+		for (const auto& it : r.items) {
+			const auto f = it.refIndex < a_cf.sfRefs.size() ? a_save.formIDOf(a_cf.sfRefs[it.refIndex]) : 0;
+			if (a_items.contains(f)) {
+				if (actor && it.stringEnd != it.stringBegin) {
+					return "an item to remove carries text (a name) on an actor, whose strings are not all counted yet: nothing changed";
+				}
+				gone.push_back(&it);
+			}
+		}
+		if (gone.empty()) {
+			if (a_removed) {
+				*a_removed = 0;
+			}
+			return {};
+		}
+		const auto backup = a_cf;
+		// from the last item back, so the earlier offsets stay right
+		for (auto i = gone.rbegin(); i != gone.rend(); ++i) {
+			const auto& it = **i;
+			a_cf.data.erase(a_cf.data.begin() + static_cast<std::ptrdiff_t>(it.begin), a_cf.data.begin() + static_cast<std::ptrdiff_t>(it.end));
+			a_cf.sfRefs.erase(a_cf.sfRefs.begin() + static_cast<std::ptrdiff_t>(it.refIndex), a_cf.sfRefs.begin() + static_cast<std::ptrdiff_t>(it.refEnd));
+			a_cf.sfStrings.erase(a_cf.sfStrings.begin() + static_cast<std::ptrdiff_t>(it.stringBegin),
+				a_cf.sfStrings.begin() + static_cast<std::ptrdiff_t>(it.stringEnd));
+		}
+		// the item count (vsval) at the start of the inventory, written again (its width can shrink)
+		Rd cnt{ a_cf.data, r.inventoryBegin };
+		const auto n = cnt.vsval();
+		const auto oldLen = cnt.p - r.inventoryBegin;
+		const auto left = n - static_cast<std::uint32_t>(gone.size());
+		const std::uint32_t v = left << 2;
+		std::vector<std::uint8_t> nv;
+		if (left < 0x40) {
+			nv = { static_cast<std::uint8_t>(v) };
+		} else if (left < 0x4000) {
+			nv = { static_cast<std::uint8_t>(v | 1), static_cast<std::uint8_t>(v >> 8) };
+		} else {
+			const std::uint32_t w = v | 2;
+			nv = { static_cast<std::uint8_t>(w), static_cast<std::uint8_t>(w >> 8), static_cast<std::uint8_t>(w >> 16), static_cast<std::uint8_t>(w >> 24) };
+		}
+		a_cf.data.erase(a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.inventoryBegin),
+			a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.inventoryBegin + oldLen));
+		a_cf.data.insert(a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.inventoryBegin), nv.begin(), nv.end());
+		// read back: the record still decodes, with the items gone
+		const auto back = DecodeReferenceSF(fid, a_cf);
+		if (!back.ok || back.items.size() != r.items.size() - gone.size() || (!actor && back.referenceStrings != a_cf.sfStrings.size())) {
+			a_cf = backup;
+			return "the record did not read back after the change: nothing changed";
+		}
+		if (a_removed) {
+			*a_removed = gone.size();
+		}
+		return {};
 	}
 }
 

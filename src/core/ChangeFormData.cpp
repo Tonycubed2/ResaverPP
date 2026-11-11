@@ -5259,6 +5259,13 @@ namespace ess::cf
 		if (a_save.isFO4()) {
 			return ListInventoriesFO4(a_save);
 		}
+		if (a_save.isSF()) {
+			std::vector<InventoryEntry> out;
+			for (const auto& h : ListInventoriesSF(a_save)) {
+				out.push_back({ h.holderRefRaw, h.holder, h.holderType, h.item, static_cast<std::int32_t>(std::min<std::int64_t>(h.count, INT32_MAX)) });
+			}
+			return out;
+		}
 		std::vector<InventoryEntry> out;
 		for (const auto& c : a_save.changeForms) {
 			const auto t = static_cast<ChangeFormType>(c.typeCode());
@@ -5294,6 +5301,9 @@ namespace ess::cf
 	{
 		if (a_removed) {
 			*a_removed = 0;
+		}
+		if (a_save.isSF()) {
+			return RemoveInventoryItemsSF(a_save, a_cf, a_items, a_removed);
 		}
 		if (a_save.isFO4()) {
 			return RemoveInventoryItemsFO4(a_save, a_cf, a_items, a_removed);

@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <set>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -193,6 +194,8 @@ namespace ess
 	{
 		std::size_t                   refIndex = 0;  // the item's base object: sfRefs[refIndex]
 		std::size_t                   begin = 0, end = 0;
+		std::size_t                   refEnd = 0;                    // its forms: sfRefs[refIndex, refEnd)
+		std::size_t                   stringBegin = 0, stringEnd = 0;  // its strings: sfStrings[stringBegin, stringEnd)
 		std::vector<SfInventoryStack> stacks;
 		std::uint32_t                 value20 = 0;  // (the item's +0x20 and +0x24; not known yet)
 		std::uint8_t                  value24 = 0;
@@ -213,7 +216,7 @@ namespace ess
 		bool          hasInventory = false;
 		std::size_t   inventoryBegin = 0, inventoryEnd = 0;  // bytes
 		std::size_t   inventoryRefBegin = 0, inventoryRefEnd = 0;  // indices into sfRefs
-		std::size_t   referenceEnd = 0, referenceRefs = 0;
+		std::size_t   referenceEnd = 0, referenceRefs = 0, referenceStrings = 0;
 		std::uint32_t components = 0;  // component data (0x1421592f0): its component count; 0 none; 0xFFFFFFFF present, no component
 		std::vector<SfInventoryItem> items;
 	};
@@ -294,6 +297,16 @@ namespace ess
 	std::map<std::uint32_t, std::string> ShipNamesSF(const SaveFile& a_save);
 	// adds an item (a_formID in the save's load order, as formIDOf gives) to a reference's inventory: one stack of a_count
 	bool AddInventoryItemSF(SaveFile& a_save, ChangeForm& a_cf, std::uint32_t a_formID, std::uint32_t a_count, std::string* a_why = nullptr);
+	// every inventory entry of the save's references and actors (Starfield), and removing items from one record (the
+	// item's bytes, its forms and its strings; the record must read back, else nothing changes): Leftover items
+	struct SfHeldItem
+	{
+		std::uint32_t holderRefRaw = 0, holder = 0, item = 0;
+		std::uint8_t  holderType = 0;
+		std::int64_t  count = 0;
+	};
+	std::vector<SfHeldItem> ListInventoriesSF(const SaveFile& a_save);
+	std::string RemoveInventoryItemsSF(const SaveFile& a_save, ChangeForm& a_cf, const std::set<std::uint32_t>& a_items, std::size_t* a_removed = nullptr);
 	// changes one stack's count in place (the data keeps its size and its forms)
 	bool SetInventoryCountSF(ChangeForm& a_cf, const SfInventoryStack& a_stack, std::uint32_t a_count);
 

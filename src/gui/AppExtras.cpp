@@ -116,8 +116,17 @@ void App::drawLeftovers()
 		_leftoversDirty = false;
 		_leftovers.clear();
 		_leftoversNote.clear();
-		const auto active = currentLoadOrder();
-		if (!active.known && !_db) {
+		const auto active = sf() ? loadorder::Active{} : currentLoadOrder();
+		std::set<std::string> sfGone;  // Starfield: the plugins Mods no longer installed lists (its own load order rules)
+		for (const auto& m : _missing) {
+			if (sf()) {
+				sfGone.insert(Lower(m.plugin));
+			}
+		}
+		if (sf() && !_db) {
+			_leftoversNote = tr("Plugin names are not read yet (Tools > Read plugin names), so items whose plugin is still loaded but no "
+							 "longer has them are not found; items of plugins no longer installed are.");
+		} else if (!sf() && !active.known && !_db) {
 			_leftoversNote = tr("Your load order is not known yet (set your game folder and mod manager in Options > Settings) and plugin names "
 							 "are not read, so ReSaver Plus cannot tell which items no longer exist.");
 		}
@@ -140,7 +149,7 @@ void App::drawLeftovers()
 				}
 				if (plugin == "?") {
 					reason = tr("its plugin is not in the save's plugin list");
-				} else if (active.known && !active.plugins.contains(low)) {
+				} else if (sf() ? sfGone.contains(low) : (active.known && !active.plugins.contains(low))) {
 					reason = tr("its plugin is not in your load order");
 				} else if (_db && _db->wasRead(plugin) && !_db->find(e.item)) {
 					reason = tr("the item is no longer in its plugin (the mod was updated or changed)");
