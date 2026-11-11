@@ -251,6 +251,9 @@ namespace ess::ops
 		if (p.unk1 != 0 && p.unk2) {
 			held.insert(*p.unk2);
 		}
+		for (const auto& l : p.pendingLatents) {  // (Starfield: a latent's result waiting for its stack)
+			held.insert(l.id);
+		}
 		std::vector<ThreadID> out;
 		for (const auto& a : p.activeScripts) {
 			if (a.type == 0 && !held.contains(a.id)) {
@@ -1371,7 +1374,19 @@ namespace ess::ops
 				mcmThreads, registerMod, busy ? ", and SKI_ConfigManager was saved in its BUSY state" : "");
 			r.warnings.push_back(buf);
 		}
-		if (!s.isFO4() && !s.isLE() && !s.isSF()) {
+		if (!s.isFO4() && !s.isLE() && s.isSF()) {
+			r.stranded = StrandedThreads(p).size();
+			if (r.stranded) {
+				std::snprintf(buf, sizeof(buf),
+					"%zu thread(s) are waiting for nothing: not suspended, no queued call, not in a latent or guard wait, no latent result "
+					"waiting. Nothing resumes or ends them. A save the game made has none (none in 24 Starfield saves); they come from "
+					"deleting a queued call or suspended stack without its thread. In Skyrim such a thread keeps the engine from pausing "
+					"to save, so later saves lose their script data; in Starfield that rule was not read in the exe. "
+					"Fix: --remove-stranded-threads (GUI: the Save check).",
+					r.stranded);
+				r.warnings.push_back(buf);
+			}
+		} else if (!s.isFO4() && !s.isLE()) {
 			r.stranded = StrandedThreads(p).size();
 			if (r.stranded) {
 				std::snprintf(buf, sizeof(buf),
@@ -1552,6 +1567,30 @@ namespace ess::ops
 		for (const auto& p : a_installed) {
 			if (!inSave.contains(LowerName(p)) && LowerName(p) != LowerName(a_missing) && Stem(p) == stem && PluginExt(p)) {
 				out.push_back(p);
+			}
+		}
+		return out;
+	}
+
+	std::vector<SfTypeMismatch> SfTypeMismatches(const SaveFile& s, const std::function<std::string(std::uint32_t)>& a_typeOf)
+	{
+		std::vector<SfTypeMismatch> out;
+		if (!s.isSF() || !a_typeOf) {
+			return out;
+		}
+		for (std::size_t i = 0; i < s.changeForms.size(); ++i) {
+			const auto& c = s.changeForms[i];
+			if (c.refID.type() == RefID::Type::kCreated) {
+				continue;
+			}
+			const auto fid = s.formIDOf(c.refID);
+			if (fid == 0 || (fid >> 24) == 0xFF) {
+				continue;
+			}
+			const auto now = a_typeOf(fid);
+			const std::string saved = s.cfTypeName(c);
+			if (!now.empty() && saved != now && saved.size() == 4) {
+				out.push_back({ i, fid, saved, now });
 			}
 		}
 		return out;

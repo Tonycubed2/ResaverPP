@@ -198,7 +198,7 @@ namespace ess
 		std::vector<std::uint32_t> formIDs;
 		std::vector<std::uint32_t> visitedWorldspaces;
 		std::vector<std::uint8_t> unknown3;
-		std::vector<std::uint8_t> cosave;  // .skse (.f4se for Fallout 4) file contents (empty if none)
+		std::vector<std::uint8_t> cosave;  // .skse (.f4se for Fallout 4, .sfse for Starfield: kept as is) file contents (empty if none)
 		std::size_t               originalBodySize = 0;
 		// Structural problems found while reading (layout that does not add up, bad string indices,
 		// duplicate ids...). A save with problems may not be written back faithfully: open it read-only.
@@ -227,6 +227,8 @@ namespace ess
 	// (00000000) and drop out of the character's group in the load menu. So the tag goes right after the
 	// 14-digit date, as letters and digits only ("..._20261025075454edited_66_1.ess"). Names not in the
 	// game's format get "_<tag>" at the end. a_unique: the first name not taken (tag, tag2, tag3...).
+	// Starfield (.sfs) is different: its date field must stay exactly 14 characters, so the tag goes after the save
+	// number of the first field ("Save1471cleaned_2C1EE8CF_..._73_1_4.sfs"; Autosave/Quicksave/Exitsave alike): see Save.cpp.
 	std::filesystem::path EditedSaveName(const std::filesystem::path& a_save, const std::string& a_tag, bool a_unique = true);
 
 	// What the save is made of, one line each, for the log and for support requests: format, versions, the

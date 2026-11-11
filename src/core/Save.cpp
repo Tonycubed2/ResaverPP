@@ -336,10 +336,10 @@ namespace ess
 			w.bytes(c.data);
 		}
 
-		std::filesystem::path CosavePath(const std::filesystem::path& a_save, bool a_fo4)
+		std::filesystem::path CosavePath(const std::filesystem::path& a_save, const char* a_ext)
 		{
 			auto p = a_save;
-			p.replace_extension(a_fo4 ? ".f4se" : ".skse");
+			p.replace_extension(a_ext);
 			return p;
 		}
 	}
@@ -504,7 +504,7 @@ namespace ess
 		save->unknown3 = r.bytes(r.remaining());
 
 		std::error_code ec;
-		const auto      co = CosavePath(a_path, save->isFO4());
+		const auto      co = CosavePath(a_path, save->cosaveExt());
 		if (std::filesystem::exists(co, ec)) {
 			save->cosave = ReadFile(co);
 		}
@@ -632,7 +632,8 @@ namespace ess
 	{
 		WriteResult     res;
 		std::error_code ec;
-		const auto      co = CosavePath(a_path, isFO4());  // (Starfield: no co-save is read or written)
+		// Starfield: an .sfse next to the save is kept byte for byte (SFSE defines no co-save format: Cosave.h)
+		const auto      co = CosavePath(a_path, cosaveExt());
 		auto            tmp = a_path;
 		tmp += ".tmp";
 		auto tmpCo = co;
@@ -663,7 +664,7 @@ namespace ess
 
 		// 2. back up what is there, as one generation for both files
 		const bool hadEss = std::filesystem::exists(a_path, ec);
-		const bool hadCo = !isSF() && std::filesystem::exists(co, ec);
+		const bool hadCo = std::filesystem::exists(co, ec);
 		if (a_backup && (hadEss || hadCo)) {
 			std::string suffix = ".bak";
 			for (int n = 2;; ++n) {
@@ -1001,7 +1002,42 @@ namespace ess
 		for (auto& c : lowExt) {
 			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 		}
-		const int   wantFields = lowExt == ".sfs" ? 3 : 2;
+		if (lowExt == ".sfs") {
+			// Starfield (Starfield.exe 1.16.244, save name parser 0x1418365c0): the name is split at '_'; the LAST field is the name
+			// format (1..4) and decides how many fields there must be (format 4: 7 or 8), the date field must be exactly 14
+			// characters (0x141836c5c: else the date is not taken from the name), and the first field is "Save" / "Autosave" /
+			// "Quicksave" / "Exitsave" (_strnicmp) followed by the save number read with strtoul (no end check: letters after the
+			// digits are ignored). So the tag goes right after the save number: "Save1471cleaned_2C1EE8CF_..._73_1_4.sfs"
+			// keeps every field the game reads. Other names get "_<tag>" at the end (the game does not parse them).
+			const auto us = s.find('_');
+			std::size_t pre = 0;
+			for (const char* x : { "Autosave", "Quicksave", "Exitsave", "Save" }) {
+				const std::size_t n = std::strlen(x);
+				if (s.size() > n && std::equal(x, x + n, s.begin(), [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); })) {
+					pre = n;
+					break;
+				}
+			}
+			std::size_t digitsEnd = pre;
+			while (pre && digitsEnd < s.size() && std::isdigit(static_cast<unsigned char>(s[digitsEnd]))) {
+				++digitsEnd;
+			}
+			const bool sfName = pre && digitsEnd > pre && us != std::string::npos && digitsEnd <= us;
+			auto makeSF = [&](int a_n) {
+				const auto t = tag + (a_n > 1 ? std::to_string(a_n) : std::string());
+				const auto name = sfName ? s.substr(0, digitsEnd) + t + s.substr(us) : s + "_" + t;  // an earlier tag after the number is replaced
+				auto       p = a_save;
+				p.replace_filename(std::filesystem::path(std::u8string(name.begin(), name.end()) + u8".sfs"));
+				return p;
+			};
+			auto            p = makeSF(1);
+			std::error_code ec;
+			for (int n = 2; a_unique && std::filesystem::exists(p, ec) && n < 1000; ++n) {
+				p = makeSF(n);
+			}
+			return p;
+		}
+		const int   wantFields = 2;
 		std::size_t tail = s.size();
 		int         fields = 0;
 		while (fields < wantFields && tail > 0) {

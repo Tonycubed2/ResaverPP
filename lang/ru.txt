@@ -14021,3 +14021,78 @@ tr "отмечен как выполненный, его сцены не про�
 
 en "could not be marked as done (nothing else was changed)"
 tr "не удалось отметить как выполненный (больше ничего не изменено)"
+# AppCheck.cpp:174  it.title = tr("The game saved this file WITHOUT its script data: Starfield will not load it");
+en "The game saved this file WITHOUT its script data: Starfield will not load it"
+tr "Игра записала этот файл БЕЗ данных скриптов: Starfield его не загрузит"
+
+# AppCheck.cpp:175  it.what = tr("The script data of this save is only a marker that says it is invalid (the game could not pause its script engine "
+en "The script data of this save is only a marker that says it is invalid (the game could not pause its script engine when it saved). Starfield's loader then reports \"The save game is corrupt and cannot be loaded.\" (Starfield.exe 1.16.244). ReSaver Plus cannot make up the missing script data. Load an earlier save in the game."
+tr "Вместо данных скриптов в этом сохранении только отметка, что они недействительны (игра не смогла приостановить движок скриптов при сохранении). Загрузчик Starfield в этом случае сообщает «The save game is corrupt and cannot be loaded.» (Starfield.exe 1.16.244). ReSaver Plus не может восстановить отсутствующие данные скриптов. Загрузите в игре более раннее сохранение."
+
+# AppCheck.cpp:279  it.what = sf() ? tr("These threads are not suspended, have no queued call, are not waiting for a latent function or a guard and have no "
+en "These threads are not suspended, have no queued call, are not waiting for a latent function or a guard and have no latent result waiting, so nothing will ever run or end them. None of the 24 Starfield saves we have has one; they are left by deleting a queued call or a suspended stack without its thread. In Skyrim such a thread keeps the game from pausing its scripts to save, and later saves lose their script data; in Starfield that part was not checked in the game's code."
+tr "Эти потоки не приостановлены, не имеют вызова в очереди, не ждут латентную функцию или guard и не имеют ожидающего результата латентной функции, поэтому ничто их не запустит и не завершит. Ни в одном из 24 сохранений Starfield, что у нас есть, таких нет; они остаются после удаления вызова в очереди или приостановленного стека без его потока. В Skyrim такой поток не даёт игре приостановить скрипты для сохранения, и следующие сохранения теряют данные скриптов; для Starfield эта часть в коде игры не проверялась."
+
+# AppCheck.cpp:291  o.why = sf() ? tr("Nothing holds them, so the game cannot run them again. What a waiting thread is was read in Starfield.exe (its "
+en "Nothing holds them, so the game cannot run them again. What a waiting thread is was read in Starfield.exe (its waiting list); that removing one changes nothing else was checked in Skyrim only: keep the original save."
+tr "Их ничто не удерживает, поэтому игра не сможет запустить их снова. Что такое ожидающий поток, прочитано в Starfield.exe (его список ожидания); то, что удаление такого потока больше ничего не меняет, проверено только в Skyrim: сохраните исходное сохранение."
+
+# AppCosave.cpp:224  it.title = Fmt(tr("This save has an .sfse file next to it (%s): kept as it is"), cosave::SizeText(_save->cosave.size()).c_str());
+en "This save has an .sfse file next to it (%s): kept as it is"
+tr "Рядом с этим сохранением есть файл .sfse (%s): сохраняется как есть"
+
+# AppCosave.cpp:225  it.what = tr("SFSE (the Starfield Script Extender) has no co-save format: up to its version 0.2.21 it writes no .sfse file and gives its "
+en "SFSE (the Starfield Script Extender) has no co-save format: up to its version 0.2.21 it writes no .sfse file and gives its plugins no way to store data in one. A .sfse next to this save comes from something else, so ReSaver Plus does not read it: it keeps it exactly as it is and writes it next to every save it writes, under the new save's name."
+tr "У SFSE (Starfield Script Extender) нет формата co-save: вплоть до версии 0.2.21 он не записывает файл .sfse и не даёт своим плагинам хранить в нём данные. Файл .sfse рядом с этим сохранением создан чем-то другим, поэтому ReSaver Plus его не читает: он сохраняет его в точности как есть и записывает рядом с каждым сохранением, которое пишет, под именем нового сохранения."
+
+# AppCosave.cpp:610  ImGui::TextWrapped(tr("%s: %s, kept exactly as it is."), coName.c_str(), cosave::SizeText(_save->cosave.size()).c_str());
+en "%s: %s, kept exactly as it is."
+tr "%s: %s, сохраняется в точности как есть."
+
+# AppCosave.cpp:621  ImGui::TextDisabled("%s", tr("The game folder is not known: the SFSE plugins installed cannot be listed."));
+en "The game folder is not known: the SFSE plugins installed cannot be listed."
+tr "Папка игры неизвестна: установленные плагины SFSE нельзя перечислить."
+
+# AppCosave.cpp:625  ImGui::SeparatorText(Fmt(tr("SFSE plugins installed (%zu)"), dlls.size()).c_str());
+en "SFSE plugins installed (%zu)"
+tr "Установленные плагины SFSE (%zu)"
+
+# AppCosave.cpp:627  ImGui::TextDisabled("%s", (platform::ToUtf8(gf / "Data" / "SFSE" / "Plugins") + tr(": none")).c_str());
+en ": none"
+tr ": нет"
+
+# AppF4Bloat.cpp:1009  it.what = sf() ? Fmt(tr("%s script instances, %s threads, %s changed forms of its own (%s). Objects it spawned during play are not "
+en "%s script instances, %s threads, %s changed forms of its own (%s). Objects it spawned during play are not counted here (Starfield's change form data is not decoded)."
+tr "%s экземпляров скриптов, %s потоков, %s собственных изменённых форм (%s). Объекты, созданные им во время игры, здесь не учтены (данные изменённых форм Starfield не декодируются)."
+
+# AppStarfield.cpp:315  if (ImGui::MenuItem(tr("SFSE co-save (.sfse)..."))) {
+en "SFSE co-save (.sfse)..."
+tr "Co-save SFSE (.sfse)..."
+
+# AppStarfield.cpp:597  it.title = Fmt(tr("%zu change form(s) have another type in your plugins now: the game skips them"), mm.size());
+en "%zu change form(s) have another type in your plugins now: the game skips them"
+tr "У %zu изменённых форм теперь в ваших плагинах другой тип: игра их пропускает"
+
+# AppStarfield.cpp:610  it.what = tr("The save stored these forms as one type, but a plugin you load now defines them as another (a mod changed or "
+en "The save stored these forms as one type, but a plugin you load now defines them as another (a mod changed or replaced them). Starfield's loader logs \"Form ... was saved with form type ..., but currently has form type ...\" and skips their saved changes (Starfield.exe 1.16.244), so they load as the plugins define them:"
+tr "Сохранение записало эти формы с одним типом, а загружаемый сейчас плагин задаёт им другой (мод изменил или заменил их). Загрузчик Starfield пишет в журнал «Form ... was saved with form type ..., but currently has form type ...» и пропускает их сохранённые изменения (Starfield.exe 1.16.244), поэтому они загружаются такими, как их задают плагины:"
+
+# AppStarfield.cpp:628  r.label = Fmt(tr("Remove their saved changes (%zu)"), raws.size());
+en "Remove their saved changes (%zu)"
+tr "Удалить их сохранённые изменения (%zu)"
+
+# AppStarfield.cpp:630  r.why = tr("The game already skips them when the save loads, so the result in the game is the same; the save just no longer "
+en "The game already skips them when the save loads, so the result in the game is the same; the save just no longer carries data nothing uses."
+tr "Игра и так пропускает их при загрузке сохранения, поэтому в игре результат тот же; просто сохранение больше не несёт данных, которые ничем не используются."
+
+# AppStarfield.cpp:633  confirm(tr("Remove skipped change forms"),
+en "Remove skipped change forms"
+tr "Удалить пропускаемые изменённые формы"
+
+# AppStarfield.cpp:634  Fmt(tr("Delete %zu change form(s) the game skips because their type changed?\n\nOnly the save in memory changes: write it "
+en "Delete %zu change form(s) the game skips because their type changed?\n\nOnly the save in memory changes: write it with File > Save As under a new name."
+tr "Удалить %zu изменённых форм, которые игра пропускает из-за смены их типа?\n\nМеняется только сохранение в памяти: запишите его через Файл > Сохранить как под новым именем."
+
+# AppStarfield.cpp:637  [this, raws] { markEdited(Fmt(tr("Removed %zu change form(s) whose type changed"), ops::DeleteChangeForms(*_save, raws))); });
+en "Removed %zu change form(s) whose type changed"
+tr "Удалено изменённых форм со сменившимся типом: %zu"

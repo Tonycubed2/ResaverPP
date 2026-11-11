@@ -35,6 +35,9 @@ namespace ess::bloat
 		bool IsGamePlugin(const std::string& a_name)
 		{
 			const auto l = Lower(a_name);
+			if (IsBaseGameFileSF(a_name)) {  // Starfield's own files (the exe's list)
+				return true;
+			}
 			for (const auto& m : loadorder::Fallout4Masters()) {
 				if (l == m) {
 					return true;
@@ -55,6 +58,28 @@ namespace ess::bloat
 			return 3 + 4 + 1 + 1 + 2u * w;
 		}
 		std::uint64_t ChangeFormBytes(const ChangeForm& c) { return HeaderBytes(c) + (c.length2 ? c.length2 : c.length1); }
+		// Starfield (FORMAT.md 2.5): u8 flags, [u8 version], 3-byte refID, [u32 change flags], vsval counts/length, refs, strings, data
+		std::uint64_t VsvalBytes(std::size_t n) { return n < 0x40 ? 1 : n < 0x4000 ? 2 : 4; }
+		std::uint64_t ChangeFormBytesSF(const ChangeForm& c)
+		{
+			std::uint64_t n = 1 + 3;
+			if (c.sfFlags & 0x01) {
+				n += 1;
+			}
+			if (c.sfFlags & 0x02) {
+				n += 4;
+			}
+			if (c.sfFlags & 0x08) {
+				n += VsvalBytes(c.sfRefs.size());
+			}
+			if (c.sfFlags & 0x10) {
+				n += VsvalBytes(c.sfStrings.size());
+			}
+			if (c.sfFlags & 0x20) {
+				n += VsvalBytes(c.data.size());
+			}
+			return n + 3 * c.sfRefs.size() + 2 * c.sfStrings.size() + c.data.size();
+		}
 	}
 
 	std::uint64_t ModBloat::changeFormBytes() const
@@ -128,6 +153,7 @@ namespace ess::bloat
 		Report rep;
 		rep.fo4 = a_save.isFO4();
 		const bool fo4 = rep.fo4;
+		const bool sf = a_save.isSF();
 
 		std::vector<ModBloat>                        rows;
 		std::unordered_map<std::string, std::size_t> rowOf;  // lowercase name -> row
@@ -149,6 +175,9 @@ namespace ess::bloat
 		}
 		for (std::size_t i = 0; i < a_save.plugins.lite.size(); ++i) {
 			row(a_save.plugins.lite[i], RowKind::kLight, static_cast<int>(i));
+		}
+		for (std::size_t i = 0; i < a_save.plugins.medium.size(); ++i) {
+			row(a_save.plugins.medium[i], RowKind::kMedium, static_cast<int>(i));
 		}
 		const auto createdRow = row(kCreatedName, RowKind::kCreated);
 		const auto nothingRow = row(kNothingName, RowKind::kNothing);
@@ -187,7 +216,7 @@ namespace ess::bloat
 			}
 			const auto& c = a_save.changeForms[i];
 			const auto  type = static_cast<ChangeFormType>(c.typeCode());
-			if (type != ChangeFormType::REFR && type != ChangeFormType::ACHR) {
+			if (sf || (type != ChangeFormType::REFR && type != ChangeFormType::ACHR)) {  // (Starfield: data not decoded)
 				continue;
 			}
 			const bool created = c.refID.type() == RefID::Type::kCreated;
@@ -250,9 +279,9 @@ namespace ess::bloat
 		// ---- change forms
 		for (std::size_t i = 0; i < a_save.changeForms.size(); ++i) {
 			const auto& c = a_save.changeForms[i];
-			const auto  bytes = ChangeFormBytes(c);
+			const auto  bytes = sf ? ChangeFormBytesSF(c) : ChangeFormBytes(c);
 			rep.changeFormBytes += bytes;
-			const std::string typeName = ChangeFormTypeName(c.typeCode(), fo4);
+			const std::string typeName = a_save.cfTypeName(c);
 			const auto        fid = a_save.formIDOf(c.refID);
 			const bool        created = c.refID.type() == RefID::Type::kCreated;
 			std::uint64_t     invBytes = 0;
@@ -332,7 +361,7 @@ namespace ess::bloat
 			for (const auto& inst : p->instances) {
 				const auto& script = p->str(inst.script);
 				std::size_t r;
-				if (inst.refID.isZero()) {
+				if (inst.refID.isZero() || (sf && inst.unknown2bits > 2)) {  // (Starfield handle kinds 3+: not a form id)
 					r = providerRow(script).value_or(nothingRow);
 				} else {
 					const auto fid = a_save.formIDOf(inst.refID);
@@ -346,7 +375,18 @@ namespace ess::bloat
 					}
 				}
 				instRow[inst.id] = r;
-				const auto b = sizeOf([&] {
+				const auto b = sf ? sizeOf([&] {
+					// Starfield: the object table entry (u64 id, u32 script, handle, u8) + its object data
+					w.u64(inst.id);
+					w.u32(inst.script);
+					w.u16(inst.unknown2bits);
+					w.u16(inst.unknown);
+					w.bytes(std::vector<std::uint8_t>(inst.unknown2bits > 2 ? 4 : 3, 0));
+					w.u8(inst.unknownByte);
+					if (inst.data) {
+						WriteObjectDataSF(w, inst.id, *inst.data);
+					}
+				}) : sizeOf([&] {
 					w.eid(inst.id);
 					w.tstr(inst.script);
 					w.u16(inst.unknown2bits);
@@ -443,7 +483,11 @@ namespace ess::bloat
 					w.u32(a.id);
 					w.u8(a.type);
 					if (a.data) {
-						WriteThreadData(w, a.id, *a.data);
+						if (sf) {
+							WriteThreadDataSF(w, a.id, *a.data);
+						} else {
+							WriteThreadData(w, a.id, *a.data);
+						}
 					}
 				});
 				rows[r].threads.add(b);
@@ -459,7 +503,20 @@ namespace ess::bloat
 			for (const auto& a : p->arrays) {
 				auto       it = arrRow.find(a.id);
 				const auto r = it == arrRow.end() ? nothingRow : it->second;
-				const auto b = sizeOf([&] {
+				const auto b = sf ? sizeOf([&] {
+					w.u64(a.id);
+					w.u8(static_cast<std::uint8_t>(a.type));
+					if (IsRefType(a.type)) {
+						w.u32(a.refType);
+					}
+					w.u32(a.length);
+					if (a.hasData) {
+						w.u64(a.id);
+						for (const auto& v : a.vars) {
+							WriteVariableSF(w, v);
+						}
+					}
+				}) : sizeOf([&] {
 					w.eid(a.id);
 					w.u8(static_cast<std::uint8_t>(a.type));
 					if (IsRefType(a.type)) {
@@ -478,7 +535,18 @@ namespace ess::bloat
 			for (const auto& s : p->structInstances) {
 				auto       it = structRow.find(s.id);
 				const auto r = it == structRow.end() ? nothingRow : it->second;
-				const auto b = sizeOf([&] {
+				const auto b = sf ? sizeOf([&] {
+					w.u64(s.id);
+					w.u32(s.def);
+					if (s.hasData) {
+						w.u64(s.id);
+						w.u8(s.flag);
+						w.u32(static_cast<std::uint32_t>(s.vars.size()));
+						for (const auto& v : s.vars) {
+							WriteVariableSF(w, v);
+						}
+					}
+				}) : sizeOf([&] {
 					w.eid(s.id);
 					w.tstr(s.def);
 					if (s.hasData) {

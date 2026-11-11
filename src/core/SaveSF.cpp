@@ -6,6 +6,8 @@
 // Unknown parts (global data payloads, change form data, the created-ID section) are kept as raw bytes.
 #include "Save.h"
 
+#include <fstream>
+#include <iterator>
 #include <algorithm>
 #include <cstring>
 #include <mutex>
@@ -695,6 +697,16 @@ namespace ess
 		}
 		if (badStrings) {
 			save->problems.push_back(std::to_string(badStrings) + " string index(es) past the string table");
+		}
+		// a .sfse next to it (SFSE writes none up to 0.2.21; kept as it is if one is there: Cosave.h)
+		{
+			std::error_code ec;
+			auto            co = a_path;
+			co.replace_extension(".sfse");
+			if (std::filesystem::is_regular_file(co, ec)) {
+				std::ifstream f(co, std::ios::binary);
+				save->cosave.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+			}
 		}
 		save->reindexChangeForms();
 		if (auto* p = save->papyrus(); p && !save->sfPapyrusRaw()) {

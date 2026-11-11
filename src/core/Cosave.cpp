@@ -1351,6 +1351,33 @@ namespace ess::cosave
 
 	// ---------------------------------------------------------------------------------------------- cleaning
 
+	const char* kSfseNote =
+		"SFSE (the Starfield Script Extender) has no co-save format: up to its version 0.2.21 it writes no .sfse file and gives its "
+		"plugins no way to store data in one. A .sfse next to this save comes from something else, so ReSaver Plus does not read it: "
+		"it keeps it exactly as it is and writes it next to every save it writes, under the new save's name.";
+
+	std::vector<std::string> SfsePluginDlls(const std::filesystem::path& a_data)
+	{
+		std::vector<std::string> out;
+		std::error_code          ec;
+		const auto               dir = a_data / "SFSE" / "Plugins";
+		if (!std::filesystem::is_directory(dir, ec)) {
+			return out;
+		}
+		for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+			auto ext = it->path().extension().string();
+			for (auto& c : ext) {
+				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			}
+			if (ext == ".dll" && it->is_regular_file(ec)) {
+				const auto u = it->path().filename().u8string();
+				out.emplace_back(u.begin(), u.end());
+			}
+		}
+		std::sort(out.begin(), out.end());
+		return out;
+	}
+
 	const char* kRemoveExplanation =
 		"Removing a plugin's data from the co-save deletes what that SKSE / F4SE plugin saved for this game: its settings for "
 		"this character, the values Papyrus scripts stored through it, its registrations. The script extender skips the data "

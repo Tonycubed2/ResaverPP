@@ -295,6 +295,19 @@ namespace ess::cosave
 	// What removing a plugin's co-save data does (shown in the GUI and the CLI).
 	extern const char* kRemoveExplanation;
 
+	// ---- Starfield (.sfse) ---------------------------------------------------------------------------------
+	// SFSE has no co-save format. Its source (github.com/ianpatt/sfse, every version up to 0.2.21 and master of
+	// 2026-06-09) never writes one: Serialization.cpp's HandleSaveGlobalData / HandleLoadGlobalData are empty
+	// ("TODO: add implementation for serialization & save callbacks"), PluginAPI.h offers plugins no serialization
+	// interface (only Messaging, Trampoline, Menu, Task), and the save/load/delete hooks that were added on
+	// 2024-07-29 (f748c0a) were switched off again on 2024-08-23 (41c0376, "disable serialization hooks, causing
+	// issues"); while on, they only deleted an .sfse when its save was deleted. No .sfse was found on any PC we have
+	// (Tony's 87 saves; the other player's saves came without any). So an .sfse next to a save is not read: ReSaver
+	// Plus keeps its bytes and writes them next to every save it writes (the new name with .sfse), like an .skse.
+	extern const char* kSfseNote;
+	// The DLLs in <Data>\SFSE\Plugins (file names, sorted); empty when the folder is not there.
+	std::vector<std::string> SfsePluginDlls(const std::filesystem::path& a_data);
+
 	// Plain-text report (CLI, AI): header, plugins with size / chunks / status, PapyrusUtil and JContainers parts.
 	std::string Report(const File& a_file, const View& a_view, std::size_t a_top, bool a_chunks);
 	std::string SizeText(std::size_t a_bytes);  // "1.2 MB", "340 KB", "12 bytes"

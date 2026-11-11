@@ -622,7 +622,7 @@ void App::rebuildRows()
 				const bool unatt = ops::IsUnattached(i);
 				const bool undef = ops::IsInstanceUndefined(p, i.script);
 				const bool missing = !sf() && ops::IsCreatedWithoutForm(*_save, i);  // (Starfield: not checked)
-				const bool memberless = (F.memberless || anyShow) && !sf() && ops::IsMemberless(p, i);
+				const bool memberless = (F.memberless || anyShow) && ops::IsMemberless(p, i);  // (Starfield too: see AppMore.cpp)
 				const bool zeroed = F.zeroedCanary && ops::HasCanary(p, i) && ops::CanaryValue(p, i) == 0;
 				const bool hasForm = F.withScripts && _save->findChangeForm(i.refID);
 				std::string t = instanceLabel(i);

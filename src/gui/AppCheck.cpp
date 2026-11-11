@@ -168,7 +168,15 @@ std::vector<App::CheckItem> App::computeCheckItems()
 	}
 
 	// the game wrote this save without its script data (Papyrus::invalid)
-	if (p && p->invalid) {
+	if (p && p->invalid && sf()) {
+		CheckItem it;
+		it.level = Risk::kRisky;
+		it.title = tr("The game saved this file WITHOUT its script data: Starfield will not load it");
+		it.what = tr("The script data of this save is only a marker that says it is invalid (the game could not pause its script engine "
+				  "when it saved). Starfield's loader then reports \"The save game is corrupt and cannot be loaded.\" (Starfield.exe 1.16.244). "
+				  "ReSaver Plus cannot make up the missing script data. Load an earlier save in the game.");
+		v.push_back(std::move(it));
+	} else if (p && p->invalid) {
 		CheckItem it;
 		it.level = Risk::kRisky;
 		it.title = tr("The game saved this file WITHOUT its script data");
@@ -260,7 +268,7 @@ std::vector<App::CheckItem> App::computeCheckItems()
 	}
 
 	// threads nothing will resume (ops::StrandedThreads): verified in SkyrimSE.exe 1.6.1170 only
-	if (p && !p->invalid && !_save->isFO4() && !_save->isLE() && !sf()) {
+	if (p && !p->invalid && !_save->isFO4() && !_save->isLE()) {
 		std::optional<watchdog::Step> st(std::in_place, "stranded threads (ops::StrandedThreads)");
 		const auto stranded = ops::StrandedThreads(*p);
 		st.reset();
@@ -268,14 +276,21 @@ std::vector<App::CheckItem> App::computeCheckItems()
 			CheckItem it;
 			it.level = Risk::kRisky;
 			it.title = Fmt(tr("%zu script thread(s) are waiting for nothing"), stranded.size());
-			it.what = tr("These threads are not suspended, have no queued call and are not waiting on a timer, so the game will never run "
+			it.what = sf() ? tr("These threads are not suspended, have no queued call, are not waiting for a latent function or a guard and have no "
+							  "latent result waiting, so nothing will ever run or end them. None of the 24 Starfield saves we have has one; "
+							  "they are left by deleting a queued call or a suspended stack without its thread. In Skyrim such a thread keeps "
+							  "the game from pausing its scripts to save, and later saves lose their script data; in Starfield that part was "
+							  "not checked in the game's code.")
+						   : tr("These threads are not suspended, have no queued call and are not waiting on a timer, so the game will never run "
 					  "or end them. Worse, while one is there the game cannot pause its scripts when you save: each save takes 30 seconds "
 					  "longer and is written WITHOUT any script data. A save the game made has none of these; they are left by deleting "
 					  "a suspended stack or a queued call without its thread.");
 			CheckOption o;
 			o.label = tr("Remove the stranded threads");
-			o.risk = Risk::kSafe;
-			o.why = tr("They can never run again, so removing them changes nothing the game would do, and it can pause its scripts to save again.");
+			o.risk = sf() ? Risk::kCaution : Risk::kSafe;
+			o.why = sf() ? tr("Nothing holds them, so the game cannot run them again. What a waiting thread is was read in Starfield.exe (its "
+							  "waiting list); that removing one changes nothing else was checked in Skyrim only: keep the original save.")
+						 : tr("They can never run again, so removing them changes nothing the game would do, and it can pause its scripts to save again.");
 			o.act = [this, n = stranded.size()] {
 				confirm(tr("Remove the stranded threads"),
 					Fmt(tr("Delete %zu script thread(s) that nothing will ever resume?\n\nOnly the save in memory changes: write it with "
@@ -488,7 +503,7 @@ std::vector<App::CheckItem> App::computeCheckItems()
 										"%zu queued message(s)."),
 								   f.running, f.other, f.messages);
 			}
-			const bool verified = !fo4() && !_save->isLE();
+			const bool verified = !fo4() && !_save->isLE() && !sf();
 			CheckOption o;
 			o.label = Fmt(tr("Clear %zu queued calls"), f.notStarted);
 			o.risk = verified ? Risk::kSafe : Risk::kCaution;
@@ -630,7 +645,14 @@ std::vector<App::CheckItem> App::computeCheckItems()
 	}
 
 	if (sf()) {
-		// Starfield: the rest is built on Skyrim's and Fallout 4's data
+		// Starfield: forms the game will skip, mods gone that still take room, the .sfse; the rest is built on Skyrim's and
+		// Fallout 4's change form data, which Starfield's is not decoded into (AppStarfield.cpp)
+		checkItemsSF(v);
+		{
+			watchdog::Step st("bloat check");
+			bloatCheckItems(v);
+		}
+		cosaveCheck(v);
 		std::stable_sort(v.begin(), v.end(), [](const CheckItem& a, const CheckItem& b) { return static_cast<int>(a.level) > static_cast<int>(b.level); });
 		return v;
 	}
@@ -932,7 +954,7 @@ App::Risk App::checkWorst()
 // clear the not-started calls of some floods (empty: all), then read the result back and check every thread is held
 void App::clearFloods(const std::set<std::string>& a_keys, std::size_t a_calls)
 {
-	const bool verified = !fo4() && !_save->isLE();
+	const bool verified = !fo4() && !_save->isLE() && !sf();
 	confirm(tr("Clear queued calls"),
 		Fmt(tr("Remove %zu queued event call(s) that never started, each with its thread?\n\nThreads that already run are left alone. %s"
 			   "\n\nOnly the save in memory changes: write it with File > Save As."),

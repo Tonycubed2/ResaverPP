@@ -217,6 +217,26 @@ void App::cosaveCheck(std::vector<CheckItem>& a_items)
 	if (!_save || _save->cosave.empty()) {
 		return;
 	}
+	if (sf()) {
+		// Starfield: SFSE writes no co-save, so an .sfse is only kept (Cosave.h kSfseNote)
+		CheckItem it;
+		it.level = Risk::kInfo;
+		it.title = Fmt(tr("This save has an .sfse file next to it (%s): kept as it is"), cosave::SizeText(_save->cosave.size()).c_str());
+		it.what = tr("SFSE (the Starfield Script Extender) has no co-save format: up to its version 0.2.21 it writes no .sfse file and gives its "
+				"plugins no way to store data in one. A .sfse next to this save comes from something else, so ReSaver Plus does not read it: "
+				"it keeps it exactly as it is and writes it next to every save it writes, under the new save's name.");
+		CheckOption v;
+		v.label = tr("Show the co-save");
+		v.risk = Risk::kSafe;
+		v.why = tr("Only shows information.");
+		v.act = [this] {
+			_showCosave = true;
+			_showCheck = false;
+		};
+		it.options.push_back(std::move(v));
+		a_items.push_back(std::move(it));
+		return;
+	}
 	auto& c = cosaveView();
 	if (!c.ok) {
 		CheckItem it;
@@ -277,6 +297,11 @@ void App::drawCosave()
 		return;
 	}
 	maximizeControl("Co-save");
+	if (sf()) {
+		drawCosaveSF();
+		ImGui::End();
+		return;
+	}
 	auto& c = cosaveView();
 	const auto coName = platform::ToUtf8(std::filesystem::path(_path).replace_extension(_save->cosaveExt()).filename());
 	if (_save->cosave.empty()) {
@@ -573,4 +598,35 @@ void App::drawCosave()
 	}
 	ImGui::EndChild();
 	ImGui::End();
+}
+
+// Starfield: what is next to the save, why it is not read, and the SFSE plugins installed (no co-save data to match)
+void App::drawCosaveSF()
+{
+	const auto coName = platform::ToUtf8(std::filesystem::path(_path).replace_extension(".sfse").filename());
+	if (_save->cosave.empty()) {
+		ImGui::TextWrapped(tr("This save has no %s file next to it (%s): nothing to show."), ".sfse", coName.c_str());
+	} else {
+		ImGui::TextWrapped(tr("%s: %s, kept exactly as it is."), coName.c_str(), cosave::SizeText(_save->cosave.size()).c_str());
+	}
+	ImGui::Spacing();
+	ImGui::PushTextWrapPos(0);
+	ImGui::TextDisabled("%s", tr("SFSE (the Starfield Script Extender) has no co-save format: up to its version 0.2.21 it writes no .sfse file and gives its "
+				"plugins no way to store data in one. A .sfse next to this save comes from something else, so ReSaver Plus does not read it: "
+				"it keeps it exactly as it is and writes it next to every save it writes, under the new save's name."));
+	ImGui::PopTextWrapPos();
+	ImGui::Spacing();
+	const auto gf = gameFolder();
+	if (gf.empty()) {
+		ImGui::TextDisabled("%s", tr("The game folder is not known: the SFSE plugins installed cannot be listed."));
+		return;
+	}
+	const auto dlls = cosave::SfsePluginDlls(gf / "Data");
+	ImGui::SeparatorText(Fmt(tr("SFSE plugins installed (%zu)"), dlls.size()).c_str());
+	if (dlls.empty()) {
+		ImGui::TextDisabled("%s", (platform::ToUtf8(gf / "Data" / "SFSE" / "Plugins") + tr(": none")).c_str());
+	}
+	for (const auto& d : dlls) {
+		ImGui::BulletText("%s", d.c_str());
+	}
 }

@@ -885,7 +885,8 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 	auto& st = bloatState();
 
 	// the load order: checked once in the background when the mods are known (again when plugins.txt changes)
-	{
+	// (Starfield: not checked; its plugins not loaded are the mods no longer installed)
+	if (!sf()) {
 		const bool le = _save->isLE();
 		// which plugins.txt and when it was written: looked up again every 3 seconds only (each file call is slow under
 		// Wine, and the Save check is worked out twice a second)
@@ -989,9 +990,14 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 	bloatReport(false);
 	if (st.report && st.save == _save.get() && st.gen == _editGen) {
 		const auto& rep = *st.report;
-		const auto  lo = currentLoadOrder();
+		const auto  lo = sf() ? ess::loadorder::Active{} : currentLoadOrder();
+		std::set<std::string> sfGone;  // Starfield: the save's plugins the game does not load (AppMissing.cpp)
+		for (const auto& m : _missing) {
+			sfGone.insert(Lower(m.plugin));
+		}
 		for (const auto& m : rep.mods) {
-			if ((m.kind != bloat::RowKind::kPlugin && m.kind != bloat::RowKind::kLight) || !lo.known || lo.plugins.contains(Lower(m.name))) {
+			const bool plugin = m.kind == bloat::RowKind::kPlugin || m.kind == bloat::RowKind::kLight || m.kind == bloat::RowKind::kMedium;
+			if (!plugin || (sf() ? !sfGone.contains(Lower(m.name)) : (!lo.known || lo.plugins.contains(Lower(m.name))))) {
 				continue;
 			}
 			if (m.total() < 256 * 1024) {
@@ -1000,14 +1006,22 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 			CheckItem it;
 			it.level = Risk::kCaution;
 			it.title = Fmt(tr("%s is no longer in your load order but still takes %s of this save"), text::ToUtf8(m.name).c_str(), bloat::Bytes(m.total()).c_str());
-			it.what = Fmt(tr("%s script instances, %s changed forms, %s created objects, %s inventory entries."), bloat::Num(m.instances.count).c_str(),
+			it.what = sf() ? Fmt(tr("%s script instances, %s threads, %s changed forms of its own (%s). Objects it spawned during play are not "
+								   "counted here (Starfield's change form data is not decoded)."),
+								 bloat::Num(m.instances.count).c_str(), bloat::Num(m.threads.count).c_str(), bloat::Num(m.changeFormCount()).c_str(),
+								 bloat::Bytes(m.changeFormBytes()).c_str())
+						   : Fmt(tr("%s script instances, %s changed forms, %s created objects, %s inventory entries."), bloat::Num(m.instances.count).c_str(),
 				bloat::Num(m.changeFormCount()).c_str(), bloat::Num(m.createdCount()).c_str(), bloat::Num(m.inventory.count).c_str());
 			CheckOption o;
 			o.label = tr("Mods no longer installed");
 			o.risk = Risk::kCaution;
 			o.why = tr("Shows what the mod left and cleans it after you confirm.");
 			o.act = [this] {
-				shortcut(Sc::kMissingMods);
+				if (sf()) {
+					openMissingSF();
+				} else {
+					shortcut(Sc::kMissingMods);
+				}
 				_showCheck = false;
 			};
 			it.options.push_back(std::move(o));

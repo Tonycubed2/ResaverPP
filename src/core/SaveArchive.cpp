@@ -44,13 +44,13 @@ namespace ess::archive
 		}
 		fs::path Cosave(const fs::path& a_ess)
 		{
-			// Fallout 4's .fos goes with an .f4se, Skyrim's .ess with an .skse
+			// Fallout 4's .fos goes with an .f4se, Starfield's .sfs with an .sfse, Skyrim's .ess with an .skse
 			auto ext = a_ess.extension().string();
 			for (auto& ch : ext) {
 				ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
 			}
 			auto c = a_ess;
-			c.replace_extension(ext == ".fos" ? ".f4se" : ".skse");
+			c.replace_extension(ext == ".fos" ? ".f4se" : ext == ".sfs" ? ".sfse" : ".skse");
 			return c;
 		}
 		// a new, unused folder named by the current time

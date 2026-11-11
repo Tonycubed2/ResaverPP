@@ -101,7 +101,7 @@ namespace
 int CosaveMain(int argc, char** argv)
 {
 	if (argc < 3) {
-		std::fputs("usage: resaverpp-cli --cosave <save.ess|.fos|.skse|.f4se> [--sources <folder>] [--profile <folder>] [--chunks] [--top n]\n"
+		std::fputs("usage: resaverpp-cli --cosave <save.ess|.fos|.sfs|.skse|.f4se|.sfse> [--sources <folder>] [--profile <folder>] [--chunks] [--top n]\n"
 				   "       [--cosave-remove <ids>|not-installed] [--cosave-gone <plugin,plugin>] [-o <new save or co-save>]\n",
 			stderr);
 		return 1;
@@ -141,6 +141,31 @@ int CosaveMain(int argc, char** argv)
 	}
 	try {
 		const auto ext = Lower(in.extension().string());
+		if (ext == ".sfs" || ext == ".sfse") {
+			// Starfield: SFSE writes no co-save (Cosave.h kSfseNote); an .sfse is only shown and kept
+			auto co = in;
+			co.replace_extension(".sfse");
+			std::error_code ec;
+			if (!std::filesystem::is_regular_file(co, ec)) {
+				std::printf("%s has no .sfse next to it\n", in.filename().string().c_str());
+			} else {
+				std::printf("%s: %s, not read; it is kept as it is and written next to every save ReSaver Plus writes\n",
+					co.filename().string().c_str(), cosave::SizeText(std::filesystem::file_size(co, ec)).c_str());
+			}
+			std::printf("%s\n", cosave::kSfseNote);
+			if (!sources.empty()) {
+				const auto dlls = cosave::SfsePluginDlls(sources);
+				std::printf("SFSE plugins in %s: %zu\n", (sources / "SFSE" / "Plugins").string().c_str(), dlls.size());
+				for (const auto& d : dlls) {
+					std::printf("  %s\n", d.c_str());
+				}
+			}
+			if (!removeArg.empty()) {
+				std::fprintf(stderr, "--cosave-remove: an .sfse has no known format, nothing can be removed from it\n");
+				return 1;
+			}
+			return 0;
+		}
 		const bool isCosave = ext == ".skse" || ext == ".f4se";
 		std::unique_ptr<SaveFile>  save;
 		std::vector<std::uint8_t>  bytes;

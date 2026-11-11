@@ -244,7 +244,7 @@ namespace ess::modremove
 			return Lower(a_save.pluginOf(a_save.formIDOf(id))) == lowerName;
 		};
 		for (const auto& i : p->instances) {
-			if (onOwnForm(i.refID)) {
+			if (!(sf && i.unknown2bits > 2) && onOwnForm(i.refID)) {  // (Starfield handle kinds 3+: not a form id)
 				plan.instances.insert(i.id);
 				++plan.instancesOnOwnForms;
 			} else if (isOwn(i.script)) {
@@ -641,6 +641,16 @@ namespace ess::modremove
 			}
 			if (auto it = index.find(Lower(a_save.pluginOf(a_save.formIDOf(c.refID)))); it != index.end()) {
 				++out[it->second].changeForms;
+			}
+		}
+		if (const auto* p = a_save.papyrus(); p && !a_save.sfPapyrusRaw()) {
+			for (const auto& i : p->instances) {
+				if (i.unknown2bits > 2 || i.refID.isZero() || i.refID.type() == RefID::Type::kCreated) {
+					continue;  // (handle kinds 3+: not a form id)
+				}
+				if (auto it = index.find(Lower(a_save.pluginOf(a_save.formIDOf(i.refID)))); it != index.end()) {
+					++out[it->second].ownInstances;
+				}
 			}
 		}
 		if (a_mods) {

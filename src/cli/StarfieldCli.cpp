@@ -6,6 +6,9 @@
 #include "core/Mods.h"
 #include "core/Ops.h"
 #include "core/PluginDB.h"
+#include "core/SaveBloat.h"
+#include "core/ScriptFlood.h"
+#include "core/Cosave.h"
 #include "core/Save.h"
 #include "core/Text.h"
 
@@ -43,6 +46,17 @@ namespace
 	}
 }
 
+namespace
+{
+	std::string LowerSF(std::string a_s)
+	{
+		for (auto& c : a_s) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		return a_s;
+	}
+}
+
 // -1: not a Starfield save (the caller goes on); else the exit code
 int StarfieldMain(int argc, char** argv)
 {
@@ -58,6 +72,7 @@ int StarfieldMain(int argc, char** argv)
 	std::vector<std::string>    dataDirs;
 	std::vector<std::uint32_t>  nameIDs;
 	bool                        names = false, notInstalled = false, removeNotInstalled = false, alsoDisabled = false;
+	bool                        check = false, removeStranded = false, clearFloods = false, removeRetyped = false;
 	for (int i = 2; i < argc; ++i) {
 		const std::string a = argv[i];
 		auto              next = [&]() -> std::string {
@@ -103,12 +118,31 @@ int StarfieldMain(int argc, char** argv)
 			notInstalled = removeNotInstalled = true;
 		} else if (a == "--also-disabled") {
 			alsoDisabled = true;
+		} else if (a == "--check") {
+			check = true;
+		} else if (a == "--remove-stranded-threads") {
+			removeStranded = true;
+		} else if (a == "--clear-floods") {
+			clearFloods = true;
+		} else if (a == "--remove-retyped") {
+			removeRetyped = names = true;
+		} else if (a == "--help-sf") {
+			std::printf("Starfield (.sfs) options:\n"
+						"  --describe, --report, --forms [TYPE], --delete-form <id>   what the save is made of\n"
+						"  --check                         the Save check in text\n"
+						"  --remove-unattached, --remove-undefined, --terminate-undefined, --remove-stranded-threads, --clear-floods\n"
+						"  --game <folder> | --data <Data> [--language en] --names   name the forms from the game's plugins\n"
+						"  --remove-retyped                delete change forms whose type in the plugins changed (the game skips them)\n"
+						"  --mods-not-installed [--plugins-txt f], --remove-not-installed [--also-disabled]\n"
+						"  -o <out.sfs>                    write (an .sfse next to the input is written next to the output)\n");
+			return 0;
 		} else if (a == "--delete-form") {
 			deleteForms.insert(static_cast<std::uint32_t>(std::stoul(next(), nullptr, 16)));
 		} else {
 			std::fprintf(stderr,
-				"%s: not available for Starfield saves (they support: -o <out.sfs>, --describe, --report, --forms [TYPE], --delete-form <form id>, "
-				"--remove-unattached, --remove-undefined, --terminate-undefined, --game <Starfield folder> | --data <Data folder>, --names, "
+				"%s: not available for Starfield saves (they support: -o <out.sfs>, --describe, --report, --check, --forms [TYPE], --delete-form <form id>, "
+				"--remove-unattached, --remove-undefined, --terminate-undefined, --remove-stranded-threads, --clear-floods, --remove-retyped, "
+				"--game <Starfield folder> | --data <Data folder>, --names, "
 				"--name <form id>, --language <en>, --plugins-txt <file>, --mods-not-installed, --remove-not-installed [--also-disabled])\n",
 				a.c_str());
 			return 1;
@@ -222,7 +256,67 @@ int StarfieldMain(int argc, char** argv)
 				}
 			}
 		}
-		const bool papyrusEdits = unattached || undefined || termUndef || removeNotInstalled;
+		std::vector<ops::SfTypeMismatch> retyped;
+		if (db) {
+			retyped = ops::SfTypeMismatches(*save, [&](std::uint32_t a_id) -> std::string {
+				const auto* f = db->find(a_id);
+				return f ? db->type(*f) : std::string();
+			});
+		}
+		if (check) {
+			const auto* p = save->papyrus();
+			const bool  pap = p && !save->sfPapyrusRaw();
+			std::printf("check: script data %s\n", !p ? "missing" : save->sfPapyrusRaw() ? ("not read: " + save->sfPapyrusError).c_str()
+																   : p->invalid ? "INVALID (the game reports such a save as corrupt)" : "read");
+			if (pap && !p->invalid) {
+				const auto r = ops::Analyze(*save);
+				std::printf("check: %zu threads, %zu suspended stacks, %zu queued calls, %zu pending latent results\n", r.threads, r.suspended,
+					r.functionMessages, p->pendingLatents.size());
+				std::printf("check: stranded threads %zu\n", r.stranded);
+				std::printf("check: script floods (over %zu calls of one event) %zu\n", flood::kOver, r.floods.size());
+				for (const auto& f : r.floods) {
+					std::printf("check:   %s: %zu calls, %zu not started\n", f.key().c_str(), f.total(), f.notStarted);
+				}
+				std::printf("check: scripts in wait loops %zu\n", r.loopingScripts.size());
+				std::printf("check: undefined scripts %zu, instances %zu, threads %zu\n", r.undefinedScripts, r.undefinedInstances, r.undefinedThreads);
+				std::printf("check: unattached instances %zu%s\n", r.unattached, r.unattached >= 100 ? " (many)" : "");
+				std::size_t memberless = 0;
+				for (const auto& i : p->instances) {
+					memberless += ops::IsMemberless(*p, i);
+				}
+				std::printf("check: memberless instances %zu\n", memberless);
+			}
+			if (db) {
+				std::printf("check: change forms whose type changed in the plugins (the game skips them) %zu\n", retyped.size());
+				for (std::size_t i = 0; i < retyped.size() && i < 20; ++i) {
+					std::printf("check:   %08X saved %s, now %s  %s\n", retyped[i].formID, retyped[i].saved.c_str(), retyped[i].now.c_str(),
+						db->describe(retyped[i].formID).c_str());
+				}
+			} else {
+				std::printf("check: change form types not checked (needs --names with --game / --data)\n");
+			}
+			std::printf("check: .sfse next to it: %s\n", save->cosave.empty() ? "no" : (std::to_string(save->cosave.size()) + " bytes, kept as is").c_str());
+			if (notInstalled) {
+				const auto rep = bloat::Build(*save);
+				std::printf("check: size by plugin (biggest first; * = not loaded):\n");
+				const auto pt = !pluginsTxt.empty() ? text::PathFrom(pluginsTxt) : loadorder::GamePluginsTxt(3);
+				const auto order = loadorder::ReadStarfield(pt, dirs);
+				const auto left = modremove::StarfieldNotLoaded(*save, order, nullptr);
+				std::set<std::string> gone;
+				for (const auto& l : left) {
+					gone.insert(LowerSF(l.plugin));
+				}
+				std::size_t shown = 0;
+				for (const auto& m : rep.mods) {
+					if (shown++ >= 25) {
+						break;
+					}
+					std::printf("check:   %c %-50s %10s  instances %zu, threads %zu, change forms %zu\n", gone.contains(LowerSF(m.name)) ? '*' : ' ',
+						m.name.c_str(), bloat::Bytes(m.total()).c_str(), m.instances.count, m.threads.count, m.changeFormCount());
+				}
+			}
+		}
+		const bool papyrusEdits = unattached || undefined || termUndef || removeNotInstalled || removeStranded || clearFloods;
 		if (papyrusEdits && (!save->papyrus() || save->sfPapyrusRaw())) {
 			std::fprintf(stderr, "the script data of this save could not be read: %s\n", save->sfPapyrusError.c_str());
 			return 2;
@@ -238,8 +332,8 @@ int StarfieldMain(int argc, char** argv)
 			std::size_t gone = 0;
 			for (const auto& l : left) {
 				gone += !l.installed;
-				std::printf("not loaded: %-50s %-22s %zu forms, %zu scripts, %zu instances, %zu threads\n", l.plugin.c_str(),
-					l.installed ? "installed, not enabled" : "not installed", l.changeForms, l.scripts, l.instances, l.threads);
+				std::printf("not loaded: %-50s %-22s %zu forms, %zu scripts, %zu instances, %zu threads, %zu instances on its forms\n", l.plugin.c_str(),
+					l.installed ? "installed, not enabled" : "not installed", l.changeForms, l.scripts, l.instances, l.threads, l.ownInstances);
 			}
 			std::printf("%zu plugin(s) of the save are not loaded: %zu not installed\n", left.size(), gone);
 			if (removeNotInstalled) {
@@ -263,6 +357,26 @@ int StarfieldMain(int argc, char** argv)
 				std::printf("removed the leftovers of %zu plugin(s), %zu refused\n", done, refused);
 				edited = edited || done;
 			}
+		}
+		if (removeRetyped) {
+			std::set<std::uint32_t> raws;
+			for (const auto& m : retyped) {
+				raws.insert(save->changeForms[m.index].refID.data);
+			}
+			std::printf("removed %zu change form(s) whose type changed\n", ops::DeleteChangeForms(*save, raws));
+			edited = edited || !raws.empty();
+		}
+		if (removeStranded) {
+			const auto r = ops::RemoveStrandedThreads(*save->papyrus());
+			std::printf("removed %zu stranded thread(s)\n", r.threads);
+			edited = true;
+		}
+		if (clearFloods) {
+			const auto r = flood::Clear(*save);
+			const auto back = flood::ReadBack(*save);
+			std::printf("cleared %zu queued call(s) that never started (%zu threads); read back %s: %zu threads, %zu stranded\n", r.calls, r.threads,
+				back.ok ? "ok" : back.error.c_str(), back.threads, back.stranded);
+			edited = true;
 		}
 		if (termUndef) {
 			std::printf("terminated %zu undefined thread(s)\n", ops::TerminateUndefinedThreads(*save->papyrus()));

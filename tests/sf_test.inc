@@ -56,9 +56,18 @@ void TestStarfield()
 			  !IsBaseGameFileSF("SFBGS0AA.esm") && !IsBaseGameFileSF("MyMod.esm") && !IsBaseGameFileSF("Starfield.esm.bak") &&
 			  !IsBaseGameFileSF("BlueprintShips-MyMod.esm"),
 		"sf: base game file rule as the exe's");
+	// the game's name parser (0x1418365c0): the date field must stay 14 characters; the save number is read with strtoul
 	Check(EditedSaveName("Save1471_2C1EE8CF_42726F6E78_092246_20261111021801_73_1_4.sfs", "edited", false).filename() ==
-			  "Save1471_2C1EE8CF_42726F6E78_092246_20261111021801edited_73_1_4.sfs",
-		"sf: edited name keeps the game's fields");
+			  "Save1471edited_2C1EE8CF_42726F6E78_092246_20261111021801_73_1_4.sfs",
+		"sf: edited name keeps the game's fields (tag after the save number)");
+	Check(EditedSaveName("Autosave1_5AD6CEB5M46726579612046726F7374_010516_20261108071620_52_3_4.sfs", "cleaned", false).filename() ==
+			  "Autosave1cleaned_5AD6CEB5M46726579612046726F7374_010516_20261108071620_52_3_4.sfs",
+		"sf: autosave names get the tag after their number too");
+	Check(EditedSaveName("Quicksave0edited_5AD6CEB5M46726579612046726F7374_010516_20261108071620_52_3_4.sfs", "cleaned", false).filename() ==
+			  "Quicksave0cleaned_5AD6CEB5M46726579612046726F7374_010516_20261108071620_52_3_4.sfs",
+		"sf: an earlier tag is replaced");
+	Check(EditedSaveName("HardShip.sfs", "cleaned", false).filename() == "HardShip_cleaned.sfs", "sf: a name of the player's own gets _tag");
+	Check(EditedSaveName("Save1471_x.ess", "edited", false).filename() == "Save1471_x_edited.ess", "skyrim names unchanged by the Starfield rule");
 
 	const char* env = std::getenv("RESAVERPP_SF_SAVES");
 	if (!env || !*env) {
@@ -202,6 +211,105 @@ void TestStarfield()
 				"sf: cleaned save reads back clean and identical");
 			std::error_code ec2;
 			fs::remove(out2, ec2);
+		}
+		// the Save check on a save the game made: nothing stranded, nothing memberless, the size by mod adds up
+		{
+			const auto& p = *s->papyrus();
+			Check(ops::StrandedThreads(p).empty(), "sf: no stranded thread in a save the game made");
+			std::size_t memberless = 0;
+			for (const auto& i : p.instances) {
+				memberless += ops::IsMemberless(p, i);
+			}
+			Check(memberless == 0, "sf: no memberless instance in a save the game made");
+			const auto rep = bloat::Build(*s);
+			Check(rep.changeFormBytes == s->flt.table3Offset - s->flt.changeFormsOffset, "sf: bloat: change form bytes = the change form section");
+			std::uint64_t pap = 0;
+			for (const auto& m : rep.mods) {
+				pap += m.papyrusBytes();
+			}
+			Check(pap > 0 && pap <= rep.papyrusBytes && rep.mods.size() > 1, "sf: bloat: script data by mod within the section");
+			std::uint32_t pick = 0;
+			std::string   pickType;
+			for (const auto& c : s->changeForms) {
+				if (c.refID.type() != RefID::Type::kCreated && s->formIDOf(c.refID) != 0) {
+					pick = s->formIDOf(c.refID);
+					pickType = s->cfTypeName(c);
+					break;
+				}
+			}
+			const auto mm = ops::SfTypeMismatches(*s, [&](std::uint32_t a_id) -> std::string {
+				return a_id == pick ? std::string("XXXX") : std::string();
+			});
+			Check(mm.size() == 1 && mm[0].formID == pick && mm[0].saved == pickType && mm[0].now == "XXXX", "sf: a form whose type changed is found");
+			const auto rb = flood::ReadBack(*s);
+			Check(rb.ok && rb.threads == p.activeScripts.size() && rb.stranded == 0, "sf: script data written and read back (flood check)");
+		}
+		// a thread left stranded (its queued call deleted without it; or a latent wait turned off), found and removed
+		{
+			auto  e = SaveFile::load(out);
+			auto& p = *e->papyrus();
+			bool  made = false;
+			if (!p.functionMessages.empty()) {
+				ops::DeleteFunctionMessages(p, { 0 });
+				made = true;
+			} else {
+				for (auto& a : p.activeScripts) {
+					if (a.type != 0) {
+						a.type = 0;
+						// a latent result waiting for it holds it
+						PendingLatent l;
+						l.id = a.id;
+						p.pendingLatents.push_back(l);
+						Check(ops::StrandedThreads(p).empty(), "sf: a pending latent result holds its thread");
+						p.pendingLatents.clear();
+						made = true;
+						break;
+					}
+				}
+			}
+			if (made) {
+				Check(ops::StrandedThreads(p).size() == 1, "sf: a thread nothing holds is stranded");
+				const auto r = ops::RemoveStrandedThreads(p);
+				Check(r.threads == 1 && ops::StrandedThreads(p).empty(), "sf: the stranded thread removed");
+				const auto bytes = e->serialize();
+				const auto out3 = fs::temp_directory_path() / ("rs_sf_str_" + std::to_string(n) + ".sfs");
+				{
+					std::ofstream o(out3, std::ios::binary);
+					o.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+				}
+				auto back = SaveFile::load(out3);
+				Check(back->problems.empty() && ops::StrandedThreads(*back->papyrus()).empty() &&
+						  back->papyrus()->activeScripts.size() == p.activeScripts.size(),
+					"sf: without the stranded thread it reads back clean");
+				std::error_code ec3;
+				fs::remove(out3, ec3);
+			}
+		}
+		// an .sfse next to the save is read as bytes and written next to the new save under its name
+		{
+			const auto dir = fs::temp_directory_path() / ("rs_sfse_" + std::to_string(n));
+			std::error_code ec4;
+			fs::remove_all(dir, ec4);
+			fs::create_directories(dir, ec4);
+			const auto src = dir / "Save7_ABCDEF01_42726F6E78_092246_20261111021801_73_1_4.sfs";
+			fs::copy_file(out, src, ec4);
+			const std::vector<std::uint8_t> co = { 'n', 'o', 't', ' ', 'S', 'F', 'S', 'E', 0, 1, 2, 3 };
+			{
+				std::ofstream o(dir / "Save7_ABCDEF01_42726F6E78_092246_20261111021801_73_1_4.sfse", std::ios::binary);
+				o.write(reinterpret_cast<const char*>(co.data()), static_cast<std::streamsize>(co.size()));
+			}
+			auto withCo = SaveFile::load(src);
+			Check(withCo->cosave == co, "sf: an .sfse next to the save is kept");
+			const auto dst = EditedSaveName(src, "cleaned", true);
+			withCo->write(dst, false);
+			auto dstCo = dst;
+			dstCo.replace_extension(".sfse");
+			Check(dst.filename().string().rfind("Save7cleaned_", 0) == 0 && fs::exists(dstCo) && SfReadAll(dstCo) == co,
+				"sf: the .sfse is written next to the new save under its name");
+			withCo->write(src, true);  // in place with a backup: both files backed up
+			auto bakCo = dir / "Save7_ABCDEF01_42726F6E78_092246_20261111021801_73_1_4.sfse.bak";
+			Check(fs::exists(bakCo) && SfReadAll(bakCo) == co, "sf: writing in place backs up the .sfse too");
+			fs::remove_all(dir, ec4);
 		}
 		// deleting change forms: a whole run of one type, one form inside a run, the first and the last form
 		{
@@ -638,15 +746,17 @@ void TestStarfieldNames()
 		}
 		// nothing of a cleaned plugin is left; the save writes and reads back clean
 		const auto left2 = modremove::StarfieldNotLoaded(*s, order, nullptr);
-		std::size_t forms2 = 0;
+		std::size_t forms2 = 0, inst2 = 0;
 		for (const auto& l : left2) {
 			std::string low = l.plugin;
 			for (auto& c : low) {
 				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 			}
 			forms2 += l.installed || IsStarfieldBaseFile(low) ? 0 : l.changeForms;
+			inst2 += l.installed || IsStarfieldBaseFile(low) ? 0 : l.ownInstances;
 		}
 		Check(forms2 == 0 && s->changeForms.size() < cfBefore, "sf missing: no change form of a removed plugin is left");
+		Check(inst2 == 0, "sf missing: no script instance on a removed plugin's forms is left (engine types included)");
 		const auto bytes = s->serialize();
 		const auto out = (outDir && *outDir ? fs::path(outDir) : fs::temp_directory_path()) / EditedSaveName(f, "cleaned", false).filename();
 		SfWrite(out, bytes);

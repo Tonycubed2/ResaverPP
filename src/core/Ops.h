@@ -9,6 +9,7 @@
 #include "Save.h"
 #include "ScriptFlood.h"
 
+#include <functional>
 #include <set>
 #include <string>
 #include <vector>
@@ -32,6 +33,8 @@ namespace ess::ops
 	// ReSaver's extra filters
 	std::vector<std::string> ExtendedMembers(const Papyrus& p, TStr a_script);  // parents' members first
 	bool                     IsMemberless(const Papyrus& p, const ScriptInstance& i);  // script has members, instance has no data
+	// (Starfield: the save defines a script only when an object of it has data, so an instance of a script with no
+	// definition is never memberless; an instance of a defined script with members and no data/variables: none in 24 saves)
 	bool                     HasCanary(const Papyrus& p, const ScriptInstance& i);     // ::iPapyrusDataVerification_var
 	int                      CanaryValue(const Papyrus& p, const ScriptInstance& i);
 	bool                     IsNoParent(const Papyrus& p, const Script& s);       // empty parent, not a base script
@@ -59,6 +62,13 @@ namespace ess::ops
 	// waits + the extra slot >= running threads); a thread held by none of them is never resumed, never finishes, and
 	// keeps the engine from pausing, so every later save of that game session is written with its Papyrus data
 	// flagged invalid (see Papyrus::invalid).
+	// Starfield (Starfield.exe 1.16.244): the stack table's byte is "the stack is in the VM's waiting list" (writer
+	// 0x142870430 looks the id up in the u32 array at VM+0x3d08/0x3d10); ReturnFromLatent (VM vtable 0x144da3940 slot
+	// 0x33, CommonLibSF's IVirtualMachine) and ReattemptGuardLock (slot 0x34) take a stack out of that list when its
+	// state is 3 (waiting on a latent function) / 9 (waiting for a guard): so a type byte not 0 is a latent or guard
+	// wait, as in Skyrim. A finished latent's result waiting for its stack (Papyrus::pendingLatents) holds that stack
+	// too. Every thread of the 24 Starfield saves we have (Tony's 4, the other player's 20) is held by one of these
+	// [data]; the engine's pause rule itself was not read in Starfield.exe.
 	// Threads held by none of them.
 	std::vector<ThreadID> StrandedThreads(const Papyrus& p);
 
@@ -194,11 +204,24 @@ namespace ess::ops
 		std::string name;
 		std::size_t n = 0;
 	};
+	// Starfield: change forms the game will not apply because the form's type in the plugins is not the type the save
+	// gives it. The loader (Starfield.exe 1.16.244 0x1418169c5) logs "Form '%s' (%08X) was saved with form type %s,
+	// but currently has form type %s" and skips the form's saved data (a created FF form is deleted instead; those are
+	// not in the plugins and are not checked here). a_typeOf: the record type of a form in the plugins the game loads
+	// ("" when not known). Forms of plugins that are not loaded are not checked (see the mods no longer installed).
+	struct SfTypeMismatch
+	{
+		std::size_t   index = 0;  // in SaveFile::changeForms
+		std::uint32_t formID = 0;
+		std::string   saved, now;
+	};
+	std::vector<SfTypeMismatch> SfTypeMismatches(const SaveFile& s, const std::function<std::string(std::uint32_t)>& a_typeOf);
+
 	struct Report
 	{
 		std::size_t scripts = 0, instances = 0, references = 0, arrays = 0, threads = 0, functionMessages = 0, suspended = 0, changeForms = 0, strings = 0;
 		std::size_t unattached = 0, undefinedScripts = 0, undefinedInstances = 0, undefinedThreads = 0, terminatedThreads = 0, createdWithoutForm = 0;
-		std::size_t stranded = 0;  // StrandedThreads (Skyrim SE)
+		std::size_t stranded = 0;  // StrandedThreads (Skyrim SE, Starfield)
 		std::vector<Count> threadsByTopScript;      // script of the event frame (frame 0)
 		std::vector<Count> threadsByCurrentFrame;   // innermost frame: what the thread is waiting in
 		std::vector<Count> suspendedByFunction;

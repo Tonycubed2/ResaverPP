@@ -9,6 +9,7 @@
 #include "Tips.h"
 
 #include "core/Ops.h"
+#include "core/PluginDB.h"
 #include "core/Text.h"
 
 #include "imgui.h"
@@ -16,6 +17,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <map>
+#include <set>
 
 using namespace ess;
 
@@ -92,6 +94,7 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 		return a_papyrus;  // (they work on the script data)
 	case Sc::kReport:
 	case Sc::kBsa:
+	case Sc::kCosave:
 		return true;
 	default:
 		return false;
@@ -308,6 +311,9 @@ void App::drawMenuSF()
 		ImGui::MenuItem(tr("Analysis"), nullptr, &_showAnalysis, pap);
 		if (ImGui::MenuItem(tr("Report..."))) {
 			shortcut(Sc::kReport);
+		}
+		if (ImGui::MenuItem(tr("SFSE co-save (.sfse)..."))) {
+			shortcut(Sc::kCosave);
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem(_db ? tr("Read plugin names again") : tr("Read plugin names"), nullptr, false, !namesLoading() && !gameFolder().empty())) {
@@ -553,7 +559,84 @@ std::vector<App::CheckItem> App::computeCheckItemsSF()
 		it.what = tr("ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data "
 					 "(Papyrus) is kept exactly as it is, so there is nothing to check or clean in it yet.");
 		v.push_back(std::move(it));
+		checkItemsSF(v);
+		cosaveCheck(v);
 		return v;
 	}
 	return v;  // (with the script data read: App::computeCheckItems, its Papyrus part)
+}
+
+const std::vector<ops::SfTypeMismatch>& App::sfTypeMismatches()
+{
+	const PluginDB* db = _db && _db->starfield() && !namesLoading() ? _db.get() : nullptr;
+	if (_sfMismatchSave != _save.get() || _sfMismatchDb != db || _sfMismatchGen != _editGen) {
+		_sfMismatchSave = _save.get();
+		_sfMismatchDb = db;
+		_sfMismatchGen = _editGen;
+		_sfMismatch.clear();
+		if (_save && db) {
+			_sfMismatch = ops::SfTypeMismatches(*_save, [db](std::uint32_t a_id) -> std::string {
+				const auto* f = db->find(a_id);
+				return f ? db->type(*f) : std::string();
+			});
+		}
+	}
+	return _sfMismatch;
+}
+
+void App::checkItemsSF(std::vector<CheckItem>& a_items)
+{
+	if (!_save || !sf()) {
+		return;
+	}
+	// change forms whose type is not the one the plugins give the form now: the game skips their saved data
+	const auto& mm = sfTypeMismatches();
+	if (!mm.empty()) {
+		CheckItem it;
+		it.level = Risk::kCaution;
+		it.title = Fmt(tr("%zu change form(s) have another type in your plugins now: the game skips them"), mm.size());
+		std::string list;
+		for (std::size_t i = 0; i < mm.size() && i < 10; ++i) {
+			list += Fmt("\n  - %08X: %s -> %s", mm[i].formID, mm[i].saved.c_str(), mm[i].now.c_str());
+			if (_db) {
+				if (const auto n = _db->describe(mm[i].formID); !n.empty()) {
+					list += "  " + n;
+				}
+			}
+		}
+		if (mm.size() > 10) {
+			list += Fmt(tr("\n  - and %zu more"), mm.size() - 10);
+		}
+		it.what = tr("The save stored these forms as one type, but a plugin you load now defines them as another (a mod changed or "
+					 "replaced them). Starfield's loader logs \"Form ... was saved with form type ..., but currently has form type ...\" "
+					 "and skips their saved changes (Starfield.exe 1.16.244), so they load as the plugins define them:") + list;
+		CheckOption o;
+		o.label = tr("Show it in Change forms");
+		o.risk = Risk::kSafe;
+		o.why = tr("Only shows information.");
+		const auto first = _save->changeForms[mm.front().index].refID.data;
+		o.act = [this, first] {
+			select(Cat::kChangeForms, first);
+			_showCheck = false;
+		};
+		it.options.push_back(std::move(o));
+		std::set<std::uint32_t> raws;
+		for (const auto& m : mm) {
+			raws.insert(_save->changeForms[m.index].refID.data);
+		}
+		CheckOption r;
+		r.label = Fmt(tr("Remove their saved changes (%zu)"), raws.size());
+		r.risk = Risk::kSafe;
+		r.why = tr("The game already skips them when the save loads, so the result in the game is the same; the save just no longer "
+				   "carries data nothing uses.");
+		r.act = [this, raws] {
+			confirm(tr("Remove skipped change forms"),
+				Fmt(tr("Delete %zu change form(s) the game skips because their type changed?\n\nOnly the save in memory changes: write it "
+					   "with File > Save As under a new name."),
+					raws.size()),
+				[this, raws] { markEdited(Fmt(tr("Removed %zu change form(s) whose type changed"), ops::DeleteChangeForms(*_save, raws))); });
+		};
+		it.options.push_back(std::move(r));
+		a_items.push_back(std::move(it));
+	}
 }

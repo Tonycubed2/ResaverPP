@@ -419,6 +419,8 @@ namespace ess
 	void WriteThreadData(Writer& w, ThreadID a_id, const ActiveScriptData& a_data);
 	// ... in the Starfield layout
 	void WriteThreadDataSF(Writer& w, ThreadID a_id, const ActiveScriptData& a_data);
+	// One object's saved data in the Starfield layout (id + Object::Save 0x142803340): for measuring its size
+	void WriteObjectDataSF(Writer& w, EID a_id, const InstanceData& a_data);
 	// A variable in the Starfield layout (None: the type byte only, Bool: u8; Starfield.exe 0x14280b1c0)
 	Variable ReadVariableSF(Reader& r);
 	void     WriteVariableSF(Writer& w, const Variable& v);

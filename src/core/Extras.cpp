@@ -33,8 +33,8 @@ namespace ess::extras
 		if (const auto t = std::filesystem::last_write_time(a_ess, ec); !ec) {
 			info.modified = ToUnix(t);
 		}
-		// the cosave: .skse (Skyrim) or .f4se (Fallout 4)
-		for (const char* x : { ".skse", ".f4se" }) {
+		// the cosave: .skse (Skyrim), .f4se (Fallout 4) or .sfse (Starfield)
+		for (const char* x : { ".skse", ".f4se", ".sfse" }) {
 			auto co = a_ess;
 			co.replace_extension(x);
 			if (std::filesystem::exists(co, ec)) {

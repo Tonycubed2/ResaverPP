@@ -269,13 +269,17 @@ namespace ess::flood
 			w.le = w.id32 = a_save.isLE();
 			w.str16 = a_save.str16();
 			w.fo4 = a_save.isFO4();
-			p->write(w);
+			p->write(w);  // (Starfield: writeStarfield, which sets its own widths)
 			Reader r(w.buf.data(), w.buf.size());
 			r.le = r.id32 = a_save.isLE();
 			r.str16 = a_save.str16();
 			r.fo4 = a_save.isFO4();
 			Papyrus back;
-			back.read(r);
+			if (p->starfield) {
+				back.readStarfield(r);
+			} else {
+				back.read(r);
+			}
 			out.ok = true;
 			out.threads = back.activeScripts.size();
 			out.suspended = back.suspended1.size() + back.suspended2.size();

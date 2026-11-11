@@ -244,7 +244,7 @@ void App::ComputeMissing(const SaveFile& a_save, const MissingInputs& a_in, cons
 			m.installed = l.installed;
 			m.changeForms = l.changeForms;
 			m.scripts = l.scripts;
-			m.instances = l.instances;
+			m.instances = std::max(l.instances, l.ownInstances);  // (engine-type bindings on its forms included)
 			m.threads = l.threads;
 			m.selected = !l.installed && !l.nothing() && !out.scanSuspect && !IsStarfieldBaseFile(Lower(l.plugin));
 			out.missing.push_back(std::move(m));

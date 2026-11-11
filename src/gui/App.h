@@ -322,6 +322,7 @@ private:
 	bool                        _showCosave = false;
 	CosaveView&                 cosaveView();  // read again when the save or its edits change; the DLL search runs on its own thread
 	void                        drawCosave();
+	void                        drawCosaveSF();  // Starfield: the .sfse is only kept (AppCosave.cpp)
 	void                        cosaveCheck(std::vector<CheckItem>& a_items);  // the Save check line
 	void                        cosaveClean(const std::set<std::uint32_t>& a_uids, bool a_papu);
 
@@ -755,6 +756,12 @@ private:
 	void        detailChangeFormSF(std::uint64_t k);
 	void        detailGlobalSF(std::uint64_t k);
 	std::vector<CheckItem> computeCheckItemsSF();  // before its script data is read
+	void                   checkItemsSF(std::vector<CheckItem>& a_items);  // Starfield-only items (AppStarfield.cpp)
+	const std::vector<ess::ops::SfTypeMismatch>& sfTypeMismatches();  // cached per save, edit and names
+	std::vector<ess::ops::SfTypeMismatch> _sfMismatch;
+	const void*            _sfMismatchSave = nullptr;
+	const void*            _sfMismatchDb = nullptr;
+	std::uint64_t          _sfMismatchGen = ~0ull;
 	static bool SkyrimOnly(Sc a_which);
 	static constexpr const char* kSkyrimOnlyTip = N_("Skyrim saves only for now: this tool reads Skyrim's own data.");
 	void        drawHome();            // the shortcut buttons

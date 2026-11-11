@@ -10,7 +10,8 @@
 //  - inventory entries, by the plugin of the item (their bytes are taken out of the holder's change form, so
 //    nothing is counted twice).
 // Sizes are the uncompressed bytes the game reads (change forms as decompressed, headers included).
-// Fallout 4 and Skyrim (SE/AE/VR/LE).
+// Fallout 4, Skyrim (SE/AE/VR/LE) and Starfield (its change form data is not decoded: created forms are not traced to
+// the plugin of their base and inventories are not split out; Papyrus sizes are those of its own layout).
 #pragma once
 
 #include "Save.h"
@@ -42,7 +43,8 @@ namespace ess::bloat
 		kFolder,     // a mod folder without a plugin of the save ("[name]"), from the scanned script sources
 		kCreated,    // created objects whose base could not be told
 		kNothing,    // instances attached to nothing, threads without an object
-		kOther       // a plugin the save does not list (should not happen)
+		kOther,      // a plugin the save does not list (should not happen)
+		kMedium      // a medium plugin of the save (Starfield)
 	};
 
 	struct ModBloat

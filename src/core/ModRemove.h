@@ -86,7 +86,10 @@ namespace ess::modremove
 		std::string plugin;
 		bool        installed = false;  // its file is in a Data folder (not enabled in plugins.txt)
 		std::size_t changeForms = 0, scripts = 0, instances = 0, threads = 0;
-		bool        nothing() const { return changeForms == 0 && scripts == 0 && threads == 0; }
+		// every script instance bound to one of its own forms, engine types (Form, ObjectReference...) included: those
+		// are not in the Mods view's counts, but they are leftovers too (MakePlan removes them)
+		std::size_t ownInstances = 0;
+		bool        nothing() const { return changeForms == 0 && scripts == 0 && threads == 0 && ownInstances == 0; }
 	};
 	std::vector<Leftover> StarfieldNotLoaded(const SaveFile& a_save, const loadorder::StarfieldOrder& a_order, const mods::Table* a_mods);
 

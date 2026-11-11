@@ -471,6 +471,8 @@ namespace ess
 		}
 	}
 
+	void WriteObjectDataSF(Writer& w, EID a_id, const InstanceData& a_data) { WriteObjectData(w, a_id, a_data); }
+
 	Variable ReadVariableSF(Reader& r)
 	{
 		Variable v;

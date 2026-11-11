@@ -1025,10 +1025,11 @@ project; you do the coding, building, delivering and publishing.
     Medium plugin form ids FD + 8-bit index + 16-bit id (`pluginOf`): from data only (Save1471's form ID array uses
     FD00/FD01 with 2 medium plugins) [D]. Papyrus 1001: `Papyrus::readStarfield`; if it throws, the bytes are kept raw
     (`GlobalData::sfRawPapyrus`, `SaveFile::sfPapyrusError`) and the GUI shows Papyrus as "not read".
-  - No co-save (.sfse) is read or written. Deleting change forms needs nothing else (counts, runs, offsets are rebuilt);
+  - Co-save: an .sfse next to the save is kept byte for byte and written next to the new save (see "Starfield: Save
+    check, co-save" below; SFSE itself writes none). Deleting change forms needs nothing else (counts, runs, offsets are rebuilt);
     created (FF) forms' change forms can be deleted too but what that does to the created-ID section is [U].
-  - Ops: `Analyze` skips the Skyrim change form checks (damaged/ghosts/stuck/stranded/created-without-form) for
-    Starfield; `RemoveUnattachedInstances` keeps unattached instances a variable still names (`NamedObjectIDs`,
+  - Ops: `Analyze` skips the Skyrim change form checks (damaged/ghosts/stuck/created-without-form) for
+    Starfield (stranded threads: checked since sffinish); `RemoveUnattachedInstances` keeps unattached instances a variable still names (`NamedObjectIDs`,
     `CleanResult::keptNamed`: Save1471 has 34 unattached, 2 named); live-effect detection returns "unread" (keep).
   - CLI (`src/cli/StarfieldCli.cpp`, runs first for .sfs): `--describe`, `--report`, `--forms [TYPE]`,
     `--delete-form <id>`, `--remove-unattached`, `--remove-undefined`, `--terminate-undefined`, `-o`. Everything else is
@@ -1117,9 +1118,71 @@ project; you do the coding, building, delivering and publishing.
     by `sf2/tools/summary.py` to "= file size". Scratchpad `sfdata/Data` holds Tony's Data files (Starfield.esm and
     ShatteredSpace.esm reassembled from 390 MB parts, md5 checked) + `Strings/` extracted from the Main archives.
   - Not done / open: names for placed refs of plugins not in the save's wanted set (only the save's own); Starfield quests,
-    inventories, followers (Skyrim/FO4 views stay hidden); renamed-plugin detection for Starfield; EditedSaveName adds the
-    tag at the end for Autosave/Quicksave names (only "Save..." names get it after the date); the game's loader has still
-    not been checked against an edited save.
+    inventories, followers (Skyrim/FO4 views stay hidden); renamed-plugin detection for Starfield; the game itself has
+    still not loaded an edited save (test saves below). (EditedSaveName for Starfield: fixed in sffinish, see below.)
+
+- **Starfield: Save check, co-save, names** (2026-11-11, branch sffinish). Exe facts added to scratchpad `sf2/LOADER.md`
+  section 7.
+  - **SFSE co-save (.sfse)**: SFSE has NO co-save format. Source github.com/ianpatt/sfse (master 2026-06-09, 0.2.21):
+    `Serialization.cpp` HandleSave/LoadGlobalData are "TODO" stubs, `PluginAPI.h` has no serialization interface (Messaging,
+    Trampoline, Menu, Task only), the save/load/delete hooks added in f748c0a (2024-07-29) were disabled in 41c0376
+    (2024-08-23, "causing issues"); while on they only deleted an .sfse with its save. Tony's PC: no .sfse among 87 saves,
+    SFSE logs from 2023 (old install under Program Files (x86)), no Data\SFSE\Plugins in the F: install; the other
+    player's saves came without any. So: read as bytes only (`SaveFile::cosave`, loadSF), written next to every save
+    ReSaver Plus writes under the new name and backed up with it (`SaveFile::write`: `.sfs.bak` + `.sfse.bak`), the save
+    archive and the old-saves list carry it (.sfs <-> .sfse). Nothing can be removed from it (no format): the CLI
+    `--cosave <.sfs|.sfse> [--sources <Data>]` says so and lists Data\SFSE\Plugins DLLs; GUI Tools > SFSE co-save (.sfse)
+    (`drawCosaveSF`) shows the file and the installed SFSE plugins; Save check Info item when an .sfse is there
+    (`cosave::kSfseNote`).
+  - **Save check for Starfield** (`computeCheckItems` Papyrus part + `checkItemsSF` + `bloatCheckItems` + `cosaveCheck`):
+    - script data invalid (0xFFFF): own text, Starfield refuses such a save ("The save game is corrupt...", LOADER.md 4).
+    - stranded threads: ON. `StrandedThreads` also counts `pendingLatents` ids as held. Starfield.exe: the stack table
+      byte = stack in the VM waiting list (ReturnFromLatent / ReattemptGuardLock remove it, states 3 / 9) [PROVEN]; every
+      thread of all 24 saves is held [data]; the "cannot pause to save" consequence is Skyrim's (not read in Starfield):
+      option risk Caution, own texts. CLI `--remove-stranded-threads`.
+    - script floods / wait loops: work as before (none in 24 saves); clearing is Caution ("checked in Skyrim only");
+      `flood::ReadBack` reads the Starfield layout now. CLI `--clear-floods`.
+    - undefined scripts / unattached / busy engine: as before (0 undefined; 10-34 unattached per save, below 100).
+    - mods not installed: as before; leftovers now include ENGINE-TYPE instances (Form, ObjectReference... bound to the
+      plugin's forms; the Mods view does not count them): `Leftover::ownInstances`, `nothing()` checks it, MakePlan
+      skips Starfield handle kinds 3+ (not form ids). Freya Save18: 132 plugins cleaned (was 124), nothing of any of the
+      307 not-loaded plugins left.
+    - NEW change forms whose type changed (`ops::SfTypeMismatches`, needs the names): the loader skips their data
+      (0x1418169c5); option "Remove their saved changes" (Safe: the game skips them anyway). 0 in all saves. CLI
+      `--remove-retyped` (with --names).
+    - bloat by mod: `bloat::Build` handles Starfield (medium rows `RowKind::kMedium`, change form bytes from the header
+      flags = exactly the change form section (test), Papyrus sizes in its layout via `WriteObjectDataSF`,
+      `WriteThreadDataSF`, `WriteVariableSF`; created forms not traced (data not decoded)); the check item uses `_missing`
+      (plugins not loaded) instead of the load order. Freya's biggest gone plugin is 127 KB (< 256 KB threshold).
+    - co-save: the .sfse Info item.
+    - Hidden for Starfield because they need decoded change form data or are Skyrim-only: damaged (zlib) forms (no per-form
+      compression), ghosts, stuck actors, player furniture, heavy save timing, charges, journal, followers, settlements,
+      character effects, crash log, SkyUI MCM jam (never triggers), created-without-form (normal in Starfield: 1,856-33,223
+      instances on FF objects without a change form per save), load order check.
+    - CLI `--check` prints all of it (`--names` for types, `--mods-not-installed` for size by plugin).
+  - Memberless filter ON for Starfield: the save defines a script only when an object of it has data, so `IsMemberless`
+    is 0 in all 24 saves (no definition = never memberless).
+  - **Edited names** (`EditedSaveName`, .sfs only): the game's name parser 0x1418365c0 needs the date field to be exactly
+    14 characters, and reads the save number with strtoul (letters after it ignored). So the tag goes after the save
+    number: `Save1471cleaned_2C1EE8CF_..._73_1_4.sfs`, `Autosave1cleaned_...`, Quicksave/Exitsave alike; other names
+    `HardShip_cleaned.sfs`. The old `..._<date>edited_73_1_4` made the date unreadable for the game's list.
+  - Confirmed: Creations details by header version (>= 140 flag byte, 120..139 base-file rule, achievement byte >= 121,
+    medium count >= 108) as LOADER.md 2.1; medium ids FD + 8-bit + 16-bit (LOADER.md 2.5). sLocalSavePath IS honoured
+    (0x14183a740: My Games base + its value).
+  - Tests (rs_unit, `tests/sf_test.inc`): edited names (4 cases + Skyrim unchanged); per real save: no stranded, no
+    memberless, bloat change form bytes = section, size by mod within Papyrus, a type mismatch found, ReadBack; a stranded
+    thread made (queued call deleted, or a latent wait cleared with a pending latent holding it) found, removed, written,
+    re-read; an .sfse kept, written next to the new name, backed up in place. Names test: no instance on a removed
+    plugin's forms left.
+  - **Test save for Tony** (scratchpad `sf2/out/`): `Save18cleaned_5AD6CEB5M46726579612046726F7374_010520_20261110163654_52_3_4.sfs`
+    = the other player's newest save (Freya Frost, level 52, 321 plugins, 1.16.244) with the leftovers of all 307
+    plugins Tony's vanilla game does not have removed (132 had something; log `Save18cleaned-log.txt`). In Tony's game:
+    it should list as a separate character "Freya Frost"; loading it, the game warns that the save relies on content that
+    is missing (the plugin list is left as it is), which is expected. Not yet tried in game. Also copies of the earlier
+    test saves under the new name rule: `Save1471roundtrip_...` / `Save1471unattached_...`.
+  - Screenshots: scratchpad `sfshot/sffin_1471_check.png` (no problems), `sffin_freya_check.png` (307 mods not in the
+    load order), `sffin_demo_check.png` (Save18 with one queued call deleted + a 4-byte .sfse: stranded thread, mods,
+    .sfse items).
 
 ## 2. Where things are
 
@@ -1285,6 +1348,11 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
   compile log (requested by tyg3rtyg3r); v39 LE plugins.txt without `*` marks (tiodrakul's report).
 
 ## 10. Open items
+
+- Starfield (branch sffinish, not published): Tony to load `Save18cleaned_...sfs` (scratchpad sf2/out) in his vanilla game:
+  the first in-game test of a save ReSaver Plus edited (expect the missing-content warning). Unverified still: the
+  Starfield VM's pause rule for stranded threads, flood clearing's stack states in Starfield, ContentCatalog.txt /
+  Starfield.ccc formats, the My Games\Starfield\Data folder for Creations, 1.9.71 exe.
 
 - Damaged change forms (2026-11-10, branch zlibfix, not published). InfinityA1 (Skyrim LE, Win 11 26200): v66/v67 open his
   newest save, then "Something went wrong: zlib decompression failed" every frame. Reproduced (Vortex's LE test saves,

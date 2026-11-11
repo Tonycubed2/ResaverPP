@@ -83,10 +83,10 @@ bool App::drawFiltersButton()
 		ch |= ImGui::Checkbox(tr("Scripts with missing parent"), &F.missingParent);
 		tips::Tip(tr("Scripts that extend a script that is no longer in the save: often left behind by an uninstalled mod."));
 		ImGui::SeparatorText(tr("Script instances"));
-		if (!sf()) {  // (Starfield: an instance without data is normal)
-			ch |= ImGui::Checkbox(tr("Memberless instances (script has variables, instance has none)"), &F.memberless);
-			tips::Tip(tr("Script instances with no variables although their script has some: their data was lost. Often from a mod update or removal."));
-		}
+		// (Starfield: an instance without data is normal, but the game defines a script in the save only when an object of it has
+		// data, so an instance whose defined script has members and that has none is not: none in 24 Starfield saves)
+		ch |= ImGui::Checkbox(tr("Memberless instances (script has variables, instance has none)"), &F.memberless);
+		tips::Tip(tr("Script instances with no variables although their script has some: their data was lost. Often from a mod update or removal."));
 		ch |= ImGui::Checkbox(tr("Zeroed canaries (::iPapyrusDataVerification_var = 0)"), &F.zeroedCanary);
 		tips::Tip(tr("Instances whose ::iPapyrusDataVerification_var check value is 0, a sign the game discarded their data on load (mod changed or broken)."));
 		ch |= ImGui::Checkbox(tr("Forms with scripts (instances on changed forms / changed forms with scripts)"), &F.withScripts);
