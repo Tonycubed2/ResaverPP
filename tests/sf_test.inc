@@ -76,6 +76,7 @@ void TestStarfield()
 	}
 	std::string all = env;
 	std::size_t n = 0;
+	std::size_t sfUnattachedSeen = 0;
 	for (std::size_t p = 0; p <= all.size();) {
 		auto e = all.find(';', p);
 		if (e == std::string::npos) {
@@ -190,14 +191,22 @@ void TestStarfield()
 		{
 			auto       edit = SaveFile::load(out);
 			const auto before = edit->papyrus()->instances.size();
+			std::size_t expect = 0;
+			{
+				const auto named0 = ops::NamedObjectIDs(*edit->papyrus());
+				for (const auto& i : edit->papyrus()->instances) {
+					expect += ops::IsUnattached(i) && !named0.contains(i.id);
+				}
+			}
 			const auto r = ops::RemoveUnattachedInstances(*edit);
+			sfUnattachedSeen += r.removed;
 			ops::TerminateUndefinedThreads(*edit->papyrus());
 			const auto named = ops::NamedObjectIDs(*edit->papyrus());
 			bool       anyNamedGone = false;
 			for (const auto& i : edit->papyrus()->instances) {
 				anyNamedGone |= ops::IsUnattached(i) && !named.contains(i.id);
 			}
-			Check(r.removed > 0 && !anyNamedGone && edit->papyrus()->instances.size() == before - r.removed,
+			Check(r.removed == expect && !anyNamedGone && edit->papyrus()->instances.size() == before - r.removed,
 				"sf: unattached instances removed, the ones a variable names kept");
 			const auto bytes = edit->serialize();
 			const auto out2 = fs::temp_directory_path() / ("rs_sf_clean_" + std::to_string(n) + ".sfs");
@@ -364,6 +373,7 @@ void TestStarfield()
 		std::error_code ec;
 		fs::remove(out, ec);
 	}
+	Check(n == 0 || sfUnattachedSeen > 0, "sf: some real save had unattached instances to remove");
 	std::printf("(starfield: %zu real save(s) read and written)\n", n);
 }
 
