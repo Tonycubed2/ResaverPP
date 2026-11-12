@@ -1188,7 +1188,7 @@ void App::drawMenu()
 		}
 		tips::Tip(tr("Write the save's load order (every plugin it was made with) to a text file, e.g. to share when asking for help."));
 		ImGui::Separator();
-		if (ImGui::MenuItem(tr("Open script (.pex)..."), nullptr, false, !fo4() && !sf())) {
+		if (ImGui::MenuItem(tr("Open script (.pex)..."), nullptr, false, true)) {
 			shortcut(Sc::kOpenPex);
 		}
 		tips::Tip(tr("Open a compiled Papyrus script (.pex) and read its decompiled code, without a save."));

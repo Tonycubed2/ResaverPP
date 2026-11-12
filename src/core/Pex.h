@@ -1,6 +1,8 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
-// Compiled Papyrus scripts (.pex, Skyrim format): reading and disassembly, like ReSaver's
-// "drop a .pex on the window".
+// Compiled Papyrus scripts (.pex): reading and disassembly, like ReSaver's "drop a .pex on the window". Skyrim's
+// (big-endian, 3.2) and the little-endian ones of Fallout 4 (3.9, game 2) and Starfield (3.12, game 4): their const flags,
+// structs, property groups, guards (Starfield) and the opcodes after Skyrim's 36 (is, struct_*, array_add..., the guard
+// locks), as Champollion (Orvid, MIT) reads them; checked on every script in Starfield - Misc.ba2 1.16.244.
 #pragma once
 
 #include <cstdint>
@@ -46,6 +48,21 @@ namespace ess::pex
 		std::uint16_t name = 0, type = 0;
 		std::uint32_t userFlags = 0;
 		Value         init;
+		bool          isConst = false;  // (Fallout 4 / Starfield)
+	};
+
+	// a struct (Fallout 4 / Starfield)
+	struct StructInfo
+	{
+		struct Member
+		{
+			std::uint16_t name = 0, type = 0, docString = 0;
+			std::uint32_t userFlags = 0;
+			Value         init;
+			bool          isConst = false;
+		};
+		std::uint16_t       name = 0;
+		std::vector<Member> members;
 	};
 
 	struct Property
@@ -66,6 +83,9 @@ namespace ess::pex
 	{
 		std::uint16_t         name = 0, parent = 0, docString = 0, autoState = 0;
 		std::uint32_t         userFlags = 0;
+		bool                  isConst = false;           // (Fallout 4 / Starfield) ScriptName ... Const
+		std::vector<StructInfo>    structs;               // (Fallout 4 / Starfield)
+		std::vector<std::uint16_t> guards;                // (Starfield) Guard <name>
 		std::vector<Variable> variables;
 		std::vector<Property> properties;
 		std::vector<State>    states;
@@ -87,6 +107,22 @@ namespace ess::pex
 		std::vector<std::string>                              strings;
 		bool                                                  hasDebug = false;
 		std::vector<DebugFunction>                            debug;
+		// (Fallout 4 / Starfield debug info) property groups: object, group, doc, user flags, the properties in order;
+		// struct member orders: object, struct, members in order
+		struct PropertyGroup
+		{
+			std::uint16_t              object = 0, name = 0, docString = 0;
+			std::uint32_t              userFlags = 0;
+			std::vector<std::uint16_t> properties;
+		};
+		struct StructOrder
+		{
+			std::uint16_t              object = 0, name = 0;
+			std::vector<std::uint16_t> members;
+		};
+		std::vector<PropertyGroup> groups;
+		std::vector<StructOrder>   structOrders;
+		bool                       littleEndian = false;  // Fallout 4 (game 2) / Starfield (game 4)
 		std::vector<std::pair<std::uint16_t, std::uint8_t>>   userFlags;  // name, bit
 		std::vector<Object>                                   objects;
 

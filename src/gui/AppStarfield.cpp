@@ -114,6 +114,7 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kSavesMgr:
 	case Sc::kLeftovers:  // (cf::ListInventories / RemoveInventoryItems read Starfield's inventories)
 	case Sc::kActors:     // (cf::ListActors reads Starfield's positions; Move to me through the helper's MOVETO)
+	case Sc::kOpenPex:    // (pex::Read: Starfield's little-endian scripts, guards and struct opcodes)
 	case Sc::kGather:     // (followersSF: the open save's followers, the helper's GATHER with their actors)
 	case Sc::kLoadOrderCheck:  // (locheck::Game::kStarfield)
 	case Sc::kHavok:           // (ResetHavokSF: the block saved with length 0)

@@ -98,7 +98,6 @@ bool App::SkyrimOnly(Sc a_which)
 	// (these read or change the save's change forms, decoded for Skyrim only so far, or Skyrim's plugin records)
 	case Sc::kMcm:
 	case Sc::kActors:
-	case Sc::kOpenPex:
 		return true;
 	default:
 		return false;

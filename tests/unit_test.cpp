@@ -516,6 +516,64 @@ namespace
 		}
 	};
 
+	// Starfield's scripts (little-endian, 3.12, game 4): a struct, a guard, the struct and array opcodes and a LockGuard,
+	// written byte by byte as the game's compiler lays them out (pex::Read checked on all 4,740 scripts of Starfield -
+	// Misc.ba2 1.16.244, Fallout 4's 6,767 and Skyrim's 14,026 decompile as before)
+	void TestPexStarfield()
+	{
+		std::vector<std::uint8_t> b;
+		auto u8 = [&](unsigned v) { b.push_back(static_cast<std::uint8_t>(v)); };
+		auto u16 = [&](unsigned v) { u8(v & 0xFF), u8(v >> 8); };
+		auto u32 = [&](std::uint32_t v) { u16(v & 0xFFFF), u16(v >> 16); };
+		auto wstr = [&](const std::string& t) { u16(static_cast<unsigned>(t.size())); b.insert(b.end(), t.begin(), t.end()); };
+		auto ident = [&](unsigned i) { u8(1), u16(i); };
+		auto num = [&](std::int32_t i) { u8(3), u32(static_cast<std::uint32_t>(i)); };
+		u32(0xFA57C0DE);
+		u8(3), u8(12), u16(4);
+		u32(0), u32(0);
+		wstr("MyScript.psc"), wstr("u"), wstr("m");
+		const std::vector<std::string> strs = { "", "MyScript", "ScriptObject", "Pt", "Int", "X", "G", "Run", "None", "p", "MyScript#Pt", "::temp0", "Int[]", "arr" };
+		u16(static_cast<unsigned>(strs.size()));
+		for (const auto& t : strs) wstr(t);
+		u8(0);   // no debug info
+		u16(0);  // user flags
+		u16(1);  // objects
+		u16(1), u32(0), u16(2), u16(0), u8(1), u32(0), u16(0);  // name, size, parent, doc, const, user flags, auto state
+		u16(1), u16(3), u16(1), u16(5), u16(4), u32(0), u8(0), u8(0), u16(0);  // struct Pt { Int X }
+		u16(0);          // variables
+		u16(1), u16(6);  // guard G
+		u16(0);          // properties
+		u16(1), u16(0), u16(1), u16(7);  // state "", 1 function Run
+		u16(4), u16(0), u32(0), u8(0);   // returns Int
+		u16(2), u16(9), u16(10), u16(13), u16(12);  // params p (MyScript#Pt), arr (Int[])
+		u16(1), u16(11), u16(4);                     // local ::temp0 Int
+		u16(5);
+		u8(48), num(1), ident(6);                // lock_guards G
+		u8(38), ident(11), ident(9), ident(5);   // struct_get ::temp0 p X
+		u8(42), ident(13), ident(11), num(1);    // array_add arr ::temp0 1
+		u8(49), num(1), ident(6);                // unlock_guards G
+		u8(26), num(0);                          // return 0
+		try {
+			const auto f = ess::pex::Read(b);
+			Check(f.littleEndian && f.objects.size() == 1 && f.objects[0].isConst && f.objects[0].structs.size() == 1 && f.objects[0].guards.size() == 1,
+				"pex SF: read (const, struct, guard)");
+			std::vector<std::string> w;
+			const auto L = ess::pex::Decompile(f, &w);
+			std::string all;
+			for (const auto& l : L) all += l + "\n";
+			Check(w.empty() && all.find("ScriptName MyScript extends ScriptObject Const\n") != std::string::npos &&
+					  all.find("Struct Pt\n    Int X\nEndStruct\n") != std::string::npos && all.find("Guard G\n") != std::string::npos &&
+					  all.find("Int Function Run(MyScript:Pt p, Int[] arr)\n    LockGuard G\n        arr.Add(p.X)\n    EndLockGuard\n    Return 0\n") != std::string::npos,
+				"pex SF: decompiled (struct, guard, LockGuard, arr.Add(p.X))");
+			if (std::getenv("RS_SHOW_PEX")) {
+				std::printf("%s", all.c_str());
+			}
+		} catch (const std::exception& ex) {
+			std::printf("pex SF: %s\n", ex.what());
+			Check(false, "pex SF: read");
+		}
+	}
+
 	ess::quests::QuestDef MakeQuestDef(const std::string& a_edid, const std::string& a_script, std::vector<std::tuple<int, int, std::string>> a_stages)
 	{
 		ess::quests::QuestDef d;
@@ -6683,6 +6741,7 @@ int main()
 	TestMergedPatchLE();
 	TestMergedPatchNpcLinks();
 	TestMergedPatchSF();
+	TestPexStarfield();
 	TestMergedPatchFO4();
 	TestMergedPatchFO4Types();
 	TestMergedPatchFO4Real();

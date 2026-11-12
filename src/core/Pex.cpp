@@ -11,12 +11,13 @@ namespace ess::pex
 {
 	namespace
 	{
-		// .pex files from Skyrim are big-endian
+		// .pex files from Skyrim are big-endian; Fallout 4's and Starfield's little-endian (set after the magic)
 		class BE
 		{
 		public:
 			BE(const std::vector<std::uint8_t>& d) :
 				_d(d) {}
+			bool le = false;
 			void need(std::size_t n) const
 			{
 				if (_p + n > _d.size()) {
@@ -31,21 +32,23 @@ namespace ess::pex
 			std::uint16_t u16()
 			{
 				need(2);
-				const std::uint16_t v = std::uint16_t(_d[_p] << 8 | _d[_p + 1]);
+				const std::uint16_t v = le ? std::uint16_t(_d[_p] | _d[_p + 1] << 8) : std::uint16_t(_d[_p] << 8 | _d[_p + 1]);
 				_p += 2;
 				return v;
 			}
 			std::uint32_t u32()
 			{
 				need(4);
-				const std::uint32_t v = std::uint32_t(_d[_p]) << 24 | std::uint32_t(_d[_p + 1]) << 16 | std::uint32_t(_d[_p + 2]) << 8 | _d[_p + 3];
+				const std::uint32_t v = le ? std::uint32_t(_d[_p]) | std::uint32_t(_d[_p + 1]) << 8 | std::uint32_t(_d[_p + 2]) << 16 | std::uint32_t(_d[_p + 3]) << 24
+										   : std::uint32_t(_d[_p]) << 24 | std::uint32_t(_d[_p + 1]) << 16 | std::uint32_t(_d[_p + 2]) << 8 | _d[_p + 3];
 				_p += 4;
 				return v;
 			}
 			std::uint64_t u64()
 			{
-				const std::uint64_t hi = u32();
-				return hi << 32 | u32();
+				const std::uint64_t a = u32();
+				const std::uint64_t b = u32();
+				return le ? b << 32 | a : a << 32 | b;
 			}
 			float f32()
 			{
@@ -63,12 +66,15 @@ namespace ess::pex
 				return s;
 			}
 
+			std::size_t pos() const { return _p; }
+
 		private:
 			const std::vector<std::uint8_t>& _d;
 			std::size_t                      _p = 0;
 		};
 
-		// argument counts for Skyrim's 36 opcodes; -1 marks "plus a counted list"
+		// argument counts: Skyrim's 36 opcodes, then Fallout 4's (36..47) and Starfield's guard locks (48..50); "varargs" = plus
+		// a counted list
 		struct OpInfo
 		{
 			const char* name;
@@ -82,7 +88,10 @@ namespace ess::pex
 			{ "jmpt", 2, false }, { "jmpf", 2, false }, { "callmethod", 3, true }, { "callparent", 2, true }, { "callstatic", 3, true },
 			{ "return", 1, false }, { "strcat", 3, false }, { "propget", 3, false }, { "propset", 3, false }, { "array_create", 2, false },
 			{ "array_length", 2, false }, { "array_getelement", 3, false }, { "array_setelement", 3, false }, { "array_findelement", 4, false },
-			{ "array_rfindelement", 4, false } };
+			{ "array_rfindelement", 4, false }, { "is", 3, false }, { "struct_create", 1, false }, { "struct_get", 3, false },
+			{ "struct_set", 3, false }, { "array_findstruct", 5, false }, { "array_rfindstruct", 5, false }, { "array_add", 3, false },
+			{ "array_insert", 3, false }, { "array_removelast", 1, false }, { "array_remove", 3, false }, { "array_clear", 1, false },
+			{ "array_getallmatchingstructs", 6, false }, { "lock_guards", 0, true }, { "unlock_guards", 0, true }, { "try_lock_guards", 1, true } };
 		constexpr std::size_t kOpCount = sizeof(kOps) / sizeof(kOps[0]);
 
 		Value ReadValue(BE& r)
@@ -157,13 +166,13 @@ namespace ess::pex
 	{
 		BE         r(a_bytes);
 		const auto magic = r.u32();
+		File       f;
 		if (magic == 0xDEC057FA) {
-			throw std::runtime_error("this is a Fallout 4 script (little-endian .pex); only Skyrim scripts are supported");
-		}
-		if (magic != 0xFA57C0DE) {
+			r.le = f.littleEndian = true;  // Fallout 4 / Starfield
+		} else if (magic != 0xFA57C0DE) {
 			throw std::runtime_error("not a compiled Papyrus script (.pex)");
 		}
-		File f;
+		const bool le = f.littleEndian;
 		f.major = r.u8();
 		f.minor = r.u8();
 		f.gameID = r.u16();
@@ -188,6 +197,28 @@ namespace ess::pex
 				}
 				f.debug.push_back(std::move(d));
 			}
+			if (le) {
+				for (int n = r.u16(); n > 0; --n) {
+					File::PropertyGroup g;
+					g.object = r.u16();
+					g.name = r.u16();
+					g.docString = r.u16();
+					g.userFlags = r.u32();
+					for (int k = r.u16(); k > 0; --k) {
+						g.properties.push_back(r.u16());
+					}
+					f.groups.push_back(std::move(g));
+				}
+				for (int n = r.u16(); n > 0; --n) {
+					File::StructOrder so;
+					so.object = r.u16();
+					so.name = r.u16();
+					for (int k = r.u16(); k > 0; --k) {
+						so.members.push_back(r.u16());
+					}
+					f.structOrders.push_back(std::move(so));
+				}
+			}
 		}
 		for (int n = r.u16(); n > 0; --n) {
 			const auto name = r.u16();
@@ -199,15 +230,43 @@ namespace ess::pex
 			r.u32();  // object size
 			o.parent = r.u16();
 			o.docString = r.u16();
+			if (le) {
+				o.isConst = r.u8() != 0;
+			}
 			o.userFlags = r.u32();
 			o.autoState = r.u16();
+			if (le) {
+				for (int k = r.u16(); k > 0; --k) {
+					StructInfo si;
+					si.name = r.u16();
+					for (int m = r.u16(); m > 0; --m) {
+						StructInfo::Member mb;
+						mb.name = r.u16();
+						mb.type = r.u16();
+						mb.userFlags = r.u32();
+						mb.init = ReadValue(r);
+						mb.isConst = r.u8() != 0;
+						mb.docString = r.u16();
+						si.members.push_back(mb);
+					}
+					o.structs.push_back(std::move(si));
+				}
+			}
 			for (int k = r.u16(); k > 0; --k) {
 				Variable v;
 				v.name = r.u16();
 				v.type = r.u16();
 				v.userFlags = r.u32();
 				v.init = ReadValue(r);
+				if (le) {
+					v.isConst = r.u8() != 0;
+				}
 				o.variables.push_back(v);
+			}
+			if (le && f.gameID == 4) {  // Starfield: the guards
+				for (int k = r.u16(); k > 0; --k) {
+					o.guards.push_back(r.u16());
+				}
 			}
 			for (int k = r.u16(); k > 0; --k) {
 				Property p;
@@ -240,6 +299,9 @@ namespace ess::pex
 				o.states.push_back(std::move(s));
 			}
 			f.objects.push_back(std::move(o));
+		}
+		if (r.pos() != a_bytes.size()) {
+			throw std::runtime_error("the script has " + std::to_string(a_bytes.size() - r.pos()) + " bytes after its last object");
 		}
 		return f;
 	}

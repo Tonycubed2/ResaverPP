@@ -77,6 +77,17 @@ namespace ess::pex
 
 		std::string FloatText(float f) { return FloatLiteral(f); }
 
+		// Fallout 4 / Starfield: a struct type is stored as Script#Struct, written Script:Struct in the source
+		std::string Ty(std::string t)
+		{
+			for (auto& c : t) {
+				if (c == '#') {
+					c = ':';
+				}
+			}
+			return t;
+		}
+
 		std::string StringText(const std::string& s)
 		{
 			std::string o = "\"";
@@ -107,6 +118,9 @@ namespace ess::pex
 			int         uncastPrec = 0;
 		};
 
+		// Starfield's guards in a statement's text until Print writes them: "\x01LOCK g", "\x01UNLOCK g", "\x01TRY g"
+		constexpr const char* kGuardMark = "\x01";
+
 		struct Stmt
 		{
 			enum class K
@@ -131,11 +145,11 @@ namespace ess::pex
 			{
 				for (const auto& [n, t] : fn.params) {
 					_types[Lower(f.str(n))] = Lower(f.str(t));
-					_typeText[Lower(f.str(n))] = f.str(t);
+					_typeText[Lower(f.str(n))] = Ty(f.str(t));
 				}
 				for (const auto& [n, t] : fn.locals) {
 					_types[Lower(f.str(n))] = Lower(f.str(t));
-					_typeText[Lower(f.str(n))] = f.str(t);
+					_typeText[Lower(f.str(n))] = Ty(f.str(t));
 				}
 				_types["self"] = Lower(f.str(o.name));
 			}
@@ -190,6 +204,17 @@ namespace ess::pex
 						Expr e = it->second;
 						_pending.erase(it);
 						return e;
+					}
+					// never written anywhere in the function: the result of a DebugOnly call the release compiler removed
+					// (Starfield's warning() helpers return one). It holds its type's default when read, so that is its value.
+					bool everWritten = false;
+					for (const auto& in2 : _fn.code) {
+						const int d = DestIndex(in2.op);
+						everWritten |= d >= 0 && static_cast<std::size_t>(d) < in2.args.size() && in2.args[d].type == 1 && Lower(_f.str(in2.args[d].s)) == l;
+					}
+					if (!everWritten) {
+						const auto t = typeOfName(n);
+						return { t == "bool" ? "False" : t == "int" ? "0" : t == "float" ? "0.0" : t == "string" ? "\"\"" : "None", 0, t };
 					}
 					warnings.push_back("temporary " + n + " read before it was set");
 					return { n, 0, typeOfName(n) };
@@ -379,15 +404,31 @@ namespace ess::pex
 				if (last.args.empty() || Lower(name(last.args[0])) != Lower(T)) {
 					return false;
 				}
-				// nothing in between may be a statement (writes to non-temps, discarded calls, returns, plain jumps)
-				for (std::size_t k = i + 1; k < t; ++k) {
+				// nothing in between may be a statement (writes to non-temps, discarded calls, returns, plain jumps); the last
+				// one writes T (checked above)
+				for (std::size_t k = i + 1; k + 1 < t; ++k) {
 					const auto& in = _fn.code[k];
 					switch (in.op) {
 					case 20:
 					case 26:
 					case 29:
 					case 33:
+					case 39:  // (Fallout 4 / Starfield statements: struct_set, the array changes, the guard locks)
+					case 42:
+					case 43:
+					case 44:
+					case 45:
+					case 46:
+					case 48:
+					case 49:
 						return false;
+					case 40:
+					case 41:
+					case 47:
+						if (!IsTemp(name(in.args[1]))) {
+							return false;
+						}
+						break;
 					case 21:
 					case 22:
 						break;  // nested short circuits
@@ -422,7 +463,7 @@ namespace ess::pex
 			// destination argument of an instruction (-1: none)
 			static int DestIndex(std::uint8_t op)
 			{
-				if ((op >= 1 && op <= 19) || op == 27 || op == 30 || op == 31 || op == 32) {
+				if ((op >= 1 && op <= 19) || op == 27 || op == 30 || op == 31 || op == 32 || op == 36 || op == 37 || op == 38 || op == 50) {
 					return 0;
 				}
 				switch (op) {
@@ -431,7 +472,10 @@ namespace ess::pex
 				case 28: return 2;
 				case 24:
 				case 34:
-				case 35: return 1;
+				case 35:
+				case 40:
+				case 41:
+				case 47: return 1;
 				default: return -1;
 				}
 			}
@@ -533,6 +577,28 @@ namespace ess::pex
 								}
 								out.push_back(std::move(s));
 								i = end;
+								continue;
+							}
+							// Starfield's compiler: the last link of "v = a || b" (or &&) writes the variable itself, so v holds a
+							// first, the jump tests v, and b is stored to v when it runs
+							if (!IsTemp(c) && t > i && t <= e && shortCircuit(i, t, c) && !out.empty() && out.back().k == Stmt::K::kText &&
+								StartsI(out.back().text, Lower(c + " = ").c_str())) {
+								const auto A = out.back().text.substr(c.size() + 3);
+								auto       sub = block(i + 1, t);
+								flushCalls(sub);
+								if (sub.size() == 1 && sub[0].k == Stmt::K::kText && StartsI(sub[0].text, Lower(c + " = ").c_str())) {
+									const auto B = sub[0].text.substr(c.size() + 3);
+									const bool isAnd = in.op == 22;
+									auto       wrap = [&](const std::string& x) { return isAnd && x.find(" || ") != std::string::npos ? "(" + x + ")" : x; };
+									out.back().text = c + " = " + wrap(A) + (isAnd ? " && " : " || ") + wrap(B);
+									i = t;
+									continue;
+								}
+								for (auto& st : sub) {
+									out.push_back(std::move(st));
+								}
+								warnings.push_back("unstructured jump");
+								i = t;
 								continue;
 							}
 							emit(out, "; unstructured " + std::string(OpcodeName(in.op)) + " " + c);
@@ -695,6 +761,86 @@ namespace ess::pex
 						store(out, a[1], member(arr, std::string(in.op == 34 ? "Find(" : "RFind(") + v.text + (defaultStart ? "" : ", " + st.text) + ")", true));
 						break;
 					}
+				// Fallout 4 / Starfield
+				case 36:  // is dest obj type
+					{
+						const auto v = value(a[1]);
+						store(out, a[0], { Wrap(v, 2) + " is " + Ty(name(a[2])), 3, "bool", v.hasCall });
+						break;
+					}
+				case 37:  // struct_create dest
+					store(out, a[0], { "new " + typeText(name(a[0])), 0, typeOfName(name(a[0])) });
+					break;
+				case 38:  // struct_get dest struct member
+					store(out, a[0], member(value(a[1]), name(a[2]), false));
+					break;
+				case 39:  // struct_set struct member value
+					{
+						const auto obj = value(a[0]);
+						const auto v = value(a[2]);
+						emit(out, Wrap(obj, 0) + "." + name(a[1]) + " = " + v.text);
+						break;
+					}
+				case 40:  // array_findstruct arr dest member value start
+				case 41:
+					{
+						const auto arr = value(a[0]);
+						const auto st = value(a[4]);
+						const bool defaultStart = in.op == 40 ? st.text == "0" : st.text == "-1";
+						store(out, a[1], member(arr, std::string(in.op == 40 ? "FindStruct(" : "RFindStruct(") + value(a[2]).text + ", " + value(a[3]).text +
+											(defaultStart ? "" : ", " + st.text) + ")", true));
+						break;
+					}
+				case 42:  // array_add arr value count
+					{
+						const auto n = value(a[2]);
+						emit(out, Wrap(value(a[0]), 0) + ".Add(" + value(a[1]).text + (n.text == "1" ? "" : ", " + n.text) + ")");
+						break;
+					}
+				case 43:  // array_insert arr value index
+					emit(out, Wrap(value(a[0]), 0) + ".Insert(" + value(a[1]).text + ", " + value(a[2]).text + ")");
+					break;
+				case 44:  // array_removelast arr
+					emit(out, Wrap(value(a[0]), 0) + ".RemoveLast()");
+					break;
+				case 45:  // array_remove arr index count
+					{
+						const auto n = value(a[2]);
+						emit(out, Wrap(value(a[0]), 0) + ".Remove(" + value(a[1]).text + (n.text == "1" ? "" : ", " + n.text) + ")");
+						break;
+					}
+				case 46:  // array_clear arr
+					emit(out, Wrap(value(a[0]), 0) + ".Clear()");
+					break;
+				case 47:  // array_getallmatchingstructs arr dest member value start end
+					store(out, a[1], member(value(a[0]), "GetMatchingStructs(" + value(a[2]).text + ", " + value(a[3]).text + ", " + value(a[4]).text + ", " +
+											value(a[5]).text + ")", true));
+					break;
+				case 48:  // lock_guards count guards...: LockGuard g1, g2 (Print indents its block; kGuardMark)
+				case 49:  // unlock_guards: EndLockGuard (or the unlock before a Return, or at the end of a TryLockGuard: not written)
+					{
+						std::string g;
+						for (std::size_t k = 1; k < a.size(); ++k) {
+							g += (g.empty() ? "" : ", ") + name(a[k]);
+						}
+						const std::string text = std::string(kGuardMark) + (in.op == 48 ? "LOCK " : "UNLOCK ") + g;
+						if (in.op == 49 && _cur + 1 < _fn.code.size() && _fn.code[_cur + 1].op == 26) {
+							// "Return <expr>" inside the lock: the compiler unlocks between working out the value and returning it
+							out.push_back({ Stmt::K::kText, text });
+						} else {
+							emit(out, text);
+						}
+						break;
+					}
+				case 50:  // try_lock_guards dest count guards...: the If on it is a TryLockGuard
+					{
+						std::string g;
+						for (std::size_t k = 2; k < a.size(); ++k) {
+							g += (g.empty() ? "" : ", ") + name(a[k]);
+						}
+						store(out, a[0], { std::string(kGuardMark) + "TRY " + g, 0, "bool" });
+						break;
+					}
 				default:
 					emit(out, std::string("; ") + OpcodeName(in.op));
 					warnings.push_back(std::string("unhandled opcode ") + OpcodeName(in.op));
@@ -703,33 +849,67 @@ namespace ess::pex
 			}
 		};
 
-		void Print(std::vector<std::string>& L, const std::vector<Stmt>& body, int indent)
+		bool IsGuard(const std::string& s, const char* what)
 		{
-			const std::string pad(static_cast<std::size_t>(indent) * 4, ' ');
-			for (const auto& s : body) {
+			return s.rfind(kGuardMark, 0) == 0 && s.compare(1, std::strlen(what), what) == 0;
+		}
+
+		void Print(std::vector<std::string>& L, const std::vector<Stmt>& body, int indent, bool tryBody = false)
+		{
+			// Starfield's guard locks: LockGuard ... EndLockGuard indents what is between; the unlock the compiler puts before a
+			// Return, and the one at the end of a TryLockGuard's block, are not in the source
+			int extra = 0;
+			for (std::size_t si = 0; si < body.size(); ++si) {
+				const auto& s = body[si];
+				const std::string pad(static_cast<std::size_t>(indent + extra) * 4, ' ');
 				switch (s.k) {
 				case Stmt::K::kText:
-					L.push_back(pad + s.text);
+					if (IsGuard(s.text, "LOCK ")) {
+						L.push_back(pad + "LockGuard " + s.text.substr(6));
+						++extra;
+					} else if (IsGuard(s.text, "UNLOCK ")) {
+						// an unlock just before a Return is the compiler's own for a Return inside the block when the block's end
+						// comes later (another unlock in this body), or when the block was opened outside this body
+						bool laterUnlock = false;
+						for (std::size_t k = si + 1; k < body.size(); ++k) {
+							laterUnlock |= body[k].k == Stmt::K::kText && IsGuard(body[k].text, "UNLOCK ");
+						}
+						const bool beforeReturn = si + 1 < body.size() && body[si + 1].k == Stmt::K::kText && body[si + 1].text.rfind("Return", 0) == 0 &&
+												  (extra == 0 || laterUnlock);
+						const bool tryEnd = tryBody && extra == 0 && si + 1 == body.size();
+						if (!beforeReturn && !tryEnd && extra > 0) {
+							--extra;
+							L.push_back(std::string(static_cast<std::size_t>(indent + extra) * 4, ' ') + "EndLockGuard");
+						} else if (!beforeReturn && !tryEnd) {
+							L.push_back(pad + "; EndLockGuard " + s.text.substr(8));
+						}
+					} else {
+						L.push_back(pad + s.text);
+					}
 					break;
 				case Stmt::K::kWhile:
 					L.push_back(pad + "While " + s.text);
-					Print(L, s.body, indent + 1);
+					Print(L, s.body, indent + extra + 1);
 					L.push_back(pad + "EndWhile");
 					break;
 				case Stmt::K::kIf:
-					for (std::size_t b = 0; b < s.branches.size(); ++b) {
-						const auto& [c, body2] = s.branches[b];
-						if (b == 0) {
-							L.push_back(pad + "If " + c);
-						} else if (c.empty()) {
-							L.push_back(pad + "Else");
-						} else {
-							L.push_back(pad + "ElseIf " + c);
+					{
+						const bool tryLock = !s.branches.empty() && IsGuard(s.branches[0].first, "TRY ");
+						for (std::size_t b = 0; b < s.branches.size(); ++b) {
+							const auto& [c, body2] = s.branches[b];
+							const bool  isTry = IsGuard(c, "TRY ");
+							if (b == 0) {
+								L.push_back(pad + (isTry ? "TryLockGuard " + c.substr(5) : "If " + c));
+							} else if (c.empty()) {
+								L.push_back(pad + "Else");
+							} else {
+								L.push_back(pad + (isTry ? "ElseTryLockGuard " + c.substr(5) : "ElseIf " + c));
+							}
+							Print(L, body2, indent + extra + 1, isTry);
 						}
-						Print(L, body2, indent + 1);
+						L.push_back(pad + (tryLock ? "EndTryLockGuard" : "EndIf"));
+						break;
 					}
-					L.push_back(pad + "EndIf");
-					break;
 				}
 			}
 		}
@@ -910,9 +1090,45 @@ namespace ess::pex
 		L.push_back(";/ Decompiled by ReSaver++ from " + f.source + " /;");
 		for (const auto& o : f.objects) {
 			L.push_back("ScriptName " + f.str(o.name) + (o.parent && !f.str(o.parent).empty() ? " extends " + f.str(o.parent) : std::string()) +
-						flags(o.userFlags));
+						(o.isConst ? " Const" : "") + flags(o.userFlags));
 			doc(o.docString, "");
 			L.push_back("");
+
+			// Fallout 4 / Starfield: structs (members in the debug info's order when it has one), Starfield's guards
+			for (const auto& si : o.structs) {
+				L.push_back("Struct " + f.str(si.name));
+				std::vector<const StructInfo::Member*> members;
+				for (const auto& so : f.structOrders) {
+					if (so.object == o.name && so.name == si.name) {
+						for (const auto n : so.members) {
+							for (const auto& m : si.members) {
+								if (m.name == n) {
+									members.push_back(&m);
+								}
+							}
+						}
+					}
+				}
+				if (members.size() != si.members.size()) {
+					members.clear();
+					for (const auto& m : si.members) {
+						members.push_back(&m);
+					}
+				}
+				for (const auto* m : members) {
+					L.push_back("    " + Ty(f.str(m->type)) + " " + f.str(m->name) + (m->init.type ? " = " + ValueText(f, m->init) : std::string()) +
+								(m->isConst ? " Const" : "") + flags(m->userFlags));
+					doc(m->docString, "    ");
+				}
+				L.push_back("EndStruct");
+				L.push_back("");
+			}
+			for (const auto g : o.guards) {
+				L.push_back("Guard " + f.str(g));
+			}
+			if (!o.guards.empty()) {
+				L.push_back("");
+			}
 
 			// auto property backing variables
 			std::map<std::string, std::string> autoVars;  // lower(::x_var) -> property name
@@ -931,18 +1147,56 @@ namespace ess::pex
 				objectTypes[Lower(f.str(p.name))] = Lower(f.str(p.type));
 			}
 
-			// properties
-			for (const auto& p : o.properties) {
-				std::string s = f.str(p.type) + " Property " + f.str(p.name);
-				if (p.flags & 4) {
-					for (const auto& v : o.variables) {
-						if (v.name == p.autoVar && v.init.type) {
-							s += " = " + ValueText(f, v.init);
+			// properties (Fallout 4 / Starfield: in their groups, Group <name> ... EndGroup, as the debug info lists them)
+			std::vector<std::pair<const File::PropertyGroup*, std::vector<const Property*>>> groupsOut;
+			{
+				std::set<const Property*> placed;
+				for (const auto& g : f.groups) {
+					if (g.object != o.name) {
+						continue;
+					}
+					std::vector<const Property*> ps;
+					for (const auto n : g.properties) {
+						for (const auto& p : o.properties) {
+							if (p.name == n && placed.insert(&p).second) {
+								ps.push_back(&p);
+							}
 						}
 					}
-					s += " Auto" + flags(p.userFlags);
+					groupsOut.push_back({ f.str(g.name).empty() ? nullptr : &g, std::move(ps) });
+				}
+				std::vector<const Property*> rest;
+				for (const auto& p : o.properties) {
+					if (!placed.contains(&p)) {
+						rest.push_back(&p);
+					}
+				}
+				if (!rest.empty()) {
+					groupsOut.insert(groupsOut.begin(), { nullptr, std::move(rest) });
+				}
+			}
+			for (const auto& [grp, props] : groupsOut) {
+			const std::string gpad = grp ? "    " : "";
+			if (grp) {
+				L.push_back("Group " + f.str(grp->name) + flags(grp->userFlags));
+				doc(grp->docString, "    ");
+			}
+			for (const auto* pp : props) {
+				const auto& p = *pp;
+				std::string s = gpad + Ty(f.str(p.type)) + " Property " + f.str(p.name);
+				if (p.flags & 4) {
+					bool isConst = false;
+					for (const auto& v : o.variables) {
+						if (v.name == p.autoVar) {
+							if (v.init.type) {
+								s += " = " + ValueText(f, v.init);
+							}
+							isConst = v.isConst;
+						}
+					}
+					s += std::string(" Auto") + (isConst ? " Const" : "") + flags(p.userFlags);
 					L.push_back(s);
-					doc(p.docString, "    ");
+					doc(p.docString, gpad + "    ");
 					continue;
 				}
 				L.push_back(s + flags(p.userFlags));
@@ -957,13 +1211,13 @@ namespace ess::pex
 					}
 					std::string params;
 					for (const auto& [n, t] : fn.params) {
-						params += (params.empty() ? "" : ", ") + f.str(t) + " " + f.str(n);
+						params += (params.empty() ? "" : ", ") + Ty(f.str(t)) + " " + f.str(n);
 					}
-					const auto rt = f.str(fn.returnType);
+					const auto rt = Ty(f.str(fn.returnType));
 					L.push_back("    " + (Lower(rt) != "none" ? rt + " " : std::string()) + "Function " + what + "(" + params + ")");
 					for (const auto& [n, t] : fn.locals) {
 						if (!StartsI(f.str(n), "::")) {
-							L.push_back("        " + f.str(t) + " " + f.str(n));
+							L.push_back("        " + Ty(f.str(t)) + " " + f.str(n));
 						}
 					}
 					Print(L, body, 2);
@@ -975,7 +1229,12 @@ namespace ess::pex
 				if (p.flags & 2) {
 					accessor("Set", p.set);
 				}
-				L.push_back("EndProperty");
+				L.push_back(gpad + "EndProperty");
+			}
+			if (grp) {
+				L.push_back("EndGroup");
+				L.push_back("");
+			}
 			}
 			if (!o.properties.empty()) {
 				L.push_back("");
@@ -987,7 +1246,8 @@ namespace ess::pex
 				if (backing.contains(Lower(f.str(v.name)))) {
 					continue;
 				}
-				L.push_back(f.str(v.type) + " " + f.str(v.name) + (v.init.type ? " = " + ValueText(f, v.init) : std::string()) + flags(v.userFlags));
+				L.push_back(Ty(f.str(v.type)) + " " + f.str(v.name) + (v.init.type ? " = " + ValueText(f, v.init) : std::string()) + (v.isConst ? " Const" : "") +
+							flags(v.userFlags));
 				anyVar = true;
 			}
 			if (anyVar) {
@@ -996,7 +1256,18 @@ namespace ess::pex
 
 			auto function = [&](const NamedFunction& nf, int indent, const std::string& stateName) {
 				const auto& fn = nf.fn;
-				const auto  fname = f.str(nf.name);
+				auto        fname = f.str(nf.name);
+				// Fallout 4 / Starfield: an event of another script's type, "Event Actor.OnDeath(Actor akSender, ...)", is compiled as
+				// ::remote_Actor_OnDeath (its first parameter is the sender, of that type)
+				bool remote = false;
+				if (StartsI(fname, "::remote_") && !fn.params.empty()) {
+					const auto sender = f.str(fn.params[0].second);
+					const auto rest = fname.substr(9);
+					if (rest.size() > sender.size() + 1 && Lower(rest.substr(0, sender.size())) == Lower(sender) && rest[sender.size()] == '_') {
+						fname = rest.substr(0, sender.size()) + "." + rest.substr(sender.size() + 1);
+						remote = true;
+					}
+				}
 				const std::string pad(static_cast<std::size_t>(indent) * 4, ' ');
 				std::string params;
 				// the script's own source when there is one, else the parent's (overrides must match it)
@@ -1006,14 +1277,14 @@ namespace ess::pex
 				}
 				for (std::size_t pi = 0; pi < fn.params.size(); ++pi) {
 					const auto& [n, t] = fn.params[pi];
-					params += (params.empty() ? "" : ", ") + f.str(t) + " " + f.str(n);
+					params += (params.empty() ? "" : ", ") + Ty(f.str(t)) + " " + f.str(n);
 					if (defs && defs->size() == fn.params.size() && !(*defs)[pi].def.empty()) {
 						params += " = " + (*defs)[pi].def;
 					}
 				}
-				const auto rt = f.str(fn.returnType);
-				const bool isEvent = Lower(rt) == "none" && !(fn.flags & 1) && fname.size() > 2 && Lower(fname).rfind("on", 0) == 0 &&
-									 std::isupper(static_cast<unsigned char>(fname[2]));
+				const auto rt = Ty(f.str(fn.returnType));
+				const bool isEvent = remote || (Lower(rt) == "none" && !(fn.flags & 1) && fname.size() > 2 && Lower(fname).rfind("on", 0) == 0 &&
+													  std::isupper(static_cast<unsigned char>(fname[2])));
 				std::string head = pad + (isEvent ? "Event " : (Lower(rt) != "none" ? rt + " Function " : std::string("Function "))) + fname + "(" + params + ")";
 				if (fn.flags & 1) {
 					head += " Global";
@@ -1030,7 +1301,7 @@ namespace ess::pex
 				}
 				for (const auto& [n, t] : fn.locals) {
 					if (IsSourceLocal(f.str(n))) {
-						L.push_back(pad + "    " + f.str(t) + " " + Unmangle(f.str(n)));
+						L.push_back(pad + "    " + Ty(f.str(t)) + " " + Unmangle(f.str(n)));
 					}
 				}
 				FnDecompiler d(f, o, fn, autoVars, objectTypes, signature);
