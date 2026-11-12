@@ -40,6 +40,27 @@ void App::liveListFollowers()
 	if (_liveGameBusy) {
 		return;
 	}
+	if (liveSF()) {
+		// Starfield: the followers come from the open save (followersSF); the helper's GATHER moves the ones ticked
+		std::string why;
+		if (!sfHelperReady(2, why)) {
+			_liveGameResult = why;
+			_liveGameResultOk = false;
+			return;
+		}
+		why = followersSF(_liveFollowers);
+		if (!why.empty()) {
+			_liveGameResult = why;
+			_liveGameResultOk = false;
+			_liveFollowersShown = false;
+			return;
+		}
+		_liveFollowersShown = true;
+		_liveGameResultOk = true;
+		_liveGameResult = _liveFollowers.empty() ? tr("Nobody follows you in the open save.")
+												 : tr("Your followers in the open save. Tick the ones to bring, then press Bring.");
+		return;
+	}
 	if (liveFO4()) {
 		// Fallout 4: the game's own follower system brings the companion and Dogmeat; there is no list to pick from
 		liveGameAction("GATHER", tr("Calling your companion and Dogmeat"));
@@ -104,6 +125,12 @@ void App::liveGameAction(const std::string& a_command, const std::string& a_what
 			_liveGameResult = tr("Your controls are forced back on (ForceEnablePlayerControls). \"Give the controls back to the game\" undoes it.");
 		} else if (a_command == "CONTROLSRESET") {
 			_liveGameResult = tr("Your controls are back to what the game and its scripts set.");
+		} else if (a_command == "GATHER" && liveSF()) {
+			const auto f0 = LiveLink::Field(r, 0);
+			_liveGameResultOk = f0 != "0";
+			_liveGameResult = f0 == "0"   ? tr("The game did not move them: ") + LiveLink::Field(r, 1)
+							  : f0 == "?" ? tr("Sent to the game (it was busy: they come when it gets to it): ") + _sfGatherNames
+										  : tr("Brought next to you: ") + _sfGatherNames + tr(". Save in the game to keep it.");
 		} else if (a_command == "GATHER") {
 			const auto n = std::atoi(LiveLink::Field(r, 0).c_str());
 			_liveGameResult = n == 0 ? std::string(tr("No followers found to bring (nobody is following you right now)."))
@@ -164,9 +191,24 @@ void App::drawLiveGame()
 
 	ImGui::BeginDisabled(!ready || _liveGameBusy);
 	const ImVec2 big(296, 0);
+	if (sfg) {
+		std::string why;
+		const bool  v2 = sfHelperReady(2, why);
+		ImGui::BeginDisabled(!v2);
+		if (ImGui::Button(tr("Gather followers"), big)) {
+			liveListFollowers();
+		}
+		ImGui::EndDisabled();
+		tips::Tip(v2 ? tr("Your followers (anyone following you in the open save: companions, crew you took along, followers from mods) are "
+						  "brought next to you in the running game, wherever they are. Open your latest save first: the list comes from it, "
+						  "and you untick anyone you do not want moved.")
+					 : why.c_str());
+		ImGui::SameLine();
+	}
 	if (!sfg && ImGui::Button(fo4 ? tr("Call my companion and Dogmeat") : tr("Gather followers"), big)) {
 		liveListFollowers();
 	}
+	if (!sfg)
 	tips::Tip(fo4 ? tr("Fallout 4: your current companion and Dogmeat are teleported to you by the game's own follower system (the same "
 				   "teleport the game uses). Followers from mods that use their own system are not moved.")
 				 : tr("Every follower you have (vanilla, DLC, and follower mods: anyone following you or set as your teammate) is brought next "
@@ -175,6 +217,8 @@ void App::drawLiveGame()
 			  "for the hold-Ctrl rescue too (sGatherSkip in ReSaverHelper.ini)."));
 	if (!sfg) {
 		ImGui::SameLine();
+	} else {
+		ImGui::NewLine();
 	}
 	if (ImGui::Button(tr("Get my controls back"), big)) {
 		liveGameAction("CONTROLS", tr("Switching your controls back on"));
@@ -225,7 +269,9 @@ void App::drawLiveGame()
 				ImGui::PushID(static_cast<int>(i));
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
+				ImGui::BeginDisabled(f.id.empty());  // (Starfield: a follower with no actor in the save)
 				ImGui::Checkbox("##bring", &f.bring);
+				ImGui::EndDisabled();
 				ImGui::TableNextColumn();
 				ImGui::TextUnformatted(f.name.c_str());
 				if (ImGui::IsItemHovered()) {
@@ -244,14 +290,16 @@ void App::drawLiveGame()
 			}
 			ImGui::EndTable();
 		}
-		ImGui::Checkbox(tr("Remember the unticked ones (the hold-Ctrl rescue leaves them alone too)"), &_liveFollowersRemember);
+		if (!sfg) {  // (Starfield's helper has no list of its own to skip)
+			ImGui::Checkbox(tr("Remember the unticked ones (the hold-Ctrl rescue leaves them alone too)"), &_liveFollowersRemember);
+		}
 		std::size_t ticked = 0;
 		for (const auto& f : _liveFollowers) {
 			ticked += f.bring ? 1 : 0;
 		}
 		ImGui::BeginDisabled(_liveGameBusy || _liveFollowers.empty());
 		if (ImGui::Button((tr("Bring ") + std::to_string(ticked) + tr(" follower(s)")).c_str())) {
-			if (_liveFollowersRemember) {
+			if (_liveFollowersRemember && !sfg) {
 				// sGatherSkip: what it had for characters not in this list, plus the unticked ones
 				std::vector<std::string> keep;
 				std::string              one;
@@ -292,9 +340,11 @@ void App::drawLiveGame()
 				_live.request({ "SETOPTION", "sGatherSkip", v }, [](const LiveLink::Reply&) {});
 			}
 			std::string ids;
+			_sfGatherNames.clear();
 			for (const auto& f : _liveFollowers) {
-				if (f.bring) {
+				if (f.bring && !f.id.empty()) {
 					ids += (ids.empty() ? "" : ",") + f.id;
+					_sfGatherNames += (_sfGatherNames.empty() ? "" : ", ") + f.name;
 				}
 			}
 			_liveFollowersShown = false;

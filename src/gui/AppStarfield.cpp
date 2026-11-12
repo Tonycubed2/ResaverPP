@@ -113,7 +113,8 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kPapyrusLog:
 	case Sc::kSavesMgr:
 	case Sc::kLeftovers:  // (cf::ListInventories / RemoveInventoryItems read Starfield's inventories)
-	case Sc::kActors:     // (cf::ListActors reads Starfield's positions; Move to me is not for Starfield yet)
+	case Sc::kActors:     // (cf::ListActors reads Starfield's positions; Move to me through the helper's MOVETO)
+	case Sc::kGather:     // (followersSF: the open save's followers, the helper's GATHER with their actors)
 	case Sc::kLoadOrderCheck:  // (locheck::Game::kStarfield)
 	case Sc::kHavok:           // (ResetHavokSF: the block saved with length 0)
 	case Sc::kPurify:          // (FLST: u32 n, the entries in the reference list)
@@ -1571,6 +1572,92 @@ bool App::sfHelperReady(int a_version, std::string& a_why) const
 	}
 	a_why.clear();
 	return true;
+}
+
+// Gather followers on Starfield. A follower's base NPC_ is in CurrentFollowerFaction (Starfield.esm 0003BD86) with a rank of 0 or
+// more: the follower system (SQ_Followers) puts them there while they follow, and takes them out (rank -1) when dismissed
+// (checked in 28 saves: Andreja, the Adoring Fan, Model G following; Sarah, Barrett, Sam, the crew not). Its actor: a placed
+// reference whose base is that NPC_ (the names reading keeps the base of every reference the save mentions), else one made
+// in game (FF) with that base. The helper checks each one exists before it moves it.
+std::string App::followersSF(std::vector<LiveFollower>& a_out) const
+{
+	a_out.clear();
+	if (!_save || !_save->isSF()) {
+		return tr("Open your latest Starfield save first: your followers are read from it (who is following you, and where their actors are).");
+	}
+	if (!_db || !_dbDone) {
+		return tr("The plugin names are still being read for the open save: try again in a moment.");
+	}
+	std::uint32_t faction = 0;
+	for (const auto id : _db->ofType("FACT")) {
+		if (const auto* f = _db->find(id); f && _db->edid(*f) == "CurrentFollowerFaction") {
+			faction = id;
+			break;
+		}
+	}
+	if (!faction) {
+		return tr("CurrentFollowerFaction was not found in Starfield.esm: the plugin names could not be read.");
+	}
+	std::set<std::uint32_t> bases;
+	for (const auto& c : _save->changeForms) {
+		if (c.typeCode() != 9) {  // NPC_
+			continue;
+		}
+		const auto d = DecodeNpcSF(c);
+		if (!d.ok || d.factionsOffset == SIZE_MAX) {
+			continue;
+		}
+		for (std::size_t k = 0; k < d.factions && d.factionRefs + k < c.sfRefs.size() && d.factionsOffset + k < c.data.size(); ++k) {
+			if (_save->formIDOf(c.sfRefs[d.factionRefs + k]) == faction && static_cast<std::int8_t>(c.data[d.factionsOffset + k]) >= 0) {
+				bases.insert(_save->formIDOf(c.refID));
+			}
+		}
+	}
+	std::map<std::uint32_t, std::vector<std::uint32_t>> placed, made;  // base -> actors
+	for (const auto& c : _save->changeForms) {
+		if (c.typeCode() != 1) {  // ACHR
+			continue;
+		}
+		const auto    id = _save->formIDOf(c.refID);
+		std::uint32_t base = 0;
+		if (const auto* f = _db->find(id)) {
+			base = f->base;
+		}
+		if (!base) {
+			for (const auto& b : BaseObjectsSF(id, c)) {
+				base = _save->formIDOf(b);
+				break;
+			}
+		}
+		if (bases.count(base)) {
+			((id >> 24) == 0xFF ? made : placed)[base].push_back(id);
+		}
+	}
+	for (const auto base : bases) {
+		const auto& refs = placed.count(base) ? placed[base] : made[base];
+		std::string name, edid;
+		if (const auto* f = _db->find(base)) {
+			name = _db->name(*f);
+			edid = _db->edid(*f);
+		}
+		if (name.empty()) {
+			name = edid.empty() ? Fmt("%08X", base) : edid;
+		}
+		if (refs.empty()) {
+			LiveFollower f{ "", edid, name, tr("following"), tr("its actor is not in this save (its mod is not installed?)") };
+			f.bring = false;
+			a_out.push_back(std::move(f));
+			continue;
+		}
+		for (const auto r : refs) {
+			LiveFollower f{ Fmt("%08X", r), edid, name, tr("following"), (r >> 24) == 0xFF ? tr("made in game") : "" };
+			if (const auto* rf = _db->find(r)) {
+				f.where = tr("from ") + _db->pluginName(*rf);
+			}
+			a_out.push_back(std::move(f));
+		}
+	}
+	return {};
 }
 
 // Find NPCs > Move to me on Starfield: the actor put next to the player in the running game (helper 2 MOVETO)

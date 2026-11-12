@@ -1021,6 +1021,9 @@ private:
 	bool                      _liveFollowersShown = false, _liveFollowersRemember = true;
 	std::string               _gatherSkipRaw;  // the helper's sGatherSkip
 	void                      liveListFollowers();  // Gather followers: the list to pick from (helper 12.2), else gathers at once
+	// Starfield: the followers in the open save (in CurrentFollowerFaction), each with its actor in the world; "" or why not
+	std::string               followersSF(std::vector<LiveFollower>& a_out) const;
+	std::string               _sfGatherNames;  // (the names sent with the last Starfield GATHER)
 
 	// ---- File > Unpack a BSA archive (AppBsa.cpp) ------------------------------------------------
 	struct BsaView;

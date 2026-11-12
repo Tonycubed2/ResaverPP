@@ -282,8 +282,8 @@ LOGS (Starfield)
 - analyze_logs reads SFSE's logs (Documents\My Games\Starfield\SFSE: sfse.txt says which SFSE plugins did not load and why, sfse_loader.txt), the plugins' own logs (SFSE\Logs), the Papyrus log (Logs\Script\Papyrus.0.log; Starfield writes it only with bEnableLogging=1 under [Papyrus] in StarfieldCustom.ini) and the ReSaverHelper log. list_logs, read_log and search_logs go deeper; they also list Starfield's INI files.
 
 NOT AVAILABLE FOR STARFIELD SAVES (say so plainly instead of trying)
-- The Skyrim and Fallout 4 options and tools: fo4_player / fo4_edit_player, leftover_items, Skyrim's --player / --set-* options, --npcs, --followers, --char-effects, --transplant, the merged patch, co-save editing.
-- A Starfield crash log (there is no reader for them yet): read it with read_log when the user names one.
+- The Skyrim and Fallout 4 options and tools: fo4_player / fo4_edit_player, leftover_items, Skyrim's --player / --set-* options, --npcs, --followers, --char-effects, --transplant, co-save editing. (In the app itself, the Merged patch window and the Character effects window do work for Starfield: point the user there.)
+- Starfield crash logs (Trainwreck, Documents\My Games\Starfield\SFSE\Crashlogs): the app's Crash log window reads them; read_log reads one when the user names it.
 
 THE RUNNING GAME (game_command)
 - ReSaverHelper for Starfield (an optional SFSE plugin of ReSaver Plus, Data\SFSE\Plugins\ReSaverHelper.dll; needs SFSE and the Address Library for SFSE Plugins; the game must be started with sfse_loader.exe). get_app_state says whether it is connected and whether a save is loaded. Its log is Documents\My Games\Starfield\SFSE\ReSaverHelper.log.
@@ -311,7 +311,7 @@ RECIPES (Starfield)
 - Level / XP / name / face: --sf-set-level, --sf-rename, --face 7 then --sf-set-face.
 - Stuck quest: --quests, then in the running game QUEST and SETSTAGE.
 - Stuck, cannot move: game_command CONTROLS (CONTROLSRESET afterwards); RESCUE also saves.
-- A lost companion: find it in the save's actors, then (helper 2) game_command MOVETO <its ref> ini "".
+- A lost companion: the Live game window's Gather followers lists who follows you in the open save (their base NPC_ in CurrentFollowerFaction 0003BD86 with rank 0 or more) and brings the ones ticked. Yourself: find its actor in the save, then (helper 2) game_command MOVETO <its ref> ini "" (or GATHER ini <refs>).
 - An item now, without editing the save: (helper 2) game_command APPLY additem <formid> <count>.
 - A mod was removed: --mods-not-installed, then --remove-not-installed -o <new save>.
 )T";
