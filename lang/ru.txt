@@ -14879,3 +14879,15 @@ tr "Средние плагины: %zu из %zu"
 
 en "medium master"
 tr "средний мастер"
+
+en "Analyze Starfield logs..."
+tr "Анализ журналов Starfield..."
+
+en "Read your SFSE logs, the Papyrus log and the SFSE plugins' own logs, and list the problems found: plugins that did not load, and why."
+tr "Читает журналы SFSE, журнал Papyrus и собственные журналы плагинов SFSE и перечисляет найденные проблемы: какие плагины не загрузились и почему."
+
+en "Analyze Starfield logs"
+tr "Анализ журналов Starfield"
+
+en "SFSE, Papyrus and mod logs"
+tr "SFSE, Papyrus и журналы модов"

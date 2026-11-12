@@ -278,9 +278,12 @@ WHAT WORKS ON A STARFIELD SAVE (run_cli {save} ...; edits need -o <new save>)
 - Cleaning, each writing a new save with -o: --remove-unattached, --remove-undefined, --terminate-undefined, --remove-stranded-threads, --clear-floods (queued script calls that never started), --remove-retyped (needs --names), --delete-form <id> (one change form; the game falls back to the plugin's data), --mods-not-installed [--plugins-txt <file>] and --remove-not-installed [--also-disabled] (the leftovers of mods no longer installed).
 - Anything else the command line has is for Skyrim or Fallout 4 and is refused for a Starfield save; say so plainly and offer what works.
 
+LOGS (Starfield)
+- analyze_logs reads SFSE's logs (Documents\My Games\Starfield\SFSE: sfse.txt says which SFSE plugins did not load and why, sfse_loader.txt), the plugins' own logs (SFSE\Logs), the Papyrus log (Logs\Script\Papyrus.0.log; Starfield writes it only with bEnableLogging=1 under [Papyrus] in StarfieldCustom.ini) and the ReSaverHelper log. list_logs, read_log and search_logs go deeper; they also list Starfield's INI files.
+
 NOT AVAILABLE FOR STARFIELD SAVES (say so plainly instead of trying)
 - The Skyrim and Fallout 4 options and tools: fo4_player / fo4_edit_player, leftover_items, Skyrim's --player / --set-* options, --npcs, --followers, --char-effects, --transplant, the merged patch, co-save editing.
-- Starfield logs: analyze_logs, list_logs and search_logs read Skyrim's and Fallout 4's logs only. read_log can read a file the user names (for example Documents\My Games\Starfield\SFSE\sfse.txt or a crash log), and list_folder finds them.
+- A Starfield crash log (there is no reader for them yet): read it with read_log when the user names one.
 
 THE RUNNING GAME (game_command)
 - ReSaverHelper for Starfield (an optional SFSE plugin of ReSaver Plus, Data\SFSE\Plugins\ReSaverHelper.dll; needs SFSE and the Address Library for SFSE Plugins; the game must be started with sfse_loader.exe). get_app_state says whether it is connected and whether a save is loaded. Its log is Documents\My Games\Starfield\SFSE\ReSaverHelper.log.
@@ -436,10 +439,6 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments. Its help text b
 		if (a_tool == "fo4_player" || a_tool == "fo4_edit_player" || a_tool == "leftover_items" || a_tool == "remove_leftover_items") {
 			return "not available for Starfield saves: " + a_tool + " reads Fallout 4 / Skyrim saves. For the Starfield character use run_cli "
 			       "--sf-set-level, --sf-rename, --actor-values, --face; for mods no longer installed --mods-not-installed. Nothing was run.";
-		}
-		if (a_tool == "analyze_logs" || a_tool == "list_logs" || a_tool == "search_logs") {
-			return "not available for Starfield: " + a_tool + " reads Skyrim's and Fallout 4's logs. read_log reads a file by its path "
-			       "(Documents\\My Games\\Starfield\\SFSE has SFSE's and the helper's logs; list_folder lists it). Nothing was run.";
 		}
 		return {};
 	}

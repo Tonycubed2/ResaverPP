@@ -1,7 +1,7 @@
 // ReSaver++ - C++ port of ReSaver (FallrimTools) by Mark Fairchild, Apache License 2.0.
 // AI and logs > Collect all logs: every Skyrim and Fallout 4 log and what is needed to read them, in one dated zip
 // on the desktop, ready to send with a report.
-//   - Documents\My Games\<game>\SKSE (Fallout 4: F4SE) with all its folders (the script extender, every plugin's
+//   - Documents\My Games\<game>\SKSE (Fallout 4: F4SE; Starfield: SFSE) with all its folders (the script extender, every plugin's
 //     log, crash logs: Crash Logger, Buffout 4), Logs (Papyrus), and the game's INI files (Skyrim.ini,
 //     SkyrimPrefs.ini, SkyrimCustom.ini; Fallout4.ini, Fallout4Prefs.ini, Fallout4Custom.ini) - not the saves
 //   - the load order the game reads: %LOCALAPPDATA%\<game>\plugins.txt and loadorder.txt
@@ -99,14 +99,15 @@ void App::startCollectLogs()
 	};
 
 	// Documents\My Games\<game>
-	const char* games[] = { "Skyrim Special Edition", "Skyrim Special Edition GOG", "Skyrim Special Edition EPIC", "Skyrim VR", "Skyrim", "Fallout4" };
+	const char* games[] = { "Skyrim Special Edition", "Skyrim Special Edition GOG", "Skyrim Special Edition EPIC", "Skyrim VR", "Skyrim", "Fallout4",
+		"Starfield" };
 	for (const auto& mg : myGamesFolders()) {
 		for (const char* g : games) {
 			const auto dir = mg / g;
 			if (!std::filesystem::is_directory(dir, ec)) {
 				continue;
 			}
-			const char* se = std::string(g) == "Fallout4" ? "F4SE" : "SKSE";
+			const char* se = std::string(g) == "Fallout4" ? "F4SE" : std::string(g) == "Starfield" ? "SFSE" : "SKSE";
 			addTree(dir / se, std::string(g) + "/" + se);
 			addTree(dir / "Logs", std::string(g) + "/Logs");
 			for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {

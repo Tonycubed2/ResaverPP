@@ -328,6 +328,9 @@ namespace
 
 std::vector<ess::logs::LogFile> App::findSkyrimLogs() const
 {
+	if (logsSf()) {
+		return ess::logs::FindGameLogs(myGamesFolders(), {}, false, true);
+	}
 	const bool f4 = LogsFo4(fo4(), fo4Game());
 	return ess::logs::FindGameLogs(myGamesFolders(), ExtraLogFolders(gameFolder(), f4), f4);
 }
@@ -342,6 +345,7 @@ struct App::LogsJob
 	std::vector<std::filesystem::path> folders;
 	std::vector<std::filesystem::path> myGames;
 	bool                               fo4 = false;
+	bool                               sf = false;
 	~LogsJob()
 	{
 		if (thread.joinable()) {
@@ -353,7 +357,7 @@ struct App::LogsJob
 void App::openSkyrimLogs()
 {
 	_showSkyrimLogs = true;
-	if (!_logsJob || _logsJob->fo4 != LogsFo4(fo4(), fo4Game())) {  // (the other game's logs were read last)
+	if (!_logsJob || _logsJob->fo4 != LogsFo4(fo4(), fo4Game()) || _logsJob->sf != logsSf()) {  // (the other game's logs were read last)
 		startLogAnalysis();
 	}
 }
@@ -364,17 +368,19 @@ void App::startLogAnalysis()
 		return;
 	}
 	auto job = std::make_shared<LogsJob>();
-	job->fo4 = LogsFo4(fo4(), fo4Game());
+	job->sf = logsSf();
+	job->fo4 = !job->sf && LogsFo4(fo4(), fo4Game());
 	job->myGames = myGamesFolders();
-	const auto extra = ExtraLogFolders(gameFolder(), job->fo4);
-	job->folders = ess::logs::Folders(job->myGames, extra, job->fo4);
+	const auto extra = job->sf ? std::vector<std::filesystem::path>{} : ExtraLogFolders(gameFolder(), job->fo4);
+	job->folders = ess::logs::Folders(job->myGames, extra, job->fo4, job->sf);
 	ess::logs::Options opt;
 	opt.days = _logsDays;
 	opt.pluginLogs = _logsPlugins;
 	opt.fo4 = job->fo4;
+	opt.sf = job->sf;
 	auto* j = job.get();
 	job->thread = std::thread([j, opt, extra] {
-		j->result = ess::logs::Analyze(ess::logs::FindGameLogs(j->myGames, extra, j->fo4), opt);
+		j->result = ess::logs::Analyze(ess::logs::FindGameLogs(j->myGames, extra, j->fo4, j->sf), opt);
 		j->done = true;
 	});
 	_logsJob = std::move(job);
@@ -382,17 +388,19 @@ void App::startLogAnalysis()
 
 void App::drawSkyrimLogs()
 {
-	const bool        f4 = LogsFo4(fo4(), fo4Game());
-	const std::string title = ess::aigame::LogsTitle(f4 ? ess::aigame::Game::kFallout4 : ess::aigame::Game::kSkyrimSE);
-	const std::string gameName = f4 ? "Fallout 4" : "Skyrim";
-	const char*       se = f4 ? "F4SE" : "SKSE";
+	const bool        sfl = logsSf();
+	const bool        f4 = !sfl && LogsFo4(fo4(), fo4Game());
+	const std::string title =
+		ess::aigame::LogsTitle(sfl ? ess::aigame::Game::kStarfield : f4 ? ess::aigame::Game::kFallout4 : ess::aigame::Game::kSkyrimSE);
+	const std::string gameName = sfl ? "Starfield" : f4 ? "Fallout 4" : "Skyrim";
+	const char*       se = sfl ? "SFSE" : f4 ? "F4SE" : "SKSE";
 	prepareWindow("Skyrim logs", ImVec2(0.75f, 0.8f));
 	if (!ImGui::Begin((title + "###Skyrim logs").c_str(), &_showSkyrimLogs, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
 		return;
 	}
 	maximizeControl("Skyrim logs");
-	if (_logsJob && _logsJob->done && _logsJob->fo4 != f4) {
+	if (_logsJob && _logsJob->done && (_logsJob->fo4 != f4 || _logsJob->sf != sfl)) {
 		startLogAnalysis();  // the game changed (a save of the other game was opened)
 	}
 	const bool running = _logsJob && !_logsJob->done;
@@ -681,9 +689,11 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		return fail("stopped by the user");
 	}
 	const bool logsFo4 = ess::aigame::IsFo4(st.game);
-	const std::string logsName = logsFo4 ? "Fallout 4" : "Skyrim";
+	const bool logsSfGame = ess::aigame::IsSf(st.game);
+	const std::string logsName = logsSfGame ? "Starfield" : logsFo4 ? "Fallout 4" : "Skyrim";
 	auto logsFound = [&](long long a_days) {
-		auto files = ess::logs::FindGameLogs(st.myGames, ExtraLogFolders(st.gameDir, logsFo4), logsFo4);
+		auto files = logsSfGame ? ess::logs::FindGameLogs(st.myGames, {}, false, true)
+		                        : ess::logs::FindGameLogs(st.myGames, ExtraLogFolders(st.gameDir, logsFo4), logsFo4);
 		if (a_days > 0) {
 			std::erase_if(files, [&](const ess::logs::LogFile& f) { return f.ageMinutes > a_days * 24 * 60; });
 		}
@@ -932,6 +942,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		a_shown = "analyzed the " + logsName + " logs";
 		ess::logs::Options opt;
 		opt.fo4 = logsFo4;
+		opt.sf = logsSfGame;
 		opt.days = static_cast<int>(args.num("days", 7));
 		if (const auto* pl = args.v.get("plugin_logs"); pl && pl->type == Value::Type::kBool) {
 			opt.pluginLogs = pl->b;
@@ -944,7 +955,7 @@ std::string App::aiTool(const ai::ToolCall& a_call, std::string& a_shown, bool& 
 		const auto files = logsFound(args.num("days", 0));
 		std::string o;
 		for (const auto& f : files) {
-			o += platform::ToUtf8(f.path) + "  [" + ess::logs::KindName(f.kind, logsFo4) + "]  " + SizeText(f.size) + "  " + AgeText(f.time) + "\n";
+			o += platform::ToUtf8(f.path) + "  [" + ess::logs::KindName(f.kind, logsFo4, logsSfGame) + "]  " + SizeText(f.size) + "  " + AgeText(f.time) + "\n";
 			if (o.size() > 30000) {
 				o += "... (more)\n";
 				break;

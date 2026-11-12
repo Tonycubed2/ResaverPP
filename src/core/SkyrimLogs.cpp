@@ -145,10 +145,10 @@ namespace ess::logs
 		};
 	}
 
-	const char* KindName(Kind a_kind, bool a_fo4)
+	const char* KindName(Kind a_kind, bool a_fo4, bool a_sf)
 	{
 		switch (a_kind) {
-		case Kind::kSkse: return a_fo4 ? "F4SE" : "SKSE";
+		case Kind::kSkse: return a_sf ? "SFSE" : a_fo4 ? "F4SE" : "SKSE";
 		case Kind::kCrash: return "crash log";
 		case Kind::kPapyrus: return "Papyrus log";
 		case Kind::kIni: return "INI file";
@@ -162,7 +162,9 @@ namespace ess::logs
 		static const std::set<std::string> skse = { "skse64.log", "skse.log", "sksevr.log", "skse64_loader.log", "skse_loader.log",
 			"sksevr_loader.log", "skse64_steam_loader.log", "skse_steam_loader.log",
 			// F4SE (f4se.cpp, f4se_loader / f4se_steam_loader main.cpp: My Games\<game>\F4SE\...)
-			"f4se.log", "f4se_loader.log", "f4se_steam_loader.log" };
+			"f4se.log", "f4se_loader.log", "f4se_steam_loader.log",
+			// SFSE 0.2 (My Games\Starfield\SFSE\Logs): text files
+			"sfse.txt", "sfse_loader.txt", "sfse_steam_loader.txt" };
 		if (skse.contains(n)) {
 			return Kind::kSkse;
 		}
@@ -187,7 +189,7 @@ namespace ess::logs
 	}
 
 	std::vector<std::filesystem::path> Folders(const std::vector<std::filesystem::path>& a_myGames,
-		const std::vector<std::filesystem::path>& a_extra, bool a_fo4)
+		const std::vector<std::filesystem::path>& a_extra, bool a_fo4, bool a_sf)
 	{
 		std::vector<std::filesystem::path> v;
 		auto add = [&](const std::filesystem::path& p) {
@@ -196,6 +198,16 @@ namespace ess::logs
 				v.push_back(p);
 			}
 		};
+		if (a_sf) {
+			for (const auto& mg : a_myGames) {
+				add(mg / "Starfield" / "SFSE");  // (Find goes two levels deep: SFSE\Logs too)
+				add(mg / "Starfield" / "Logs" / "Script");
+			}
+			for (const auto& e : a_extra) {
+				add(e);
+			}
+			return v;
+		}
 		for (const auto& mg : a_myGames) {
 			for (const char* g : GameFolderNames(a_fo4)) {
 				add(mg / g / (a_fo4 ? "F4SE" : "SKSE"));
@@ -233,7 +245,7 @@ namespace ess::logs
 				}
 				const auto ext = Lower(U8(it->path().extension()));
 				const auto kind = KindOf(it->path());
-				if (ext != ".log" && !(ext == ".txt" && kind == Kind::kCrash)) {
+				if (ext != ".log" && !(ext == ".txt" && (kind == Kind::kCrash || kind == Kind::kSkse))) {
 					continue;
 				}
 				if (!seen.insert(it->path()).second) {
@@ -254,16 +266,16 @@ namespace ess::logs
 	}
 
 	std::vector<LogFile> FindGameLogs(const std::vector<std::filesystem::path>& a_myGames,
-		const std::vector<std::filesystem::path>& a_extra, bool a_fo4)
+		const std::vector<std::filesystem::path>& a_extra, bool a_fo4, bool a_sf)
 	{
-		auto out = Find(Folders(a_myGames, a_extra, a_fo4));
-		if (!a_fo4) {
+		auto out = Find(Folders(a_myGames, a_extra, a_fo4, a_sf));
+		if (!a_fo4 && !a_sf) {
 			return out;
 		}
 		const auto now = std::filesystem::file_time_type::clock::now();
 		std::set<std::filesystem::path> seen;
 		for (const auto& mg : a_myGames) {
-			for (const char* g : GameFolderNames(true)) {
+			for (const char* g : a_sf ? std::vector<const char*>{ "Starfield" } : GameFolderNames(true)) {
 				std::error_code ec;
 				for (std::filesystem::directory_iterator it(mg / g, ec), end; !ec && it != end; it.increment(ec)) {
 					if (!it->is_regular_file(ec) || Lower(U8(it->path().extension())) != ".ini" || !seen.insert(it->path()).second) {
@@ -288,7 +300,9 @@ namespace ess::logs
 
 	std::vector<Finding> ReadSkseLog(const std::filesystem::path& a_file, const std::string& a_text, bool a_fo4)
 	{
-		const std::string se = a_fo4 ? "F4SE" : "SKSE";
+		// SFSE 0.2 writes the same lines (PluginManager: "plugin X.dll (...) loaded correctly (handle n)", "disabled, ...")
+		const bool        sf = Lower(Name(a_file)).rfind("sfse", 0) == 0;
+		const std::string se = sf ? "SFSE" : a_fo4 ? "F4SE" : "SKSE";
 		std::vector<Finding> out;
 		const auto lines = Lines(a_text);
 		std::string version;
@@ -339,7 +353,10 @@ namespace ess::logs
 				f.title = (dll.empty() ? std::string("A plugin") : dll) + " was not loaded: " + why;
 				const auto w = Lower(why);
 				if (w.find("address library") != std::string::npos) {
-					f.detail = a_fo4 ? "Address Library for F4SE Plugins is missing or too old for this game version (F4SE looks for "
+					f.detail = sf ? "Address Library for SFSE Plugins is missing or too old for this game version (SFSE looks for "
+					                "Data\\SFSE\\Plugins\\versionlib-<game version>.bin). Install the Address Library version that matches "
+					                "your game version."
+					           : a_fo4 ? "Address Library for F4SE Plugins is missing or too old for this game version (F4SE looks for "
 					                   "Data\\F4SE\\Plugins\\version-<game version>.bin). Install the Address Library version that matches "
 					                   "your game version."
 					                 : "Address Library for SKSE Plugins is missing or too old for this game version. Install the Address "
@@ -769,9 +786,11 @@ namespace ess::logs
 		if (a.files.empty()) {
 			Finding fx;
 			fx.severity = Severity::kInfo;
-			fx.title = a_logs.empty() ? std::string(a_options.fo4 ? "No Fallout 4 logs found" : "No Skyrim logs found")
+			fx.title = a_logs.empty() ? std::string(a_options.sf ? "No Starfield logs found" : a_options.fo4 ? "No Fallout 4 logs found" : "No Skyrim logs found")
 			                          : "No logs written in the last " + std::to_string(a_options.days) + " days";
-			fx.detail = a_logs.empty() ? (a_options.fo4 ? "F4SE writes its logs to Documents\\My Games\\Fallout4\\F4SE (Buffout 4 its crash logs "
+			fx.detail = a_logs.empty() ? (a_options.sf ? "SFSE writes its logs to Documents\\My Games\\Starfield\\SFSE\\Logs. Start the game "
+			                                             "through SFSE (sfse_loader.exe) once."
+			                              : a_options.fo4 ? "F4SE writes its logs to Documents\\My Games\\Fallout4\\F4SE (Buffout 4 its crash logs "
 			                                              "too). Start the game through F4SE (f4se_loader.exe) once."
 			                                            : "SKSE writes its logs to Documents\\My Games\\<game>\\SKSE. Start the game through SKSE once.")
 			                           : "Include older logs to look at them too.";

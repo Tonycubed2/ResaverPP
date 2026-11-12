@@ -119,6 +119,8 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kPurify:          // (FLST: u32 n, the entries in the reference list)
 	case Sc::kCompare:         // (counts, plugins, scripts, change forms: nothing game-specific)
 	case Sc::kBloat:           // (SaveBloat: Starfield's bases and inventories through DecodeReferenceSF)
+	case Sc::kSkyrimLogs:      // (logs::FindGameLogs with Starfield's folders; SFSE's log read as SKSE's)
+	case Sc::kCollectLogs:     // (My Games\Starfield: SFSE with its folders, Logs, the INI files; Starfield's plugins.txt)
 	// Starfield's own versions
 	case Sc::kPlayer:  // the character (NPC_ 7): name, level and XP, face
 	case Sc::kQuests:  // the quests window
@@ -138,9 +140,6 @@ const char* App::SfNotYet(Sc a_which)
 				  "script on one of them can look orphaned when it is not.");
 	case Sc::kCrashLog:
 		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's crash logs.");
-	case Sc::kSkyrimLogs:
-	case Sc::kCollectLogs:
-		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's logs. The Papyrus log tool reads Starfield's.");
 	case Sc::kMerge:
 	case Sc::kFileConflicts:
 		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's plugins and archives.");

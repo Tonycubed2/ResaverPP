@@ -431,9 +431,11 @@ void App::drawHome()
 			} },
 		{ tr("Logs and AI"),
 			{
-				{ Sc::kSkyrimLogs, fo4Game() || fo4() ? tr("Analyze Fallout 4 logs") : tr("Analyze Skyrim logs"),
-					fo4Game() || fo4() ? tr("F4SE, Buffout 4, Papyrus and mod logs") : tr("SKSE, crash, Papyrus and mod logs"),
-					fo4Game() || fo4() ? tr("Read your F4SE logs, Buffout 4 crash logs, the Papyrus log and the mods' own logs, and list the problems "
+				{ Sc::kSkyrimLogs, logsSf() ? tr("Analyze Starfield logs") : fo4Game() || fo4() ? tr("Analyze Fallout 4 logs") : tr("Analyze Skyrim logs"),
+					logsSf() ? tr("SFSE, Papyrus and mod logs") : fo4Game() || fo4() ? tr("F4SE, Buffout 4, Papyrus and mod logs") : tr("SKSE, crash, Papyrus and mod logs"),
+					logsSf() ? tr("Read your SFSE logs, the Papyrus log and the SFSE plugins' own logs, and list the problems found: plugins that did "
+					              "not load, and why.")
+					: fo4Game() || fo4() ? tr("Read your F4SE logs, Buffout 4 crash logs, the Papyrus log and the mods' own logs, and list the problems "
 					                     "found: plugins that did not load, what crashed, scripts that are missing.")
 					                   : tr("Read your SKSE logs, crash logs, the Papyrus log and the mods' own logs, and list the problems found: plugins that "
 					                     "did not load, what crashed, scripts that are missing."),

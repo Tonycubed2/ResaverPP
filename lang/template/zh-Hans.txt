@@ -14821,3 +14821,15 @@ tr ""
 
 en "medium master"
 tr ""
+
+en "Analyze Starfield logs..."
+tr ""
+
+en "Read your SFSE logs, the Papyrus log and the SFSE plugins' own logs, and list the problems found: plugins that did not load, and why."
+tr ""
+
+en "Analyze Starfield logs"
+tr ""
+
+en "SFSE, Papyrus and mod logs"
+tr ""

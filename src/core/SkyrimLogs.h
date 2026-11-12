@@ -22,7 +22,7 @@ namespace ess::logs
 		kPlugin,   // another plugin's own log
 		kIni       // one of the game's INI files (Fallout4.ini, Fallout4Prefs.ini, Fallout4Custom.ini...), for reading
 	};
-	const char* KindName(Kind a_kind, bool a_fo4 = false);  // a_fo4: the script extender is called F4SE
+	const char* KindName(Kind a_kind, bool a_fo4 = false, bool a_sf = false);  // the script extender: SKSE, F4SE (a_fo4), SFSE (a_sf)
 
 	struct LogFile
 	{
@@ -41,13 +41,15 @@ namespace ess::logs
 	// (GameFolderNames) with its SKSE folder (Fallout 4: F4SE; and the folders in it) and Logs\Script; plus
 	// a_extra folders as given (e.g. <game>\Data\NetScriptFramework\Crash).
 	std::vector<std::filesystem::path> Folders(const std::vector<std::filesystem::path>& a_myGames,
-		const std::vector<std::filesystem::path>& a_extra, bool a_fo4 = false);
+		const std::vector<std::filesystem::path>& a_extra, bool a_fo4 = false, bool a_sf = false);
 	// every .log / .txt file in those folders (the SKSE folder two levels deep), newest first
 	std::vector<LogFile> Find(const std::vector<std::filesystem::path>& a_folders);
 	// Find(Folders(...)) and, for Fallout 4, the game's INI files (every .ini right in My Games\Fallout4*, as
 	// Collect all logs takes them), newest first
 	std::vector<LogFile> FindGameLogs(const std::vector<std::filesystem::path>& a_myGames,
-		const std::vector<std::filesystem::path>& a_extra, bool a_fo4);
+		const std::vector<std::filesystem::path>& a_extra, bool a_fo4, bool a_sf = false);
+	// Starfield: My Games\Starfield\SFSE (sfse.txt, sfse_loader.txt, ReSaverHelper.log), SFSE\Logs (the plugins' own
+	// logs), Logs\Script (Papyrus) and the INI files in My Games\Starfield
 	Kind                 KindOf(const std::filesystem::path& a_file);
 
 	enum class Severity
@@ -71,6 +73,7 @@ namespace ess::logs
 		int  crashLogs = 10;     // the newest crash logs read
 		bool pluginLogs = true;  // look into the other plugins' own logs
 		bool fo4 = false;        // Fallout 4's logs (only changes the texts when none are found)
+		bool sf = false;         // Starfield's
 	};
 	struct Analysis
 	{

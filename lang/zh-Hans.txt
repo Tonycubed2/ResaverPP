@@ -14821,3 +14821,15 @@ tr "中型插件：%zu / %zu"
 
 en "medium master"
 tr "中型主文件"
+
+en "Analyze Starfield logs..."
+tr "分析 Starfield 日志..."
+
+en "Read your SFSE logs, the Papyrus log and the SFSE plugins' own logs, and list the problems found: plugins that did not load, and why."
+tr "读取 SFSE 日志、Papyrus 日志和 SFSE 插件自己的日志，列出发现的问题：哪些插件没有加载以及原因。"
+
+en "Analyze Starfield logs"
+tr "分析 Starfield 日志"
+
+en "SFSE, Papyrus and mod logs"
+tr "SFSE、Papyrus 和模组日志"

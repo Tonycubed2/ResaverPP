@@ -1382,6 +1382,14 @@ void App::drawMenu()
 		tips::Tip(tr("In the game while it runs, through the Starfield ReSaverHelper: quests, your controls back, a rescue save."));
 		ImGui::MenuItem(tr("Ask the AI..."), nullptr, &_showAi);
 		tips::Tip(tr("Chat with an AI engine that can use everything ReSaver Plus does for Starfield: describe it in plain English."));
+		if (ImGui::MenuItem(tr("Analyze Starfield logs..."))) {
+			openSkyrimLogs();
+		}
+		if (ImGui::MenuItem(tr("Collect all logs (zip on the desktop)"))) {
+			startCollectLogs();
+		}
+		tips::Tip(tr("Read your SFSE logs, the Papyrus log and the SFSE plugins' own logs, and list the problems found: plugins that did "
+					 "not load, and why."));
 		if (ImGui::MenuItem(tr("AI engine settings..."))) {
 			_showAi = true;
 			_aiShowSettings = true;

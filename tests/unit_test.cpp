@@ -2626,7 +2626,7 @@ void TestAiGame()
 	Check(ag::CliRefusal(ag::Game::kStarfield, { "x.sfs", "--sf-set-av-mod", "0005ACD4:damage:-5" }).empty(), "ai: a negative value is not an option");
 	Check(ag::HelperRefusal("SF", "QUEST").empty() && !ag::HelperRefusal("SF", "GATHER").empty() && !ag::HelperRefusal("SF", "APPLY").empty(),
 		"ai: the Starfield helper's commands");
-	Check(!ag::ToolRefusal(ag::Game::kStarfield, "fo4_player").empty() && !ag::ToolRefusal(ag::Game::kStarfield, "analyze_logs").empty() &&
+	Check(!ag::ToolRefusal(ag::Game::kStarfield, "fo4_player").empty() && ag::ToolRefusal(ag::Game::kStarfield, "analyze_logs").empty() &&
 			  ag::ToolRefusal(ag::Game::kStarfield, "run_cli").empty() && ag::ToolRefusal(ag::Game::kFallout4, "fo4_player").empty(),
 		"ai: other games' tools refused for Starfield");
 	Check(ag::HelperIsFo4("F4") && ag::HelperIsFo4("F4NG") && ag::HelperIsFo4("F4AE") && !ag::HelperIsFo4("SE") && !ag::HelperIsFo4("AE") &&

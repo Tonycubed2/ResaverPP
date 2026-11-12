@@ -752,7 +752,8 @@ private:
 	bool        fo4() const { return _save && _save->isFO4(); }
 	std::string namesStatusSF() const;  // Starfield: what the plugin names reading has done (AppStarfield.cpp)
 	void        openMissingSF();        // Starfield: Mods no longer installed
-	bool        sf() const { return _save && _save->isSF(); }  // a Starfield save: its own views (AppStarfield.cpp), the rest hidden
+	bool        sf() const { return _save && _save->isSF(); }
+	bool        logsSf() const { return _save ? _save->isSF() : sfGame(); }  // the logs read are Starfield's  // a Starfield save: its own views (AppStarfield.cpp), the rest hidden
 	bool        sfPapyrus() const;                             // ... and its script data is read
 	std::string sfBaseName(std::uint32_t a_formID, const ess::ChangeForm& a_cf) const;  // (AppStarfield.cpp)
 	void        drawAddItemSF(const ess::RefID& a_ref);  // (AppStarfield.cpp)
