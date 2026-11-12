@@ -1014,6 +1014,187 @@ namespace ess
 		return out;
 	}
 
+	SfActiveEffects FindActiveEffectsSF(const SaveFile& a_save, const ChangeForm& a_actor, const std::function<int(std::uint32_t)>& a_kind)
+	{
+		SfActiveEffects out;
+		const auto& d = a_actor.data;
+		const auto& refs = a_actor.sfRefs;
+		std::vector<int> kind(refs.size());
+		for (std::size_t i = 0; i < refs.size(); ++i) {
+			kind[i] = a_kind(a_save.formIDOf(refs[i]));
+		}
+		struct Fit
+		{
+			std::size_t                 p = 0, end = 0, base = 0;
+			std::vector<SfActiveEffect> effects;
+		};
+		std::vector<Fit> fits;
+		for (std::size_t p = 0; p + 8 < d.size(); ++p) {
+			if ((d[p] & 3) == 3) {
+				continue;
+			}
+			Rd r{ d, p };
+			try {
+				const auto n = r.vsval();
+				if (n < 1 || n > 4000) {
+					continue;
+				}
+				std::vector<SfActiveEffect> list;
+				std::size_t refsUsed = 0;
+				bool        shape = true;
+				for (std::uint32_t i = 0; i < n && shape; ++i) {
+					SfActiveEffect e;
+					e.begin = r.p;
+					r.need(1);
+					// u8 index (0xff: none) or a vsval id; a byte with width bits 3 can only be the u8
+					if (d[r.p] == 0xFF || (d[r.p] & 3) == 3) {
+						e.effect = r.u8();
+					} else {
+						e.effect = r.vsval();
+					}
+					e.archetype = r.vsval();
+					const auto rc = r.u16();
+					e.strings = r.u16();
+					const auto len = r.vsval();
+					if (e.archetype > 200 || rc < 4 || rc > 40 || e.strings > 16 || len < 16 || len > 4096) {
+						shape = false;
+						break;
+					}
+					const auto at = r.p;
+					r.skip(len);
+					std::memcpy(&e.elapsed, d.data() + at, 4);
+					std::memcpy(&e.magnitude, d.data() + at + 4, 4);
+					std::memcpy(&e.duration, d.data() + at + 8, 4);
+					std::memcpy(&e.flags, d.data() + at + 12, 4);
+					if (!std::isfinite(e.elapsed) || !std::isfinite(e.magnitude) || !std::isfinite(e.duration) ||
+						std::fabs(e.elapsed) > 1e9f || std::fabs(e.duration) > 1e9f) {
+						shape = false;
+						break;
+					}
+					e.end = r.p;
+					e.refIndex = refsUsed;  // relative for now
+					e.refCount = 1u + rc;
+					refsUsed += e.refCount;
+					list.push_back(e);
+				}
+				if (!shape || list.size() < 1) {
+					continue;
+				}
+				// the magic items, taken in a row from the reference list
+				for (std::size_t base = 0; base + refsUsed <= refs.size(); ++base) {
+					std::size_t known = 0;
+					bool        all = true;
+					for (const auto& e : list) {
+						const int k = kind[base + e.refIndex];
+						if (k == 0) {
+							all = false;
+							break;
+						}
+						known += k == 1;
+					}
+					if (all && known * 2 >= list.size() && known >= 1) {
+						Fit f{ p, r.p, base, list };
+						fits.push_back(std::move(f));
+					}
+				}
+			} catch (const std::exception&) {
+			}
+		}
+		// a list of one or two effects can fit by chance anywhere: the one with the most effects, when it is the only one
+		// of its size (the player's list held 104 to 293 effects in every save seen)
+		std::size_t best = 0, bestCount = 0;
+		for (const auto& f : fits) {
+			if (f.effects.size() > best) {
+				best = f.effects.size();
+				bestCount = 1;
+			} else if (f.effects.size() == best) {
+				++bestCount;
+			}
+		}
+		out.fits = bestCount;
+		if (fits.empty() || bestCount != 1 || best < 3) {
+			out.error = fits.empty() || best < 3 ? "the active effects were not found" : "the active effects fit in more than one place";
+			return out;
+		}
+		for (auto& f : fits) {
+			if (f.effects.size() != best) {
+				continue;
+			}
+			out.countOffset = f.p;
+			out.listEnd = f.end;
+			for (auto& e : f.effects) {
+				e.refIndex += f.base;
+				const auto id = [&](std::size_t k) { return k < e.refCount ? a_save.formIDOf(refs[e.refIndex + k]) : 0u; };
+				e.item = id(0);
+				e.caster = id(1);
+				e.target = id(2);
+				e.source = id(4);
+				out.effects.push_back(e);
+			}
+			break;
+		}
+		out.ok = true;
+		return out;
+	}
+
+	std::string RemoveActiveEffectsSF(const SaveFile& a_save, ChangeForm& a_actor, const std::set<std::size_t>& a_indices,
+		const std::function<int(std::uint32_t)>& a_kind, std::size_t* a_removed)
+	{
+		const auto fx = FindActiveEffectsSF(a_save, a_actor, a_kind);
+		if (!fx.ok) {
+			return fx.error;
+		}
+		std::vector<std::size_t> gone(a_indices.begin(), a_indices.end());
+		for (auto i : gone) {
+			if (i >= fx.effects.size()) {
+				return "no such effect";
+			}
+			if (fx.effects[i].strings) {
+				return "an effect that writes text cannot be taken out";
+			}
+		}
+		if (gone.empty()) {
+			return {};
+		}
+		const auto backup = a_actor;
+		std::sort(gone.rbegin(), gone.rend());
+		for (auto i : gone) {
+			const auto& e = fx.effects[i];
+			a_actor.data.erase(a_actor.data.begin() + static_cast<std::ptrdiff_t>(e.begin), a_actor.data.begin() + static_cast<std::ptrdiff_t>(e.end));
+			a_actor.sfRefs.erase(a_actor.sfRefs.begin() + static_cast<std::ptrdiff_t>(e.refIndex),
+				a_actor.sfRefs.begin() + static_cast<std::ptrdiff_t>(e.refIndex + e.refCount));
+		}
+		Rd cnt{ a_actor.data, fx.countOffset };
+		const auto n = cnt.vsval();
+		const auto oldLen = cnt.p - fx.countOffset;
+		const auto left = n - static_cast<std::uint32_t>(gone.size());
+		const std::uint32_t v = left << 2;
+		std::vector<std::uint8_t> nv;
+		if (left < 0x40) {
+			nv = { static_cast<std::uint8_t>(v) };
+		} else if (left < 0x4000) {
+			nv = { static_cast<std::uint8_t>(v | 1), static_cast<std::uint8_t>(v >> 8) };
+		} else {
+			const std::uint32_t w = v | 2;
+			nv = { static_cast<std::uint8_t>(w), static_cast<std::uint8_t>(w >> 8), static_cast<std::uint8_t>(w >> 16), static_cast<std::uint8_t>(w >> 24) };
+		}
+		a_actor.data.erase(a_actor.data.begin() + static_cast<std::ptrdiff_t>(fx.countOffset),
+			a_actor.data.begin() + static_cast<std::ptrdiff_t>(fx.countOffset + oldLen));
+		a_actor.data.insert(a_actor.data.begin() + static_cast<std::ptrdiff_t>(fx.countOffset), nv.begin(), nv.end());
+		// read back: the list is found again with that many fewer effects, and the rest of the record still reads
+		const auto back = FindActiveEffectsSF(a_save, a_actor, a_kind);
+		const auto fid = a_save.formIDOf(a_actor.refID);
+		const auto ref = DecodeReferenceSF(fid, a_actor);
+		if (!back.ok || back.effects.size() != fx.effects.size() - gone.size() || !ref.ok) {
+			a_actor = backup;
+			return "the record did not read back after the change: nothing changed";
+		}
+		if (a_removed) {
+			*a_removed = gone.size();
+		}
+		return {};
+	}
+
 	SfPlayerXP FindPlayerXPSF(const SaveFile& a_save, const ChangeForm& a_player, const std::function<bool(std::uint32_t)>& a_isActorValue)
 	{
 		SfPlayerXP out;

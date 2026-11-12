@@ -123,6 +123,7 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kCollectLogs:     // (My Games\Starfield: SFSE with its folders, Logs, the INI files; Starfield's plugins.txt)
 	case Sc::kFileConflicts:   // (assets::Input::sf: Starfield.exe's archive order)
 	case Sc::kCrashLog:        // (drawCrashLogSF: Trainwreck's Starfield logs, SFSE\Crashlogs)
+	case Sc::kCharEffects:     // (drawCharEffectsSF: FindActiveEffectsSF, the AI process's active effect list)
 	// Starfield's own versions
 	case Sc::kPlayer:  // the character (NPC_ 7): name, level and XP, face
 	case Sc::kQuests:  // the quests window
@@ -146,9 +147,6 @@ const char* App::SfNotYet(Sc a_which)
 				  "were still known to the game, so none can be called missing.");
 	case Sc::kMerge:
 		return N_("Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records.");
-	case Sc::kCharEffects:
-		return N_("Not for Starfield saves yet: the effects running on a character are in the part of Starfield's actor data that is not "
-				  "decoded yet.");
 	default:
 		return N_("Not available for Starfield saves: it is for Skyrim (or Fallout 4) only.");
 	}
@@ -1592,4 +1590,220 @@ void App::liveMoveToSF(std::uint32_t a_formID, const std::string& a_name)
 			_status = tr("Done in game: ") + what + tr(". Save in the game to keep it.");
 		}
 	});
+}
+
+// ==========================================================================================
+// Character effects (Starfield): the player's active effects (FindActiveEffectsSF), grouped by what they come from. An
+// enchantment whose item (the effect's source, ActiveEffect +0x68) is no longer in the player's inventory is stuck: the
+// item that should run it is gone. Ticked effects are taken out of the list (RemoveActiveEffectsSF).
+// ==========================================================================================
+
+namespace
+{
+	void TextColored(std::uint32_t col, const std::string& s)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Text, col);
+		ImGui::TextWrapped("%s", s.c_str());
+		ImGui::PopStyleColor();
+	}
+
+	enum SfFxGroup : int
+	{
+		kSfFxStuck,
+		kSfFxWorn,
+		kSfFxSpells,
+		kSfFxConsumables,
+		kSfFxOthers,
+		kSfFxUnknown,
+		kSfFxCount
+	};
+}
+
+int App::sfMagicKind(std::uint32_t a_formID) const
+{
+	if (!_db || !a_formID) {
+		return a_formID ? -1 : 0;
+	}
+	if (const auto* f = _db->find(a_formID)) {
+		const auto t = _db->type(*f);
+		return (t == "SPEL" || t == "ENCH" || t == "ALCH" || t == "INGR") ? 1 : 0;
+	}
+	return (a_formID >> 24) == 0xFF ? 0 : -1;
+}
+
+void App::drawCharEffectsSF()
+{
+	prepareWindow("Character effects", ImVec2(0.85f, 0.9f));
+	if (!ImGui::Begin(trId("Character effects"), &_showCharFx, ImGuiWindowFlags_NoCollapse)) {
+		ImGui::End();
+		return;
+	}
+	maximizeControl("Character effects");
+	ImGui::NewLine();
+	if (!_db) {
+		ImGui::TextWrapped("%s", tr("Reading the names of your plugins first (they tell which forms are spells, enchantments and aid items)..."));
+		ImGui::End();
+		return;
+	}
+	auto&       c = _sfFx;
+	ChangeForm* pc = nullptr;
+	for (auto& f : _save->changeForms) {
+		if (f.typeCode() == 1 && _save->formIDOf(f.refID) == 0x14) {
+			pc = &f;
+		}
+	}
+	if (!pc) {
+		TextColored(theme::Warn(), tr("The save has no record of the player."));
+		ImGui::End();
+		return;
+	}
+	auto kind = [this](std::uint32_t f) { return sfMagicKind(f); };
+	if (c.save != _save.get() || c.gen != _editGen || c.db != _db.get()) {
+		c.save = _save.get();
+		c.gen = _editGen;
+		c.db = _db.get();
+		c.fx = FindActiveEffectsSF(*_save, *pc, kind);
+		c.carried.clear();
+		const auto r = DecodeReferenceSF(0x14, *pc);
+		for (const auto& it : r.items) {
+			if (it.refIndex < pc->sfRefs.size()) {
+				c.carried.insert(_save->formIDOf(pc->sfRefs[it.refIndex]));
+			}
+		}
+		c.group.assign(c.fx.effects.size(), kSfFxUnknown);
+		c.tick.assign(c.fx.effects.size(), 0);
+		for (std::size_t i = 0; i < c.fx.effects.size(); ++i) {
+			const auto& e = c.fx.effects[i];
+			const auto* f = _db->find(e.item);
+			const auto  t = f ? _db->type(*f) : std::string();
+			int         g = kSfFxUnknown;
+			if (t == "ENCH") {
+				// (an inventory not read gives no stuck: nothing is called gone without the list to check)
+				g = r.ok && e.source && !c.carried.contains(e.source) ? kSfFxStuck : kSfFxWorn;
+			} else if (e.caster && e.caster != 0x14) {
+				g = kSfFxOthers;
+			} else if (t == "SPEL") {
+				g = kSfFxSpells;
+			} else if (t == "ALCH" || t == "INGR") {
+				g = kSfFxConsumables;
+			}
+			c.group[i] = g;
+			c.tick[i] = g == kSfFxStuck && e.strings == 0;
+		}
+	}
+	if (!c.fx.ok) {
+		TextColored(theme::Warn(), tr("Your active effects were not found in this save: ") + c.fx.error);
+		ImGui::TextDisabled("%s", tr("The part of the save before them is not read yet, so they are found by their shape; this save's did not fit."));
+		ImGui::End();
+		return;
+	}
+	ImGui::TextWrapped("%s", Fmt(tr("%zu effects run on your character: abilities, your gear's enchantments, aid items and what others put on you."),
+									c.fx.effects.size())
+									 .c_str());
+	std::size_t stuck = 0;
+	for (auto g : c.group) {
+		stuck += g == kSfFxStuck;
+	}
+	if (stuck) {
+		TextColored(theme::Caution(), Fmt(tr("%zu stuck: the enchantment of an item you no longer have is still running. They are ticked; take them "
+											"out below."),
+										  stuck));
+	} else {
+		TextColored(theme::Good(), tr("Nothing stuck: every enchantment running belongs to an item you have."));
+	}
+	ImGui::Spacing();
+	static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
+		N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
+	auto name = [&](std::uint32_t f) {
+		if (!f) {
+			return std::string("-");
+		}
+		auto n = (f >> 24) != 0xFF ? _db->describe(f) : std::string();
+		return n.empty() ? Fmt("%08X", f) : n + Fmt(" (%08X)", f);
+	};
+	for (int g = 0; g < kSfFxCount; ++g) {
+		std::size_t n = 0;
+		for (auto x : c.group) {
+			n += x == g;
+		}
+		if (!n) {
+			continue;
+		}
+		ImGui::PushID(g);
+		if (ImGui::CollapsingHeader(Fmt("%s (%zu)###g", tr(kGroups[g]), n).c_str(), g == kSfFxStuck ? ImGuiTreeNodeFlags_DefaultOpen : 0)) {
+			if (ImGui::BeginTable("fx", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp)) {
+				ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 1.6f);
+				ImGui::TableSetupColumn(tr("Effect of"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+				ImGui::TableSetupColumn(tr("From item"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+				ImGui::TableSetupColumn(tr("Magnitude"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5);
+				ImGui::TableSetupColumn(tr("Duration"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5);
+				ImGui::TableSetupColumn(tr("By"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+				ImGui::TableHeadersRow();
+				for (std::size_t i = 0; i < c.fx.effects.size(); ++i) {
+					if (c.group[i] != g) {
+						continue;
+					}
+					const auto& e = c.fx.effects[i];
+					ImGui::PushID(static_cast<int>(i));
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::BeginDisabled(_readOnly || e.strings != 0);
+					bool t = c.tick[i] != 0;
+					if (ImGui::Checkbox("##t", &t)) {
+						c.tick[i] = t;
+					}
+					ImGui::EndDisabled();
+					ImGui::TableNextColumn();
+					ImGui::TextWrapped("%s", name(e.item).c_str());
+					ImGui::TableNextColumn();
+					if (e.source) {
+						ImGui::TextWrapped("%s", name(e.source).c_str());
+						if (g == kSfFxStuck) {
+							tips::Tip(tr("You no longer have this item, but its enchantment still runs on you."));
+						}
+					} else {
+						ImGui::TextDisabled("-");
+					}
+					ImGui::TableNextColumn();
+					ImGui::Text("%g", e.magnitude);
+					ImGui::TableNextColumn();
+					if (e.duration > 0) {
+						ImGui::Text("%gs", e.duration);
+					} else {
+						ImGui::TextDisabled("%s", tr("lasting"));
+					}
+					ImGui::TableNextColumn();
+					if (e.caster == 0x14) {
+						ImGui::TextUnformatted(tr("you"));
+					} else {
+						ImGui::TextWrapped("%s", name(e.caster).c_str());
+					}
+					ImGui::PopID();
+				}
+				ImGui::EndTable();
+			}
+		}
+		ImGui::PopID();
+	}
+	ImGui::Spacing();
+	std::set<std::size_t> picked;
+	for (std::size_t i = 0; i < c.tick.size(); ++i) {
+		if (c.tick[i]) {
+			picked.insert(i);
+		}
+	}
+	ImGui::BeginDisabled(_readOnly || picked.empty());
+	if (ImGui::Button(Fmt(tr("Take out the %zu ticked effects"), picked.size()).c_str())) {
+		std::size_t n = 0;
+		const auto  why = RemoveActiveEffectsSF(*_save, *pc, picked, kind, &n);
+		if (why.empty()) {
+			markChanged(Fmt(tr("Took %zu effects off your character"), n));
+		} else {
+			_status = tr("Not changed: ") + why;
+		}
+	}
+	ImGui::EndDisabled();
+	tips::Tip(tr("Takes the ticked effects off your character in this save. An ability or a mod's effect taken out comes back if its spell is "
+				 "still given to you. Save as a new file and keep the original."));
+	ImGui::End();
 }

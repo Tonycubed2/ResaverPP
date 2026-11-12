@@ -291,6 +291,43 @@ namespace ess
 		std::vector<SfActorValue> base, modifiers;
 	};
 	SfActorValues FindActorValuesSF(const SaveFile& a_save, const ChangeForm& a_actor, const std::function<bool(std::uint32_t)>& a_isActorValue);
+
+	// An actor's active effects (Starfield): the list the AI process writes (0x1419ebc80 -> 0x141764a10, MagicTarget +0x238):
+	// vsval n, then per effect (0x141741450): FORMID magic item; its effect: u8 index (0xff none) when every effect of the item
+	// has id 0 (EffectItem +0x34), else vsval that id; vsval the effect's archetype (EffectSetting +0x15c); a sized block
+	// (u16 references, u16 strings, vsval length) with ActiveEffect::SaveGame (vfunc 12, 0x141740dd0): f32 elapsed (+0x80),
+	// f32 magnitude (+0x88), f32 duration (+0x84), u32 flags (+0x8c), FORMID caster, FORMID target (their handles +0x44 / +0x48),
+	// FORMID +0x78, FORMID source (+0x68: the item whose enchantment it is), then a vsval-counted list, u32, u16, the
+	// subclass's data and a u8. The loader 0x141741660 reads it back the same way ("Could not load active effect").
+	// The AI process before it is not read, so the list is found by its shape (as the actor values): a unique place where
+	// the list reads through and its magic items, taken in a row from the record's reference list, are spells,
+	// enchantments, potions or ingredients (a_kind: 1 yes, 0 no, -1 not known: a plugin not read). Not inside any
+	// length-prefixed block (the AI process closes its sized blocks before and after it), so effects can be taken out.
+	struct SfActiveEffect
+	{
+		std::size_t   begin = 0, end = 0;     // bytes of the whole effect (index .. block end)
+		std::size_t   refIndex = 0;           // the magic item: sfRefs[refIndex]; its own forms follow (refCount in all)
+		std::size_t   refCount = 0;
+		std::uint16_t strings = 0;            // strings its block adds (0 in every save seen)
+		std::uint32_t effect = 0;             // index or id of the effect within the item
+		std::uint32_t archetype = 0;
+		float         elapsed = 0, magnitude = 0, duration = 0;
+		std::uint32_t flags = 0;
+		std::uint32_t item = 0, caster = 0, target = 0, source = 0;  // runtime form IDs (0 none)
+	};
+	struct SfActiveEffects
+	{
+		bool                        ok = false;
+		std::string                 error;
+		std::size_t                 fits = 0;
+		std::size_t                 countOffset = 0, listEnd = 0;
+		std::vector<SfActiveEffect> effects;
+	};
+	SfActiveEffects FindActiveEffectsSF(const SaveFile& a_save, const ChangeForm& a_actor, const std::function<int(std::uint32_t)>& a_kind);
+	// takes the chosen effects (indices into FindActiveEffectsSF().effects) out; refuses one whose block adds strings. Read
+	// back after the change (the list found again, with that many fewer); "" when done, else why not (nothing changed).
+	std::string RemoveActiveEffectsSF(const SaveFile& a_save, ChangeForm& a_actor, const std::set<std::size_t>& a_indices,
+		const std::function<int(std::uint32_t)>& a_kind, std::size_t* a_removed = nullptr);
 	// a saved value changed in place
 	bool SetActorValueSF(ChangeForm& a_actor, std::size_t a_offset, float a_value);
 	// sets the level and the XP into it (0 .. what the level needs); also the header's level / XP (the load menu)

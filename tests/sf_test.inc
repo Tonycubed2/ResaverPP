@@ -326,6 +326,70 @@ void TestStarfield()
 						}
 					}
 				}
+				// the player's active effects found by their shape; one taken out, written and read back (needs the magic items of the
+				// game's plugins: RESAVERPP_SF_MAGIC, "hex-id TYPE" a line, TYPE SPEL / ENCH / ALCH / INGR / anything else)
+				if (const char* mf = std::getenv("RESAVERPP_SF_MAGIC"); mf && *mf) {
+					std::map<std::uint32_t, std::string> ty;
+					std::ifstream in(mf);
+					for (std::string l; std::getline(in, l);) {
+						if (l.size() > 9) {
+							ty[static_cast<std::uint32_t>(std::stoul(l.substr(0, 8), nullptr, 16))] = l.substr(9);
+						}
+					}
+					auto kind = [&](std::uint32_t f) {
+						if (auto it = ty.find(f); it != ty.end()) {
+							return (it->second == "SPEL" || it->second == "ENCH" || it->second == "ALCH" || it->second == "INGR") ? 1 : 0;
+						}
+						return (f >> 24) != 0 && (f >> 24) != 0xFF ? -1 : 0;
+					};
+					ChangeForm* pc = nullptr;
+					for (auto& c : s->changeForms) {
+						if (c.typeCode() == 1 && s->formIDOf(c.refID) == 0x14) {
+							pc = &c;
+						}
+					}
+					if (pc) {
+						const auto fx = FindActiveEffectsSF(*s, *pc, kind);
+						if (!fx.ok || fx.effects.size() < 50) {
+							fail("active effects: " + (fx.ok ? std::string("too few") : fx.error));
+						} else {
+							bool sane = true;
+							for (const auto& e : fx.effects) {
+								sane &= e.caster != 0 || e.target != 0;
+							}
+							Check(sane, "sf effects: each has a caster or a target");
+							const auto data0 = pc->data;
+							const auto refs0 = pc->sfRefs;
+							std::size_t removed = 0;
+							const auto why = RemoveActiveEffectsSF(*s, *pc, { 0, fx.effects.size() - 1 }, kind, &removed);
+							if (!why.empty()) {
+								fail("active effect not removed: " + why);
+							} else {
+								const auto out = fs::temp_directory_path() / ("rs_sffx_" + name);
+								try {
+									s->write(out, false);
+									auto back = SaveFile::load(out);
+									const ChangeForm* bp = nullptr;
+									for (const auto& c : back->changeForms) {
+										if (c.typeCode() == 1 && back->formIDOf(c.refID) == 0x14) {
+											bp = &c;
+										}
+									}
+									const auto f2 = bp ? FindActiveEffectsSF(*back, *bp, kind) : SfActiveEffects{};
+									Check(removed == 2 && f2.ok && f2.effects.size() == fx.effects.size() - 2 &&
+											  f2.effects.front().item == fx.effects[1].item && f2.effects.back().item == fx.effects[fx.effects.size() - 2].item,
+										"sf effects: two taken out, the rest read back");
+								} catch (const std::exception& ex) {
+									fail(std::string("effect removal does not write: ") + ex.what());
+								}
+								std::error_code ec;
+								fs::remove(out, ec);
+							}
+							pc->data = data0;
+							pc->sfRefs = refs0;
+						}
+					}
+				}
 				// the player renamed, written and read back: the record's first string and the header carry the new name
 				for (auto& c : s->changeForms) {
 					if (c.typeCode() != 9 || s->formIDOf(c.refID) != 0x7) {

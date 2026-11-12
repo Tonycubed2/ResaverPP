@@ -645,6 +645,18 @@ private:
 	bool                                  liveFO4() const;
 	bool                                  liveSF() const;   // the running game is Starfield (its helper: quests and the rescue set)
 	void                                  liveQuestSF(const std::string& a_command, std::uint32_t a_formID, int a_stage);  // (AppStarfield.cpp)
+	void                                  drawCharEffectsSF();  // Starfield: the player's active effects (AppStarfield.cpp)
+	struct SfFxCache
+	{
+		const void*                  save = nullptr;
+		std::size_t                  gen = SIZE_MAX;
+		const void*                  db = nullptr;
+		ess::SfActiveEffects         fx;
+		std::set<std::uint32_t>      carried;  // the player's inventory items (base forms)
+		std::vector<char>            tick;
+		std::vector<int>             group;    // per effect (SfFxGroup)
+	} _sfFx;
+	int                                   sfMagicKind(std::uint32_t a_formID) const;  // 1 magic item, 0 not, -1 not known
 	bool                                  sfHelperReady(int a_version, std::string& a_why) const;  // Starfield helper a_version+, in game
 	void                                  liveMoveToSF(std::uint32_t a_formID, const std::string& a_name);  // helper 2 MOVETO
 	std::string                           _liveQuestSFResult;

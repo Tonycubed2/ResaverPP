@@ -362,6 +362,10 @@ void App::drawCharEffects()
 		_showCharFx = false;
 		return;
 	}
+	if (_save->isSF()) {
+		drawCharEffectsSF();
+		return;
+	}
 	prepareWindow("Character effects", ImVec2(0.85f, 0.9f));
 	if (!ImGui::Begin(trId("Character effects"), &_showCharFx, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();

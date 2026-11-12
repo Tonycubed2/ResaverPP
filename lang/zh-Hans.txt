@@ -140,23 +140,23 @@ en "the engine listed no models"
 tr "引擎没有列出任何模型"
 
 # App.cpp:36  case App::Cat::kOverview: return N_("Overview");
-# AppStarfield.cpp:269  item(Cat::kOverview, 0, N_("Overview"), _report && !_report->warnings.empty());
+# AppStarfield.cpp:267  item(Cat::kOverview, 0, N_("Overview"), _report && !_report->warnings.empty());
 en "Overview"
 tr "概览"
 
 # App.cpp:37  case App::Cat::kMods: return N_("Mods");
-# AppStarfield.cpp:276  item(Cat::kMods, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Mods"), !_missing.empty());
+# AppStarfield.cpp:274  item(Cat::kMods, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Mods"), !_missing.empty());
 en "Mods"
 tr "模组"
 
 # App.cpp:38  case App::Cat::kPlugins: return N_("Plugins");
 # App.cpp:2508  KV(tr("Plugins"), _save->plugins.hasLite ? Fmt(tr("%zu full + %zu light"), _save->plugins.full.size(), _save->plugins.lite.size())
-# AppStarfield.cpp:272  item(Cat::kPlugins, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Plugins"));
+# AppStarfield.cpp:270  item(Cat::kPlugins, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Plugins"));
 en "Plugins"
 tr "插件"
 
 # App.cpp:39  case App::Cat::kChangeForms: return N_("Change Forms");
-# AppStarfield.cpp:273  item(Cat::kChangeForms, _save->changeForms.size(), N_("Change Forms"));
+# AppStarfield.cpp:271  item(Cat::kChangeForms, _save->changeForms.size(), N_("Change Forms"));
 en "Change Forms"
 tr "变更表单"
 
@@ -173,12 +173,12 @@ en "Scripts"
 tr "脚本"
 
 # App.cpp:42  case App::Cat::kInstances: return N_("Script Instances");
-# AppStarfield.cpp:287  item(Cat::kInstances, p.instances.size(), N_("Script Instances"), _report && (_report->unattached > 0 || _report->undefinedInstances > 0));
+# AppStarfield.cpp:285  item(Cat::kInstances, p.instances.size(), N_("Script Instances"), _report && (_report->unattached > 0 || _report->undefinedInstances > 0));
 en "Script Instances"
 tr "脚本实例"
 
 # App.cpp:43  case App::Cat::kReferences: return N_("References");
-# AppStarfield.cpp:288  item(Cat::kReferences, p.references.size(), N_("References"));
+# AppStarfield.cpp:286  item(Cat::kReferences, p.references.size(), N_("References"));
 en "References"
 tr "引用"
 
@@ -189,33 +189,33 @@ en "Arrays"
 tr "数组"
 
 # App.cpp:45  case App::Cat::kThreads: return N_("Active Scripts (threads)");
-# AppStarfield.cpp:290  item(Cat::kThreads, p.activeScripts.size(), N_("Active Scripts (threads)"));
+# AppStarfield.cpp:288  item(Cat::kThreads, p.activeScripts.size(), N_("Active Scripts (threads)"));
 en "Active Scripts (threads)"
 tr "活跃脚本（线程）"
 
 # App.cpp:46  case App::Cat::kMessages: return N_("Function Messages");
-# AppStarfield.cpp:291  item(Cat::kMessages, p.functionMessages.size(), N_("Function Messages"));
+# AppStarfield.cpp:289  item(Cat::kMessages, p.functionMessages.size(), N_("Function Messages"));
 en "Function Messages"
 tr "函数消息"
 
 # App.cpp:47  case App::Cat::kSuspended: return N_("Suspended Stacks");
-# AppStarfield.cpp:292  item(Cat::kSuspended, p.suspended1.size() + p.suspended2.size(), N_("Suspended Stacks"));
+# AppStarfield.cpp:290  item(Cat::kSuspended, p.suspended1.size() + p.suspended2.size(), N_("Suspended Stacks"));
 en "Suspended Stacks"
 tr "挂起的栈"
 
 # App.cpp:48  case App::Cat::kUnbinds: return N_("Queued Unbinds");
-# AppStarfield.cpp:293  item(Cat::kUnbinds, p.unbinds.size(), N_("Queued Unbinds"));
+# AppStarfield.cpp:291  item(Cat::kUnbinds, p.unbinds.size(), N_("Queued Unbinds"));
 en "Queued Unbinds"
 tr "排队的解绑"
 
 # App.cpp:49  case App::Cat::kQuests: return N_("Quests");
 # AppHome.cpp:374  { Sc::kQuests, tr("Quests"), tr("running, completed, the journal"),
-# AppStarfield.cpp:1129  if (!ImGui::Begin(trId("Quests"), &_showQuestsSF, ImGuiWindowFlags_NoCollapse)) {
+# AppStarfield.cpp:1127  if (!ImGui::Begin(trId("Quests"), &_showQuestsSF, ImGuiWindowFlags_NoCollapse)) {
 en "Quests"
 tr "任务"
 
 # App.cpp:50  case App::Cat::kGlobals: return N_("Global Data");
-# AppStarfield.cpp:274  item(Cat::kGlobals, _save->table1.size() + _save->table2.size() + _save->table3.size(), N_("Global Data"));
+# AppStarfield.cpp:272  item(Cat::kGlobals, _save->table1.size() + _save->table2.size() + _save->table3.size(), N_("Global Data"));
 en "Global Data"
 tr ""
 
@@ -305,7 +305,7 @@ en "Name"
 tr "名称"
 
 # App.cpp:445  ImGui::TableSetupColumn(tr("Value"), ImGuiTableColumnFlags_WidthStretch);
-# AppStarfield.cpp:629  ImGui::TableSetupColumn(tr("Value"), ImGuiTableColumnFlags_WidthFixed, 130);
+# AppStarfield.cpp:627  ImGui::TableSetupColumn(tr("Value"), ImGuiTableColumnFlags_WidthFixed, 130);
 en "Value"
 tr "值"
 
@@ -1057,18 +1057,18 @@ en "Everything ReSaver++ noticed about this save, and what can safely be done ab
 tr "ReSaver++ 对此存档注意到的一切，以及可以安全采取的措施（F2）。"
 
 # App.cpp:1522  label += Fmt(tr("  (%zu)"), n);
-# AppStarfield.cpp:252  label += Fmt(tr("  (%zu)"), n);
+# AppStarfield.cpp:250  label += Fmt(tr("  (%zu)"), n);
 en "  (%zu)"
 tr "  （%zu）"
 
 # App.cpp:1563  ImGui::SeparatorText(trc("sidebar", "Save"));
-# AppStarfield.cpp:270  ImGui::SeparatorText(trc("sidebar", "Save"));
+# AppStarfield.cpp:268  ImGui::SeparatorText(trc("sidebar", "Save"));
 en "sidebar|Save"
 tr "保存"
 
 # App.cpp:1566  ImGui::SeparatorText(tr("Papyrus"));
-# AppStarfield.cpp:278  ImGui::SeparatorText(tr("Papyrus"));
-# AppStarfield.cpp:391  std::string what = g.type == 1001 ? std::string(tr("Papyrus")) : g.type == 0 ? std::string(tr("string table offset"))
+# AppStarfield.cpp:276  ImGui::SeparatorText(tr("Papyrus"));
+# AppStarfield.cpp:389  std::string what = g.type == 1001 ? std::string(tr("Papyrus")) : g.type == 0 ? std::string(tr("string table offset"))
 en "Papyrus"
 tr ""
 
@@ -1299,17 +1299,17 @@ en "Select an item to see its details."
 tr "选择一个条目以查看详情。"
 
 # App.cpp:1971  ImGui::TextDisabled(lite ? tr("Light plugin (ESL), index FE:%03X") : tr("Full plugin, load index %02X"), static_cast<unsigned>(i));
-# AppStarfield.cpp:419  : lite ? Fmt(tr("Light plugin (ESL), index FE:%03X"), static_cast<unsigned>(i))
+# AppStarfield.cpp:417  : lite ? Fmt(tr("Light plugin (ESL), index FE:%03X"), static_cast<unsigned>(i))
 en "Light plugin (ESL), index FE:%03X"
 tr "轻型插件（ESL），索引 FE:%03X"
 
 # App.cpp:1971  ImGui::TextDisabled(lite ? tr("Light plugin (ESL), index FE:%03X") : tr("Full plugin, load index %02X"), static_cast<unsigned>(i));
-# AppStarfield.cpp:420  : Fmt(tr("Full plugin, load index %02X"), static_cast<unsigned>(i)))
+# AppStarfield.cpp:418  : Fmt(tr("Full plugin, load index %02X"), static_cast<unsigned>(i)))
 en "Full plugin, load index %02X"
 tr "完整插件，加载索引 %02X"
 
 # App.cpp:1979  ImGui::Text(tr("%zu change forms belong to this plugin."), forms);
-# AppStarfield.cpp:440  ImGui::Text(tr("%zu change forms belong to this plugin."), forms);
+# AppStarfield.cpp:438  ImGui::Text(tr("%zu change forms belong to this plugin."), forms);
 en "%zu change forms belong to this plugin."
 tr "有 %zu 个变更表单属于此插件。"
 
@@ -1320,35 +1320,35 @@ en "Plugin"
 tr "插件"
 
 # App.cpp:2002  KV(tr("RefID"), Fmt("%06X (%s)", c->refID.data,
-# AppStarfield.cpp:496  KV(tr("RefID"), Fmt("%06X (%s)", c->refID.data,
+# AppStarfield.cpp:494  KV(tr("RefID"), Fmt("%06X (%s)", c->refID.data,
 en "RefID"
 tr ""
 
 # App.cpp:2003  c->refID.type() == RefID::Type::kCreated ? tr("created in game") : c->refID.type() == RefID::Type::kDefault ? "Skyrim.esm" : tr("form index")));
-# AppStarfield.cpp:497  c->refID.type() == RefID::Type::kCreated   ? tr("created in game")
+# AppStarfield.cpp:495  c->refID.type() == RefID::Type::kCreated   ? tr("created in game")
 en "created in game"
 tr "游戏内创建"
 
 # App.cpp:2003  c->refID.type() == RefID::Type::kCreated ? tr("created in game") : c->refID.type() == RefID::Type::kDefault ? "Skyrim.esm" : tr("form index")));
-# AppStarfield.cpp:499  : tr("form index")));
+# AppStarfield.cpp:497  : tr("form index")));
 en "form index"
 tr "表单索引"
 
 # App.cpp:2004  KV(tr("Change flags"), Fmt("%08X", c->changeFlags));
-# AppStarfield.cpp:500  KV(tr("Change flags"), Fmt("%08X", c->changeFlags));
+# AppStarfield.cpp:498  KV(tr("Change flags"), Fmt("%08X", c->changeFlags));
 # AppTools.cpp:576  ImGui::SeparatorText(tr("Change flags"));
 en "Change flags"
 tr "变更标志"
 
 # App.cpp:2005  KV(tr("Version"), std::to_string(c->version));
 # App.cpp:2340  KV(tr("Version"), Fmt("%d.%d", d.major, d.minor));
-# AppStarfield.cpp:427  KV(tr("Version"), e.version);
+# AppStarfield.cpp:425  KV(tr("Version"), e.version);
 en "Version"
 tr "版本"
 
 # App.cpp:2006  KV(tr("Data"), Fmt(tr("%zu bytes%s"), c->data.size(), c->length2 ? Fmt(tr(" (zlib, %u bytes unpacked)"), c->length2).c_str() : ""));
-# AppStarfield.cpp:502  KV(tr("Data"), Fmt(tr("%zu bytes"), c->data.size()));
-# AppStarfield.cpp:825  KV(tr("Data"), Fmt(tr("%zu bytes"), g.raw.size()));
+# AppStarfield.cpp:500  KV(tr("Data"), Fmt(tr("%zu bytes"), c->data.size()));
+# AppStarfield.cpp:823  KV(tr("Data"), Fmt(tr("%zu bytes"), g.raw.size()));
 en "Data"
 tr "数据"
 
@@ -1365,13 +1365,13 @@ en "Scripts attached (%zu)"
 tr "已附着的脚本（%zu）"
 
 # App.cpp:2028  const bool rawOpen = ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"));
-# AppStarfield.cpp:802  const bool rawOpen = ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"));
-# AppStarfield.cpp:843  if (!g.raw.empty() && ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"))) {
+# AppStarfield.cpp:800  const bool rawOpen = ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"));
+# AppStarfield.cpp:841  if (!g.raw.empty() && ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"))) {
 en "Raw data (first 512 bytes, as stored)"
 tr "原始数据（前 512 字节，与文件中相同）"
 
 # App.cpp:2029  tips::Tip(tr("The record's bytes exactly as the save stores them (after decompression), in hex. For checking by hand."));
-# AppStarfield.cpp:803  tips::Tip(tr("The record's bytes exactly as the save stores them (after decompression), in hex. For checking by hand."));
+# AppStarfield.cpp:801  tips::Tip(tr("The record's bytes exactly as the save stores them (after decompression), in hex. For checking by hand."));
 en "The record's bytes exactly as the save stores them (after decompression), in hex. For checking by hand."
 tr "该记录的字节序列，与存档文件中的内容完全相同（解压后），以十六进制显示。供人工核对。"
 
@@ -1399,7 +1399,7 @@ en "Extends"
 tr "继承自"
 
 # App.cpp:2085  KV(tr("Extends"), p.str(s->parent).empty() ? tr("(nothing)") : p.str(s->parent));
-# AppCharEffects.cpp:523  std::string line1 = !items.empty() ? v.name(items[0]->item) : unknownWorn ? tr("(not known)") : tr("(nothing)");
+# AppCharEffects.cpp:527  std::string line1 = !items.empty() ? v.name(items[0]->item) : unknownWorn ? tr("(not known)") : tr("(nothing)");
 en "(nothing)"
 tr "（无）"
 
@@ -1457,7 +1457,7 @@ en "... %zu more: use Show its instances to find one"
 tr "……还有 %zu 个：用「显示其实例」寻找一个"
 
 # App.cpp:2151  const auto header = tr("on ") + formLabel(i.refID) + Fmt(tr("  (%zu values)"), i.data->vars.size());
-# AppCharEffects.cpp:707  ImGui::TextDisabled("%s", (tr("on ") + v.name(cd.source) + Fmt(" (%s, %08X)", _save->pluginOf(cd.source).c_str(), cd.source) +
+# AppCharEffects.cpp:711  ImGui::TextDisabled("%s", (tr("on ") + v.name(cd.source) + Fmt(" (%s, %08X)", _save->pluginOf(cd.source).c_str(), cd.source) +
 # AppProps.cpp:89  return tr("on ") + n + "  (" + _save->pluginOf(fid) + ")";
 en "on "
 tr "于 "
@@ -1495,7 +1495,7 @@ en "Attached to"
 tr "附着于"
 
 # App.cpp:2211  KV(tr("State"), p.str(i->data->state).empty() ? tr("(default)") : p.str(i->data->state));
-# AppCharEffects.cpp:725  ImGui::TableSetupColumn(tr("State"), ImGuiTableColumnFlags_WidthFixed);
+# AppCharEffects.cpp:729  ImGui::TableSetupColumn(tr("State"), ImGuiTableColumnFlags_WidthFixed);
 # AppF4Companions.cpp:358  ImGui::TableSetupColumn(tr("State"));
 en "State"
 tr "状态"
@@ -1727,19 +1727,19 @@ tr "它指向的实例不在存档中。"
 
 # App.cpp:2495  ImGui::Text(tr("%s, level %u"), text::ToUtf8(h.playerName).c_str(), h.playerLevel);
 # AppGallery.cpp:443  ImGui::Text(tr("%s, level %u"), e.name.c_str(), e.level);
-# AppStarfield.cpp:304  ImGui::Text(tr("%s, level %u"), text::ToUtf8(h.playerName).c_str(), h.playerLevel);
+# AppStarfield.cpp:302  ImGui::Text(tr("%s, level %u"), text::ToUtf8(h.playerName).c_str(), h.playerLevel);
 en "%s, level %u"
 tr "%s，等级 %u"
 
 # App.cpp:2501  KV(tr("Save number"), std::to_string(h.saveNumber));
 # AppArchive.cpp:286  row(tr("Save number"), std::to_string(e.saveNumber));
-# AppStarfield.cpp:310  KV(tr("Save number"), std::to_string(h.saveNumber));
+# AppStarfield.cpp:308  KV(tr("Save number"), std::to_string(h.saveNumber));
 en "Save number"
 tr "存档编号"
 
 # App.cpp:2503  KV(tr("Game"), "Fallout 4" + (_save->gameVersion.empty() ? std::string() : " " + _save->gameVersion) +
 # AppMore.cpp:781  ImGui::SeparatorText(tr("Game"));
-# AppStarfield.cpp:311  KV(tr("Game"), "Starfield " + s.gameVersion + Fmt(tr("  (playthrough started on %s)"), s.sfCreatedVersion.c_str()));
+# AppStarfield.cpp:309  KV(tr("Game"), "Starfield " + s.gameVersion + Fmt(tr("  (playthrough started on %s)"), s.sfCreatedVersion.c_str()));
 en "Game"
 tr "游戏"
 
@@ -1748,7 +1748,7 @@ en "  (the Skyrim-only tools, Find NPCs and the MCM fix, are greyed out)"
 tr "  （仅限天际的工具，查找 NPC 和 MCM 修复，会置灰）"
 
 # App.cpp:2506  KV(tr("Format"), Fmt(tr("%ssave version %u, form version %u, %s"), h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
-# AppStarfield.cpp:312  KV(tr("Format"), Fmt(tr("engine version %u, save version %u, form version %u, %zu zlib chunks"), h.version, static_cast<unsigned>(h.sfSaveVersion),
+# AppStarfield.cpp:310  KV(tr("Format"), Fmt(tr("engine version %u, save version %u, form version %u, %zu zlib chunks"), h.version, static_cast<unsigned>(h.sfSaveVersion),
 en "Format"
 tr "格式"
 
@@ -1765,7 +1765,7 @@ en "%zu full + %zu light"
 tr "%zu 完整 + %zu 轻型"
 
 # App.cpp:2510  KV(tr("Body size"), Fmt(tr("%.1f MB"), _save->originalBodySize / 1048576.0));
-# AppStarfield.cpp:316  KV(tr("Body size"), Fmt(tr("%.1f MB"), s.originalBodySize / 1048576.0));
+# AppStarfield.cpp:314  KV(tr("Body size"), Fmt(tr("%.1f MB"), s.originalBodySize / 1048576.0));
 en "Body size"
 tr "主体大小"
 
@@ -1776,7 +1776,7 @@ en "%.1f MB"
 tr "%.1f MB"
 
 # App.cpp:2520  ImGui::SeparatorText(tr("Counts"));
-# AppStarfield.cpp:338  ImGui::SeparatorText(tr("Counts"));
+# AppStarfield.cpp:336  ImGui::SeparatorText(tr("Counts"));
 en "Counts"
 tr "统计"
 
@@ -1791,7 +1791,7 @@ en "%zu  (%zu unattached, %zu undefined, %zu on missing spawned objects)"
 tr "%zu  （%zu 未附着，%zu 未定义，%zu 附着于缺失的生成对象）"
 
 # App.cpp:2524  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
-# AppStarfield.cpp:341  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
+# AppStarfield.cpp:339  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
 en "%zu  (%zu undefined)"
 tr "%zu  （%zu 未定义）"
 
@@ -1802,17 +1802,17 @@ en "Threads"
 tr "线程"
 
 # App.cpp:2525  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
-# AppStarfield.cpp:342  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
+# AppStarfield.cpp:340  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
 en "%zu  (%zu undefined, %zu terminated)"
 tr "%zu  （%zu 未定义，%zu 已终止）"
 
 # App.cpp:2526  KV(tr("Suspended stacks"), std::to_string(r.suspended));
-# AppStarfield.cpp:343  KV(tr("Suspended stacks"), std::to_string(r.suspended));
+# AppStarfield.cpp:341  KV(tr("Suspended stacks"), std::to_string(r.suspended));
 en "Suspended stacks"
 tr "挂起的栈"
 
 # App.cpp:2527  KV(tr("Function messages"), std::to_string(r.functionMessages));
-# AppStarfield.cpp:344  KV(tr("Function messages"), std::to_string(r.functionMessages));
+# AppStarfield.cpp:342  KV(tr("Function messages"), std::to_string(r.functionMessages));
 en "Function messages"
 tr "函数消息"
 
@@ -1940,7 +1940,7 @@ tr "要打开的存档文件的完整路径。"
 
 # App.cpp:2670  if (ImGui::Button(tr("Open"), ImVec2(120, 0))) {
 # AppAi.cpp:488  if (ImGui::SmallButton(tr("Open"))) {
-# AppStarfield.cpp:1224  if (ImGui::SmallButton(tr("Open"))) {
+# AppStarfield.cpp:1222  if (ImGui::SmallButton(tr("Open"))) {
 en "Open"
 tr "打开"
 
@@ -2231,7 +2231,7 @@ tr "模组"
 
 # App.cpp:3504  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_PreferSortDescending, 70);
 # App.cpp:3724  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 65, 2);
-# AppStarfield.cpp:1176  ImGui::RadioButton(tr("Running"), &show, 1);
+# AppStarfield.cpp:1174  ImGui::RadioButton(tr("Running"), &show, 1);
 en "Running"
 tr "运行中"
 
@@ -2593,11 +2593,11 @@ tr "正在读取插件名称"
 en "  |  error: "
 tr "  |  错误： "
 
-# App.h:783  static constexpr const char* kSkyrimOnlyTip = N_("Skyrim saves only for now: this tool reads Skyrim's own data.");
+# App.h:795  static constexpr const char* kSkyrimOnlyTip = N_("Skyrim saves only for now: this tool reads Skyrim's own data.");
 en "Skyrim saves only for now: this tool reads Skyrim's own data."
 tr "目前仅支持天际存档：此工具读取的是天际自身的数据。"
 
-# App.h:1062  std::string                    _status = N_("Open a Skyrim or Fallout 4 save (File > Open, or drop a .ess or .fos onto this window).");
+# App.h:1074  std::string                    _status = N_("Open a Skyrim or Fallout 4 save (File > Open, or drop a .ess or .fos onto this window).");
 en "Open a Skyrim or Fallout 4 save (File > Open, or drop a .ess or .fos onto this window)."
 tr "打开天际或辐射4存档（文件 > 打开，或将 .ess / .fos 拖到此窗口）。"
 
@@ -3023,7 +3023,7 @@ tr "不允许"
 
 # AppAi.cpp:2077  if (ImGui::Button(tr("Stop"))) {
 # AppBsa.cpp:204  if (ImGui::Button(tr("Stop"))) {
-# AppStarfield.cpp:757  if (ImGui::SmallButton(tr("Stop"))) {
+# AppStarfield.cpp:755  if (ImGui::SmallButton(tr("Stop"))) {
 en "Stop"
 tr "停止"
 
@@ -3504,6 +3504,7 @@ en "Diseases and addictions"
 tr "疾病与成瘾"
 
 # AppCharEffects.cpp:57  case chfx::Group::kOthers: return tr("Put on you by others");
+# AppStarfield.cpp:1716  N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
 en "Put on you by others"
 tr "他人施加于你"
 
@@ -3770,278 +3771,279 @@ tr "打开「角色效果」"
 en "Shows them with what you wear; nothing is removed until you press Remove there."
 tr "结合你的穿戴显示这些效果；在你点击那里的「移除」之前不会移除任何东西。"
 
-# AppCharEffects.cpp:366  if (!ImGui::Begin(trId("Character effects"), &_showCharFx, ImGuiWindowFlags_NoCollapse)) {
+# AppCharEffects.cpp:370  if (!ImGui::Begin(trId("Character effects"), &_showCharFx, ImGuiWindowFlags_NoCollapse)) {
 # AppHome.cpp:344  { Sc::kCharEffects, tr("Character effects"), tr("what you wear; effects stuck on you"),
+# AppStarfield.cpp:1637  if (!ImGui::Begin(trId("Character effects"), &_showCharFx, ImGuiWindowFlags_NoCollapse)) {
 en "Character effects"
 tr "角色效果"
 
-# AppCharEffects.cpp:390  ImGui::TextWrapped("%s", tr("Every magic effect on your character, grouped by where it comes from, and what you wear. An effect stuck on you "
+# AppCharEffects.cpp:394  ImGui::TextWrapped("%s", tr("Every magic effect on your character, grouped by where it comes from, and what you wear. An effect stuck on you "
 en "Every magic effect on your character, grouped by where it comes from, and what you wear. An effect stuck on you (for example from a ring you took off, which console commands do not remove) is listed in red at the top with a button that removes it. Changes are made in the loaded save; File > Save or Save As writes them."
 tr "你角色身上的所有法术效果，按来源归类，并显示你的穿戴。卡在你身上的效果（例如你摘下的一枚戒指留下的效果，控制台命令无法移除）会以红色列在顶部，并带一个移除按钮。更改在已载入的存档中进行；文件 > 保存 或 另存为 会写入它们。"
 
-# AppCharEffects.cpp:394  TextColored(theme::Warn(), tr("Cannot read the character's effects: ") + v.error);
+# AppCharEffects.cpp:398  TextColored(theme::Warn(), tr("Cannot read the character's effects: ") + v.error);
 en "Cannot read the character's effects: "
 tr "无法读取角色的效果： "
 
-# AppCharEffects.cpp:399  TextColored(theme::Warn(), tr("Plugin names are not loaded: items show as form IDs, slots are not known and effects that change a stat cannot be "
+# AppCharEffects.cpp:403  TextColored(theme::Warn(), tr("Plugin names are not loaded: items show as form IDs, slots are not known and effects that change a stat cannot be "
 en "Plugin names are not loaded: items show as form IDs, slots are not known and effects that change a stat cannot be removed (which stat is in the plugins). Load them (Tools > Read plugin names)."
 tr "尚未加载插件名称：物品只显示 FormID，部位未知，改变属性的效果也无法移除（属性在插件内）。请加载它们（工具 > 读取插件名称）。"
 
-# AppCharEffects.cpp:402  ImGui::TextDisabled(tr("%zu of this save's plugins were not found here: their items show as form ID and plugin, and their effects that change a stat c
+# AppCharEffects.cpp:406  ImGui::TextDisabled(tr("%zu of this save's plugins were not found here: their items show as form ID and plugin, and their effects that change a stat c
 en "%zu of this save's plugins were not found here: their items show as form ID and plugin, and their effects that change a stat cannot be removed."
 tr "此存档中有 %zu 个插件在此未找到：它们的物品只显示 FormID 和插件，其改变属性的效果也无法移除。"
 
-# AppCharEffects.cpp:406  TextColored(theme::Warn(), tr("The player's saved data does not read completely here, so nothing can be removed."));
+# AppCharEffects.cpp:410  TextColored(theme::Warn(), tr("The player's saved data does not read completely here, so nothing can be removed."));
 en "The player's saved data does not read completely here, so nothing can be removed."
 tr "此处无法完整读取玩家的保存数据，因此无法移除任何内容。"
 
-# AppCharEffects.cpp:412  ImGui::SeparatorText(Fmt(tr("Stuck on your character (%zu)"), v.stuck.size()).c_str());
+# AppCharEffects.cpp:416  ImGui::SeparatorText(Fmt(tr("Stuck on your character (%zu)"), v.stuck.size()).c_str());
 en "Stuck on your character (%zu)"
 tr "卡在角色身上的（%zu）"
 
-# AppCharEffects.cpp:422  const std::string label = can == f.effects.size() ? std::string(tr("Remove them"))
+# AppCharEffects.cpp:426  const std::string label = can == f.effects.size() ? std::string(tr("Remove them"))
 en "Remove them"
 tr "移除"
 
-# AppCharEffects.cpp:423  : can == 0              ? std::string(tr("Cannot be removed here"))
+# AppCharEffects.cpp:427  : can == 0              ? std::string(tr("Cannot be removed here"))
 en "Cannot be removed here"
 tr "此处无法移除"
 
-# AppCharEffects.cpp:424  : Fmt(tr("Remove the %zu that can be"), can);
+# AppCharEffects.cpp:428  : Fmt(tr("Remove the %zu that can be"), can);
 en "Remove the %zu that can be"
 tr "移除可移除的 %zu 个"
 
-# AppCharEffects.cpp:437  tips::Tip((Fmt(tr("%zu of these cannot be removed: "), f.effects.size() - can) + why).c_str());
+# AppCharEffects.cpp:441  tips::Tip((Fmt(tr("%zu of these cannot be removed: "), f.effects.size() - can) + why).c_str());
 en "%zu of these cannot be removed: "
 tr "其中的 %zu 个无法移除： "
 
-# AppCharEffects.cpp:439  tips::Tip(tr("Take these effects off your character (asks first); a stat they change is put back as when the effect ends."));
+# AppCharEffects.cpp:443  tips::Tip(tr("Take these effects off your character (asks first); a stat they change is put back as when the effect ends."));
 en "Take these effects off your character (asks first); a stat they change is put back as when the effect ends."
 tr "把这些效果从角色身上移除（会先询问）；它们改变的属性会按效果结束时的样子还原。"
 
-# AppCharEffects.cpp:446  TextColored(theme::Good(), tr("Nothing stuck found: every item enchantment on you comes from something you wear."));
+# AppCharEffects.cpp:450  TextColored(theme::Good(), tr("Nothing stuck found: every item enchantment on you comes from something you wear."));
 en "Nothing stuck found: every item enchantment on you comes from something you wear."
 tr "未发现卡住的效果：你身上的每个物品附魔都来自你穿戴的东西。"
 
-# AppCharEffects.cpp:449  ImGui::TextDisabled("%s", (std::string(tr("Gone plugins not checked: ")) + (v.loadOrderOther
+# AppCharEffects.cpp:453  ImGui::TextDisabled("%s", (std::string(tr("Gone plugins not checked: ")) + (v.loadOrderOther
 en "Gone plugins not checked: "
 tr "未检查已消失的插件： "
 
-# AppCharEffects.cpp:450  ? tr("your load order lacks most of this save's plugins (the save comes from another setup)")
+# AppCharEffects.cpp:454  ? tr("your load order lacks most of this save's plugins (the save comes from another setup)")
 en "your load order lacks most of this save's plugins (the save comes from another setup)"
 tr "你的加载顺序缺少此存档的大部分插件（该存档来自另一套配置）"
 
-# AppCharEffects.cpp:451  : tr("your load order is not known (Options > Settings)")))
+# AppCharEffects.cpp:455  : tr("your load order is not known (Options > Settings)")))
 en "your load order is not known (Options > Settings)"
 tr "你的加载顺序未知（选项 > 设置）"
 
-# AppCharEffects.cpp:523  std::string line1 = !items.empty() ? v.name(items[0]->item) : unknownWorn ? tr("(not known)") : tr("(nothing)");
+# AppCharEffects.cpp:527  std::string line1 = !items.empty() ? v.name(items[0]->item) : unknownWorn ? tr("(not known)") : tr("(nothing)");
 en "(not known)"
 tr "（未知）"
 
-# AppCharEffects.cpp:525  line1 += Fmt(tr(" +%zu more"), items.size() - 1);
+# AppCharEffects.cpp:529  line1 += Fmt(tr(" +%zu more"), items.size() - 1);
 en " +%zu more"
 tr " 还有 +%zu 项"
 
-# AppCharEffects.cpp:530  Fmt(tr("%zu effect(s)"), fx).c_str());
-# AppCharEffects.cpp:536  t += "\n" + v.name(w->item) + Fmt(" (%s, %08X): ", _save->pluginOf(w->item).c_str(), w->item) + Fmt(tr("%zu effect(s)"), w->effects);
+# AppCharEffects.cpp:534  Fmt(tr("%zu effect(s)"), fx).c_str());
+# AppCharEffects.cpp:540  t += "\n" + v.name(w->item) + Fmt(" (%s, %08X): ", _save->pluginOf(w->item).c_str(), w->item) + Fmt(tr("%zu effect(s)"), w->effects);
 en "%zu effect(s)"
 tr "%zu 个效果"
 
-# AppCharEffects.cpp:538  ImGui::SetTooltip("%s", (t + "\n" + tr("Click to show only the effects of this slot.")).c_str());
+# AppCharEffects.cpp:542  ImGui::SetTooltip("%s", (t + "\n" + tr("Click to show only the effects of this slot.")).c_str());
 en "Click to show only the effects of this slot."
 tr "点击只显示此部位的效果。"
 
-# AppCharEffects.cpp:546  tips::Tip(tr("The picture the game took when it made this save."));
+# AppCharEffects.cpp:550  tips::Tip(tr("The picture the game took when it made this save."));
 en "The picture the game took when it made this save."
 tr "游戏生成此存档时截取的画面。"
 
-# AppCharEffects.cpp:549  ImGui::TextDisabled("%s", Fmt(tr("%s, level %u, %s"), _save->header.playerName.c_str(), _save->header.playerLevel, _save->header.location.c_str()).c_s
+# AppCharEffects.cpp:553  ImGui::TextDisabled("%s", Fmt(tr("%s, level %u, %s"), _save->header.playerName.c_str(), _save->header.playerLevel, _save->header.location.c_str()).c_s
 en "%s, level %u, %s"
 tr "%s，等级 %u，%s"
 
-# AppCharEffects.cpp:567  if (ImGui::Selectable(Fmt(tr("%s: %zu worn item(s), %zu effect(s)"), SlotText(s), n, fx).c_str(), sel, 0, ImVec2(W, 0))) {
+# AppCharEffects.cpp:571  if (ImGui::Selectable(Fmt(tr("%s: %zu worn item(s), %zu effect(s)"), SlotText(s), n, fx).c_str(), sel, 0, ImVec2(W, 0))) {
 en "%s: %zu worn item(s), %zu effect(s)"
 tr "%s：%zu 个穿戴物品，%zu 个效果"
 
-# AppCharEffects.cpp:572  tips::Tip(s == chfx::Slot::kUnknown ? tr("Worn items whose plugin was not read here, so which slot they take is not known. Click to show their effects
+# AppCharEffects.cpp:576  tips::Tip(s == chfx::Slot::kUnknown ? tr("Worn items whose plugin was not read here, so which slot they take is not known. Click to show their effects
 en "Worn items whose plugin was not read here, so which slot they take is not known. Click to show their effects."
 tr "未读取插件的穿戴物品，因此不知道它们占用哪个部位。点击可显示其效果。"
 
-# AppCharEffects.cpp:573  : tr("Worn items in slots the doll has no place for (tail, mod slots). Click to show their effects."));
+# AppCharEffects.cpp:577  : tr("Worn items in slots the doll has no place for (tail, mod slots). Click to show their effects."));
 en "Worn items in slots the doll has no place for (tail, mod slots). Click to show their effects."
 tr "位于示意图没有对应位置的部位的穿戴物品（尾巴、模组部位）。点击可显示其效果。"
 
-# AppCharEffects.cpp:577  ImGui::TextDisabled("%s", tr("Power armor is not shown: its pieces are in the frame's inventory, not the character's."));
+# AppCharEffects.cpp:581  ImGui::TextDisabled("%s", tr("Power armor is not shown: its pieces are in the frame's inventory, not the character's."));
 en "Power armor is not shown: its pieces are in the frame's inventory, not the character's."
 tr "动力装甲不显示：其部件在装甲框架的物品栏中，而不在角色的物品栏里。"
 
-# AppCharEffects.cpp:580  ImGui::SeparatorText(Fmt(tr("Worn (%zu)"), v.worn.size()).c_str());
+# AppCharEffects.cpp:584  ImGui::SeparatorText(Fmt(tr("Worn (%zu)"), v.worn.size()).c_str());
 en "Worn (%zu)"
 tr "穿戴（%zu）"
 
-# AppCharEffects.cpp:582  ImGui::TableSetupColumn(tr("Slot"));
+# AppCharEffects.cpp:586  ImGui::TableSetupColumn(tr("Slot"));
 # AppF4Bloat.cpp:851  ImGui::TableSetupColumn(tr("Slot"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 4.5f);
 en "Slot"
 tr "部位"
 
-# AppCharEffects.cpp:583  ImGui::TableSetupColumn(tr("Item"));
+# AppCharEffects.cpp:587  ImGui::TableSetupColumn(tr("Item"));
 # AppCharges.cpp:216  ImGui::TableSetupColumn(tr("Item"), ImGuiTableColumnFlags_WidthStretch, 2.2f);
-# AppStarfield.cpp:531  ImGui::TableSetupColumn(tr("Item"), ImGuiTableColumnFlags_WidthStretch);
+# AppStarfield.cpp:529  ImGui::TableSetupColumn(tr("Item"), ImGuiTableColumnFlags_WidthStretch);
 en "Item"
 tr "物品"
 
-# AppCharEffects.cpp:584  ImGui::TableSetupColumn(tr("Effects"), ImGuiTableColumnFlags_WidthFixed);
+# AppCharEffects.cpp:588  ImGui::TableSetupColumn(tr("Effects"), ImGuiTableColumnFlags_WidthFixed);
 en "Effects"
 tr "效果"
 
-# AppCharEffects.cpp:596  tips::Tip(w.type.empty() ? tr("Its plugin was not read, so its slot is not known.")
+# AppCharEffects.cpp:600  tips::Tip(w.type.empty() ? tr("Its plugin was not read, so its slot is not known.")
 en "Its plugin was not read, so its slot is not known."
 tr "未读取其插件，因此部位未知。"
 
-# AppCharEffects.cpp:597  : Fmt(tr("Record %s, biped slots %08X"), w.type.c_str(), w.biped).c_str());
+# AppCharEffects.cpp:601  : Fmt(tr("Record %s, biped slots %08X"), w.type.c_str(), w.biped).c_str());
 en "Record %s, biped slots %08X"
 tr "记录 %s，绑定槽位 %08X"
 
-# AppCharEffects.cpp:599  ImGui::TextUnformatted((v.name(w.item) + Fmt("  (%s, %08X)", _save->pluginOf(w.item).c_str(), w.item) + (w.left ? tr(", left hand") : "")).c_str());
+# AppCharEffects.cpp:603  ImGui::TextUnformatted((v.name(w.item) + Fmt("  (%s, %08X)", _save->pluginOf(w.item).c_str(), w.item) + (w.left ? tr(", left hand") : "")).c_str());
 en ", left hand"
 tr "，左手"
 
-# AppCharEffects.cpp:606  ImGui::TextDisabled("%s", tr("The save has nothing worn for this character."));
+# AppCharEffects.cpp:610  ImGui::TextDisabled("%s", tr("The save has nothing worn for this character."));
 en "The save has nothing worn for this character."
 tr "存档中没有此角色穿戴的任何物品。"
 
-# AppCharEffects.cpp:616  ImGui::InputTextWithHint("##cfxf", tr("filter (name, plugin, form ID)"), c.filter, sizeof(c.filter));
+# AppCharEffects.cpp:620  ImGui::InputTextWithHint("##cfxf", tr("filter (name, plugin, form ID)"), c.filter, sizeof(c.filter));
 en "filter (name, plugin, form ID)"
 tr "筛选（名称、插件、FormID）"
 
-# AppCharEffects.cpp:617  tips::Tip(tr("Show only sources whose name, effect, plugin or form ID contains this text."));
+# AppCharEffects.cpp:621  tips::Tip(tr("Show only sources whose name, effect, plugin or form ID contains this text."));
 en "Show only sources whose name, effect, plugin or form ID contains this text."
 tr "只显示名称、效果、插件或 FormID 包含此文本的来源。"
 
-# AppCharEffects.cpp:621  ImGui::Checkbox(Fmt(tr("Only %s"), c.item ? v.name(c.item).c_str() : SlotText(static_cast<chfx::Slot>(c.slot))).c_str(), &c.onlySel);
+# AppCharEffects.cpp:625  ImGui::Checkbox(Fmt(tr("Only %s"), c.item ? v.name(c.item).c_str() : SlotText(static_cast<chfx::Slot>(c.slot))).c_str(), &c.onlySel);
 en "Only %s"
 tr "仅 %s"
 
-# AppCharEffects.cpp:622  tips::Tip(tr("Show only the effects of what is selected on the doll. Click it again on the doll to show everything."));
+# AppCharEffects.cpp:626  tips::Tip(tr("Show only the effects of what is selected on the doll. Click it again on the doll to show everything."));
 en "Show only the effects of what is selected on the doll. Click it again on the doll to show everything."
 tr "只显示示意图上所选部位的效果。再次点击示意图上的该部位可显示全部。"
 
-# AppCharEffects.cpp:633  ImGui::TextDisabled(tr("%zu effects from %zu sources."), v.effects.size(), v.cards.size());
+# AppCharEffects.cpp:637  ImGui::TextDisabled(tr("%zu effects from %zu sources."), v.effects.size(), v.cards.size());
 en "%zu effects from %zu sources."
 tr "来自 %zu 个来源的 %zu 个效果。"
 
-# AppCharEffects.cpp:640  ImGui::TextDisabled(tr("%zu running (acting on you now), %zu switched off (their condition is not met right now, so they do "
+# AppCharEffects.cpp:644  ImGui::TextDisabled(tr("%zu running (acting on you now), %zu switched off (their condition is not met right now, so they do "
 en "%zu running (acting on you now), %zu switched off (their condition is not met right now, so they do nothing until it is; normal for many mods), %zu ended (over, not yet cleared by the game; they do nothing). Only running effects change your character. Hover a state for more."
 tr "%zu 个运行中（正在影响你），%zu 个已关闭（当前不满足条件，因此不产生作用，直到条件满足；这是很多模组的正常情况），%zu 个已结束（已过期但游戏尚未清除；它们不起作用）。只有运行中的效果才会改变你的角色。将鼠标悬停在状态上可查看更多。"
 
-# AppCharEffects.cpp:679  const bool open = ImGui::CollapsingHeader(Fmt(tr("%s: %zu source(s), %zu effect(s)"), GroupText(grp, v.fo4), rows.size(), nfx).c_str());
+# AppCharEffects.cpp:683  const bool open = ImGui::CollapsingHeader(Fmt(tr("%s: %zu source(s), %zu effect(s)"), GroupText(grp, v.fo4), rows.size(), nfx).c_str());
 en "%s: %zu source(s), %zu effect(s)"
 tr "%s：%zu 个来源，%zu 个效果"
 
-# AppCharEffects.cpp:686  ImGui::TextDisabled(tr("... and %zu more sources (use the filter)"), rows.size() - 200);
+# AppCharEffects.cpp:690  ImGui::TextDisabled(tr("... and %zu more sources (use the filter)"), rows.size() - 200);
 en "... and %zu more sources (use the filter)"
 tr "……还有 %zu 个来源（请使用筛选）"
 
-# AppCharEffects.cpp:708  (cd.sourceWorn ? tr(": worn") : tr(": not worn")))
+# AppCharEffects.cpp:712  (cd.sourceWorn ? tr(": worn") : tr(": not worn")))
 en ": worn"
 tr "：已穿戴"
 
-# AppCharEffects.cpp:708  (cd.sourceWorn ? tr(": worn") : tr(": not worn")))
+# AppCharEffects.cpp:712  (cd.sourceWorn ? tr(": worn") : tr(": not worn")))
 en ": not worn"
 tr "：未穿戴"
 
-# AppCharEffects.cpp:712  TextColored(theme::Bad(), tr("Stuck: see the top of the window."));
+# AppCharEffects.cpp:716  TextColored(theme::Bad(), tr("Stuck: see the top of the window."));
 en "Stuck: see the top of the window."
 tr "卡住：见窗口顶部。"
 
-# AppCharEffects.cpp:715  if (ImGui::SmallButton(Fmt(tr("Remove all %zu from this source"), cd.effects.size()).c_str())) {
+# AppCharEffects.cpp:719  if (ImGui::SmallButton(Fmt(tr("Remove all %zu from this source"), cd.effects.size()).c_str())) {
 en "Remove all %zu from this source"
 tr "移除此来源的全部 %zu 个"
 
-# AppCharEffects.cpp:719  tips::Tip(cd.removable ? tr("Take every effect of this source off your character (asks first).")
+# AppCharEffects.cpp:723  tips::Tip(cd.removable ? tr("Take every effect of this source off your character (asks first).")
 en "Take every effect of this source off your character (asks first)."
 tr "把此来源的所有效果从角色身上移除（会先询问）。"
 
-# AppCharEffects.cpp:720  : tr("One of these effects cannot be removed (see its Remove button)."));
+# AppCharEffects.cpp:724  : tr("One of these effects cannot be removed (see its Remove button)."));
 en "One of these effects cannot be removed (see its Remove button)."
 tr "其中有一个效果无法移除（见其「移除」按钮）。"
 
-# AppCharEffects.cpp:722  ImGui::TableSetupColumn(tr("Effect"));
+# AppCharEffects.cpp:726  ImGui::TableSetupColumn(tr("Effect"));
 # AppTools.cpp:1778  for (const char* h : { "", tr("From"), tr("Effect"), tr("Strength"), tr("Changes"), tr("Time") }) {
 en "Effect"
 tr "效果"
 
-# AppCharEffects.cpp:723  ImGui::TableSetupColumn(tr("Strength"), ImGuiTableColumnFlags_WidthFixed);
+# AppCharEffects.cpp:727  ImGui::TableSetupColumn(tr("Strength"), ImGuiTableColumnFlags_WidthFixed);
 # AppPlayerFO4.cpp:17  const char* const kSpecial[7] = { N_("Strength"), N_("Perception"), N_("Endurance"), N_("Charisma"), N_("Intelligence"), N_("Agility"), N_("Luck") };
 # AppTools.cpp:1778  for (const char* h : { "", tr("From"), tr("Effect"), tr("Strength"), tr("Changes"), tr("Time") }) {
 en "Strength"
 tr "强度"
 
-# AppCharEffects.cpp:724  ImGui::TableSetupColumn(tr("Time"));
+# AppCharEffects.cpp:728  ImGui::TableSetupColumn(tr("Time"));
 # AppTools.cpp:1778  for (const char* h : { "", tr("From"), tr("Effect"), tr("Strength"), tr("Changes"), tr("Time") }) {
 en "Time"
 tr "时间"
 
-# AppCharEffects.cpp:731  ImGui::TextUnformatted((e.mgef ? v.name(e.mgef) : Fmt(tr("effect %u"), e.effectIndex)).c_str());
+# AppCharEffects.cpp:735  ImGui::TextUnformatted((e.mgef ? v.name(e.mgef) : Fmt(tr("effect %u"), e.effectIndex)).c_str());
 # AppPlayerFO4.cpp:367  const auto effectName = src.mgef ? nameOf(src.mgef) : Fmt(tr("effect %u"), e.effectIndex);
 # AppTools.cpp:1794  const auto  effect = mgef ? nameOf(mgef) : Fmt(tr("effect %u"), e.effectIndex);
 en "effect %u"
 tr "效果 %u"
 
-# AppCharEffects.cpp:733  tips::Tip(e.canRemove ? tr("Removing it: ") + FxWhy(v, e) : FxWhy(v, e));
+# AppCharEffects.cpp:737  tips::Tip(e.canRemove ? tr("Removing it: ") + FxWhy(v, e) : FxWhy(v, e));
 en "Removing it: "
 tr "移除后果："
 
-# AppCharEffects.cpp:739  ImGui::TextUnformatted(trc("effect", "constant"));
+# AppCharEffects.cpp:743  ImGui::TextUnformatted(trc("effect", "constant"));
 en "effect|constant"
 tr "常驻"
 
-# AppCharEffects.cpp:741  ImGui::TextUnformatted(Fmt(tr("%.0f of %.0f s (%.0f s left)"), e.elapsed, e.duration, std::max(0.0f, e.duration - e.elapsed)).c_str());
+# AppCharEffects.cpp:745  ImGui::TextUnformatted(Fmt(tr("%.0f of %.0f s (%.0f s left)"), e.elapsed, e.duration, std::max(0.0f, e.duration - e.elapsed)).c_str());
 en "%.0f of %.0f s (%.0f s left)"
 tr "%.0f / %.0f 秒（剩 %.0f 秒）"
 
-# AppCharEffects.cpp:743  ImGui::TextUnformatted(Fmt(tr("%.0f of %.0f s"), e.elapsed, e.duration).c_str());
+# AppCharEffects.cpp:747  ImGui::TextUnformatted(Fmt(tr("%.0f of %.0f s"), e.elapsed, e.duration).c_str());
 # AppTools.cpp:1835  ImGui::Text(tr("%.0f of %.0f s"), e.elapsed, e.duration);
 en "%.0f of %.0f s"
 tr "%.0f / %.0f 秒"
 
-# AppCharEffects.cpp:747  ImGui::TextDisabled("%s", tr("ended"));
+# AppCharEffects.cpp:751  ImGui::TextDisabled("%s", tr("ended"));
 en "ended"
 tr "已结束"
 
-# AppCharEffects.cpp:748  tips::Tip(tr("ENDED: this effect is over. Its time ran out or something removed it (a cure, a dispel, a script), and "
+# AppCharEffects.cpp:752  tips::Tip(tr("ENDED: this effect is over. Its time ran out or something removed it (a cure, a dispel, a script), and "
 en "ENDED: this effect is over. Its time ran out or something removed it (a cure, a dispel, a script), and the game has not cleared it from your character's list yet. It does NOT affect your character in any way: no stat, no speed, no damage.\n\nThe game clears these by itself, so there is nothing to fix and no reason to remove it. Removing it does no harm either."
 tr "已结束：此效果已经结束。它的时间已用尽，或被别的东西移除（治疗、驱散、脚本），而游戏尚未把它从角色的效果列表中清除。它对角色没有任何影响：不改变属性、速度或伤害。\n\n游戏会自行清除这些，因此无需修复，也没有理由移除。移除它不会造成损害。"
 
-# AppCharEffects.cpp:753  ImGui::TextDisabled("%s", tr("switched off"));
+# AppCharEffects.cpp:757  ImGui::TextDisabled("%s", tr("switched off"));
 # AppTools.cpp:1797  : std::string(e.inactive() ? tr("switched off") : tr("no saved stat"));
 en "switched off"
 tr "已关闭"
 
-# AppCharEffects.cpp:754  tips::Tip(tr("SWITCHED OFF: this effect is on your character, but it is NOT doing anything right now, because "
+# AppCharEffects.cpp:758  tips::Tip(tr("SWITCHED OFF: this effect is on your character, but it is NOT doing anything right now, because "
 en "SWITCHED OFF: this effect is on your character, but it is NOT doing anything right now, because its condition is not met at the moment.\n\nMany mods and abilities add a whole set of effects at once, each with its own condition, and the game only turns on the ones whose condition is true right now. For example a survival mod adds \"Decrease Movement -20 / -40 / -60\" for each stage of tiredness: while you are not tired they are all switched off and do not slow you; a lantern mod adds \"Is Daytime\" and \"Not Daytime\": only one of them is on at a time.\n\nWhen the condition becomes true (you get tired, night falls, you start sneaking...), the game switches the effect on by itself, and off again when it stops being true.\n\nA switched-off effect does NOT change any stat, speed or damage, so it is not a problem and is not \"stuck\". There is no need to remove it, and removing it would not help: the ability or mod that gave it adds it again. Only effects that say \"running\" act on your character."
 tr "已关闭：此效果在角色上，但当前未起任何作用，因为此刻其条件不满足。\n\n许多模组和能力会一次性添加一整套效果，每个都有自己的条件，游戏只会开启当前条件成立的那些。例如某个生存模组为每个疲劳阶段添加「移动速度 -20 / -40 / -60」：当你不疲劳时它们全都关闭，不会拖慢你；某个提灯模组添加「白天」和「非白天」：同时只有一个开启。\n\n当条件变为成立时（你变得疲劳、夜幕降临、开始潜行……），游戏会自行开启该效果，条件不再成立时又会关闭。\n\n已关闭的效果不会改变任何属性、速度或伤害，因此不是问题，也不是「卡住」。无需移除，移除也没有帮助：给予它的能力或模组会重新添加。只有标为「运行中」的效果才会作用于角色。"
 
-# AppCharEffects.cpp:766  ImGui::TextUnformatted(trc("effect", "running"));
+# AppCharEffects.cpp:770  ImGui::TextUnformatted(trc("effect", "running"));
 en "effect|running"
 tr "运行中"
 
-# AppCharEffects.cpp:767  tips::Tip(tr("RUNNING: this effect is acting on your character right now (its condition, if it has one, is "
+# AppCharEffects.cpp:771  tips::Tip(tr("RUNNING: this effect is acting on your character right now (its condition, if it has one, is "
 en "RUNNING: this effect is acting on your character right now (its condition, if it has one, is true). Its strength is the number in the middle column; \"constant\" means it lasts for as long as its source is on you (a worn item, an ability, a perk), otherwise the time shows how long it has run and how long it lasts."
 tr "运行中：此效果此刻正作用于角色（如果有条件，该条件成立）。其强度是中间一列的数值；「常驻」表示只要其来源在你身上（穿戴的物品、能力、专长）就一直持续，否则时间栏会显示已运行多久以及总共持续多久。"
 
-# AppCharEffects.cpp:775  if (ImGui::SmallButton(tr("Remove"))) {
+# AppCharEffects.cpp:779  if (ImGui::SmallButton(tr("Remove"))) {
 # AppCosave.cpp:356  ImGui::TableSetupColumn(tr("Remove"), ImGuiTableColumnFlags_WidthFixed, 60);
 # AppMore.cpp:424  if (ImGui::Button(tr("Remove"))) {
 en "Remove"
 tr "移除"
 
-# AppCharEffects.cpp:779  tips::Tip(e.canRemove ? tr("Take this effect off your character (asks first).") : (tr("Cannot be removed: ") + FxWhy(v, e)).c_str());
+# AppCharEffects.cpp:783  tips::Tip(e.canRemove ? tr("Take this effect off your character (asks first).") : (tr("Cannot be removed: ") + FxWhy(v, e)).c_str());
 en "Take this effect off your character (asks first)."
 tr "将此效果从角色身上移除（会先询问）。"
 
-# AppCharEffects.cpp:779  tips::Tip(e.canRemove ? tr("Take this effect off your character (asks first).") : (tr("Cannot be removed: ") + FxWhy(v, e)).c_str());
+# AppCharEffects.cpp:783  tips::Tip(e.canRemove ? tr("Take this effect off your character (asks first).") : (tr("Cannot be removed: ") + FxWhy(v, e)).c_str());
 en "Cannot be removed: "
 tr "无法移除： "
 
@@ -4104,7 +4106,7 @@ en "EAMT"
 tr "EAMT"
 
 # AppCharges.cpp:256  ImGui::TextDisabled("%s", tr("full"));
-# AppStarfield.cpp:902  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
+# AppStarfield.cpp:900  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
 en "full"
 tr "已满"
 
@@ -4182,12 +4184,12 @@ en "a magic effect on actor %s"
 tr "角色 %s 身上的法术效果"
 
 # AppCheck.cpp:159  it.title = tr("This save is damaged: opened read-only");
-# AppStarfield.cpp:854  it.title = tr("This save is damaged: opened read-only");
+# AppStarfield.cpp:852  it.title = tr("This save is damaged: opened read-only");
 en "This save is damaged: opened read-only"
 tr "此存档已损坏：以只读方式打开"
 
 # AppCheck.cpp:164  it.what = tr("Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:") + list +
-# AppStarfield.cpp:859  it.what = tr("Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:") + list;
+# AppStarfield.cpp:857  it.what = tr("Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:") + list;
 en "Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:"
 tr "其结构不合理，或使用了 ReSaver++ 未能完全理解的布局："
 
@@ -4217,7 +4219,7 @@ tr ""
 
 # AppCheck.cpp:205  list += Fmt(tr("\n  - and %zu more"), _report->damaged.size() - 12);
 # AppQuests.cpp:675  names += Fmt(tr("\n  - and %zu more"), b->list.size() - 25);
-# AppStarfield.cpp:947  list += Fmt(tr("\n  - and %zu more"), mm.size() - 10);
+# AppStarfield.cpp:945  list += Fmt(tr("\n  - and %zu more"), mm.size() - 10);
 en "\n  - and %zu more"
 tr ""
 
@@ -4230,7 +4232,7 @@ en "\nReSaver++ shows them as unreadable and every check and tool skips them; ev
 tr ""
 
 # AppCheck.cpp:212  o.label = tr("Show it in Change forms");
-# AppStarfield.cpp:953  o.label = tr("Show it in Change forms");
+# AppStarfield.cpp:951  o.label = tr("Show it in Change forms");
 en "Show it in Change forms"
 tr ""
 
@@ -5434,6 +5436,7 @@ en "Show the items and who holds them."
 tr "显示这些物品及其持有者。"
 
 # AppExtras.cpp:233  who += (who.empty() ? "" : ", ") + (fid == 0x14 ? std::string(tr("you")) : formText(fid));
+# AppStarfield.cpp:1777  ImGui::TextUnformatted(tr("you"));
 en "you"
 tr "你"
 
@@ -5723,7 +5726,7 @@ tr "此日志提到的表单都不在此存档中。该日志可能来自另一�
 
 # AppExtras.cpp:928  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6);
 # AppQuests.cpp:711  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthStretch, 1.0f, 1);
-# AppStarfield.cpp:532  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, 80);
+# AppStarfield.cpp:530  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, 80);
 en "Form ID"
 tr "FormID"
 
@@ -6156,7 +6159,7 @@ en "filter by mod"
 tr "按模组筛选"
 
 # AppF4Bloat.cpp:455  for (const char* h : { tr("Total"), tr("Script instances"), tr("Threads"), tr("Arrays / structs"), tr("Changed forms"), tr("Created objects"),
-# AppStarfield.cpp:1321  ImGui::TableSetupColumn(tr("Total"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1319  ImGui::TableSetupColumn(tr("Total"), ImGuiTableColumnFlags_WidthFixed, 90);
 en "Total"
 tr "合计"
 
@@ -6371,7 +6374,7 @@ en "light master"
 tr "轻型主文件"
 
 # AppF4Bloat.cpp:887  : p.light      ? (p.esm ? tr("light master") : tr("light"))
-# AppStarfield.cpp:902  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
+# AppStarfield.cpp:900  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
 en "light"
 tr "轻型"
 
@@ -6380,7 +6383,7 @@ en "medium master"
 tr "中型主文件"
 
 # AppF4Bloat.cpp:888  : p.medium     ? (p.esm ? tr("medium master") : tr("medium"))
-# AppStarfield.cpp:902  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
+# AppStarfield.cpp:900  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
 en "medium"
 tr "中型"
 
@@ -6470,7 +6473,7 @@ tr "需要《辐射4》的 ReSaverHelper 15 或更高版本（游戏内为版本
 
 # AppF4Companions.cpp:99  return tr("Load a save in the game first.");
 # AppQuests.cpp:54  : tr("Load a save in the game first."));
-# AppStarfield.cpp:737  : tr("Load a save in the game first."));
+# AppStarfield.cpp:735  : tr("Load a save in the game first."));
 en "Load a save in the game first."
 tr "请先在游戏中载入存档。"
 
@@ -6562,7 +6565,7 @@ en "Companion"
 tr "同伴"
 
 # AppF4Companions.cpp:357  ImGui::TableSetupColumn(tr("Reference"));
-# AppStarfield.cpp:1319  ImGui::TableSetupColumn(tr("Reference"), ImGuiTableColumnFlags_WidthFixed, 80);
+# AppStarfield.cpp:1317  ImGui::TableSetupColumn(tr("Reference"), ImGuiTableColumnFlags_WidthFixed, 80);
 en "Reference"
 tr "引用"
 
@@ -6610,7 +6613,7 @@ tr "未招募"
 
 # AppF4Companions.cpp:394  ImGui::TextDisabled("%s", tr("not saved"));
 # AppPlayerFO4.cpp:181  ImGui::TextDisabled("%s", tr("not saved"));
-# AppStarfield.cpp:1219  ImGui::TextUnformatted(r.state == 2 ? tr("completed") : r.state == 1 ? tr("running") : r.state == 0 ? tr("not running") : tr("not saved"));
+# AppStarfield.cpp:1217  ImGui::TextUnformatted(r.state == 2 ? tr("completed") : r.state == 1 ? tr("running") : r.state == 0 ? tr("not running") : tr("not saved"));
 en "not saved"
 tr "未保存"
 
@@ -6623,7 +6626,7 @@ en "infatuated"
 tr "已倾心"
 
 # AppF4Companions.cpp:408  ImGui::TextDisabled("%s", c.hasChangeForm ? tr("not read") : tr("where the plugin puts it"));
-# AppStarfield.cpp:1335  ImGui::TextDisabled("%s", tr("not read"));
+# AppStarfield.cpp:1333  ImGui::TextDisabled("%s", tr("not read"));
 en "not read"
 tr "未读取"
 
@@ -7007,7 +7010,7 @@ en "Object"
 tr "对象"
 
 # AppF4World.cpp:212  ImGui::TableSetupColumn(tr("Count"), ImGuiTableColumnFlags_WidthFixed, 60);
-# AppStarfield.cpp:534  ImGui::TableSetupColumn(tr("Count"), ImGuiTableColumnFlags_WidthFixed, 130);
+# AppStarfield.cpp:532  ImGui::TableSetupColumn(tr("Count"), ImGuiTableColumnFlags_WidthFixed, 130);
 # AppTools.cpp:1539  for (const char* h : { tr("Item"), tr("Count"), "", "" }) {
 en "Count"
 tr "数量"
@@ -7541,7 +7544,7 @@ en "Your character's items and credits as the save keeps them, with their counts
 tr "存档中你角色的物品和信用点及其数量（可编辑），以及已保存的角色数值。"
 
 # AppHome.cpp:399  { Sc::kShipsSF, tr("Ships"), tr("your ships and their cargo"),
-# AppStarfield.cpp:1250  if (!ImGui::Begin(trId("Ships"), &_showShipsSF, ImGuiWindowFlags_NoCollapse)) {
+# AppStarfield.cpp:1248  if (!ImGui::Begin(trId("Ships"), &_showShipsSF, ImGuiWindowFlags_NoCollapse)) {
 en "Ships"
 tr "飞船"
 
@@ -9469,7 +9472,7 @@ en "now %d"
 tr "现为 %d"
 
 # AppPlayerFO4.cpp:129  ImGui::TextUnformatted(tr("Experience"));
-# AppStarfield.cpp:314  KV(tr("Experience"), Fmt("%.0f / %.0f", h.currentXP, h.neededXP));
+# AppStarfield.cpp:312  KV(tr("Experience"), Fmt("%.0f / %.0f", h.currentXP, h.neededXP));
 en "Experience"
 tr "经验"
 
@@ -9575,7 +9578,7 @@ en "rank"
 tr "等级"
 
 # AppPlayerFO4.cpp:285  if (ImGui::SmallButton(tr("Add"))) {
-# AppStarfield.cpp:1059  if (ImGui::Button(tr("Add"))) {
+# AppStarfield.cpp:1057  if (ImGui::Button(tr("Add"))) {
 en "Add"
 tr "添加"
 
@@ -9982,7 +9985,7 @@ en "marked \"%s\" completed"
 tr "已标记「%s」为完成"
 
 # AppQuests.cpp:231  f == "?" ? tr("The game is busy; it does it as soon as it can: ") + what + "." :
-# AppStarfield.cpp:1590  _status = tr("The game is busy; it does it as soon as it can: ") + what + ".";
+# AppStarfield.cpp:1588  _status = tr("The game is busy; it does it as soon as it can: ") + what + ".";
 en "The game is busy; it does it as soon as it can: "
 tr "游戏正忙；它会尽快执行： "
 
@@ -10159,8 +10162,8 @@ en "quests|Running"
 tr "quests|进行中"
 
 # AppQuests.cpp:556  const char* shows[] = { fo4() ? tr("In the Pip-Boy") : tr("In the journal"), trc("quests", "Running"), tr("Completed"), tr("All in this save"), tr("Ev
-# AppStarfield.cpp:675  if (ImGui::Checkbox(tr("Completed"), &done)) {
-# AppStarfield.cpp:1178  ImGui::RadioButton(tr("Completed"), &show, 2);
+# AppStarfield.cpp:673  if (ImGui::Checkbox(tr("Completed"), &done)) {
+# AppStarfield.cpp:1176  ImGui::RadioButton(tr("Completed"), &show, 2);
 en "Completed"
 tr "已完成"
 
@@ -10232,8 +10235,8 @@ en "Tick quests in the list (the box in front of each), then stop them all in th
 tr ""
 
 # AppQuests.cpp:710  ImGui::TableSetupColumn(tr("Quest"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort, 4.0f, 0);
-# AppStarfield.cpp:670  if (q.ok && ImGui::CollapsingHeader(trId("Quest"), ImGuiTreeNodeFlags_DefaultOpen)) {
-# AppStarfield.cpp:1202  ImGui::TableSetupColumn(tr("Quest"), ImGuiTableColumnFlags_WidthStretch);
+# AppStarfield.cpp:668  if (q.ok && ImGui::CollapsingHeader(trId("Quest"), ImGuiTreeNodeFlags_DefaultOpen)) {
+# AppStarfield.cpp:1200  ImGui::TableSetupColumn(tr("Quest"), ImGuiTableColumnFlags_WidthStretch);
 en "Quest"
 tr "任务"
 
@@ -10311,8 +10314,8 @@ en "In the running game: stage %d, %s"
 tr "在运行中的游戏里：阶段 %d，%s"
 
 # AppQuests.cpp:890  it->second.completed ? tr("completed") : it->second.running ? tr("running") : tr("not running")));
-# AppStarfield.cpp:207  LiveLink::Field(r, 4) == "1" ? tr("completed") : LiveLink::Field(r, 3) == "1" ? tr("running") : tr("not running"),
-# AppStarfield.cpp:214  LiveLink::Field(r, 2) == "1" ? tr("completed") : LiveLink::Field(r, 1) == "1" ? tr("running") : tr("not running"), LiveLink::Field(r, 3).c_str());
+# AppStarfield.cpp:205  LiveLink::Field(r, 4) == "1" ? tr("completed") : LiveLink::Field(r, 3) == "1" ? tr("running") : tr("not running"),
+# AppStarfield.cpp:212  LiveLink::Field(r, 2) == "1" ? tr("completed") : LiveLink::Field(r, 1) == "1" ? tr("running") : tr("not running"), LiveLink::Field(r, 3).c_str());
 en "completed"
 tr "已完成"
 
@@ -10424,7 +10427,7 @@ en "Reset the quest in the running game so it acts as if it was never done: stag
 tr "在运行中的游戏里重置任务，使其表现得像从未做过：阶段和目标已清除，并离开日志。"
 
 # AppQuests.cpp:1016  const bool tipOpen722 = ImGui::BeginCombo("##stage", stageList.empty() ? tr("stage") : Fmt(tr("stage %u"), stageList[_setStageIdx]).c_str());
-# AppStarfield.cpp:745  ImGui::InputInt(tr("stage"), &_liveQuestSFStage, 0, 0);
+# AppStarfield.cpp:743  ImGui::InputInt(tr("stage"), &_liveQuestSFStage, 0, 0);
 en "stage"
 tr "阶段"
 
@@ -11238,8 +11241,8 @@ en "The game does not know %08X (%s): %s"
 tr "游戏不认识 %08X（%s）：%s"
 
 # AppSkyFollowers.cpp:170  note = tr("The game refused: ") + LiveLink::Field(r, 1);
-# AppStarfield.cpp:1082  note = tr("The game refused: ") + LiveLink::Field(r, 1);
-# AppStarfield.cpp:1588  _status = tr("The game refused: ") + LiveLink::Field(r, 1);
+# AppStarfield.cpp:1080  note = tr("The game refused: ") + LiveLink::Field(r, 1);
+# AppStarfield.cpp:1586  _status = tr("The game refused: ") + LiveLink::Field(r, 1);
 en "The game refused: "
 tr "游戏拒绝： "
 
@@ -11656,678 +11659,763 @@ tr "你保存时有 %zu 个任务卡在阶段之间"
 en "Only shows information. A stuck quest can be set to a stage or stopped there, in the running game."
 tr "仅显示信息。卡住的任务可以在那里于运行中的游戏里设为某个阶段或停止。"
 
-# AppStarfield.cpp:144  return N_("Not needed on Starfield: the game keeps an ID for every spawned object a script is on, and remakes the object when you go "
+# AppStarfield.cpp:145  return N_("Not needed on Starfield: the game keeps an ID for every spawned object a script is on, and remakes the object when you go "
 en "Not needed on Starfield: the game keeps an ID for every spawned object a script is on, and remakes the object when you go back to its area (most of them have no record of their own in the save). In every Starfield save checked, all of them were still known to the game, so none can be called missing."
 tr "Starfield 不需要：游戏会为每个挂有脚本的生成对象保留一个 ID，并在你回到它所在区域时重新生成该对象（大多数在存档中没有自己的记录）。在检查过的所有 Starfield 存档中，游戏都仍然知道它们，所以没有一个可以算作丢失。"
 
-# AppStarfield.cpp:148  return N_("Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records.");
+# AppStarfield.cpp:149  return N_("Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records.");
 en "Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records."
 tr "暂不适用于 Starfield：它读写的是 Skyrim 和 Fallout 4 的插件记录。"
 
-# AppStarfield.cpp:150  return N_("Not for Starfield saves yet: the effects running on a character are in the part of Starfield's actor data that is not "
-en "Not for Starfield saves yet: the effects running on a character are in the part of Starfield's actor data that is not decoded yet."
-tr "暂不适用于 Starfield 存档：角色身上生效的效果位于 Starfield 角色数据中尚未解码的部分。"
-
-# AppStarfield.cpp:153  return N_("Not available for Starfield saves: it is for Skyrim (or Fallout 4) only.");
+# AppStarfield.cpp:151  return N_("Not available for Starfield saves: it is for Skyrim (or Fallout 4) only.");
 en "Not available for Starfield saves: it is for Skyrim (or Fallout 4) only."
 tr "不适用于 Starfield 存档：仅适用于 Skyrim（或 Fallout 4）。"
 
-# AppStarfield.cpp:169  return std::string(tr("base")) + " " + d;
+# AppStarfield.cpp:167  return std::string(tr("base")) + " " + d;
 en "base"
 tr "基础"
 
-# AppStarfield.cpp:185  _liveQuestSFResult = tr("Asking the game...");
-# AppStarfield.cpp:1076  result = tr("Asking the game...");
+# AppStarfield.cpp:183  _liveQuestSFResult = tr("Asking the game...");
+# AppStarfield.cpp:1074  result = tr("Asking the game...");
 en "Asking the game..."
 tr "正在询问游戏……"
 
-# AppStarfield.cpp:206  _liveQuestSFResult = Fmt(tr("In the game: %s, current stage %s, stages done: %s"),
+# AppStarfield.cpp:204  _liveQuestSFResult = Fmt(tr("In the game: %s, current stage %s, stages done: %s"),
 en "In the game: %s, current stage %s, stages done: %s"
 tr "游戏中：%s，当前阶段 %s，已完成的阶段：%s"
 
-# AppStarfield.cpp:208  LiveLink::Field(r, 2).c_str(), done.empty() ? tr("none") : done.c_str());
+# AppStarfield.cpp:206  LiveLink::Field(r, 2).c_str(), done.empty() ? tr("none") : done.c_str());
 en "none"
 tr "无"
 
-# AppStarfield.cpp:212  _liveQuestSFResult = Fmt(tr("%s - now %s, current stage %s"),
+# AppStarfield.cpp:210  _liveQuestSFResult = Fmt(tr("%s - now %s, current stage %s"),
 en "%s - now %s, current stage %s"
 tr "%s——现在%s，当前阶段 %s"
 
-# AppStarfield.cpp:213  LiveLink::Field(r, 0) == "1" ? tr("Done in the game") : tr("Sent to the game (not seen done yet: check again in a moment)"),
+# AppStarfield.cpp:211  LiveLink::Field(r, 0) == "1" ? tr("Done in the game") : tr("Sent to the game (not seen done yet: check again in a moment)"),
 en "Done in the game"
 tr "已在游戏中完成"
 
-# AppStarfield.cpp:213  LiveLink::Field(r, 0) == "1" ? tr("Done in the game") : tr("Sent to the game (not seen done yet: check again in a moment)"),
+# AppStarfield.cpp:211  LiveLink::Field(r, 0) == "1" ? tr("Done in the game") : tr("Sent to the game (not seen done yet: check again in a moment)"),
 en "Sent to the game (not seen done yet: check again in a moment)"
 tr "已发送到游戏（尚未看到完成：稍后再检查一次）"
 
-# AppStarfield.cpp:224  return Fmt(tr("reading the plugins (%zu of %zu MB)..."), done, total);
+# AppStarfield.cpp:222  return Fmt(tr("reading the plugins (%zu of %zu MB)..."), done, total);
 en "reading the plugins (%zu of %zu MB)..."
 tr ""
 
-# AppStarfield.cpp:227  return Fmt(tr("%zu forms named from %zu of %zu plugins (%.1f s)"), _db->size(), _db->pluginsRead, _db->plugins().size(),
+# AppStarfield.cpp:225  return Fmt(tr("%zu forms named from %zu of %zu plugins (%.1f s)"), _db->size(), _db->pluginsRead, _db->plugins().size(),
 en "%zu forms named from %zu of %zu plugins (%.1f s)"
 tr ""
 
-# AppStarfield.cpp:229  (_db->missing.empty() ? std::string() : Fmt(tr(", %zu not found"), _db->missing.size()));
+# AppStarfield.cpp:227  (_db->missing.empty() ? std::string() : Fmt(tr(", %zu not found"), _db->missing.size()));
 en ", %zu not found"
 tr ""
 
-# AppStarfield.cpp:232  return tr("not read: the Starfield folder is not known (Options > Settings)");
+# AppStarfield.cpp:230  return tr("not read: the Starfield folder is not known (Options > Settings)");
 en "not read: the Starfield folder is not known (Options > Settings)"
 tr ""
 
-# AppStarfield.cpp:234  return tr("not read yet (Tools > Read plugin names)");
+# AppStarfield.cpp:232  return tr("not read yet (Tools > Read plugin names)");
 en "not read yet (Tools > Read plugin names)"
 tr ""
 
-# AppStarfield.cpp:281  ImGui::TextDisabled("%s", tr("Not read yet for Starfield: the script data is kept exactly as it is and written back unchanged."));
+# AppStarfield.cpp:279  ImGui::TextDisabled("%s", tr("Not read yet for Starfield: the script data is kept exactly as it is and written back unchanged."));
 en "Not read yet for Starfield: the script data is kept exactly as it is and written back unchanged."
 tr ""
 
-# AppStarfield.cpp:311  KV(tr("Game"), "Starfield " + s.gameVersion + Fmt(tr("  (playthrough started on %s)"), s.sfCreatedVersion.c_str()));
+# AppStarfield.cpp:309  KV(tr("Game"), "Starfield " + s.gameVersion + Fmt(tr("  (playthrough started on %s)"), s.sfCreatedVersion.c_str()));
 en "  (playthrough started on %s)"
 tr ""
 
-# AppStarfield.cpp:312  KV(tr("Format"), Fmt(tr("engine version %u, save version %u, form version %u, %zu zlib chunks"), h.version, static_cast<unsigned>(h.sfSaveVersion),
+# AppStarfield.cpp:310  KV(tr("Format"), Fmt(tr("engine version %u, save version %u, form version %u, %zu zlib chunks"), h.version, static_cast<unsigned>(h.sfSaveVersion),
 en "engine version %u, save version %u, form version %u, %zu zlib chunks"
 tr ""
 
-# AppStarfield.cpp:315  KV(tr("Plugins"), Fmt(tr("%zu full + %zu light + %zu medium"), s.plugins.full.size(), s.plugins.lite.size(), s.plugins.medium.size()));
+# AppStarfield.cpp:313  KV(tr("Plugins"), Fmt(tr("%zu full + %zu light + %zu medium"), s.plugins.full.size(), s.plugins.lite.size(), s.plugins.medium.size()));
 en "%zu full + %zu light + %zu medium"
 tr ""
 
-# AppStarfield.cpp:318  KV(tr("Form IDs"), std::to_string(s.formIDs.size()));
+# AppStarfield.cpp:316  KV(tr("Form IDs"), std::to_string(s.formIDs.size()));
 en "Form IDs"
 tr ""
 
-# AppStarfield.cpp:319  KV(tr("Names"), namesStatusSF());
+# AppStarfield.cpp:317  KV(tr("Names"), namesStatusSF());
 en "Names"
 tr ""
 
-# AppStarfield.cpp:325  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
+# AppStarfield.cpp:323  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
 en "Not loaded"
 tr ""
 
-# AppStarfield.cpp:325  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
+# AppStarfield.cpp:323  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
 en "%zu plugin(s) of this save are not in %s (%zu not installed)"
 tr ""
 
-# AppStarfield.cpp:331  ImGui::TextDisabled("%s", sfPapyrus() ? tr("Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes), the global data an
+# AppStarfield.cpp:329  ImGui::TextDisabled("%s", sfPapyrus() ? tr("Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes), the global data an
 en "Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes), the global data and the script data. The contents of change forms and global data are not decoded."
 tr ""
 
-# AppStarfield.cpp:333  : tr("Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes) and the global data. "
+# AppStarfield.cpp:331  : tr("Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes) and the global data. "
 en "Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes) and the global data. The script data (Papyrus) is not read yet: it is written back exactly as it was."
 tr ""
 
-# AppStarfield.cpp:340  KV(tr("Script instances"), Fmt(tr("%zu  (%zu unattached, %zu undefined)"), r.instances, r.unattached, r.undefinedInstances));
+# AppStarfield.cpp:338  KV(tr("Script instances"), Fmt(tr("%zu  (%zu unattached, %zu undefined)"), r.instances, r.unattached, r.undefinedInstances));
 en "%zu  (%zu unattached, %zu undefined)"
 tr ""
 
-# AppStarfield.cpp:391  std::string what = g.type == 1001 ? std::string(tr("Papyrus")) : g.type == 0 ? std::string(tr("string table offset"))
+# AppStarfield.cpp:389  std::string what = g.type == 1001 ? std::string(tr("Papyrus")) : g.type == 0 ? std::string(tr("string table offset"))
 en "string table offset"
 tr ""
 
-# AppStarfield.cpp:392  : g.type == 2   ? std::string(tr("created-ID section offset"))
+# AppStarfield.cpp:390  : g.type == 2   ? std::string(tr("created-ID section offset"))
 en "created-ID section offset"
 tr ""
 
-# AppStarfield.cpp:396  Fmt(tr("table %d  type %4u  %-14s  %zu bytes"), t, g.type, GlobalKindName(g.sfKind), size) + (what.empty() ? "" : "  " + what), 0, true,
+# AppStarfield.cpp:394  Fmt(tr("table %d  type %4u  %-14s  %zu bytes"), t, g.type, GlobalKindName(g.sfKind), size) + (what.empty() ? "" : "  " + what), 0, true,
 en "table %d  type %4u  %-14s  %zu bytes"
 tr ""
 
-# AppStarfield.cpp:418  ImGui::TextDisabled("%s", (medium ? Fmt(tr("Medium plugin, index FD:%02X"), static_cast<unsigned>(i))
+# AppStarfield.cpp:416  ImGui::TextDisabled("%s", (medium ? Fmt(tr("Medium plugin, index FD:%02X"), static_cast<unsigned>(i))
 en "Medium plugin, index FD:%02X"
 tr ""
 
-# AppStarfield.cpp:425  KV(tr("Creation"), e.title);
+# AppStarfield.cpp:423  KV(tr("Creation"), e.title);
 en "Creation"
 tr ""
 
-# AppStarfield.cpp:426  KV(tr("Creation ID"), e.id);
+# AppStarfield.cpp:424  KV(tr("Creation ID"), e.id);
 en "Creation ID"
 tr ""
 
-# AppStarfield.cpp:428  KV(tr("Achievement friendly"), e.achievementFriendly ? tr("yes") : tr("no"));
+# AppStarfield.cpp:426  KV(tr("Achievement friendly"), e.achievementFriendly ? tr("yes") : tr("no"));
 en "Achievement friendly"
 tr ""
 
-# AppStarfield.cpp:443  TextColoredSF(theme::Warn(), m.installed ? tr("Installed but not enabled in plugins.txt: the game does not load it.")
+# AppStarfield.cpp:441  TextColoredSF(theme::Warn(), m.installed ? tr("Installed but not enabled in plugins.txt: the game does not load it.")
 en "Installed but not enabled in plugins.txt: the game does not load it."
 tr ""
 
-# AppStarfield.cpp:444  : tr("Not installed: the game does not load it. What it left is listed in Mods no longer installed."));
+# AppStarfield.cpp:442  : tr("Not installed: the game does not load it. What it left is listed in Mods no longer installed."));
 en "Not installed: the game does not load it. What it left is listed in Mods no longer installed."
 tr ""
 
-# AppStarfield.cpp:456  ImGui::TextDisabled(tr("%zu of them found in the plugin file (names)."), named);
+# AppStarfield.cpp:454  ImGui::TextDisabled(tr("%zu of them found in the plugin file (names)."), named);
 en "%zu of them found in the plugin file (names)."
 tr ""
 
-# AppStarfield.cpp:458  if (ImGui::SmallButton(tr("Show its change forms"))) {
+# AppStarfield.cpp:456  if (ImGui::SmallButton(tr("Show its change forms"))) {
 en "Show its change forms"
 tr ""
 
-# AppStarfield.cpp:481  KV(tr("Base object"), tr("not in the save (the game makes this object again from its cell, e.g. a generated place)"));
-# AppStarfield.cpp:486  KV(tr("Base object"), Fmt("%08X  ", bf) + (!d.empty() ? d : s.pluginOf(bf)));
-# AppStarfield.cpp:493  KV(tr("Base object"), Fmt("%08X  ", f->base) + _db->describe(f->base));
+# AppStarfield.cpp:479  KV(tr("Base object"), tr("not in the save (the game makes this object again from its cell, e.g. a generated place)"));
+# AppStarfield.cpp:484  KV(tr("Base object"), Fmt("%08X  ", bf) + (!d.empty() ? d : s.pluginOf(bf)));
+# AppStarfield.cpp:491  KV(tr("Base object"), Fmt("%08X  ", f->base) + _db->describe(f->base));
 en "Base object"
 tr ""
 
-# AppStarfield.cpp:481  KV(tr("Base object"), tr("not in the save (the game makes this object again from its cell, e.g. a generated place)"));
+# AppStarfield.cpp:479  KV(tr("Base object"), tr("not in the save (the game makes this object again from its cell, e.g. a generated place)"));
 en "not in the save (the game makes this object again from its cell, e.g. a generated place)"
 tr "不在存档中（游戏会根据其单元格重新生成此对象，例如生成的地点）"
 
-# AppStarfield.cpp:491  KV(tr("Name"), !d.empty() ? d : _db ? tr("(not in the plugin files)") : namesStatusSF());
+# AppStarfield.cpp:489  KV(tr("Name"), !d.empty() ? d : _db ? tr("(not in the plugin files)") : namesStatusSF());
 en "(not in the plugin files)"
 tr ""
 
-# AppStarfield.cpp:502  KV(tr("Data"), Fmt(tr("%zu bytes"), c->data.size()));
-# AppStarfield.cpp:825  KV(tr("Data"), Fmt(tr("%zu bytes"), g.raw.size()));
+# AppStarfield.cpp:500  KV(tr("Data"), Fmt(tr("%zu bytes"), c->data.size()));
+# AppStarfield.cpp:823  KV(tr("Data"), Fmt(tr("%zu bytes"), g.raw.size()));
 en "%zu bytes"
 tr ""
 
-# AppStarfield.cpp:503  KV(tr("Form references"), std::to_string(c->sfRefs.size()));
-# AppStarfield.cpp:781  if (!c->sfRefs.empty() && ImGui::CollapsingHeader(trId("Form references"))) {
+# AppStarfield.cpp:501  KV(tr("Form references"), std::to_string(c->sfRefs.size()));
+# AppStarfield.cpp:779  if (!c->sfRefs.empty() && ImGui::CollapsingHeader(trId("Form references"))) {
 en "Form references"
 tr ""
 
-# AppStarfield.cpp:515  if (ImGui::CollapsingHeader(Fmt(tr("Inventory (%zu items)###inv"), r.items.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+# AppStarfield.cpp:513  if (ImGui::CollapsingHeader(Fmt(tr("Inventory (%zu items)###inv"), r.items.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 en "Inventory (%zu items)"
 tr "物品（%zu 件）"
 
-# AppStarfield.cpp:518  ImGui::TextDisabled("%s", (tr("Not read: ") + r.error).c_str());
-# AppStarfield.cpp:587  ImGui::TextDisabled("%s", (tr("Not read: ") + n.error).c_str());
+# AppStarfield.cpp:516  ImGui::TextDisabled("%s", (tr("Not read: ") + r.error).c_str());
+# AppStarfield.cpp:585  ImGui::TextDisabled("%s", (tr("Not read: ") + n.error).c_str());
 en "Not read: "
 tr "未读取："
 
-# AppStarfield.cpp:521  ImGui::TextDisabled("%s", tr("Empty."));
+# AppStarfield.cpp:519  ImGui::TextDisabled("%s", tr("Empty."));
 en "Empty."
 tr "空。"
 
-# AppStarfield.cpp:525  ImGui::TextDisabled("%s", tr("Every item the save keeps for it, in stacks (a stack is a group with the same mods, damage, "
+# AppStarfield.cpp:523  ImGui::TextDisabled("%s", tr("Every item the save keeps for it, in stacks (a stack is a group with the same mods, damage, "
 en "Every item the save keeps for it, in stacks (a stack is a group with the same mods, damage, name...). Change a count and save: the game loads that many."
 tr "存档为它保存的每件物品，按堆列出（一堆是改装、损伤、名称等相同的一组）。修改数量并保存：游戏会载入这么多。"
 
-# AppStarfield.cpp:533  ImGui::TableSetupColumn(tr("Stack"), ImGuiTableColumnFlags_WidthFixed, 50);
+# AppStarfield.cpp:531  ImGui::TableSetupColumn(tr("Stack"), ImGuiTableColumnFlags_WidthFixed, 50);
 en "Stack"
 tr "堆"
 
-# AppStarfield.cpp:541  name = bf == 0xF ? std::string(tr("Credits")) : s.pluginOf(bf);
+# AppStarfield.cpp:539  name = bf == 0xF ? std::string(tr("Credits")) : s.pluginOf(bf);
 en "Credits"
 tr "信用点"
 
-# AppStarfield.cpp:558  tips::Tip(tr("This stack carries data of its own (mods, condition, a name, equipped...)."));
+# AppStarfield.cpp:556  tips::Tip(tr("This stack carries data of its own (mods, condition, a name, equipped...)."));
 en "This stack carries data of its own (mods, condition, a name, equipped...)."
 tr "此堆带有自己的数据（改装、状态、名称、已装备……）。"
 
-# AppStarfield.cpp:568  markChanged(Fmt(tr("%s: count %u -> %u"), name.c_str(), st.count, v));
+# AppStarfield.cpp:566  markChanged(Fmt(tr("%s: count %u -> %u"), name.c_str(), st.count, v));
 en "%s: count %u -> %u"
 tr "%s：数量 %u -> %u"
 
-# AppStarfield.cpp:577  ImGui::TextDisabled("%s", tr("Type a number and press Enter (1 to 1,000,000,000)."));
+# AppStarfield.cpp:575  ImGui::TextDisabled("%s", tr("Type a number and press Enter (1 to 1,000,000,000)."));
 en "Type a number and press Enter (1 to 1,000,000,000)."
 tr "输入数字并按回车（1 到 1,000,000,000）。"
 
-# AppStarfield.cpp:590  ImGui::TextDisabled("%s", tr("The save keeps no name for this character (its plugin's name applies)."));
+# AppStarfield.cpp:588  ImGui::TextDisabled("%s", tr("The save keeps no name for this character (its plugin's name applies)."));
 en "The save keeps no name for this character (its plugin's name applies)."
 tr "存档没有保存此角色的名称（使用其插件中的名称）。"
 
-# AppStarfield.cpp:593  ImGui::Text(tr("Name: %s"), cur.c_str());
+# AppStarfield.cpp:591  ImGui::Text(tr("Name: %s"), cur.c_str());
 en "Name: %s"
 tr "名称：%s"
 
-# AppStarfield.cpp:604  if (ImGui::Button(tr("Rename")) && buf[0] && cur != buf) {
+# AppStarfield.cpp:602  if (ImGui::Button(tr("Rename")) && buf[0] && cur != buf) {
 en "Rename"
 tr "重命名"
 
-# AppStarfield.cpp:608  markChanged(Fmt(tr("Renamed to %s"), want.c_str()));
+# AppStarfield.cpp:606  markChanged(Fmt(tr("Renamed to %s"), want.c_str()));
 en "Renamed to %s"
 tr "已重命名为 %s"
 
-# AppStarfield.cpp:612  tips::Tip(tr("The name the game shows for this character. For your own character, the name in the load menu changes too."));
+# AppStarfield.cpp:610  tips::Tip(tr("The name the game shows for this character. For your own character, the name in the load menu changes too."));
 en "The name the game shows for this character. For your own character, the name in the load menu changes too."
 tr "游戏为此角色显示的名称。对于你自己的角色，读档菜单中的名称也会更改。"
 
-# AppStarfield.cpp:617  if (n.ok && !n.face.empty() && ImGui::TreeNodeEx(Fmt(tr("Face and body (%zu numbers)###facesf"), n.face.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpe
+# AppStarfield.cpp:615  if (n.ok && !n.face.empty() && ImGui::TreeNodeEx(Fmt(tr("Face and body (%zu numbers)###facesf"), n.face.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpe
 en "Face and body (%zu numbers)"
 tr "脸部和身体（%zu 个数值）"
 
-# AppStarfield.cpp:619  ImGui::TextDisabled("%s", tr("The face the save keeps for this character, as the character creator wrote it: numbered sliders, "
+# AppStarfield.cpp:617  ImGui::TextDisabled("%s", tr("The face the save keeps for this character, as the character creator wrote it: numbered sliders, "
 en "The face the save keeps for this character, as the character creator wrote it: numbered sliders, blends of face shapes by region, and named shapes (body and face). Type a number and press Enter; the game reads them at the next load. Keep the original save."
 tr "存档为该角色保存的脸部数据，即角色创建器写入的内容：编号滑块、按区域混合的脸型，以及命名的形状（身体和脸部）。输入数字并按回车；游戏会在下次读档时读取。请保留原始存档。"
 
-# AppStarfield.cpp:638  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
+# AppStarfield.cpp:636  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
 en "Slider"
 tr "滑块"
 
-# AppStarfield.cpp:638  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
+# AppStarfield.cpp:636  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
 en "Blend"
 tr "混合"
 
-# AppStarfield.cpp:638  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
+# AppStarfield.cpp:636  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
 en "Shape"
 tr "形状"
 
-# AppStarfield.cpp:641  ImGui::Text(tr("slider %u"), v.key);
-# AppStarfield.cpp:655  markChanged(Fmt(tr("Face: %s %g -> %g"), v.group == 1 ? Fmt(tr("slider %u"), v.key).c_str() : nm.c_str(), x, want));
+# AppStarfield.cpp:639  ImGui::Text(tr("slider %u"), v.key);
+# AppStarfield.cpp:653  markChanged(Fmt(tr("Face: %s %g -> %g"), v.group == 1 ? Fmt(tr("slider %u"), v.key).c_str() : nm.c_str(), x, want));
 en "slider %u"
 tr "滑块 %u"
 
-# AppStarfield.cpp:643  ImGui::Text(tr("%s (blend %u)"), nm.c_str(), v.key);
+# AppStarfield.cpp:641  ImGui::Text(tr("%s (blend %u)"), nm.c_str(), v.key);
 en "%s (blend %u)"
 tr "%s（混合 %u）"
 
-# AppStarfield.cpp:655  markChanged(Fmt(tr("Face: %s %g -> %g"), v.group == 1 ? Fmt(tr("slider %u"), v.key).c_str() : nm.c_str(), x, want));
+# AppStarfield.cpp:653  markChanged(Fmt(tr("Face: %s %g -> %g"), v.group == 1 ? Fmt(tr("slider %u"), v.key).c_str() : nm.c_str(), x, want));
 en "Face: %s %g -> %g"
 tr "脸部：%s %g -> %g"
 
-# AppStarfield.cpp:672  ImGui::Text(tr("State: %s  (quest flags %08X)"), q.completed() ? tr("completed") : q.enabled() ? tr("running") : tr("not running"), q.questFlags);
+# AppStarfield.cpp:670  ImGui::Text(tr("State: %s  (quest flags %08X)"), q.completed() ? tr("completed") : q.enabled() ? tr("running") : tr("not running"), q.questFlags);
 en "State: %s  (quest flags %08X)"
 tr "状态：%s（任务标志 %08X）"
 
-# AppStarfield.cpp:679  confirm(tr("Change the quest's completed flag"),
+# AppStarfield.cpp:677  confirm(tr("Change the quest's completed flag"),
 en "Change the quest's completed flag"
 tr "更改任务的完成标志"
 
-# AppStarfield.cpp:680  tr("Set or clear the flag Quest.IsCompleted reads (bit 0x2 of the quest's saved flags).\n\nOnly the flag changes: no "
+# AppStarfield.cpp:678  tr("Set or clear the flag Quest.IsCompleted reads (bit 0x2 of the quest's saved flags).\n\nOnly the flag changes: no "
 en "Set or clear the flag Quest.IsCompleted reads (bit 0x2 of the quest's saved flags).\n\nOnly the flag changes: no stage runs, no script is told, rewards are not given or taken, and the quest's objectives and aliases stay as they are. Use it to make a quest count as done (or not) for other quests and dialogue that check it. Keep the original save."
 tr "设置或清除 Quest.IsCompleted 读取的标志（任务已保存标志的 0x2 位）。\n\n只更改该标志：不会运行任何阶段，不会通知脚本，不会给予或收回奖励，任务的目标和别名保持不变。用它让任务对检查它的其他任务和对话来说算作已完成（或未完成）。请保留原始存档的副本。"
 
-# AppStarfield.cpp:694  markChanged(want ? tr("Quest marked completed") : tr("Quest no longer marked completed"));
+# AppStarfield.cpp:692  markChanged(want ? tr("Quest marked completed") : tr("Quest no longer marked completed"));
 en "Quest marked completed"
 tr "任务已标记为完成"
 
-# AppStarfield.cpp:694  markChanged(want ? tr("Quest marked completed") : tr("Quest no longer marked completed"));
+# AppStarfield.cpp:692  markChanged(want ? tr("Quest marked completed") : tr("Quest no longer marked completed"));
 en "Quest no longer marked completed"
 tr "任务不再标记为完成"
 
-# AppStarfield.cpp:698  tips::Tip(tr("The completed flag the game and Quest.IsCompleted() read. Only this flag changes."));
+# AppStarfield.cpp:696  tips::Tip(tr("The completed flag the game and Quest.IsCompleted() read. Only this flag changes."));
 en "The completed flag the game and Quest.IsCompleted() read. Only this flag changes."
 tr "游戏和 Quest.IsCompleted() 读取的完成标志。只更改此标志。"
 
-# AppStarfield.cpp:700  ImGui::TextDisabled("%s", tr("The save keeps no state for this quest (its plugin's start state applies)."));
+# AppStarfield.cpp:698  ImGui::TextDisabled("%s", tr("The save keeps no state for this quest (its plugin's start state applies)."));
 en "The save keeps no state for this quest (its plugin's start state applies)."
 tr "存档未保存此任务的状态（使用其插件的初始状态）。"
 
-# AppStarfield.cpp:703  ImGui::TextDisabled("%s", tr("No stage is saved for this quest."));
+# AppStarfield.cpp:701  ImGui::TextDisabled("%s", tr("No stage is saved for this quest."));
 en "No stage is saved for this quest."
 tr "此任务没有保存任何阶段。"
 
-# AppStarfield.cpp:705  ImGui::TextUnformatted(Fmt(tr("Stages saved: %zu (ticked = done)"), q.stages.size()).c_str());
+# AppStarfield.cpp:703  ImGui::TextUnformatted(Fmt(tr("Stages saved: %zu (ticked = done)"), q.stages.size()).c_str());
 en "Stages saved: %zu (ticked = done)"
 tr "已保存的阶段：%zu（勾选 = 已完成）"
 
-# AppStarfield.cpp:718  markChanged(Fmt(d ? tr("Stage %u marked done") : tr("Stage %u marked not done"), st.index));
+# AppStarfield.cpp:716  markChanged(Fmt(d ? tr("Stage %u marked done") : tr("Stage %u marked not done"), st.index));
 en "Stage %u marked done"
 tr "阶段 %u 已标记为完成"
 
-# AppStarfield.cpp:718  markChanged(Fmt(d ? tr("Stage %u marked done") : tr("Stage %u marked not done"), st.index));
+# AppStarfield.cpp:716  markChanged(Fmt(d ? tr("Stage %u marked done") : tr("Stage %u marked not done"), st.index));
 en "Stage %u marked not done"
 tr "阶段 %u 已标记为未完成"
 
-# AppStarfield.cpp:726  ImGui::TextDisabled("%s", tr("Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."));
+# AppStarfield.cpp:724  ImGui::TextDisabled("%s", tr("Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."));
 en "Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."
 tr "勾选阶段只会将其标记为完成（Quest.IsStageDone）：不会运行其脚本片段。"
 
-# AppStarfield.cpp:730  if (c->refID.type() != RefID::Type::kCreated && ImGui::CollapsingHeader(trId("In the running game"), ImGuiTreeNodeFlags_DefaultOpen)) {
+# AppStarfield.cpp:728  if (c->refID.type() != RefID::Type::kCreated && ImGui::CollapsingHeader(trId("In the running game"), ImGuiTreeNodeFlags_DefaultOpen)) {
 en "In the running game"
 tr "在运行中的游戏里"
 
-# AppStarfield.cpp:735  ImGui::TextDisabled("%s", !info.connected ? tr("Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed.")
+# AppStarfield.cpp:733  ImGui::TextDisabled("%s", !info.connected ? tr("Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed.")
 en "Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed."
 tr "未连接：请在安装了 SFSE 和《星空》版 ReSaverHelper.dll 的情况下启动《星空》。"
 
-# AppStarfield.cpp:736  : !liveSF()   ? tr("The game connected is not Starfield.")
-# AppStarfield.cpp:1564  a_why = tr("The game connected is not Starfield.");
+# AppStarfield.cpp:734  : !liveSF()   ? tr("The game connected is not Starfield.")
+# AppStarfield.cpp:1562  a_why = tr("The game connected is not Starfield.");
 en "The game connected is not Starfield."
 tr "连接的游戏不是《星空》。"
 
-# AppStarfield.cpp:741  if (ImGui::SmallButton(tr("Read it from the game"))) {
+# AppStarfield.cpp:739  if (ImGui::SmallButton(tr("Read it from the game"))) {
 en "Read it from the game"
 tr "从游戏中读取"
 
-# AppStarfield.cpp:748  if (ImGui::SmallButton(tr("Set stage (runs its script)"))) {
+# AppStarfield.cpp:746  if (ImGui::SmallButton(tr("Set stage (runs its script)"))) {
 en "Set stage (runs its script)"
 tr "设置阶段（会运行其脚本）"
 
-# AppStarfield.cpp:751  tips::Tip(tr("The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."));
+# AppStarfield.cpp:749  tips::Tip(tr("The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."));
 en "The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."
 tr "游戏自带的 setstage 命令：任务进入该阶段并运行该阶段的脚本（奖励、后续任务、场景）。"
 
-# AppStarfield.cpp:752  if (ImGui::SmallButton(tr("Complete"))) {
+# AppStarfield.cpp:750  if (ImGui::SmallButton(tr("Complete"))) {
 en "Complete"
 tr "完成"
 
-# AppStarfield.cpp:755  tips::Tip(tr("The game's own completequest command for this quest."));
+# AppStarfield.cpp:753  tips::Tip(tr("The game's own completequest command for this quest."));
 en "The game's own completequest command for this quest."
 tr "游戏自带的 completequest 命令，作用于此任务。"
 
-# AppStarfield.cpp:760  tips::Tip(tr("The game's own stopquest command for this quest."));
+# AppStarfield.cpp:758  tips::Tip(tr("The game's own stopquest command for this quest."));
 en "The game's own stopquest command for this quest."
 tr "游戏自带的 stopquest 命令，作用于此任务。"
 
-# AppStarfield.cpp:765  tips::Tip(tr("The game's own resetquest command for this quest."));
+# AppStarfield.cpp:763  tips::Tip(tr("The game's own resetquest command for this quest."));
 en "The game's own resetquest command for this quest."
 tr "游戏自带的 resetquest 命令，作用于此任务。"
 
-# AppStarfield.cpp:779  ImGui::Text(tr("%zu script instance(s) attached."), attached);
+# AppStarfield.cpp:777  ImGui::Text(tr("%zu script instance(s) attached."), attached);
 en "%zu script instance(s) attached."
 tr ""
 
-# AppStarfield.cpp:819  ImGui::Text(tr("Global data type %u (table %d)"), g.type, t);
+# AppStarfield.cpp:817  ImGui::Text(tr("Global data type %u (table %d)"), g.type, t);
 en "Global data type %u (table %d)"
 tr ""
 
-# AppStarfield.cpp:821  KV(tr("Layout"), GlobalKindName(g.sfKind));
+# AppStarfield.cpp:819  KV(tr("Layout"), GlobalKindName(g.sfKind));
 en "Layout"
 tr ""
 
-# AppStarfield.cpp:823  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
+# AppStarfield.cpp:821  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
 en "Points at"
 tr ""
 
-# AppStarfield.cpp:823  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
+# AppStarfield.cpp:821  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
 en "the string table (written again on save)"
 tr ""
 
-# AppStarfield.cpp:823  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
+# AppStarfield.cpp:821  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
 en "the created-ID section (written again on save)"
 tr ""
 
-# AppStarfield.cpp:832  ImGui::TextDisabled("%s", g.type == 1001 ? (sfPapyrus() ? tr("The script data: see the Papyrus lists.")
+# AppStarfield.cpp:830  ImGui::TextDisabled("%s", g.type == 1001 ? (sfPapyrus() ? tr("The script data: see the Papyrus lists.")
 en "The script data: see the Papyrus lists."
 tr ""
 
-# AppStarfield.cpp:833  : tr("The script data (Papyrus): not read yet, written back exactly as it is."))
+# AppStarfield.cpp:831  : tr("The script data (Papyrus): not read yet, written back exactly as it is."))
 en "The script data (Papyrus): not read yet, written back exactly as it is."
 tr ""
 
-# AppStarfield.cpp:834  : tr("Not decoded: kept and written back exactly as it is."));
+# AppStarfield.cpp:832  : tr("Not decoded: kept and written back exactly as it is."));
 en "Not decoded: kept and written back exactly as it is."
 tr ""
 
-# AppStarfield.cpp:865  it.title = tr("Starfield: script data not read yet");
+# AppStarfield.cpp:863  it.title = tr("Starfield: script data not read yet");
 en "Starfield: script data not read yet"
 tr ""
 
-# AppStarfield.cpp:866  it.what = tr("ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data "
+# AppStarfield.cpp:864  it.what = tr("ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data "
 en "ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data (Papyrus) is kept exactly as it is, so there is nothing to check or clean in it yet."
 tr ""
 
-# AppStarfield.cpp:911  list += Fmt(tr("\n  - %s: %s in the save, %s now: %zu of its %zu ids do not fit (e.g. %08X)"), k.plugin.c_str(), kindName(k.was), kindName(k.now),
+# AppStarfield.cpp:909  list += Fmt(tr("\n  - %s: %s in the save, %s now: %zu of its %zu ids do not fit (e.g. %08X)"), k.plugin.c_str(), kindName(k.was), kindName(k.now),
 en "\n  - %s: %s in the save, %s now: %zu of its %zu ids do not fit (e.g. %08X)"
 tr "\n  - %s：存档中为%s，现在为%s：其 %zu 个 ID（共 %zu 个）放不下（例如 %08X）"
 
-# AppStarfield.cpp:918  it.title = Fmt(tr("%zu plugin(s) changed kind since this save: their saved records land on other records"), broken);
+# AppStarfield.cpp:916  it.title = Fmt(tr("%zu plugin(s) changed kind since this save: their saved records land on other records"), broken);
 en "%zu plugin(s) changed kind since this save: their saved records land on other records"
 tr "%zu 个插件在此存档后改变了类型：其已保存的记录会落到其他记录上"
 
-# AppStarfield.cpp:919  it.what = tr("A plugin was flagged light or medium (or the flag was removed) after this save was made. When a save loads, "
+# AppStarfield.cpp:917  it.what = tr("A plugin was flagged light or medium (or the flag was removed) after this save was made. When a save loads, "
 en "A plugin was flagged light or medium (or the flag was removed) after this save was made. When a save loads, Starfield rebuilds every saved form id for today's plugins: a light plugin keeps only the last 3 hex digits of an id, a medium one the last 4 (Starfield.exe 1.16.244, TESFile::AdjustFormID). The save's ids of these plugins that are larger than that now point at other records of the plugin, or at none: placed objects, quests and NPC changes of the mod go to the wrong things."
 tr "此存档创建后，某个插件被标记为轻量或中型（或取消了该标记）。加载存档时，Starfield 会按当前插件重建每个已保存的表单 ID：轻量插件只保留 ID 的最后 3 位十六进制数，中型插件保留最后 4 位（Starfield.exe 1.16.244，TESFile::AdjustFormID）。这些插件在存档中超出该范围的 ID 现在指向该插件的其他记录或不指向任何记录：该模组的放置对象、任务和 NPC 更改会落到错误的对象上。"
 
-# AppStarfield.cpp:925  tr("\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, "
+# AppStarfield.cpp:923  tr("\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, "
 en "\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, or reinstall the mod's earlier version), or load a save made after the change. Renumbering (\"compacting\") a plugin's ids for the new kind does not help either: the save still holds the old numbers."
 tr "\n修复不在存档内：把插件恢复为存档时的类型（取消轻量 / 中型标记，或重新安装该模组的旧版本），或加载更改之后创建的存档。为新类型重新编号（「压缩」）插件 ID 也无济于事：存档中仍是旧编号。"
 
-# AppStarfield.cpp:936  it.title = Fmt(tr("%zu change form(s) have another type in your plugins now: the game skips them"), mm.size());
+# AppStarfield.cpp:934  it.title = Fmt(tr("%zu change form(s) have another type in your plugins now: the game skips them"), mm.size());
 en "%zu change form(s) have another type in your plugins now: the game skips them"
 tr ""
 
-# AppStarfield.cpp:949  it.what = tr("The save stored these forms as one type, but a plugin you load now defines them as another (a mod changed or "
+# AppStarfield.cpp:947  it.what = tr("The save stored these forms as one type, but a plugin you load now defines them as another (a mod changed or "
 en "The save stored these forms as one type, but a plugin you load now defines them as another (a mod changed or replaced them). Starfield's loader logs \"Form ... was saved with form type ..., but currently has form type ...\" and skips their saved changes (Starfield.exe 1.16.244), so they load as the plugins define them:"
 tr ""
 
-# AppStarfield.cpp:967  r.label = Fmt(tr("Remove their saved changes (%zu)"), raws.size());
+# AppStarfield.cpp:965  r.label = Fmt(tr("Remove their saved changes (%zu)"), raws.size());
 en "Remove their saved changes (%zu)"
 tr ""
 
-# AppStarfield.cpp:969  r.why = tr("The game already skips them when the save loads, so the result in the game is the same; the save just no longer "
+# AppStarfield.cpp:967  r.why = tr("The game already skips them when the save loads, so the result in the game is the same; the save just no longer "
 en "The game already skips them when the save loads, so the result in the game is the same; the save just no longer carries data nothing uses."
 tr ""
 
-# AppStarfield.cpp:972  confirm(tr("Remove skipped change forms"),
+# AppStarfield.cpp:970  confirm(tr("Remove skipped change forms"),
 en "Remove skipped change forms"
 tr ""
 
-# AppStarfield.cpp:973  Fmt(tr("Delete %zu change form(s) the game skips because their type changed?\n\nOnly the save in memory changes: write it "
+# AppStarfield.cpp:971  Fmt(tr("Delete %zu change form(s) the game skips because their type changed?\n\nOnly the save in memory changes: write it "
 en "Delete %zu change form(s) the game skips because their type changed?\n\nOnly the save in memory changes: write it with File > Save As under a new name."
 tr ""
 
-# AppStarfield.cpp:976  [this, raws] { markEdited(Fmt(tr("Removed %zu change form(s) whose type changed"), ops::DeleteChangeForms(*_save, raws))); });
+# AppStarfield.cpp:974  [this, raws] { markEdited(Fmt(tr("Removed %zu change form(s) whose type changed"), ops::DeleteChangeForms(*_save, raws))); });
 en "Removed %zu change form(s) whose type changed"
 tr ""
 
-# AppStarfield.cpp:994  if (!ImGui::TreeNode(tr("Add an item"))) {
+# AppStarfield.cpp:992  if (!ImGui::TreeNode(tr("Add an item"))) {
 en "Add an item"
 tr "添加物品"
 
-# AppStarfield.cpp:999  ImGui::TextDisabled("%s", tr("Needs the item names from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Setting
+# AppStarfield.cpp:997  ImGui::TextDisabled("%s", tr("Needs the item names from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Setting
 en "Needs the item names from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings)."
 tr "需要插件中的物品名称：工具 > 读取插件名称（须在 选项 > 设置 中设定 Starfield 文件夹）。"
 
-# AppStarfield.cpp:1028  if (ImGui::InputTextWithHint("##find", tr("name, editor ID or form ID"), text, sizeof(text))) {
+# AppStarfield.cpp:1026  if (ImGui::InputTextWithHint("##find", tr("name, editor ID or form ID"), text, sizeof(text))) {
 en "name, editor ID or form ID"
 tr "名称、编辑器 ID 或表单 ID"
 
-# AppStarfield.cpp:1052  ImGui::TextDisabled("%s", tr("No item found with that text."));
+# AppStarfield.cpp:1050  ImGui::TextDisabled("%s", tr("No item found with that text."));
 en "No item found with that text."
 tr "没有找到包含该文本的物品。"
 
-# AppStarfield.cpp:1055  ImGui::InputScalar(tr("count"), ImGuiDataType_U32, &count);
+# AppStarfield.cpp:1053  ImGui::InputScalar(tr("count"), ImGuiDataType_U32, &count);
 en "count"
 tr "数量"
 
-# AppStarfield.cpp:1062  result = Fmt(tr("Added %u x %s."), count, _db->describe(pick).c_str());
+# AppStarfield.cpp:1060  result = Fmt(tr("Added %u x %s."), count, _db->describe(pick).c_str());
 en "Added %u x %s."
 tr "已添加 %u x %s。"
 
-# AppStarfield.cpp:1065  result = tr("Not added: ") + why;
+# AppStarfield.cpp:1063  result = tr("Not added: ") + why;
 en "Not added: "
 tr "未添加："
 
-# AppStarfield.cpp:1074  if (ImGui::Button(tr("Give in the running game"))) {
+# AppStarfield.cpp:1072  if (ImGui::Button(tr("Give in the running game"))) {
 en "Give in the running game"
 tr "在运行中的游戏里给予"
 
-# AppStarfield.cpp:1075  const std::string what = Fmt(tr("%u x %s"), count, _db->describe(pick).c_str());
+# AppStarfield.cpp:1073  const std::string what = Fmt(tr("%u x %s"), count, _db->describe(pick).c_str());
 en "%u x %s"
 tr "%u x %s"
 
-# AppStarfield.cpp:1084  note = tr("The game is busy; it gives the item when it gets to it: ") + what;
+# AppStarfield.cpp:1082  note = tr("The game is busy; it gives the item when it gets to it: ") + what;
 en "The game is busy; it gives the item when it gets to it: "
 tr "游戏正忙；空闲时会给予物品："
 
-# AppStarfield.cpp:1086  note = tr("Given in the game: ") + what + tr(". Save in the game to keep it.");
+# AppStarfield.cpp:1084  note = tr("Given in the game: ") + what + tr(". Save in the game to keep it.");
 en "Given in the game: "
 tr "已在游戏中给予："
 
-# AppStarfield.cpp:1093  tips::Tip(ready ? tr("Give the item to your character in the running game (the game's own player.additem), not in this save.")
+# AppStarfield.cpp:1091  tips::Tip(ready ? tr("Give the item to your character in the running game (the game's own player.additem), not in this save.")
 en "Give the item to your character in the running game (the game's own player.additem), not in this save."
 tr "在运行中的游戏里把物品给你的角色（游戏自带的 player.additem），而不是改这个存档。"
 
-# AppStarfield.cpp:1102  ImGui::TextDisabled("%s", tr("The item is added as one plain stack (no mods, full condition), as the game makes a new item. Keep the original save."))
+# AppStarfield.cpp:1100  ImGui::TextDisabled("%s", tr("The item is added as one plain stack (no mods, full condition), as the game makes a new item. Keep the original save."))
 en "The item is added as one plain stack (no mods, full condition), as the game makes a new item. Keep the original save."
 tr "物品以一个普通堆添加（无改装、完好状态），与游戏创建新物品的方式相同。请保留原始存档。"
 
-# AppStarfield.cpp:1163  ImGui::TextDisabled("%s", tr("Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). 
+# AppStarfield.cpp:1161  ImGui::TextDisabled("%s", tr("Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). 
 en "Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). Until then they are listed by form ID."
 tr "任务名称来自你的插件：工具 > 读取插件名称（需在 选项 > 设置 中设置 Starfield 文件夹）。在此之前按表单 ID 列出。"
 
-# AppStarfield.cpp:1169  ImGui::TextDisabled("%s", !info.connected ? tr("Running game: not connected (start Starfield with sfse_loader.exe to use the helper).")
+# AppStarfield.cpp:1167  ImGui::TextDisabled("%s", !info.connected ? tr("Running game: not connected (start Starfield with sfse_loader.exe to use the helper).")
 en "Running game: not connected (start Starfield with sfse_loader.exe to use the helper)."
 tr "运行中的游戏：未连接（用 sfse_loader.exe 启动 Starfield 才能使用助手）。"
 
-# AppStarfield.cpp:1170  : !info.inGame  ? tr("Running game: connected, at the main menu. Load a save in the game to use its quest commands.")
+# AppStarfield.cpp:1168  : !info.inGame  ? tr("Running game: connected, at the main menu. Load a save in the game to use its quest commands.")
 en "Running game: connected, at the main menu. Load a save in the game to use its quest commands."
 tr "运行中的游戏：已连接，位于主菜单。请在游戏中读取存档以使用任务命令。"
 
-# AppStarfield.cpp:1171  : tr("Running game: connected, a save is loaded. Open a quest for its commands."));
+# AppStarfield.cpp:1169  : tr("Running game: connected, a save is loaded. Open a quest for its commands."));
 en "Running game: connected, a save is loaded. Open a quest for its commands."
 tr "运行中的游戏：已连接，已读取存档。打开任务查看其命令。"
 
-# AppStarfield.cpp:1174  ImGui::InputTextWithHint("##qf", tr("filter (name or form ID)"), filter, sizeof(filter));
+# AppStarfield.cpp:1172  ImGui::InputTextWithHint("##qf", tr("filter (name or form ID)"), filter, sizeof(filter));
 en "filter (name or form ID)"
 tr "筛选（名称或表单 ID）"
 
-# AppStarfield.cpp:1180  ImGui::RadioButton(tr("Not running"), &show, 3);
+# AppStarfield.cpp:1178  ImGui::RadioButton(tr("Not running"), &show, 3);
 en "Not running"
 tr "未进行"
 
-# AppStarfield.cpp:1182  ImGui::RadioButton(tr("All"), &show, 0);
+# AppStarfield.cpp:1180  ImGui::RadioButton(tr("All"), &show, 0);
 en "All"
 tr "全部"
 
-# AppStarfield.cpp:1198  ImGui::Text(tr("%zu of %zu quests"), shown.size(), rows.size());
+# AppStarfield.cpp:1196  ImGui::Text(tr("%zu of %zu quests"), shown.size(), rows.size());
 en "%zu of %zu quests"
 tr "%zu / %zu 个任务"
 
-# AppStarfield.cpp:1205  ImGui::TableSetupColumn(tr("Stages done"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1203  ImGui::TableSetupColumn(tr("Stages done"), ImGuiTableColumnFlags_WidthFixed, 90);
 en "Stages done"
 tr "已完成阶段"
 
-# AppStarfield.cpp:1257  ImGui::TextDisabled("%s", tr("Needs the names from your plugins to tell ships from other objects: Tools > Read plugin names (the Starfield folder "
+# AppStarfield.cpp:1255  ImGui::TextDisabled("%s", tr("Needs the names from your plugins to tell ships from other objects: Tools > Read plugin names (the Starfield folder "
 en "Needs the names from your plugins to tell ships from other objects: Tools > Read plugin names (the Starfield folder must be set in Options > Settings)."
 tr "需要插件中的名称才能区分飞船和其他对象：工具 > 读取插件名称（须在 选项 > 设置 中设定 Starfield 文件夹）。"
 
-# AppStarfield.cpp:1308  r.name = gbfm ? _db->describe(base) : tr("(built or changed in the ship builder)");
+# AppStarfield.cpp:1306  r.name = gbfm ? _db->describe(base) : tr("(built or changed in the ship builder)");
 en "(built or changed in the ship builder)"
 tr "（在飞船建造器中建造或修改）"
 
-# AppStarfield.cpp:1314  ImGui::TextWrapped(tr("%zu ships and stations. Open one to see and change its cargo (its inventory), or add to it."), rows.size());
+# AppStarfield.cpp:1312  ImGui::TextWrapped(tr("%zu ships and stations. Open one to see and change its cargo (its inventory), or add to it."), rows.size());
 en "%zu ships and stations. Open one to see and change its cargo (its inventory), or add to it."
 tr "%zu 艘飞船和空间站。打开一个即可查看和修改其货物（物品栏），或向其中添加。"
 
-# AppStarfield.cpp:1318  ImGui::TableSetupColumn(tr("Ship"), ImGuiTableColumnFlags_WidthStretch);
+# AppStarfield.cpp:1316  ImGui::TableSetupColumn(tr("Ship"), ImGuiTableColumnFlags_WidthStretch);
 en "Ship"
 tr "飞船"
 
-# AppStarfield.cpp:1320  ImGui::TableSetupColumn(tr("Cargo items"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1318  ImGui::TableSetupColumn(tr("Cargo items"), ImGuiTableColumnFlags_WidthFixed, 90);
 en "Cargo items"
 tr "货物件数"
 
-# AppStarfield.cpp:1361  ImGui::SeparatorText(tr("Level and XP"));
+# AppStarfield.cpp:1359  ImGui::SeparatorText(tr("Level and XP"));
 en "Level and XP"
 tr "等级与经验"
 
-# AppStarfield.cpp:1363  ImGui::Text(tr("Level %u, XP %.0f of %.0f to the next level"), h.playerLevel, h.currentXP, h.neededXP);
+# AppStarfield.cpp:1361  ImGui::Text(tr("Level %u, XP %.0f of %.0f to the next level"), h.playerLevel, h.currentXP, h.neededXP);
 en "Level %u, XP %.0f of %.0f to the next level"
 tr "等级 %u，距离下一级经验 %.0f / %.0f"
 
-# AppStarfield.cpp:1366  ImGui::TextDisabled("%s", tr("To change them, ReSaver Plus needs the names from your plugins: Tools > Read plugin names."));
+# AppStarfield.cpp:1364  ImGui::TextDisabled("%s", tr("To change them, ReSaver Plus needs the names from your plugins: Tools > Read plugin names."));
 en "To change them, ReSaver Plus needs the names from your plugins: Tools > Read plugin names."
 tr "要修改它们，ReSaver Plus 需要插件中的名称：工具 > 读取插件名称。"
 
-# AppStarfield.cpp:1389  ImGui::TextDisabled("%s", (tr("Cannot be changed here: ") + xp.error).c_str());
+# AppStarfield.cpp:1387  ImGui::TextDisabled("%s", (tr("Cannot be changed here: ") + xp.error).c_str());
 en "Cannot be changed here: "
 tr "此处无法修改："
 
-# AppStarfield.cpp:1392  ImGui::TextDisabled(tr("Total experience saved: %.0f"), xp.experience);
+# AppStarfield.cpp:1390  ImGui::TextDisabled(tr("Total experience saved: %.0f"), xp.experience);
 en "Total experience saved: %.0f"
 tr "已保存的总经验：%.0f"
 
-# AppStarfield.cpp:1395  ImGui::InputInt(tr("level"), &wantLevel);
+# AppStarfield.cpp:1393  ImGui::InputInt(tr("level"), &wantLevel);
 en "level"
 tr "等级"
 
-# AppStarfield.cpp:1400  ImGui::InputFloat(tr("XP into it"), &wantXP, 0, 0, "%.0f");
+# AppStarfield.cpp:1398  ImGui::InputFloat(tr("XP into it"), &wantXP, 0, 0, "%.0f");
 en "XP into it"
 tr "本级经验"
 
-# AppStarfield.cpp:1403  ImGui::TextDisabled(tr("(of %.0f)"), need);
+# AppStarfield.cpp:1401  ImGui::TextDisabled(tr("(of %.0f)"), need);
 en "(of %.0f)"
 tr "（共 %.0f）"
 
-# AppStarfield.cpp:1404  if (ImGui::Button(tr("Set level and XP"))) {
+# AppStarfield.cpp:1402  if (ImGui::Button(tr("Set level and XP"))) {
 en "Set level and XP"
 tr "设置等级与经验"
 
-# AppStarfield.cpp:1407  result = Fmt(tr("Level %d, XP %.0f."), wantLevel, wantXP);
+# AppStarfield.cpp:1405  result = Fmt(tr("Level %d, XP %.0f."), wantLevel, wantXP);
 en "Level %d, XP %.0f."
 tr "等级 %d，经验 %.0f。"
 
-# AppStarfield.cpp:1410  result = tr("Not changed: ") + why;
+# AppStarfield.cpp:1408  result = tr("Not changed: ") + why;
+# AppStarfield.cpp:1802  _status = tr("Not changed: ") + why;
 en "Not changed: "
 tr "未修改："
 
-# AppStarfield.cpp:1418  ImGui::TextDisabled("%s", tr("Sets the level and the experience the game keeps for you (and the load menu's). Only these change: nothing else "
+# AppStarfield.cpp:1416  ImGui::TextDisabled("%s", tr("Sets the level and the experience the game keeps for you (and the load menu's). Only these change: nothing else "
 en "Sets the level and the experience the game keeps for you (and the load menu's). Only these change: nothing else the game does at a level-up happens (no skill point is added). Keep the original save."
 tr "设置游戏为你保存的等级和经验（以及读档菜单中的）。只修改这两项：游戏在升级时做的其他事情都不会发生（不会增加技能点）。请保留原始存档。"
 
-# AppStarfield.cpp:1430  if (!ImGui::CollapsingHeader(trId("Actor values"))) {
+# AppStarfield.cpp:1428  if (!ImGui::CollapsingHeader(trId("Actor values"))) {
 en "Actor values"
 tr "角色数值"
 
-# AppStarfield.cpp:1435  ImGui::TextDisabled("%s", tr("Needs the names from your plugins: Tools > Read plugin names."));
+# AppStarfield.cpp:1433  ImGui::TextDisabled("%s", tr("Needs the names from your plugins: Tools > Read plugin names."));
 en "Needs the names from your plugins: Tools > Read plugin names."
 tr "需要插件中的名称：工具 > 读取插件名称。"
 
-# AppStarfield.cpp:1454  ImGui::TextDisabled("%s", (tr("Not found: ") + av.error).c_str());
+# AppStarfield.cpp:1452  ImGui::TextDisabled("%s", (tr("Not found: ") + av.error).c_str());
 en "Not found: "
 tr "未找到："
 
-# AppStarfield.cpp:1458  ImGui::TextDisabled("%s", tr("The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers "
+# AppStarfield.cpp:1456  ImGui::TextDisabled("%s", tr("The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers "
 en "The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers only when not 0: Permanent (scripts and perks, ModValue), Temporary (equipment and active effects) and Damage (DamageValue; 0 = fully restored). Saved numbers can be changed (press Enter). Use with care: keep the original save."
 tr "存档为你保存的数值。基础值只有在不同于游戏默认值时才会保存；修正值只有不为 0 时才保存：永久（脚本和天赋，ModValue）、临时（装备和生效中的效果）和伤害（DamageValue；0 = 完全恢复）。已保存的数字可以修改（按回车）。请谨慎：保留原始存档。"
 
-# AppStarfield.cpp:1463  ImGui::InputTextWithHint("##avf", tr("filter"), filter, sizeof(filter));
+# AppStarfield.cpp:1461  ImGui::InputTextWithHint("##avf", tr("filter"), filter, sizeof(filter));
 en "filter"
 tr "筛选"
 
-# AppStarfield.cpp:1468  n = Fmt(tr("(engine value %X)"), f);
+# AppStarfield.cpp:1466  n = Fmt(tr("(engine value %X)"), f);
 en "(engine value %X)"
 tr "（引擎数值 %X）"
 
-# AppStarfield.cpp:1488  ImGui::TableSetupColumn(tr("Actor value"), ImGuiTableColumnFlags_WidthStretch);
+# AppStarfield.cpp:1486  ImGui::TableSetupColumn(tr("Actor value"), ImGuiTableColumnFlags_WidthStretch);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Actor value"
 tr "角色数值"
 
-# AppStarfield.cpp:1489  ImGui::TableSetupColumn(tr("Base"), ImGuiTableColumnFlags_WidthFixed, 110);
+# AppStarfield.cpp:1487  ImGui::TableSetupColumn(tr("Base"), ImGuiTableColumnFlags_WidthFixed, 110);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Base"
 tr "基础"
 
-# AppStarfield.cpp:1490  ImGui::TableSetupColumn(tr("Permanent"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1488  ImGui::TableSetupColumn(tr("Permanent"), ImGuiTableColumnFlags_WidthFixed, 90);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Permanent"
 tr "永久"
 
-# AppStarfield.cpp:1491  ImGui::TableSetupColumn(tr("Temporary"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1489  ImGui::TableSetupColumn(tr("Temporary"), ImGuiTableColumnFlags_WidthFixed, 90);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Temporary"
 tr "临时"
 
-# AppStarfield.cpp:1492  ImGui::TableSetupColumn(tr("Damage"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1490  ImGui::TableSetupColumn(tr("Damage"), ImGuiTableColumnFlags_WidthFixed, 90);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Damage"
 tr "伤害"
 
-# AppStarfield.cpp:1527  markChanged(Fmt(tr("%s set to %.2f"), n.c_str(), v));
+# AppStarfield.cpp:1525  markChanged(Fmt(tr("%s set to %.2f"), n.c_str(), v));
 en "%s set to %.2f"
 tr "%s 设为 %.2f"
 
-# AppStarfield.cpp:1532  ImGui::TextDisabled("%s", tr("default"));
+# AppStarfield.cpp:1530  ImGui::TextDisabled("%s", tr("default"));
 en "default"
 tr "默认"
 
-# AppStarfield.cpp:1543  markChanged(Fmt(tr("%s: %s modifier set to %.2f"), n.c_str(), tr(kModNames[k]), v));
+# AppStarfield.cpp:1541  markChanged(Fmt(tr("%s: %s modifier set to %.2f"), n.c_str(), tr(kModNames[k]), v));
 en "%s: %s modifier set to %.2f"
 tr "%s：%s 修正值设为 %.2f"
 
-# AppStarfield.cpp:1560  a_why = Fmt(tr("Needs the game running with ReSaverHelper for Starfield (version %d or later)."), a_version);
+# AppStarfield.cpp:1558  a_why = Fmt(tr("Needs the game running with ReSaverHelper for Starfield (version %d or later)."), a_version);
 en "Needs the game running with ReSaverHelper for Starfield (version %d or later)."
 tr "需要运行中的游戏并装有 Starfield 版 ReSaverHelper（版本 %d 或更高）。"
 
-# AppStarfield.cpp:1568  a_why = Fmt(tr("Needs ReSaverHelper for Starfield version %d or later (the game has version %s)."), a_version, info.helperVersion.c_str());
+# AppStarfield.cpp:1566  a_why = Fmt(tr("Needs ReSaverHelper for Starfield version %d or later (the game has version %s)."), a_version, info.helperVersion.c_str());
 en "Needs ReSaverHelper for Starfield version %d or later (the game has version %s)."
 tr "需要 Starfield 版 ReSaverHelper 版本 %d 或更高（游戏中是版本 %s）。"
 
-# AppStarfield.cpp:1582  const std::string what = Fmt(tr("brought %s to you"), a_name.c_str());
+# AppStarfield.cpp:1580  const std::string what = Fmt(tr("brought %s to you"), a_name.c_str());
 en "brought %s to you"
 tr "已把 %s 带到你身边"
+
+# AppStarfield.cpp:1644  ImGui::TextWrapped("%s", tr("Reading the names of your plugins first (they tell which forms are spells, enchantments and aid items)..."));
+en "Reading the names of your plugins first (they tell which forms are spells, enchantments and aid items)..."
+tr "先读取你的插件名称（由此知道哪些表单是法术、附魔和医疗物品）……"
+
+# AppStarfield.cpp:1656  TextColored(theme::Warn(), tr("The save has no record of the player."));
+en "The save has no record of the player."
+tr "存档中没有玩家的记录。"
+
+# AppStarfield.cpp:1695  TextColored(theme::Warn(), tr("Your active effects were not found in this save: ") + c.fx.error);
+en "Your active effects were not found in this save: "
+tr "在此存档中未找到你的生效效果："
+
+# AppStarfield.cpp:1696  ImGui::TextDisabled("%s", tr("The part of the save before them is not read yet, so they are found by their shape; this save's did not fit."));
+en "The part of the save before them is not read yet, so they are found by their shape; this save's did not fit."
+tr "它们之前的存档部分尚未读取，因此按形状查找；此存档的形状不符合。"
+
+# AppStarfield.cpp:1700  ImGui::TextWrapped("%s", Fmt(tr("%zu effects run on your character: abilities, your gear's enchantments, aid items and what others put on you."),
+en "%zu effects run on your character: abilities, your gear's enchantments, aid items and what others put on you."
+tr "你的角色身上有 %zu 个效果在生效：能力、装备附魔、医疗物品以及别人施加的效果。"
+
+# AppStarfield.cpp:1708  TextColored(theme::Caution(), Fmt(tr("%zu stuck: the enchantment of an item you no longer have is still running. They are ticked; take them "
+en "%zu stuck: the enchantment of an item you no longer have is still running. They are ticked; take them out below."
+tr "%zu 个卡住：你已经没有的物品的附魔仍在生效。它们已勾选；请在下方移除。"
+
+# AppStarfield.cpp:1712  TextColored(theme::Good(), tr("Nothing stuck: every enchantment running belongs to an item you have."));
+en "Nothing stuck: every enchantment running belongs to an item you have."
+tr "没有卡住的效果：每个生效的附魔都属于你拥有的物品。"
+
+# AppStarfield.cpp:1715  static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
+en "Stuck: the item is gone"
+tr "卡住：物品已不在"
+
+# AppStarfield.cpp:1715  static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
+en "Your gear's enchantments"
+tr "你的装备附魔"
+
+# AppStarfield.cpp:1715  static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
+en "Spells and abilities"
+tr "法术和能力"
+
+# AppStarfield.cpp:1716  N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
+en "Aid items and food"
+tr "医疗物品和食物"
+
+# AppStarfield.cpp:1716  N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
+en "Not in the plugins read (a mod's, or a mod no longer installed)"
+tr "不在已读取的插件中（某个模组的，或已卸载的模组）"
+
+# AppStarfield.cpp:1736  ImGui::TableSetupColumn(tr("Effect of"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+en "Effect of"
+tr "效果来源"
+
+# AppStarfield.cpp:1737  ImGui::TableSetupColumn(tr("From item"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+en "From item"
+tr "来自物品"
+
+# AppStarfield.cpp:1738  ImGui::TableSetupColumn(tr("Magnitude"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5);
+en "Magnitude"
+tr "强度"
+
+# AppStarfield.cpp:1739  ImGui::TableSetupColumn(tr("Duration"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5);
+en "Duration"
+tr "持续时间"
+
+# AppStarfield.cpp:1740  ImGui::TableSetupColumn(tr("By"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+en "By"
+tr "施加者"
+
+# AppStarfield.cpp:1762  tips::Tip(tr("You no longer have this item, but its enchantment still runs on you."));
+en "You no longer have this item, but its enchantment still runs on you."
+tr "你已经没有这个物品，但它的附魔仍在你身上生效。"
+
+# AppStarfield.cpp:1773  ImGui::TextDisabled("%s", tr("lasting"));
+en "lasting"
+tr "持续"
+
+# AppStarfield.cpp:1796  if (ImGui::Button(Fmt(tr("Take out the %zu ticked effects"), picked.size()).c_str())) {
+en "Take out the %zu ticked effects"
+tr "移除勾选的 %zu 个效果"
+
+# AppStarfield.cpp:1800  markChanged(Fmt(tr("Took %zu effects off your character"), n));
+en "Took %zu effects off your character"
+tr "已从你的角色身上移除 %zu 个效果"
+
+# AppStarfield.cpp:1806  tips::Tip(tr("Takes the ticked effects off your character in this save. An ability or a mod's effect taken out comes back if its spell is "
+en "Takes the ticked effects off your character in this save. An ability or a mod's effect taken out comes back if its spell is still given to you. Save as a new file and keep the original."
+tr "在此存档中从你的角色身上移除勾选的效果。被移除的能力或模组效果，如果其法术仍会给你，就会再回来。请另存为新文件并保留原文件。"
 
 # AppTools.cpp:290  _status = Fmt(tr("Read %zu of %zu plugins: %zu named forms%s"), _db->pluginsRead, _db->plugins().size(), _db->size(),
 en "Read %zu of %zu plugins: %zu named forms%s"
@@ -14970,6 +15058,9 @@ en "Please report this on the mod page with the file ReSaverPP-startup.log (next
 tr "请在模组页面上连同 ReSaverPP-startup.log 文件报告此问题（位于 ReSaverPP.exe 旁，或 %TEMP% 中）。"
 
 # ---- no longer used by the code (kept for reference; safe to delete) ----
+
+en "Not for Starfield saves yet: the effects running on a character are in the part of Starfield's actor data that is not decoded yet."
+tr "暂不适用于 Starfield 存档：角色身上生效的效果位于 Starfield 角色数据中尚未解码的部分。"
 
 en "Not for Starfield saves yet: Starfield keeps many objects made in play (ships, outposts) in another part of the save, so a script on one of them can look orphaned when it is not."
 tr "暂不适用于 Starfield 存档：Starfield 把许多游戏中创建的物体（飞船、前哨）保存在存档的其他部分，因此其上的脚本可能看起来是孤立的，其实不是。"
