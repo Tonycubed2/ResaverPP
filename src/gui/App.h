@@ -6,6 +6,7 @@
 #include "core/CharEffects.h"
 #include "core/Transplant.h"
 #include "core/TransplantFO4.h"
+#include "core/TransplantSF.h"
 #include "core/WorkshopFO4.h"
 #include "core/Batch.h"
 #include "core/ChangeFormData.h"
@@ -163,6 +164,10 @@ public:
 		} else if (w == "player") {
 			_showPlayer = true;
 			_pvLoaded = false;
+		} else if (w.rfind("transplantsf:", 0) == 0) {
+			// test: Starfield Transplant, the old save read from its file (the good one is the open save)
+			_showTransplant = true;
+			transplantSFLoad(w.substr(13));
 		} else if (w.rfind("transplantf4:", 0) == 0) {
 			// test: Fallout 4 Transplant, the old save read from its file (the good one is the open save)
 			_showTransplant = true;
@@ -369,6 +374,34 @@ private:
 	void                   transplantF4PollSave();
 	void                   transplantF4Step();
 	void                   transplantF4Send(std::size_t a_idx, std::vector<ess::transplant::Record> a_rest, std::string a_said);
+	// Starfield (AppTransplantSF.cpp): the old save kept to compare again when the good save or the names change
+	void                   drawTransplantSF();
+	void                   transplantSFLoad(const std::filesystem::path& a_path);
+	void                   transplantSFRead();  // both snapshots and the list again
+	ess::transplant::sf::Lookup transplantSFLookup() const;
+	void                   transplantSFStartGame(std::vector<std::size_t> a_run);
+	void                   transplantSFPollSave();
+	void                   transplantSFStep();
+	void                   transplantSFSend(std::size_t a_idx, std::vector<ess::transplant::Record> a_rest, std::string a_said);
+	std::shared_ptr<ess::SaveFile>            _tsfOldSave;
+	ess::transplant::sf::Snapshot             _tsfOld, _tsfGood;
+	std::vector<ess::transplant::sf::Change>  _tsfChanges;
+	std::map<std::size_t, std::pair<bool, std::string>> _tsfResults;
+	std::filesystem::path  _tsfOldPath;
+	std::string            _tsfOldError;
+	const ess::SaveFile*   _tsfGoodOf = nullptr;
+	const void*            _tsfDbOf = nullptr;
+	bool                   _tsfDbReady = false;
+	std::uint64_t          _tsfGen = UINT64_MAX;
+	bool                   _tsfRunning = false, _tsfNeedOrder = false;
+	std::vector<std::size_t> _tsfRun;
+	std::size_t            _tsfPos = 0;
+	std::string            _tsfWaitSave;
+	double                 _tsfWaitStart = 0;
+	std::int64_t           _tsfWaitSize = -1;
+	ess::PluginInfo        _tsfGameOrder;
+	std::string            _tsfGameNote;
+	char                   _tsfFilter[128] = "";
 	ess::transplant::fo4::Snapshot             _tf4Old, _tf4Good;
 	std::vector<ess::transplant::fo4::Change>  _tf4Changes;
 	std::map<std::size_t, std::pair<bool, std::string>> _tf4Results;  // change -> done, what happened

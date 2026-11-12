@@ -1014,6 +1014,96 @@ namespace ess
 		return out;
 	}
 
+	SfPerks FindPerksSF(const SaveFile& a_save, const ChangeForm& a_actor, const std::function<int(std::uint32_t)>& a_kind)
+	{
+		SfPerks     out;
+		const auto& d = a_actor.data;
+		const auto& refs = a_actor.sfRefs;
+		// per reference: could be a perk (a perk, or a form of a plugin not read), is a perk; prefix sums for windows
+		std::vector<std::size_t> maybe(refs.size() + 1), perk(refs.size() + 1);
+		for (std::size_t i = 0; i < refs.size(); ++i) {
+			const auto id = a_save.formIDOf(refs[i]);
+			const int  k = id == 0 || (id >> 24) == 0xFF ? 0 : a_kind(id);
+			maybe[i + 1] = maybe[i] + (k != 0);
+			perk[i + 1] = perk[i] + (k == 1);
+		}
+		struct Fit
+		{
+			std::size_t p = 0, ranks = 0, base = 0, n = 0, total = 0;
+		};
+		std::vector<Fit> fits;
+		for (std::size_t p = 0; p + 3 < d.size(); ++p) {
+			if ((d[p] & 3) == 3) {
+				continue;
+			}
+			Rd r{ d, p };
+			try {
+				const auto n = r.vsval();
+				if (n < 1 || n > 4000) {
+					continue;
+				}
+				r.need(n);
+				const auto ranks = r.p;
+				bool       ok = true;
+				for (std::uint32_t i = 0; i < n && ok; ++i) {
+					ok = d[ranks + i] >= 1 && d[ranks + i] <= 20;
+				}
+				if (!ok) {
+					continue;
+				}
+				r.p += n;
+				const auto m = r.vsval();
+				const auto k = r.vsval();
+				// (the two lists after it are the perks' entry points: never longer than the perk list itself in a save seen)
+				if (m > n || k > n) {
+					continue;
+				}
+				r.need(4u * static_cast<std::size_t>(k));
+				const std::size_t total = static_cast<std::size_t>(n) + m + k;
+				for (std::size_t base = 0; base + total <= refs.size(); ++base) {
+					if (maybe[base + total] - maybe[base] == total && 2 * (perk[base + total] - perk[base]) >= total && perk[base + n] - perk[base] >= 1) {
+						fits.push_back({ p, ranks, base, n, total });
+					}
+				}
+			} catch (const std::exception&) {
+			}
+		}
+		std::size_t best = 0, bestCount = 0;
+		for (const auto& f : fits) {
+			if (f.total > best) {
+				best = f.total;
+				bestCount = 1;
+			} else if (f.total == best) {
+				++bestCount;
+			}
+		}
+		out.fits = bestCount;
+		if (fits.empty() || best < 3) {
+			out.error = "the perk list was not found";
+			return out;
+		}
+		if (bestCount != 1) {
+			out.error = "the perk list fits in more than one place";
+			return out;
+		}
+		for (const auto& f : fits) {
+			if (f.total != best) {
+				continue;
+			}
+			out.listOffset = f.p;
+			for (std::size_t i = 0; i < f.n; ++i) {
+				SfPerk e;
+				e.refIndex = f.base + i;
+				e.formID = a_save.formIDOf(refs[e.refIndex]);
+				e.rankOffset = f.ranks + i;
+				e.rank = d[e.rankOffset];
+				out.perks.push_back(e);
+			}
+		}
+		out.ok = true;
+		return out;
+	}
+
 	SfActiveEffects FindActiveEffectsSF(const SaveFile& a_save, const ChangeForm& a_actor, const std::function<int(std::uint32_t)>& a_kind)
 	{
 		SfActiveEffects out;

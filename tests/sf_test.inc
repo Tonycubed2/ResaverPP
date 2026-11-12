@@ -1144,6 +1144,26 @@ void TestStarfieldNames()
 			std::printf("(starfield names %s: %zu of %zu plugins, %zu forms, %.0f MB in %.0f ms; unresolved %zu, orphan overrides %zu)\n", name.c_str(),
 				db.pluginsRead, db.plugins().size(), db.size(), db.sfBytes / 1048576.0, ms, db.sfUnresolved, db.sfOrphanOverrides);
 			Check(db.sfUnresolved == 0, ("sf names: every form id of the plugins placed (" + name + ")").c_str());
+			// the player's perks (FindPerksSF): found in one place, skills among them with their ranks 1..4
+			for (const auto& c : s->changeForms) {
+				if (c.typeCode() != 1 || s->formIDOf(c.refID) != 0x14) {
+					continue;
+				}
+				const auto pk = FindPerksSF(*s, c, [&](std::uint32_t f) {
+					if (const auto* d = db.find(f)) {
+						return db.type(*d) == "PERK" ? 1 : 0;
+					}
+					return db.wasRead(s->pluginOf(f)) ? 0 : -1;
+				});
+				std::size_t skills = 0;
+				for (const auto& p : pk.perks) {
+					if (const auto* d = db.find(p.formID); d && db.edid(*d).rfind("Skill_", 0) == 0 && p.rank >= 1 && p.rank <= 4) {
+						++skills;
+					}
+				}
+				std::printf("(starfield perks %s: %zu perks, %zu skills%s)\n", name.c_str(), pk.perks.size(), skills, pk.ok ? "" : (": " + pk.error).c_str());
+				Check(pk.ok && pk.perks.size() >= 20 && skills >= 5, ("sf perks: the player's perk list found, with skills (" + name + ")").c_str());
+			}
 			// forms checked against the Python reader on the device (sfdev/extract.py): the runtime id from the save's own lists
 			auto runtimeOf = [&](const std::string& a_plugin, std::uint32_t a_low) -> std::uint32_t {
 				for (std::size_t i = 0; i < s->plugins.full.size(); ++i) {
@@ -1423,3 +1443,91 @@ void TestStarfieldInventory()
 	Check(!DecodeReferenceSF(0x00012345, c).ok, "sf inventory: an impossible count is refused, not looped over");
 }
 
+
+// Transplant (transplant::sf): form ids by plugin + local id, the helper's records; with real saves (RESAVERPP_SF_SAVES: the
+// lowest and highest level of the first player) the credits and items of the higher one written into the lower one and
+// read back, with nothing of them left to bring over
+void TestStarfieldTransplant()
+{
+	namespace tsf = ess::transplant::sf;
+	PluginInfo pi;
+	pi.full = { "Starfield.esm", "Constellation.esm", "Mod.esm" };
+	pi.medium = { "Med.esm" };
+	pi.lite = { "A.esl", "B.esl" };
+	Check(tsf::RuntimeID(pi, "mod.esm", 0x123456) == 0x02123456 && tsf::RuntimeID(pi, "B.esl", 0x812) == 0xFE001812 &&
+			  tsf::RuntimeID(pi, "Med.esm", 0x1234) == 0xFD001234 && tsf::RuntimeID(pi, "Gone.esm", 1) == 0,
+		"sf transplant: form ids from plugin + local id (full, light, medium)");
+	Check(tsf::LocalOf(0xFE001812) == 0x812 && tsf::LocalOf(0xFD011234) == 0x1234 && tsf::LocalOf(0x02123456) == 0x123456, "sf transplant: local ids");
+	tsf::Change perk;
+	perk.kind = tsf::Kind::kPerk;
+	perk.count = 3;
+	const auto pr = tsf::GameRecords(perk, 0x0002C59A);
+	tsf::Change quest;
+	quest.kind = tsf::Kind::kQuest;
+	quest.value = 100;
+	quest.complete = true;
+	const auto qr = tsf::GameRecords(quest, 0x0001A1A1);
+	Check(pr.size() == 3 && pr[0] == ess::transplant::Record{ "addperk", "0002C59A" } && qr.size() == 2 &&
+			  qr[0] == ess::transplant::Record{ "setstage", "0001A1A1", "100" } && qr[1] == ess::transplant::Record{ "completequest", "0001A1A1" },
+		"sf transplant: AddPerk once per rank, SetStage then CompleteQuest");
+
+	const auto saves = SfSplit(std::getenv("RESAVERPP_SF_SAVES"));
+	std::unique_ptr<SaveFile> lo, hi;
+	std::string               player;
+	for (const auto& sp : saves) {
+		try {
+			auto s = SaveFile::load(sp);
+			if (player.empty()) {
+				player = s->header.playerName;
+			}
+			if (s->header.playerName != player) {
+				continue;
+			}
+			if (!lo || s->header.playerLevel < lo->header.playerLevel) {
+				lo = std::move(s);
+			} else if (!hi || s->header.playerLevel > hi->header.playerLevel) {
+				hi = std::move(s);
+			}
+		} catch (const std::exception&) {
+		}
+	}
+	if (!lo || !hi || hi->header.playerLevel <= lo->header.playerLevel) {
+		std::printf("(starfield transplant: RESAVERPP_SF_SAVES has no two levels of one player, real saves skipped)\n");
+		return;
+	}
+	const tsf::Lookup none;
+	const auto        good = tsf::FromSave(*lo, "good", *lo, none);
+	const auto        bad = tsf::FromSave(*hi, "bad", *lo, none);
+	Check(good.valid && bad.valid && good.itemsKnown && bad.itemsKnown && !bad.quests.empty(), "sf transplant: both saves read (items, quests)");
+	Check(bad.xp > good.xp && bad.level > good.level, "sf transplant: the old save's experience from its header");
+	auto        changes = tsf::Diff(good, bad, *lo);
+	std::size_t written = 0, failed = 0, quests = 0;
+	for (const auto& c : changes) {
+		quests += c.kind == tsf::Kind::kQuest;
+		if (c.via != tsf::Via::kFile || !c.available || c.kind == tsf::Kind::kLevel) {
+			continue;
+		}
+		const auto why = tsf::ApplyToFile(*lo, c, {});
+		why.empty() ? ++written : ++failed;
+		if (!why.empty() && failed < 4) {
+			std::printf("  sf transplant: %s: %s\n", c.label.c_str(), why.c_str());
+		}
+	}
+	Check(written > 0 && failed == 0 && quests > 0, "sf transplant: credits and items written into the good save, quests listed for the game");
+	const auto out = fs::temp_directory_path() / "rs_sf_transplant.sfs";
+	try {
+		lo->write(out, false);
+		auto       back = SaveFile::load(out);
+		const auto again = tsf::FromSave(*back, "back", *back, none);
+		std::size_t left = 0;
+		for (const auto& c : tsf::Diff(again, bad, *back)) {
+			left += (c.kind == tsf::Kind::kItem || c.kind == tsf::Kind::kCredits) && c.available;
+		}
+		Check(again.valid && again.credits == bad.credits && left == 0, "sf transplant: written, read back: the credits and every item are there");
+	} catch (const std::exception& e) {
+		std::printf("FAIL: sf transplant write: %s\n", e.what());
+		++g_fail;
+	}
+	std::error_code ec;
+	fs::remove(out, ec);
+}

@@ -26,6 +26,7 @@
 #include "core/Transplant.h"
 #include "core/StageSafety.h"
 #include "core/TransplantFO4.h"
+#include "core/TransplantSF.h"
 #include "core/WorkshopFO4.h"
 #include "core/WorldItemsFO4.h"
 #include "core/CellResetFO4.h"
@@ -6777,6 +6778,7 @@ int main()
 	TestStarfieldNames();
 	TestStarfieldModManager();
 	TestStarfieldRefBase();
+	TestStarfieldTransplant();
 	TestStarfieldQuest();
 	TestStarfieldInventory();
 	TestStarfieldXP();

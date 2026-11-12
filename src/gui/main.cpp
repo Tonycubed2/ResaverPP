@@ -514,7 +514,8 @@ int RunApp(int argc, char** argv)
 		app.testFixLoadOrder(std::string(lf) == "write");
 	}
 	if (const char* tp = std::getenv("RESAVERPP_TEST_TPOLD")) {  // Fallout 4 Transplant: the old save to compare with the open one
-		app.testOpen(std::string("transplantf4:") + tp);
+		const std::string t(tp);
+		app.testOpen((t.size() > 4 && t.substr(t.size() - 4) == ".sfs" ? std::string("transplantsf:") : std::string("transplantf4:")) + t);
 	}
 	if (const char* t = std::getenv("RESAVERPP_TEST_CAT")) {
 		app.testSelect(std::atoi(t), std::getenv("RESAVERPP_TEST_FILTER"), std::getenv("RESAVERPP_TEST_ANALYSIS") != nullptr);

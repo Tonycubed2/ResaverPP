@@ -328,6 +328,28 @@ namespace ess
 	// back after the change (the list found again, with that many fewer); "" when done, else why not (nothing changed).
 	std::string RemoveActiveEffectsSF(const SaveFile& a_save, ChangeForm& a_actor, const std::set<std::size_t>& a_indices,
 		const std::function<int(std::uint32_t)>& a_kind, std::size_t* a_removed = nullptr);
+	// An actor's perks (Starfield): Actor::SaveGame 0x141916b30 writes the actor's perk rank array (Actor +0x360, the one
+	// HasPerk 0x141955080 reads) with 0x1412b60a0: vsval n, n x (FORMID perk, u8 rank); vsval m, m x FORMID; vsval k, k x (FORMID,
+	// u32). As the active effects, the part of the actor before it is not read, so it is found by its shape: n + m + k
+	// references in a row that are perks (a_kind: 1 yes, 0 no, -1 not known: a plugin not read), the ranks 1..20, m and k
+	// not above n; the
+	// longest list that fits in only one place (the player's: 92 to 134 perks with 74 to 113 and 18 to 21 entries in every
+	// save checked, ranks 1..4).
+	struct SfPerk
+	{
+		std::uint32_t formID = 0;  // runtime form ID
+		std::uint8_t  rank = 0;
+		std::size_t   rankOffset = 0, refIndex = 0;
+	};
+	struct SfPerks
+	{
+		bool                ok = false;
+		std::string         error;
+		std::size_t         fits = 0;
+		std::size_t         listOffset = 0;
+		std::vector<SfPerk> perks;
+	};
+	SfPerks FindPerksSF(const SaveFile& a_save, const ChangeForm& a_actor, const std::function<int(std::uint32_t)>& a_kind);
 	// a saved value changed in place
 	bool SetActorValueSF(ChangeForm& a_actor, std::size_t a_offset, float a_value);
 	// sets the level and the XP into it (0 .. what the level needs); also the header's level / XP (the load menu)

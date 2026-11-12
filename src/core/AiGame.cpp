@@ -282,7 +282,7 @@ LOGS (Starfield)
 - analyze_logs reads SFSE's logs (Documents\My Games\Starfield\SFSE: sfse.txt says which SFSE plugins did not load and why, sfse_loader.txt), the plugins' own logs (SFSE\Logs), the Papyrus log (Logs\Script\Papyrus.0.log; Starfield writes it only with bEnableLogging=1 under [Papyrus] in StarfieldCustom.ini) and the ReSaverHelper log. list_logs, read_log and search_logs go deeper; they also list Starfield's INI files.
 
 NOT AVAILABLE FOR STARFIELD SAVES (say so plainly instead of trying)
-- The Skyrim and Fallout 4 options and tools: fo4_player / fo4_edit_player, leftover_items, Skyrim's --player / --set-* options, --npcs, --followers, --char-effects, --transplant, co-save editing. (In the app itself, the Merged patch window and the Character effects window do work for Starfield: point the user there.)
+- The Skyrim and Fallout 4 options and tools: fo4_player / fo4_edit_player, leftover_items, Skyrim's --player / --set-* options, --npcs, --followers, --char-effects, --transplant, co-save editing. (In the app itself, the Merged patch, Character effects, Transplant progress (old save -> the open save: level, XP, credits and items into the file; perks, skills and quests through the helper) and Open script (.pex) windows do work for Starfield: point the user there.)
 - Starfield crash logs (Trainwreck, Documents\My Games\Starfield\SFSE\Crashlogs): the app's Crash log window reads them; read_log reads one when the user names it.
 
 THE RUNNING GAME (game_command)

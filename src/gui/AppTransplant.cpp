@@ -662,6 +662,10 @@ void App::drawTransplant()
 		drawTransplantF4();  // (AppTransplantF4.cpp: both saves read from their files)
 		return;
 	}
+	if (sf()) {
+		drawTransplantSF();  // (AppTransplantSF.cpp: both saves read from their files)
+		return;
+	}
 	prepareWindow("Transplant", ImVec2(0.9f, 0.9f));
 	if (!ImGui::Begin(trId("Transplant"), &_showTransplant, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
