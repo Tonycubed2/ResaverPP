@@ -140,23 +140,23 @@ en "the engine listed no models"
 tr ""
 
 # App.cpp:36  case App::Cat::kOverview: return N_("Overview");
-# AppStarfield.cpp:267  item(Cat::kOverview, 0, N_("Overview"), _report && !_report->warnings.empty());
+# AppStarfield.cpp:266  item(Cat::kOverview, 0, N_("Overview"), _report && !_report->warnings.empty());
 en "Overview"
 tr ""
 
 # App.cpp:37  case App::Cat::kMods: return N_("Mods");
-# AppStarfield.cpp:274  item(Cat::kMods, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Mods"), !_missing.empty());
+# AppStarfield.cpp:273  item(Cat::kMods, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Mods"), !_missing.empty());
 en "Mods"
 tr ""
 
 # App.cpp:38  case App::Cat::kPlugins: return N_("Plugins");
 # App.cpp:2508  KV(tr("Plugins"), _save->plugins.hasLite ? Fmt(tr("%zu full + %zu light"), _save->plugins.full.size(), _save->plugins.lite.size())
-# AppStarfield.cpp:270  item(Cat::kPlugins, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Plugins"));
+# AppStarfield.cpp:269  item(Cat::kPlugins, pl.full.size() + pl.lite.size() + pl.medium.size(), N_("Plugins"));
 en "Plugins"
 tr ""
 
 # App.cpp:39  case App::Cat::kChangeForms: return N_("Change Forms");
-# AppStarfield.cpp:271  item(Cat::kChangeForms, _save->changeForms.size(), N_("Change Forms"));
+# AppStarfield.cpp:270  item(Cat::kChangeForms, _save->changeForms.size(), N_("Change Forms"));
 en "Change Forms"
 tr ""
 
@@ -173,12 +173,12 @@ en "Scripts"
 tr ""
 
 # App.cpp:42  case App::Cat::kInstances: return N_("Script Instances");
-# AppStarfield.cpp:285  item(Cat::kInstances, p.instances.size(), N_("Script Instances"), _report && (_report->unattached > 0 || _report->undefinedInstances > 0));
+# AppStarfield.cpp:284  item(Cat::kInstances, p.instances.size(), N_("Script Instances"), _report && (_report->unattached > 0 || _report->undefinedInstances > 0));
 en "Script Instances"
 tr ""
 
 # App.cpp:43  case App::Cat::kReferences: return N_("References");
-# AppStarfield.cpp:286  item(Cat::kReferences, p.references.size(), N_("References"));
+# AppStarfield.cpp:285  item(Cat::kReferences, p.references.size(), N_("References"));
 en "References"
 tr ""
 
@@ -189,33 +189,33 @@ en "Arrays"
 tr ""
 
 # App.cpp:45  case App::Cat::kThreads: return N_("Active Scripts (threads)");
-# AppStarfield.cpp:288  item(Cat::kThreads, p.activeScripts.size(), N_("Active Scripts (threads)"));
+# AppStarfield.cpp:287  item(Cat::kThreads, p.activeScripts.size(), N_("Active Scripts (threads)"));
 en "Active Scripts (threads)"
 tr ""
 
 # App.cpp:46  case App::Cat::kMessages: return N_("Function Messages");
-# AppStarfield.cpp:289  item(Cat::kMessages, p.functionMessages.size(), N_("Function Messages"));
+# AppStarfield.cpp:288  item(Cat::kMessages, p.functionMessages.size(), N_("Function Messages"));
 en "Function Messages"
 tr ""
 
 # App.cpp:47  case App::Cat::kSuspended: return N_("Suspended Stacks");
-# AppStarfield.cpp:290  item(Cat::kSuspended, p.suspended1.size() + p.suspended2.size(), N_("Suspended Stacks"));
+# AppStarfield.cpp:289  item(Cat::kSuspended, p.suspended1.size() + p.suspended2.size(), N_("Suspended Stacks"));
 en "Suspended Stacks"
 tr ""
 
 # App.cpp:48  case App::Cat::kUnbinds: return N_("Queued Unbinds");
-# AppStarfield.cpp:291  item(Cat::kUnbinds, p.unbinds.size(), N_("Queued Unbinds"));
+# AppStarfield.cpp:290  item(Cat::kUnbinds, p.unbinds.size(), N_("Queued Unbinds"));
 en "Queued Unbinds"
 tr ""
 
 # App.cpp:49  case App::Cat::kQuests: return N_("Quests");
 # AppHome.cpp:374  { Sc::kQuests, tr("Quests"), tr("running, completed, the journal"),
-# AppStarfield.cpp:1127  if (!ImGui::Begin(trId("Quests"), &_showQuestsSF, ImGuiWindowFlags_NoCollapse)) {
+# AppStarfield.cpp:1126  if (!ImGui::Begin(trId("Quests"), &_showQuestsSF, ImGuiWindowFlags_NoCollapse)) {
 en "Quests"
 tr ""
 
 # App.cpp:50  case App::Cat::kGlobals: return N_("Global Data");
-# AppStarfield.cpp:272  item(Cat::kGlobals, _save->table1.size() + _save->table2.size() + _save->table3.size(), N_("Global Data"));
+# AppStarfield.cpp:271  item(Cat::kGlobals, _save->table1.size() + _save->table2.size() + _save->table3.size(), N_("Global Data"));
 en "Global Data"
 tr ""
 
@@ -305,7 +305,7 @@ en "Name"
 tr ""
 
 # App.cpp:445  ImGui::TableSetupColumn(tr("Value"), ImGuiTableColumnFlags_WidthStretch);
-# AppStarfield.cpp:627  ImGui::TableSetupColumn(tr("Value"), ImGuiTableColumnFlags_WidthFixed, 130);
+# AppStarfield.cpp:626  ImGui::TableSetupColumn(tr("Value"), ImGuiTableColumnFlags_WidthFixed, 130);
 en "Value"
 tr ""
 
@@ -1057,18 +1057,18 @@ en "Everything ReSaver++ noticed about this save, and what can safely be done ab
 tr ""
 
 # App.cpp:1522  label += Fmt(tr("  (%zu)"), n);
-# AppStarfield.cpp:250  label += Fmt(tr("  (%zu)"), n);
+# AppStarfield.cpp:249  label += Fmt(tr("  (%zu)"), n);
 en "  (%zu)"
 tr ""
 
 # App.cpp:1563  ImGui::SeparatorText(trc("sidebar", "Save"));
-# AppStarfield.cpp:268  ImGui::SeparatorText(trc("sidebar", "Save"));
+# AppStarfield.cpp:267  ImGui::SeparatorText(trc("sidebar", "Save"));
 en "sidebar|Save"
 tr ""
 
 # App.cpp:1566  ImGui::SeparatorText(tr("Papyrus"));
-# AppStarfield.cpp:276  ImGui::SeparatorText(tr("Papyrus"));
-# AppStarfield.cpp:389  std::string what = g.type == 1001 ? std::string(tr("Papyrus")) : g.type == 0 ? std::string(tr("string table offset"))
+# AppStarfield.cpp:275  ImGui::SeparatorText(tr("Papyrus"));
+# AppStarfield.cpp:388  std::string what = g.type == 1001 ? std::string(tr("Papyrus")) : g.type == 0 ? std::string(tr("string table offset"))
 en "Papyrus"
 tr ""
 
@@ -1299,17 +1299,17 @@ en "Select an item to see its details."
 tr ""
 
 # App.cpp:1971  ImGui::TextDisabled(lite ? tr("Light plugin (ESL), index FE:%03X") : tr("Full plugin, load index %02X"), static_cast<unsigned>(i));
-# AppStarfield.cpp:417  : lite ? Fmt(tr("Light plugin (ESL), index FE:%03X"), static_cast<unsigned>(i))
+# AppStarfield.cpp:416  : lite ? Fmt(tr("Light plugin (ESL), index FE:%03X"), static_cast<unsigned>(i))
 en "Light plugin (ESL), index FE:%03X"
 tr ""
 
 # App.cpp:1971  ImGui::TextDisabled(lite ? tr("Light plugin (ESL), index FE:%03X") : tr("Full plugin, load index %02X"), static_cast<unsigned>(i));
-# AppStarfield.cpp:418  : Fmt(tr("Full plugin, load index %02X"), static_cast<unsigned>(i)))
+# AppStarfield.cpp:417  : Fmt(tr("Full plugin, load index %02X"), static_cast<unsigned>(i)))
 en "Full plugin, load index %02X"
 tr ""
 
 # App.cpp:1979  ImGui::Text(tr("%zu change forms belong to this plugin."), forms);
-# AppStarfield.cpp:438  ImGui::Text(tr("%zu change forms belong to this plugin."), forms);
+# AppStarfield.cpp:437  ImGui::Text(tr("%zu change forms belong to this plugin."), forms);
 en "%zu change forms belong to this plugin."
 tr ""
 
@@ -1320,35 +1320,35 @@ en "Plugin"
 tr ""
 
 # App.cpp:2002  KV(tr("RefID"), Fmt("%06X (%s)", c->refID.data,
-# AppStarfield.cpp:494  KV(tr("RefID"), Fmt("%06X (%s)", c->refID.data,
+# AppStarfield.cpp:493  KV(tr("RefID"), Fmt("%06X (%s)", c->refID.data,
 en "RefID"
 tr ""
 
 # App.cpp:2003  c->refID.type() == RefID::Type::kCreated ? tr("created in game") : c->refID.type() == RefID::Type::kDefault ? "Skyrim.esm" : tr("form index")));
-# AppStarfield.cpp:495  c->refID.type() == RefID::Type::kCreated   ? tr("created in game")
+# AppStarfield.cpp:494  c->refID.type() == RefID::Type::kCreated   ? tr("created in game")
 en "created in game"
 tr ""
 
 # App.cpp:2003  c->refID.type() == RefID::Type::kCreated ? tr("created in game") : c->refID.type() == RefID::Type::kDefault ? "Skyrim.esm" : tr("form index")));
-# AppStarfield.cpp:497  : tr("form index")));
+# AppStarfield.cpp:496  : tr("form index")));
 en "form index"
 tr ""
 
 # App.cpp:2004  KV(tr("Change flags"), Fmt("%08X", c->changeFlags));
-# AppStarfield.cpp:498  KV(tr("Change flags"), Fmt("%08X", c->changeFlags));
+# AppStarfield.cpp:497  KV(tr("Change flags"), Fmt("%08X", c->changeFlags));
 # AppTools.cpp:576  ImGui::SeparatorText(tr("Change flags"));
 en "Change flags"
 tr ""
 
 # App.cpp:2005  KV(tr("Version"), std::to_string(c->version));
 # App.cpp:2340  KV(tr("Version"), Fmt("%d.%d", d.major, d.minor));
-# AppStarfield.cpp:425  KV(tr("Version"), e.version);
+# AppStarfield.cpp:424  KV(tr("Version"), e.version);
 en "Version"
 tr ""
 
 # App.cpp:2006  KV(tr("Data"), Fmt(tr("%zu bytes%s"), c->data.size(), c->length2 ? Fmt(tr(" (zlib, %u bytes unpacked)"), c->length2).c_str() : ""));
-# AppStarfield.cpp:500  KV(tr("Data"), Fmt(tr("%zu bytes"), c->data.size()));
-# AppStarfield.cpp:823  KV(tr("Data"), Fmt(tr("%zu bytes"), g.raw.size()));
+# AppStarfield.cpp:499  KV(tr("Data"), Fmt(tr("%zu bytes"), c->data.size()));
+# AppStarfield.cpp:822  KV(tr("Data"), Fmt(tr("%zu bytes"), g.raw.size()));
 en "Data"
 tr ""
 
@@ -1365,13 +1365,13 @@ en "Scripts attached (%zu)"
 tr ""
 
 # App.cpp:2028  const bool rawOpen = ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"));
-# AppStarfield.cpp:800  const bool rawOpen = ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"));
-# AppStarfield.cpp:841  if (!g.raw.empty() && ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"))) {
+# AppStarfield.cpp:799  const bool rawOpen = ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"));
+# AppStarfield.cpp:840  if (!g.raw.empty() && ImGui::CollapsingHeader(trId("Raw data (first 512 bytes, as stored)"))) {
 en "Raw data (first 512 bytes, as stored)"
 tr ""
 
 # App.cpp:2029  tips::Tip(tr("The record's bytes exactly as the save stores them (after decompression), in hex. For checking by hand."));
-# AppStarfield.cpp:801  tips::Tip(tr("The record's bytes exactly as the save stores them (after decompression), in hex. For checking by hand."));
+# AppStarfield.cpp:800  tips::Tip(tr("The record's bytes exactly as the save stores them (after decompression), in hex. For checking by hand."));
 en "The record's bytes exactly as the save stores them (after decompression), in hex. For checking by hand."
 tr ""
 
@@ -1727,19 +1727,19 @@ tr ""
 
 # App.cpp:2495  ImGui::Text(tr("%s, level %u"), text::ToUtf8(h.playerName).c_str(), h.playerLevel);
 # AppGallery.cpp:443  ImGui::Text(tr("%s, level %u"), e.name.c_str(), e.level);
-# AppStarfield.cpp:302  ImGui::Text(tr("%s, level %u"), text::ToUtf8(h.playerName).c_str(), h.playerLevel);
+# AppStarfield.cpp:301  ImGui::Text(tr("%s, level %u"), text::ToUtf8(h.playerName).c_str(), h.playerLevel);
 en "%s, level %u"
 tr ""
 
 # App.cpp:2501  KV(tr("Save number"), std::to_string(h.saveNumber));
 # AppArchive.cpp:286  row(tr("Save number"), std::to_string(e.saveNumber));
-# AppStarfield.cpp:308  KV(tr("Save number"), std::to_string(h.saveNumber));
+# AppStarfield.cpp:307  KV(tr("Save number"), std::to_string(h.saveNumber));
 en "Save number"
 tr ""
 
 # App.cpp:2503  KV(tr("Game"), "Fallout 4" + (_save->gameVersion.empty() ? std::string() : " " + _save->gameVersion) +
 # AppMore.cpp:781  ImGui::SeparatorText(tr("Game"));
-# AppStarfield.cpp:309  KV(tr("Game"), "Starfield " + s.gameVersion + Fmt(tr("  (playthrough started on %s)"), s.sfCreatedVersion.c_str()));
+# AppStarfield.cpp:308  KV(tr("Game"), "Starfield " + s.gameVersion + Fmt(tr("  (playthrough started on %s)"), s.sfCreatedVersion.c_str()));
 en "Game"
 tr ""
 
@@ -1748,7 +1748,7 @@ en "  (the Skyrim-only tools, Find NPCs and the MCM fix, are greyed out)"
 tr ""
 
 # App.cpp:2506  KV(tr("Format"), Fmt(tr("%ssave version %u, form version %u, %s"), h.isLE() ? "Skyrim Legendary Edition, " : "", h.version, _save->formVersion,
-# AppStarfield.cpp:310  KV(tr("Format"), Fmt(tr("engine version %u, save version %u, form version %u, %zu zlib chunks"), h.version, static_cast<unsigned>(h.sfSaveVersion),
+# AppStarfield.cpp:309  KV(tr("Format"), Fmt(tr("engine version %u, save version %u, form version %u, %zu zlib chunks"), h.version, static_cast<unsigned>(h.sfSaveVersion),
 en "Format"
 tr ""
 
@@ -1765,7 +1765,7 @@ en "%zu full + %zu light"
 tr ""
 
 # App.cpp:2510  KV(tr("Body size"), Fmt(tr("%.1f MB"), _save->originalBodySize / 1048576.0));
-# AppStarfield.cpp:314  KV(tr("Body size"), Fmt(tr("%.1f MB"), s.originalBodySize / 1048576.0));
+# AppStarfield.cpp:313  KV(tr("Body size"), Fmt(tr("%.1f MB"), s.originalBodySize / 1048576.0));
 en "Body size"
 tr ""
 
@@ -1776,7 +1776,7 @@ en "%.1f MB"
 tr ""
 
 # App.cpp:2520  ImGui::SeparatorText(tr("Counts"));
-# AppStarfield.cpp:336  ImGui::SeparatorText(tr("Counts"));
+# AppStarfield.cpp:335  ImGui::SeparatorText(tr("Counts"));
 en "Counts"
 tr ""
 
@@ -1791,7 +1791,7 @@ en "%zu  (%zu unattached, %zu undefined, %zu on missing spawned objects)"
 tr ""
 
 # App.cpp:2524  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
-# AppStarfield.cpp:339  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
+# AppStarfield.cpp:338  KV(tr("Scripts"), Fmt(tr("%zu  (%zu undefined)"), r.scripts, r.undefinedScripts));
 en "%zu  (%zu undefined)"
 tr ""
 
@@ -1802,17 +1802,17 @@ en "Threads"
 tr ""
 
 # App.cpp:2525  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
-# AppStarfield.cpp:340  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
+# AppStarfield.cpp:339  KV(tr("Threads"), Fmt(tr("%zu  (%zu undefined, %zu terminated)"), r.threads, r.undefinedThreads, r.terminatedThreads));
 en "%zu  (%zu undefined, %zu terminated)"
 tr ""
 
 # App.cpp:2526  KV(tr("Suspended stacks"), std::to_string(r.suspended));
-# AppStarfield.cpp:341  KV(tr("Suspended stacks"), std::to_string(r.suspended));
+# AppStarfield.cpp:340  KV(tr("Suspended stacks"), std::to_string(r.suspended));
 en "Suspended stacks"
 tr ""
 
 # App.cpp:2527  KV(tr("Function messages"), std::to_string(r.functionMessages));
-# AppStarfield.cpp:342  KV(tr("Function messages"), std::to_string(r.functionMessages));
+# AppStarfield.cpp:341  KV(tr("Function messages"), std::to_string(r.functionMessages));
 en "Function messages"
 tr ""
 
@@ -1940,7 +1940,7 @@ tr ""
 
 # App.cpp:2670  if (ImGui::Button(tr("Open"), ImVec2(120, 0))) {
 # AppAi.cpp:488  if (ImGui::SmallButton(tr("Open"))) {
-# AppStarfield.cpp:1222  if (ImGui::SmallButton(tr("Open"))) {
+# AppStarfield.cpp:1221  if (ImGui::SmallButton(tr("Open"))) {
 en "Open"
 tr ""
 
@@ -2231,7 +2231,7 @@ tr ""
 
 # App.cpp:3504  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_PreferSortDescending, 70);
 # App.cpp:3724  ImGui::TableSetupColumn(tr("Running"), ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortDescending, 65, 2);
-# AppStarfield.cpp:1174  ImGui::RadioButton(tr("Running"), &show, 1);
+# AppStarfield.cpp:1173  ImGui::RadioButton(tr("Running"), &show, 1);
 en "Running"
 tr ""
 
@@ -3023,7 +3023,7 @@ tr ""
 
 # AppAi.cpp:2077  if (ImGui::Button(tr("Stop"))) {
 # AppBsa.cpp:204  if (ImGui::Button(tr("Stop"))) {
-# AppStarfield.cpp:755  if (ImGui::SmallButton(tr("Stop"))) {
+# AppStarfield.cpp:754  if (ImGui::SmallButton(tr("Stop"))) {
 en "Stop"
 tr ""
 
@@ -3504,7 +3504,7 @@ en "Diseases and addictions"
 tr ""
 
 # AppCharEffects.cpp:57  case chfx::Group::kOthers: return tr("Put on you by others");
-# AppStarfield.cpp:1716  N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
+# AppStarfield.cpp:1715  N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
 en "Put on you by others"
 tr ""
 
@@ -3773,7 +3773,7 @@ tr ""
 
 # AppCharEffects.cpp:370  if (!ImGui::Begin(trId("Character effects"), &_showCharFx, ImGuiWindowFlags_NoCollapse)) {
 # AppHome.cpp:344  { Sc::kCharEffects, tr("Character effects"), tr("what you wear; effects stuck on you"),
-# AppStarfield.cpp:1637  if (!ImGui::Begin(trId("Character effects"), &_showCharFx, ImGuiWindowFlags_NoCollapse)) {
+# AppStarfield.cpp:1636  if (!ImGui::Begin(trId("Character effects"), &_showCharFx, ImGuiWindowFlags_NoCollapse)) {
 en "Character effects"
 tr ""
 
@@ -3889,7 +3889,7 @@ tr ""
 
 # AppCharEffects.cpp:587  ImGui::TableSetupColumn(tr("Item"));
 # AppCharges.cpp:216  ImGui::TableSetupColumn(tr("Item"), ImGuiTableColumnFlags_WidthStretch, 2.2f);
-# AppStarfield.cpp:529  ImGui::TableSetupColumn(tr("Item"), ImGuiTableColumnFlags_WidthStretch);
+# AppStarfield.cpp:528  ImGui::TableSetupColumn(tr("Item"), ImGuiTableColumnFlags_WidthStretch);
 en "Item"
 tr ""
 
@@ -4106,7 +4106,7 @@ en "EAMT"
 tr ""
 
 # AppCharges.cpp:256  ImGui::TextDisabled("%s", tr("full"));
-# AppStarfield.cpp:900  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
+# AppStarfield.cpp:899  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
 en "full"
 tr ""
 
@@ -4152,18 +4152,18 @@ en "Only the edited save in memory changes; write it with File > Save As."
 tr ""
 
 # AppCheck.cpp:66  case App::Risk::kSafe: return tr("SAFE");
-# AppMerge.cpp:189  ImGui::TextUnformatted(risk >= 2 ? tr("RISKY") : risk == 1 ? tr("CAUTION") : tr("SAFE"));
+# AppMerge.cpp:221  ImGui::TextUnformatted(risk >= 2 ? tr("RISKY") : risk == 1 ? tr("CAUTION") : tr("SAFE"));
 en "SAFE"
 tr ""
 
 # AppCheck.cpp:67  case App::Risk::kCaution: return tr("CAUTION");
-# AppMerge.cpp:169  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize(tr("CAUTION")).x + ImGui::GetFontSize());
-# AppMerge.cpp:189  ImGui::TextUnformatted(risk >= 2 ? tr("RISKY") : risk == 1 ? tr("CAUTION") : tr("SAFE"));
+# AppMerge.cpp:201  ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize(tr("CAUTION")).x + ImGui::GetFontSize());
+# AppMerge.cpp:221  ImGui::TextUnformatted(risk >= 2 ? tr("RISKY") : risk == 1 ? tr("CAUTION") : tr("SAFE"));
 en "CAUTION"
 tr ""
 
 # AppCheck.cpp:68  case App::Risk::kRisky: return tr("RISKY");
-# AppMerge.cpp:189  ImGui::TextUnformatted(risk >= 2 ? tr("RISKY") : risk == 1 ? tr("CAUTION") : tr("SAFE"));
+# AppMerge.cpp:221  ImGui::TextUnformatted(risk >= 2 ? tr("RISKY") : risk == 1 ? tr("CAUTION") : tr("SAFE"));
 en "RISKY"
 tr ""
 
@@ -4184,12 +4184,12 @@ en "a magic effect on actor %s"
 tr ""
 
 # AppCheck.cpp:159  it.title = tr("This save is damaged: opened read-only");
-# AppStarfield.cpp:852  it.title = tr("This save is damaged: opened read-only");
+# AppStarfield.cpp:851  it.title = tr("This save is damaged: opened read-only");
 en "This save is damaged: opened read-only"
 tr ""
 
 # AppCheck.cpp:164  it.what = tr("Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:") + list +
-# AppStarfield.cpp:857  it.what = tr("Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:") + list;
+# AppStarfield.cpp:856  it.what = tr("Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:") + list;
 en "Its structure does not add up, or it uses a layout ReSaver++ does not fully understand:"
 tr ""
 
@@ -4219,7 +4219,7 @@ tr ""
 
 # AppCheck.cpp:205  list += Fmt(tr("\n  - and %zu more"), _report->damaged.size() - 12);
 # AppQuests.cpp:675  names += Fmt(tr("\n  - and %zu more"), b->list.size() - 25);
-# AppStarfield.cpp:945  list += Fmt(tr("\n  - and %zu more"), mm.size() - 10);
+# AppStarfield.cpp:944  list += Fmt(tr("\n  - and %zu more"), mm.size() - 10);
 en "\n  - and %zu more"
 tr ""
 
@@ -4232,7 +4232,7 @@ en "\nReSaver++ shows them as unreadable and every check and tool skips them; ev
 tr ""
 
 # AppCheck.cpp:212  o.label = tr("Show it in Change forms");
-# AppStarfield.cpp:951  o.label = tr("Show it in Change forms");
+# AppStarfield.cpp:950  o.label = tr("Show it in Change forms");
 en "Show it in Change forms"
 tr ""
 
@@ -5401,7 +5401,7 @@ en "Items in the inventories of the player, NPCs and containers whose mod is gon
 tr ""
 
 # AppExtras.cpp:182  if (ImGui::Button(tr("Look again"))) {
-# AppMerge.cpp:410  if (ImGui::Button(_assetsResult ? tr("Look again") : tr("Find file conflicts"))) {
+# AppMerge.cpp:445  if (ImGui::Button(_assetsResult ? tr("Look again") : tr("Find file conflicts"))) {
 en "Look again"
 tr ""
 
@@ -5436,7 +5436,7 @@ en "Show the items and who holds them."
 tr ""
 
 # AppExtras.cpp:233  who += (who.empty() ? "" : ", ") + (fid == 0x14 ? std::string(tr("you")) : formText(fid));
-# AppStarfield.cpp:1777  ImGui::TextUnformatted(tr("you"));
+# AppStarfield.cpp:1776  ImGui::TextUnformatted(tr("you"));
 en "you"
 tr ""
 
@@ -5726,7 +5726,7 @@ tr ""
 
 # AppExtras.cpp:928  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6);
 # AppQuests.cpp:711  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthStretch, 1.0f, 1);
-# AppStarfield.cpp:530  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, 80);
+# AppStarfield.cpp:529  ImGui::TableSetupColumn(tr("Form ID"), ImGuiTableColumnFlags_WidthFixed, 80);
 en "Form ID"
 tr ""
 
@@ -6159,7 +6159,7 @@ en "filter by mod"
 tr ""
 
 # AppF4Bloat.cpp:455  for (const char* h : { tr("Total"), tr("Script instances"), tr("Threads"), tr("Arrays / structs"), tr("Changed forms"), tr("Created objects"),
-# AppStarfield.cpp:1319  ImGui::TableSetupColumn(tr("Total"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1318  ImGui::TableSetupColumn(tr("Total"), ImGuiTableColumnFlags_WidthFixed, 90);
 en "Total"
 tr ""
 
@@ -6300,12 +6300,12 @@ en "Skyrim Special Edition loads at most %zu full plugins and %zu light plugins 
 tr ""
 
 # AppF4Bloat.cpp:725  ImGui::TextDisabled(tr("Load order: %s"), platform::ToUtf8(pluginsTxt).c_str());
-# AppMerge.cpp:89  ImGui::TextDisabled(tr("Load order: %s"), platform::ToUtf8(pluginsTxt).c_str());
+# AppMerge.cpp:103  ImGui::TextDisabled(tr("Load order: %s"), platform::ToUtf8(pluginsTxt).c_str());
 en "Load order: %s"
 tr ""
 
 # AppF4Bloat.cpp:729  Colored(theme::Warn(), tr("ReSaver Plus does not know where your mods are yet: set your mods folder (Mod Organizer) or game folder in "
-# AppMerge.cpp:96  Colored(theme::Warn(), tr("ReSaver Plus does not know where your mods are yet: set your mods folder (Mod Organizer) or game folder in "
+# AppMerge.cpp:110  Colored(theme::Warn(), tr("ReSaver Plus does not know where your mods are yet: set your mods folder (Mod Organizer) or game folder in "
 en "ReSaver Plus does not know where your mods are yet: set your mods folder (Mod Organizer) or game folder in Options > Settings, then come back here."
 tr ""
 
@@ -6374,7 +6374,7 @@ en "light master"
 tr ""
 
 # AppF4Bloat.cpp:887  : p.light      ? (p.esm ? tr("light master") : tr("light"))
-# AppStarfield.cpp:900  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
+# AppStarfield.cpp:899  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
 en "light"
 tr ""
 
@@ -6383,7 +6383,7 @@ en "medium master"
 tr ""
 
 # AppF4Bloat.cpp:888  : p.medium     ? (p.esm ? tr("medium master") : tr("medium"))
-# AppStarfield.cpp:900  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
+# AppStarfield.cpp:899  auto kindName = [](int k) { return k == 1 ? tr("light") : k == 2 ? tr("medium") : tr("full"); };
 en "medium"
 tr ""
 
@@ -6473,7 +6473,7 @@ tr ""
 
 # AppF4Companions.cpp:99  return tr("Load a save in the game first.");
 # AppQuests.cpp:54  : tr("Load a save in the game first."));
-# AppStarfield.cpp:735  : tr("Load a save in the game first."));
+# AppStarfield.cpp:734  : tr("Load a save in the game first."));
 en "Load a save in the game first."
 tr ""
 
@@ -6565,7 +6565,7 @@ en "Companion"
 tr ""
 
 # AppF4Companions.cpp:357  ImGui::TableSetupColumn(tr("Reference"));
-# AppStarfield.cpp:1317  ImGui::TableSetupColumn(tr("Reference"), ImGuiTableColumnFlags_WidthFixed, 80);
+# AppStarfield.cpp:1316  ImGui::TableSetupColumn(tr("Reference"), ImGuiTableColumnFlags_WidthFixed, 80);
 en "Reference"
 tr ""
 
@@ -6613,7 +6613,7 @@ tr ""
 
 # AppF4Companions.cpp:394  ImGui::TextDisabled("%s", tr("not saved"));
 # AppPlayerFO4.cpp:181  ImGui::TextDisabled("%s", tr("not saved"));
-# AppStarfield.cpp:1217  ImGui::TextUnformatted(r.state == 2 ? tr("completed") : r.state == 1 ? tr("running") : r.state == 0 ? tr("not running") : tr("not saved"));
+# AppStarfield.cpp:1216  ImGui::TextUnformatted(r.state == 2 ? tr("completed") : r.state == 1 ? tr("running") : r.state == 0 ? tr("not running") : tr("not saved"));
 en "not saved"
 tr ""
 
@@ -6626,7 +6626,7 @@ en "infatuated"
 tr ""
 
 # AppF4Companions.cpp:408  ImGui::TextDisabled("%s", c.hasChangeForm ? tr("not read") : tr("where the plugin puts it"));
-# AppStarfield.cpp:1333  ImGui::TextDisabled("%s", tr("not read"));
+# AppStarfield.cpp:1332  ImGui::TextDisabled("%s", tr("not read"));
 en "not read"
 tr ""
 
@@ -6844,7 +6844,7 @@ en "Tick the ones over budget"
 tr ""
 
 # AppF4Settlements.cpp:288  if (ImGui::Button(tr("Tick all"))) {
-# AppMerge.cpp:143  if (ImGui::SmallButton(tr("Tick all"))) {
+# AppMerge.cpp:175  if (ImGui::SmallButton(tr("Tick all"))) {
 # AppOrphans.cpp:190  if (ImGui::Button(tr("Tick all"))) {
 en "Tick all"
 tr ""
@@ -7010,7 +7010,7 @@ en "Object"
 tr ""
 
 # AppF4World.cpp:212  ImGui::TableSetupColumn(tr("Count"), ImGuiTableColumnFlags_WidthFixed, 60);
-# AppStarfield.cpp:532  ImGui::TableSetupColumn(tr("Count"), ImGuiTableColumnFlags_WidthFixed, 130);
+# AppStarfield.cpp:531  ImGui::TableSetupColumn(tr("Count"), ImGuiTableColumnFlags_WidthFixed, 130);
 # AppTools.cpp:1539  for (const char* h : { tr("Item"), tr("Count"), "", "" }) {
 en "Count"
 tr ""
@@ -7544,7 +7544,7 @@ en "Your character's items and credits as the save keeps them, with their counts
 tr ""
 
 # AppHome.cpp:399  { Sc::kShipsSF, tr("Ships"), tr("your ships and their cargo"),
-# AppStarfield.cpp:1248  if (!ImGui::Begin(trId("Ships"), &_showShipsSF, ImGuiWindowFlags_NoCollapse)) {
+# AppStarfield.cpp:1247  if (!ImGui::Begin(trId("Ships"), &_showShipsSF, ImGuiWindowFlags_NoCollapse)) {
 en "Ships"
 tr ""
 
@@ -7561,8 +7561,8 @@ en "Patch your load order"
 tr ""
 
 # AppHome.cpp:410  { Sc::kMerge, tr("Merged patch"), tr("one plugin with every mod's changes"),
-# AppMerge.cpp:44  if (!ImGui::Begin(trId("Merged patch"), &_showMerge, ImGuiWindowFlags_NoCollapse)) {
-# AppMerge.cpp:298  if (auto f = platform::SaveFileDialog(outFile.empty() ? std::filesystem::path(kPatchName) : outFile, "esp", tr("Merged patch"))) {
+# AppMerge.cpp:46  if (!ImGui::Begin(trId("Merged patch"), &_showMerge, ImGuiWindowFlags_NoCollapse)) {
+# AppMerge.cpp:332  if (auto f = platform::SaveFileDialog(outFile.empty() ? std::filesystem::path(kPatchName) : outFile, sfm ? "esm" : "esp", tr("Merged patch"))) {
 en "Merged patch"
 tr ""
 
@@ -7579,8 +7579,8 @@ en "Check your mods"
 tr ""
 
 # AppHome.cpp:417  { Sc::kFileConflicts, tr("File conflicts"), tr("which mod overrides which mod's files"),
-# AppMerge.cpp:391  if (!ImGui::Begin(trId("File conflicts"), &_showAssets, ImGuiWindowFlags_NoCollapse)) {
-# AppMerge.cpp:464  if (auto f = platform::SaveFileDialog("ReSaverPP File Conflicts.txt", "txt", tr("File conflicts"))) {
+# AppMerge.cpp:426  if (!ImGui::Begin(trId("File conflicts"), &_showAssets, ImGuiWindowFlags_NoCollapse)) {
+# AppMerge.cpp:499  if (auto f = platform::SaveFileDialog("ReSaverPP File Conflicts.txt", "txt", tr("File conflicts"))) {
 en "File conflicts"
 tr ""
 
@@ -7945,300 +7945,316 @@ tr ""
 en "The AI can also look at and fix quests in the running game (stage, complete, stop, reset, refresh the journal), and read your logs, with no save open."
 tr ""
 
-# AppMerge.cpp:68  ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, container, NPC, item, spell, cell, form list or outfit, the game "
+# AppMerge.cpp:74  ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, form list or outfit, the game only uses the one loaded last, and "
+en "When two mods change the same leveled list, form list or outfit, the game only uses the one loaded last, and the other mod's additions are lost. The merged patch reads every plugin in your Starfield load order and writes one plugin that keeps both: what each mod added or removed is combined. Every other value stays as the winning mod has it, as the game does without a patch."
+tr ""
+
+# AppMerge.cpp:79  ImGui::TextWrapped("%s", tr("The patch is a light master (.esm, small-flagged), like Starfield's other mods, so it takes no load order slot. "
+en "The patch is a light master (.esm, small-flagged), like Starfield's other mods, so it takes no load order slot. Keep it last in your plugin list. Rebuild it after you add, remove or reorder mods."
+tr ""
+
+# AppMerge.cpp:82  ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, container, NPC, item, spell, cell, form list or outfit, the game "
 en "When two mods change the same leveled list, container, NPC, item, spell, cell, form list or outfit, the game only uses the one loaded last, and the other mod's additions are lost. The merged patch reads every plugin in your Fallout 4 load order and writes one plugin that keeps both: what each mod added or removed is combined. Every other value stays as the winning mod has it, as the game does without a patch."
 tr ""
 
-# AppMerge.cpp:73  ImGui::TextWrapped("%s", f4NoLight ? tr("Your save is from a Fallout 4 version without light plugins (before 1.10), so the patch is a normal "
+# AppMerge.cpp:87  ImGui::TextWrapped("%s", f4NoLight ? tr("Your save is from a Fallout 4 version without light plugins (before 1.10), so the patch is a normal "
 en "Your save is from a Fallout 4 version without light plugins (before 1.10), so the patch is a normal plugin and takes a load order slot. Rebuild it after you add, remove or reorder mods."
 tr ""
 
-# AppMerge.cpp:75  : tr("The patch is a light (ESL-flagged) plugin, so it takes no load order slot. It only needs a mod as a "
+# AppMerge.cpp:89  : tr("The patch is a light (ESL-flagged) plugin, so it takes no load order slot. It only needs a mod as a "
 en "The patch is a light (ESL-flagged) plugin, so it takes no load order slot. It only needs a mod as a master when a patched record comes from that mod or points at one of its forms. Rebuild it after you add, remove or reorder mods."
 tr ""
 
-# AppMerge.cpp:79  ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, container, NPC, keyword list, form list or outfit, the game only "
+# AppMerge.cpp:93  ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, container, NPC, keyword list, form list or outfit, the game only "
 en "When two mods change the same leveled list, container, NPC, keyword list, form list or outfit, the game only uses the one loaded last, and the other mod's additions are lost. The merged patch reads every plugin in your load order and writes one plugin that keeps both: what each mod added or removed is combined. Every other value stays as the winning mod has it, as the game does without a patch."
 tr ""
 
-# AppMerge.cpp:83  ImGui::TextWrapped("%s", tr("On Special Edition and Anniversary Edition the patch is a light (ESL-flagged) plugin, so it takes no load order "
+# AppMerge.cpp:97  ImGui::TextWrapped("%s", tr("On Special Edition and Anniversary Edition the patch is a light (ESL-flagged) plugin, so it takes no load order "
 en "On Special Edition and Anniversary Edition the patch is a light (ESL-flagged) plugin, so it takes no load order slot. On Legendary Edition (found automatically) it is a normal plugin in LE's format and needs one slot. It only needs a mod as a master when a patched record comes from that mod or points at one of its forms. Rebuild it after you add, remove or reorder mods."
 tr ""
 
-# AppMerge.cpp:91  ImGui::TextDisabled(tr("Mod Organizer profile: %s"), _profile.c_str());
+# AppMerge.cpp:105  ImGui::TextDisabled(tr("Mod Organizer profile: %s"), _profile.c_str());
 en "Mod Organizer profile: %s"
 tr ""
 
-# AppMerge.cpp:132  if (ImGui::CollapsingHeader(trId("What to merge"), ImGuiTreeNodeFlags_DefaultOpen)) {
+# AppMerge.cpp:164  if (ImGui::CollapsingHeader(trId("What to merge"), ImGuiTreeNodeFlags_DefaultOpen)) {
 en "What to merge"
 tr ""
 
-# AppMerge.cpp:133  ImGui::TextWrapped("%s", tr("Untick a kind of change to leave it to the winning mod, as the game does without a patch. Under each kind is "
+# AppMerge.cpp:165  ImGui::TextWrapped("%s", tr("Untick a kind of change to leave it to the winning mod, as the game does without a patch. Under each kind is "
 en "Untick a kind of change to leave it to the winning mod, as the game does without a patch. Under each kind is everything it covers. SAFE: nothing to check. CAUTION: hover the row for what can go wrong. RISKY: check the records it changed after building (they are listed in red below and in the report)."
 tr ""
 
-# AppMerge.cpp:148  tips::Tip(tr("Merge every kind of change."));
+# AppMerge.cpp:180  tips::Tip(tr("Merge every kind of change."));
 en "Merge every kind of change."
 tr ""
 
-# AppMerge.cpp:150  if (ImGui::SmallButton(tr("Only the green ones"))) {
+# AppMerge.cpp:182  if (ImGui::SmallButton(tr("Only the green ones"))) {
 en "Only the green ones"
 tr ""
 
-# AppMerge.cpp:157  tips::Tip(tr("Merge only the safe kinds: leveled lists, containers, outfits, keywords, item values, names and models."));
+# AppMerge.cpp:189  tips::Tip(tr("Merge only the safe kinds: leveled lists, containers, outfits, keywords, item values, names and models."));
 en "Merge only the safe kinds: leveled lists, containers, outfits, keywords, item values, names and models."
 tr ""
 
-# AppMerge.cpp:159  if (ImGui::SmallButton(tr("Green and yellow"))) {
+# AppMerge.cpp:191  if (ImGui::SmallButton(tr("Green and yellow"))) {
 en "Green and yellow"
 tr ""
 
-# AppMerge.cpp:166  tips::Tip(tr("Leave out the risky kinds (scripts on records; a cell's location, owner, music and other settings)."));
+# AppMerge.cpp:198  tips::Tip(tr("Leave out the risky kinds (scripts on records; a cell's location, owner, music and other settings)."));
 en "Leave out the risky kinds (scripts on records; a cell's location, owner, music and other settings)."
 tr ""
 
-# AppMerge.cpp:200  ImGui::TextDisabled(tr("%zu change(s) last time"), counts[i]);
+# AppMerge.cpp:232  ImGui::TextDisabled(tr("%zu change(s) last time"), counts[i]);
 en "%zu change(s) last time"
 tr ""
 
-# AppMerge.cpp:207  Colored(theme::Warn(), tr("Changed since the last build: build again to apply."));
+# AppMerge.cpp:239  Colored(theme::Warn(), tr("Changed since the last build: build again to apply."));
 en "Changed since the last build: build again to apply."
 tr ""
 
-# AppMerge.cpp:213  if (ImGui::Button(_mergeResult ? tr("Build the merged patch again") : tr("Build the merged patch"))) {
+# AppMerge.cpp:245  if (ImGui::Button(_mergeResult ? tr("Build the merged patch again") : tr("Build the merged patch"))) {
 en "Build the merged patch again"
 tr ""
 
-# AppMerge.cpp:213  if (ImGui::Button(_mergeResult ? tr("Build the merged patch again") : tr("Build the merged patch"))) {
+# AppMerge.cpp:245  if (ImGui::Button(_mergeResult ? tr("Build the merged patch again") : tr("Build the merged patch"))) {
 en "Build the merged patch"
 tr ""
 
-# AppMerge.cpp:221  tips::Tip(tr("Read every plugin of your load order and work out the merged patch. Nothing is written until you save it."));
+# AppMerge.cpp:253  tips::Tip(tr("Read every plugin of your load order and work out the merged patch. Nothing is written until you save it."));
 en "Read every plugin of your load order and work out the merged patch. Nothing is written until you save it."
 tr ""
 
-# AppMerge.cpp:224  ImGui::TextDisabled("%s", tr("finding your mods first..."));
+# AppMerge.cpp:256  ImGui::TextDisabled("%s", tr("finding your mods first..."));
 en "finding your mods first..."
 tr ""
 
-# AppMerge.cpp:231  Fmt(tr("%s  %zu / %zu"), _mergeProgress->current().c_str(), done, total).c_str());
-# AppMerge.cpp:445  Fmt(tr("%s  %zu / %zu"), _assetsProgress->current().c_str(), done, total).c_str());
+# AppMerge.cpp:263  Fmt(tr("%s  %zu / %zu"), _mergeProgress->current().c_str(), done, total).c_str());
+# AppMerge.cpp:480  Fmt(tr("%s  %zu / %zu"), _assetsProgress->current().c_str(), done, total).c_str());
 en "%s  %zu / %zu"
 tr ""
 
-# AppMerge.cpp:244  Colored(theme::Bad(), tr("The patch could not be built: ") + r.error);
+# AppMerge.cpp:276  Colored(theme::Bad(), tr("The patch could not be built: ") + r.error);
 en "The patch could not be built: "
 tr ""
 
-# AppMerge.cpp:248  ImGui::Text(tr("%zu of %zu plugins read. %zu records are changed differently by two or more plugins."), r.pluginsRead, _mergeLoadOrder, r.conflicts);
+# AppMerge.cpp:280  ImGui::Text(tr("%zu of %zu plugins read. %zu records are changed differently by two or more plugins."), r.pluginsRead, _mergeLoadOrder, r.conflicts);
 en "%zu of %zu plugins read. %zu records are changed differently by two or more plugins."
 tr ""
 
-# AppMerge.cpp:249  Colored(theme::Good(), Fmt(tr("%zu records merged into the patch, with %zu masters."), r.merged.size(), r.masters.size()));
+# AppMerge.cpp:281  Colored(theme::Good(), Fmt(tr("%zu records merged into the patch, with %zu masters."), r.merged.size(), r.masters.size()));
 en "%zu records merged into the patch, with %zu masters."
 tr ""
 
-# AppMerge.cpp:251  ImGui::TextDisabled("%s", tr("Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes one load order slot."));
+# AppMerge.cpp:283  ImGui::TextDisabled("%s", tr("Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes one load order slot."));
 en "Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes one load order slot."
 tr ""
 
-# AppMerge.cpp:253  ImGui::TextDisabled("%s", r.light ? tr("Fallout 4 load order: the patch is a light (ESL-flagged) plugin in Fallout 4's format.")
+# AppMerge.cpp:285  ImGui::TextDisabled("%s", tr("Starfield load order: the patch is a light master (small-flagged .esm) in Starfield's format."));
+en "Starfield load order: the patch is a light master (small-flagged .esm) in Starfield's format."
+tr ""
+
+# AppMerge.cpp:287  ImGui::TextDisabled("%s", r.light ? tr("Fallout 4 load order: the patch is a light (ESL-flagged) plugin in Fallout 4's format.")
 en "Fallout 4 load order: the patch is a light (ESL-flagged) plugin in Fallout 4's format."
 tr ""
 
-# AppMerge.cpp:254  : tr("Fallout 4 load order: the patch is a normal plugin in Fallout 4's format and takes one load order slot."));
+# AppMerge.cpp:288  : tr("Fallout 4 load order: the patch is a normal plugin in Fallout 4's format and takes one load order slot."));
 en "Fallout 4 load order: the patch is a normal plugin in Fallout 4's format and takes one load order slot."
 tr ""
 
-# AppMerge.cpp:257  ImGui::TextDisabled(tr("%zu could not be merged; for those the winning mod's version stays, as without a patch."), r.skipped.size());
+# AppMerge.cpp:291  ImGui::TextDisabled(tr("%zu could not be merged; for those the winning mod's version stays, as without a patch."), r.skipped.size());
 en "%zu could not be merged; for those the winning mod's version stays, as without a patch."
 tr ""
 
-# AppMerge.cpp:260  Colored(theme::Warn(), Fmt(tr("%zu plugins of the load order were not found or could not be read (see the list below); their "
+# AppMerge.cpp:294  Colored(theme::Warn(), Fmt(tr("%zu plugins of the load order were not found or could not be read (see the list below); their "
 en "%zu plugins of the load order were not found or could not be read (see the list below); their changes are not in the patch."
 tr ""
 
-# AppMerge.cpp:274  _error = tr("Could not write ") + platform::ToUtf8(a_file);
+# AppMerge.cpp:308  _error = tr("Could not write ") + platform::ToUtf8(a_file);
 # AppScripts.cpp:1103  _error = tr("Could not write ") + platform::ToUtf8(target);
 # AppScripts.cpp:1407  _status = out ? tr("Saved ") + platform::ToUtf8(f->filename()) : tr("Could not write ") + platform::ToUtf8(*f);
 en "Could not write "
 tr ""
 
-# AppMerge.cpp:282  _status = tr("Wrote the merged patch: ") + _mergeSaved;
+# AppMerge.cpp:316  _status = tr("Wrote the merged patch: ") + _mergeSaved;
 en "Wrote the merged patch: "
 tr ""
 
-# AppMerge.cpp:284  if (ImGui::Button(_mo2 ? tr("Save it as a new mod in Mod Organizer") : tr("Save it in the game's Data folder"))) {
+# AppMerge.cpp:318  if (ImGui::Button(_mo2 ? tr("Save it as a new mod in Mod Organizer") : tr("Save it in the game's Data folder"))) {
 en "Save it as a new mod in Mod Organizer"
 tr ""
 
-# AppMerge.cpp:284  if (ImGui::Button(_mo2 ? tr("Save it as a new mod in Mod Organizer") : tr("Save it in the game's Data folder"))) {
+# AppMerge.cpp:318  if (ImGui::Button(_mo2 ? tr("Save it as a new mod in Mod Organizer") : tr("Save it in the game's Data folder"))) {
 en "Save it in the game's Data folder"
 tr ""
 
-# AppMerge.cpp:287  confirm(tr("Replace the merged patch"), tr("Replace the merged patch made before?\n\n") + platform::ToUtf8(outFile),
+# AppMerge.cpp:321  confirm(tr("Replace the merged patch"), tr("Replace the merged patch made before?\n\n") + platform::ToUtf8(outFile),
 en "Replace the merged patch"
 tr ""
 
-# AppMerge.cpp:287  confirm(tr("Replace the merged patch"), tr("Replace the merged patch made before?\n\n") + platform::ToUtf8(outFile),
+# AppMerge.cpp:321  confirm(tr("Replace the merged patch"), tr("Replace the merged patch made before?\n\n") + platform::ToUtf8(outFile),
 en "Replace the merged patch made before?\n\n"
 tr ""
 
-# AppMerge.cpp:294  tips::Tipf(tr("Write %s and a report of what was merged (.txt) to %s"), kPatchName, platform::ToUtf8(outFile.parent_path()).c_str());
+# AppMerge.cpp:328  tips::Tipf(tr("Write %s and a report of what was merged (.txt) to %s"), kPatchName, platform::ToUtf8(outFile.parent_path()).c_str());
 en "Write %s and a report of what was merged (.txt) to %s"
 tr ""
 
-# AppMerge.cpp:297  if (ImGui::Button(tr("Save as..."))) {
+# AppMerge.cpp:331  if (ImGui::Button(tr("Save as..."))) {
 # AppScripts.cpp:728  if (ImGui::Button(tr("Save as...")) || (keys && io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false))) {
 # AppScripts.cpp:1403  if (ImGui::SmallButton(tr("Save as..."))) {
 en "Save as..."
 tr ""
 
-# AppMerge.cpp:303  tips::Tip(tr("Choose where to write the patch yourself."));
+# AppMerge.cpp:337  tips::Tip(tr("Choose where to write the patch yourself."));
 en "Choose where to write the patch yourself."
 tr ""
 
-# AppMerge.cpp:305  Colored(theme::Good(), tr("Saved: ") + _mergeSaved);
+# AppMerge.cpp:339  Colored(theme::Good(), tr("Saved: ") + _mergeSaved);
 en "Saved: "
 tr ""
 
-# AppMerge.cpp:307  ImGui::TextWrapped(tr("In Mod Organizer: press F5 (refresh), tick the mod \"%s\" on the left, and make sure %s is ticked at the "
+# AppMerge.cpp:341  ImGui::TextWrapped(tr("In Mod Organizer: press F5 (refresh), tick the mod \"%s\" on the left, and make sure %s is ticked at the "
 en "In Mod Organizer: press F5 (refresh), tick the mod \"%s\" on the left, and make sure %s is ticked at the bottom of the plugin list on the right. Leave it last."
 tr ""
 
-# AppMerge.cpp:311  ImGui::TextWrapped(tr("Enable %s in your mod manager or the game's launcher and keep it last in the load order."), kPatchName);
+# AppMerge.cpp:345  ImGui::TextWrapped(tr("Enable %s in your mod manager or the game's launcher and keep it last in the load order."), kPatchName);
 en "Enable %s in your mod manager or the game's launcher and keep it last in the load order."
 tr ""
 
-# AppMerge.cpp:313  ImGui::TextWrapped("%s", r.fo4         ? tr("Before playing, you can open it in FO4Edit (Check for Errors) to see what it changed.")
+# AppMerge.cpp:347  ImGui::TextWrapped("%s", r.sf ? tr("Before playing, you can open it in SF1Edit (Check for Errors) to see what it changed.")
+en "Before playing, you can open it in SF1Edit (Check for Errors) to see what it changed."
+tr ""
+
+# AppMerge.cpp:348  : r.fo4     ? tr("Before playing, you can open it in FO4Edit (Check for Errors) to see what it changed.")
 en "Before playing, you can open it in FO4Edit (Check for Errors) to see what it changed."
 tr ""
 
-# AppMerge.cpp:314  : r.legendary ? tr("Before playing, you can open it in TES5Edit (Check for Errors) to see what it changed.")
+# AppMerge.cpp:349  : r.legendary ? tr("Before playing, you can open it in TES5Edit (Check for Errors) to see what it changed.")
 en "Before playing, you can open it in TES5Edit (Check for Errors) to see what it changed."
 tr ""
 
-# AppMerge.cpp:315  : tr("Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed."));
+# AppMerge.cpp:350  : tr("Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed."));
 en "Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed."
 tr ""
 
-# AppMerge.cpp:321  if (ImGui::CollapsingHeader(Fmt(tr("Merged records (%zu)###merged"), r.merged.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+# AppMerge.cpp:356  if (ImGui::CollapsingHeader(Fmt(tr("Merged records (%zu)###merged"), r.merged.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 en "Merged records (%zu)"
 tr ""
 
-# AppMerge.cpp:336  tips::Tipf(tr("Starts from %s (the winning mod).%s%s"), m.winner.c_str(), changes.empty() ? "" : tr("\nAdded from the others: "),
+# AppMerge.cpp:371  tips::Tipf(tr("Starts from %s (the winning mod).%s%s"), m.winner.c_str(), changes.empty() ? "" : tr("\nAdded from the others: "),
 en "Starts from %s (the winning mod).%s%s"
 tr ""
 
-# AppMerge.cpp:336  tips::Tipf(tr("Starts from %s (the winning mod).%s%s"), m.winner.c_str(), changes.empty() ? "" : tr("\nAdded from the others: "),
+# AppMerge.cpp:371  tips::Tipf(tr("Starts from %s (the winning mod).%s%s"), m.winner.c_str(), changes.empty() ? "" : tr("\nAdded from the others: "),
 en "\nAdded from the others: "
 tr ""
 
-# AppMerge.cpp:339  ImGui::TextDisabled(tr("winner %s%s%s"), m.winner.c_str(), changes.empty() ? "" : "  |  ", changes.c_str());
+# AppMerge.cpp:374  ImGui::TextDisabled(tr("winner %s%s%s"), m.winner.c_str(), changes.empty() ? "" : "  |  ", changes.c_str());
 en "winner %s%s%s"
 tr ""
 
-# AppMerge.cpp:343  if (ImGui::CollapsingHeader(Fmt(tr("Masters of the patch (%zu)###masters"), r.masters.size()).c_str())) {
+# AppMerge.cpp:378  if (ImGui::CollapsingHeader(Fmt(tr("Masters of the patch (%zu)###masters"), r.masters.size()).c_str())) {
 en "Masters of the patch (%zu)"
 tr ""
 
-# AppMerge.cpp:349  ImGui::TextDisabled(tr("needed by %s"), it->second.c_str());
+# AppMerge.cpp:384  ImGui::TextDisabled(tr("needed by %s"), it->second.c_str());
 en "needed by %s"
 tr ""
 
-# AppMerge.cpp:353  if (!r.skipped.empty() && ImGui::CollapsingHeader(Fmt(tr("Not merged (%zu)###skipped"), r.skipped.size()).c_str())) {
+# AppMerge.cpp:388  if (!r.skipped.empty() && ImGui::CollapsingHeader(Fmt(tr("Not merged (%zu)###skipped"), r.skipped.size()).c_str())) {
 en "Not merged (%zu)"
 tr ""
 
-# AppMerge.cpp:358  if (!r.fixes.empty() && ImGui::CollapsingHeader(Fmt(tr("Broken references the patch fixes (%zu)###fixes"), r.fixes.size()).c_str(),
+# AppMerge.cpp:393  if (!r.fixes.empty() && ImGui::CollapsingHeader(Fmt(tr("Broken references the patch fixes (%zu)###fixes"), r.fixes.size()).c_str(),
 en "Broken references the patch fixes (%zu)"
 tr ""
 
-# AppMerge.cpp:366  if (!r.warnings.empty() && ImGui::CollapsingHeader(Fmt(tr("Problems in your load order (%zu)###warnings"), r.warnings.size()).c_str(),
+# AppMerge.cpp:401  if (!r.warnings.empty() && ImGui::CollapsingHeader(Fmt(tr("Problems in your load order (%zu)###warnings"), r.warnings.size()).c_str(),
 en "Problems in your load order (%zu)"
 tr ""
 
-# AppMerge.cpp:374  if (!r.missing.empty() && ImGui::CollapsingHeader(Fmt(tr("Plugins not found (%zu)###missing"), r.missing.size()).c_str())) {
+# AppMerge.cpp:409  if (!r.missing.empty() && ImGui::CollapsingHeader(Fmt(tr("Plugins not found (%zu)###missing"), r.missing.size()).c_str())) {
 en "Plugins not found (%zu)"
 tr ""
 
-# AppMerge.cpp:401  ImGui::TextWrapped("%s", tr("When two mods have the same file (a mesh, texture, script...), the game uses one of them. Loose files beat every "
+# AppMerge.cpp:436  ImGui::TextWrapped("%s", tr("When two mods have the same file (a mesh, texture, script...), the game uses one of them. Loose files beat every "
 en "When two mods have the same file (a mesh, texture, script...), the game uses one of them. Loose files beat every archive (BSA, or BA2 for Fallout 4); among loose files your mod order decides; among archives the plugin load order. This lists which mod overrides which, loose and inside archives. A script overridden by another mod's copy is worth a look: one of the two mods may not work as its author meant."
 tr ""
 
-# AppMerge.cpp:406  Colored(theme::Warn(), tr("Without Mod Organizer only the game's Data folder can be read: files a mod manager already copied over each "
+# AppMerge.cpp:441  Colored(theme::Warn(), tr("Without Mod Organizer only the game's Data folder can be read: files a mod manager already copied over each "
 en "Without Mod Organizer only the game's Data folder can be read: files a mod manager already copied over each other there cannot be told apart any more. Archives against loose files still show."
 tr ""
 
-# AppMerge.cpp:410  if (ImGui::Button(_assetsResult ? tr("Look again") : tr("Find file conflicts"))) {
+# AppMerge.cpp:445  if (ImGui::Button(_assetsResult ? tr("Look again") : tr("Find file conflicts"))) {
 en "Find file conflicts"
 tr ""
 
-# AppMerge.cpp:440  tips::Tip(tr("Read the file list of every enabled mod and every archive the game loads (the files themselves are not opened)."));
+# AppMerge.cpp:475  tips::Tip(tr("Read the file list of every enabled mod and every archive the game loads (the files themselves are not opened)."));
 en "Read the file list of every enabled mod and every archive the game loads (the files themselves are not opened)."
 tr ""
 
-# AppMerge.cpp:452  ImGui::Text(tr("%zu files in %zu folders and %zu archives; %zu paths come from more than one place (%zu scripts)."), r.files, r.modsRead,
+# AppMerge.cpp:487  ImGui::Text(tr("%zu files in %zu folders and %zu archives; %zu paths come from more than one place (%zu scripts)."), r.files, r.modsRead,
 en "%zu files in %zu folders and %zu archives; %zu paths come from more than one place (%zu scripts)."
 tr ""
 
-# AppMerge.cpp:455  ImGui::InputTextWithHint("##assetfilter", tr("Filter: mod name or file"), _assetsFilter, sizeof(_assetsFilter));
+# AppMerge.cpp:490  ImGui::InputTextWithHint("##assetfilter", tr("Filter: mod name or file"), _assetsFilter, sizeof(_assetsFilter));
 en "Filter: mod name or file"
 tr ""
 
-# AppMerge.cpp:456  tips::Tip(tr("Show only pairs where a mod's name or one of the files contains this text."));
+# AppMerge.cpp:491  tips::Tip(tr("Show only pairs where a mod's name or one of the files contains this text."));
 en "Show only pairs where a mod's name or one of the files contains this text."
 tr ""
 
-# AppMerge.cpp:458  ImGui::Checkbox(tr("Only scripts"), &_assetsScriptsOnly);
+# AppMerge.cpp:493  ImGui::Checkbox(tr("Only scripts"), &_assetsScriptsOnly);
 en "Only scripts"
 tr ""
 
-# AppMerge.cpp:459  tips::Tip(tr("Only pairs where one mod overrides another's scripts (.pex)."));
+# AppMerge.cpp:494  tips::Tip(tr("Only pairs where one mod overrides another's scripts (.pex)."));
 en "Only pairs where one mod overrides another's scripts (.pex)."
 tr ""
 
-# AppMerge.cpp:461  ImGui::Checkbox(tr("Hide the base game"), &_assetsHideGame);
+# AppMerge.cpp:496  ImGui::Checkbox(tr("Hide the base game"), &_assetsHideGame);
 en "Hide the base game"
 tr ""
 
-# AppMerge.cpp:462  tips::Tip(tr("Hide mods overriding the base game's own files: replacing them is what most mods are for."));
+# AppMerge.cpp:497  tips::Tip(tr("Hide mods overriding the base game's own files: replacing them is what most mods are for."));
 en "Hide mods overriding the base game's own files: replacing them is what most mods are for."
 tr ""
 
-# AppMerge.cpp:463  if (ImGui::Button(tr("Save the full list..."))) {
+# AppMerge.cpp:498  if (ImGui::Button(tr("Save the full list..."))) {
 en "Save the full list..."
 tr ""
 
-# AppMerge.cpp:466  _status = tr("Wrote ") + platform::ToUtf8(*f);
+# AppMerge.cpp:501  _status = tr("Wrote ") + platform::ToUtf8(*f);
 en "Wrote "
 tr ""
 
-# AppMerge.cpp:469  tips::Tip(tr("Write every conflict to a text file."));
+# AppMerge.cpp:504  tips::Tip(tr("Write every conflict to a text file."));
 en "Write every conflict to a text file."
 tr ""
 
-# AppMerge.cpp:493  ImGui::TextDisabled("%s", tr("... more: narrow the filter"));
+# AppMerge.cpp:528  ImGui::TextDisabled("%s", tr("... more: narrow the filter"));
 en "... more: narrow the filter"
 tr ""
 
-# AppMerge.cpp:497  const auto head = Fmt(tr("%s  overrides  %s:  %zu file(s)%s"), p.winner.c_str(), p.loser.c_str(), p.files,
+# AppMerge.cpp:532  const auto head = Fmt(tr("%s  overrides  %s:  %zu file(s)%s"), p.winner.c_str(), p.loser.c_str(), p.files,
 en "%s  overrides  %s:  %zu file(s)%s"
 tr ""
 
-# AppMerge.cpp:498  p.scripts ? Fmt(tr(", %zu script(s)"), p.scripts).c_str() : "");
+# AppMerge.cpp:533  p.scripts ? Fmt(tr(", %zu script(s)"), p.scripts).c_str() : "");
 en ", %zu script(s)"
 tr ""
 
-# AppMerge.cpp:508  ImGui::TextDisabled(tr("... %zu more (Save the full list)"), p.conflicts.size() - 500);
+# AppMerge.cpp:543  ImGui::TextDisabled(tr("... %zu more (Save the full list)"), p.conflicts.size() - 500);
 en "... %zu more (Save the full list)"
 tr ""
 
-# AppMerge.cpp:516  tips::Tipf(tr("Lowest to highest (the last one is used):\n%s"), from.c_str());
+# AppMerge.cpp:551  tips::Tipf(tr("Lowest to highest (the last one is used):\n%s"), from.c_str());
 en "Lowest to highest (the last one is used):\n%s"
 tr ""
 
-# AppMerge.cpp:522  if (!shown) ImGui::TextDisabled("%s", tr("Nothing to show with these filters."));
+# AppMerge.cpp:557  if (!shown) ImGui::TextDisabled("%s", tr("Nothing to show with these filters."));
 en "Nothing to show with these filters."
 tr ""
 
@@ -9472,7 +9488,7 @@ en "now %d"
 tr ""
 
 # AppPlayerFO4.cpp:129  ImGui::TextUnformatted(tr("Experience"));
-# AppStarfield.cpp:312  KV(tr("Experience"), Fmt("%.0f / %.0f", h.currentXP, h.neededXP));
+# AppStarfield.cpp:311  KV(tr("Experience"), Fmt("%.0f / %.0f", h.currentXP, h.neededXP));
 en "Experience"
 tr ""
 
@@ -9578,7 +9594,7 @@ en "rank"
 tr ""
 
 # AppPlayerFO4.cpp:285  if (ImGui::SmallButton(tr("Add"))) {
-# AppStarfield.cpp:1057  if (ImGui::Button(tr("Add"))) {
+# AppStarfield.cpp:1056  if (ImGui::Button(tr("Add"))) {
 en "Add"
 tr ""
 
@@ -9985,7 +10001,7 @@ en "marked \"%s\" completed"
 tr ""
 
 # AppQuests.cpp:231  f == "?" ? tr("The game is busy; it does it as soon as it can: ") + what + "." :
-# AppStarfield.cpp:1588  _status = tr("The game is busy; it does it as soon as it can: ") + what + ".";
+# AppStarfield.cpp:1587  _status = tr("The game is busy; it does it as soon as it can: ") + what + ".";
 en "The game is busy; it does it as soon as it can: "
 tr ""
 
@@ -10162,8 +10178,8 @@ en "quests|Running"
 tr ""
 
 # AppQuests.cpp:556  const char* shows[] = { fo4() ? tr("In the Pip-Boy") : tr("In the journal"), trc("quests", "Running"), tr("Completed"), tr("All in this save"), tr("Ev
-# AppStarfield.cpp:673  if (ImGui::Checkbox(tr("Completed"), &done)) {
-# AppStarfield.cpp:1176  ImGui::RadioButton(tr("Completed"), &show, 2);
+# AppStarfield.cpp:672  if (ImGui::Checkbox(tr("Completed"), &done)) {
+# AppStarfield.cpp:1175  ImGui::RadioButton(tr("Completed"), &show, 2);
 en "Completed"
 tr ""
 
@@ -10235,8 +10251,8 @@ en "Tick quests in the list (the box in front of each), then stop them all in th
 tr ""
 
 # AppQuests.cpp:710  ImGui::TableSetupColumn(tr("Quest"), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_DefaultSort, 4.0f, 0);
-# AppStarfield.cpp:668  if (q.ok && ImGui::CollapsingHeader(trId("Quest"), ImGuiTreeNodeFlags_DefaultOpen)) {
-# AppStarfield.cpp:1200  ImGui::TableSetupColumn(tr("Quest"), ImGuiTableColumnFlags_WidthStretch);
+# AppStarfield.cpp:667  if (q.ok && ImGui::CollapsingHeader(trId("Quest"), ImGuiTreeNodeFlags_DefaultOpen)) {
+# AppStarfield.cpp:1199  ImGui::TableSetupColumn(tr("Quest"), ImGuiTableColumnFlags_WidthStretch);
 en "Quest"
 tr ""
 
@@ -10314,8 +10330,8 @@ en "In the running game: stage %d, %s"
 tr ""
 
 # AppQuests.cpp:890  it->second.completed ? tr("completed") : it->second.running ? tr("running") : tr("not running")));
-# AppStarfield.cpp:205  LiveLink::Field(r, 4) == "1" ? tr("completed") : LiveLink::Field(r, 3) == "1" ? tr("running") : tr("not running"),
-# AppStarfield.cpp:212  LiveLink::Field(r, 2) == "1" ? tr("completed") : LiveLink::Field(r, 1) == "1" ? tr("running") : tr("not running"), LiveLink::Field(r, 3).c_str());
+# AppStarfield.cpp:204  LiveLink::Field(r, 4) == "1" ? tr("completed") : LiveLink::Field(r, 3) == "1" ? tr("running") : tr("not running"),
+# AppStarfield.cpp:211  LiveLink::Field(r, 2) == "1" ? tr("completed") : LiveLink::Field(r, 1) == "1" ? tr("running") : tr("not running"), LiveLink::Field(r, 3).c_str());
 en "completed"
 tr ""
 
@@ -10427,7 +10443,7 @@ en "Reset the quest in the running game so it acts as if it was never done: stag
 tr ""
 
 # AppQuests.cpp:1016  const bool tipOpen722 = ImGui::BeginCombo("##stage", stageList.empty() ? tr("stage") : Fmt(tr("stage %u"), stageList[_setStageIdx]).c_str());
-# AppStarfield.cpp:743  ImGui::InputInt(tr("stage"), &_liveQuestSFStage, 0, 0);
+# AppStarfield.cpp:742  ImGui::InputInt(tr("stage"), &_liveQuestSFStage, 0, 0);
 en "stage"
 tr ""
 
@@ -11241,8 +11257,8 @@ en "The game does not know %08X (%s): %s"
 tr ""
 
 # AppSkyFollowers.cpp:170  note = tr("The game refused: ") + LiveLink::Field(r, 1);
-# AppStarfield.cpp:1080  note = tr("The game refused: ") + LiveLink::Field(r, 1);
-# AppStarfield.cpp:1586  _status = tr("The game refused: ") + LiveLink::Field(r, 1);
+# AppStarfield.cpp:1079  note = tr("The game refused: ") + LiveLink::Field(r, 1);
+# AppStarfield.cpp:1585  _status = tr("The game refused: ") + LiveLink::Field(r, 1);
 en "The game refused: "
 tr ""
 
@@ -11659,761 +11675,757 @@ tr ""
 en "Only shows information. A stuck quest can be set to a stage or stopped there, in the running game."
 tr ""
 
-# AppStarfield.cpp:145  return N_("Not needed on Starfield: the game keeps an ID for every spawned object a script is on, and remakes the object when you go "
+# AppStarfield.cpp:146  return N_("Not needed on Starfield: the game keeps an ID for every spawned object a script is on, and remakes the object when you go "
 en "Not needed on Starfield: the game keeps an ID for every spawned object a script is on, and remakes the object when you go back to its area (most of them have no record of their own in the save). In every Starfield save checked, all of them were still known to the game, so none can be called missing."
 tr ""
 
-# AppStarfield.cpp:149  return N_("Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records.");
-en "Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records."
-tr ""
-
-# AppStarfield.cpp:151  return N_("Not available for Starfield saves: it is for Skyrim (or Fallout 4) only.");
+# AppStarfield.cpp:150  return N_("Not available for Starfield saves: it is for Skyrim (or Fallout 4) only.");
 en "Not available for Starfield saves: it is for Skyrim (or Fallout 4) only."
 tr ""
 
-# AppStarfield.cpp:167  return std::string(tr("base")) + " " + d;
+# AppStarfield.cpp:166  return std::string(tr("base")) + " " + d;
 en "base"
 tr ""
 
-# AppStarfield.cpp:183  _liveQuestSFResult = tr("Asking the game...");
-# AppStarfield.cpp:1074  result = tr("Asking the game...");
+# AppStarfield.cpp:182  _liveQuestSFResult = tr("Asking the game...");
+# AppStarfield.cpp:1073  result = tr("Asking the game...");
 en "Asking the game..."
 tr ""
 
-# AppStarfield.cpp:204  _liveQuestSFResult = Fmt(tr("In the game: %s, current stage %s, stages done: %s"),
+# AppStarfield.cpp:203  _liveQuestSFResult = Fmt(tr("In the game: %s, current stage %s, stages done: %s"),
 en "In the game: %s, current stage %s, stages done: %s"
 tr ""
 
-# AppStarfield.cpp:206  LiveLink::Field(r, 2).c_str(), done.empty() ? tr("none") : done.c_str());
+# AppStarfield.cpp:205  LiveLink::Field(r, 2).c_str(), done.empty() ? tr("none") : done.c_str());
 en "none"
 tr ""
 
-# AppStarfield.cpp:210  _liveQuestSFResult = Fmt(tr("%s - now %s, current stage %s"),
+# AppStarfield.cpp:209  _liveQuestSFResult = Fmt(tr("%s - now %s, current stage %s"),
 en "%s - now %s, current stage %s"
 tr ""
 
-# AppStarfield.cpp:211  LiveLink::Field(r, 0) == "1" ? tr("Done in the game") : tr("Sent to the game (not seen done yet: check again in a moment)"),
+# AppStarfield.cpp:210  LiveLink::Field(r, 0) == "1" ? tr("Done in the game") : tr("Sent to the game (not seen done yet: check again in a moment)"),
 en "Done in the game"
 tr ""
 
-# AppStarfield.cpp:211  LiveLink::Field(r, 0) == "1" ? tr("Done in the game") : tr("Sent to the game (not seen done yet: check again in a moment)"),
+# AppStarfield.cpp:210  LiveLink::Field(r, 0) == "1" ? tr("Done in the game") : tr("Sent to the game (not seen done yet: check again in a moment)"),
 en "Sent to the game (not seen done yet: check again in a moment)"
 tr ""
 
-# AppStarfield.cpp:222  return Fmt(tr("reading the plugins (%zu of %zu MB)..."), done, total);
+# AppStarfield.cpp:221  return Fmt(tr("reading the plugins (%zu of %zu MB)..."), done, total);
 en "reading the plugins (%zu of %zu MB)..."
 tr ""
 
-# AppStarfield.cpp:225  return Fmt(tr("%zu forms named from %zu of %zu plugins (%.1f s)"), _db->size(), _db->pluginsRead, _db->plugins().size(),
+# AppStarfield.cpp:224  return Fmt(tr("%zu forms named from %zu of %zu plugins (%.1f s)"), _db->size(), _db->pluginsRead, _db->plugins().size(),
 en "%zu forms named from %zu of %zu plugins (%.1f s)"
 tr ""
 
-# AppStarfield.cpp:227  (_db->missing.empty() ? std::string() : Fmt(tr(", %zu not found"), _db->missing.size()));
+# AppStarfield.cpp:226  (_db->missing.empty() ? std::string() : Fmt(tr(", %zu not found"), _db->missing.size()));
 en ", %zu not found"
 tr ""
 
-# AppStarfield.cpp:230  return tr("not read: the Starfield folder is not known (Options > Settings)");
+# AppStarfield.cpp:229  return tr("not read: the Starfield folder is not known (Options > Settings)");
 en "not read: the Starfield folder is not known (Options > Settings)"
 tr ""
 
-# AppStarfield.cpp:232  return tr("not read yet (Tools > Read plugin names)");
+# AppStarfield.cpp:231  return tr("not read yet (Tools > Read plugin names)");
 en "not read yet (Tools > Read plugin names)"
 tr ""
 
-# AppStarfield.cpp:279  ImGui::TextDisabled("%s", tr("Not read yet for Starfield: the script data is kept exactly as it is and written back unchanged."));
+# AppStarfield.cpp:278  ImGui::TextDisabled("%s", tr("Not read yet for Starfield: the script data is kept exactly as it is and written back unchanged."));
 en "Not read yet for Starfield: the script data is kept exactly as it is and written back unchanged."
 tr ""
 
-# AppStarfield.cpp:309  KV(tr("Game"), "Starfield " + s.gameVersion + Fmt(tr("  (playthrough started on %s)"), s.sfCreatedVersion.c_str()));
+# AppStarfield.cpp:308  KV(tr("Game"), "Starfield " + s.gameVersion + Fmt(tr("  (playthrough started on %s)"), s.sfCreatedVersion.c_str()));
 en "  (playthrough started on %s)"
 tr ""
 
-# AppStarfield.cpp:310  KV(tr("Format"), Fmt(tr("engine version %u, save version %u, form version %u, %zu zlib chunks"), h.version, static_cast<unsigned>(h.sfSaveVersion),
+# AppStarfield.cpp:309  KV(tr("Format"), Fmt(tr("engine version %u, save version %u, form version %u, %zu zlib chunks"), h.version, static_cast<unsigned>(h.sfSaveVersion),
 en "engine version %u, save version %u, form version %u, %zu zlib chunks"
 tr ""
 
-# AppStarfield.cpp:313  KV(tr("Plugins"), Fmt(tr("%zu full + %zu light + %zu medium"), s.plugins.full.size(), s.plugins.lite.size(), s.plugins.medium.size()));
+# AppStarfield.cpp:312  KV(tr("Plugins"), Fmt(tr("%zu full + %zu light + %zu medium"), s.plugins.full.size(), s.plugins.lite.size(), s.plugins.medium.size()));
 en "%zu full + %zu light + %zu medium"
 tr ""
 
-# AppStarfield.cpp:316  KV(tr("Form IDs"), std::to_string(s.formIDs.size()));
+# AppStarfield.cpp:315  KV(tr("Form IDs"), std::to_string(s.formIDs.size()));
 en "Form IDs"
 tr ""
 
-# AppStarfield.cpp:317  KV(tr("Names"), namesStatusSF());
+# AppStarfield.cpp:316  KV(tr("Names"), namesStatusSF());
 en "Names"
 tr ""
 
-# AppStarfield.cpp:323  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
+# AppStarfield.cpp:322  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
 en "Not loaded"
 tr ""
 
-# AppStarfield.cpp:323  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
+# AppStarfield.cpp:322  KV(tr("Not loaded"), Fmt(tr("%zu plugin(s) of this save are not in %s (%zu not installed)"), _missing.size(), _missingSource.c_str(), gone));
 en "%zu plugin(s) of this save are not in %s (%zu not installed)"
 tr ""
 
-# AppStarfield.cpp:329  ImGui::TextDisabled("%s", sfPapyrus() ? tr("Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes), the global data an
+# AppStarfield.cpp:328  ImGui::TextDisabled("%s", sfPapyrus() ? tr("Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes), the global data an
 en "Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes), the global data and the script data. The contents of change forms and global data are not decoded."
 tr ""
 
-# AppStarfield.cpp:331  : tr("Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes) and the global data. "
+# AppStarfield.cpp:330  : tr("Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes) and the global data. "
 en "Starfield save. Shown: the header, the plugins, the change forms (type, plugin, sizes) and the global data. The script data (Papyrus) is not read yet: it is written back exactly as it was."
 tr ""
 
-# AppStarfield.cpp:338  KV(tr("Script instances"), Fmt(tr("%zu  (%zu unattached, %zu undefined)"), r.instances, r.unattached, r.undefinedInstances));
+# AppStarfield.cpp:337  KV(tr("Script instances"), Fmt(tr("%zu  (%zu unattached, %zu undefined)"), r.instances, r.unattached, r.undefinedInstances));
 en "%zu  (%zu unattached, %zu undefined)"
 tr ""
 
-# AppStarfield.cpp:389  std::string what = g.type == 1001 ? std::string(tr("Papyrus")) : g.type == 0 ? std::string(tr("string table offset"))
+# AppStarfield.cpp:388  std::string what = g.type == 1001 ? std::string(tr("Papyrus")) : g.type == 0 ? std::string(tr("string table offset"))
 en "string table offset"
 tr ""
 
-# AppStarfield.cpp:390  : g.type == 2   ? std::string(tr("created-ID section offset"))
+# AppStarfield.cpp:389  : g.type == 2   ? std::string(tr("created-ID section offset"))
 en "created-ID section offset"
 tr ""
 
-# AppStarfield.cpp:394  Fmt(tr("table %d  type %4u  %-14s  %zu bytes"), t, g.type, GlobalKindName(g.sfKind), size) + (what.empty() ? "" : "  " + what), 0, true,
+# AppStarfield.cpp:393  Fmt(tr("table %d  type %4u  %-14s  %zu bytes"), t, g.type, GlobalKindName(g.sfKind), size) + (what.empty() ? "" : "  " + what), 0, true,
 en "table %d  type %4u  %-14s  %zu bytes"
 tr ""
 
-# AppStarfield.cpp:416  ImGui::TextDisabled("%s", (medium ? Fmt(tr("Medium plugin, index FD:%02X"), static_cast<unsigned>(i))
+# AppStarfield.cpp:415  ImGui::TextDisabled("%s", (medium ? Fmt(tr("Medium plugin, index FD:%02X"), static_cast<unsigned>(i))
 en "Medium plugin, index FD:%02X"
 tr ""
 
-# AppStarfield.cpp:423  KV(tr("Creation"), e.title);
+# AppStarfield.cpp:422  KV(tr("Creation"), e.title);
 en "Creation"
 tr ""
 
-# AppStarfield.cpp:424  KV(tr("Creation ID"), e.id);
+# AppStarfield.cpp:423  KV(tr("Creation ID"), e.id);
 en "Creation ID"
 tr ""
 
-# AppStarfield.cpp:426  KV(tr("Achievement friendly"), e.achievementFriendly ? tr("yes") : tr("no"));
+# AppStarfield.cpp:425  KV(tr("Achievement friendly"), e.achievementFriendly ? tr("yes") : tr("no"));
 en "Achievement friendly"
 tr ""
 
-# AppStarfield.cpp:441  TextColoredSF(theme::Warn(), m.installed ? tr("Installed but not enabled in plugins.txt: the game does not load it.")
+# AppStarfield.cpp:440  TextColoredSF(theme::Warn(), m.installed ? tr("Installed but not enabled in plugins.txt: the game does not load it.")
 en "Installed but not enabled in plugins.txt: the game does not load it."
 tr ""
 
-# AppStarfield.cpp:442  : tr("Not installed: the game does not load it. What it left is listed in Mods no longer installed."));
+# AppStarfield.cpp:441  : tr("Not installed: the game does not load it. What it left is listed in Mods no longer installed."));
 en "Not installed: the game does not load it. What it left is listed in Mods no longer installed."
 tr ""
 
-# AppStarfield.cpp:454  ImGui::TextDisabled(tr("%zu of them found in the plugin file (names)."), named);
+# AppStarfield.cpp:453  ImGui::TextDisabled(tr("%zu of them found in the plugin file (names)."), named);
 en "%zu of them found in the plugin file (names)."
 tr ""
 
-# AppStarfield.cpp:456  if (ImGui::SmallButton(tr("Show its change forms"))) {
+# AppStarfield.cpp:455  if (ImGui::SmallButton(tr("Show its change forms"))) {
 en "Show its change forms"
 tr ""
 
-# AppStarfield.cpp:479  KV(tr("Base object"), tr("not in the save (the game makes this object again from its cell, e.g. a generated place)"));
-# AppStarfield.cpp:484  KV(tr("Base object"), Fmt("%08X  ", bf) + (!d.empty() ? d : s.pluginOf(bf)));
-# AppStarfield.cpp:491  KV(tr("Base object"), Fmt("%08X  ", f->base) + _db->describe(f->base));
+# AppStarfield.cpp:478  KV(tr("Base object"), tr("not in the save (the game makes this object again from its cell, e.g. a generated place)"));
+# AppStarfield.cpp:483  KV(tr("Base object"), Fmt("%08X  ", bf) + (!d.empty() ? d : s.pluginOf(bf)));
+# AppStarfield.cpp:490  KV(tr("Base object"), Fmt("%08X  ", f->base) + _db->describe(f->base));
 en "Base object"
 tr ""
 
-# AppStarfield.cpp:479  KV(tr("Base object"), tr("not in the save (the game makes this object again from its cell, e.g. a generated place)"));
+# AppStarfield.cpp:478  KV(tr("Base object"), tr("not in the save (the game makes this object again from its cell, e.g. a generated place)"));
 en "not in the save (the game makes this object again from its cell, e.g. a generated place)"
 tr ""
 
-# AppStarfield.cpp:489  KV(tr("Name"), !d.empty() ? d : _db ? tr("(not in the plugin files)") : namesStatusSF());
+# AppStarfield.cpp:488  KV(tr("Name"), !d.empty() ? d : _db ? tr("(not in the plugin files)") : namesStatusSF());
 en "(not in the plugin files)"
 tr ""
 
-# AppStarfield.cpp:500  KV(tr("Data"), Fmt(tr("%zu bytes"), c->data.size()));
-# AppStarfield.cpp:823  KV(tr("Data"), Fmt(tr("%zu bytes"), g.raw.size()));
+# AppStarfield.cpp:499  KV(tr("Data"), Fmt(tr("%zu bytes"), c->data.size()));
+# AppStarfield.cpp:822  KV(tr("Data"), Fmt(tr("%zu bytes"), g.raw.size()));
 en "%zu bytes"
 tr ""
 
-# AppStarfield.cpp:501  KV(tr("Form references"), std::to_string(c->sfRefs.size()));
-# AppStarfield.cpp:779  if (!c->sfRefs.empty() && ImGui::CollapsingHeader(trId("Form references"))) {
+# AppStarfield.cpp:500  KV(tr("Form references"), std::to_string(c->sfRefs.size()));
+# AppStarfield.cpp:778  if (!c->sfRefs.empty() && ImGui::CollapsingHeader(trId("Form references"))) {
 en "Form references"
 tr ""
 
-# AppStarfield.cpp:513  if (ImGui::CollapsingHeader(Fmt(tr("Inventory (%zu items)###inv"), r.items.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+# AppStarfield.cpp:512  if (ImGui::CollapsingHeader(Fmt(tr("Inventory (%zu items)###inv"), r.items.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 en "Inventory (%zu items)"
 tr ""
 
-# AppStarfield.cpp:516  ImGui::TextDisabled("%s", (tr("Not read: ") + r.error).c_str());
-# AppStarfield.cpp:585  ImGui::TextDisabled("%s", (tr("Not read: ") + n.error).c_str());
+# AppStarfield.cpp:515  ImGui::TextDisabled("%s", (tr("Not read: ") + r.error).c_str());
+# AppStarfield.cpp:584  ImGui::TextDisabled("%s", (tr("Not read: ") + n.error).c_str());
 en "Not read: "
 tr ""
 
-# AppStarfield.cpp:519  ImGui::TextDisabled("%s", tr("Empty."));
+# AppStarfield.cpp:518  ImGui::TextDisabled("%s", tr("Empty."));
 en "Empty."
 tr ""
 
-# AppStarfield.cpp:523  ImGui::TextDisabled("%s", tr("Every item the save keeps for it, in stacks (a stack is a group with the same mods, damage, "
+# AppStarfield.cpp:522  ImGui::TextDisabled("%s", tr("Every item the save keeps for it, in stacks (a stack is a group with the same mods, damage, "
 en "Every item the save keeps for it, in stacks (a stack is a group with the same mods, damage, name...). Change a count and save: the game loads that many."
 tr ""
 
-# AppStarfield.cpp:531  ImGui::TableSetupColumn(tr("Stack"), ImGuiTableColumnFlags_WidthFixed, 50);
+# AppStarfield.cpp:530  ImGui::TableSetupColumn(tr("Stack"), ImGuiTableColumnFlags_WidthFixed, 50);
 en "Stack"
 tr ""
 
-# AppStarfield.cpp:539  name = bf == 0xF ? std::string(tr("Credits")) : s.pluginOf(bf);
+# AppStarfield.cpp:538  name = bf == 0xF ? std::string(tr("Credits")) : s.pluginOf(bf);
 en "Credits"
 tr ""
 
-# AppStarfield.cpp:556  tips::Tip(tr("This stack carries data of its own (mods, condition, a name, equipped...)."));
+# AppStarfield.cpp:555  tips::Tip(tr("This stack carries data of its own (mods, condition, a name, equipped...)."));
 en "This stack carries data of its own (mods, condition, a name, equipped...)."
 tr ""
 
-# AppStarfield.cpp:566  markChanged(Fmt(tr("%s: count %u -> %u"), name.c_str(), st.count, v));
+# AppStarfield.cpp:565  markChanged(Fmt(tr("%s: count %u -> %u"), name.c_str(), st.count, v));
 en "%s: count %u -> %u"
 tr ""
 
-# AppStarfield.cpp:575  ImGui::TextDisabled("%s", tr("Type a number and press Enter (1 to 1,000,000,000)."));
+# AppStarfield.cpp:574  ImGui::TextDisabled("%s", tr("Type a number and press Enter (1 to 1,000,000,000)."));
 en "Type a number and press Enter (1 to 1,000,000,000)."
 tr ""
 
-# AppStarfield.cpp:588  ImGui::TextDisabled("%s", tr("The save keeps no name for this character (its plugin's name applies)."));
+# AppStarfield.cpp:587  ImGui::TextDisabled("%s", tr("The save keeps no name for this character (its plugin's name applies)."));
 en "The save keeps no name for this character (its plugin's name applies)."
 tr ""
 
-# AppStarfield.cpp:591  ImGui::Text(tr("Name: %s"), cur.c_str());
+# AppStarfield.cpp:590  ImGui::Text(tr("Name: %s"), cur.c_str());
 en "Name: %s"
 tr ""
 
-# AppStarfield.cpp:602  if (ImGui::Button(tr("Rename")) && buf[0] && cur != buf) {
+# AppStarfield.cpp:601  if (ImGui::Button(tr("Rename")) && buf[0] && cur != buf) {
 en "Rename"
 tr ""
 
-# AppStarfield.cpp:606  markChanged(Fmt(tr("Renamed to %s"), want.c_str()));
+# AppStarfield.cpp:605  markChanged(Fmt(tr("Renamed to %s"), want.c_str()));
 en "Renamed to %s"
 tr ""
 
-# AppStarfield.cpp:610  tips::Tip(tr("The name the game shows for this character. For your own character, the name in the load menu changes too."));
+# AppStarfield.cpp:609  tips::Tip(tr("The name the game shows for this character. For your own character, the name in the load menu changes too."));
 en "The name the game shows for this character. For your own character, the name in the load menu changes too."
 tr ""
 
-# AppStarfield.cpp:615  if (n.ok && !n.face.empty() && ImGui::TreeNodeEx(Fmt(tr("Face and body (%zu numbers)###facesf"), n.face.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpe
+# AppStarfield.cpp:614  if (n.ok && !n.face.empty() && ImGui::TreeNodeEx(Fmt(tr("Face and body (%zu numbers)###facesf"), n.face.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpe
 en "Face and body (%zu numbers)"
 tr ""
 
-# AppStarfield.cpp:617  ImGui::TextDisabled("%s", tr("The face the save keeps for this character, as the character creator wrote it: numbered sliders, "
+# AppStarfield.cpp:616  ImGui::TextDisabled("%s", tr("The face the save keeps for this character, as the character creator wrote it: numbered sliders, "
 en "The face the save keeps for this character, as the character creator wrote it: numbered sliders, blends of face shapes by region, and named shapes (body and face). Type a number and press Enter; the game reads them at the next load. Keep the original save."
 tr ""
 
-# AppStarfield.cpp:636  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
+# AppStarfield.cpp:635  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
 en "Slider"
 tr ""
 
-# AppStarfield.cpp:636  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
+# AppStarfield.cpp:635  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
 en "Blend"
 tr ""
 
-# AppStarfield.cpp:636  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
+# AppStarfield.cpp:635  ImGui::TextUnformatted(v.group == 1 ? tr("Slider") : v.group == 2 ? tr("Blend") : tr("Shape"));
 en "Shape"
 tr ""
 
-# AppStarfield.cpp:639  ImGui::Text(tr("slider %u"), v.key);
-# AppStarfield.cpp:653  markChanged(Fmt(tr("Face: %s %g -> %g"), v.group == 1 ? Fmt(tr("slider %u"), v.key).c_str() : nm.c_str(), x, want));
+# AppStarfield.cpp:638  ImGui::Text(tr("slider %u"), v.key);
+# AppStarfield.cpp:652  markChanged(Fmt(tr("Face: %s %g -> %g"), v.group == 1 ? Fmt(tr("slider %u"), v.key).c_str() : nm.c_str(), x, want));
 en "slider %u"
 tr ""
 
-# AppStarfield.cpp:641  ImGui::Text(tr("%s (blend %u)"), nm.c_str(), v.key);
+# AppStarfield.cpp:640  ImGui::Text(tr("%s (blend %u)"), nm.c_str(), v.key);
 en "%s (blend %u)"
 tr ""
 
-# AppStarfield.cpp:653  markChanged(Fmt(tr("Face: %s %g -> %g"), v.group == 1 ? Fmt(tr("slider %u"), v.key).c_str() : nm.c_str(), x, want));
+# AppStarfield.cpp:652  markChanged(Fmt(tr("Face: %s %g -> %g"), v.group == 1 ? Fmt(tr("slider %u"), v.key).c_str() : nm.c_str(), x, want));
 en "Face: %s %g -> %g"
 tr ""
 
-# AppStarfield.cpp:670  ImGui::Text(tr("State: %s  (quest flags %08X)"), q.completed() ? tr("completed") : q.enabled() ? tr("running") : tr("not running"), q.questFlags);
+# AppStarfield.cpp:669  ImGui::Text(tr("State: %s  (quest flags %08X)"), q.completed() ? tr("completed") : q.enabled() ? tr("running") : tr("not running"), q.questFlags);
 en "State: %s  (quest flags %08X)"
 tr ""
 
-# AppStarfield.cpp:677  confirm(tr("Change the quest's completed flag"),
+# AppStarfield.cpp:676  confirm(tr("Change the quest's completed flag"),
 en "Change the quest's completed flag"
 tr ""
 
-# AppStarfield.cpp:678  tr("Set or clear the flag Quest.IsCompleted reads (bit 0x2 of the quest's saved flags).\n\nOnly the flag changes: no "
+# AppStarfield.cpp:677  tr("Set or clear the flag Quest.IsCompleted reads (bit 0x2 of the quest's saved flags).\n\nOnly the flag changes: no "
 en "Set or clear the flag Quest.IsCompleted reads (bit 0x2 of the quest's saved flags).\n\nOnly the flag changes: no stage runs, no script is told, rewards are not given or taken, and the quest's objectives and aliases stay as they are. Use it to make a quest count as done (or not) for other quests and dialogue that check it. Keep the original save."
 tr ""
 
-# AppStarfield.cpp:692  markChanged(want ? tr("Quest marked completed") : tr("Quest no longer marked completed"));
+# AppStarfield.cpp:691  markChanged(want ? tr("Quest marked completed") : tr("Quest no longer marked completed"));
 en "Quest marked completed"
 tr ""
 
-# AppStarfield.cpp:692  markChanged(want ? tr("Quest marked completed") : tr("Quest no longer marked completed"));
+# AppStarfield.cpp:691  markChanged(want ? tr("Quest marked completed") : tr("Quest no longer marked completed"));
 en "Quest no longer marked completed"
 tr ""
 
-# AppStarfield.cpp:696  tips::Tip(tr("The completed flag the game and Quest.IsCompleted() read. Only this flag changes."));
+# AppStarfield.cpp:695  tips::Tip(tr("The completed flag the game and Quest.IsCompleted() read. Only this flag changes."));
 en "The completed flag the game and Quest.IsCompleted() read. Only this flag changes."
 tr ""
 
-# AppStarfield.cpp:698  ImGui::TextDisabled("%s", tr("The save keeps no state for this quest (its plugin's start state applies)."));
+# AppStarfield.cpp:697  ImGui::TextDisabled("%s", tr("The save keeps no state for this quest (its plugin's start state applies)."));
 en "The save keeps no state for this quest (its plugin's start state applies)."
 tr ""
 
-# AppStarfield.cpp:701  ImGui::TextDisabled("%s", tr("No stage is saved for this quest."));
+# AppStarfield.cpp:700  ImGui::TextDisabled("%s", tr("No stage is saved for this quest."));
 en "No stage is saved for this quest."
 tr ""
 
-# AppStarfield.cpp:703  ImGui::TextUnformatted(Fmt(tr("Stages saved: %zu (ticked = done)"), q.stages.size()).c_str());
+# AppStarfield.cpp:702  ImGui::TextUnformatted(Fmt(tr("Stages saved: %zu (ticked = done)"), q.stages.size()).c_str());
 en "Stages saved: %zu (ticked = done)"
 tr ""
 
-# AppStarfield.cpp:716  markChanged(Fmt(d ? tr("Stage %u marked done") : tr("Stage %u marked not done"), st.index));
+# AppStarfield.cpp:715  markChanged(Fmt(d ? tr("Stage %u marked done") : tr("Stage %u marked not done"), st.index));
 en "Stage %u marked done"
 tr ""
 
-# AppStarfield.cpp:716  markChanged(Fmt(d ? tr("Stage %u marked done") : tr("Stage %u marked not done"), st.index));
+# AppStarfield.cpp:715  markChanged(Fmt(d ? tr("Stage %u marked done") : tr("Stage %u marked not done"), st.index));
 en "Stage %u marked not done"
 tr ""
 
-# AppStarfield.cpp:724  ImGui::TextDisabled("%s", tr("Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."));
+# AppStarfield.cpp:723  ImGui::TextDisabled("%s", tr("Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."));
 en "Ticking a stage only marks it done (Quest.IsStageDone): its script fragment does not run."
 tr ""
 
-# AppStarfield.cpp:728  if (c->refID.type() != RefID::Type::kCreated && ImGui::CollapsingHeader(trId("In the running game"), ImGuiTreeNodeFlags_DefaultOpen)) {
+# AppStarfield.cpp:727  if (c->refID.type() != RefID::Type::kCreated && ImGui::CollapsingHeader(trId("In the running game"), ImGuiTreeNodeFlags_DefaultOpen)) {
 en "In the running game"
 tr ""
 
-# AppStarfield.cpp:733  ImGui::TextDisabled("%s", !info.connected ? tr("Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed.")
+# AppStarfield.cpp:732  ImGui::TextDisabled("%s", !info.connected ? tr("Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed.")
 en "Not connected: start Starfield with SFSE and the Starfield ReSaverHelper.dll installed."
 tr ""
 
-# AppStarfield.cpp:734  : !liveSF()   ? tr("The game connected is not Starfield.")
-# AppStarfield.cpp:1562  a_why = tr("The game connected is not Starfield.");
+# AppStarfield.cpp:733  : !liveSF()   ? tr("The game connected is not Starfield.")
+# AppStarfield.cpp:1561  a_why = tr("The game connected is not Starfield.");
 en "The game connected is not Starfield."
 tr ""
 
-# AppStarfield.cpp:739  if (ImGui::SmallButton(tr("Read it from the game"))) {
+# AppStarfield.cpp:738  if (ImGui::SmallButton(tr("Read it from the game"))) {
 en "Read it from the game"
 tr ""
 
-# AppStarfield.cpp:746  if (ImGui::SmallButton(tr("Set stage (runs its script)"))) {
+# AppStarfield.cpp:745  if (ImGui::SmallButton(tr("Set stage (runs its script)"))) {
 en "Set stage (runs its script)"
 tr ""
 
-# AppStarfield.cpp:749  tips::Tip(tr("The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."));
+# AppStarfield.cpp:748  tips::Tip(tr("The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."));
 en "The game's own setstage command: the quest goes to that stage and the stage's script runs (rewards, follow-up quests, scenes)."
 tr ""
 
-# AppStarfield.cpp:750  if (ImGui::SmallButton(tr("Complete"))) {
+# AppStarfield.cpp:749  if (ImGui::SmallButton(tr("Complete"))) {
 en "Complete"
 tr ""
 
-# AppStarfield.cpp:753  tips::Tip(tr("The game's own completequest command for this quest."));
+# AppStarfield.cpp:752  tips::Tip(tr("The game's own completequest command for this quest."));
 en "The game's own completequest command for this quest."
 tr ""
 
-# AppStarfield.cpp:758  tips::Tip(tr("The game's own stopquest command for this quest."));
+# AppStarfield.cpp:757  tips::Tip(tr("The game's own stopquest command for this quest."));
 en "The game's own stopquest command for this quest."
 tr ""
 
-# AppStarfield.cpp:763  tips::Tip(tr("The game's own resetquest command for this quest."));
+# AppStarfield.cpp:762  tips::Tip(tr("The game's own resetquest command for this quest."));
 en "The game's own resetquest command for this quest."
 tr ""
 
-# AppStarfield.cpp:777  ImGui::Text(tr("%zu script instance(s) attached."), attached);
+# AppStarfield.cpp:776  ImGui::Text(tr("%zu script instance(s) attached."), attached);
 en "%zu script instance(s) attached."
 tr ""
 
-# AppStarfield.cpp:817  ImGui::Text(tr("Global data type %u (table %d)"), g.type, t);
+# AppStarfield.cpp:816  ImGui::Text(tr("Global data type %u (table %d)"), g.type, t);
 en "Global data type %u (table %d)"
 tr ""
 
-# AppStarfield.cpp:819  KV(tr("Layout"), GlobalKindName(g.sfKind));
+# AppStarfield.cpp:818  KV(tr("Layout"), GlobalKindName(g.sfKind));
 en "Layout"
 tr ""
 
-# AppStarfield.cpp:821  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
+# AppStarfield.cpp:820  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
 en "Points at"
 tr ""
 
-# AppStarfield.cpp:821  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
+# AppStarfield.cpp:820  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
 en "the string table (written again on save)"
 tr ""
 
-# AppStarfield.cpp:821  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
+# AppStarfield.cpp:820  KV(tr("Points at"), g.type == 0 ? tr("the string table (written again on save)") : tr("the created-ID section (written again on save)"));
 en "the created-ID section (written again on save)"
 tr ""
 
-# AppStarfield.cpp:830  ImGui::TextDisabled("%s", g.type == 1001 ? (sfPapyrus() ? tr("The script data: see the Papyrus lists.")
+# AppStarfield.cpp:829  ImGui::TextDisabled("%s", g.type == 1001 ? (sfPapyrus() ? tr("The script data: see the Papyrus lists.")
 en "The script data: see the Papyrus lists."
 tr ""
 
-# AppStarfield.cpp:831  : tr("The script data (Papyrus): not read yet, written back exactly as it is."))
+# AppStarfield.cpp:830  : tr("The script data (Papyrus): not read yet, written back exactly as it is."))
 en "The script data (Papyrus): not read yet, written back exactly as it is."
 tr ""
 
-# AppStarfield.cpp:832  : tr("Not decoded: kept and written back exactly as it is."));
+# AppStarfield.cpp:831  : tr("Not decoded: kept and written back exactly as it is."));
 en "Not decoded: kept and written back exactly as it is."
 tr ""
 
-# AppStarfield.cpp:863  it.title = tr("Starfield: script data not read yet");
+# AppStarfield.cpp:862  it.title = tr("Starfield: script data not read yet");
 en "Starfield: script data not read yet"
 tr ""
 
-# AppStarfield.cpp:864  it.what = tr("ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data "
+# AppStarfield.cpp:863  it.what = tr("ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data "
 en "ReSaver Plus reads this save's header, plugins, change forms and global data, and writes it back. Its script data (Papyrus) is kept exactly as it is, so there is nothing to check or clean in it yet."
 tr ""
 
-# AppStarfield.cpp:909  list += Fmt(tr("\n  - %s: %s in the save, %s now: %zu of its %zu ids do not fit (e.g. %08X)"), k.plugin.c_str(), kindName(k.was), kindName(k.now),
+# AppStarfield.cpp:908  list += Fmt(tr("\n  - %s: %s in the save, %s now: %zu of its %zu ids do not fit (e.g. %08X)"), k.plugin.c_str(), kindName(k.was), kindName(k.now),
 en "\n  - %s: %s in the save, %s now: %zu of its %zu ids do not fit (e.g. %08X)"
 tr ""
 
-# AppStarfield.cpp:916  it.title = Fmt(tr("%zu plugin(s) changed kind since this save: their saved records land on other records"), broken);
+# AppStarfield.cpp:915  it.title = Fmt(tr("%zu plugin(s) changed kind since this save: their saved records land on other records"), broken);
 en "%zu plugin(s) changed kind since this save: their saved records land on other records"
 tr ""
 
-# AppStarfield.cpp:917  it.what = tr("A plugin was flagged light or medium (or the flag was removed) after this save was made. When a save loads, "
+# AppStarfield.cpp:916  it.what = tr("A plugin was flagged light or medium (or the flag was removed) after this save was made. When a save loads, "
 en "A plugin was flagged light or medium (or the flag was removed) after this save was made. When a save loads, Starfield rebuilds every saved form id for today's plugins: a light plugin keeps only the last 3 hex digits of an id, a medium one the last 4 (Starfield.exe 1.16.244, TESFile::AdjustFormID). The save's ids of these plugins that are larger than that now point at other records of the plugin, or at none: placed objects, quests and NPC changes of the mod go to the wrong things."
 tr ""
 
-# AppStarfield.cpp:923  tr("\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, "
+# AppStarfield.cpp:922  tr("\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, "
 en "\nThe fix is outside the save: give the plugin back the kind it had when you saved (undo the light / medium flag, or reinstall the mod's earlier version), or load a save made after the change. Renumbering (\"compacting\") a plugin's ids for the new kind does not help either: the save still holds the old numbers."
 tr ""
 
-# AppStarfield.cpp:934  it.title = Fmt(tr("%zu change form(s) have another type in your plugins now: the game skips them"), mm.size());
+# AppStarfield.cpp:933  it.title = Fmt(tr("%zu change form(s) have another type in your plugins now: the game skips them"), mm.size());
 en "%zu change form(s) have another type in your plugins now: the game skips them"
 tr ""
 
-# AppStarfield.cpp:947  it.what = tr("The save stored these forms as one type, but a plugin you load now defines them as another (a mod changed or "
+# AppStarfield.cpp:946  it.what = tr("The save stored these forms as one type, but a plugin you load now defines them as another (a mod changed or "
 en "The save stored these forms as one type, but a plugin you load now defines them as another (a mod changed or replaced them). Starfield's loader logs \"Form ... was saved with form type ..., but currently has form type ...\" and skips their saved changes (Starfield.exe 1.16.244), so they load as the plugins define them:"
 tr ""
 
-# AppStarfield.cpp:965  r.label = Fmt(tr("Remove their saved changes (%zu)"), raws.size());
+# AppStarfield.cpp:964  r.label = Fmt(tr("Remove their saved changes (%zu)"), raws.size());
 en "Remove their saved changes (%zu)"
 tr ""
 
-# AppStarfield.cpp:967  r.why = tr("The game already skips them when the save loads, so the result in the game is the same; the save just no longer "
+# AppStarfield.cpp:966  r.why = tr("The game already skips them when the save loads, so the result in the game is the same; the save just no longer "
 en "The game already skips them when the save loads, so the result in the game is the same; the save just no longer carries data nothing uses."
 tr ""
 
-# AppStarfield.cpp:970  confirm(tr("Remove skipped change forms"),
+# AppStarfield.cpp:969  confirm(tr("Remove skipped change forms"),
 en "Remove skipped change forms"
 tr ""
 
-# AppStarfield.cpp:971  Fmt(tr("Delete %zu change form(s) the game skips because their type changed?\n\nOnly the save in memory changes: write it "
+# AppStarfield.cpp:970  Fmt(tr("Delete %zu change form(s) the game skips because their type changed?\n\nOnly the save in memory changes: write it "
 en "Delete %zu change form(s) the game skips because their type changed?\n\nOnly the save in memory changes: write it with File > Save As under a new name."
 tr ""
 
-# AppStarfield.cpp:974  [this, raws] { markEdited(Fmt(tr("Removed %zu change form(s) whose type changed"), ops::DeleteChangeForms(*_save, raws))); });
+# AppStarfield.cpp:973  [this, raws] { markEdited(Fmt(tr("Removed %zu change form(s) whose type changed"), ops::DeleteChangeForms(*_save, raws))); });
 en "Removed %zu change form(s) whose type changed"
 tr ""
 
-# AppStarfield.cpp:992  if (!ImGui::TreeNode(tr("Add an item"))) {
+# AppStarfield.cpp:991  if (!ImGui::TreeNode(tr("Add an item"))) {
 en "Add an item"
 tr ""
 
-# AppStarfield.cpp:997  ImGui::TextDisabled("%s", tr("Needs the item names from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Setting
+# AppStarfield.cpp:996  ImGui::TextDisabled("%s", tr("Needs the item names from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Setting
 en "Needs the item names from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings)."
 tr ""
 
-# AppStarfield.cpp:1026  if (ImGui::InputTextWithHint("##find", tr("name, editor ID or form ID"), text, sizeof(text))) {
+# AppStarfield.cpp:1025  if (ImGui::InputTextWithHint("##find", tr("name, editor ID or form ID"), text, sizeof(text))) {
 en "name, editor ID or form ID"
 tr ""
 
-# AppStarfield.cpp:1050  ImGui::TextDisabled("%s", tr("No item found with that text."));
+# AppStarfield.cpp:1049  ImGui::TextDisabled("%s", tr("No item found with that text."));
 en "No item found with that text."
 tr ""
 
-# AppStarfield.cpp:1053  ImGui::InputScalar(tr("count"), ImGuiDataType_U32, &count);
+# AppStarfield.cpp:1052  ImGui::InputScalar(tr("count"), ImGuiDataType_U32, &count);
 en "count"
 tr ""
 
-# AppStarfield.cpp:1060  result = Fmt(tr("Added %u x %s."), count, _db->describe(pick).c_str());
+# AppStarfield.cpp:1059  result = Fmt(tr("Added %u x %s."), count, _db->describe(pick).c_str());
 en "Added %u x %s."
 tr ""
 
-# AppStarfield.cpp:1063  result = tr("Not added: ") + why;
+# AppStarfield.cpp:1062  result = tr("Not added: ") + why;
 en "Not added: "
 tr ""
 
-# AppStarfield.cpp:1072  if (ImGui::Button(tr("Give in the running game"))) {
+# AppStarfield.cpp:1071  if (ImGui::Button(tr("Give in the running game"))) {
 en "Give in the running game"
 tr ""
 
-# AppStarfield.cpp:1073  const std::string what = Fmt(tr("%u x %s"), count, _db->describe(pick).c_str());
+# AppStarfield.cpp:1072  const std::string what = Fmt(tr("%u x %s"), count, _db->describe(pick).c_str());
 en "%u x %s"
 tr ""
 
-# AppStarfield.cpp:1082  note = tr("The game is busy; it gives the item when it gets to it: ") + what;
+# AppStarfield.cpp:1081  note = tr("The game is busy; it gives the item when it gets to it: ") + what;
 en "The game is busy; it gives the item when it gets to it: "
 tr ""
 
-# AppStarfield.cpp:1084  note = tr("Given in the game: ") + what + tr(". Save in the game to keep it.");
+# AppStarfield.cpp:1083  note = tr("Given in the game: ") + what + tr(". Save in the game to keep it.");
 en "Given in the game: "
 tr ""
 
-# AppStarfield.cpp:1091  tips::Tip(ready ? tr("Give the item to your character in the running game (the game's own player.additem), not in this save.")
+# AppStarfield.cpp:1090  tips::Tip(ready ? tr("Give the item to your character in the running game (the game's own player.additem), not in this save.")
 en "Give the item to your character in the running game (the game's own player.additem), not in this save."
 tr ""
 
-# AppStarfield.cpp:1100  ImGui::TextDisabled("%s", tr("The item is added as one plain stack (no mods, full condition), as the game makes a new item. Keep the original save."))
+# AppStarfield.cpp:1099  ImGui::TextDisabled("%s", tr("The item is added as one plain stack (no mods, full condition), as the game makes a new item. Keep the original save."))
 en "The item is added as one plain stack (no mods, full condition), as the game makes a new item. Keep the original save."
 tr ""
 
-# AppStarfield.cpp:1161  ImGui::TextDisabled("%s", tr("Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). 
+# AppStarfield.cpp:1160  ImGui::TextDisabled("%s", tr("Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). 
 en "Quest names come from your plugins: Tools > Read plugin names (the Starfield folder must be set in Options > Settings). Until then they are listed by form ID."
 tr ""
 
-# AppStarfield.cpp:1167  ImGui::TextDisabled("%s", !info.connected ? tr("Running game: not connected (start Starfield with sfse_loader.exe to use the helper).")
+# AppStarfield.cpp:1166  ImGui::TextDisabled("%s", !info.connected ? tr("Running game: not connected (start Starfield with sfse_loader.exe to use the helper).")
 en "Running game: not connected (start Starfield with sfse_loader.exe to use the helper)."
 tr ""
 
-# AppStarfield.cpp:1168  : !info.inGame  ? tr("Running game: connected, at the main menu. Load a save in the game to use its quest commands.")
+# AppStarfield.cpp:1167  : !info.inGame  ? tr("Running game: connected, at the main menu. Load a save in the game to use its quest commands.")
 en "Running game: connected, at the main menu. Load a save in the game to use its quest commands."
 tr ""
 
-# AppStarfield.cpp:1169  : tr("Running game: connected, a save is loaded. Open a quest for its commands."));
+# AppStarfield.cpp:1168  : tr("Running game: connected, a save is loaded. Open a quest for its commands."));
 en "Running game: connected, a save is loaded. Open a quest for its commands."
 tr ""
 
-# AppStarfield.cpp:1172  ImGui::InputTextWithHint("##qf", tr("filter (name or form ID)"), filter, sizeof(filter));
+# AppStarfield.cpp:1171  ImGui::InputTextWithHint("##qf", tr("filter (name or form ID)"), filter, sizeof(filter));
 en "filter (name or form ID)"
 tr ""
 
-# AppStarfield.cpp:1178  ImGui::RadioButton(tr("Not running"), &show, 3);
+# AppStarfield.cpp:1177  ImGui::RadioButton(tr("Not running"), &show, 3);
 en "Not running"
 tr ""
 
-# AppStarfield.cpp:1180  ImGui::RadioButton(tr("All"), &show, 0);
+# AppStarfield.cpp:1179  ImGui::RadioButton(tr("All"), &show, 0);
 en "All"
 tr ""
 
-# AppStarfield.cpp:1196  ImGui::Text(tr("%zu of %zu quests"), shown.size(), rows.size());
+# AppStarfield.cpp:1195  ImGui::Text(tr("%zu of %zu quests"), shown.size(), rows.size());
 en "%zu of %zu quests"
 tr ""
 
-# AppStarfield.cpp:1203  ImGui::TableSetupColumn(tr("Stages done"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1202  ImGui::TableSetupColumn(tr("Stages done"), ImGuiTableColumnFlags_WidthFixed, 90);
 en "Stages done"
 tr ""
 
-# AppStarfield.cpp:1255  ImGui::TextDisabled("%s", tr("Needs the names from your plugins to tell ships from other objects: Tools > Read plugin names (the Starfield folder "
+# AppStarfield.cpp:1254  ImGui::TextDisabled("%s", tr("Needs the names from your plugins to tell ships from other objects: Tools > Read plugin names (the Starfield folder "
 en "Needs the names from your plugins to tell ships from other objects: Tools > Read plugin names (the Starfield folder must be set in Options > Settings)."
 tr ""
 
-# AppStarfield.cpp:1306  r.name = gbfm ? _db->describe(base) : tr("(built or changed in the ship builder)");
+# AppStarfield.cpp:1305  r.name = gbfm ? _db->describe(base) : tr("(built or changed in the ship builder)");
 en "(built or changed in the ship builder)"
 tr ""
 
-# AppStarfield.cpp:1312  ImGui::TextWrapped(tr("%zu ships and stations. Open one to see and change its cargo (its inventory), or add to it."), rows.size());
+# AppStarfield.cpp:1311  ImGui::TextWrapped(tr("%zu ships and stations. Open one to see and change its cargo (its inventory), or add to it."), rows.size());
 en "%zu ships and stations. Open one to see and change its cargo (its inventory), or add to it."
 tr ""
 
-# AppStarfield.cpp:1316  ImGui::TableSetupColumn(tr("Ship"), ImGuiTableColumnFlags_WidthStretch);
+# AppStarfield.cpp:1315  ImGui::TableSetupColumn(tr("Ship"), ImGuiTableColumnFlags_WidthStretch);
 en "Ship"
 tr ""
 
-# AppStarfield.cpp:1318  ImGui::TableSetupColumn(tr("Cargo items"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1317  ImGui::TableSetupColumn(tr("Cargo items"), ImGuiTableColumnFlags_WidthFixed, 90);
 en "Cargo items"
 tr ""
 
-# AppStarfield.cpp:1359  ImGui::SeparatorText(tr("Level and XP"));
+# AppStarfield.cpp:1358  ImGui::SeparatorText(tr("Level and XP"));
 en "Level and XP"
 tr ""
 
-# AppStarfield.cpp:1361  ImGui::Text(tr("Level %u, XP %.0f of %.0f to the next level"), h.playerLevel, h.currentXP, h.neededXP);
+# AppStarfield.cpp:1360  ImGui::Text(tr("Level %u, XP %.0f of %.0f to the next level"), h.playerLevel, h.currentXP, h.neededXP);
 en "Level %u, XP %.0f of %.0f to the next level"
 tr ""
 
-# AppStarfield.cpp:1364  ImGui::TextDisabled("%s", tr("To change them, ReSaver Plus needs the names from your plugins: Tools > Read plugin names."));
+# AppStarfield.cpp:1363  ImGui::TextDisabled("%s", tr("To change them, ReSaver Plus needs the names from your plugins: Tools > Read plugin names."));
 en "To change them, ReSaver Plus needs the names from your plugins: Tools > Read plugin names."
 tr ""
 
-# AppStarfield.cpp:1387  ImGui::TextDisabled("%s", (tr("Cannot be changed here: ") + xp.error).c_str());
+# AppStarfield.cpp:1386  ImGui::TextDisabled("%s", (tr("Cannot be changed here: ") + xp.error).c_str());
 en "Cannot be changed here: "
 tr ""
 
-# AppStarfield.cpp:1390  ImGui::TextDisabled(tr("Total experience saved: %.0f"), xp.experience);
+# AppStarfield.cpp:1389  ImGui::TextDisabled(tr("Total experience saved: %.0f"), xp.experience);
 en "Total experience saved: %.0f"
 tr ""
 
-# AppStarfield.cpp:1393  ImGui::InputInt(tr("level"), &wantLevel);
+# AppStarfield.cpp:1392  ImGui::InputInt(tr("level"), &wantLevel);
 en "level"
 tr ""
 
-# AppStarfield.cpp:1398  ImGui::InputFloat(tr("XP into it"), &wantXP, 0, 0, "%.0f");
+# AppStarfield.cpp:1397  ImGui::InputFloat(tr("XP into it"), &wantXP, 0, 0, "%.0f");
 en "XP into it"
 tr ""
 
-# AppStarfield.cpp:1401  ImGui::TextDisabled(tr("(of %.0f)"), need);
+# AppStarfield.cpp:1400  ImGui::TextDisabled(tr("(of %.0f)"), need);
 en "(of %.0f)"
 tr ""
 
-# AppStarfield.cpp:1402  if (ImGui::Button(tr("Set level and XP"))) {
+# AppStarfield.cpp:1401  if (ImGui::Button(tr("Set level and XP"))) {
 en "Set level and XP"
 tr ""
 
-# AppStarfield.cpp:1405  result = Fmt(tr("Level %d, XP %.0f."), wantLevel, wantXP);
+# AppStarfield.cpp:1404  result = Fmt(tr("Level %d, XP %.0f."), wantLevel, wantXP);
 en "Level %d, XP %.0f."
 tr ""
 
-# AppStarfield.cpp:1408  result = tr("Not changed: ") + why;
-# AppStarfield.cpp:1802  _status = tr("Not changed: ") + why;
+# AppStarfield.cpp:1407  result = tr("Not changed: ") + why;
+# AppStarfield.cpp:1801  _status = tr("Not changed: ") + why;
 en "Not changed: "
 tr ""
 
-# AppStarfield.cpp:1416  ImGui::TextDisabled("%s", tr("Sets the level and the experience the game keeps for you (and the load menu's). Only these change: nothing else "
+# AppStarfield.cpp:1415  ImGui::TextDisabled("%s", tr("Sets the level and the experience the game keeps for you (and the load menu's). Only these change: nothing else "
 en "Sets the level and the experience the game keeps for you (and the load menu's). Only these change: nothing else the game does at a level-up happens (no skill point is added). Keep the original save."
 tr ""
 
-# AppStarfield.cpp:1428  if (!ImGui::CollapsingHeader(trId("Actor values"))) {
+# AppStarfield.cpp:1427  if (!ImGui::CollapsingHeader(trId("Actor values"))) {
 en "Actor values"
 tr ""
 
-# AppStarfield.cpp:1433  ImGui::TextDisabled("%s", tr("Needs the names from your plugins: Tools > Read plugin names."));
+# AppStarfield.cpp:1432  ImGui::TextDisabled("%s", tr("Needs the names from your plugins: Tools > Read plugin names."));
 en "Needs the names from your plugins: Tools > Read plugin names."
 tr ""
 
-# AppStarfield.cpp:1452  ImGui::TextDisabled("%s", (tr("Not found: ") + av.error).c_str());
+# AppStarfield.cpp:1451  ImGui::TextDisabled("%s", (tr("Not found: ") + av.error).c_str());
 en "Not found: "
 tr ""
 
-# AppStarfield.cpp:1456  ImGui::TextDisabled("%s", tr("The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers "
+# AppStarfield.cpp:1455  ImGui::TextDisabled("%s", tr("The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers "
 en "The values the save keeps for you. A base value is saved only when it is not the game's default; the modifiers only when not 0: Permanent (scripts and perks, ModValue), Temporary (equipment and active effects) and Damage (DamageValue; 0 = fully restored). Saved numbers can be changed (press Enter). Use with care: keep the original save."
 tr ""
 
-# AppStarfield.cpp:1461  ImGui::InputTextWithHint("##avf", tr("filter"), filter, sizeof(filter));
+# AppStarfield.cpp:1460  ImGui::InputTextWithHint("##avf", tr("filter"), filter, sizeof(filter));
 en "filter"
 tr ""
 
-# AppStarfield.cpp:1466  n = Fmt(tr("(engine value %X)"), f);
+# AppStarfield.cpp:1465  n = Fmt(tr("(engine value %X)"), f);
 en "(engine value %X)"
 tr ""
 
-# AppStarfield.cpp:1486  ImGui::TableSetupColumn(tr("Actor value"), ImGuiTableColumnFlags_WidthStretch);
+# AppStarfield.cpp:1485  ImGui::TableSetupColumn(tr("Actor value"), ImGuiTableColumnFlags_WidthStretch);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Actor value"
 tr ""
 
-# AppStarfield.cpp:1487  ImGui::TableSetupColumn(tr("Base"), ImGuiTableColumnFlags_WidthFixed, 110);
+# AppStarfield.cpp:1486  ImGui::TableSetupColumn(tr("Base"), ImGuiTableColumnFlags_WidthFixed, 110);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Base"
 tr ""
 
-# AppStarfield.cpp:1488  ImGui::TableSetupColumn(tr("Permanent"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1487  ImGui::TableSetupColumn(tr("Permanent"), ImGuiTableColumnFlags_WidthFixed, 90);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Permanent"
 tr ""
 
-# AppStarfield.cpp:1489  ImGui::TableSetupColumn(tr("Temporary"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1488  ImGui::TableSetupColumn(tr("Temporary"), ImGuiTableColumnFlags_WidthFixed, 90);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Temporary"
 tr ""
 
-# AppStarfield.cpp:1490  ImGui::TableSetupColumn(tr("Damage"), ImGuiTableColumnFlags_WidthFixed, 90);
+# AppStarfield.cpp:1489  ImGui::TableSetupColumn(tr("Damage"), ImGuiTableColumnFlags_WidthFixed, 90);
 # AppTools.cpp:1450  for (const char* h : { tr("Actor value"), tr("Base"), "", tr("Permanent"), tr("Temporary"), tr("Damage"), tr("Now") }) {
 en "Damage"
 tr ""
 
-# AppStarfield.cpp:1525  markChanged(Fmt(tr("%s set to %.2f"), n.c_str(), v));
+# AppStarfield.cpp:1524  markChanged(Fmt(tr("%s set to %.2f"), n.c_str(), v));
 en "%s set to %.2f"
 tr ""
 
-# AppStarfield.cpp:1530  ImGui::TextDisabled("%s", tr("default"));
+# AppStarfield.cpp:1529  ImGui::TextDisabled("%s", tr("default"));
 en "default"
 tr ""
 
-# AppStarfield.cpp:1541  markChanged(Fmt(tr("%s: %s modifier set to %.2f"), n.c_str(), tr(kModNames[k]), v));
+# AppStarfield.cpp:1540  markChanged(Fmt(tr("%s: %s modifier set to %.2f"), n.c_str(), tr(kModNames[k]), v));
 en "%s: %s modifier set to %.2f"
 tr ""
 
-# AppStarfield.cpp:1558  a_why = Fmt(tr("Needs the game running with ReSaverHelper for Starfield (version %d or later)."), a_version);
+# AppStarfield.cpp:1557  a_why = Fmt(tr("Needs the game running with ReSaverHelper for Starfield (version %d or later)."), a_version);
 en "Needs the game running with ReSaverHelper for Starfield (version %d or later)."
 tr ""
 
-# AppStarfield.cpp:1566  a_why = Fmt(tr("Needs ReSaverHelper for Starfield version %d or later (the game has version %s)."), a_version, info.helperVersion.c_str());
+# AppStarfield.cpp:1565  a_why = Fmt(tr("Needs ReSaverHelper for Starfield version %d or later (the game has version %s)."), a_version, info.helperVersion.c_str());
 en "Needs ReSaverHelper for Starfield version %d or later (the game has version %s)."
 tr ""
 
-# AppStarfield.cpp:1580  const std::string what = Fmt(tr("brought %s to you"), a_name.c_str());
+# AppStarfield.cpp:1579  const std::string what = Fmt(tr("brought %s to you"), a_name.c_str());
 en "brought %s to you"
 tr ""
 
-# AppStarfield.cpp:1644  ImGui::TextWrapped("%s", tr("Reading the names of your plugins first (they tell which forms are spells, enchantments and aid items)..."));
+# AppStarfield.cpp:1643  ImGui::TextWrapped("%s", tr("Reading the names of your plugins first (they tell which forms are spells, enchantments and aid items)..."));
 en "Reading the names of your plugins first (they tell which forms are spells, enchantments and aid items)..."
 tr ""
 
-# AppStarfield.cpp:1656  TextColored(theme::Warn(), tr("The save has no record of the player."));
+# AppStarfield.cpp:1655  TextColored(theme::Warn(), tr("The save has no record of the player."));
 en "The save has no record of the player."
 tr ""
 
-# AppStarfield.cpp:1695  TextColored(theme::Warn(), tr("Your active effects were not found in this save: ") + c.fx.error);
+# AppStarfield.cpp:1694  TextColored(theme::Warn(), tr("Your active effects were not found in this save: ") + c.fx.error);
 en "Your active effects were not found in this save: "
 tr ""
 
-# AppStarfield.cpp:1696  ImGui::TextDisabled("%s", tr("The part of the save before them is not read yet, so they are found by their shape; this save's did not fit."));
+# AppStarfield.cpp:1695  ImGui::TextDisabled("%s", tr("The part of the save before them is not read yet, so they are found by their shape; this save's did not fit."));
 en "The part of the save before them is not read yet, so they are found by their shape; this save's did not fit."
 tr ""
 
-# AppStarfield.cpp:1700  ImGui::TextWrapped("%s", Fmt(tr("%zu effects run on your character: abilities, your gear's enchantments, aid items and what others put on you."),
+# AppStarfield.cpp:1699  ImGui::TextWrapped("%s", Fmt(tr("%zu effects run on your character: abilities, your gear's enchantments, aid items and what others put on you."),
 en "%zu effects run on your character: abilities, your gear's enchantments, aid items and what others put on you."
 tr ""
 
-# AppStarfield.cpp:1708  TextColored(theme::Caution(), Fmt(tr("%zu stuck: the enchantment of an item you no longer have is still running. They are ticked; take them "
+# AppStarfield.cpp:1707  TextColored(theme::Caution(), Fmt(tr("%zu stuck: the enchantment of an item you no longer have is still running. They are ticked; take them "
 en "%zu stuck: the enchantment of an item you no longer have is still running. They are ticked; take them out below."
 tr ""
 
-# AppStarfield.cpp:1712  TextColored(theme::Good(), tr("Nothing stuck: every enchantment running belongs to an item you have."));
+# AppStarfield.cpp:1711  TextColored(theme::Good(), tr("Nothing stuck: every enchantment running belongs to an item you have."));
 en "Nothing stuck: every enchantment running belongs to an item you have."
 tr ""
 
-# AppStarfield.cpp:1715  static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
+# AppStarfield.cpp:1714  static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
 en "Stuck: the item is gone"
 tr ""
 
-# AppStarfield.cpp:1715  static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
+# AppStarfield.cpp:1714  static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
 en "Your gear's enchantments"
 tr ""
 
-# AppStarfield.cpp:1715  static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
+# AppStarfield.cpp:1714  static const char* kGroups[kSfFxCount] = { N_("Stuck: the item is gone"), N_("Your gear's enchantments"), N_("Spells and abilities"),
 en "Spells and abilities"
 tr ""
 
-# AppStarfield.cpp:1716  N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
+# AppStarfield.cpp:1715  N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
 en "Aid items and food"
 tr ""
 
-# AppStarfield.cpp:1716  N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
+# AppStarfield.cpp:1715  N_("Aid items and food"), N_("Put on you by others"), N_("Not in the plugins read (a mod's, or a mod no longer installed)") };
 en "Not in the plugins read (a mod's, or a mod no longer installed)"
 tr ""
 
-# AppStarfield.cpp:1736  ImGui::TableSetupColumn(tr("Effect of"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
+# AppStarfield.cpp:1735  ImGui::TableSetupColumn(tr("Effect of"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
 en "Effect of"
 tr ""
 
-# AppStarfield.cpp:1737  ImGui::TableSetupColumn(tr("From item"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+# AppStarfield.cpp:1736  ImGui::TableSetupColumn(tr("From item"), ImGuiTableColumnFlags_WidthStretch, 2.0f);
 en "From item"
 tr ""
 
-# AppStarfield.cpp:1738  ImGui::TableSetupColumn(tr("Magnitude"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5);
+# AppStarfield.cpp:1737  ImGui::TableSetupColumn(tr("Magnitude"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5);
 en "Magnitude"
 tr ""
 
-# AppStarfield.cpp:1739  ImGui::TableSetupColumn(tr("Duration"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5);
+# AppStarfield.cpp:1738  ImGui::TableSetupColumn(tr("Duration"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5);
 en "Duration"
 tr ""
 
-# AppStarfield.cpp:1740  ImGui::TableSetupColumn(tr("By"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+# AppStarfield.cpp:1739  ImGui::TableSetupColumn(tr("By"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
 en "By"
 tr ""
 
-# AppStarfield.cpp:1762  tips::Tip(tr("You no longer have this item, but its enchantment still runs on you."));
+# AppStarfield.cpp:1761  tips::Tip(tr("You no longer have this item, but its enchantment still runs on you."));
 en "You no longer have this item, but its enchantment still runs on you."
 tr ""
 
-# AppStarfield.cpp:1773  ImGui::TextDisabled("%s", tr("lasting"));
+# AppStarfield.cpp:1772  ImGui::TextDisabled("%s", tr("lasting"));
 en "lasting"
 tr ""
 
-# AppStarfield.cpp:1796  if (ImGui::Button(Fmt(tr("Take out the %zu ticked effects"), picked.size()).c_str())) {
+# AppStarfield.cpp:1795  if (ImGui::Button(Fmt(tr("Take out the %zu ticked effects"), picked.size()).c_str())) {
 en "Take out the %zu ticked effects"
 tr ""
 
-# AppStarfield.cpp:1800  markChanged(Fmt(tr("Took %zu effects off your character"), n));
+# AppStarfield.cpp:1799  markChanged(Fmt(tr("Took %zu effects off your character"), n));
 en "Took %zu effects off your character"
 tr ""
 
-# AppStarfield.cpp:1806  tips::Tip(tr("Takes the ticked effects off your character in this save. An ability or a mod's effect taken out comes back if its spell is "
+# AppStarfield.cpp:1805  tips::Tip(tr("Takes the ticked effects off your character in this save. An ability or a mod's effect taken out comes back if its spell is "
 en "Takes the ticked effects off your character in this save. An ability or a mod's effect taken out comes back if its spell is still given to you. Save as a new file and keep the original."
 tr ""
 
@@ -15058,6 +15070,9 @@ en "Please report this on the mod page with the file ReSaverPP-startup.log (next
 tr ""
 
 # ---- no longer used by the code (kept for reference; safe to delete) ----
+
+en "Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records."
+tr ""
 
 en "Not for Starfield saves yet: the effects running on a character are in the part of Starfield's actor data that is not decoded yet."
 tr ""

@@ -1953,6 +1953,148 @@ namespace
 		fs::remove_all(dir);
 	}
 
+	// Starfield (Options::game 3): leveled list entries with their conditions, keyword chances, form lists and outfits merged;
+	// the header written as Starfield's (light master, next ID 0xFF001000, MAST without DATA, no INTV); a record with a part not
+	// read (VMAD) left to the winner
+	void TestMergedPatchSF()
+	{
+		namespace fs = std::filesystem;
+		const auto dir = fs::temp_directory_path() / "rs_merge_test_sf";
+		fs::remove_all(dir);
+		fs::create_directories(dir);
+		auto save = [&](const char* a_name, const std::vector<std::uint8_t>& a_data) {
+			std::ofstream(dir / a_name, std::ios::binary).write(reinterpret_cast<const char*>(a_data.data()), static_cast<std::streamsize>(a_data.size()));
+		};
+		auto lvlo = [](std::uint16_t a_level, std::uint32_t a_form) {
+			std::vector<std::uint8_t> d(12, 0);
+			std::memcpy(d.data(), &a_level, 2);
+			std::memcpy(d.data() + 4, &a_form, 4);
+			d[8] = 1;
+			return MS("LVLO", d);
+		};
+		auto ctda = [](std::uint32_t a_item) {  // GetIsID (72) <item> == 1, run on the subject
+			std::vector<std::uint8_t> d(32, 0);
+			const float one = 1.0f;
+			std::memcpy(d.data() + 4, &one, 4);
+			const std::uint16_t fn = 72;
+			std::memcpy(d.data() + 8, &fn, 2);
+			std::memcpy(d.data() + 12, &a_item, 4);
+			d[24] = 0xFF, d[25] = 0xFF, d[26] = 0xFF, d[27] = 0xFF;
+			return MS("CTDA", d);
+		};
+		auto llkc = [](std::uint32_t a_kw, std::uint32_t a_chance) { return MS("LLKC", U32v({ a_kw, a_chance, 0 })); };
+		// a leveled item: entries, each followed by its conditions
+		auto lvli = [&](std::vector<std::vector<merge::Sub>> a_entries, std::vector<merge::Sub> a_tail) {
+			std::vector<merge::Sub> subs{ MS("EDID", { 'L', 0 }), MS("OBND", std::vector<std::uint8_t>(12, 0)), MS("LVLD", { 0 }), MS("LVLF", { 1, 0 }),
+				MS("LLCT", { static_cast<std::uint8_t>(a_entries.size()) }) };
+			for (auto& e : a_entries) subs.insert(subs.end(), e.begin(), e.end());
+			subs.insert(subs.end(), a_tail.begin(), a_tail.end());
+			return MR("LVLI", 0x810, subs);
+		};
+		auto flst = [](std::vector<std::uint32_t> a_forms) {
+			std::vector<merge::Sub> subs{ MS("EDID", { 'F', 0 }) };
+			for (auto f : a_forms) subs.push_back(MS("LNAM", U32v({ f })));
+			return MR("FLST", 0x820, subs);
+		};
+		auto otft = [](std::vector<std::uint32_t> a_forms) {
+			std::vector<std::uint8_t> d(a_forms.size() * 4);
+			std::memcpy(d.data(), a_forms.data(), d.size());
+			return MR("OTFT", 0x830, { MS("EDID", { 'O', 0 }), MS("INAM", d) });
+		};
+		auto lvln = [](std::vector<merge::Sub> a_extra) {
+			std::vector<merge::Sub> subs{ MS("EDID", { 'N', 0 }) };
+			subs.insert(subs.end(), a_extra.begin(), a_extra.end());
+			return MR("LVLN", 0x840, subs);
+		};
+		save("Starfield.esm", merge::WritePlugin({}, 1, {
+			lvli({ { lvlo(1, 0x900) }, { lvlo(5, 0x901), ctda(0x950) } }, { llkc(0x960, 10) }),
+			flst({ 0x900, 0x901 }),
+			otft({ 0x900 }),
+			lvln({ MS("LLCT", { 1 }), lvlo(1, 0x980) }),
+		}, "t", "", 0.96f, 581, false));
+		// ModA: adds an entry with a condition, a keyword chance, a form list entry, an outfit item; a script on the leveled NPC
+		save("ModA.esm", merge::WritePlugin({ "Starfield.esm" }, 1, {
+			lvli({ { lvlo(1, 0x900) }, { lvlo(5, 0x901), ctda(0x950) }, { lvlo(3, 0x902), ctda(0x951) } }, { llkc(0x960, 10), llkc(0x961, 20) }),
+			flst({ 0x900, 0x901, 0x902 }),
+			otft({ 0x900, 0x902 }),
+			lvln({ MS("VMAD", { 6, 0, 2, 0, 0, 0 }), MS("LLCT", { 2 }), lvlo(1, 0x980), lvlo(2, 0x981) }),
+		}, "t", "", 0.96f, 581, false));
+		// ModB: removes the level 1 entry, adds its own; a form list and outfit entry; another leveled NPC entry
+		save("ModB.esm", merge::WritePlugin({ "Starfield.esm" }, 1, {
+			lvli({ { lvlo(5, 0x901), ctda(0x950) }, { lvlo(7, 0x903) } }, { llkc(0x960, 10) }),
+			flst({ 0x900, 0x901, 0x903 }),
+			otft({ 0x900, 0x903 }),
+			lvln({ MS("LLCT", { 2 }), lvlo(1, 0x980), lvlo(3, 0x982) }),
+		}, "t", "", 0.96f, 581, false));
+		merge::Options o;
+		o.loadOrder = { "Starfield.esm", "ModA.esm", "ModB.esm" };
+		o.game = 3;
+		o.patchName = "Patch.esm";
+		o.findPlugin = [&](const std::string& n) -> std::optional<fs::path> { return dir / n; };
+		const auto r = merge::Build(o);
+		Check(r.ok && r.sf, "merge SF: patch built");
+		Check(r.merged.size() == 3, "merge SF: the leveled item, form list and outfit merged (the scripted leveled NPC left to the winner)");
+		save("Patch.esm", r.file);
+		const auto pf = merge::ReadPlugin(dir / "Patch.esm");
+		Check(pf.flags == 0x101, "merge SF: the patch is a light master (0x1 | 0x100)");
+		// header: HEDR 0.96 with next ID 0xFF001000, MAST without DATA, no INTV
+		bool hedrOk = false, hasData = false, hasIntv = false;
+		{
+			const auto& f = r.file;
+			std::uint32_t hsize = 0;
+			std::memcpy(&hsize, f.data() + 4, 4);
+			for (std::size_t p = 24; p + 6 <= 24 + hsize;) {
+				std::uint16_t n = 0;
+				std::memcpy(&n, f.data() + p + 4, 2);
+				const std::string sig(reinterpret_cast<const char*>(f.data() + p), 4);
+				if (sig == "HEDR" && n == 12) {
+					float v = 0;
+					std::uint32_t next = 0;
+					std::memcpy(&v, f.data() + p + 6, 4);
+					std::memcpy(&next, f.data() + p + 14, 4);
+					hedrOk = v > 0.955f && v < 0.965f && next == 0xFF001000u;
+				}
+				if (sig == "DATA") hasData = true;
+				if (sig == "INTV") hasIntv = true;
+				p += 6 + n;
+			}
+		}
+		Check(hedrOk && !hasData && !hasIntv, "merge SF: Starfield's header (HEDR 0.96, next ID 0xFF001000, no MAST DATA, no INTV)");
+		std::string lvliSigs;
+		std::vector<std::uint32_t> lvliForms, kws, flstForms, otftForms;
+		std::uint8_t llct = 0;
+		std::uint32_t condOf902 = 0;
+		for (const auto& rec : pf.records) {
+			const std::string t(rec.sig, 4);
+			std::uint32_t last = 0;
+			for (const auto& sb : rec.subs) {
+				const std::string ss(sb.sig, 4);
+				if (t == "LVLI") {
+					lvliSigs += ss + " ";
+					if (ss == "LVLO") std::memcpy(&last, sb.data.data() + 4, 4), lvliForms.push_back(last & 0xFFFFFF);
+					if (ss == "CTDA" && (last & 0xFFFFFF) == 0x902) std::memcpy(&condOf902, sb.data.data() + 12, 4);
+					if (ss == "LLKC") kws.push_back(sb.data[0] | (sb.data[1] << 8));
+					if (ss == "LLCT") llct = sb.data[0];
+				}
+				if (t == "FLST" && ss == "LNAM") flstForms.push_back(sb.data[0] | (sb.data[1] << 8));
+				if (t == "OTFT" && ss == "INAM")
+					for (std::size_t i = 0; i + 4 <= sb.data.size(); i += 4) otftForms.push_back(sb.data[i] | (sb.data[i + 1] << 8));
+			}
+		}
+		std::sort(lvliForms.begin(), lvliForms.end());
+		Check(lvliForms == std::vector<std::uint32_t>{ 0x901, 0x902, 0x903 } && llct == 3,
+			"merge SF: leveled item entries combined (A's added, B's added, the one B removed gone), LLCT 3");
+		Check((condOf902 & 0xFFFFFF) == 0x951, "merge SF: an added entry keeps its own condition after it");
+		Check(kws == std::vector<std::uint32_t>{ 0x960, 0x961 }, "merge SF: keyword chances (LLKC) combined");
+		std::sort(flstForms.begin(), flstForms.end());  // (the winner's order, the other mods' additions after it)
+		Check(flstForms == std::vector<std::uint32_t>{ 0x900, 0x901, 0x902, 0x903 }, "merge SF: form list entries combined");
+		std::sort(otftForms.begin(), otftForms.end());
+		Check(otftForms == std::vector<std::uint32_t>{ 0x900, 0x902, 0x903 }, "merge SF: outfit items combined");
+		if (lvliForms.size() != 3) std::printf("  merge SF: LVLI %s\n", lvliSigs.c_str());
+		if (flstForms.size() != 4) { std::printf("  merge SF: FLST"); for (auto f : flstForms) std::printf(" %X", f); std::printf("\n"); }
+		fs::remove_all(dir);
+	}
+
 	void TestMergedPatch()
 	{
 		namespace fs = std::filesystem;
@@ -6540,6 +6682,7 @@ int main()
 	TestMergedPatch();
 	TestMergedPatchLE();
 	TestMergedPatchNpcLinks();
+	TestMergedPatchSF();
 	TestMergedPatchFO4();
 	TestMergedPatchFO4Types();
 	TestMergedPatchFO4Real();

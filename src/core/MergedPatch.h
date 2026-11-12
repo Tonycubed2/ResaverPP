@@ -23,6 +23,12 @@
 // functions), and cells (as for Skyrim; previs and precombined data always the winner's). Object templates (OBTE..STOP) are
 // taken whole. The header is written as Fallout 4's (HEDR version and record version copied from Fallout4.esm, 1.0 / 131 if
 // it cannot be read; INTV and INCC), records in Fallout 4's group order, light (ESL, 0x200) unless Options::light is off.
+// Starfield (Options::game 3): only its list records, read with xEdit's Starfield definitions (wbDefinitionsSF1): leveled items,
+// NPCs, packins, base forms and space cells (entries with their conditions, LLKC keyword chances), form lists and outfits. The
+// header as Starfield's own plugins have it (HEDR version and record version from Starfield.esm, next ID 0xFF001000, MAST
+// without DATA, no INTV), Starfield's group order; a light master (0x1 | 0x100). Checked on every list record of Starfield.esm
+// 1.16.244 overridden by two test mods: 7662 of 7890 merged, the rest left to the winner (BFCB, VMAD, a form list's
+// conditional entries).
 #pragma once
 
 #include <atomic>
@@ -96,6 +102,9 @@ namespace ess::merge
 	// the record types merged for a game, and (Fallout 4) what is left out (worldspaces, a cell's previs and precombined data)
 	const std::vector<std::string>& MergedTypes(bool a_fo4);
 	const char*  Fo4NotMerged();
+	const char*  SfMerged();
+	bool         CategoryAppliesSF(Category a_cat);
+	const char*  CategoryDetailSF(Category a_cat);  // the kinds of change a Starfield patch can have (its list records)  // what a Starfield patch merges, and what it leaves to the winning mod
 
 	struct Options
 	{
@@ -111,7 +120,8 @@ namespace ess::merge
 		// Skyrim Legendary Edition load order: set by Build itself from Skyrim.esm's header (record version 43).
 		// The patch is then a normal plugin in LE's format (no light plugins there), so it needs a load order slot.
 		bool legendary = false;
-		// 0 Skyrim, 2 Fallout 4, -1: Fallout 4 when Fallout4.esm is in the load order
+		// 0 Skyrim, 2 Fallout 4, 3 Starfield (only its list records: leveled lists, form lists, outfits), -1: Fallout 4 when
+		// Fallout4.esm is in the load order
 		int game = -1;
 		// the patch is flagged light (ESL) and takes no load order slot. Off: a normal plugin (Fallout 4 before 1.10, which has
 		// no light plugins; a save with form version below 68 was made by one). Legendary Edition is never light.
@@ -146,6 +156,7 @@ namespace ess::merge
 		std::size_t               pluginsRead = 0, recordsRead = 0, conflicts = 0;
 		bool                      legendary = false;  // built for Skyrim Legendary Edition (a normal plugin, not light)
 		bool                      fo4 = false;        // built for Fallout 4
+		bool                      sf = false;         // built for Starfield
 		bool                      light = true;       // the patch is flagged light (ESL)
 
 		std::string report() const;

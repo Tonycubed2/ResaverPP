@@ -124,6 +124,7 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kFileConflicts:   // (assets::Input::sf: Starfield.exe's archive order)
 	case Sc::kCrashLog:        // (drawCrashLogSF: Trainwreck's Starfield logs, SFSE\Crashlogs)
 	case Sc::kCharEffects:     // (drawCharEffectsSF: FindActiveEffectsSF, the AI process's active effect list)
+	case Sc::kMerge:           // (merge::Options::game 3: leveled lists, form lists and outfits with xEdit's Starfield layouts)
 	// Starfield's own versions
 	case Sc::kPlayer:  // the character (NPC_ 7): name, level and XP, face
 	case Sc::kQuests:  // the quests window
@@ -145,8 +146,6 @@ const char* App::SfNotYet(Sc a_which)
 		return N_("Not needed on Starfield: the game keeps an ID for every spawned object a script is on, and remakes the object when you go "
 				  "back to its area (most of them have no record of their own in the save). In every Starfield save checked, all of them "
 				  "were still known to the game, so none can be called missing.");
-	case Sc::kMerge:
-		return N_("Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records.");
 	default:
 		return N_("Not available for Starfield saves: it is for Skyrim (or Fallout 4) only.");
 	}

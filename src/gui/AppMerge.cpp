@@ -35,7 +35,9 @@ namespace
 	}
 
 	const char* const kModFolder = "ReSaver Plus Merged Patch";
-	const char* const kPatchName = "ReSaverPP Merged Patch.esp";
+	const char* const kPatchNameTes = "ReSaverPP Merged Patch.esp";
+	// Starfield: a light master (.esm), as its mods are; masters load before every other plugin
+	const char* const kPatchNameSF = "ReSaverPP Merged Patch.esm";
 }
 
 void App::drawMergedPatch()
@@ -46,6 +48,8 @@ void App::drawMergedPatch()
 		return;
 	}
 	maximizeControl("Merged patch");
+	const bool        sfm = sf() || sfGame();
+	const char* const kPatchName = sfm ? kPatchNameSF : kPatchNameTes;
 
 	// a finished build
 	if (!_mergeBusy && _mergeThread.joinable()) {
@@ -55,16 +59,26 @@ void App::drawMergedPatch()
 	}
 
 	const std::filesystem::path pluginsTxt =
-		_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_game, _save && _save->isLE());
+		_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt"
+		: sfm                     ? loadorder::GamePluginsTxt(3, false)
+								  : loadorder::GamePluginsTxt(_game, _save && _save->isLE());
 	const std::filesystem::path outFile =
 		_mo2 ? _mo2->modsDir / kModFolder / kPatchName : (gameFolder().empty() ? std::filesystem::path() : gameFolder() / "Data" / kPatchName);
 
 	// Fallout 4 setup: its load order, its record layouts and header. A Fallout 4 save made before 1.10 (form version below
 	// 68) has no light plugins: the patch is then a normal plugin.
-	const bool f4 = _game == 2;
+	const bool f4 = !sfm && _game == 2;
 	const bool f4NoLight = f4 && _save && _save->isFO4() && _save->formVersion < 68;
 	ImGui::NewLine();
-	if (f4) {
+	if (sfm) {
+		ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, form list or outfit, the game only uses the one loaded last, and "
+						   "the other mod's additions are lost. The merged patch reads every plugin in your Starfield load order and writes "
+						   "one plugin that keeps both: what each mod added or removed is combined. Every other value stays as the winning "
+						   "mod has it, as the game does without a patch."));
+		ImGui::TextWrapped("%s", merge::SfMerged());
+		ImGui::TextWrapped("%s", tr("The patch is a light master (.esm, small-flagged), like Starfield's other mods, so it takes no load order slot. "
+						   "Keep it last in your plugin list. Rebuild it after you add, remove or reorder mods."));
+	} else if (f4) {
 		ImGui::TextWrapped("%s", tr("When two mods change the same leveled list, container, NPC, item, spell, cell, form list or outfit, the game "
 						   "only uses the one loaded last, and the other mod's additions are lost. The merged patch reads "
 						   "every plugin in your Fallout 4 load order and writes one plugin that keeps both: what each mod added or "
@@ -100,18 +114,36 @@ void App::drawMergedPatch()
 	}
 
 	// waiting for the scan of the mods, then the build starts by itself
-	auto start = [this, pluginsTxt, f4, f4NoLight] {
+	auto start = [this, pluginsTxt, f4, f4NoLight, sfm, kPatchName] {
 		auto opt = std::make_shared<merge::Options>();
 		for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
 			opt->enabled[i] = !_mergeOff[i];
 		}
 		_mergeOptionsChanged = false;
-		opt->loadOrder = merge::ReadLoadOrder(pluginsTxt, gameFolder(), f4 ? 2 : -1);
+		opt->loadOrder = sfm ? loadorder::StarfieldListed(pluginsTxt, sfDataDirs()) : merge::ReadLoadOrder(pluginsTxt, gameFolder(), f4 ? 2 : -1);
 		opt->patchName = kPatchName;
-		opt->game = f4 ? 2 : 0;
+		opt->game = sfm ? 3 : f4 ? 2 : 0;
 		opt->light = !f4NoLight;
 		auto src = _sources;
 		merge::UseSources(*opt, *src);
+		if (sfm) {
+			// Starfield: a plugin not found among the scanned mods is looked for in its Data folders (the game's, My Games')
+			const auto dirs = sfDataDirs();
+			auto       byMods = opt->findPlugin;
+			opt->findPlugin = [byMods, dirs](const std::string& a_name) -> std::optional<std::filesystem::path> {
+				if (auto p = byMods(a_name)) {
+					return p;
+				}
+				for (const auto& d : dirs) {
+					std::error_code ec;
+					const auto      f = d / platform::FromUtf8(a_name);
+					if (std::filesystem::is_regular_file(f, ec)) {
+						return f;
+					}
+				}
+				return std::nullopt;
+			};
+		}
 		_mergeLoadOrder = opt->loadOrder.size();
 		_mergeProgress = std::make_unique<merge::Progress>();
 		_mergeBusy = true;
@@ -172,7 +204,7 @@ void App::drawMergedPatch()
 			for (int i = 0; i < static_cast<int>(merge::Category::kCount); ++i) {
 				const auto cat = static_cast<merge::Category>(i);
 				const int  risk = merge::CategoryRisk(cat);
-				if (!merge::CategoryApplies(cat, f4)) {
+				if (sfm ? !merge::CategoryAppliesSF(cat) : !merge::CategoryApplies(cat, f4)) {
 					continue;  // Fallout 4: NPCs, magic effects and cells are not merged
 				}
 				ImGui::PushID(i);
@@ -192,7 +224,7 @@ void App::drawMergedPatch()
 				ImGui::TextWrapped("%s", merge::CategoryName(cat));
 				tips::Tip(merge::CategoryWhy(cat));
 				ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-				ImGui::TextWrapped("%s", merge::CategoryDetail(cat, f4));
+				ImGui::TextWrapped("%s", sfm ? merge::CategoryDetailSF(cat) : merge::CategoryDetail(cat, f4));
 				ImGui::PopStyleColor();
 				tips::Tip(merge::CategoryWhy(cat));
 				ImGui::TableNextColumn();
@@ -249,6 +281,8 @@ void App::drawMergedPatch()
 	Colored(theme::Good(), Fmt(tr("%zu records merged into the patch, with %zu masters."), r.merged.size(), r.masters.size()));
 	if (r.legendary) {
 		ImGui::TextDisabled("%s", tr("Skyrim Legendary Edition load order: the patch is a normal plugin in LE's format and takes one load order slot."));
+	} else if (r.sf) {
+		ImGui::TextDisabled("%s", tr("Starfield load order: the patch is a light master (small-flagged .esm) in Starfield's format."));
 	} else if (r.fo4) {
 		ImGui::TextDisabled("%s", r.light ? tr("Fallout 4 load order: the patch is a light (ESL-flagged) plugin in Fallout 4's format.")
 									: tr("Fallout 4 load order: the patch is a normal plugin in Fallout 4's format and takes one load order slot."));
@@ -295,7 +329,7 @@ void App::drawMergedPatch()
 	ImGui::SameLine();
 	ImGui::BeginDisabled(r.merged.empty());
 	if (ImGui::Button(tr("Save as..."))) {
-		if (auto f = platform::SaveFileDialog(outFile.empty() ? std::filesystem::path(kPatchName) : outFile, "esp", tr("Merged patch"))) {
+		if (auto f = platform::SaveFileDialog(outFile.empty() ? std::filesystem::path(kPatchName) : outFile, sfm ? "esm" : "esp", tr("Merged patch"))) {
 			write(*f);
 		}
 	}
@@ -310,7 +344,8 @@ void App::drawMergedPatch()
 		} else {
 			ImGui::TextWrapped(tr("Enable %s in your mod manager or the game's launcher and keep it last in the load order."), kPatchName);
 		}
-		ImGui::TextWrapped("%s", r.fo4         ? tr("Before playing, you can open it in FO4Edit (Check for Errors) to see what it changed.")
+		ImGui::TextWrapped("%s", r.sf ? tr("Before playing, you can open it in SF1Edit (Check for Errors) to see what it changed.")
+						   : r.fo4     ? tr("Before playing, you can open it in FO4Edit (Check for Errors) to see what it changed.")
 						   : r.legendary ? tr("Before playing, you can open it in TES5Edit (Check for Errors) to see what it changed.")
 										 : tr("Before playing, you can open it in SSEEdit (Check for Errors) to see what it changed."));
 	}

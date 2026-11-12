@@ -7,6 +7,7 @@
 #include "Bsa.h"
 #include "ConditionFunctions.h"
 #include "ConditionFunctionsFO4.h"
+#include "ConditionFunctionsSF.h"
 #include "Save.h"  // DecompressZlib
 #include "ScriptSources.h"
 
@@ -130,8 +131,31 @@ namespace ess::merge
 			"SMQN", "SMEN", "DLBR", "MUST", "DLVW", "WOOP", "SHOU", "EQUP", "RELA", "SCEN", "ASTP", "OTFT", "ARTO", "MATO", "MOVT", "SNDR", "DUAL",
 			"SNCT", "SOPM", "COLL", "CLFM", "REVB", "PKIN", "RFGP", "AMDL", "LAYR", "COBJ", "OMOD", "MSWP", "ZOOM", "INNR", "KSSM", "AECH", "SCCO",
 			"AORU", "SCSN", "STAG", "NOCM", "LENS", "LSPR", "GDRY", "OVIS" };
+		// Starfield: set by Build for the build's thread. The functions that take a_fo4 (layouts, lists, order, groups, the
+		// writer) use Starfield's own definitions when it is set (xEdit wbDefinitionsSF1, dev-4.1.6).
+		thread_local bool t_sf = false;
+		// Starfield's top group order (xEdit wbDefinitionsSF1, AddGroupOrder)
+		const char* const kGroupOrderSF[] = { "GMST", "KYWD", "FFKW", "LCRT", "AACT", "TRNS", "TXST", "GLOB", "DMGT", "CLAS", "FACT", "AFFE", "HDPT",
+			"EYES", "RACE", "SOUN", "SECH", "ASPC", "AOPF", "SKIL", "MGEF", "SCPT", "LTEX", "PDCL", "ENCH", "SPEL", "SCRL", "ACTI", "TACT", "CURV",
+			"CUR3", "ARMO", "BOOK", "CONT", "DOOR", "INGR", "LIGH", "MISC", "STAT", "SCOL", "PKIN", "MSTT", "GRAS", "FLOR", "FURN", "WEAP", "AMMO",
+			"NPC_", "PLYR", "LVLN", "LVLP", "KEYM", "ALCH", "IDLM", "BMMO", "NOTE", "PROJ", "HAZD", "BNDS", "SLGM", "TERM", "LVLI", "GBFT", "GBFM",
+			"LVLB", "WTHR", "WTHS", "CLMT", "SPGD", "REGN", "NAVI", "CELL", "REFR", "ACHR", "PMIS", "PARW", "PGRE", "PBEA", "PFLA", "PCON", "PPLA",
+			"PBAR", "PEMI", "PHZD", "WRLD", "NAVM", "TLOD", "DIAL", "INFO", "QUST", "IDLE", "PACK", "CSTY", "LSCR", "LVSP", "ANIO", "WATR", "EFSH",
+			"TOFT", "EXPL", "DEBR", "IMGS", "IMAD", "FLST", "PERK", "BPTD", "ADDN", "AVIF", "CAMS", "CPTH", "VTYP", "MATT", "IPCT", "IPDS", "ARMA",
+			"LCTN", "MESG", "RGDL", "DOBJ", "DFOB", "LGTM", "MUSC", "FSTP", "FSTS", "SMBN", "SMQN", "SMEN", "DLBR", "MUST", "DLVW", "WOOP", "SHOU",
+			"EQUP", "RELA", "SCEN", "ASTP", "OTFT", "ARTO", "MOVT", "DUAL", "COLL", "CLFM", "REVB", "RFGP", "AMDL", "AAMD", "MAAM", "LAYR", "COBJ",
+			"OMOD", "ZOOM", "INNR", "KSSM", "SCCO", "AORU", "STAG", "IRES", "BIOM", "NOCM", "LENS", "LSPR", "OVIS", "DLYR", "STND", "STMP", "GCVR",
+			"MRPH", "TRAV", "RSGD", "OSWP", "ATMO", "LVSC", "SPCH", "AAPD", "VOLI", "SFBK", "SFPC", "SFPT" };
 		int GroupRank(const char* sig, bool a_fo4 = false)
 		{
+			if (t_sf) {
+				for (int i = 0; i < static_cast<int>(std::size(kGroupOrderSF)); ++i) {
+					if (Is(sig, kGroupOrderSF[i])) {
+						return i;
+					}
+				}
+				return 1000;
+			}
 			if (a_fo4) {
 				for (int i = 0; i < static_cast<int>(std::size(kGroupOrderFO4)); ++i) {
 					if (Is(sig, kGroupOrderFO4[i])) {
@@ -419,7 +443,7 @@ namespace ess::merge
 			std::memcpy(&vb, &ver, 4);
 			Put32(hedr.data, vb);
 			Put32(hedr.data, count);
-			Put32(hedr.data, 0x800);
+			Put32(hedr.data, t_sf ? 0xFF001000u : 0x800u);  // (Starfield: next object ID with the 0xFF top byte its plugins have)
 			hs.push_back(std::move(hedr));
 			Sub cnam;
 			std::memcpy(cnam.sig, "CNAM", 4);
@@ -439,16 +463,21 @@ namespace ess::merge
 				mast.data.assign(m.begin(), m.end());
 				mast.data.push_back(0);
 				hs.push_back(std::move(mast));
+				if (t_sf) {
+					continue;  // Starfield: MAST alone (wbDefinitionsSF1 TES4; Constellation.esm, OldMars.esm have no DATA)
+				}
 				Sub data;
 				std::memcpy(data.sig, "DATA", 4);
 				data.data.assign(8, 0);
 				hs.push_back(std::move(data));
 			}
-			Sub intv;
-			std::memcpy(intv.sig, "INTV", 4);
-			Put32(intv.data, 1);
-			hs.push_back(std::move(intv));
-			if (a_fo4) {
+			if (!t_sf) {  // (Starfield's own plugins have no INTV: HEDR, CNAM, SNAM, MAST, INCC)
+				Sub intv;
+				std::memcpy(intv.sig, "INTV", 4);
+				Put32(intv.data, 1);
+				hs.push_back(std::move(intv));
+			}
+			if (a_fo4 || t_sf) {
 				// Fallout 4: the interior cell count (required in its header)
 				std::uint32_t interiors = 0;
 				for (const auto& r : a_records) {
@@ -655,6 +684,7 @@ namespace ess::merge
 			kDrop,      // left out of the patch (WRLD's large-reference and offset tables: xEdit never copies them either)
 			kFormPairs, // an array of 8-byte {form ID, u32 or float} entries (Fallout 4: LLKC, CVPA, DAMC, PRPS, DAMA)
 			kFixed,     // Fallout 4: a struct whose form IDs are found from its size or flags (FixedForms)
+			kForm12,    // Starfield: an array of 12-byte entries, each starting with a form ID (LLKC)
 		};
 
 		// Fallout 4, from xEdit's wbDefinitionsFO4 (dev-4.1.6). Only the types listed here are merged for Fallout 4; any part
@@ -862,8 +892,54 @@ namespace ess::merge
 			return Kind::kUnknown;
 		}
 
+		// Starfield, from xEdit's wbDefinitionsSF1 (dev-4.1.6), subrecords checked against Starfield.esm 1.16.244. Only the list
+		// records are merged: LVLI, LVLN, LVLP, LVLB, LVSC, FLST, OTFT. Anything not named here (scripts VMAD, base form
+		// components BFCB..BFCE, material swaps MOLM, entry COED, a form list's conditional entries INAM / CITC) leaves the
+		// record to the winning plugin.
+		//  - LVLO as Fallout 4's (form @4); an entry's conditions (CTDA, CIS1, CIS2) follow it; LLKC {keyword, chance u32,
+		//    unused 4}: 12 bytes; PTT2: 8 transform form IDs; FTYP: form IDs; OBND, ODTY, OPDS, XALG, LVLD/M/F, LLCT, LVLL,
+		//    LIMC, FLLD, MODL, MODC, XFLG: no form IDs; SNTP, SNBH, DEFL, LVLG, LLRB, LLRV, LVSG: one form ID
+		//  - CTDA (32 bytes): comparison global @4 (flag 0x04), parameters @12 / @16 by Starfield's function table, the
+		//    reference @24 when run on a reference (2), the linked keyword @28 when run on a linked reference (4)
+		Kind LayoutSF(const char* rec, const char* sub)
+		{
+			const std::string r(rec, 4), s(sub, 4);
+			auto in = [&](std::initializer_list<const char*> a_list) {
+				for (const char* x : a_list) {
+					if (s == x) return true;
+				}
+				return false;
+			};
+			if (r == "LVLI" || r == "LVLN" || r == "LVLP" || r == "LVLB" || r == "LVSC") {
+				if (in({ "EDID", "OBND", "ODTY", "OPDS", "XALG", "LVLD", "LVLM", "LVLF", "LLCT", "LVLL", "LIMC", "MODL", "FLLD", "MODC", "XFLG", "CIS1",
+						"CIS2" }))
+					return Kind::kNone;
+				if (s == "LVLO") return Kind::kLvlo;
+				if (s == "CTDA") return Kind::kCtda;
+				if (in({ "LVLG", "LLRB", "LLRV", "LVSG", "SNTP", "SNBH", "DEFL" })) return Kind::kForm0;
+				if (s == "LLKC") return Kind::kForm12;
+				if (s == "PTT2" || s == "FTYP") return Kind::kFormArr;
+				if (s == "ONAM" && (r == "LVLI" || r == "LVLN")) return Kind::kLString;
+				return Kind::kUnknown;
+			}
+			if (r == "FLST") {
+				if (s == "EDID") return Kind::kNone;
+				if (s == "FULL") return Kind::kLString;
+				if (s == "LNAM" || s == "ANAM") return Kind::kForm0;
+				return Kind::kUnknown;  // (INAM / CITC / CTDA: conditional entries point at LNAM by index)
+			}
+			if (r == "OTFT") {
+				if (s == "EDID") return Kind::kNone;
+				if (s == "INAM") return Kind::kFormArr;
+				return Kind::kUnknown;
+			}
+			return Kind::kUnknown;
+		}
 		Kind Layout(const char* rec, const char* sub, bool a_fo4)
 		{
+			if (t_sf) {
+				return LayoutSF(rec, sub);
+			}
 			if (a_fo4) {
 				return LayoutFO4(rec, sub);
 			}
@@ -1156,7 +1232,7 @@ namespace ess::merge
 		struct ListSpec
 		{
 			const char* entry;     // the subrecord starting an entry (or holding an array)
-			const char* follower;  // a subrecord belonging to the entry before it (COED), or nullptr
+			const char* follower;  // the subrecords belonging to the entry before it ("COED", Starfield "COED CTDA CIS1 CIS2"), or nullptr
 			const char* count;     // the count subrecord before the list, or nullptr
 			int         countSize; // 1 (LLCT) or 4
 			bool        byForm;    // entries are identified by their first form ID; the rest is a value
@@ -1165,9 +1241,30 @@ namespace ess::merge
 			const char* what;      // for the report
 		};
 
+		// a_sig is one of the space-separated signatures of a_list
+		bool Follows(const char* a_sig, const char* a_list)
+		{
+			for (const char* p = a_list; *p;) {
+				while (*p == ' ') ++p;
+				if (!*p) break;
+				if (std::strncmp(p, a_sig, 4) == 0 && (p[4] == ' ' || p[4] == 0)) return true;
+				while (*p && *p != ' ') ++p;
+			}
+			return false;
+		}
+
 		std::vector<ListSpec> Lists(const char* rec, bool a_fo4)
 		{
 			const std::string r(rec, 4);
+			if (t_sf) {
+				// Starfield (wbDefinitionsSF1): LLCT u8, at most 255 entries; an entry's conditions follow its LVLO (COED too, which
+				// leaves the record to the winner: see LayoutSF)
+				if (r == "LVLI" || r == "LVLN" || r == "LVLB") return { { "LVLO", "COED CTDA CIS1 CIS2", "LLCT", 1, false, false, 255, "entries" } };
+				if (r == "LVLP" || r == "LVSC") return { { "LVLO", "CTDA CIS1 CIS2", "LLCT", 1, false, false, 255, "entries" } };
+				if (r == "FLST") return { { "LNAM", nullptr, nullptr, 0, false, false, 0, "forms" } };
+				if (r == "OTFT") return { { "INAM", nullptr, nullptr, 0, false, true, 0, "items" } };
+				return {};
+			}
 			if (a_fo4) {
 				// Fallout 4 (wbDefinitionsFO4): LLCT u8 with at most 255 entries; LVSP entries have no COED
 				if (r == "LVLI" || r == "LVLN") return { { "LVLO", "COED", "LLCT", 1, false, false, 255, "entries" } };
@@ -1226,6 +1323,23 @@ namespace ess::merge
 		{
 			const std::string r(rec, 4);
 			std::string s;
+			if (t_sf) {
+				// Starfield: the order of xEdit's definitions (record conditions after LVLF; an entry's after its LVLO)
+				if (r == "LVLI")
+					s = "EDID VMAD OBND ODTY OPDS PTT2 SNBH DEFL XALG BFCB BFCE LVLD LVLM LVLF CTDA CIS1 CIS2 LVLG LLRB LLRV LLCT LVLO COED LLKC LVSG "
+						"LIMC ONAM LVLL MODL MOLM FLLD MODC XFLG FTYP";
+				else if (r == "LVLN") s = "EDID VMAD OBND ODTY OPDS XALG BFCB BFCE LVLD LVLM LVLF CTDA CIS1 CIS2 LVLG LLCT LVLO COED LLKC ONAM MODL MOLM FLLD MODC XFLG";
+				else if (r == "LVLP") s = "EDID VMAD OBND ODTY OPDS PTT2 XALG BFCB BFCE LVLD LVLM LVLF CTDA CIS1 CIS2 LVLG LLCT LVLO MODL MOLM FLLD MODC XFLG FTYP";
+				else if (r == "LVLB")
+					s = "EDID VMAD OBND ODTY OPDS PTT2 SNTP SNBH DEFL XALG BFCB BFCE LVLD LVLM LVLF CTDA CIS1 CIS2 LVLG LLCT LVLO COED LLKC MODL MOLM FLLD MODC XFLG";
+				else if (r == "LVSC") s = "EDID VMAD BFCB BFCE LVLD LVLM LVLF CTDA CIS1 CIS2 LVLG LLCT LVLO";
+				else if (r == "FLST") s = "EDID BFCB BFCE FULL LNAM INAM CITC CTDA ANAM";
+				else if (r == "OTFT") s = "EDID VMAD BFCB BFCE INAM";
+				std::vector<std::string> out;
+				std::istringstream       is(s);
+				for (std::string w; is >> w;) out.push_back(w);
+				return out;
+			}
 			if (a_fo4) {
 				// Fallout 4: the order of xEdit's definitions
 				if (r == "LVLI") s = "EDID OBND LVLD LVLM LVLF LVLG LLCT LVLO COED LLKC LVSG ONAM";
@@ -1322,6 +1436,8 @@ namespace ess::merge
 		const std::vector<std::string> kTypesFO4 = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "MISC", "KEYM", "NPC_", "ARMO", "WEAP",
 			"AMMO", "BOOK", "ALCH", "INGR", "SPEL", "CELL", "WRLD" };
 		const std::vector<std::string>& kReadFO4 = kTypesFO4;
+		// Starfield: the list records (see LayoutSF)
+		const std::vector<std::string> kTypesSF = { "LVLI", "LVLN", "LVLP", "LVLB", "LVSC", "FLST", "OTFT" };
 		const std::vector<std::string> kTypes = { "LVLI", "LVLN", "LVSP", "CONT", "FLST", "OTFT", "NPC_", "ARMO", "WEAP", "AMMO", "MISC", "KEYM",
 			"SLGM", "BOOK", "ALCH", "INGR", "SCRL", "SPEL", "CELL", "WRLD" };
 
@@ -1361,6 +1477,9 @@ namespace ess::merge
 		std::vector<std::vector<std::string>> Groups(const char* rec, bool a_fo4)
 		{
 			const std::string r(rec, 4);
+			if (t_sf) {
+				return { { "MODL", "MOLM", "FLLD", "MODC", "XFLG" } };  // a model with its material swaps, light layer, colour and flags
+			}
 			if (a_fo4) {
 				// a model with its texture hashes, colour remap, material swap and flags; destruction with its stages; the
 				// components of a misc item with their display indices (xEdit: as many as CVPA has)
@@ -1424,6 +1543,9 @@ namespace ess::merge
 		{
 			const std::string k = std::string(rec, 4) + "." + std::string(sub, 4);
 			std::vector<Field> f;
+			if (t_sf) {
+				return f;  // Starfield: every part merged as a whole
+			}
 			if (a_fo4) {
 				// Fallout 4: only the layouts confirmed in wbDefinitionsFO4; everything else is merged as a whole
 				if (k == "LVLI.LVLF" || k == "LVLN.LVLF" || k == "LVSP.LVLF") {
@@ -1525,7 +1647,7 @@ namespace ess::merge
 		{
 			const std::string r(rec, 4), e(sp.entry, 4);
 			if (e == "KWDA") return Category::kKeywords;
-			if (r == "LVLI" || r == "LVLN" || r == "LVSP") return Category::kLeveledLists;
+			if (r == "LVLI" || r == "LVLN" || r == "LVSP" || r == "LVLP" || r == "LVLB" || r == "LVSC") return Category::kLeveledLists;
 			if (r == "CONT") return Category::kContainers;
 			if (r == "OTFT") return Category::kOutfits;
 			if (r == "FLST") return Category::kFormLists;
@@ -1547,7 +1669,7 @@ namespace ess::merge
 			}
 			if (r == "NPC_" && has("PNAM")) return Category::kNpcFace;
 			if (has("EFID")) return Category::kEffects;
-			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || (r == "BOOK" && has("CNAM")) || (r == "LVLI" && has("ONAM")) ||
+			if (has("EDID") || has("FULL") || has("DESC") || has("SHRT") || (r == "BOOK" && has("CNAM")) || ((r == "LVLI" || r == "LVLN") && has("ONAM")) ||
 				(r == "AMMO" && has("ONAM")) || has("ATTX"))
 				return Category::kNames;  // (Fallout 4: LVLI ONAM override name, AMMO ONAM short name, NPC_ ATTX activate text)
 			if ((r == "AMMO" && has("NAM1")) || has("BOD2")) return Category::kModels;  // (Fallout 4: the casing model, body slots)
@@ -1569,7 +1691,7 @@ namespace ess::merge
 		{
 		public:
 			Builder(const Options& a_opt, Progress* a_progress, Result& a_res) :
-				_opt(a_opt), _progress(a_progress), _res(a_res), _fo4(a_opt.game == 2) {}
+				_opt(a_opt), _progress(a_progress), _res(a_res), _fo4(a_opt.game == 2), _sf(a_opt.game == 3) {}
 
 			void run()
 			{
@@ -1648,7 +1770,7 @@ namespace ess::merge
 					}
 					PluginFile pf;
 					try {
-						pf = ReadPlugin(*path, _fo4 ? kReadFO4 : kTypes);
+						pf = ReadPlugin(*path, _sf ? kTypesSF : _fo4 ? kReadFO4 : kTypes);
 					} catch (const std::exception& e) {
 						_res.missing.push_back(p.name + " (" + e.what() + ")");
 						if (_progress) ++_progress->done;
@@ -1656,7 +1778,9 @@ namespace ess::merge
 					}
 					p.found = true;
 					p.localized = pf.flags & 0x80;
-					p.light = !_opt.legendary && (pf.flags & 0x200);  // Legendary Edition has no light plugins
+					// Legendary Edition has no light plugins; Starfield's light (0x100) and medium (0x400) plugins are left out of the
+					// light-plugin checks (compacted numbers), which are Skyrim's and Fallout 4's
+					p.light = !_opt.legendary && !_sf && (pf.flags & 0x200);
 					for (const auto& m : pf.masters) {
 						auto it = index.find(Lower(m));
 						const int lo = it == index.end() || it->second >= static_cast<int>(i) ? -1 : it->second;
@@ -1702,7 +1826,7 @@ namespace ess::merge
 					p.stringsLoaded = true;
 					auto stem = Lower(std::filesystem::path(p.name).stem().string());
 					for (const char* ext : { ".strings", ".dlstrings", ".ilstrings" }) {
-						for (const auto& lang : { Lower(_opt.language), std::string(_fo4 ? "en" : "english") }) {
+						for (const auto& lang : { Lower(_opt.language), std::string(_fo4 || _sf ? "en" : "english") }) {
 							const auto data = _opt.readStrings ? _opt.readStrings(stem + "_" + lang + ext) : std::vector<std::uint8_t>{};
 							if (data.size() < 8) {
 								continue;
@@ -1849,6 +1973,15 @@ namespace ess::merge
 							offs.push_back(o);
 						}
 						break;
+					case Kind::kForm12:
+						if (s.data.size() % 12) {
+							err = Sig(s.sig) + " has a bad size";
+							return std::nullopt;
+						}
+						for (std::uint32_t o = 0; o < s.data.size(); o += 12) {
+							offs.push_back(o);
+						}
+						break;
 					case Kind::kFormArr:
 						if (s.data.size() % 4) {
 							err = Sig(s.sig) + " has a bad size";
@@ -1935,6 +2068,33 @@ namespace ess::merge
 							}
 							const auto fn = U16(s.data.data() + 8);
 							const ConditionFunction* cf = nullptr;
+							if (_sf) {
+								// Starfield's own function table (wbDefinitionsSF1), the same alias / package data rule as Fallout 4's;
+								// the reference @24 (run on 2) and the linked keyword @28 (run on 4: wbConditionParam3Decider)
+								for (const auto& f : kConditionFunctionsSF) {
+									if (f.index == fn) {
+										cf = &f;
+										break;
+									}
+								}
+								if (!cf) {
+									err = "a condition uses function " + std::to_string(fn) + ", which is not in Starfield's function table";
+									return std::nullopt;
+								}
+								const auto type = s.data[0];
+								const auto runOn = U32(s.data.data() + 20);
+								auto isForm = [&](std::uint8_t a_p, bool a_first) {
+									if (a_p != 2) return a_p == 1;
+									if (type & 0x02) return a_first && fn == 161 && runOn == 5;  // GetIsCurrentPackage on a quest alias
+									return !(type & 0x08);
+								};
+								if (type & 0x04) offs.push_back(4);
+								if (isForm(cf->p1, true)) offs.push_back(12);
+								if (isForm(cf->p2, false)) offs.push_back(16);
+								if (runOn == 2) offs.push_back(24);
+								if (runOn == 4) offs.push_back(28);
+								break;
+							}
 							if (_fo4) {
 								// Fallout 4's own function table (wbDefinitionsFO4). Parameters that are a reference, an actor or a
 								// package (2) are a number when the condition's flags say alias (0x02) or package data (0x08)
@@ -2048,7 +2208,7 @@ namespace ess::merge
 					}
 					Entry e;
 					e.subs.push_back(s);
-					while (sp.follower && i + 1 < c.subs.size() && Is(c.subs[i + 1].sig, sp.follower)) {
+					while (sp.follower && i + 1 < c.subs.size() && Follows(c.subs[i + 1].sig, sp.follower)) {
 						e.subs.push_back(c.subs[++i]);
 					}
 					out.push_back(std::move(e));
@@ -2127,7 +2287,7 @@ namespace ess::merge
 				for (const auto& s : c.subs) {
 					const bool isEntry = Is(s.sig, sp.entry);
 					const bool isCount = sp.count && Is(s.sig, sp.count);
-					const bool isFollower = sp.follower && afterEntry && Is(s.sig, sp.follower);
+					const bool isFollower = sp.follower && afterEntry && Follows(s.sig, sp.follower);
 					if (isEntry || isCount || isFollower) {
 						if (pos == SIZE_MAX) {
 							pos = kept.size();
@@ -2159,7 +2319,7 @@ namespace ess::merge
 				const bool lvl = sp.count && Is(sp.count, "LLCT");
 				std::vector<const Entry*> order;
 				for (const auto& e : es) order.push_back(&e);
-				if (_fo4 && Is(sp.entry, "LVLO")) {
+				if ((_fo4 || _sf) && Is(sp.entry, "LVLO")) {
 					// Fallout 4: entries by level, as the Creation Kit and xEdit (a sorted array there) write them
 					std::stable_sort(order.begin(), order.end(), [](const Entry* a, const Entry* b) {
 						auto level = [](const Entry* e) { return e->subs[0].data.size() >= 2 ? U16(e->subs[0].data.data()) : 0; };
@@ -2330,7 +2490,10 @@ namespace ess::merge
 				std::set<std::string> listSigs;
 				for (const auto& sp : Lists(a_patch.sig, _fo4)) {
 					listSigs.insert(sp.entry);
-					if (sp.follower) listSigs.insert(sp.follower);
+					if (sp.follower) {
+						std::istringstream fs(sp.follower);
+						for (std::string f; fs >> f;) listSigs.insert(f);
+					}
 					if (sp.count) listSigs.insert(sp.count);
 				}
 				// the units: the groups, then every other part on its own
@@ -2763,7 +2926,7 @@ namespace ess::merge
 						return 0;
 					}
 					const int p = static_cast<int>(k >> 32) - 1;
-					if (!_fo4 && (k & 0xFFFFFF) < 0x800 && Lower(_plugins[p].name) != "skyrim.esm") {
+					if (!_fo4 && !_sf && (k & 0xFFFFFF) < 0x800 && Lower(_plugins[p].name) != "skyrim.esm") {
 						low = true;
 					}
 					return (idx.at(static_cast<int>(k >> 32) - 1) << 24) | static_cast<std::uint32_t>(k & 0xFFFFFF);
@@ -2815,6 +2978,14 @@ namespace ess::merge
 					}
 					_res.file = WritePlugin(_res.masters, 0, recs, "ReSaver Plus",
 						"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.", 0.94f, 43);
+				} else if (_sf) {
+					// Starfield: its header (HEDR and record version as Starfield.esm has them, MAST without DATA, INCC), its group
+					// order. Only overrides, no new forms: a light master (0x1 | 0x100), as nearly all Starfield mods are masters
+					// (masters load before every non-master plugin, so a normal .esp patch would load after them all)
+					_res.file = WritePlugin(_res.masters, _opt.light ? 0x101u : 0x1u, recs, "ReSaver Plus",
+						"Merged patch made by ReSaver Plus. Rebuild it after changing your mods.", _opt.hedrVersion > 0 ? _opt.hedrVersion : 0.96f,
+						_opt.headerRecordVersion ? _opt.headerRecordVersion : 581, false);
+					_res.light = _opt.light;
 				} else if (_fo4) {
 					// Fallout 4: its header (HEDR and record version as Fallout4.esm has them, INTV, INCC), its group order.
 					// Only overrides, no new forms: flagged light (ESL, 0x200) unless asked not to (Fallout 4 before 1.10).
@@ -2829,6 +3000,7 @@ namespace ess::merge
 					_res.light = _opt.light;
 				}
 				_res.fo4 = _fo4;
+				_res.sf = _sf;
 				_res.legendary = _opt.legendary;
 				_res.ok = true;
 			}
@@ -2837,6 +3009,7 @@ namespace ess::merge
 			Progress*                                        _progress;
 			Result&                                          _res;
 			const bool                                       _fo4;  // a Fallout 4 load order
+			const bool                                       _sf;   // a Starfield load order
 			std::vector<PInfo>                               _plugins;
 			std::unordered_map<std::uint64_t, std::vector<Ver>> _versions;
 			std::vector<std::uint64_t>                       _order;  // record keys in the order first seen
@@ -2866,7 +3039,26 @@ namespace ess::merge
 					}
 				}
 			}
-			if (opt.game == 2) {
+			struct SfFlag
+			{
+				explicit SfFlag(bool a_on) { t_sf = a_on; }
+				~SfFlag() { t_sf = false; }
+			} sfFlag(opt.game == 3);
+			if (opt.game == 3) {
+				// Starfield: the patch's header takes Starfield.esm's HEDR version and record version (0.96 and 581 on 1.16.244)
+				if (opt.findPlugin) {
+					if (const auto esm = opt.findPlugin("Starfield.esm")) {
+						std::ifstream f(*esm, std::ios::binary);
+						unsigned char h[34] = {};
+						if (f.read(reinterpret_cast<char*>(h), sizeof(h)) && std::memcmp(h, "TES4", 4) == 0 && std::memcmp(h + 24, "HEDR", 4) == 0) {
+							std::memcpy(&opt.hedrVersion, h + 30, 4);
+							opt.headerRecordVersion = static_cast<std::uint16_t>(h[20] | (h[21] << 8));
+							if (!(opt.hedrVersion > 0.5f && opt.hedrVersion < 2.0f)) opt.hedrVersion = 0.0f;
+						}
+					}
+				}
+				if (Lower(opt.language) == "english") opt.language = "en";  // Starfield_en.strings
+			} else if (opt.game == 2) {
 				// Fallout 4: the patch's header takes Fallout4.esm's HEDR version and record version (1.0 and 131 on the
 				// current game)
 				if (opt.findPlugin) {
@@ -2931,6 +3123,50 @@ namespace ess::merge
 			   "and a cell's previs and precombined data always stays as the winning mod has it: it belongs to that mod's previs and "
 			   "precombined files. Any record with a part ReSaver Plus does not know is left to the winning mod, and the report says "
 			   "which part.";
+	}
+
+	const char* SfMerged()
+	{
+		return "Starfield: the patch merges leveled lists (items, NPCs, packins, base forms and space cells: their entries, entry "
+			   "conditions, keyword chances, and the list settings), form lists and outfits. Every other record type is not merged. "
+			   "A list that has a part ReSaver Plus does not read yet (scripts, form components, material swaps, an entry's owner, "
+			   "a form list's conditional entries) is left to the winning mod, and the report says which part.";
+	}
+
+	const char* CategoryDetailSF(Category a_cat)
+	{
+		switch (a_cat) {
+		case Category::kLeveledLists:
+			return "Leveled items, leveled NPCs, leveled packins, leveled base forms and leveled space cells: each entry (level, what it "
+				   "gives, count, chance none) with its conditions, the entry count, and the keyword chances (LLKC). What every mod "
+				   "added or removed is combined, entries sorted by level. A list that would grow past 255 entries is left to the "
+				   "winning mod.";
+		case Category::kOutfits: return "Outfits: the items in each outfit. What every mod added or removed is combined.";
+		case Category::kFormLists:
+			return "Form lists: their entries. What every mod added or removed is combined; added entries go at the end. A form list "
+				   "with conditional entries is left to the winning mod.";
+		case Category::kItemValues:
+			return "A leveled list's settings: chance none and its global, max count, flags, use-all, the list's own conditions, epic "
+				   "loot chance, transforms, snap and default forms, filter keywords.";
+		case Category::kNames: return "Editor IDs, form list names and the override names of leveled items and NPCs.";
+		case Category::kModels: return "A leveled list's bounds, preview model with its material swaps, colour and flags.";
+		default: return "";
+		}
+	}
+
+	bool CategoryAppliesSF(Category a_cat)
+	{
+		switch (a_cat) {
+		case Category::kLeveledLists:
+		case Category::kOutfits:
+		case Category::kFormLists:
+		case Category::kItemValues:
+		case Category::kNames:
+		case Category::kModels:
+			return true;
+		default:
+			return false;
+		}
 	}
 
 	bool CategoryApplies(Category, bool)
