@@ -697,7 +697,7 @@ std::pair<std::string, std::uint32_t> App::missingFormHint(std::uint32_t a_formI
 std::vector<std::filesystem::path> App::crashLogFolders()
 {
 	std::vector<std::filesystem::path> v;
-	const char* se = _game == 2 ? "F4SE" : "SKSE";
+	const char* se = _game == 3 ? "SFSE" : _game == 2 ? "F4SE" : "SKSE";  // (Starfield: Trainwreck, SFSE\Crashlogs)
 	auto docs = [&](const std::filesystem::path& a_saves) {
 		for (auto d : { a_saves.parent_path() / se, a_saves.parent_path() / se / "Crashlogs" }) {
 			if (std::find(v.begin(), v.end(), d) == v.end()) {
@@ -735,7 +735,9 @@ std::filesystem::path App::newestCrashLog(std::filesystem::file_time_type* a_tim
 		for (std::filesystem::directory_iterator it(d, ec), end; !ec && it != end; it.increment(ec)) {
 			const auto name = Lower(platform::ToUtf8(it->path().filename()));
 			const auto ext = Lower(platform::ToUtf8(it->path().extension()));
-			if (!it->is_regular_file(ec) || name.rfind("crash", 0) != 0 || (ext != ".log" && ext != ".txt")) {
+			// (Trainwreck names its logs by date and time only: "2024-07-09-20-25-27.log", in a folder of their own)
+			const bool inCrashlogs = Lower(platform::ToUtf8(d.filename())) == "crashlogs";
+			if (!it->is_regular_file(ec) || (name.rfind("crash", 0) != 0 && !inCrashlogs) || (ext != ".log" && ext != ".txt")) {
 				continue;
 			}
 			const auto t = it->last_write_time(ec);
@@ -792,6 +794,10 @@ const App::CrashCheck& App::crashCheck()
 
 void App::drawCrashLog()
 {
+	if (sf()) {
+		drawCrashLogSF();
+		return;
+	}
 	prepareWindow("Crash log", ImVec2(0.85f, 0.8f));
 	if (!ImGui::Begin(trId("Crash log"), &_showCrashLog, ImGuiWindowFlags_NoCollapse)) {
 		ImGui::End();
@@ -988,6 +994,190 @@ void App::drawCrashLog()
 			ImGui::PopID();
 		}
 		ImGui::EndTable();
+	}
+	ImGui::End();
+}
+
+// Starfield: Trainwreck's logs name the objects only by their C++ type, never by form ID (see crashlog::Log::sf), so
+// nothing can be matched to the save. What they do tell: where it crashed (the game or a mod's DLL), the mods' DLLs on
+// the call stack, whether a save was being read or written and which one, and the kinds of objects in use.
+void App::drawCrashLogSF()
+{
+	prepareWindow("Crash log", ImVec2(0.85f, 0.8f));
+	if (!ImGui::Begin(trId("Crash log"), &_showCrashLog, ImGuiWindowFlags_NoCollapse)) {
+		ImGui::End();
+		return;
+	}
+	maximizeControl("Crash log");
+	if (!_clogLoaded) {
+		_clogLoaded = true;
+		_clog = {};
+		if (const auto newest = newestCrashLog(); !newest.empty()) {
+			_clog = crashlog::Read(newest);
+		}
+	}
+	ImGui::NewLine();
+	if (ImGui::Button(tr("Open another log..."))) {
+		if (platform::HasNativeDialogs()) {
+			if (auto f = platform::OpenFileDialog(crashLogFolders().front(), "log", tr("Crash log"))) {
+				_clog = crashlog::Read(*f);
+			}
+		}
+	}
+	tips::Tip(tr("Pick a crash log yourself, e.g. an older one."));
+	ImGui::SameLine();
+	if (ImGui::Button(tr("Read again"))) {
+		_clogLoaded = false;
+	}
+	tips::Tip(tr("Look for the newest crash log again, e.g. after the game crashed once more."));
+	if (!_clog.ok) {
+		TextColored(theme::Warn(), !_clog.file.empty() ? tr("Could not read ") + platform::ToUtf8(_clog.file) + ": " + _clog.error
+								   : tr("No crash log found. Trainwreck (an SFSE plugin) writes them to Documents\\My Games\\Starfield\\SFSE\\Crashlogs "
+										"when the game crashes. Install it, let the game crash once, then look again, or pick a log with "
+										"\"Open another log...\"."));
+		ImGui::End();
+		return;
+	}
+	ImGui::TextWrapped("%s", platform::ToUtf8(_clog.file).c_str());
+	if (!_clog.sf) {
+		TextColored(theme::Warn(), tr("This is not a Starfield crash log (it is for Skyrim or Fallout 4): open a save of that game to read it."));
+		ImGui::End();
+		return;
+	}
+	ImGui::TextDisabled("%s%s%s", _clog.tool.empty() ? tr("crash log") : _clog.tool.c_str(), _clog.game.empty() ? "" : ", ", _clog.game.c_str());
+	if (!_clog.exception.empty()) {
+		ImGui::TextDisabled("%s", _clog.exception.c_str());
+	}
+	if (_save && !_save->gameVersion.empty() && !_clog.game.empty()) {
+		// "Starfield v1.14.74" against the save's "1.14.74.0"
+		const auto logVer = _clog.game.substr(_clog.game.find('v') + 1);
+		if (_save->gameVersion.rfind(logVer, 0) != 0) {
+			TextColored(theme::Dim(), Fmt(tr("The game crashed on version %s; the save open was made with %s."), logVer.c_str(),
+										  _save->gameVersion.c_str()));
+		}
+	}
+	ImGui::Spacing();
+
+	// 1. where it crashed
+	ImGui::SeparatorText(tr("Where it crashed"));
+	if (!_clog.frames.empty()) {
+		const auto& top = _clog.frames.front();
+		const bool  game = Lower(top.module) == "starfield.exe";
+		if (game) {
+			ImGui::TextWrapped("%s", Fmt(tr("Inside the game itself (Starfield.exe+%s). That alone does not say which mod or object caused it: "
+											"look at the mods' DLLs on the call stack and at what the game was doing, below."),
+											top.offset.c_str())
+											 .c_str());
+		} else if (_clog.isSePlugin(top.module)) {
+			TextColored(theme::Caution(), Fmt(tr("In %s, an SFSE plugin (a mod's DLL): that mod is the first suspect. Look for an update of it, "
+											  "or try without it."),
+											  top.module.c_str()));
+		} else {
+			TextColored(theme::Caution(), Fmt(tr("In %s (+%s), not the game itself."), top.module.c_str(), top.offset.c_str()));
+		}
+	}
+	std::vector<const crashlog::Log::Frame*> mods;
+	for (const auto& f : _clog.frames) {
+		if (_clog.isSePlugin(f.module) && std::none_of(mods.begin(), mods.end(), [&](auto* m) { return m->module == f.module; })) {
+			mods.push_back(&f);
+		}
+	}
+	if (!mods.empty()) {
+		ImGui::TextWrapped("%s", tr("Mods' DLLs on the call stack (they were running when it crashed):"));
+		for (const auto* m : mods) {
+			ImGui::BulletText(Fmt(tr("%s (frame %zu)"), m->module.c_str(), m->index).c_str());
+		}
+	} else if (!_clog.frames.empty()) {
+		TextColored(theme::Dim(), tr("No SFSE plugin is on the call stack: only the game and Windows."));
+	}
+
+	// 2. what the game was doing
+	ImGui::SeparatorText(tr("What the game was doing"));
+	std::string types;
+	for (const auto& t : _clog.activityTypes) {
+		types += (types.empty() ? "" : ", ") + t;
+	}
+	if (_clog.activity == "load") {
+		TextColored(theme::Caution(), Fmt(tr("Loading a save (the log names %s)."), types.c_str()));
+	} else if (_clog.activity == "save") {
+		TextColored(theme::Caution(), Fmt(tr("Writing a save (the log names %s). That save may be incomplete: load an older one if it does "
+										   "not load."),
+										   types.c_str()));
+	} else {
+		ImGui::TextDisabled("%s", tr("Nothing in the log says a save was being loaded or written."));
+	}
+	for (const auto& n : _clog.saveNames) {
+		ImGui::PushID(n.c_str());
+		ImGui::BulletText("%s", (n + ".sfs").c_str());
+		std::error_code ec;
+		std::filesystem::path file;
+		for (const auto& dir : { savesFolder(), platform::DefaultSavesFolder(3) }) {
+			if (!dir.empty() && std::filesystem::exists(dir / platform::FromUtf8(n + ".sfs"), ec)) {
+				file = dir / platform::FromUtf8(n + ".sfs");
+				break;
+			}
+		}
+		if (!file.empty()) {
+			ImGui::SameLine();
+			const bool isOpen = _path == file;
+			ImGui::BeginDisabled(isOpen);
+			if (ImGui::SmallButton(isOpen ? tr("open now") : tr("Open this save"))) {
+				open(file);
+			}
+			ImGui::EndDisabled();
+			tips::Tip(tr("Open the save the game had when it crashed, and look at its Save check."));
+		} else {
+			ImGui::SameLine();
+			ImGui::TextDisabled("%s", tr("(not in your saves folder)"));
+		}
+		ImGui::PopID();
+	}
+
+	// (crashlog's area names, for the translations)
+	[[maybe_unused]] static const char* kAreaNames[] = { N_("NPC movement and pathfinding (navmesh)"), N_("a ship"), N_("Papyrus scripts"),
+		N_("physics (Havok)"), N_("animation"), N_("an NPC or creature"), N_("a cell (an area of the world)"), N_("a mesh or 3D model"),
+		N_("a menu or the interface"), N_("an item or an inventory"), N_("a save being read or written") };
+	if (!_clog.areas.empty()) {
+		ImGui::TextWrapped("%s", tr("At the crash it had in hand objects of:"));
+		for (const auto& [area, why] : _clog.areas) {
+			ImGui::BulletText("%s", tr(area.c_str()));
+			ImGui::SameLine();
+			ImGui::TextDisabled("(%s)", why.c_str());
+		}
+	}
+
+	// 3. the kinds of objects in use
+	ImGui::SeparatorText(tr("Objects the game was working on"));
+	ImGui::TextWrapped("%s", tr("Starfield crash logs name objects only by their kind, not by form ID, so they cannot be found in the save. "
+								"The kinds in the registers are what the game had in hand at the crash."));
+	if (ImGui::BeginTable("sfclog", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY,
+			ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * std::min<float>(12.0f, 1.5f + static_cast<float>(_clog.types.size()))))) {
+		ImGui::TableSetupScrollFreeze(0, 1);
+		ImGui::TableSetupColumn(tr("Kind of object"), ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn(tr("In the registers"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 7);
+		ImGui::TableSetupColumn(tr("In the stack"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6);
+		ImGui::TableHeadersRow();
+		for (const auto& t : _clog.types) {
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			if (t.inRegisters) {
+				TextColored(theme::Caution(), t.name);
+			} else {
+				ImGui::TextWrapped("%s", t.name.c_str());
+			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%zu", t.inRegisters);
+			ImGui::TableNextColumn();
+			ImGui::Text("%zu", t.inStack);
+		}
+		ImGui::EndTable();
+	}
+
+	// 4. the SFSE plugins
+	if (!_clog.sePlugins.empty() && ImGui::CollapsingHeader(Fmt(tr("SFSE plugins in the log (%zu)"), _clog.sePlugins.size()).c_str())) {
+		for (const auto& [dll, ver] : _clog.sePlugins) {
+			ImGui::BulletText("%s %s", dll.c_str(), ver.c_str());
+		}
 	}
 	ImGui::End();
 }

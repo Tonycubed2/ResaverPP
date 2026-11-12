@@ -168,7 +168,8 @@ namespace ess::logs
 		if (skse.contains(n)) {
 			return Kind::kSkse;
 		}
-		if (n.rfind("crash", 0) == 0) {
+		// Trainwreck: SKSE / F4SE / SFSE \Crashlogs\<date>-<time>.log (no "crash" in the name)
+		if (n.rfind("crash", 0) == 0 || Lower(Name(a_file.parent_path())) == "crashlogs") {
 			return Kind::kCrash;
 		}
 		if (Lower(U8(a_file.extension())) == ".ini") {

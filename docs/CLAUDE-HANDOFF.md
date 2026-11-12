@@ -1687,3 +1687,11 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
   (= game_id << 32 | mod id on that game: SE 1704/196293, LE 110/122557, FO4 1151/110975); `nexus-ids.yml` with
   domain `starfield` prints it. Dispatch templates: scratchpad `dispSF-new.json`, `dispSF-changelog.json`,
   `dispSF-update.json`; texts in scratchpad `sf-release-texts.md`.
+
+- Starfield crash log (12 Nov 2026, after v75, unpublished): Trainwreck 1.4.0 Starfield logs (SFSE\Crashlogs\<date>-<time>.log;
+  samples: scratchpad/sfcrash/logs 1.12.36 save-write crash, pastebin saUZPPCn 1.14.74 save-load crash, UPef97A3 1.11.36
+  NPC pathfinding crash) name objects only by C++ type, never by form ID. crashlog::Log now reads for every log: frames,
+  types (registers / stack counts), save names in char* strings, SCRIPT EXTENDER PLUGINS, activity (load: BGSLoadGameBuffer /
+  BGSLoadFormBuffer; save: PageFileWriter / BGSSaveFormBuffer / BGSSaveGameBuffer) and areas (plain words from register
+  types). drawCrashLogSF shows where (game or SFSE plugin), mod DLLs on the stack, load/save + Open this save, areas, types,
+  plugins. Crash log un-greyed on Starfield. Logs analysis counts any .log in a Crashlogs folder as a crash log.

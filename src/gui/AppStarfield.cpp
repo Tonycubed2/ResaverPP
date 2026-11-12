@@ -122,6 +122,7 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kSkyrimLogs:      // (logs::FindGameLogs with Starfield's folders; SFSE's log read as SKSE's)
 	case Sc::kCollectLogs:     // (My Games\Starfield: SFSE with its folders, Logs, the INI files; Starfield's plugins.txt)
 	case Sc::kFileConflicts:   // (assets::Input::sf: Starfield.exe's archive order)
+	case Sc::kCrashLog:        // (drawCrashLogSF: Trainwreck's Starfield logs, SFSE\Crashlogs)
 	// Starfield's own versions
 	case Sc::kPlayer:  // the character (NPC_ 7): name, level and XP, face
 	case Sc::kQuests:  // the quests window
@@ -139,8 +140,6 @@ const char* App::SfNotYet(Sc a_which)
 	case Sc::kOrphans:
 		return N_("Not for Starfield saves yet: Starfield keeps many objects made in play (ships, outposts) in another part of the save, so a "
 				  "script on one of them can look orphaned when it is not.");
-	case Sc::kCrashLog:
-		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's crash logs.");
 	case Sc::kMerge:
 		return N_("Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records.");
 	case Sc::kCharEffects:

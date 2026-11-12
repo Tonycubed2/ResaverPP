@@ -803,6 +803,7 @@ private:
 	void        drawHistory();
 	void        drawPapyrusLog();
 	void        drawCrashLog();
+	void        drawCrashLogSF();  // a Starfield (Trainwreck) crash log: no form IDs, so where and what instead (AppExtras.cpp)
 	std::vector<std::filesystem::path> crashLogFolders();
 	std::filesystem::path newestCrashLog(std::filesystem::file_time_type* a_time = nullptr);
 	// Save check: the newest crash log, when it is newer than this save and names a spawned or leveled actor of it

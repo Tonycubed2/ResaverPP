@@ -2436,6 +2436,111 @@ void TestCrashLogFO4()
 	Check(ess::crashlog::LeveledBases(save).empty(), "fo4 crash log: no leveled actors are read from a Fallout 4 save");
 }
 
+// Starfield Trainwreck logs (two players' logs, 1.12.36 and 1.14.74): types only, no form IDs
+void TestCrashLogSF()
+{
+	const std::string a =
+		"Starfield v1.12.36\n"
+		"trainwreck v1.4.0\n"
+		"\n"
+		"Unhandled exception \"EXCEPTION_ACCESS_VIOLATION\" at 0x7FF751C13A77 Starfield.exe+2A73A77\n"
+		"\n"
+		"SYSTEM SPECS:\n"
+		"    OS: Windows 11 Pro 23H2 22631.3737\n"
+		"\n"
+		"PROBABLE CALL STACK:\n"
+		"    [0 ] 0x7FF751C13A77 Starfield.exe+2A73A77\n"
+		"        mov edx,[rdx+28h]\n"
+		"    [1 ] 0x7FF751C13C63 SomeMod.dll+0013C63\n"
+		"        test al,al\n"
+		"    [16] 0x7FFE048F257D  KERNEL32.DLL+001257D BaseThreadInitThunk\n"
+		"        mov ecx,eax\n"
+		"\n"
+		"REGISTERS:\n"
+		"    RAX 0x19D3CEF58A0      (SpaceshipLinkedCell::InteriorShipCell*)\n"
+		"    RDX 0x0                (size_t)\n"
+		"    RSI 0x79B9FEFF0        (SaveFileStorageWrapper*)\n"
+		"    RDI 0x7FF757B19701     (void* -> Starfield.exe+8979701)\n"
+		"        add [rax],al\n"
+		"    R13 0x19CF5E7ED20      (char*) \"Autosave1_AEC97D8D_507573737920576574_000729_20240709152527_75_0_4\"\n"
+		"\n"
+		"STACK:\n"
+		"    [RSP+0   ] 0xFF00D292         (size_t)\n"
+		"    [RSP+28  ] 0x19D3CEF58A0      (SpaceshipLinkedCell::InteriorShipCell*)\n"
+		"    [RSP+30  ] 0x19D3CEF5020      (PageFileWriter<BSFile>*)\n"
+		"\n"
+		"MODULES:\n"
+		"    SomeMod.dll\n"
+		"        Address: 0x7FFE00D80000\n"
+		"\n"
+		"SCRIPT EXTENDER PLUGINS:\n"
+		"    BakaAchievementEnabler.dll                      v3.0.0\n"
+		"    Engine-Power-Mod.dll                            \n"
+		"    SomeMod.dll                                     v1.0.0\n"
+		"    sfse_1_12_36.dll                                v0.0.2.10\n";
+	const auto log = ess::crashlog::Parse(a);
+	Check(log.ok && log.sf && log.tool == "Trainwreck" && log.game == "Starfield v1.12.36" && log.forms.empty(),
+		"sf crash log: read although it names no form IDs");
+	Check(log.frames.size() == 3 && log.frames[0].module == "Starfield.exe" && log.frames[0].offset == "2A73A77" &&
+			  log.frames[1].module == "SomeMod.dll" && log.frames[2].index == 16 && log.frames[2].symbol == "BaseThreadInitThunk",
+		"sf crash log: the call stack");
+	Check(log.types.size() == 3 && log.types[0].name == "SpaceshipLinkedCell::InteriorShipCell" && log.types[0].inRegisters == 1 &&
+			  log.types[0].inStack == 1 && log.types[1].name == "SaveFileStorageWrapper" && log.types[2].name == "PageFileWriter<BSFile>",
+		"sf crash log: the object types, the registers' first (no void*, char*, size_t)");
+	Check(log.saveNames.size() == 1 && log.saveNames[0] == "Autosave1_AEC97D8D_507573737920576574_000729_20240709152527_75_0_4",
+		"sf crash log: the save name the game had");
+	Check(log.activity == "save" && log.activityTypes.size() == 1, "sf crash log: a save being written (PageFileWriter)");
+	Check(log.sePlugins.size() == 4 && log.sePlugins[1].first == "Engine-Power-Mod.dll" && log.sePlugins[1].second.empty() &&
+			  log.isSePlugin("SomeMod.dll") && log.isSePlugin("sfse_1_14_74.dll") && !log.isSePlugin("KERNEL32.DLL"),
+		"sf crash log: the SFSE plugins");
+
+	const std::string b =
+		"Starfield v1.14.74\n"
+		"trainwreck v1.4.0\n"
+		"\n"
+		"Unhandled exception \"EXCEPTION_ACCESS_VIOLATION\" at 0x7FF75A6501EB Starfield.exe+1A801EB\n"
+		"\n"
+		"REGISTERS:\n"
+		"    RCX 0x16EA8B28A50      (TESGlobal*)\n"
+		"    R15 0x166E2F64560      (Actor*)\n"
+		"\n"
+		"STACK:\n"
+		"    [RSP+1E0 ] 0x16A68E3B980      (TESNPC*)\n"
+		"    [RSP+1F8 ] 0x16E9F44C0D8      (BGSOutfit*)\n"
+		"    [RSP+200 ] 0x16E9F44C0D9      (BGSLoadGameBuffer*)\n"
+		"    [RSP+208 ] 0x16E9F44C0DA      (char*) \"Exitsave0_1C7773EBM5A61646469637573_010546_20241124210522_27_0_4.sfs\"\n";
+	const auto log2 = ess::crashlog::Parse(b);
+	Check(log2.sf && log2.activity == "load" && log2.types[0].name == "TESGlobal" && log2.types[1].name == "Actor" &&
+			  log2.saveNames.size() == 1 && log2.saveNames[0] == "Exitsave0_1C7773EBM5A61646469637573_010546_20241124210522_27_0_4",
+		"sf crash log: a save being loaded, with its name (.sfs dropped)");
+
+	// a third player's (1.11.36): an NPC finding its path; template and odd type names are skipped
+	const std::string c =
+		"Starfield v1.11.36\n"
+		"trainwreck v1.4.0\n"
+		"\n"
+		"REGISTERS:\n"
+		"    RBX 0x1D541B5DD68      (Actor*)\n"
+		"    RDI 0x1D15BF80DD8      (MovementAgentPathFollowerStandard*)\n"
+		"    R8  0x1D9199C4FA0      (NavMeshInfo*)\n"
+		"    R10 0x1D95DCF9AD0      (PathingCell*)\n"
+		"    R14 0x1D96D9BB9E0      (MovementAgentActorAvoider*)\n"
+		"\n"
+		"STACK:\n"
+		"    [RSP+930 ] 0x1D96608C150      (bhkNPCollisionObject*)\n"
+		"    [RSP+16F8] 0x7FF795F4F888     (BSThreadEvent::`anonymous namespace'::Source*)\n"
+		"    [RSP+15B0] 0x1D966CB3B98      (BSJobs2::Detail::TNodeJob<void (&)(NiPointer<Actor> const &,bool),1>*)\n";
+	const auto log3 = ess::crashlog::Parse(c);
+	bool path = false, npc = false, havok = false;
+	for (const auto& [area, why] : log3.areas) {
+		path |= area.find("pathfinding") != std::string::npos && why.find("NavMeshInfo") != std::string::npos;
+		npc |= area.find("NPC or creature") != std::string::npos;
+		havok |= area.find("Havok") != std::string::npos;
+	}
+	Check(log3.sf && log3.activity.empty() && log3.saveNames.empty() && path && npc && !havok && log3.types.size() == 6,
+		"sf crash log: the parts of the game in the registers (pathfinding, an NPC; physics only in the stack)");
+}
+
 void TestSkyrimLogs()
 {
 	const std::string skse =
@@ -6440,6 +6545,7 @@ int main()
 	TestMergedPatchFO4Real();
 	TestCrashLog();
 	TestCrashLogFO4();
+	TestCrashLogSF();
 	TestQuestsFO4();
 	TestSkyrimLogs();
 	TestFo4Logs();

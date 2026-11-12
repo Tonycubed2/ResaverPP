@@ -42,6 +42,37 @@ namespace ess::crashlog
 		std::string           exception; // the "Unhandled exception ..." line
 		std::vector<Form>     forms;     // most relevant first: at the crash, then by hits
 		bool                  fo4 = false;  // a Fallout 4 crash log (Buffout 4: Documents\My Games\Fallout4\F4SE\crash-<UTC time>.log)
+
+		// What every Trainwreck / Crash Logger log has, read for all games but needed for Starfield: Trainwreck's Starfield
+		// logs ("Starfield v1.14.74" / "trainwreck v1.4.0", Documents\My Games\Starfield\SFSE\Crashlogs\<date>-<time>.log)
+		// name the objects only by their C++ type ("(Actor*)", "(TESNPC*)"), never by form ID, so they cannot be matched to
+		// the save; what they do tell is where it crashed, which modules were on the call stack, what kinds of objects the
+		// game was working on, the save it was reading or writing, and the script extender plugins.
+		bool sf = false;  // a Starfield crash log (first line "Starfield v...")
+		struct Frame
+		{
+			std::size_t index = 0;
+			std::string module;  // "Starfield.exe", "KERNEL32.DLL", "SomeMod.dll"
+			std::string offset;  // hex, as the log has it ("1A801EB")
+			std::string symbol;  // "BaseThreadInitThunk", when the log gives one
+		};
+		std::vector<Frame> frames;  // the PROBABLE CALL STACK, frame 0 first
+		struct TypeSeen
+		{
+			std::string name;  // "Actor", "SpaceshipLinkedCell::InteriorShipCell"
+			std::size_t inRegisters = 0, inStack = 0;
+		};
+		std::vector<TypeSeen> types;  // object types (not void*, char*...): in the registers first, then by count
+		std::vector<std::string> saveNames;  // save names in the log's strings ("Autosave1_AEC97D8D_..."), without ".sfs"
+		std::vector<std::pair<std::string, std::string>> sePlugins;  // SCRIPT EXTENDER PLUGINS: dll, version ("" if none)
+		// what the object types say the game was doing: "load" (a save being read: BGSLoadGameBuffer, BGSLoadFormBuffer),
+		// "save" (a save being written: PageFileWriter, BGSSaveFormBuffer, BGSSaveGameBuffer) or ""; activityTypes: those types
+		std::string              activity;
+		std::vector<std::string> activityTypes;
+		// the parts of the game the objects in the registers belong to, by their type names ("NPC movement and pathfinding
+		// (navmesh)", "a ship"...): what the game had in hand at the crash, in plain words; each with the types behind it
+		std::vector<std::pair<std::string, std::string>> areas;
+		bool isSePlugin(const std::string& a_module) const;  // the module is one of sePlugins (or SFSE / SKSE / F4SE itself)
 	};
 	Log Read(const std::filesystem::path& a_file);
 	Log Parse(const std::string& a_text);  // the same from text (tests)

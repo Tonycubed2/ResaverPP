@@ -9,6 +9,7 @@
 #include <fstream>
 #include <map>
 #include <regex>
+#include <set>
 #include <sstream>
 #include <unordered_map>
 
@@ -63,6 +64,154 @@ namespace ess::crashlog
 		}
 	}
 
+	namespace
+	{
+		// the call stack, the object types, the save names and the script extender plugins (see Log::sf)
+		void ReadLayout(const std::vector<std::string>& a_lines, Log& a_log)
+		{
+			static const std::regex kFrame(R"(^\s*\[\s*(\d+)\s*\]\s+0x[0-9A-Fa-f]+\s+(\S+)\+([0-9A-Fa-f]+)(?:\s+(\S.*?))?\s*$)");
+			static const std::regex kTypeRe(R"(\(([A-Za-z_][A-Za-z0-9_:<>, ]*)\*\))");
+			static const std::regex kString(R"(\(char\*\)\s*\"([^\"]*)\")");
+			static const std::regex kSave(R"(^((?:Save|Autosave|Quicksave|Exitsave)\d*_[0-9A-Fa-f]{8}[^\\/:*?\"<>|]*?)(?:\.sfs|\.ess|\.fos)?$)",
+				std::regex::icase);
+			static const std::regex kPlugin(R"(^\s+(\S+\.dll)\s*(v\S+)?\s*$)", std::regex::icase);
+			enum class Sec { kOther, kCallStack, kRegisters, kStack, kSePlugins };
+			Sec                                 sec = Sec::kOther;
+			std::map<std::string, Log::TypeSeen> types;
+			std::vector<std::string>            order;
+			for (const auto& l : a_lines) {
+				if (IsHeader(l)) {
+					const auto u = Upper(Trim(l));
+					sec = u.find("CALL STACK") != std::string::npos   ? Sec::kCallStack
+					    : u.rfind("REGISTERS", 0) == 0                 ? Sec::kRegisters
+					    : u == "STACK:"                                ? Sec::kStack
+					    : u.find("EXTENDER PLUGINS") != std::string::npos ? Sec::kSePlugins
+					                                                   : Sec::kOther;
+					continue;
+				}
+				std::smatch m;
+				if (sec == Sec::kCallStack && std::regex_match(l, m, kFrame)) {
+					a_log.frames.push_back({ static_cast<std::size_t>(std::stoul(m[1].str())), m[2].str(), m[3].str(), m[4].str() });
+					continue;
+				}
+				if (sec == Sec::kSePlugins && std::regex_match(l, m, kPlugin)) {
+					a_log.sePlugins.emplace_back(m[1].str(), m[2].str());
+					continue;
+				}
+				if (sec != Sec::kRegisters && sec != Sec::kStack) {
+					continue;
+				}
+				if (std::regex_search(l, m, kTypeRe)) {
+					const auto name = Trim(m[1].str());
+					static const std::set<std::string> kPlain = { "void", "char", "wchar_t", "const char", "std::byte" };
+					if (!kPlain.contains(name)) {
+						auto& t = types[name];
+						if (t.name.empty()) {
+							t.name = name;
+							order.push_back(name);
+						}
+						++(sec == Sec::kRegisters ? t.inRegisters : t.inStack);
+					}
+				}
+				if (std::regex_search(l, m, kString)) {
+					std::smatch s;
+					const auto  text = m[1].str();
+					if (std::regex_match(text, s, kSave)) {
+						const auto name = s[1].str();
+						if (std::find(a_log.saveNames.begin(), a_log.saveNames.end(), name) == a_log.saveNames.end()) {
+							a_log.saveNames.push_back(name);
+						}
+					}
+				}
+			}
+			for (const auto& n : order) {
+				a_log.types.push_back(types[n]);
+			}
+			std::stable_sort(a_log.types.begin(), a_log.types.end(), [](const Log::TypeSeen& a, const Log::TypeSeen& b) {
+				if ((a.inRegisters > 0) != (b.inRegisters > 0)) {
+					return a.inRegisters > 0;
+				}
+				return a.inRegisters + a.inStack > b.inRegisters + b.inStack;
+			});
+			// the parts of the game the registers' objects belong to (Starfield's type names: Movement*, PathingCell, NavMesh*,
+			// Spaceship*, BSScript / GameScript, bhk* / hknp* (Havok), *Animation*, Actor / TESNPC, TESObjectCELL...)
+			{
+				struct Area
+				{
+					const char* name;
+					std::vector<const char*> keys;
+				};
+				static const std::vector<Area> kAreas = {
+					{ "NPC movement and pathfinding (navmesh)", { "Movement", "Pathing", "NavMesh", "PathFollower" } },
+					{ "a ship", { "Spaceship", "ShipCell" } },
+					{ "Papyrus scripts", { "BSScript", "GameScript", "GameVM" } },
+					{ "physics (Havok)", { "bhk", "hknp", "hkp" } },
+					{ "animation", { "Animation" } },
+					{ "an NPC or creature", { "Actor", "TESNPC", "Character" } },
+					{ "a cell (an area of the world)", { "TESObjectCELL", "TESWorldSpace" } },
+					{ "a mesh or 3D model", { "BSFadeNode", "NiNode", "BSGeometry", "NiAVObject" } },
+					{ "a menu or the interface", { "Scaleform", "Menu" } },
+					{ "an item or an inventory", { "BGSInventoryList", "TESObjectWEAP", "TESObjectARMO", "BGSOutfit" } },
+					{ "a save being read or written", { "SaveFile", "LoadGameBuffer", "SaveGameBuffer", "PageFileWriter", "SaveLoadManager" } },
+				};
+				for (const auto& a : kAreas) {
+					std::string why;
+					for (const auto& t : a_log.types) {
+						if (!t.inRegisters) {
+							continue;
+						}
+						for (const char* k : a.keys) {
+							if (t.name.rfind(k, 0) == 0 || t.name.find(std::string("::") + k) != std::string::npos ||
+								(std::string(k) == "Animation" && t.name.find(k) != std::string::npos) ||
+								(std::string(k) == "Menu" && t.name.size() > 4 && t.name.ends_with("Menu"))) {
+								why += (why.empty() ? "" : ", ") + t.name;
+								break;
+							}
+						}
+					}
+					if (!why.empty()) {
+						a_log.areas.emplace_back(a.name, why);
+					}
+				}
+			}
+			// what the game was doing, from the types that only take part in reading or in writing a save
+			static const char* kLoad[] = { "BGSLoadGameBuffer", "BGSLoadFormBuffer", "LoadGameBuffer" };
+			static const char* kSaveW[] = { "PageFileWriter", "BGSSaveFormBuffer", "BGSSaveGameBuffer" };
+			for (const auto& t : a_log.types) {
+				for (const char* k : kLoad) {
+					if (t.name.find(k) != std::string::npos) {
+						a_log.activity = "load";
+						a_log.activityTypes.push_back(t.name);
+					}
+				}
+			}
+			if (a_log.activity.empty()) {
+				for (const auto& t : a_log.types) {
+					for (const char* k : kSaveW) {
+						if (t.name.find(k) != std::string::npos) {
+							a_log.activity = "save";
+							a_log.activityTypes.push_back(t.name);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	bool Log::isSePlugin(const std::string& a_module) const
+	{
+		const auto u = Upper(a_module);
+		if (u.rfind("SFSE_", 0) == 0 || u.rfind("SKSE64_", 0) == 0 || u.rfind("F4SE_", 0) == 0) {
+			return true;
+		}
+		for (const auto& [dll, ver] : sePlugins) {
+			if (Upper(dll) == u) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	Log Parse(const std::string& a_text)
 	{
 		Log log;
@@ -95,6 +244,10 @@ namespace ess::crashlog
 			}
 			if (log.game.empty() && (u.rfind("SKYRIM ", 0) == 0 || u.rfind("SKYRIMSE ", 0) == 0 || u.rfind("SKYRIMVR ", 0) == 0)) {
 				log.game = Trim(l);
+			}
+			if (log.game.empty() && u.rfind("STARFIELD V", 0) == 0) {
+				log.game = Trim(l);  // Trainwreck's first line: "Starfield v1.14.74"
+				log.sf = true;
 			}
 			if (log.game.empty() && u.rfind("FALLOUT 4 V", 0) == 0) {
 				log.game = Trim(l);  // Buffout 4's first line: "Fallout 4 v1.10.163"
@@ -201,6 +354,7 @@ namespace ess::crashlog
 		for (auto& [id, f] : forms) {
 			log.forms.push_back(std::move(f));
 		}
+		ReadLayout(lines, log);
 		std::stable_sort(log.forms.begin(), log.forms.end(), [](const Form& a, const Form& b) {
 			if (a.atCrash != b.atCrash) {
 				return a.atCrash;
@@ -211,7 +365,7 @@ namespace ess::crashlog
 			return a.firstLine < b.firstLine;
 		});
 		log.ok = true;
-		if (log.forms.empty()) {
+		if (log.forms.empty() && !log.sf) {
 			log.error = "the log names no forms";
 		}
 		return log;
