@@ -14833,3 +14833,9 @@ tr ""
 
 en "SFSE, Papyrus and mod logs"
 tr ""
+
+en "Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records."
+tr ""
+
+en "Not for Starfield saves yet: the effects running on a character are in the part of Starfield's actor data that is not decoded yet."
+tr ""

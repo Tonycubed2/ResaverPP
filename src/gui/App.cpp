@@ -1345,7 +1345,7 @@ void App::drawMenu()
 		}
 		tips::Tip(tr("Read every plugin in your load order and build one patch that combines the changes of mods that edit the same "
 				  "leveled lists, containers, NPCs, keywords, form lists and outfits."));
-		if (ImGui::MenuItem(fo4() ? tr("File conflicts (loose files and BA2s)...") : tr("File conflicts (loose files and BSAs)..."), nullptr, &_showAssets, !sf())) {
+		if (ImGui::MenuItem(fo4() ? tr("File conflicts (loose files and BA2s)...") : tr("File conflicts (loose files and BSAs)..."), nullptr, &_showAssets, sfOk(Sc::kFileConflicts))) {
 			_homePanel = false;
 		}
 		tips::Tip(tr("Which mods override which mods' files, loose and inside archives (BSAs), in the order the game uses them. "

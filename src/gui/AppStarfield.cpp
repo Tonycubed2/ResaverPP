@@ -121,6 +121,7 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kBloat:           // (SaveBloat: Starfield's bases and inventories through DecodeReferenceSF)
 	case Sc::kSkyrimLogs:      // (logs::FindGameLogs with Starfield's folders; SFSE's log read as SKSE's)
 	case Sc::kCollectLogs:     // (My Games\Starfield: SFSE with its folders, Logs, the INI files; Starfield's plugins.txt)
+	case Sc::kFileConflicts:   // (assets::Input::sf: Starfield.exe's archive order)
 	// Starfield's own versions
 	case Sc::kPlayer:  // the character (NPC_ 7): name, level and XP, face
 	case Sc::kQuests:  // the quests window
@@ -141,8 +142,10 @@ const char* App::SfNotYet(Sc a_which)
 	case Sc::kCrashLog:
 		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's crash logs.");
 	case Sc::kMerge:
-	case Sc::kFileConflicts:
-		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's plugins and archives.");
+		return N_("Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records.");
+	case Sc::kCharEffects:
+		return N_("Not for Starfield saves yet: the effects running on a character are in the part of Starfield's actor data that is not "
+				  "decoded yet.");
 	default:
 		return N_("Not available for Starfield saves: it is for Skyrim (or Fallout 4) only.");
 	}

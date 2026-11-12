@@ -422,8 +422,11 @@ void App::drawFileConflicts()
 		}
 		const auto pluginsTxt =
 			_mo2 && !_profile.empty() ? _mo2->profilesDir / platform::FromUtf8(_profile) / "plugins.txt" : loadorder::GamePluginsTxt(_game, _save && _save->isLE());
-		in.fo4 = _game == 2;
-		in.loadOrder = merge::ReadLoadOrder(pluginsTxt, gameFolder(), in.fo4 ? 2 : -1);
+		in.sf = sf() || sfGame();
+		in.fo4 = !in.sf && _game == 2;
+		in.loadOrder = in.sf ? loadorder::StarfieldListed(_mo2 && !_profile.empty() ? pluginsTxt : loadorder::GamePluginsTxt(3, false),
+		                                                  loadorder::StarfieldDataDirs(gameFolder()))
+		                     : merge::ReadLoadOrder(pluginsTxt, gameFolder(), in.fo4 ? 2 : -1);
 		_assetsProgress = std::make_unique<assets::Progress>();
 		_assetsBusy = true;
 		auto* prog = _assetsProgress.get();

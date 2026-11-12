@@ -4,6 +4,7 @@
 #include "ScriptSources.h"  // ListBSA
 
 #include <algorithm>
+#include <cstdio>
 #include <fstream>
 #include <map>
 #include <cctype>
@@ -74,7 +75,7 @@ namespace ess::assets
 		for (const auto& [mod, dir] : folders) {
 			std::error_code ec;
 			for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
-				if (e.is_regular_file(ec) && Lower(U8(e.path().extension())) == (a_in.fo4 ? ".ba2" : ".bsa")) {
+				if (e.is_regular_file(ec) && Lower(U8(e.path().extension())) == (a_in.fo4 || a_in.sf ? ".ba2" : ".bsa")) {
 					archiveAt[Lower(U8(e.path().filename()))] = { mod, e.path() };
 				}
 			}
@@ -84,15 +85,15 @@ namespace ess::assets
 		{
 			std::vector<std::string> vanilla;
 			for (const auto& [name, at] : archiveAt) {
-				if (name.rfind(a_in.fo4 ? "fallout4 - " : "skyrim - ", 0) == 0) vanilla.push_back(name);
+				if (name.rfind(a_in.sf ? "starfield - " : a_in.fo4 ? "fallout4 - " : "skyrim - ", 0) == 0) vanilla.push_back(name);
 			}
 			std::sort(vanilla.begin(), vanilla.end());
-			if (a_in.fo4 && !a_in.gameData.empty()) {
+			if ((a_in.fo4 || a_in.sf) && !a_in.gameData.empty()) {
 				// Fallout 4 loads its own archives in the order its ini lists them ([Archive] in Fallout4_Default.ini, the
 				// file the game's Fallout4.ini starts from): the start-up archives, then the archive lists, then the
 				// texture index; the base game archives no list names come after them
 				std::vector<std::string> listed;
-				std::ifstream            ini(a_in.gameData.parent_path() / "Fallout4_Default.ini");
+				std::ifstream            ini(a_in.gameData.parent_path() / (a_in.sf ? "Starfield.ini" : "Fallout4_Default.ini"));
 				std::map<std::string, std::string> lists;
 				for (std::string line; std::getline(ini, line);) {
 					const auto eq = line.find('=');
@@ -122,7 +123,25 @@ namespace ess::assets
 			for (const auto& p : a_in.loadOrder) {
 				const auto stem = Lower(U8(std::filesystem::path(reinterpret_cast<const char8_t*>(p.c_str())).stem()));
 				std::vector<std::string> names;
-				if (a_in.fo4) {
+				if (a_in.sf) {
+					// Starfield.exe 0x1405a8fe0: " - Main" then " - Textures"; "<stem><kind>.ba2", else "<stem><kind>01.ba2" and on
+					for (const char* kind : { " - main", " - textures" }) {
+						const auto one = stem + kind + ".ba2";
+						if (archiveAt.contains(one)) {
+							names.push_back(one);
+							continue;
+						}
+						for (int k = 1; k < 100; ++k) {
+							char num[8];
+							std::snprintf(num, sizeof(num), "%02d", k);
+							const auto n = stem + kind + num + ".ba2";
+							if (!archiveAt.contains(n)) {
+								break;
+							}
+							names.push_back(n);
+						}
+					}
+				} else if (a_in.fo4) {
 					names = { stem + " - main.ba2", stem + " - textures.ba2" };
 					std::vector<std::string> voices;  // "<plugin> - Voices_en.ba2" (the DLC's way)
 					for (const auto& [name, at] : archiveAt) {

@@ -14833,3 +14833,9 @@ tr "分析 Starfield 日志"
 
 en "SFSE, Papyrus and mod logs"
 tr "SFSE、Papyrus 和模组日志"
+
+en "Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records."
+tr "暂不适用于 Starfield：它读写的是 Skyrim 和 Fallout 4 的插件记录。"
+
+en "Not for Starfield saves yet: the effects running on a character are in the part of Starfield's actor data that is not decoded yet."
+tr "暂不适用于 Starfield 存档：角色身上生效的效果位于 Starfield 角色数据中尚未解码的部分。"

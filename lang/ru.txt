@@ -14891,3 +14891,9 @@ tr "Анализ журналов Starfield"
 
 en "SFSE, Papyrus and mod logs"
 tr "SFSE, Papyrus и журналы модов"
+
+en "Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records."
+tr "Пока не для Starfield: инструмент читает и записывает записи плагинов Skyrim и Fallout 4."
+
+en "Not for Starfield saves yet: the effects running on a character are in the part of Starfield's actor data that is not decoded yet."
+tr "Пока не для сохранений Starfield: действующие на персонажа эффекты находятся в той части данных персонажей Starfield, которая ещё не расшифрована."

@@ -25,6 +25,10 @@ namespace ess::assets
 		// Fallout 4: its archives are .ba2; the base game's "Fallout4 - *.ba2" first, then each plugin's
 		// "<plugin> - Main.ba2", "<plugin> - Textures.ba2" and "<plugin> - Voices_<language>.ba2" in load order
 		bool                     fo4 = false;
+		// Starfield: .ba2 too; its own archives as Starfield.ini's [Archive] lists name them (then any other "Starfield - *.ba2"),
+		// then per plugin in load order "<plugin> - Main.ba2" and "<plugin> - Textures.ba2", each, when missing, as
+		// "<plugin> - Main01.ba2", "...02" and on until one is missing (Starfield.exe 0x1405a8fe0: "%s%s.ba2", "%s%s%02u.ba2")
+		bool                     sf = false;
 	};
 
 	struct Progress
