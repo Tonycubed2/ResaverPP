@@ -750,7 +750,7 @@ void App::drawLoadOrderCheck()
 		o.game = game;
 		const int  g = _game == 2 ? 2 : -1;
 		const bool isSf = game == locheck::Game::kStarfield;
-		const auto sfDirs = isSf ? loadorder::StarfieldDataDirs(gf) : std::vector<std::filesystem::path>{};
+		const auto sfDirs = isSf ? sfDataDirs() : std::vector<std::filesystem::path>{};  // (with the Mod Organizer profile's mods)
 		std::thread([job, src, gf, o, pluginsTxt, g, isSf, sfDirs]() mutable {
 			if (isSf) {
 				// Starfield: its own list (StarfieldListed) and its Data folders (the game's, My Games\Starfield\Data)

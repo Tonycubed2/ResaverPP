@@ -1769,6 +1769,14 @@ void App::autoDetectPaths(bool a_force)
 						   return v;
 					   }
 				   }
+				   if (_game == 3) {
+					   // Starfield: older Vortex versions deploy to Documents\My Games\Starfield\Data
+					   if (const auto sv = platform::DefaultSavesFolder(3); !sv.empty()) {
+						   if (auto v = FindVortexDeployment(sv.parent_path() / "Data")) {
+							   return v;
+						   }
+					   }
+				   }
 				   if (const auto ad = text::EnvPath("APPDATA"); !ad.empty()) {
 					   return FindVortexDeployment(ad / "Vortex" / (_game == 3 ? "starfield" : _game == 2 ? "fallout4" : _vr ? "skyrimvr" : "skyrimse") / "mods");
 				   }
@@ -1776,6 +1784,9 @@ void App::autoDetectPaths(bool a_force)
 			   }()) {
 		_vortex = vx;
 		_gamePath = platform::ToUtf8(vx->dataPath.parent_path());
+		if (_game == 3 && !games.empty() && !std::filesystem::exists(vx->dataPath.parent_path() / "Starfield.exe", ec)) {
+			_gamePath = platform::ToUtf8(games.front());  // (deployed to My Games\Starfield\Data: the game is elsewhere)
+		}
 		_sourcesPath = platform::ToUtf8(vx->stagingPath);
 		_detectNote = tr("Found Vortex: staging folder ") + _sourcesPath + Fmt(tr(", %zu mods deployed"), vx->mods.size());
 	} else if (!games.empty()) {

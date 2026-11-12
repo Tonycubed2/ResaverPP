@@ -425,7 +425,7 @@ void App::drawFileConflicts()
 		in.sf = sf() || sfGame();
 		in.fo4 = !in.sf && _game == 2;
 		in.loadOrder = in.sf ? loadorder::StarfieldListed(_mo2 && !_profile.empty() ? pluginsTxt : loadorder::GamePluginsTxt(3, false),
-		                                                  loadorder::StarfieldDataDirs(gameFolder()))
+		                                                  sfDataDirs())
 		                     : merge::ReadLoadOrder(pluginsTxt, gameFolder(), in.fo4 ? 2 : -1);
 		_assetsProgress = std::make_unique<assets::Progress>();
 		_assetsBusy = true;

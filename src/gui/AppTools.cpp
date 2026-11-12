@@ -125,8 +125,13 @@ std::string App::gameLanguage() const
 		// Starfield: sLanguage in StarfieldCustom.ini / StarfieldPrefs.ini (Documents\My Games\Starfield), then the game's own
 		// Starfield.ini; its strings files are <plugin>_en.strings, _de, _fr, ... (Starfield - Localization.ba2)
 		std::vector<std::filesystem::path> inis;
+		if (_mo2 && !_profile.empty()) {  // Mod Organizer profile-specific ini files come first
+			const auto prof = _mo2->profilesDir / platform::FromUtf8(_profile);
+			inis = { prof / "StarfieldCustom.ini", prof / "StarfieldPrefs.ini" };
+		}
 		if (const auto saves = platform::DefaultSavesFolder(3); !saves.empty()) {
-			inis = { saves.parent_path() / "StarfieldCustom.ini", saves.parent_path() / "StarfieldPrefs.ini" };
+			inis.push_back(saves.parent_path() / "StarfieldCustom.ini");
+			inis.push_back(saves.parent_path() / "StarfieldPrefs.ini");
 		}
 		inis.push_back(gameFolder() / "Starfield.ini");
 		for (const auto& ini : inis) {
@@ -1050,8 +1055,8 @@ std::vector<std::filesystem::path> App::iniSaveFolders() const
 														 : std::vector<std::filesystem::path>{ myGames / "Skyrim.ini", myGames / "SkyrimCustom.ini", myGames / "SkyrimVR.ini" };
 	if (_mo2 && !_profile.empty()) {  // Mod Organizer profile-specific game ini files
 		const auto prof = _mo2->profilesDir / platform::FromUtf8(_profile);
-		inis.push_back(prof / (_game == 2 ? "Fallout4.ini" : "Skyrim.ini"));
-		inis.push_back(prof / (_game == 2 ? "Fallout4Custom.ini" : "SkyrimCustom.ini"));
+		inis.push_back(prof / (_game == 3 ? "StarfieldPrefs.ini" : _game == 2 ? "Fallout4.ini" : "Skyrim.ini"));
+		inis.push_back(prof / (_game == 3 ? "StarfieldCustom.ini" : _game == 2 ? "Fallout4Custom.ini" : "SkyrimCustom.ini"));
 	}
 	std::error_code ec;
 	for (const auto& ini : inis) {

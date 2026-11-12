@@ -3032,6 +3032,12 @@ void App::loadSettings()
 			f4.mo2Ini = line.substr(11);
 		} else if (line.rfind("game_sf=", 0) == 0) {
 			sf.gamePath = line.substr(8);
+		} else if (line.rfind("sources_sf=", 0) == 0) {
+			sf.sourcesPath = line.substr(11);
+		} else if (line.rfind("profile_sf=", 0) == 0) {
+			sf.profile = line.substr(11);
+		} else if (line.rfind("mo2_ini_sf=", 0) == 0) {
+			sf.mo2Ini = line.substr(11);
 		} else if (line.rfind("saves_dir_sf=", 0) == 0) {
 			_savesDir[3] = line.substr(13);
 		} else if (line.rfind("last_dir_sf=", 0) == 0) {
@@ -3149,6 +3155,9 @@ void App::saveSettings()
 	f << "mo2_ini_f4=" << f4.mo2Ini << "\n";
 	f << "saves_dir_f4=" << _savesDir[2] << "\n";
 	f << "game_sf=" << all[3].gamePath << "\n";
+	f << "sources_sf=" << all[3].sourcesPath << "\n";  // (Starfield's Mod Organizer / Vortex setup, kept like the other games')
+	f << "profile_sf=" << all[3].profile << "\n";
+	f << "mo2_ini_sf=" << all[3].mo2Ini << "\n";
 	f << "saves_dir_sf=" << _savesDir[3] << "\n";
 	f << "last_dir_sf=" << _lastDir[3] << "\n";
 	f << "last_dir_f4=" << _lastDir[2] << "\n";
