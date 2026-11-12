@@ -2624,7 +2624,7 @@ void TestAiGame()
 		"ai: Starfield edits are allowed");
 	Check(ag::CliRefusal(ag::Game::kStarfield, { "x.sfs", "--player" }).find("--player") != std::string::npos, "ai: Skyrim options refused for Starfield");
 	Check(ag::CliRefusal(ag::Game::kStarfield, { "x.sfs", "--sf-set-av-mod", "0005ACD4:damage:-5" }).empty(), "ai: a negative value is not an option");
-	Check(ag::HelperRefusal("SF", "QUEST").empty() && !ag::HelperRefusal("SF", "GATHER").empty() && !ag::HelperRefusal("SF", "APPLY").empty(),
+	Check(ag::HelperRefusal("SF", "QUEST").empty() && ag::HelperRefusal("SF", "APPLY").empty() && ag::HelperRefusal("SF", "MOVETO").empty() && ag::HelperRefusal("SF", "GATHER").empty() && !ag::HelperRefusal("SF", "SNAPSHOT").empty() && !ag::HelperRefusal("SF", "FOLLOWERS").empty(),
 		"ai: the Starfield helper's commands");
 	Check(!ag::ToolRefusal(ag::Game::kStarfield, "fo4_player").empty() && ag::ToolRefusal(ag::Game::kStarfield, "analyze_logs").empty() &&
 			  ag::ToolRefusal(ag::Game::kStarfield, "run_cli").empty() && ag::ToolRefusal(ag::Game::kFallout4, "fo4_player").empty(),

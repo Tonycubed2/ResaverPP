@@ -194,6 +194,7 @@ bool App::helperAtLeast(int a_version) const
 	if (info.connected && info.runtime == "SF") {
 		// the Starfield helper (its own versions from 1): version 1 speaks Skyrim's 11 quest commands (QUEST, SETSTAGE,
 		// COMPLETE, STOP, RESET) and 12's rescue set without GATHER; nothing else
+		// (its version 2 adds APPLY, MOVETO and GATHER with ids: asked for with sfHelperReady, not here)
 		return (a_version == 11 || a_version == 12) && std::atoi(info.helperVersion.c_str()) >= 1;
 	}
 	if (info.connected && info.runtime.rfind("F4", 0) == 0) {

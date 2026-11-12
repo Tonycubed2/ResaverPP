@@ -2,8 +2,11 @@
 // ReSaverHelper <-> ReSaver Plus protocol, over the local named pipe \\.\pipe\ReSaverHelper (owner-only access).
 // Starfield helper (helper-sf, its own version numbers from 1): the same pipe and the same line format; HELLO's game
 // field is SF. It answers HELLO, GETOPTION, SETOPTION, NOTIFY, QUEST, SETSTAGE, COMPLETE, STOP, RESET, SAVEGAME,
-// CONTROLS, CONTROLSRESET and RESCUE (no companions or Transplant yet). QUEST reads the quest from the game; the
-// others run the game's own console commands (Game.h). Everything else answers ERR.
+// CONTROLS, CONTROLSRESET and RESCUE; version 2 adds APPLY (records: additem, removeitem, addperk, setstage, completequest,
+// objective, moveto - Records.h), MOVETO <ref> <notify> <message> and GATHER <notify> <refs, comma separated> (each one
+// put next to the player). QUEST reads the quest from the game; the others run the game's own console commands (Game.h).
+// APPLY / MOVETO / GATHER reply OK 1 <commands run> (GATHER: OK <count> <commands>), OK 0 <why not>, or OK ? when the game
+// was busy. Everything else answers ERR.
 // One request per line, one reply line per request. Fields are separated by tabs; tab, newline and
 // backslash inside a field are written as \t, \n and \\.
 //
@@ -59,7 +62,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 1;
+	inline constexpr int            kHelperVersion = 2;
 
 	inline std::string Escape(const std::string& a_in)
 	{

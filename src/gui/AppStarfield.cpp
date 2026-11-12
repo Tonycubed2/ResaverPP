@@ -1062,6 +1062,34 @@ void App::drawAddItemSF(const RefID& a_ref)
 			result = tr("Not added: ") + why;
 		}
 	}
+	if (_save->formIDOf(a_ref) == 0x14) {
+		// the player: the same item given in the running game (ReSaverHelper for Starfield 2, the game's own player.additem)
+		ImGui::SameLine();
+		std::string why;
+		const bool  ready = sfHelperReady(2, why);
+		ImGui::BeginDisabled(!ready || count > 1000000);
+		if (ImGui::Button(tr("Give in the running game"))) {
+			const std::string what = Fmt(tr("%u x %s"), count, _db->describe(pick).c_str());
+			result = tr("Asking the game...");
+			_live.request({ "APPLY", "additem", Fmt("%08X", pick), std::to_string(count) }, [this, what](const LiveLink::Reply& r) {
+				std::string note;
+				if (!LiveLink::Ok(r)) {
+					note = tr("The game could not do it: ") + LiveLink::Error(r);
+				} else if (LiveLink::Field(r, 0) == "0") {
+					note = tr("The game refused: ") + LiveLink::Field(r, 1);
+				} else if (LiveLink::Field(r, 0) == "?") {
+					note = tr("The game is busy; it gives the item when it gets to it: ") + what;
+				} else {
+					note = tr("Given in the game: ") + what + tr(". Save in the game to keep it.");
+				}
+				_status = note;
+			});
+			result.clear();
+		}
+		ImGui::EndDisabled();
+		tips::Tip(ready ? tr("Give the item to your character in the running game (the game's own player.additem), not in this save.")
+						: why.c_str());
+	}
 	ImGui::EndDisabled();
 	ImGui::EndDisabled();
 	if (!result.empty()) {
@@ -1519,4 +1547,46 @@ void App::drawActorValuesSF(const RefID& a_ref)
 		ImGui::EndDisabled();
 		ImGui::EndTable();
 	}
+}
+
+// the running game is Starfield with ReSaverHelper for Starfield a_version or later and a game loaded ("" in a_why), else why not
+bool App::sfHelperReady(int a_version, std::string& a_why) const
+{
+	const auto info = _live.info();
+	if (!info.connected) {
+		a_why = Fmt(tr("Needs the game running with ReSaverHelper for Starfield (version %d or later)."), a_version);
+		return false;
+	}
+	if (info.runtime != "SF") {
+		a_why = tr("The game connected is not Starfield.");
+		return false;
+	}
+	if (std::atoi(info.helperVersion.c_str()) < a_version) {
+		a_why = Fmt(tr("Needs ReSaverHelper for Starfield version %d or later (the game has version %s)."), a_version, info.helperVersion.c_str());
+		return false;
+	}
+	if (!info.inGame) {
+		a_why = tr("Load a save in the game first.");
+		return false;
+	}
+	a_why.clear();
+	return true;
+}
+
+// Find NPCs > Move to me on Starfield: the actor put next to the player in the running game (helper 2 MOVETO)
+void App::liveMoveToSF(std::uint32_t a_formID, const std::string& a_name)
+{
+	const std::string what = Fmt(tr("brought %s to you"), a_name.c_str());
+	_status = tr("Asking the game: ") + what + "...";
+	_live.request({ "MOVETO", Fmt("%08X", a_formID), liveNotifyMode(), "ReSaver Plus: brought " + a_name + " to you" }, [this, what](const LiveLink::Reply& r) {
+		if (!LiveLink::Ok(r)) {
+			_status = tr("The game could not do it: ") + LiveLink::Error(r);
+		} else if (LiveLink::Field(r, 0) == "0") {
+			_status = tr("The game refused: ") + LiveLink::Field(r, 1);
+		} else if (LiveLink::Field(r, 0) == "?") {
+			_status = tr("The game is busy; it does it as soon as it can: ") + what + ".";
+		} else {
+			_status = tr("Done in game: ") + what + tr(". Save in the game to keep it.");
+		}
+	});
 }

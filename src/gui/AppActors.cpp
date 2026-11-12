@@ -174,9 +174,23 @@ void App::drawActors()
 					select(Cat::kChangeForms, r.place.refRaw);
 				}
 				tips::Tip(tr("Open this actor's change form: its saved data, extra data and the NPC fixes."));
-				if (!r.place.isPlayer) {
+				if (!r.place.isPlayer && sf()) {
+					// Starfield: in the running game, through ReSaverHelper for Starfield 2 (the save's own AI data is not decoded,
+					// so the save itself is not changed)
 					ImGui::SameLine();
-					ImGui::BeginDisabled(!r.place.hasPosition || sf());
+					std::string why;
+					const bool  ready = sfHelperReady(2, why);
+					ImGui::BeginDisabled(!ready);
+					if (ImGui::SmallButton(tr("Move to me"))) {
+						liveMoveToSF(r.place.formID, r.name);
+					}
+					ImGui::EndDisabled();
+					tips::Tip(ready ? tr("In the running game: puts this actor next to you and lets it pick its AI package again (ReSaverHelper for "
+										 "Starfield). Save in the game to keep it.")
+									: (why + tr("\nOr in game: open the console, type prid followed by its form id, then moveto player.")).c_str());
+				} else if (!r.place.isPlayer) {
+					ImGui::SameLine();
+					ImGui::BeginDisabled(!r.place.hasPosition);
 					if (ImGui::SmallButton(tr("Move to me"))) {
 						const auto raw = r.place.refRaw;
 						const auto name = r.name;
@@ -200,10 +214,7 @@ void App::drawActors()
 							});
 					}
 					ImGui::EndDisabled();
-					if (sf()) {
-						tips::Tip(tr("Not for Starfield saves yet: moving an actor also needs its saved AI reset, and Starfield's AI data is not "
-								  "decoded yet. In game: open the console, type prid followed by its form id, then moveto player."));
-					} else if (r.place.hasPosition) {
+					if (r.place.hasPosition) {
 						tips::Tip(tr("Put this actor in front of you and reset its AI. For a lost or stuck follower."));
 					} else {
 						tips::Tip(tr("The game never moved this actor, so the save has no position to change. In game: open the console, "

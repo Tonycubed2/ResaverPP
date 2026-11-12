@@ -18,7 +18,6 @@ namespace Game
 		constexpr std::uint64_t kId_ConsoleObject = 938528;
 		constexpr std::uint64_t kId_LookupByID = 47401;
 
-		constexpr std::uint8_t kFormType_QUST = 0x5B;
 
 		std::filesystem::path PluginDir()
 		{
@@ -203,6 +202,21 @@ namespace Game
 		}
 		const auto cmd = std::format("cgf \"Debug.{}\" \"{}\"", mode == "box" ? "MessageBox" : "Notification", Clean(a_text));
 		AddTask([cmd] { Console(cmd); });
+	}
+
+	int FormType(std::uint32_t a_formID)
+	{
+		if (!g_lookupByID || !a_formID) {
+			return -1;
+		}
+		try {
+			using LookupByID_t = void* (*)(std::uint32_t);
+			const void* form = reinterpret_cast<LookupByID_t>(g_lookupByID)(a_formID);
+			return form ? Read<std::uint8_t>(form, 0x2E) : -1;
+		} catch (...) {
+			spdlog::error("form {:08X}: reading it failed", a_formID);
+			return -1;
+		}
 	}
 
 	QuestState Quest(std::uint32_t a_formID)

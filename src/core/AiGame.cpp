@@ -296,6 +296,11 @@ THE RUNNING GAME (game_command)
   CONTROLS <notify> / CONTROLSRESET <notify> -> forces the player's controls back on / gives them back to the game
   SAVEGAME <notify> -> saves the game as a new save ReSaverPP_Rescue_<date>_<time>
   RESCUE <notify> -> SAVEGAME and CONTROLS at once. Holding Ctrl in the game for iRescueHoldSeconds (8) does the same.
+  From helper version 2 (HELLO's helper version):
+  MOVETO <ref formid> <notify> <message> -> puts that actor or object next to the player (moveto player; an actor then picks its AI package again)
+  GATHER <notify> <ref formids, comma separated> -> MOVETO for each (lost followers: their form ids from the Find NPCs window, --changeforms or the user)
+  APPLY <record> -> one record: additem <formid> <count>, removeitem <formid> <count> (the player's), addperk <formid>, setstage <quest> <stage>, completequest <quest>, objective <quest> <index> <state 1..5>, moveto <ref>. Answers 1 <commands run>, 0 <why not> or ? (the game was busy).
+  Form ids are 8 hex digits, the game's own (as the save has them when the load order did not change).
   <notify> is hud, box, none, or ini (the helper's setting).
 - After a change in the running game, tell the user to save in the game.
 
@@ -306,6 +311,8 @@ RECIPES (Starfield)
 - Level / XP / name / face: --sf-set-level, --sf-rename, --face 7 then --sf-set-face.
 - Stuck quest: --quests, then in the running game QUEST and SETSTAGE.
 - Stuck, cannot move: game_command CONTROLS (CONTROLSRESET afterwards); RESCUE also saves.
+- A lost companion: find it in the save's actors, then (helper 2) game_command MOVETO <its ref> ini "".
+- An item now, without editing the save: (helper 2) game_command APPLY additem <formid> <count>.
 - A mod was removed: --mods-not-installed, then --remove-not-installed -o <new save>.
 )T";
 
@@ -326,7 +333,7 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments. Its help text b
 		const std::set<std::string>& SfHelperCommands()
 		{
 			static const std::set<std::string> s = { "HELLO", "GETOPTION", "SETOPTION", "NOTIFY", "QUEST", "SETSTAGE", "COMPLETE", "STOP", "RESET",
-				"SAVEGAME", "CONTROLS", "CONTROLSRESET", "RESCUE" };
+				"SAVEGAME", "CONTROLS", "CONTROLSRESET", "RESCUE", "APPLY", "MOVETO", "GATHER" };  // (APPLY, MOVETO, GATHER: helper 2)
 			return s;
 		}
 
@@ -454,8 +461,8 @@ THE COMMAND LINE (run_cli runs resaverpp-cli with the arguments. Its help text b
 				return {};
 			}
 			return "not available in ReSaverHelper for Starfield: " + Upper(a_command) +
-			       ". It has HELLO, GETOPTION, SETOPTION, NOTIFY, QUEST, SETSTAGE, COMPLETE, STOP, RESET, CONTROLS, CONTROLSRESET, SAVEGAME and "
-			       "RESCUE. Nothing was sent to the game.";
+			       ". It has HELLO, GETOPTION, SETOPTION, NOTIFY, QUEST, SETSTAGE, COMPLETE, STOP, RESET, CONTROLS, CONTROLSRESET, SAVEGAME, "
+			       "RESCUE and (version 2) APPLY, MOVETO, GATHER. Nothing was sent to the game.";
 		}
 		if (!HelperIsFo4(a_runtime) || Fo4HelperCommands().contains(Upper(a_command))) {
 			return {};

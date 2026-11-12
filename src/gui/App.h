@@ -645,6 +645,8 @@ private:
 	bool                                  liveFO4() const;
 	bool                                  liveSF() const;   // the running game is Starfield (its helper: quests and the rescue set)
 	void                                  liveQuestSF(const std::string& a_command, std::uint32_t a_formID, int a_stage);  // (AppStarfield.cpp)
+	bool                                  sfHelperReady(int a_version, std::string& a_why) const;  // Starfield helper a_version+, in game
+	void                                  liveMoveToSF(std::uint32_t a_formID, const std::string& a_name);  // helper 2 MOVETO
 	std::string                           _liveQuestSFResult;
 	int                                   _liveQuestSFStage = 0;  // the running game is Fallout 4 (its helper: the rescue set only)
 	std::vector<ChainItem>                _chainRun;

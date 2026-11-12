@@ -9,6 +9,13 @@ a stuck game.
 - **Get my controls back:** your controls are forced back on (the game's `ForceEnablePlayerControls`). **Give the
   controls back to the game** undoes it once the scene or mod that stuck them is over.
 - **Save the game now:** a new save, `ReSaverPP_Rescue_<date>_<time>`. Your other saves are not touched.
+- **Move to me (version 2, Find NPCs in ReSaver Plus):** a lost companion or any NPC is put next to you (the game's
+  `moveto player`) and picks its AI package again (`evp`).
+- **Give in the running game (version 2, the player's inventory in ReSaver Plus):** the item you picked is given to
+  your character with the game's own `player.additem`, without editing the save.
+- **Ask the AI** can use the same commands (`APPLY` additem / removeitem / addperk / setstage / completequest /
+  objective / moveto, `MOVETO`, `GATHER`). Every form id is checked in the game first (it must exist and be the right
+  kind: an item, a perk, a quest, an actor or object), so nothing but these fixed commands can run.
 - **Hold Ctrl for 8 seconds in the game:** the save and the controls at once, even when ReSaver Plus is not running.
 
 ## Requirements

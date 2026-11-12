@@ -2,6 +2,7 @@
 #include "Server.h"
 #include "Game.h"
 #include "Protocol.h"
+#include "Records.h"
 #include "Rescue.h"
 #include "Settings.h"
 
@@ -136,6 +137,113 @@ namespace Server
 				const auto message = arg(notifyArg + 1);
 				Game::Notify(arg(notifyArg), message.empty() ? "ReSaver Plus: " + line : message);
 				return QuestReply(q, done ? "1" : "?");
+			}
+			if (cmd == "APPLY" || cmd == "MOVETO" || cmd == "GATHER") {
+				// (version 2) APPLY <record...>; MOVETO <ref> <notify> <message> = APPLY moveto <ref> with a notification;
+				// GATHER <notify> <refs, comma separated> = moveto for each of them (the followers ReSaver Plus picked)
+				std::vector<std::vector<std::string>> records;
+				std::string                           notifyMode, message;
+				if (cmd == "APPLY") {
+					records.emplace_back(f.begin() + std::min<std::size_t>(2, f.size()), f.end());
+				} else if (cmd == "MOVETO") {
+					records.push_back({ "moveto", arg(0) });
+					notifyMode = arg(1);
+					message = arg(2);
+				} else {
+					notifyMode = arg(0);
+					const auto list = arg(1);
+					for (std::size_t a = 0; a < list.size();) {
+						auto b = list.find(',', a);
+						if (b == std::string::npos) {
+							b = list.size();
+						}
+						if (b > a) {
+							records.push_back({ "moveto", list.substr(a, b - a) });
+						}
+						a = b + 1;
+					}
+					if (records.empty()) {
+						return err("GATHER needs the form ids of the followers to bring (comma separated)");
+					}
+					if (records.size() > 64) {
+						return err("too many at once (64 at most)");
+					}
+				}
+				// every record checked first: a wrong one stops the whole request before anything runs
+				std::vector<std::string> commands;
+				std::vector<std::uint32_t> checkIds;
+				std::vector<std::string>   checkKinds;
+				for (const auto& rec : records) {
+					std::vector<std::string> one;
+					std::string              why;
+					if (!Records::Commands(rec, one, why)) {
+						return { "OK", "0", why };
+					}
+					checkIds.push_back(ParseHex(rec[1]));
+					checkKinds.push_back(rec[0]);
+					commands.insert(commands.end(), one.begin(), one.end());
+				}
+				// the forms must exist in this game, and be what the record needs
+				auto types = std::make_shared<std::vector<int>>();
+				if (!Game::RunOnMain(
+						[types, checkIds] {
+							for (const auto id : checkIds) {
+								types->push_back(Game::FormType(id));
+							}
+						},
+						kWait)) {
+					return err("the game is busy (it did not answer within 30 seconds)");
+				}
+				std::set<std::string> drop;  // (evp only for actors)
+				for (std::size_t i = 0; i < checkIds.size() && i < types->size(); ++i) {
+					const int   t = (*types)[i];
+					const auto  idText = std::format("{:08X}", checkIds[i]);
+					const auto& k = checkKinds[i];
+					if (t < 0) {
+						return { "OK", "0", "no form " + idText + " in this game (another load order, or the object is gone)" };
+					}
+					if (k == "moveto" && t != Game::kFormType_REFR && t != Game::kFormType_ACHR) {
+						return { "OK", "0", idText + " is not a placed object or actor" };
+					}
+					if (k == "moveto" && t != Game::kFormType_ACHR) {
+						drop.insert(idText + ".evp");
+					}
+					if ((k == "setstage" || k == "completequest" || k == "objective") && t != Game::kFormType_QUST) {
+						return { "OK", "0", idText + " is not a quest" };
+					}
+					if (k == "addperk" && t != Game::kFormType_PERK) {
+						return { "OK", "0", idText + " is not a perk" };
+					}
+					if ((k == "additem" || k == "removeitem") && (t == Game::kFormType_REFR || t == Game::kFormType_ACHR || t == Game::kFormType_QUST || t == Game::kFormType_PERK)) {
+						return { "OK", "0", idText + " is not an item" };
+					}
+				}
+				std::erase_if(commands, [&](const std::string& c) { return drop.contains(c); });
+				auto ok = std::make_shared<std::atomic<bool>>(true);
+				if (!Game::RunOnMain(
+						[ok, commands] {
+							for (const auto& c : commands) {
+								if (!Game::Console(c)) {
+									*ok = false;
+								}
+							}
+						},
+						kWait)) {
+					return { "OK", "?", "the game is busy: the command runs when it gets to it" };
+				}
+				std::string text;
+				for (const auto& c : commands) {
+					text += (text.empty() ? "" : "; ") + c;
+				}
+				if (!*ok) {
+					return { "OK", "0", "the console could not run: " + text };
+				}
+				if (cmd == "MOVETO") {
+					Game::Notify(notifyMode, message.empty() ? "ReSaver Plus: brought " + arg(0) + " to you" : message);
+				} else if (cmd == "GATHER") {
+					Game::Notify(notifyMode, std::format("ReSaver Plus: brought {} to you", records.size() == 1 ? std::string("1 follower") : std::to_string(records.size()) + " followers"));
+				}
+				return { "OK", cmd == "GATHER" ? std::to_string(records.size()) : std::string("1"), text };
 			}
 			if (cmd == "RESCUE") {
 				const auto line = Rescue::RunAll();
