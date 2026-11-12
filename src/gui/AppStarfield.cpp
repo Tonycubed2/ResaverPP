@@ -138,8 +138,12 @@ const char* App::SfNotYet(Sc a_which)
 {
 	switch (a_which) {
 	case Sc::kOrphans:
-		return N_("Not for Starfield saves yet: Starfield keeps many objects made in play (ships, outposts) in another part of the save, so a "
-				  "script on one of them can look orphaned when it is not.");
+		// (sf2/FORMAT.md 2.9: every spawned object a script is on is in the created-ID section with the game's own persistent ID,
+		// in memory or held until its area is made again; the game writes a fallback key for one it no longer knows, and no
+		// save seen has one)
+		return N_("Not needed on Starfield: the game keeps an ID for every spawned object a script is on, and remakes the object when you go "
+				  "back to its area (most of them have no record of their own in the save). In every Starfield save checked, all of them "
+				  "were still known to the game, so none can be called missing.");
 	case Sc::kMerge:
 		return N_("Not for Starfield yet: it reads and writes Skyrim's and Fallout 4's plugin records.");
 	case Sc::kCharEffects:
