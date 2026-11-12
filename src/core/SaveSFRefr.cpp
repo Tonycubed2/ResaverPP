@@ -689,7 +689,9 @@ namespace ess
 			}
 			// 2. change flag 0x4: havok
 			if (f & 0x4) {
+				out.havokOffset = r.p;
 				Block(r);
+				out.havokEnd = r.p;
 			}
 			// 3. Actor::SaveGame 0x141916b30 (the player's PlayerCharacter::SaveGame 0x141a46940 calls it first): its
 			// head, before it calls TESObjectREFR::SaveGame
@@ -1261,6 +1263,47 @@ namespace ess
 			*a_removed = gone.size();
 		}
 		return {};
+	}
+
+	int ResetHavokSF(ChangeForm& a_cf, std::uint32_t a_formID, bool a_dryRun)
+	{
+		if (a_cf.typeCode() != 0 || a_cf.version != 153 || !(a_cf.changeFlags & 0x4)) {
+			return 0;
+		}
+		const auto r = DecodeReferenceSF(a_formID, a_cf);
+		if (!r.ok || r.havokOffset == SIZE_MAX) {
+			return -1;
+		}
+		// the block: u8 version; u16 references, u16 strings (version >= 4); vsval length; the bytes
+		Rd b{ a_cf.data, r.havokOffset };
+		const auto v = b.u8();
+		std::uint16_t nref = 0, nstr = 0;
+		if (v >= 4) {
+			nref = b.u16();
+			nstr = b.u16();
+		}
+		const auto lenAt = b.p;
+		const auto n = b.vsval();
+		if (n == 0) {
+			return 0;  // nothing saved
+		}
+		if (nref || nstr) {
+			return -1;  // (never seen: the block names forms or strings)
+		}
+		if (a_dryRun) {
+			return 1;
+		}
+		const auto backup = a_cf.data;
+		// the game's own way to save a reference with no physics state: the same block with length 0 (Save1471: 88 of the
+		// 2,641 REFR havok blocks and 59 of the 237 actors' are saved so)
+		a_cf.data.erase(a_cf.data.begin() + static_cast<std::ptrdiff_t>(lenAt), a_cf.data.begin() + static_cast<std::ptrdiff_t>(r.havokEnd));
+		a_cf.data.insert(a_cf.data.begin() + static_cast<std::ptrdiff_t>(lenAt), std::uint8_t(0));
+		const auto back = DecodeReferenceSF(a_formID, a_cf);
+		if (!back.ok || back.items.size() != r.items.size()) {
+			a_cf.data = backup;
+			return -1;
+		}
+		return 1;
 	}
 }
 

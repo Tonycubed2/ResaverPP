@@ -771,7 +771,7 @@ void App::resetHavok()
 		return;
 	}
 	confirm(tr("Reset Havok"),
-		_save->isFO4()
+		_save->isFO4() || _save->isSF()
 			? Fmt(tr("Clear the saved physics (Havok) state of %zu object references?\n\nThe game then keeps no Havok data for them, as for "
 				  "objects that were never pushed around; they are placed at their saved positions when their cell loads. %zu reference(s) "
 				  "whose data could not be fully read are left alone. This helps with physics explosions and flying objects on load."),

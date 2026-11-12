@@ -216,7 +216,38 @@ namespace ess::bloat
 			}
 			const auto& c = a_save.changeForms[i];
 			const auto  type = static_cast<ChangeFormType>(c.typeCode());
-			if (sf || (type != ChangeFormType::REFR && type != ChangeFormType::ACHR)) {  // (Starfield: data not decoded)
+			if (sf) {
+				// Starfield: the reference part (DecodeReferenceSF): a created reference's base, and its inventory
+				if (c.typeCode() > 1 || c.version != 153) {
+					continue;
+				}
+				const bool createdSf = c.refID.type() == RefID::Type::kCreated;
+				if (!createdSf && !(c.changeFlags & 0x8000020)) {
+					continue;
+				}
+				const auto fid = a_save.formIDOf(c.refID);
+				const auto r = DecodeReferenceSF(fid, c);
+				if (createdSf) {
+					for (const auto& b : BaseObjectsSF(fid, c)) {
+						if (const auto bf = a_save.formIDOf(b)) {
+							createdBase[fid] = bf;
+							break;
+						}
+					}
+				}
+				if (!r.ok) {
+					++rep.decodeFailures;
+					continue;
+				}
+				auto& d = decoded[i];
+				d.ok = true;
+				for (const auto& it : r.items) {
+					const auto item = it.refIndex < c.sfRefs.size() ? a_save.formIDOf(c.sfRefs[it.refIndex]) : 0;
+					d.inventory.push_back({ item, it.end - it.begin, static_cast<std::int64_t>(it.total()) });
+				}
+				continue;
+			}
+			if (type != ChangeFormType::REFR && type != ChangeFormType::ACHR) {
 				continue;
 			}
 			const bool created = c.refID.type() == RefID::Type::kCreated;
@@ -597,9 +628,11 @@ namespace ess::bloat
 					x.tool = Tool::kUnattached;
 				} else if (unknownCreated) {
 					x.text = Num(c.count) + " script instances of " + script + " on created objects whose mod is not known (" + Bytes(c.bytes) + ")";
-					x.advice = "Objects spawned while playing. If their objects are gone, Missing spawned objects removes them; a script that "
-					           "should not be there at all can be purged.";
-					x.tool = Tool::kOrphans;
+					x.advice = sf ? "Objects made while playing. A script that should not be there at all can be purged (Starfield keeps many such "
+					                "objects outside the change forms, so they are not counted as gone)."
+					              : "Objects spawned while playing. If their objects are gone, Missing spawned objects removes them; a script that "
+					                "should not be there at all can be purged.";
+					x.tool = sf ? Tool::kModsView : Tool::kOrphans;
 				} else {
 					x.text = Num(c.count) + " script instances of " + script + " on " + m.name + "'s objects (" + Bytes(c.bytes) + ")";
 					x.advice = game ? "Scripts on the game's own objects: normal in a long game unless one script has far more than the rest."

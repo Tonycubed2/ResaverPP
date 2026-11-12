@@ -115,6 +115,10 @@ bool App::SfAllowed(Sc a_which, bool a_papyrus)
 	case Sc::kLeftovers:  // (cf::ListInventories / RemoveInventoryItems read Starfield's inventories)
 	case Sc::kActors:     // (cf::ListActors reads Starfield's positions; Move to me is not for Starfield yet)
 	case Sc::kLoadOrderCheck:  // (locheck::Game::kStarfield)
+	case Sc::kHavok:           // (ResetHavokSF: the block saved with length 0)
+	case Sc::kPurify:          // (FLST: u32 n, the entries in the reference list)
+	case Sc::kCompare:         // (counts, plugins, scripts, change forms: nothing game-specific)
+	case Sc::kBloat:           // (SaveBloat: Starfield's bases and inventories through DecodeReferenceSF)
 	// Starfield's own versions
 	case Sc::kPlayer:  // the character (NPC_ 7): name, level and XP, face
 	case Sc::kQuests:  // the quests window
@@ -132,13 +136,6 @@ const char* App::SfNotYet(Sc a_which)
 	case Sc::kOrphans:
 		return N_("Not for Starfield saves yet: Starfield keeps many objects made in play (ships, outposts) in another part of the save, so a "
 				  "script on one of them can look orphaned when it is not.");
-	case Sc::kHavok:
-		return N_("Not for Starfield saves yet: Starfield's physics data is laid out differently.");
-	case Sc::kPurify:
-		return N_("Not for Starfield saves yet: Starfield's form lists are laid out differently.");
-	case Sc::kBloat:
-	case Sc::kCompare:
-		return N_("Not for Starfield saves yet: it reads Skyrim's and Fallout 4's change forms.");
 	case Sc::kCrashLog:
 		return N_("Not for Starfield yet: it reads Skyrim's and Fallout 4's crash logs.");
 	case Sc::kSkyrimLogs:

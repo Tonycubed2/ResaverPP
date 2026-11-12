@@ -222,6 +222,7 @@ namespace ess
 		bool          hasPosition = false;
 		std::size_t   cellRef = SIZE_MAX, baseRef = SIZE_MAX, startCellRef = SIZE_MAX;
 		float         pos[3]{}, rot[3]{};
+		std::size_t   havokOffset = SIZE_MAX, havokEnd = SIZE_MAX;  // change flag 0x4: the havok block (0x140b75360)
 		std::uint32_t components = 0;  // component data (0x1421592f0): its component count; 0 none; 0xFFFFFFFF present, no component
 		std::vector<SfInventoryItem> items;
 	};
@@ -311,6 +312,9 @@ namespace ess
 		std::int64_t  count = 0;
 	};
 	std::vector<SfHeldItem> ListInventoriesSF(const SaveFile& a_save);
+	// Reset Havok for one REFR: its havok block saved again with length 0, as the game saves a reference with no physics
+	// state. 1 reset (or would be, a_dryRun), 0 nothing to reset, -1 not read (nothing changed)
+	int ResetHavokSF(ChangeForm& a_cf, std::uint32_t a_formID, bool a_dryRun);
 	std::string RemoveInventoryItemsSF(const SaveFile& a_save, ChangeForm& a_cf, const std::set<std::uint32_t>& a_items, std::size_t* a_removed = nullptr);
 	// changes one stack's count in place (the data keeps its size and its forms)
 	bool SetInventoryCountSF(ChangeForm& a_cf, const SfInventoryStack& a_stack, std::uint32_t a_count);

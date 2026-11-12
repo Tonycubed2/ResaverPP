@@ -3991,6 +3991,14 @@ namespace ess::cf
 	HavokResult ResetHavok(SaveFile& a_save, const TypeLookup& a_types, bool a_dryRun)
 	{
 		HavokResult r;
+		if (a_save.isSF()) {
+			for (auto& cf : a_save.changeForms) {
+				const auto k = ResetHavokSF(cf, a_save.formIDOf(cf.refID), a_dryRun);
+				r.reset += k > 0;
+				r.failed += k < 0;
+			}
+			return r;
+		}
 		if (a_save.isFO4()) {
 			// Fallout 4: the blob's size is set to 0 (fo4cf::ClearHavok), the way the game writes a reference with no
 			// physics state; the blob is not zeroed, because the game parses its bytes (0x4f7440) when the 3D loads.
@@ -4061,6 +4069,44 @@ namespace ess::cf
 	PurifyResult PurifyFormLists(SaveFile& a_save, bool a_dryRun, std::uint32_t a_onlyRefID)
 	{
 		PurifyResult r;
+		if (a_save.isSF()) {
+			// Starfield FLST (code 41), version 153: TESForm::SaveGame (its own id; flag 0x1: 6 bytes), then flag 0x80000000:
+			// u32 n and the n entries, which are form ids (the reference list, after the form's own id). A null entry is a
+			// null reference in the list. Read only when the data and the list add up exactly.
+			for (auto& cf : a_save.changeForms) {
+				if (cf.typeCode() != 41 || cf.version != 153 || !(cf.changeFlags & 0x80000000u)) {
+					continue;
+				}
+				if (a_onlyRefID && cf.refID.data != a_onlyRefID) {
+					continue;
+				}
+				const std::size_t at = (cf.changeFlags & 1) ? 6 : 0;
+				std::uint32_t     n = 0;
+				if (cf.data.size() != at + 4 || (cf.changeFlags & ~0x80000001u)) {
+					++r.failed;
+					continue;
+				}
+				std::memcpy(&n, cf.data.data() + at, 4);
+				if (cf.sfRefs.size() != std::size_t(n) + 1) {
+					++r.failed;
+					continue;
+				}
+				const auto nulls = static_cast<std::size_t>(
+					std::count_if(cf.sfRefs.begin() + 1, cf.sfRefs.end(), [](const RefID& x) { return x.isZero(); }));
+				if (!nulls) {
+					continue;
+				}
+				r.entries += nulls;
+				++r.forms;
+				if (a_dryRun) {
+					continue;
+				}
+				cf.sfRefs.erase(std::remove_if(cf.sfRefs.begin() + 1, cf.sfRefs.end(), [](const RefID& x) { return x.isZero(); }), cf.sfRefs.end());
+				n -= static_cast<std::uint32_t>(nulls);
+				std::memcpy(cf.data.data() + at, &n, 4);
+			}
+			return r;
+		}
 		if (a_save.isFO4()) {
 			for (auto& cf : a_save.changeForms) {
 				if (cf.typeCode() != fo4cf::kFlstType || !Bit(cf.changeFlags, 31)) {

@@ -407,6 +407,51 @@ void TestStarfield()
 						break;
 					}
 				}
+				// Reset Havok: every REFR's havok block saved with length 0, written, read back, every reference still read
+				{
+					std::vector<ChangeForm> keep = s->changeForms;
+					const auto dry = cf::ResetHavok(*s, {}, true);
+					const auto res = cf::ResetHavok(*s);
+					Check(res.reset == dry.reset && res.reset > 0, "sf havok: references reset");
+					const auto out = fs::temp_directory_path() / ("rs_sfhavok_" + name);
+					try {
+						s->write(out, false);
+						auto back = SaveFile::load(out);
+						std::size_t bad = 0, left = 0;
+						for (const auto& b : back->changeForms) {
+							if (b.typeCode() == 0 && b.version == 153) {
+								const auto rb = DecodeReferenceSF(back->formIDOf(b.refID), b);
+								bad += !rb.ok && !(b.changeFlags == 0x2 && (back->formIDOf(b.refID) >> 24) == 0xFF);
+							}
+						}
+						left = cf::ResetHavok(*back, {}, true).reset;
+						Check(bad == 0 && left == 0, "sf havok: the save reads back, nothing left to reset");
+					} catch (const std::exception& ex) {
+						fail(std::string("havok reset does not write: ") + ex.what());
+					}
+					std::error_code ec;
+					fs::remove(out, ec);
+					s->changeForms = std::move(keep);
+					s->reindexChangeForms();
+				}
+				// Purify FormLists: a null entry put into a form list is found and taken out again, the list as before
+				for (auto& c : s->changeForms) {
+					if (c.typeCode() != 41 || c.version != 153 || c.data.size() != 4) {
+						continue;
+					}
+					const auto before = c;
+					std::uint32_t n = 0;
+					std::memcpy(&n, c.data.data(), 4);
+					c.sfRefs.insert(c.sfRefs.begin() + 1, RefID{});
+					++n;
+					std::memcpy(c.data.data(), &n, 4);
+					const auto dry = cf::PurifyFormLists(*s, true);
+					const auto res = cf::PurifyFormLists(*s);
+					Check(dry.entries == 1 && res.entries == 1 && res.failed == 0 && c.data == before.data && c.sfRefs.size() == before.sfRefs.size(),
+						"sf purify: a null form list entry is taken out");
+					c = before;
+					break;
+				}
 				// a face number of the player changed, written and read back
 				for (auto& c : s->changeForms) {
 					if (c.typeCode() != 9 || s->formIDOf(c.refID) != 0x7) {
