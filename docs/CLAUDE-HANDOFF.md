@@ -1602,6 +1602,14 @@ for c in $(curl -sS $A/runs/$id/jobs | python3 -c "import json,sys;[print(j['id'
   - Tests: TestJournalLeftovers (RESAVERPP_IST2_SAVE=Save103). Helper files copied to C:\dllmaker\ReSaverHelper (md5 matched
     main first): src/Game.cpp, src/MenuPage.cpp, README.md. Not built (Tony builds), not tested in game.
 
+- SkyrimIstari's menu crashes, cause found (12 Nov 2026, crash-2026-11-12-17-33-47 in scratchpad/istari4: the same Journal
+  null-movie crash 82665+0x11 <- 53315+0x361, helper not loaded): his game runs from S:\steamapps\common\... = Proton's
+  "gamedrive" letter. Proton's script (proton_9.0 / proton_10.0, `run` verb: setup_game_dir_drive -> setup_dir_drive) rewrites
+  pfx/dosdevices/s: on EVERY launch into the prefix: removed when the launched app has no "gamedrive" compat option (a non-Steam
+  shortcut such as ReSaver++), re-pointed when its library differs. After that the running game cannot open loose files by S:\
+  paths (helper 17's Nov 10 log: OpenFileEx("Interface/StatsMenu.swf") NOT valid, CreateMovie null), so menus whose movie is
+  not loaded yet crash. Open files (BSAs) keep working. Not ReSaver++'s code. Fix for him: the shortcut's launch options keep s:
+  (PROTON_SET_GAME_DRIVE=1 with STEAM_COMPAT_INSTALL_PATH = the Skyrim folder, so try_get_game_library_dir gives the same library).
 - SkyrimIstari's "menus crash while ReSaver Plus is connected" report (24-26 Oct 2026, ReSaver Plus v19-v24, helper 4-10,
   game 1.6.640 under Proton on Linux Mint), checked 2026-11-08 on branch menucrash; no helper change, waiting on his crash logs:
   - SkyrimSE.exe+0F322A1 on 1.6.640 = Address Library ID 82665 + 0x11 (versionlib-1-6-640-0.bin from Tony's MO2 "Address Library for
