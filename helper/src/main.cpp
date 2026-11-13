@@ -4,6 +4,7 @@
 #include "Game.h"
 #include "MenuGuard.h"
 #include "MenuPage.h"
+#include "ProtonDrive.h"
 #include "Protocol.h"
 #include "Rescue.h"
 #include "Server.h"
@@ -131,6 +132,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	}
 	if (!Diag(5)) {
 		MenuGuard::Prepare();  // version 16: the hook trampoline is reserved while SKSE loads plugins
+		ProtonDrive::Start();  // version 18: Linux / Proton only - the game's drive put back if another launch removes it
 	}
 	return true;
 }

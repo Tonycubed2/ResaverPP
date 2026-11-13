@@ -20,6 +20,7 @@ namespace Settings
 		bool        menuLoadDiagnostics = true; // bMenuLoadDiagnostics (version 17): Scaleform's log and file opener watched (MenuGuard.h)
 		std::string testFailMovies;           // sTestFailMovies: TEST ONLY - movie names whose load is made to fail on purpose
 		std::string testFailMode = "first";   // sTestFailMode: first = only the first try fails, all = every try fails
+		bool        fixProtonGameDrive = true; // bFixProtonGameDrive (version 18): put Proton's game drive back (ProtonDrive.h)
 	};
 
 	Values&               Get();

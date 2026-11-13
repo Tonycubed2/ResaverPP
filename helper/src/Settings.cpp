@@ -57,6 +57,9 @@ namespace Settings
 			"bLogAllMovieLoads=0\n"
 			"; 1 = Scaleform's own error messages and its file opening are written to the log when a load fails (version 17)\n"
 			"bMenuLoadDiagnostics=1\n"
+			"; Linux / Steam Deck (Proton) only: when another program is started into the game's Proton prefix, Proton removes the\n"
+			"; drive the game runs from (S:) and menus crash. 1 = the helper puts it back at once (version 18). 0 = off.\n"
+			"bFixProtonGameDrive=1\n"
 			"; TEST ONLY - leave empty. Interface file names whose load is made to fail on purpose (e.g. Map,Quest_Journal,\n"
 			"; StatsMenu - StatsMenu is the Skills menu, which loads its file in the background),\n"
 			"; to try the guard. sTestFailMode: first = only the first try fails (the retry works), all = every try fails.\n"
@@ -118,6 +121,8 @@ namespace Settings
 			g_values.logAllMovieLoads = ParseBool(v);
 		} else if (n == "bmenuloaddiagnostics") {
 			g_values.menuLoadDiagnostics = ParseBool(v);
+		} else if (n == "bfixprotongamedrive") {
+			g_values.fixProtonGameDrive = ParseBool(v);
 		} else if (n == "stestfailmovies") {
 			g_values.testFailMovies = v;
 		} else if (n == "stestfailmode") {
@@ -168,6 +173,9 @@ namespace Settings
 		if (n == "bmenuloaddiagnostics") {
 			return g_values.menuLoadDiagnostics ? "1" : "0";
 		}
+		if (n == "bfixprotongamedrive") {
+			return g_values.fixProtonGameDrive ? "1" : "0";
+		}
 		if (n == "stestfailmovies") {
 			return g_values.testFailMovies;
 		}
@@ -205,8 +213,8 @@ namespace Settings
 		}
 		spdlog::info("Settings: sNotify={} bRefreshJournalOnLoad={} iRefreshDelaySeconds={} bListen={} bRescueHotkey={} iRescueHoldSeconds={}",
 			g_values.notify, g_values.refreshOnLoad, g_values.refreshDelay, g_values.listen, g_values.rescueHotkey, g_values.rescueHoldSeconds);
-		spdlog::info("Settings: bMenuLoadGuard={} iMenuLoadRetries={} bLogAllMovieLoads={} bMenuLoadDiagnostics={}{}", g_values.menuLoadGuard,
-			g_values.menuLoadRetries, g_values.logAllMovieLoads, g_values.menuLoadDiagnostics, g_values.testFailMovies.empty() ? std::string() :
+		spdlog::info("Settings: bMenuLoadGuard={} iMenuLoadRetries={} bLogAllMovieLoads={} bMenuLoadDiagnostics={} bFixProtonGameDrive={}{}", g_values.menuLoadGuard,
+			g_values.menuLoadRetries, g_values.logAllMovieLoads, g_values.menuLoadDiagnostics, g_values.fixProtonGameDrive, g_values.testFailMovies.empty() ? std::string() :
 		                                   std::format(" TEST: sTestFailMovies={} sTestFailMode={}", g_values.testFailMovies, g_values.testFailMode));
 	}
 
@@ -232,7 +240,7 @@ namespace Settings
 			}
 		}
 		for (const char* key : { "sNotify", "bRefreshJournalOnLoad", "iRefreshDelaySeconds", "bListen", "bRescueHotkey", "iRescueHoldSeconds", "sGatherSkip", "bMenuLoadGuard", "iMenuLoadRetries",
-				 "bLogAllMovieLoads", "bMenuLoadDiagnostics", "sTestFailMovies", "sTestFailMode" }) {
+				 "bLogAllMovieLoads", "bMenuLoadDiagnostics", "bFixProtonGameDrive", "sTestFailMovies", "sTestFailMode" }) {
 			bool found = false;
 			for (auto& l : lines) {
 				const auto t = Trim(l);

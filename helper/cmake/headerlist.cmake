@@ -12,5 +12,6 @@ set(headers ${headers}
     src/MenuPage.h
     src/MenuGuard.h
     src/SaveDialog.h
+    src/ProtonDrive.h
     src/SKSEMenuFramework.h
 )

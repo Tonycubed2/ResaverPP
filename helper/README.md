@@ -140,6 +140,18 @@ Settings in ReSaverHelper.ini (read when the game starts):
 When it happens, please send ReSaverHelper.log (and the save, if a menu would not open), as soon as you can: the
 log is rewritten each time the game starts.
 
+## Linux / Steam Deck: Proton's game drive (version 18)
+
+Under Steam's Proton the game runs from the drive Proton makes for the Steam library (S:). Every time another program
+is started into the game's Proton prefix (a non-Steam shortcut, or a script using `proton run`: ReSaver Plus,
+BodySlide, xEdit...), Proton's launch script sets that drive again, and for such programs it removes it. The running
+game then cannot open files it has not opened yet, and the Journal, Map and Skills menus crash on their first opening.
+
+The helper notices this within 2 seconds and puts the drive back where it pointed when the game started (it runs
+`ln -sfn` through /bin/sh, as Wine allows). It logs each time and shows one notice per session. Only under Wine/Proton,
+and only when the game runs from a drive other than C: or Z:. `bFixProtonGameDrive=0` turns it off. Found with
+SkyrimIstari, November 2026.
+
 ## The in-game page (F1) (version 15)
 
 Needs [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) (version 3, tested against
