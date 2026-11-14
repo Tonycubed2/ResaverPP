@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <functional>
@@ -641,5 +642,89 @@ namespace ess::locheck
 			out.push_back(b);
 		}
 		return out;
+	}
+
+	MasterGraph BuildMasterGraph(const Result& a_result)
+	{
+		MasterGraph g;
+		const auto& P = a_result.plugins;
+		const bool  sf = a_result.game == Game::kStarfield;
+		g.masters.resize(P.size());
+		g.dependents.resize(P.size());
+		std::map<std::string, std::size_t> pos;
+		for (std::size_t i = 0; i < P.size(); ++i) {
+			pos.emplace(Lower(P[i].name), i);
+		}
+		std::map<std::string, std::pair<std::string, std::vector<std::size_t>>> absent;  // lower name -> (name, plugins)
+		for (std::size_t i = 0; i < P.size(); ++i) {
+			std::set<std::size_t> seen;  // a master named twice counts once
+			for (const auto& m : P[i].masters) {
+				MasterLink l;
+				l.name = m;
+				const auto it = pos.find(Lower(m));
+				if (it == pos.end()) {
+					auto& a = absent[Lower(m)];
+					if (a.first.empty()) {
+						a.first = m;
+					}
+					if (a.second.empty() || a.second.back() != i) {
+						a.second.push_back(i);
+					}
+				} else if (it->second != i) {
+					l.index = static_cast<int>(it->second);
+					l.late = !sf && P[it->second].loadPos > P[i].loadPos && P[i].loadPos >= 0;
+					if (seen.insert(it->second).second) {
+						g.dependents[it->second].push_back(i);  // (i grows: load order kept)
+					}
+				}
+				g.masters[i].push_back(std::move(l));
+			}
+		}
+		for (auto& [low, a] : absent) {
+			g.absent.push_back(std::move(a));
+		}
+		return g;
+	}
+
+	namespace
+	{
+		std::vector<std::size_t> Closure(const MasterGraph& a_graph, std::vector<std::size_t> a_todo, std::size_t a_skip)
+		{
+			std::vector<char> in(a_graph.dependents.size(), 0);
+			if (a_skip < in.size()) {
+				in[a_skip] = 1;  // (a cycle back to the plugin itself)
+			}
+			std::vector<std::size_t> out;
+			while (!a_todo.empty()) {
+				const auto d = a_todo.back();
+				a_todo.pop_back();
+				if (d >= in.size() || in[d]) {
+					continue;
+				}
+				in[d] = 1;
+				out.push_back(d);
+				for (const auto e : a_graph.dependents[d]) {
+					a_todo.push_back(e);
+				}
+			}
+			std::sort(out.begin(), out.end());
+			return out;
+		}
+	}
+
+	std::vector<std::size_t> AllDependents(const MasterGraph& a_graph, std::size_t a_plugin)
+	{
+		if (a_plugin >= a_graph.dependents.size()) {
+			return {};
+		}
+		return Closure(a_graph, a_graph.dependents[a_plugin], a_plugin);
+	}
+
+	std::vector<std::size_t> AllDependentsOfAbsent(const MasterGraph& a_graph, std::size_t a_absent)
+	{
+		if (a_absent >= a_graph.absent.size()) {
+			return {};
+		}
+		return Closure(a_graph, a_graph.absent[a_absent].second, SIZE_MAX);
 	}
 }

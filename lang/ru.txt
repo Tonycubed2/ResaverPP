@@ -6349,6 +6349,74 @@ tr "перемещает каждый поздний мастер-файл пр�
 en "Only plugins with a problem"
 tr "Только плагины с проблемами"
 
+# AppF4Bloat.cpp  master tree
+en "Master tree"
+tr "Дерево мастеров"
+
+# AppF4Bloat.cpp  master tree
+en "Needs (the masters of each plugin)"
+tr "Нужны (мастеры каждого плагина)"
+
+# AppF4Bloat.cpp  master tree
+en "Needed by (what stops working without it)"
+tr "Нужен для (что перестанет работать без него)"
+
+# AppF4Bloat.cpp  master tree
+en "search for a plugin"
+tr "поиск плагина"
+
+# AppF4Bloat.cpp  master tree
+en "Right-click a plugin to copy the list of plugins that need it."
+tr "Щёлкните плагин правой кнопкой, чтобы скопировать список плагинов, которым он нужен."
+
+# AppF4Bloat.cpp  master tree
+en "No plugin needs %s."
+tr "%s не нужен ни одному плагину."
+
+# AppF4Bloat.cpp  master tree
+en "Copy the %zu plugins that need %s"
+tr "Скопировать %zu плагинов, которым нужен %s"
+
+# AppF4Bloat.cpp  master tree
+en "Without %s, %zu plugins stop working (patches of patches included)."
+tr "Без %s перестанут работать плагинов: %zu (включая патчи для патчей)."
+
+# AppF4Bloat.cpp  master tree
+en "(file not found)"
+tr "(файл не найден)"
+
+# AppF4Bloat.cpp  master tree
+en "(could not be read)"
+tr "(не удалось прочитать)"
+
+# AppF4Bloat.cpp  master tree
+en "(needs itself through its masters)"
+tr "(нужен сам себе через свои мастеры)"
+
+# AppF4Bloat.cpp  master tree
+en "%zu masters"
+tr "мастеров: %zu"
+
+# AppF4Bloat.cpp  master tree
+en "needed by %zu (%zu in all)"
+tr "нужен для %zu (всего %zu)"
+
+# AppF4Bloat.cpp  master tree
+en "(not in the load order: not enabled or not installed)"
+tr "(нет в порядке загрузки: не включён или не установлен)"
+
+# AppF4Bloat.cpp  master tree
+en "(loads after %s: it must load before it)"
+tr "(загружается после %s: должен загружаться до него)"
+
+# AppF4Bloat.cpp  master tree
+en "(not in the load order, needed by %zu)"
+tr "(нет в порядке загрузки, нужен для %zu)"
+
+# AppF4Bloat.cpp  master tree
+en "No plugin matches the search."
+tr "Ни один плагин не подходит под поиск."
+
 # AppF4Bloat.cpp:854  ImGui::TableSetupColumn(tr("Header"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 4);
 en "Header"
 tr "Заголовок"

@@ -24,6 +24,7 @@
 #include <chrono>
 #include <cctype>
 #include <cstdio>
+#include <functional>
 #include <optional>
 #include <thread>
 #include <utility>
@@ -109,6 +110,13 @@ struct App::BloatState
 	std::filesystem::file_time_type loLookTime{};
 	char                           filter[128] = "";
 	bool                           loOnlyProblems = false;
+	// the master tree tab: built once per check
+	const void*                    loTreeFor = nullptr;
+	locheck::MasterGraph           loTree;
+	std::vector<std::size_t>       loTreeAll;  // per plugin: how many plugins need it in all (AllDependents)
+	int                            loTreeView = 0;  // 0 what each plugin needs, 1 what needs each plugin
+	char                           loTreeFilter[128] = "";
+	bool                           loTreeSelect = false;  // test hook: open the tab, and the plugins shown one level
 	// Fix the order: the plan shown for confirmation, then what was written
 	bool                           loFixAsk = false;  // open the confirmation (the button, or the Save check)
 	bool                           loFixTestWrite = false;  // test hook: press "Fix the order" in the confirmation
@@ -566,6 +574,15 @@ namespace
 	}
 }
 
+void App::testMasterTree(int a_view, const char* a_filter)
+{
+	_showLoCheck = true;
+	auto& st = bloatState();
+	st.loTreeView = a_view;
+	std::snprintf(st.loTreeFilter, sizeof(st.loTreeFilter), "%s", a_filter ? a_filter : "");
+	st.loTreeSelect = true;
+}
+
 void App::testFixLoadOrder(bool a_write)
 {
 	_showLoCheck = true;
@@ -845,6 +862,19 @@ void App::drawLoadOrderCheck()
 	}
 	drawLoadOrderFix();
 	ImGui::Spacing();
+	if (!ImGui::BeginTabBar("loTabs")) {
+		ImGui::End();
+		return;
+	}
+	if (!ImGui::BeginTabItem(tr("Plugins"))) {
+		if (ImGui::BeginTabItem(tr("Master tree"))) {
+			drawMasterTree();
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
+		ImGui::End();
+		return;
+	}
 	ImGui::Checkbox(tr("Only plugins with a problem"), &st.loOnlyProblems);
 	if (ImGui::BeginTable("lo", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY)) {
 		ImGui::TableSetupScrollFreeze(0, 1);
@@ -909,7 +939,203 @@ void App::drawLoadOrderCheck()
 		}
 		ImGui::EndTable();
 	}
+	ImGui::EndTabItem();
+	if (ImGui::BeginTabItem(tr("Master tree"), nullptr, st.loTreeSelect ? ImGuiTabItemFlags_SetSelected : 0)) {  // (drawn above when open)
+		ImGui::EndTabItem();
+	}
+	ImGui::EndTabBar();
 	ImGui::End();
+}
+
+// The Master tree tab of the Load order check: each plugin with the masters it needs under it, or (Needed by) with the
+// plugins that need it under it, so a mod and every patch made for it can be seen (and copied) before removing it.
+void App::drawMasterTree()
+{
+	auto& st = bloatState();
+	if (!st.lo || !st.lo->done) {
+		return;
+	}
+	const auto& r = st.lo->result;
+	if (st.loTreeFor != st.lo.get()) {
+		st.loTree = locheck::BuildMasterGraph(r);
+		st.loTreeAll.clear();
+		for (std::size_t i = 0; i < r.plugins.size(); ++i) {
+			st.loTreeAll.push_back(locheck::AllDependents(st.loTree, i).size());
+		}
+		st.loTreeFor = st.lo.get();
+	}
+	const auto& g = st.loTree;
+	const auto& P = r.plugins;
+
+	ImGui::RadioButton(tr("Needs (the masters of each plugin)"), &st.loTreeView, 0);
+	ImGui::SameLine(0, ImGui::GetFontSize() * 2);
+	ImGui::RadioButton(tr("Needed by (what stops working without it)"), &st.loTreeView, 1);
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 20);
+	ImGui::InputTextWithHint("##lotree", tr("search for a plugin"), st.loTreeFilter, sizeof(st.loTreeFilter));
+	ImGui::SameLine();
+	ImGui::TextDisabled("%s", tr("Right-click a plugin to copy the list of plugins that need it."));
+	const bool needs = st.loTreeView == 0;
+
+	auto lower = [](std::string a_s) {
+		for (auto& c : a_s) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		return a_s;
+	};
+	const std::string filter = lower(st.loTreeFilter);
+	auto shown = [&](const std::string& a_name) { return filter.empty() || lower(a_name).find(filter) != std::string::npos; };
+
+	// right-click: copy every plugin that needs it (directly or through a patch), one per line
+	auto copyMenu = [&](const std::string& a_name, std::size_t a_total, const std::function<std::vector<std::size_t>()>& a_all) {
+		if (ImGui::BeginPopupContextItem("copy")) {
+			if (a_total == 0) {
+				ImGui::TextDisabled(tr("No plugin needs %s."), text::ToUtf8(a_name).c_str());
+			} else if (ImGui::MenuItem(Fmt(tr("Copy the %zu plugins that need %s"), a_total, text::ToUtf8(a_name).c_str()).c_str())) {
+				std::string t;
+				for (const auto d : a_all()) {
+					t += text::ToUtf8(P[d].name) + "\n";
+				}
+				ImGui::SetClipboardText(t.c_str());
+			}
+			ImGui::EndPopup();
+		}
+		if (ImGui::IsItemHovered() && a_total) {
+			ImGui::SetTooltip(tr("Without %s, %zu plugins stop working (patches of patches included)."), text::ToUtf8(a_name).c_str(), a_total);
+		}
+	};
+	// a note after a node's name
+	auto note = [](std::uint32_t a_col, const std::string& a_text) {
+		ImGui::SameLine();
+		Colored(a_col, a_text);
+	};
+	auto pluginNotes = [&](std::size_t a_i) {
+		if (P[a_i].path.empty()) {
+			note(theme::Caution(), tr("(file not found)"));
+		} else if (!P[a_i].error.empty()) {
+			note(theme::Caution(), tr("(could not be read)"));
+		}
+	};
+
+	std::vector<std::size_t> path;  // the plugins above the node being drawn (a cycle of masters ends there)
+	std::function<void(std::size_t, const std::string&)> drawNode;  // (a_late: a note after the name)
+	drawNode = [&](std::size_t a_i, const std::string& a_late) {
+		const bool cycle = std::find(path.begin(), path.end(), a_i) != path.end();
+		const bool leaf = cycle || path.size() > 64 || (needs ? g.masters[a_i].empty() : g.dependents[a_i].empty());
+		ImGuiTreeNodeFlags fl = ImGuiTreeNodeFlags_SpanAvailWidth;
+		if (leaf) {
+			fl |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+		}
+		bool problem = false;
+		if (needs) {
+			for (const auto& l : g.masters[a_i]) {
+				problem = problem || l.index < 0 || l.late;
+			}
+		}
+		if (problem) {
+			ImGui::PushStyleColor(ImGuiCol_Text, theme::Bad());
+		}
+		const bool open = ImGui::TreeNodeEx("n", fl, "%s", text::ToUtf8(P[a_i].name).c_str());
+		if (problem) {
+			ImGui::PopStyleColor();
+		}
+		copyMenu(P[a_i].name, st.loTreeAll[a_i], [&] { return locheck::AllDependents(g, a_i); });
+		pluginNotes(a_i);
+		if (!a_late.empty()) {
+			note(theme::Bad(), a_late);
+		}
+		if (cycle) {
+			note(theme::Bad(), tr("(needs itself through its masters)"));
+		} else if (path.empty()) {
+			if (needs) {
+				ImGui::SameLine();
+				ImGui::TextDisabled(tr("%zu masters"), g.masters[a_i].size());
+			} else if (!g.dependents[a_i].empty()) {
+				ImGui::SameLine();
+				ImGui::TextDisabled(tr("needed by %zu (%zu in all)"), g.dependents[a_i].size(), st.loTreeAll[a_i]);
+			}
+		}
+		if (!open || leaf) {
+			return;
+		}
+		path.push_back(a_i);
+		if (needs) {
+			for (std::size_t k = 0; k < g.masters[a_i].size(); ++k) {
+				const auto& l = g.masters[a_i][k];
+				ImGui::PushID(static_cast<int>(k));
+				if (l.index < 0) {
+					ImGui::TreeNodeEx("n", ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth, "%s",
+						text::ToUtf8(l.name).c_str());
+					note(theme::Bad(), tr("(not in the load order: not enabled or not installed)"));
+				} else {
+					drawNode(static_cast<std::size_t>(l.index),
+						l.late ? Fmt(tr("(loads after %s: it must load before it)"), text::ToUtf8(P[a_i].name).c_str()) : std::string());
+				}
+				ImGui::PopID();
+			}
+		} else {
+			for (std::size_t k = 0; k < g.dependents[a_i].size(); ++k) {
+				ImGui::PushID(static_cast<int>(k));
+				drawNode(g.dependents[a_i][k], {});
+				ImGui::PopID();
+			}
+		}
+		path.pop_back();
+		ImGui::TreePop();
+	};
+
+	if (st.loTreeSelect) {
+		ImGui::SetScrollHereY(0.0f);  // (test hook: the tab at the top of the window)
+	}
+	// the rest of the window, but at least 25 lines: the findings above can fill a long window
+	const float treeH = std::max(ImGui::GetContentRegionAvail().y, ImGui::GetTextLineHeightWithSpacing() * 25);
+	if (!ImGui::BeginChild("lotree", ImVec2(0, treeH), ImGuiChildFlags_Borders)) {
+		ImGui::EndChild();
+		return;
+	}
+	std::size_t count = 0;
+	if (!needs) {
+		// masters that are not in the load order first: what needs them does not load
+		for (std::size_t a = 0; a < g.absent.size(); ++a) {
+			const auto& [name, deps] = g.absent[a];
+			if (!shown(name)) {
+				continue;
+			}
+			++count;
+			ImGui::PushID(static_cast<int>(P.size() + a));
+			ImGui::PushStyleColor(ImGuiCol_Text, theme::Bad());
+			const bool open = ImGui::TreeNodeEx("n", ImGuiTreeNodeFlags_SpanAvailWidth, "%s", text::ToUtf8(name).c_str());
+			ImGui::PopStyleColor();
+			copyMenu(name, locheck::AllDependentsOfAbsent(g, a).size(), [&] { return locheck::AllDependentsOfAbsent(g, a); });
+			note(theme::Bad(), Fmt(tr("(not in the load order, needed by %zu)"), deps.size()));
+			if (open) {
+				for (std::size_t k = 0; k < deps.size(); ++k) {
+					ImGui::PushID(static_cast<int>(k));
+					drawNode(deps[k], {});
+					ImGui::PopID();
+				}
+				ImGui::TreePop();
+			}
+			ImGui::PopID();
+		}
+	}
+	const bool testOpen = st.loTreeSelect && !filter.empty();
+	st.loTreeSelect = false;
+	for (std::size_t i = 0; i < P.size(); ++i) {
+		if (!shown(P[i].name)) {
+			continue;
+		}
+		++count;
+		ImGui::PushID(static_cast<int>(i));
+		if (testOpen) {
+			ImGui::SetNextItemOpen(true);
+		}
+		drawNode(i, {});
+		ImGui::PopID();
+	}
+	if (count == 0) {
+		ImGui::TextDisabled("%s", tr("No plugin matches the search."));
+	}
+	ImGui::EndChild();
 }
 
 // ---- Save check ----------------------------------------------------------------------------------------------------

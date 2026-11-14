@@ -126,6 +126,28 @@ namespace ess::locheck
 	const char*              SeverityWord(Severity a_s);
 	std::vector<std::string> Describe(const Result& a_result);
 
+	// ---- the master tree: which plugins each plugin needs, and which plugins need it ------------------------------------
+
+	struct MasterLink
+	{
+		std::string name;        // as the plugin's header names it
+		int         index = -1;  // into Result::plugins; -1: not in the load order (not enabled, or not installed)
+		bool        late = false;  // the game loads it after the plugin that needs it (not Starfield: it does not check)
+	};
+	struct MasterGraph
+	{
+		std::vector<std::vector<MasterLink>>  masters;     // per plugin of Result::plugins, in its header's order
+		std::vector<std::vector<std::size_t>> dependents;  // per plugin: the plugins that name it as a master, in load order
+		// masters that are not in the load order, each with the plugins that need it (in load order); sorted by name
+		std::vector<std::pair<std::string, std::vector<std::size_t>>> absent;
+	};
+	MasterGraph BuildMasterGraph(const Result& a_result);
+	// every plugin that needs a_plugin directly or through other plugins (a patch of a patch), in load order, without
+	// a_plugin itself: what stops working when a_plugin is removed
+	std::vector<std::size_t> AllDependents(const MasterGraph& a_graph, std::size_t a_plugin);
+	// the same for a master that is not in the load order (an index into MasterGraph::absent)
+	std::vector<std::size_t> AllDependentsOfAbsent(const MasterGraph& a_graph, std::size_t a_absent);
+
 	// ---- the order the game loads, and fixing late masters ------------------------------------------------------------
 
 	struct OrderEntry

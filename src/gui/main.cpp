@@ -510,6 +510,9 @@ int RunApp(int argc, char** argv)
 	if (const char* sc = std::getenv("RESAVERPP_TEST_SHORTCUT")) {  // a tool, by its number in App::Sc
 		app.testShortcut(std::atoi(sc));
 	}
+	if (const char* lt = std::getenv("RESAVERPP_TEST_LOTREE")) {  // "0" / "1" (Needs / Needed by), RESAVERPP_TEST_FILTER: the search
+		app.testMasterTree(std::atoi(lt), std::getenv("RESAVERPP_TEST_FILTER"));
+	}
 	if (const char* lf = std::getenv("RESAVERPP_TEST_LOFIX")) {  // "ask": Fix the order's confirmation; "write": and its button
 		app.testFixLoadOrder(std::string(lf) == "write");
 	}

@@ -255,6 +255,60 @@ namespace
 		Check(Has(r, locheck::Severity::kError, "Orphan.esp", "Gone.esm, which is not in the load order"), "locheck: missing master");
 		Check(Has(r, locheck::Severity::kError, "Newer.esp", "header version 1.10"), "locheck: header version above 1.0");
 		Check(Has(r, locheck::Severity::kWarning, "NotThere.esp", "not found"), "locheck: plugin not found");
+		{
+			// the master tree
+			const auto g = locheck::BuildMasterGraph(r);
+			auto idx = [&](const char* n) {
+				for (std::size_t i = 0; i < r.plugins.size(); ++i) {
+					if (r.plugins[i].name == n) return i;
+				}
+				return SIZE_MAX;
+			};
+			const auto base = idx("Fallout4.esm"), early = idx("Early.esp"), late = idx("Late.esp"), orphan = idx("Orphan.esp");
+			Check(g.dependents[base].size() == 7, "master tree: 7 plugins need Fallout4.esm directly");
+			bool lateMarked = false;
+			for (const auto& l : g.masters[early]) {
+				lateMarked = lateMarked || (l.name == "Late.esp" && l.late && l.index == static_cast<int>(late));
+			}
+			Check(lateMarked, "master tree: Early.esp's master Late.esp marked as loading late");
+			Check(g.absent.size() == 1 && g.absent[0].first == "Gone.esm" && g.absent[0].second == std::vector<std::size_t>{ orphan },
+				"master tree: Gone.esm not in the load order, needed by Orphan.esp");
+			const auto all = locheck::AllDependents(g, late);
+			Check(all == std::vector<std::size_t>{ early }, "master tree: removing Late.esp breaks Early.esp only");
+			Check(locheck::AllDependents(g, base).size() == 7, "master tree: everything but the base needs Fallout4.esm (Early also through Late)");
+			Check(locheck::AllDependentsOfAbsent(g, 0) == std::vector<std::size_t>{ orphan }, "master tree: Gone.esm's dependants");
+		}
+		{
+			// a patch of a patch, and a cycle (A needs B, B needs A) does not loop
+			locheck::Result t;
+			t.game = locheck::Game::kSkyrimSE;
+			auto add = [&](const char* n, std::vector<std::string> m) {
+				locheck::PluginInfo p;
+				p.name = n;
+				p.path = n;
+				p.masters = std::move(m);
+				p.loadPos = static_cast<int>(t.plugins.size());
+				t.plugins.push_back(p);
+			};
+			add("Skyrim.esm", {});
+			add("Unofficial Skyrim Special Edition Patch.esp", { "Skyrim.esm" });
+			add("ModA.esp", { "Skyrim.esm", "Unofficial Skyrim Special Edition Patch.esp" });
+			add("ModA - ModB Patch.esp", { "ModA.esp", "ModB.esp" });
+			add("ModB.esp", { "Skyrim.esm" });
+			add("Patch of patch.esp", { "ModA - ModB Patch.esp" });
+			add("X.esp", { "Y.esp" });
+			add("Y.esp", { "X.esp" });
+			const auto g = locheck::BuildMasterGraph(t);
+			Check(locheck::AllDependents(g, 1) == std::vector<std::size_t>{ 2, 3, 5 }, "master tree: removing USSEP breaks ModA, its patch and the patch of the patch");
+			Check(locheck::AllDependents(g, 4) == std::vector<std::size_t>{ 3, 5 }, "master tree: removing ModB breaks the patch and the patch of the patch");
+			bool bLate = false;
+			for (const auto& l : g.masters[3]) {
+				bLate = bLate || (l.name == "ModB.esp" && l.late);
+			}
+			Check(bLate, "master tree: ModB.esp loads after the patch that needs it");
+			Check(locheck::AllDependents(g, 6) == std::vector<std::size_t>{ 7 } && locheck::AllDependents(g, 7) == std::vector<std::size_t>{ 6 },
+				"master tree: a cycle ends");
+		}
 		Check(!Has(r, locheck::Severity::kError, "", "full plugins"), "locheck: within the full plugin limit");
 		const auto* both = [&]() -> const locheck::PluginInfo* {
 			for (const auto& p : r.plugins) {

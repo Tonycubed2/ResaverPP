@@ -421,6 +421,13 @@ project; you do the coding, building, delivering and publishing.
   Light object id floor (0x800, or 0x001 with HEDR >= 1.0 and a master) from xEdit dev-4.1.6 wbDefinitionsFO4 (HardcodedRangeMinVersion);
   Skyrim SE limits checked in SkyrimSE.exe 1.6.1170 since branch sky2 (the light id floor stays xEdit's). F4SE whatsnew: light plugin support came with 0.5.0
   (after 1.9.4, i.e. 1.10.20), not 1.10.162.
+- Load order check: Master tree tab (2026-11-14, after v76, not published). FanOfDownloads' Nexus request: see mods and
+  masters as a tree, to find what to remove with a mod and its patches, and to debug USSEP. Core: `locheck::BuildMasterGraph`
+  (per plugin its masters with index / -1 not in the load order / late, its direct dependents, masters not in the load
+  order with who needs them), `AllDependents` / `AllDependentsOfAbsent` (transitive, cycles end, load order). GUI
+  (AppF4Bloat.cpp `drawMasterTree`): tabs Plugins | Master tree; Needs / Needed by views, search, right-click copies every
+  plugin that needs it, totals cached per check. Test hook RESAVERPP_TEST_LOTREE=0|1 with RESAVERPP_TEST_FILTER. Checked
+  on Tony's profile copy (scratchpad lofix-tony): USSEP needed by 48, 69 in all. Tests in bloat_test (master tree).
 - Load order check: Fix the order (2026-11-08, branch lofix, not published). Tony's request: one button that moves each late
   master to just before the first plugin that needs it (and its own late masters before it), shows the moves first
   ("MysticismMagic.esp: #99 -> before 360 Ward.esp #87"; #n = place among plugins.txt's '*' lines from 0, Tony's numbering),

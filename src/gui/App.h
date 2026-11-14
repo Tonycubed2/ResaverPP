@@ -98,6 +98,7 @@ public:
 	void testSelect(int a_cat, const char* a_filter, bool a_analysis);
 	void testFixLoadOrder(bool a_write);  // test hook: Fix the order's confirmation (and its button) once the check is done
 	std::vector<std::string> testDumpState();  // (tests: AppBackground.cpp)
+	void testMasterTree(int a_view, const char* a_filter);  // the Load order check's Master tree (RESAVERPP_TEST_LOTREE)
 	void testShortcut(int a_which) { shortcut(static_cast<Sc>(a_which)); }  // (tests: a menu entry / shortcut button)
 	void testOpenFromGallery(const std::filesystem::path& a_path) { openFromGallery(a_path); }  // (tests: a save clicked in File > Open)
 	void testOpen(const std::string& w)
@@ -1143,6 +1144,7 @@ private:
 	void                        drawBloat();
 	void                        drawLoadOrderCheck();
 	void                        drawLoadOrderFix();  // Fix the order: plan, confirmation, result (AppF4Bloat.cpp)
+	void                        drawMasterTree();    // the Load order check's Master tree tab (AppF4Bloat.cpp)
 	void                        bloatCheckItems(std::vector<CheckItem>& a_items);  // the Save check's findings of both
 	bool _showAbout = false;
 

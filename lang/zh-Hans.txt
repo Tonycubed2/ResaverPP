@@ -6354,6 +6354,74 @@ tr "把每个排得过晚的主文件移到第一个需要它的插件之前；�
 en "Only plugins with a problem"
 tr "仅显示有问题的插件"
 
+# AppF4Bloat.cpp  master tree
+en "Master tree"
+tr "主文件树"
+
+# AppF4Bloat.cpp  master tree
+en "Needs (the masters of each plugin)"
+tr "依赖（每个插件的主文件）"
+
+# AppF4Bloat.cpp  master tree
+en "Needed by (what stops working without it)"
+tr "被依赖（没有它会失效的插件）"
+
+# AppF4Bloat.cpp  master tree
+en "search for a plugin"
+tr "搜索插件"
+
+# AppF4Bloat.cpp  master tree
+en "Right-click a plugin to copy the list of plugins that need it."
+tr "右键单击插件可复制需要它的插件列表。"
+
+# AppF4Bloat.cpp  master tree
+en "No plugin needs %s."
+tr "没有插件需要 %s。"
+
+# AppF4Bloat.cpp  master tree
+en "Copy the %zu plugins that need %s"
+tr "复制 %zu 个需要 %s 的插件"
+
+# AppF4Bloat.cpp  master tree
+en "Without %s, %zu plugins stop working (patches of patches included)."
+tr "没有 %s，将有 %zu 个插件失效（包括补丁的补丁）。"
+
+# AppF4Bloat.cpp  master tree
+en "(file not found)"
+tr "（未找到文件）"
+
+# AppF4Bloat.cpp  master tree
+en "(could not be read)"
+tr "（无法读取）"
+
+# AppF4Bloat.cpp  master tree
+en "(needs itself through its masters)"
+tr "（通过其主文件依赖自身）"
+
+# AppF4Bloat.cpp  master tree
+en "%zu masters"
+tr "%zu 个主文件"
+
+# AppF4Bloat.cpp  master tree
+en "needed by %zu (%zu in all)"
+tr "被 %zu 个依赖（共 %zu 个）"
+
+# AppF4Bloat.cpp  master tree
+en "(not in the load order: not enabled or not installed)"
+tr "（不在加载顺序中：未启用或未安装）"
+
+# AppF4Bloat.cpp  master tree
+en "(loads after %s: it must load before it)"
+tr "（在 %s 之后加载：必须在它之前加载）"
+
+# AppF4Bloat.cpp  master tree
+en "(not in the load order, needed by %zu)"
+tr "（不在加载顺序中，被 %zu 个插件需要）"
+
+# AppF4Bloat.cpp  master tree
+en "No plugin matches the search."
+tr "没有与搜索匹配的插件。"
+
 # AppF4Bloat.cpp:854  ImGui::TableSetupColumn(tr("Header"), ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 4);
 en "Header"
 tr "头部"
