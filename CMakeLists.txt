@@ -51,6 +51,8 @@ function(rs_add_version_info target name description)
 		endif()
 		configure_file(${CMAKE_SOURCE_DIR}/res/version.rc.in ${CMAKE_BINARY_DIR}/${name}_version.rc @ONLY)
 		target_sources(${target} PRIVATE ${CMAKE_BINARY_DIR}/${name}_version.rc)
+		# (the icon and manifest are read by the resource compiler: a change to them rebuilds the resources)
+		set_source_files_properties(${CMAKE_BINARY_DIR}/${name}_version.rc PROPERTIES OBJECT_DEPENDS "${RS_ICON};${RS_MANIFEST}")
 		if (MSVC)
 			target_link_options(${target} PRIVATE /MANIFEST:NO)  # the manifest comes from the .rc
 		endif()
