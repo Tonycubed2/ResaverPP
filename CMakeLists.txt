@@ -44,6 +44,7 @@ function(rs_add_version_info target name description)
 		set(RS_NAME "${name}")
 		set(RS_DESCRIPTION "${description}")
 		set(RS_MANIFEST "${CMAKE_SOURCE_DIR}/res/resaverpp.manifest")
+		set(RS_ICON "${CMAKE_SOURCE_DIR}/res/resaverpp.ico")
 		set(RS_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 		if (RS_VERSION_MINOR STREQUAL "")
 			set(RS_VERSION_MINOR 0)  # whole-number versions (20) have no minor part

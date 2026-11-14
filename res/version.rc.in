@@ -4,6 +4,9 @@
 
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "@RS_MANIFEST@"
 
+// the program icon (Explorer, taskbar); GLFW also loads it by this name for the window (res/resaverpp-icon.svg is its source)
+GLFW_ICON ICON "@RS_ICON@"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     @PROJECT_VERSION_MAJOR@,@RS_VERSION_MINOR@,0,0
 PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@RS_VERSION_MINOR@,0,0
