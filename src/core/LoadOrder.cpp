@@ -50,7 +50,9 @@ namespace ess::loadorder
 
 	std::filesystem::path GamePluginsTxt(int a_game, bool a_le)
 	{
-		const auto base = text::EnvPath("LOCALAPPDATA");
+		// (under Proton in a prefix of its own: the game's prefix)
+		const auto gu = text::GameUserFolder(a_game);
+		const auto base = !gu.empty() ? gu / "AppData" / "Local" : text::EnvPath("LOCALAPPDATA");
 		if (base.empty()) {
 			return {};
 		}
@@ -167,7 +169,11 @@ namespace ess::loadorder
 		// (Creations installed from the game's menu; the place is the community's, not seen on Tony's install: [U])
 		auto myGames = a_myGames;
 		if (myGames.empty()) {
-			if (const auto home = text::EnvPath("USERPROFILE"); !home.empty()) {
+			auto home = text::GameUserFolder(3);
+			if (home.empty()) {
+				home = text::EnvPath("USERPROFILE");
+			}
+			if (!home.empty()) {
 				myGames = home / "Documents" / "My Games" / "Starfield";
 			}
 		}

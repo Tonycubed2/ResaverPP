@@ -437,6 +437,13 @@ namespace ess::text
 #endif
 	}
 
+	namespace
+	{
+		GameUserFolderFn g_gameUserFolder = nullptr;
+	}
+	void                  SetGameUserFolderFinder(GameUserFolderFn a_fn) { g_gameUserFolder = a_fn; }
+	std::filesystem::path GameUserFolder(int a_game) { return g_gameUserFolder ? g_gameUserFolder(a_game) : std::filesystem::path(); }
+
 	std::filesystem::path PathFrom(const std::string& a_text)
 	{
 		const auto utf8 = IsUtf8(a_text) ? a_text : ToUtf8(a_text);

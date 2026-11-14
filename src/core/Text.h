@@ -53,6 +53,13 @@ namespace ess::text
 	// it in the Windows code page, and a path made from that breaks on a user name with letters outside
 	// ASCII ("Cannot convert character sequence"). Empty when the variable is not set.
 	std::filesystem::path EnvPath(const char* a_name);
+	// ReSaver++ run under Wine / Proton in a prefix of its own (a non-Steam game): the Windows user folder of the
+	// game's own Proton prefix (...\steamapps\compatdata\<app id>\pfx\drive_c\users\steamuser), where the game keeps
+	// My Games and AppData\Local\<game>\plugins.txt. Empty everywhere else (Windows, or run inside the game's prefix).
+	// a_game: 0 Skyrim SE/AE, 1 Skyrim VR, 2 Fallout 4, 3 Starfield. The finder is set by the GUI (Platform.cpp).
+	using GameUserFolderFn = std::filesystem::path (*)(int a_game);
+	void                  SetGameUserFolderFinder(GameUserFolderFn a_fn);
+	std::filesystem::path GameUserFolder(int a_game);
 
 	// A path from text that may be UTF-8 or the Windows code page (names read from saves, archives, INIs):
 	// never throws, unlike std::filesystem::path(std::string) with text that is not UTF-8.

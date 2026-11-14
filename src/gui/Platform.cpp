@@ -63,10 +63,10 @@ namespace platform
 			v.push_back(p);
 		}
 
-		// Steam's libraryfolders.vdf: lines like  "path"  "D:\\SteamLibrary"
-		void AddSteamLibraries(std::vector<std::filesystem::path>& v, const std::filesystem::path& steam)
+		// Steam's libraryfolders.vdf: lines like  "path"  "D:\\SteamLibrary"; the Steam folder itself first
+		std::vector<std::filesystem::path> SteamLibraryRoots(const std::filesystem::path& steam)
 		{
-			AddUnique(v, steam / "steamapps" / "common" / SteamDir());
+			std::vector<std::filesystem::path> out{ steam };
 			std::ifstream f(steam / "steamapps" / "libraryfolders.vdf");
 			for (std::string line; std::getline(f, line);) {
 				const auto k = line.find("\"path\"");
@@ -85,7 +85,20 @@ namespace platform
 					}
 					val.push_back(raw[i]);
 				}
-				AddUnique(v, FromUtf8(val) / "steamapps" / "common" / SteamDir());
+#ifdef _WIN32
+				if (!val.empty() && val[0] == '/') {
+					val = "Z:" + val;  // Steam for Linux (read under Wine / Proton): its Unix paths are on Wine's Z: drive
+				}
+#endif
+				out.push_back(FromUtf8(val).make_preferred());
+			}
+			return out;
+		}
+
+		void AddSteamLibraries(std::vector<std::filesystem::path>& v, const std::filesystem::path& steam)
+		{
+			for (const auto& lib : SteamLibraryRoots(steam)) {
+				AddUnique(v, lib / "steamapps" / "common" / SteamDir());
 			}
 		}
 	}
@@ -104,11 +117,121 @@ namespace platform
 		}
 	}
 
+	// ---- Wine / Proton -----------------------------------------------------------------------------------------------
+	// Started as a non-Steam game, ReSaver++ gets a Proton prefix of its own: no Steam in its registry and no My Games of
+	// the game in its Documents. The game is then found in Steam for Linux's libraries (through Wine's Z: drive) and its
+	// saves, ini files and plugins.txt in the game's own prefix (steamapps\compatdata\<app id>\pfx).
+	namespace
+	{
+		bool UnderWine()
+		{
+			static const bool wine = [] {
+				const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+				return ntdll && GetProcAddress(ntdll, "wine_get_version") != nullptr;
+			}();
+			return wine;
+		}
+
+		// Steam for Linux's own folders (each holds steamapps\libraryfolders.vdf), as Z:\ paths
+		std::vector<std::filesystem::path> LinuxSteamRoots()
+		{
+			std::vector<std::filesystem::path> homes, roots;
+			std::error_code                    ec;
+			auto zpath = [](const std::filesystem::path& a_unix) {
+				const auto u = a_unix.generic_wstring();
+				return !u.empty() && u[0] == L'/' ? std::filesystem::path(L"Z:" + u) : std::filesystem::path();
+			};
+			for (const char* e : { "STEAM_COMPAT_CLIENT_INSTALL_PATH" }) {
+				if (const auto p = zpath(ess::text::EnvPath(e)); !p.empty()) {
+					roots.push_back(p);
+				}
+			}
+			if (const auto h = zpath(ess::text::EnvPath("HOME")); !h.empty()) {
+				homes.push_back(h);
+			}
+			for (const auto& e : std::filesystem::directory_iterator(L"Z:\\home", ec)) {
+				homes.push_back(e.path());
+			}
+			for (const auto& h : homes) {
+				for (const char* r : { ".steam/steam", ".steam/root", ".steam/debian-installation", ".local/share/Steam",
+						 ".var/app/com.valvesoftware.Steam/.local/share/Steam", "snap/steam/common/.local/share/Steam" }) {
+					roots.push_back(h / std::filesystem::path(r).make_preferred());
+				}
+			}
+			std::vector<std::filesystem::path> out;
+			for (const auto& r : roots) {
+				if (std::filesystem::is_directory(r / "steamapps", ec)) {
+					bool dup = false;
+					for (const auto& o : out) {
+						dup = dup || std::filesystem::equivalent(o, r, ec);
+					}
+					if (!dup) {
+						out.push_back(r);
+					}
+				}
+			}
+			return out;
+		}
+
+		// every Steam library of Steam for Linux (the roots and the libraries their libraryfolders.vdf lists)
+		std::vector<std::filesystem::path> LinuxSteamLibraries()
+		{
+			std::vector<std::filesystem::path> libs;
+			for (const auto& r : LinuxSteamRoots()) {
+				for (const auto& l : SteamLibraryRoots(r)) {
+					libs.push_back(l);
+				}
+			}
+			return libs;
+		}
+
+		// The game's own Proton prefix user folder when ReSaver++ runs in another prefix (see text::GameUserFolder)
+		std::filesystem::path WineGameUserFolder(int a_game)
+		{
+			if (!UnderWine() || a_game < 0 || a_game > 3) {
+				return {};
+			}
+			static std::filesystem::path found[4];
+			static bool                  looked[4] = {};
+			if (looked[a_game]) {
+				return found[a_game];
+			}
+			looked[a_game] = true;
+			std::error_code ec;
+			// run inside the game's prefix (launched with the game): its own Documents has the game's My Games
+			PWSTR docs = nullptr;
+			if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &docs))) {
+				const auto mine = std::filesystem::path(docs) / "My Games" / MyGamesName(a_game);
+				CoTaskMemFree(docs);
+				if (std::filesystem::is_directory(mine, ec)) {
+					return {};
+				}
+			}
+			static const char* const kAppId[4] = { "489830", "611670", "377160", "1716740" };
+			for (const auto& lib : LinuxSteamLibraries()) {
+				const auto users = lib / "steamapps" / "compatdata" / kAppId[a_game] / "pfx" / "drive_c" / "users";
+				for (const auto& u : std::filesystem::directory_iterator(users, ec)) {
+					if (std::filesystem::is_directory(u.path() / "Documents" / "My Games" / MyGamesName(a_game), ec)) {
+						return found[a_game] = u.path();
+					}
+				}
+			}
+			return {};
+		}
+
+		const bool g_wineFinder = (ess::text::SetGameUserFolderFinder(&WineGameUserFolder), true);
+	}
+
 	std::vector<std::filesystem::path> SkyrimInstallFolders(int a_game)
 	{
 		g_game = a_game;
 		const bool a_vr = a_game == 1;
 		std::vector<std::filesystem::path> v;
+		if (UnderWine()) {
+			for (const auto& r : LinuxSteamRoots()) {
+				AddSteamLibraries(v, r);
+			}
+		}
 		if (a_game == 3) {
 			// Starfield: Steam (Steam ...\steamapps\common\Starfield, in any Steam library)
 			if (auto steam = RegString(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath"); !steam.empty()) {
@@ -169,6 +292,9 @@ namespace platform
 
 	std::filesystem::path DefaultSavesFolder(int a_game)
 	{
+		if (const auto gu = WineGameUserFolder(a_game); !gu.empty()) {
+			return gu / "Documents" / "My Games" / MyGamesName(a_game) / "Saves";  // (the game's Proton prefix)
+		}
 		PWSTR docs = nullptr;
 		std::filesystem::path p;
 		if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &docs))) {
