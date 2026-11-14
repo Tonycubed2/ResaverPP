@@ -2,13 +2,10 @@
 <defs>
 <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c3854"/><stop offset="1" stop-color="#111725"/></linearGradient>
 <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8dc84"/><stop offset="0.55" stop-color="#dcaa40"/><stop offset="1" stop-color="#a7741f"/></linearGradient>
-<linearGradient id="disk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4ecd9"/><stop offset="1" stop-color="#d2c5a6"/></linearGradient>
+<linearGradient id="red" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a52"/><stop offset="0.6" stop-color="#e0231c"/><stop offset="1" stop-color="#a5110c"/></linearGradient>
 </defs>
 <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)" stroke="#3f4d70" stroke-width="4"/>
 <path d="M 201.3 154.7 A 78 78 0 1 1 191.9 83.3" fill="none" stroke="url(#gold)" stroke-width="18" stroke-linecap="round"/>
 <path d="M 211.4 111.1 L 210.4 67.9 L 171.1 95.4 Z" fill="url(#gold)" stroke="#a7741f" stroke-width="2" stroke-linejoin="round"/>
-<path d="M 92 78 H 154 L 172 96 V 170 A 8 8 0 0 1 164 178 H 92 A 8 8 0 0 1 84 170 V 86 A 8 8 0 0 1 92 78 Z" fill="url(#disk)" stroke="#6f6249" stroke-width="3"/>
-<rect x="102" y="78" width="46" height="26" rx="3" fill="#56627e"/>
-<rect x="131" y="83" width="9" height="16" rx="2" fill="#e8dcc0"/>
-<path d="M 116 118 H 140 V 132 H 154 V 156 H 140 V 170 H 116 V 156 H 102 V 132 H 116 Z" fill="url(#gold)" stroke="#8a5d16" stroke-width="3" stroke-linejoin="round"/>
+<path d="M 106 76 H 150 V 106 H 180 V 150 H 150 V 180 H 106 V 150 H 76 V 106 H 106 Z" fill="url(#red)" stroke="#6e0906" stroke-width="4" stroke-linejoin="round"/>
 </svg>
