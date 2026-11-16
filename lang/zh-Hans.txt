@@ -11998,6 +11998,30 @@ tr "游戏为此角色显示的名称。对于你自己的角色，读档菜单�
 en "Face and body (%zu numbers)"
 tr "脸部和身体（%zu 个数值）"
 
+# AppStarfield.cpp  reset appearance
+en "Reset appearance"
+tr "重置外观"
+
+# AppStarfield.cpp  reset appearance
+en "Reset this character's appearance"
+tr "重置此角色的外观"
+
+# AppStarfield.cpp  reset appearance
+en "Takes the appearance the save keeps for this character out of the save (head parts, face shapes, skin tints). At the next load the game uses the appearance its plugins give the character, including a face mod you installed later.\n\nOnly the appearance goes: name, factions, inventory, affinity and quest progress stay. Keep the original save."
+tr "从存档中移除为此角色保存的外观（头部部件、面部形状、肤色）。下次加载时，游戏会使用插件为该角色设定的外观，包括之后安装的面部模组。\n\n只移除外观：名字、派系、物品、好感度和任务进度都会保留。请保留原始存档。"
+
+# AppStarfield.cpp  reset appearance
+en "Appearance reset: the plugins' appearance applies at the next load"
+tr "外观已重置：下次加载时使用插件的外观"
+
+# AppStarfield.cpp  reset appearance
+en "Appearance not reset: %s"
+tr "外观未重置：%s"
+
+# AppStarfield.cpp  reset appearance
+en "Removes only the saved appearance (head parts, face, skin tints) so the plugins' look applies again. Everything else about the character stays."
+tr "只移除保存的外观（头部部件、面部、肤色），让插件的外观重新生效。角色的其他一切都会保留。"
+
 # AppStarfield.cpp:619  ImGui::TextDisabled("%s", tr("The face the save keeps for this character, as the character creator wrote it: numbered sliders, "
 en "The face the save keeps for this character, as the character creator wrote it: numbered sliders, blends of face shapes by region, and named shapes (body and face). Type a number and press Enter; the game reads them at the next load. Keep the original save."
 tr "存档为该角色保存的脸部数据，即角色创建器写入的内容：编号滑块、按区域混合的脸型，以及命名的形状（身体和脸部）。输入数字并按回车；游戏会在下次读档时读取。请保留原始存档。"

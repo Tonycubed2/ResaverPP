@@ -421,6 +421,11 @@ project; you do the coding, building, delivering and publishing.
   Light object id floor (0x800, or 0x001 with HEDR >= 1.0 and a master) from xEdit dev-4.1.6 wbDefinitionsFO4 (HardcodedRangeMinVersion);
   Skyrim SE limits checked in SkyrimSE.exe 1.6.1170 since branch sky2 (the light id floor stays xEdit's). F4SE whatsnew: light plugin support came with 0.5.0
   (after 1.9.4, i.e. 1.10.20), not 1.10.162.
+- Starfield Reset appearance (2026-11-15, not published; xtcrefugee's request): ResetNpcAppearanceSF removes an NPC_
+  change form's 0x800 block (u8, FORMID, vsval n FORMIDs, face data: its bytes, refs and strings, ranges recorded by
+  DecodeNpcSF appearance*), clears flag 0x800, re-reads the record. GUI: Character panel button (not for the player).
+  Test: sf_test.inc on a real .sfs (RESAVERPP_SF_SAVES), ran on NPC 001557FA. Not yet confirmed in game that the plugin
+  face returns; xtcrefugee to test.
 - Load order check: Master tree tab (2026-11-14, published in v77). FanOfDownloads' Nexus request: see mods and
   masters as a tree, to find what to remove with a mod and its patches, and to debug USSEP. Core: `locheck::BuildMasterGraph`
   (per plugin its masters with index / -1 not in the load order / late, its direct dependents, masters not in the load

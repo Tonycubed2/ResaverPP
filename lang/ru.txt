@@ -11993,6 +11993,30 @@ tr "Имя, которое игра показывает для этого пе�
 en "Face and body (%zu numbers)"
 tr "Лицо и тело (чисел: %zu)"
 
+# AppStarfield.cpp  reset appearance
+en "Reset appearance"
+tr "Сбросить внешность"
+
+# AppStarfield.cpp  reset appearance
+en "Reset this character's appearance"
+tr "Сбросить внешность этого персонажа"
+
+# AppStarfield.cpp  reset appearance
+en "Takes the appearance the save keeps for this character out of the save (head parts, face shapes, skin tints). At the next load the game uses the appearance its plugins give the character, including a face mod you installed later.\n\nOnly the appearance goes: name, factions, inventory, affinity and quest progress stay. Keep the original save."
+tr "Удаляет из сохранения внешность, которую оно хранит для этого персонажа (части головы, формы лица, оттенки кожи). При следующей загрузке игра использует внешность, которую персонажу дают плагины, включая мод лица, установленный позже.\n\nУдаляется только внешность: имя, фракции, инвентарь, симпатия и прогресс заданий остаются. Сохраните исходное сохранение."
+
+# AppStarfield.cpp  reset appearance
+en "Appearance reset: the plugins' appearance applies at the next load"
+tr "Внешность сброшена: при следующей загрузке применится внешность из плагинов"
+
+# AppStarfield.cpp  reset appearance
+en "Appearance not reset: %s"
+tr "Внешность не сброшена: %s"
+
+# AppStarfield.cpp  reset appearance
+en "Removes only the saved appearance (head parts, face, skin tints) so the plugins' look applies again. Everything else about the character stays."
+tr "Удаляет только сохранённую внешность (части головы, лицо, оттенки кожи), чтобы снова применялся вид из плагинов. Всё остальное о персонаже остаётся."
+
 # AppStarfield.cpp:619  ImGui::TextDisabled("%s", tr("The face the save keeps for this character, as the character creator wrote it: numbered sliders, "
 en "The face the save keeps for this character, as the character creator wrote it: numbered sliders, blends of face shapes by region, and named shapes (body and face). Type a number and press Enter; the game reads them at the next load. Keep the original save."
 tr "Лицо, которое сохранение хранит для этого персонажа, в том виде, в каком его записал редактор персонажа: пронумерованные ползунки, смешивание форм лица по областям и именованные формы (тела и лица). Введите число и нажмите Enter; игра прочитает его при следующей загрузке. Сохраните оригинал сохранения."

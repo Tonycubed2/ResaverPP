@@ -197,6 +197,49 @@ void TestStarfield()
 					c.data = data0;
 					break;
 				}
+				// an NPC's saved appearance taken out: written, read back, the rest of the record unchanged
+				{
+					ChangeForm* pick = nullptr;
+					bool        other = false;
+					for (auto& c : s->changeForms) {
+						if (c.typeCode() == 9 && (c.changeFlags & 0x800) && DecodeNpcSF(c).ok) {
+							const bool notPlayer = s->formIDOf(c.refID) != 0x7;
+							if (!pick || (notPlayer && !other)) {
+								pick = &c;
+								other = notPlayer;
+							}
+						}
+					}
+					if (pick) {
+						const auto before = *pick;
+						const auto d0 = DecodeNpcSF(before);
+						const auto id = s->formIDOf(pick->refID);
+						Check(ResetNpcAppearanceSF(*pick), "sf appearance: reset");
+						const auto d1 = DecodeNpcSF(*pick);
+						Check(d1.ok && !(pick->changeFlags & 0x800) && d1.factions == d0.factions && d1.hasName == d0.hasName &&
+								  (!d0.hasName || pick->sfStrings[0] == before.sfStrings[0]) &&
+								  pick->data.size() == before.data.size() - (d0.appearanceEnd - d0.appearanceBegin),
+							"sf appearance: only the appearance block is gone");
+						Check(!ResetNpcAppearanceSF(*pick), "sf appearance: a second reset finds nothing");
+						const auto out = fs::temp_directory_path() / ("rs_sfappear_" + name);
+						try {
+							s->write(out, false);
+							auto back = SaveFile::load(out);
+							bool ok = false;
+							for (const auto& b : back->changeForms) {
+								if (b.typeCode() == 9 && back->formIDOf(b.refID) == id) {
+									ok = DecodeNpcSF(b).ok && !(b.changeFlags & 0x800) && b.data == pick->data && b.sfRefs.size() == pick->sfRefs.size();
+								}
+							}
+							Check(ok, "sf appearance: the record reads back without its appearance");
+						} catch (const std::exception& ex) {
+							fail(std::string("appearance reset does not write: ") + ex.what());
+						}
+						std::error_code ec;
+						fs::remove(out, ec);
+						*pick = before;
+					}
+				}
 				// an item added to the player's inventory (one taken from another inventory of the save), written and read back
 				for (auto& c : s->changeForms) {
 					if (c.typeCode() != 1 || s->formIDOf(c.refID) != 0x14) {

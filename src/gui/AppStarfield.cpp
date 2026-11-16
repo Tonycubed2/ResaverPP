@@ -662,6 +662,29 @@ void App::detailChangeFormSF(std::uint64_t k)
 				ImGui::EndDisabled();
 				ImGui::TreePop();
 			}
+			// take the saved appearance out: the plugins' face applies again; inventory, quests, affinity stay
+			if (n.ok && (c->changeFlags & 0x800) && s.formIDOf(c->refID) != 0x7) {
+				ImGui::BeginDisabled(_readOnly);
+				if (ImGui::Button(tr("Reset appearance"))) {
+					const auto raw = c->refID;
+					confirm(tr("Reset this character's appearance"),
+						tr("Takes the appearance the save keeps for this character out of the save (head parts, face shapes, skin "
+						   "tints). At the next load the game uses the appearance its plugins give the character, including a face "
+						   "mod you installed later.\n\nOnly the appearance goes: name, factions, inventory, affinity and quest "
+						   "progress stay. Keep the original save."),
+						[this, raw] {
+							std::string why;
+							if (auto* cf = _save->findChangeForm(raw); cf && ResetNpcAppearanceSF(*cf, &why)) {
+								markChanged(tr("Appearance reset: the plugins' appearance applies at the next load"));
+							} else {
+								_status = Fmt(tr("Appearance not reset: %s"), why.c_str());
+							}
+						});
+				}
+				ImGui::EndDisabled();
+				tips::Tip(tr("Removes only the saved appearance (head parts, face, skin tints) so the plugins' look applies again. "
+							 "Everything else about the character stays."));
+			}
 		}
 	}
 	// a quest: its state and stages (DecodeQuestSF, read in Starfield.exe 1.16.244), editable in place

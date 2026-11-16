@@ -217,6 +217,11 @@ namespace ess
 				r.fid(2);
 			}
 			if (f & 0x800) {  // face: u8, FORMID, vsval n FORMIDs, then 0x140cdd070
+				if (a_out) {
+					a_out->appearanceBegin = r.p;
+					a_out->appearanceRefBegin = r.refs;
+					a_out->appearanceStrBegin = strings;
+				}
 				r.u8();
 				r.fid();
 				r.fid(r.vsval());
@@ -251,6 +256,11 @@ namespace ess
 				const auto n6 = r.u8();  // u8 n, n x (u32, 3 strings, u32, u32)
 				r.skip(12ull * n6);
 				strings += 3ull * n6;
+				if (a_out) {
+					a_out->appearanceEnd = r.p;
+					a_out->appearanceRefEnd = r.refs;
+					a_out->appearanceStrEnd = strings;
+				}
 			}
 			r.strs += strings;
 			if (a_out) {
@@ -795,6 +805,39 @@ namespace ess
 			return false;
 		}
 		std::memcpy(a_cf.data.data() + a_offset, &a_value, 4);
+		return true;
+	}
+
+	bool ResetNpcAppearanceSF(ChangeForm& a_cf, std::string* a_why)
+	{
+		const auto fail = [&](const char* a_msg) {
+			if (a_why) {
+				*a_why = a_msg;
+			}
+			return false;
+		};
+		const auto d = DecodeNpcSF(a_cf);
+		if (!d.ok) {
+			return fail("the record is not read");
+		}
+		if (!(a_cf.changeFlags & 0x800) || d.appearanceBegin == SIZE_MAX) {
+			return fail("the save keeps no appearance for this character");
+		}
+		if (d.appearanceEnd > a_cf.data.size() || d.appearanceRefEnd > a_cf.sfRefs.size() || d.appearanceStrEnd > a_cf.sfStrings.size()) {
+			return fail("the appearance block does not fit the record");
+		}
+		auto copy = a_cf;
+		copy.data.erase(copy.data.begin() + static_cast<std::ptrdiff_t>(d.appearanceBegin), copy.data.begin() + static_cast<std::ptrdiff_t>(d.appearanceEnd));
+		copy.sfRefs.erase(copy.sfRefs.begin() + static_cast<std::ptrdiff_t>(d.appearanceRefBegin), copy.sfRefs.begin() + static_cast<std::ptrdiff_t>(d.appearanceRefEnd));
+		copy.sfStrings.erase(copy.sfStrings.begin() + static_cast<std::ptrdiff_t>(d.appearanceStrBegin),
+			copy.sfStrings.begin() + static_cast<std::ptrdiff_t>(d.appearanceStrEnd));
+		copy.changeFlags &= ~0x800u;
+		// the rest of the record must still read exactly
+		const auto check = DecodeNpcSF(copy);
+		if (!check.ok || check.appearanceBegin != SIZE_MAX) {
+			return fail("the record would not read without it");
+		}
+		a_cf = std::move(copy);
 		return true;
 	}
 

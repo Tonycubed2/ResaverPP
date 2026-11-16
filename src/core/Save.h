@@ -236,6 +236,10 @@ namespace ess
 		std::size_t statsOffset = SIZE_MAX;  // change flag 0x2: 16 bytes (TESActorBase +0xe8 +8)
 		std::size_t factionsOffset = SIZE_MAX, factionRefs = 0, factions = 0;  // 0x40: n x (FORMID, u8 rank)
 		std::size_t faceOffset = SIZE_MAX;  // 0x800: the face data (0x140cdd070)
+		// the whole 0x800 block (u8, FORMID, vsval n FORMIDs, the face data): its bytes, its form references and its
+		// strings (index ranges into the record's lists)
+		std::size_t appearanceBegin = SIZE_MAX, appearanceEnd = SIZE_MAX;
+		std::size_t appearanceRefBegin = 0, appearanceRefEnd = 0, appearanceStrBegin = 0, appearanceStrEnd = 0;
 		bool        hasName = false;  // 0x20: its name is in the string list
 		// the face's numbers (0x140cdd070), each an f32 at offset in the data. group 1: (key, value) with no name; group 2:
 		// per key, (name, value) pairs; group 3: (name, value) pairs. name = index into the record's string list, or
@@ -253,6 +257,10 @@ namespace ess
 	SfNpcData DecodeNpcSF(const ChangeForm& a_cf);
 	// a face number changed in place (SfNpcData::face[i].offset)
 	bool SetFaceValueSF(ChangeForm& a_cf, std::size_t a_offset, float a_value);
+	// takes the saved appearance (change flag 0x800: head parts and the face) out of an NPC_ record, so the game uses
+	// the appearance its plugins give the character again; everything else in the record stays. false when the record
+	// is not read or keeps no appearance.
+	bool ResetNpcAppearanceSF(ChangeForm& a_cf, std::string* a_why = nullptr);
 	class SaveFile;
 	// renames an NPC_ (the player is NPC_ 0x7; its header name follows); false when the record has no name to change
 	bool RenameNpcSF(SaveFile& a_save, ChangeForm& a_cf, const std::string& a_name);

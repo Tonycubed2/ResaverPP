@@ -11998,6 +11998,30 @@ tr ""
 en "Face and body (%zu numbers)"
 tr ""
 
+# AppStarfield.cpp  reset appearance
+en "Reset appearance"
+tr ""
+
+# AppStarfield.cpp  reset appearance
+en "Reset this character's appearance"
+tr ""
+
+# AppStarfield.cpp  reset appearance
+en "Takes the appearance the save keeps for this character out of the save (head parts, face shapes, skin tints). At the next load the game uses the appearance its plugins give the character, including a face mod you installed later.\n\nOnly the appearance goes: name, factions, inventory, affinity and quest progress stay. Keep the original save."
+tr ""
+
+# AppStarfield.cpp  reset appearance
+en "Appearance reset: the plugins' appearance applies at the next load"
+tr ""
+
+# AppStarfield.cpp  reset appearance
+en "Appearance not reset: %s"
+tr ""
+
+# AppStarfield.cpp  reset appearance
+en "Removes only the saved appearance (head parts, face, skin tints) so the plugins' look applies again. Everything else about the character stays."
+tr ""
+
 # AppStarfield.cpp:619  ImGui::TextDisabled("%s", tr("The face the save keeps for this character, as the character creator wrote it: numbered sliders, "
 en "The face the save keeps for this character, as the character creator wrote it: numbered sliders, blends of face shapes by region, and named shapes (body and face). Type a number and press Enter; the game reads them at the next load. Keep the original save."
 tr ""
