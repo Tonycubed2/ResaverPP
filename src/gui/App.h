@@ -895,6 +895,9 @@ private:
 	std::vector<ess::extras::SaveStat> _historyIncoming;
 	bool                       _showCrashLog = false, _clogLoaded = false;
 	ess::crashlog::Log         _clog;
+	// Starfield crash log: function names looked up in the mods' .pdb files (Symbols.h), by frame; for _clogSymsFor
+	std::map<std::size_t, std::string> _clogSyms;
+	std::filesystem::path              _clogSymsFor;
 	std::vector<ess::crashlog::Finding> _clogFindings;
 	const void*                _clogSave = nullptr;
 	std::uint64_t              _clogGen = UINT64_MAX;

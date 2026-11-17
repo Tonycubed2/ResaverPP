@@ -52,6 +52,14 @@ namespace ess::crashlog
 			if (u.rfind("POSSIBLE RELEVANT OBJECTS", 0) == 0) {
 				return true;
 			}
+			// Starfield Engine Fixes' Detailed Crash Logger (with or without the colon)
+			for (const char* h : { "THREAD INFO", "EXCEPTION INFO", "CAPTURED BACKTRACE", "CONTEXT REGISTERS", "THREAD STACK",
+					 "STARFIELD & SFSE DLLS", "LOAD ORDER ARRAY" }) {
+				const std::string hs = h;
+				if (u == hs || u == hs + ":") {
+					return true;
+				}
+			}
 			return t.back() == ':' && t.find(": ") == std::string::npos;
 		}
 
@@ -59,7 +67,7 @@ namespace ess::crashlog
 		bool AtCrashSection(const std::string& a_header)
 		{
 			const auto u = Upper(a_header);
-			return u.find("CALL STACK") != std::string::npos || u.find("CALLSTACK") != std::string::npos ||
+			return u.find("CALL STACK") != std::string::npos || u.find("CALLSTACK") != std::string::npos || u.find("BACKTRACE") != std::string::npos ||
 			       u.find("REGISTERS") != std::string::npos || u.find("RELEVANT OBJECTS") != std::string::npos;
 		}
 	}
@@ -75,21 +83,71 @@ namespace ess::crashlog
 			static const std::regex kSave(R"(^((?:Save|Autosave|Quicksave|Exitsave)\d*_[0-9A-Fa-f]{8}[^\\/:*?\"<>|]*?)(?:\.sfs|\.ess|\.fos)?$)",
 				std::regex::icase);
 			static const std::regex kPlugin(R"(^\s+(\S+\.dll)\s*(v\S+)?\s*$)", std::regex::icase);
-			enum class Sec { kOther, kCallStack, kRegisters, kStack, kSePlugins };
+			// Starfield Engine Fixes: "Starfield.exe + 0x5E61BD", "KERNEL32.DLL + 0x2CCB7 BaseThreadInitThunk"; its DLL list:
+			// "SeamlessGravJumps.dll (0.0.0.0) 0x7FFD8E080000 ..."; typed values: "0x1B0BFB8E580 TESLevItem* [FormID: ...]"
+			static const std::regex kEfFrame(R"(^\s*(\S.*?\.(?:exe|dll))\s+\+\s+0x([0-9A-Fa-f]+)(?:\s+(\S.*?))?\s*$)", std::regex::icase);
+			static const std::regex kEfDll(R"(^\s*(\S.*?\.dll)\s+\(([^)]*)\))", std::regex::icase);
+			static const std::regex kEfType(R"(\s([A-Za-z_][A-Za-z0-9_:]*(?:<.*>)?)\*(?=\s|$))");
+			static const std::regex kEfPlugin(R"(^\s*\d+\s+(\S.*?\.es[mpl])\b)", std::regex::icase);
+			enum class Sec { kOther, kCallStack, kRegisters, kStack, kSePlugins, kLoadOrder };
 			Sec                                 sec = Sec::kOther;
 			std::map<std::string, Log::TypeSeen> types;
 			std::vector<std::string>            order;
 			for (const auto& l : a_lines) {
 				if (IsHeader(l)) {
 					const auto u = Upper(Trim(l));
-					sec = u.find("CALL STACK") != std::string::npos   ? Sec::kCallStack
-					    : u.rfind("REGISTERS", 0) == 0                 ? Sec::kRegisters
-					    : u == "STACK:"                                ? Sec::kStack
-					    : u.find("EXTENDER PLUGINS") != std::string::npos ? Sec::kSePlugins
-					                                                   : Sec::kOther;
+					sec = u.find("CALL STACK") != std::string::npos || u.rfind("CAPTURED BACKTRACE", 0) == 0 ? Sec::kCallStack
+					    : u.rfind("REGISTERS", 0) == 0 || u.rfind("CONTEXT REGISTERS", 0) == 0       ? Sec::kRegisters
+					    : u == "STACK:" || u.rfind("THREAD STACK", 0) == 0                           ? Sec::kStack
+					    : u.find("EXTENDER PLUGINS") != std::string::npos || u.rfind("STARFIELD & SFSE DLLS", 0) == 0 ? Sec::kSePlugins
+					    : u.rfind("LOAD ORDER ARRAY", 0) == 0                                        ? Sec::kLoadOrder
+					                                                                                 : Sec::kOther;
 					continue;
 				}
 				std::smatch m;
+				if (a_log.sfEngineFixes) {
+					if (sec == Sec::kCallStack && std::regex_match(l, m, kEfFrame)) {
+						a_log.frames.push_back({ a_log.frames.size(), m[1].str(), m[2].str(), m[3].str() });
+						continue;
+					}
+					if (sec == Sec::kSePlugins) {
+						if (std::regex_search(l, m, kEfDll)) {
+							const auto dll = m[1].str();
+							const auto ver = m[2].str();
+							if (Upper(dll).rfind("SFSE_", 0) != 0) {
+								a_log.sePlugins.emplace_back(dll, ver.empty() || ver == "0.0.0.0" ? std::string() : "v" + ver);
+							}
+						} else if (std::regex_search(l, m, std::regex(R"(^\s*Starfield\.exe\s+\(([0-9.]+)\))", std::regex::icase))) {
+							auto v = m[1].str();
+							if (v.size() > 2 && v.ends_with(".0")) {
+								v.resize(v.size() - 2);
+							}
+							a_log.game = "Starfield v" + v;
+						}
+						continue;
+					}
+					if (sec == Sec::kLoadOrder) {
+						if (std::regex_search(l, m, kEfPlugin)) {
+							a_log.loadOrder.push_back(m[1].str());
+						}
+						continue;
+					}
+					if (sec == Sec::kRegisters || sec == Sec::kStack) {
+						if (std::regex_search(l, m, kEfType)) {
+							const auto name = Trim(m[1].str());
+							static const std::set<std::string> kPlain = { "void", "char", "wchar_t", "const char", "std::byte" };
+							if (!kPlain.contains(name)) {
+								auto& t = types[name];
+								if (t.name.empty()) {
+									t.name = name;
+									order.push_back(name);
+								}
+								++(sec == Sec::kRegisters ? t.inRegisters : t.inStack);
+							}
+						}
+						continue;
+					}
+				}
 				if (sec == Sec::kCallStack && std::regex_match(l, m, kFrame)) {
 					a_log.frames.push_back({ static_cast<std::size_t>(std::stoul(m[1].str())), m[2].str(), m[3].str(), m[4].str() });
 					continue;
@@ -225,11 +283,15 @@ namespace ess::crashlog
 				lines.push_back(std::move(l));
 			}
 		}
-		const std::size_t head = std::min<std::size_t>(lines.size(), 12);
+		const std::size_t head = std::min<std::size_t>(lines.size(), 16);
+		std::string       efAddress, efCode;
 		for (std::size_t i = 0; i < head; ++i) {
 			const auto& l = lines[i];
 			const auto  u = Upper(l);
-			if (u.find("CRASHLOGGER") != std::string::npos) {
+			if (u.find("STARFIELD ENGINE FIXES") != std::string::npos && u.find("CRASH LOGGER") != std::string::npos) {
+				log.tool = "Starfield Engine Fixes";  // its Detailed Crash Logger
+				log.sf = log.sfEngineFixes = true;
+			} else if (u.find("CRASHLOGGER") != std::string::npos) {
 				log.tool = "Crash Logger";
 			} else if (u.find("TRAINWRECK") != std::string::npos) {
 				log.tool = "Trainwreck";
@@ -253,11 +315,24 @@ namespace ess::crashlog
 				log.game = Trim(l);  // Buffout 4's first line: "Fallout 4 v1.10.163"
 				log.fo4 = true;
 			}
+			if (log.sfEngineFixes) {
+				if (u.rfind("EXCEPTION ADDRESS:", 0) == 0) {
+					efAddress = Trim(l.substr(l.find(':') + 1));
+				} else if (u.rfind("EXCEPTION CODE:", 0) == 0) {
+					efCode = Trim(l.substr(l.find(':') + 1));
+				} else if (u.rfind("THREAD NAME:", 0) == 0) {
+					log.thread = Trim(l.substr(l.find(':') + 1));
+				}
+			}
 			if (log.exception.empty() && u.find("EXCEPTION") != std::string::npos && u.find("UNHANDLED") != std::string::npos) {
 				log.exception = Trim(l);
 			}
 		}
 
+		if (log.sfEngineFixes && log.exception.empty() && !efCode.empty()) {
+			log.exception = "Unhandled exception \"" + efCode + "\" at " + efAddress + (log.thread.empty() ? "" : " (thread " + log.thread + ")");
+		}
+		static const std::regex kEfObjType(R"(([A-Za-z_][A-Za-z0-9_:]*(?:<.*>)?)\*\s*\[\s*FormID\s*:)", std::regex::icase);
 		static const std::regex kId(R"(form\s*id\s*[:=]\s*(?:0x)?([0-9a-f]{8})\b)", std::regex::icase);
 		static const std::regex kName(R"((?:GetFullName|Name)\s*:\s*\"([^\"]*)\")", std::regex::icase);
 		static const std::regex kType(R"(form\s*type\s*:\s*([^,}\r\n]+))", std::regex::icase);
@@ -340,6 +415,9 @@ namespace ess::crashlog
 			}
 			if (f.file.empty()) {
 				f.file = before(kFile);
+			}
+			if (f.type.empty() && log.sfEngineFixes) {
+				f.type = find(l, kEfObjType);  // "TESLevItem* [FormID: 00160D2B]"
 			}
 			if (f.type.empty()) {
 				f.type = Trim(find(l, kType));

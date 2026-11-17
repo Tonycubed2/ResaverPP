@@ -15495,3 +15495,59 @@ tr ""
 # Starfield Find NPCs: change outfit
 en "\nOr in game: open the console, type prid followed by its form id, then setoutfit followed by the outfit's form id."
 tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "(not in the save open)"
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Find each mod DLL on the call stack (Data\\SFSE\\Plugins, or your Mod Organizer mods) and read the function it crashed in from the .pdb file its author ships next to it. Without a .pdb of that exact build, only the DLL's name is known."
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "In the registers: the game had it in hand when it crashed."
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "In the save"
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Load order in the log (%zu plugins)"
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Look up function names (.pdb)"
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "No crash log found. Trainwreck (an SFSE plugin) writes them to Documents\\My Games\\Starfield\\SFSE\\Crashlogs when the game crashes, and Starfield Engine Fixes does with its Detailed Crash Logger turned on. Install one, let the game crash once, then look again, or pick a log with \"Open another log...\"."
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Show in the save"
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "The save open has a change form for it: everything the game saved about this object."
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "This log names objects with their form IDs. Those in the registers are what the game had in hand at the crash."
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "frame %zu  %s + 0x%s:  %s"
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "no name: "
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "not changed"
+tr ""
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "%s was not found in Data\\SFSE\\Plugins or your mods"
+tr ""

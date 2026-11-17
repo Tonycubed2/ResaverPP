@@ -15553,3 +15553,59 @@ tr "Собственная команда игры setoutfit для этого N
 # Starfield Find NPCs: change outfit
 en "\nOr in game: open the console, type prid followed by its form id, then setoutfit followed by the outfit's form id."
 tr "\nИли в игре: откройте консоль, введите prid и его form id, затем setoutfit и form id одежды."
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "(not in the save open)"
+tr "(нет в открытом сохранении)"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Find each mod DLL on the call stack (Data\\SFSE\\Plugins, or your Mod Organizer mods) and read the function it crashed in from the .pdb file its author ships next to it. Without a .pdb of that exact build, only the DLL's name is known."
+tr "Найти каждую DLL мода в стеке вызовов (Data\\SFSE\\Plugins или ваши моды Mod Organizer) и прочитать функцию, в которой произошёл сбой, из файла .pdb, который автор кладёт рядом с ней. Без .pdb именно этой сборки известно только имя DLL."
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "In the registers: the game had it in hand when it crashed."
+tr "В регистрах: игра держала его в руках в момент сбоя."
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "In the save"
+tr "В сохранении"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Load order in the log (%zu plugins)"
+tr "Порядок загрузки в логе (%zu плагинов)"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Look up function names (.pdb)"
+tr "Найти имена функций (.pdb)"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "No crash log found. Trainwreck (an SFSE plugin) writes them to Documents\\My Games\\Starfield\\SFSE\\Crashlogs when the game crashes, and Starfield Engine Fixes does with its Detailed Crash Logger turned on. Install one, let the game crash once, then look again, or pick a log with \"Open another log...\"."
+tr "Лог сбоя не найден. Trainwreck (плагин SFSE) пишет их в Documents\\My Games\\Starfield\\SFSE\\Crashlogs при сбое игры, а Starfield Engine Fixes — при включённом Detailed Crash Logger. Установите один из них, дайте игре упасть один раз, затем посмотрите снова или выберите лог через \"Открыть другой лог...\"."
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Show in the save"
+tr "Показать в сохранении"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "The save open has a change form for it: everything the game saved about this object."
+tr "В открытом сохранении есть его change form: всё, что игра сохранила об этом объекте."
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "This log names objects with their form IDs. Those in the registers are what the game had in hand at the crash."
+tr "Этот лог называет объекты с их form ID. Те, что в регистрах, игра держала в руках в момент сбоя."
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "frame %zu  %s + 0x%s:  %s"
+tr "кадр %zu  %s + 0x%s:  %s"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "no name: "
+tr "нет имени: "
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "not changed"
+tr "не изменён"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "%s was not found in Data\\SFSE\\Plugins or your mods"
+tr "%s не найден в Data\\SFSE\\Plugins или ваших модах"

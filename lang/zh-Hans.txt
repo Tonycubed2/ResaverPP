@@ -15495,3 +15495,59 @@ tr "在运行中的游戏里对此 NPC 使用游戏自带的 setoutfit。这里�
 # Starfield Find NPCs: change outfit
 en "\nOr in game: open the console, type prid followed by its form id, then setoutfit followed by the outfit's form id."
 tr "\n或在游戏中：打开控制台，输入 prid 加其表单 ID，然后输入 setoutfit 加服装的表单 ID。"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "(not in the save open)"
+tr "（不在打开的存档中）"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Find each mod DLL on the call stack (Data\\SFSE\\Plugins, or your Mod Organizer mods) and read the function it crashed in from the .pdb file its author ships next to it. Without a .pdb of that exact build, only the DLL's name is known."
+tr "查找调用栈上每个模组 DLL（Data\\SFSE\\Plugins 或你的 Mod Organizer 模组），并从作者随附在其旁边的 .pdb 文件中读取崩溃所在的函数。没有该版本对应的 .pdb 时，只能知道 DLL 的名称。"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "In the registers: the game had it in hand when it crashed."
+tr "在寄存器中：崩溃时游戏正在处理它。"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "In the save"
+tr "在存档中"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Load order in the log (%zu plugins)"
+tr "日志中的加载顺序（%zu 个插件）"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Look up function names (.pdb)"
+tr "查找函数名（.pdb）"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "No crash log found. Trainwreck (an SFSE plugin) writes them to Documents\\My Games\\Starfield\\SFSE\\Crashlogs when the game crashes, and Starfield Engine Fixes does with its Detailed Crash Logger turned on. Install one, let the game crash once, then look again, or pick a log with \"Open another log...\"."
+tr "未找到崩溃日志。Trainwreck（一个 SFSE 插件）会在游戏崩溃时将日志写入 Documents\\My Games\\Starfield\\SFSE\\Crashlogs，开启 Detailed Crash Logger 的 Starfield Engine Fixes 也会写入。安装其一，让游戏崩溃一次后再查看，或用“打开其他日志……”选择日志。"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "Show in the save"
+tr "在存档中显示"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "The save open has a change form for it: everything the game saved about this object."
+tr "打开的存档中有它的 change form：游戏保存的有关此对象的一切。"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "This log names objects with their form IDs. Those in the registers are what the game had in hand at the crash."
+tr "此日志会列出对象的表单 ID。寄存器中的对象是崩溃时游戏正在处理的。"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "frame %zu  %s + 0x%s:  %s"
+tr "帧 %zu  %s + 0x%s:  %s"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "no name: "
+tr "无名称："
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "not changed"
+tr "未更改"
+
+# AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
+en "%s was not found in Data\\SFSE\\Plugins or your mods"
+tr "在 Data\\SFSE\\Plugins 或你的模组中未找到 %s"
