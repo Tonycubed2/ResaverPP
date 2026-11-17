@@ -3,7 +3,7 @@
 ReSaver Plus can show its whole interface in another language: Options > Language (or the Language box at the top of
 Options > Settings). The choice is saved as `language=` in `resaverpp.ini` and applies at once, no restart.
 
-Built in: English and Russian (Русский). Corrections and new languages are welcome.
+Built in: English, Russian (Русский) and Caribbean Spanish (Español (Caribe): Puerto Rico / Cuba style, tú, no vosotros). Corrections and new languages are welcome.
 
 ## The file
 
