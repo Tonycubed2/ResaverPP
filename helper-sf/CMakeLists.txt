@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 # ReSaverHelper.dll for Starfield: one 64-bit SFSE plugin. It needs no SFSE sources, CommonLib or vcpkg packages:
 # build with Visual Studio 2022 (x64). It reads its addresses from the Address Library for SFSE Plugins at run time.
-project(ReSaverHelperSF VERSION 2.0.0 LANGUAGES CXX)
+project(ReSaverHelperSF VERSION 3.0.0 LANGUAGES CXX)
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
 	message(FATAL_ERROR "The Starfield helper is 64-bit: configure with -A x64 (cmake --preset vs2022-x64)")

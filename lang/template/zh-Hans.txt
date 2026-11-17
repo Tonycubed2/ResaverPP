@@ -15451,3 +15451,47 @@ tr ""
 # AppScripts.cpp  drawCompileSettings: compile key
 en "F3 also finds the next match: in the script viewer it compiles instead (Shift+F3 still finds the previous one)."
 tr ""
+
+# Starfield Find NPCs: change outfit
+en "Outfit..."
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "Change outfit"
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "Pick a new default outfit for this NPC; the running game puts it on (ReSaverHelper for Starfield 3)."
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "Pick an outfit and press the button: in the running game this NPC gets it as its default outfit and puts it on (the game's own setoutfit). It changes the NPC's base record, so every copy of the same NPC (a generic guard, say) gets it too. Save in the game to keep it."
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "Needs the plugin names: Tools > Read plugin names (the Starfield folder must be set in Options > Settings)."
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "filter (editor ID or form ID)"
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "%zu of %zu outfits"
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "Put it on in the running game"
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "%s now wears %s"
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "The game's own setoutfit on this NPC, in the running game. The save file here is not changed."
+tr ""
+
+# Starfield Find NPCs: change outfit
+en "\nOr in game: open the console, type prid followed by its form id, then setoutfit followed by the outfit's form id."
+tr ""

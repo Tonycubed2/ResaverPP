@@ -13,8 +13,11 @@ a stuck game.
   `moveto player`) and picks its AI package again (`evp`).
 - **Give in the running game (version 2, the player's inventory in ReSaver Plus):** the item you picked is given to
   your character with the game's own `player.additem`, without editing the save.
+- **Change outfit in the running game (version 3, Find NPCs in ReSaver Plus):** the game's own `setoutfit` on the
+  NPC: its default outfit becomes the one you picked and the NPC puts it on. It changes the NPC's base record, so
+  every copy of that NPC (a generic guard, say) gets it too. Save in the game to keep it.
 - **Ask the AI** can use the same commands (`APPLY` additem / removeitem / addperk / setstage / completequest /
-  objective / moveto, `MOVETO`, `GATHER`). Every form id is checked in the game first (it must exist and be the right
+  objective / moveto / setoutfit, `MOVETO`, `GATHER`). Every form id is checked in the game first (it must exist and be the right
   kind: an item, a perk, a quest, an actor or object), so nothing but these fixed commands can run.
 - **Hold Ctrl for 8 seconds in the game:** the save and the controls at once, even when ReSaver Plus is not running.
 

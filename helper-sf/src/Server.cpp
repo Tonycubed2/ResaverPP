@@ -181,6 +181,10 @@ namespace Server
 					}
 					checkIds.push_back(ParseHex(rec[1]));
 					checkKinds.push_back(rec[0]);
+					if (rec[0] == "setoutfit") {  // the outfit too
+						checkIds.push_back(ParseHex(rec[2]));
+						checkKinds.push_back("outfit");
+					}
 					commands.insert(commands.end(), one.begin(), one.end());
 				}
 				// the forms must exist in this game, and be what the record needs
@@ -210,6 +214,12 @@ namespace Server
 					}
 					if ((k == "setstage" || k == "completequest" || k == "objective") && t != Game::kFormType_QUST) {
 						return { "OK", "0", idText + " is not a quest" };
+					}
+					if (k == "setoutfit" && t != Game::kFormType_ACHR) {
+						return { "OK", "0", idText + " is not an actor" };
+					}
+					if (k == "outfit" && t != Game::kFormType_OTFT) {
+						return { "OK", "0", idText + " is not an outfit" };
 					}
 					if (k == "addperk" && t != Game::kFormType_PERK) {
 						return { "OK", "0", idText + " is not a perk" };

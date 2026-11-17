@@ -15509,3 +15509,47 @@ tr "F2 también abre la revisión de la partida: en el visor de scripts compila 
 # AppScripts.cpp  drawCompileSettings: compile key
 en "F3 also finds the next match: in the script viewer it compiles instead (Shift+F3 still finds the previous one)."
 tr "F3 también busca la coincidencia siguiente: en el visor de scripts compila en su lugar (Shift+F3 todavía busca la anterior)."
+
+# Starfield Find NPCs: change outfit
+en "Outfit..."
+tr "Ropa..."
+
+# Starfield Find NPCs: change outfit
+en "Change outfit"
+tr "Cambiar ropa"
+
+# Starfield Find NPCs: change outfit
+en "Pick a new default outfit for this NPC; the running game puts it on (ReSaverHelper for Starfield 3)."
+tr "Escoge una ropa predeterminada nueva para este NPC; el juego abierto se la pone (ReSaverHelper para Starfield 3)."
+
+# Starfield Find NPCs: change outfit
+en "Pick an outfit and press the button: in the running game this NPC gets it as its default outfit and puts it on (the game's own setoutfit). It changes the NPC's base record, so every copy of the same NPC (a generic guard, say) gets it too. Save in the game to keep it."
+tr "Escoge una ropa y pulsa el botón: en el juego abierto este NPC la recibe como su ropa predeterminada y se la pone (el propio setoutfit del juego). Cambia el registro base del NPC, así que cada copia del mismo NPC (un guardia genérico, por ejemplo) también la recibe. Guarda en el juego para conservarlo."
+
+# Starfield Find NPCs: change outfit
+en "Needs the plugin names: Tools > Read plugin names (the Starfield folder must be set in Options > Settings)."
+tr "Necesita los nombres de plugins: Herramientas > Leer nombres de plugins (la carpeta de Starfield tiene que estar puesta en Opciones > Ajustes)."
+
+# Starfield Find NPCs: change outfit
+en "filter (editor ID or form ID)"
+tr "filtro (editor ID o form ID)"
+
+# Starfield Find NPCs: change outfit
+en "%zu of %zu outfits"
+tr "%zu de %zu ropas"
+
+# Starfield Find NPCs: change outfit
+en "Put it on in the running game"
+tr "Ponérsela en el juego abierto"
+
+# Starfield Find NPCs: change outfit
+en "%s now wears %s"
+tr "%s ahora lleva %s"
+
+# Starfield Find NPCs: change outfit
+en "The game's own setoutfit on this NPC, in the running game. The save file here is not changed."
+tr "El propio setoutfit del juego en este NPC, en el juego abierto. El archivo de partida aquí no cambia."
+
+# Starfield Find NPCs: change outfit
+en "\nOr in game: open the console, type prid followed by its form id, then setoutfit followed by the outfit's form id."
+tr "\nO en el juego: abre la consola, escribe prid seguido de su form id, luego setoutfit seguido del form id de la ropa."

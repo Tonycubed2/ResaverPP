@@ -693,6 +693,11 @@ private:
 	int                                   sfMagicKind(std::uint32_t a_formID) const;  // 1 magic item, 0 not, -1 not known
 	bool                                  sfHelperReady(int a_version, std::string& a_why) const;  // Starfield helper a_version+, in game
 	void                                  liveMoveToSF(std::uint32_t a_formID, const std::string& a_name);  // helper 2 MOVETO
+	void                                  drawOutfitSF();  // Find NPCs > Outfit...: the game's setoutfit (helper 3)
+	bool                                  _showOutfitSF = false;
+	std::uint32_t                         _outfitActor = 0, _outfitPick = 0;
+	std::string                           _outfitName, _outfitResult;
+	char                                  _outfitFind[128] = "";
 	std::string                           _liveQuestSFResult;
 	int                                   _liveQuestSFStage = 0;  // the running game is Fallout 4 (its helper: the rescue set only)
 	std::vector<ChainItem>                _chainRun;

@@ -984,6 +984,10 @@ void App::draw()
 		watchdog::Section("drawActors");
 		drawActors();
 	}
+	if (_showOutfitSF && _save && _save->isSF()) {
+		watchdog::Section("drawOutfitSF");
+		drawOutfitSF();
+	}
 	if (_showSkyFollowers && _save && !fo4()) {
 		watchdog::Section("drawSkyFollowers");
 		drawSkyFollowers();

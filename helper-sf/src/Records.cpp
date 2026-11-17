@@ -50,7 +50,7 @@ namespace Records
 		auto        at = [&](std::size_t i) { return i < a_record.size() ? a_record[i] : std::string(); };
 		std::string id;
 		long long   n = 0;
-		static const std::vector<std::string> kinds = { "additem", "removeitem", "addperk", "setstage", "completequest", "objective", "moveto" };
+		static const std::vector<std::string> kinds = { "additem", "removeitem", "addperk", "setstage", "completequest", "objective", "moveto", "setoutfit" };
 		if (std::find(kinds.begin(), kinds.end(), kind) == kinds.end()) {
 			a_why = "unknown record: " + kind;
 			return false;
@@ -93,6 +93,15 @@ namespace Records
 			} else if (state == 4 || state == 5) {
 				a_out.push_back(std::format("setobjectivefailed {} {} 1", id, n));
 			}
+		} else if (kind == "setoutfit") {
+			// (version 3) the game's own setoutfit on the actor: its base NPC's default outfit (TESNPC +0x398, change flag
+			// 0x1000, Starfield.exe 1.16.244 0x140c78f50), then the actor puts it on
+			std::string outfit;
+			if (!FormID(at(2), outfit)) {
+				a_why = "not an outfit form id: " + at(2);
+				return false;
+			}
+			a_out.push_back(std::format("{}.setoutfit {}", id, outfit));
 		} else if (kind == "moveto") {
 			a_out.push_back(std::format("{}.moveto player", id));
 			a_out.push_back(std::format("{}.evp", id));

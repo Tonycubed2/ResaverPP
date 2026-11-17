@@ -116,7 +116,7 @@ void App::drawActors()
 		ImGui::TableSetupColumn(tr("Actor"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
 		ImGui::TableSetupColumn(tr("Where the save has it"), ImGuiTableColumnFlags_WidthStretch, 3.0f);
 		ImGui::TableSetupColumn(tr("Distance"), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort, ImGui::GetFontSize() * 6);
-		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, ImGui::GetFontSize() * 8);
+		ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort, ImGui::GetFontSize() * (sf() ? 12 : 8));
 		ImGui::TableHeadersRow();
 		if (auto* specs = ImGui::TableGetSortSpecs(); specs && specs->SpecsCount > 0) {
 			_actorSortCol = specs->Specs[0].ColumnIndex;
@@ -188,6 +188,16 @@ void App::drawActors()
 					tips::Tip(ready ? tr("In the running game: puts this actor next to you and lets it pick its AI package again (ReSaverHelper for "
 										 "Starfield). Save in the game to keep it.")
 									: (why + tr("\nOr in game: open the console, type prid followed by its form id, then moveto player.")).c_str());
+					ImGui::SameLine();
+					if (ImGui::SmallButton(tr("Outfit..."))) {
+						_outfitActor = r.place.formID;
+						_outfitName = r.name;
+						_outfitPick = 0;
+						_outfitResult.clear();
+						_showOutfitSF = true;
+						ImGui::SetWindowFocus(trId("Change outfit"));
+					}
+					tips::Tip(tr("Pick a new default outfit for this NPC; the running game puts it on (ReSaverHelper for Starfield 3)."));
 				} else if (!r.place.isPlayer) {
 					ImGui::SameLine();
 					ImGui::BeginDisabled(!r.place.hasPosition);

@@ -1685,6 +1685,98 @@ std::string App::followersSF(std::vector<LiveFollower>& a_out) const
 	return {};
 }
 
+// Find NPCs > Outfit... on Starfield: the game's own setoutfit on the actor, through ReSaverHelper for Starfield 3
+// (APPLY setoutfit <actor> <outfit>). Starfield.exe 1.16.244 0x140c78f50: the actor's base NPC gets the outfit as its default
+// outfit (TESNPC +0x398, change flag 0x1000, written by TESNPC::SaveGame 0x140cdf140 and read back by 0x140cdfde0) and the
+// actor puts it on. The save file itself is not edited: an actor keeps the clothes in its own saved inventory, so only the
+// game switching them is a real outfit change.
+void App::drawOutfitSF()
+{
+	ImGui::SetNextWindowSize(ImVec2(620, 520), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin(trId("Change outfit"), &_showOutfitSF)) {
+		ImGui::End();
+		return;
+	}
+	ImGui::Text("%s  (%08X)", _outfitName.c_str(), _outfitActor);
+	ImGui::PushTextWrapPos(0);
+	ImGui::TextDisabled("%s", tr("Pick an outfit and press the button: in the running game this NPC gets it as its default outfit and puts "
+								 "it on (the game's own setoutfit). It changes the NPC's base record, so every copy of the same NPC "
+								 "(a generic guard, say) gets it too. Save in the game to keep it."));
+	ImGui::PopTextWrapPos();
+	if (!_db || !_dbDone) {
+		ImGui::PushStyleColor(ImGuiCol_Text, theme::Warn());
+		ImGui::TextWrapped("%s", tr("Needs the plugin names: Tools > Read plugin names (the Starfield folder must be set in Options > Settings)."));
+		ImGui::PopStyleColor();
+		ImGui::End();
+		return;
+	}
+	static std::vector<std::uint32_t> all;
+	static const void*                allFor = nullptr;
+	if (allFor != _db.get()) {
+		allFor = _db.get();
+		all = _db->ofType("OTFT");
+		std::sort(all.begin(), all.end(), [&](std::uint32_t a, std::uint32_t b) { return _db->describe(a) < _db->describe(b); });
+	}
+	ImGui::SetNextItemWidth(320);
+	ImGui::InputTextWithHint("##outfitfind", tr("filter (editor ID or form ID)"), _outfitFind, sizeof(_outfitFind));
+	ImGui::SameLine();
+	auto lower = [](std::string a_s) {
+		std::transform(a_s.begin(), a_s.end(), a_s.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+		return a_s;
+	};
+	const std::string needle = lower(_outfitFind);
+	std::vector<std::uint32_t> shown;
+	for (const auto id : all) {
+		if (needle.empty() || lower(Fmt("%08X ", id) + _db->describe(id)).find(needle) != std::string::npos) {
+			shown.push_back(id);
+		}
+	}
+	ImGui::TextDisabled(tr("%zu of %zu outfits"), shown.size(), all.size());
+	if (ImGui::BeginListBox("##outfits", ImVec2(-1, -ImGui::GetFrameHeightWithSpacing() * 3))) {
+		ImGuiListClipper clip;
+		clip.Begin(static_cast<int>(shown.size()));
+		while (clip.Step()) {
+			for (int i = clip.DisplayStart; i < clip.DisplayEnd; ++i) {
+				const auto id = shown[static_cast<std::size_t>(i)];
+				std::string from;
+				if (const auto* f = _db->find(id)) {
+					from = "  (" + _db->pluginName(*f) + ")";
+				}
+				if (ImGui::Selectable(Fmt("%08X  %s%s", id, _db->describe(id).c_str(), from.c_str()).c_str(), _outfitPick == id)) {
+					_outfitPick = id;
+				}
+			}
+		}
+		ImGui::EndListBox();
+	}
+	std::string why;
+	const bool  ready = sfHelperReady(3, why);
+	ImGui::BeginDisabled(!ready || !_outfitPick || !_outfitActor);
+	if (ImGui::Button(tr("Put it on in the running game"))) {
+		const std::string what = Fmt(tr("%s now wears %s"), _outfitName.c_str(), _db->describe(_outfitPick).c_str());
+		_outfitResult = tr("Asking the game...");
+		_live.request({ "APPLY", "setoutfit", Fmt("%08X", _outfitActor), Fmt("%08X", _outfitPick) }, [this, what](const LiveLink::Reply& r) {
+			if (!LiveLink::Ok(r)) {
+				_outfitResult = tr("The game could not do it: ") + LiveLink::Error(r);
+			} else if (LiveLink::Field(r, 0) == "0") {
+				_outfitResult = tr("The game refused: ") + LiveLink::Field(r, 1);
+			} else if (LiveLink::Field(r, 0) == "?") {
+				_outfitResult = tr("The game is busy; it does it as soon as it can: ") + what + ".";
+			} else {
+				_outfitResult = tr("Done in game: ") + what + tr(". Save in the game to keep it.");
+			}
+			_status = _outfitResult;
+		});
+	}
+	ImGui::EndDisabled();
+	tips::Tip(ready ? tr("The game's own setoutfit on this NPC, in the running game. The save file here is not changed.")
+					: (why + tr("\nOr in game: open the console, type prid followed by its form id, then setoutfit followed by the outfit's form id.")).c_str());
+	if (!_outfitResult.empty()) {
+		ImGui::TextWrapped("%s", _outfitResult.c_str());
+	}
+	ImGui::End();
+}
+
 // Find NPCs > Move to me on Starfield: the actor put next to the player in the running game (helper 2 MOVETO)
 void App::liveMoveToSF(std::uint32_t a_formID, const std::string& a_name)
 {

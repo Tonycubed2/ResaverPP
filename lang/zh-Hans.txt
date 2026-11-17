@@ -15451,3 +15451,47 @@ tr "F2 也会打开存档检查：在脚本查看器中它改为编译。"
 # AppScripts.cpp  drawCompileSettings: compile key
 en "F3 also finds the next match: in the script viewer it compiles instead (Shift+F3 still finds the previous one)."
 tr "F3 也会查找下一个匹配：在脚本查看器中它改为编译（Shift+F3 仍查找上一个）。"
+
+# Starfield Find NPCs: change outfit
+en "Outfit..."
+tr "服装……"
+
+# Starfield Find NPCs: change outfit
+en "Change outfit"
+tr "更换服装"
+
+# Starfield Find NPCs: change outfit
+en "Pick a new default outfit for this NPC; the running game puts it on (ReSaverHelper for Starfield 3)."
+tr "为此 NPC 选择新的默认服装；运行中的游戏会让其穿上（Starfield 的 ReSaverHelper 3）。"
+
+# Starfield Find NPCs: change outfit
+en "Pick an outfit and press the button: in the running game this NPC gets it as its default outfit and puts it on (the game's own setoutfit). It changes the NPC's base record, so every copy of the same NPC (a generic guard, say) gets it too. Save in the game to keep it."
+tr "选择一套服装并按下按钮：在运行中的游戏里，此 NPC 会将其作为默认服装并穿上（游戏自带的 setoutfit）。这会修改 NPC 的基础记录，因此同一 NPC 的每个副本（例如普通守卫）也会得到它。在游戏中存档以保留。"
+
+# Starfield Find NPCs: change outfit
+en "Needs the plugin names: Tools > Read plugin names (the Starfield folder must be set in Options > Settings)."
+tr "需要插件名称：工具 > 读取插件名称（必须在 选项 > 设置 中设置 Starfield 文件夹）。"
+
+# Starfield Find NPCs: change outfit
+en "filter (editor ID or form ID)"
+tr "筛选（编辑器 ID 或表单 ID）"
+
+# Starfield Find NPCs: change outfit
+en "%zu of %zu outfits"
+tr "%zu / %zu 套服装"
+
+# Starfield Find NPCs: change outfit
+en "Put it on in the running game"
+tr "在运行中的游戏里穿上"
+
+# Starfield Find NPCs: change outfit
+en "%s now wears %s"
+tr "%s 现在穿着 %s"
+
+# Starfield Find NPCs: change outfit
+en "The game's own setoutfit on this NPC, in the running game. The save file here is not changed."
+tr "在运行中的游戏里对此 NPC 使用游戏自带的 setoutfit。这里的存档文件不会改变。"
+
+# Starfield Find NPCs: change outfit
+en "\nOr in game: open the console, type prid followed by its form id, then setoutfit followed by the outfit's form id."
+tr "\n或在游戏中：打开控制台，输入 prid 加其表单 ID，然后输入 setoutfit 加服装的表单 ID。"

@@ -48,5 +48,5 @@ namespace Game
 	// the form's type (TESForm +0x2E, the game's form type numbers: REFR 0x4A, ACHR 0x4B, QUST 0x5B, PERK 0x6A), or -1 when
 	// the game has no form with that id. Main thread.
 	int FormType(std::uint32_t a_formID);
-	inline constexpr int kFormType_REFR = 0x4A, kFormType_ACHR = 0x4B, kFormType_QUST = 0x5B, kFormType_PERK = 0x6A;
+	inline constexpr int kFormType_REFR = 0x4A, kFormType_ACHR = 0x4B, kFormType_QUST = 0x5B, kFormType_PERK = 0x6A, kFormType_OTFT = 0x8A;
 }
