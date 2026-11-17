@@ -10853,7 +10853,7 @@ en "Compiling..."
 tr ""
 
 # AppScripts.cpp:737  if (ImGui::Button(busy ? tr("Compiling...") : tr("Compile (F7)")) || (!busy && keys && ImGui::IsKeyPressed(ImGuiKey_F7, false))) {
-en "Compile (F7)"
+en "Compile (%s)"
 tr ""
 
 # AppScripts.cpp:741  tips::Tipf(tr("Compile with the game's Papyrus compiler.\nOutput: %s"), platform::ToUtf8(compileOutputFolder(d)).c_str());
@@ -15426,4 +15426,28 @@ en "Not for Starfield yet: it reads Skyrim's and Fallout 4's plugins and archive
 tr ""
 
 en "Not for Starfield saves yet: moving an actor also needs its saved AI reset, and Starfield's AI data is not decoded yet. In game: open the console, type prid followed by its form id, then moveto player."
+tr ""
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "Compile key"
+tr ""
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "The key that compiles the script open in the script viewer (F7 unless you change it)."
+tr ""
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "with Ctrl"
+tr ""
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "Compile only when Ctrl is held with the key, e.g. Ctrl+F7."
+tr ""
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "F2 also opens the Save check: in the script viewer it compiles instead."
+tr ""
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "F3 also finds the next match: in the script viewer it compiles instead (Shift+F3 still finds the previous one)."
 tr ""

@@ -1402,6 +1402,12 @@ private:
 	std::string _compilerSetting, _compileOutDir, _compileFlags = "TESV_Papyrus_Flags.flg", _compileImports;
 	int         _compileOutMode = 0;  // 0 the script's mod, 1 MO2 overwrite, 2 custom folder
 	bool        _compileOptimize = false, _compileAnonymize = false, _compileBackup = true;
+	// the script viewer's compile key: F1..F12 (_compileKey), with Ctrl or not; ini compile_key=F7 / Ctrl+F7
+	int         _compileKey = 7;
+	bool        _compileKeyCtrl = false;
+	std::string compileKeyName() const { return (_compileKeyCtrl ? "Ctrl+F" : "F") + std::to_string(_compileKey); }
+	bool        compileKeyPressed() const;                                    // exactly that key, no other modifier
+	bool        compileKeyIs(int a_f) const { return !_compileKeyCtrl && _compileKey == a_f; }  // plain F<a_f>
 	char        _findBuf[256] = "";
 	bool        _findFocus = false, _gotoOpen = false, _testRowView = false, _testCompile = false;
 	int         _gotoLine = 1;

@@ -10853,8 +10853,8 @@ en "Compiling..."
 tr "正在编译……"
 
 # AppScripts.cpp:737  if (ImGui::Button(busy ? tr("Compiling...") : tr("Compile (F7)")) || (!busy && keys && ImGui::IsKeyPressed(ImGuiKey_F7, false))) {
-en "Compile (F7)"
-tr "编译（F7）"
+en "Compile (%s)"
+tr "编译（%s）"
 
 # AppScripts.cpp:741  tips::Tipf(tr("Compile with the game's Papyrus compiler.\nOutput: %s"), platform::ToUtf8(compileOutputFolder(d)).c_str());
 en "Compile with the game's Papyrus compiler.\nOutput: %s"
@@ -15427,3 +15427,27 @@ tr "暂不适用于 Starfield：它读取的是 Skyrim 和 Fallout 4 的插件�
 
 en "Not for Starfield saves yet: moving an actor also needs its saved AI reset, and Starfield's AI data is not decoded yet. In game: open the console, type prid followed by its form id, then moveto player."
 tr "暂不适用于 Starfield 存档：移动角色还需要重置其保存的 AI，而 Starfield 的 AI 数据尚未解码。在游戏中：打开控制台，输入 prid 加表单 ID，然后输入 moveto player。"
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "Compile key"
+tr "编译快捷键"
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "The key that compiles the script open in the script viewer (F7 unless you change it)."
+tr "编译脚本查看器中打开的脚本的按键（默认 F7）。"
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "with Ctrl"
+tr "加 Ctrl"
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "Compile only when Ctrl is held with the key, e.g. Ctrl+F7."
+tr "仅在按住 Ctrl 时编译，例如 Ctrl+F7。"
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "F2 also opens the Save check: in the script viewer it compiles instead."
+tr "F2 也会打开存档检查：在脚本查看器中它改为编译。"
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "F3 also finds the next match: in the script viewer it compiles instead (Shift+F3 still finds the previous one)."
+tr "F3 也会查找下一个匹配：在脚本查看器中它改为编译（Shift+F3 仍查找上一个）。"

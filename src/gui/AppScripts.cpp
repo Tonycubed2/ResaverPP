@@ -734,7 +734,8 @@ void App::drawDoc(ScriptDoc& d)
 	ImGui::SameLine();
 	const bool busy = _compileJob != nullptr;
 	ImGui::BeginDisabled(busy);
-	if (ImGui::Button(busy ? tr("Compiling...") : tr("Compile (F7)")) || (!busy && keys && ImGui::IsKeyPressed(ImGuiKey_F7, false))) {
+	const std::string compileLabel = busy ? std::string(tr("Compiling...")) : Fmt(tr("Compile (%s)"), compileKeyName().c_str()) + "###compile";
+	if (ImGui::Button(compileLabel.c_str()) || (!busy && keys && compileKeyPressed())) {
 		startCompile(d);
 	}
 	ImGui::EndDisabled();
@@ -763,7 +764,7 @@ void App::drawDoc(ScriptDoc& d)
 	}
 	tips::Tip(tr("Previous match (Shift+F3)."));
 	ImGui::SameLine();
-	if (ImGui::ArrowButton("##next", ImGuiDir_Down) || (keys && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_F3, false))) {
+	if (ImGui::ArrowButton("##next", ImGuiDir_Down) || (keys && !io.KeyShift && !(compileKeyIs(3) && !io.KeyCtrl) && ImGui::IsKeyPressed(ImGuiKey_F3, false))) {
 		findNext(false);
 	}
 	tips::Tip(tr("Next match (F3)."));
@@ -1515,6 +1516,15 @@ void App::stopScriptJobs()
 	_compileJob.reset();
 }
 
+bool App::compileKeyPressed() const
+{
+	const auto& io = ImGui::GetIO();
+	if (io.KeyCtrl != _compileKeyCtrl || io.KeyShift || io.KeyAlt || _compileKey < 1 || _compileKey > 12) {
+		return false;
+	}
+	return ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_F1 + (_compileKey - 1)), false);
+}
+
 void App::drawCompileSettings()
 {
 	ImGui::SetNextWindowSize(ImVec2(760, 0), ImGuiCond_FirstUseEver);
@@ -1564,6 +1574,24 @@ void App::drawCompileSettings()
 	ImGui::SameLine();
 	changed |= ImGui::Checkbox(tr("Anonymize the .pex (blank the source path, user and machine names it stores)"), &_compileAnonymize);
 	tips::Tip(tr("Blank the source path, user name and machine name the compiler writes into the .pex, so they are not shared when you publish it."));
+	{
+		static const char* kKeys[] = { "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12" };
+		int                k = _compileKey - 1;
+		ImGui::SetNextItemWidth(90);
+		if (ImGui::Combo(tr("Compile key"), &k, kKeys, IM_ARRAYSIZE(kKeys))) {
+			_compileKey = k + 1;
+			changed = true;
+		}
+		tips::Tip(tr("The key that compiles the script open in the script viewer (F7 unless you change it)."));
+		ImGui::SameLine();
+		changed |= ImGui::Checkbox(tr("with Ctrl"), &_compileKeyCtrl);
+		tips::Tip(tr("Compile only when Ctrl is held with the key, e.g. Ctrl+F7."));
+		if (compileKeyIs(2) || compileKeyIs(3)) {
+			ImGui::SameLine();
+			TextColored(theme::Warn(), _compileKey == 2 ? tr("F2 also opens the Save check: in the script viewer it compiles instead.")
+														 : tr("F3 also finds the next match: in the script viewer it compiles instead (Shift+F3 still finds the previous one)."));
+		}
+	}
 
 	ImGui::SeparatorText(tr("Where the compiled .pex goes"));
 	changed |= ImGui::RadioButton(tr("The script's own mod (<mod>\\Scripts)"), &_compileOutMode, 0);

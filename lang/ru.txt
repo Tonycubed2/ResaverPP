@@ -10848,8 +10848,8 @@ en "Compiling..."
 tr "Компиляция..."
 
 # AppScripts.cpp:737  if (ImGui::Button(busy ? tr("Compiling...") : tr("Compile (F7)")) || (!busy && keys && ImGui::IsKeyPressed(ImGuiKey_F7, false))) {
-en "Compile (F7)"
-tr "Компилировать (F7)"
+en "Compile (%s)"
+tr "Компилировать (%s)"
 
 # AppScripts.cpp:741  tips::Tipf(tr("Compile with the game's Papyrus compiler.\nOutput: %s"), platform::ToUtf8(compileOutputFolder(d)).c_str());
 en "Compile with the game's Papyrus compiler.\nOutput: %s"
@@ -15485,3 +15485,27 @@ tr "Пока не для Starfield: инструмент читает плаги
 
 en "Not for Starfield saves yet: moving an actor also needs its saved AI reset, and Starfield's AI data is not decoded yet. In game: open the console, type prid followed by its form id, then moveto player."
 tr "Пока не для сохранений Starfield: при перемещении персонажа нужно также сбросить его сохранённый ИИ, а данные ИИ Starfield ещё не расшифрованы. В игре: откройте консоль, введите prid и ID формы, затем moveto player."
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "Compile key"
+tr "Клавиша компиляции"
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "The key that compiles the script open in the script viewer (F7 unless you change it)."
+tr "Клавиша, которая компилирует скрипт, открытый в просмотрщике скриптов (F7, если не изменить)."
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "with Ctrl"
+tr "с Ctrl"
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "Compile only when Ctrl is held with the key, e.g. Ctrl+F7."
+tr "Компилировать, только если вместе с клавишей зажат Ctrl, например Ctrl+F7."
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "F2 also opens the Save check: in the script viewer it compiles instead."
+tr "F2 также открывает проверку сохранения: в просмотрщике скриптов она вместо этого компилирует."
+
+# AppScripts.cpp  drawCompileSettings: compile key
+en "F3 also finds the next match: in the script viewer it compiles instead (Shift+F3 still finds the previous one)."
+tr "F3 также ищет следующее совпадение: в просмотрщике скриптов она вместо этого компилирует (Shift+F3 по-прежнему ищет предыдущее)."

@@ -1495,7 +1495,7 @@ void App::drawMenu()
 		}
 	}
 	auto& io = ImGui::GetIO();
-	if (_save && ImGui::IsKeyPressed(ImGuiKey_F2, false)) {
+	if (_save && ImGui::IsKeyPressed(ImGuiKey_F2, false) && !(_viewerFocused && compileKeyIs(2) && !io.KeyCtrl)) {  // F2 as the compile key: the script viewer's
 		_showCheck = true;
 	}
 	if (!_viewerFocused && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
@@ -3115,6 +3115,19 @@ void App::loadSettings()
 			_compileAnonymize = line.substr(18) == "1";
 		} else if (line.rfind("compile_backup=", 0) == 0) {
 			_compileBackup = line.substr(15) == "1";
+		} else if (line.rfind("compile_key=", 0) == 0) {
+			std::string k = line.substr(12);
+			const bool  ctrl = k.rfind("Ctrl+", 0) == 0;
+			if (ctrl) {
+				k = k.substr(5);
+			}
+			if (k.size() >= 2 && (k[0] == 'F' || k[0] == 'f')) {
+				const int n = std::atoi(k.c_str() + 1);
+				if (n >= 1 && n <= 12) {
+					_compileKey = n;
+					_compileKeyCtrl = ctrl;
+				}
+			}
 		}
 	}
 	// the active game's setup, the others kept aside
@@ -3211,6 +3224,7 @@ void App::saveSettings()
 	f << "compile_optimize=" << (_compileOptimize ? 1 : 0) << "\n";
 	f << "compile_anonymize=" << (_compileAnonymize ? 1 : 0) << "\n";
 	f << "compile_backup=" << (_compileBackup ? 1 : 0) << "\n";
+	f << "compile_key=" << compileKeyName() << "\n";
 }
 
 std::vector<std::filesystem::path> App::mo2Inis() const
