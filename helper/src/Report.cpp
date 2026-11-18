@@ -385,14 +385,19 @@ namespace Report
 
 		// ---- load order and SKSE plugins
 		o.H("LOAD ORDER");
-		for (auto f : dh->compiledFileCollection.files) {
-			if (f) {
-				o.L(std::format("  {:02X}     {}", f->GetCompileIndex(), f->GetFilename()));
+		// (GetLoadedMods / GetLoadedLightMods: the multi-runtime CommonLib's way to the compiled file lists, SE / AE / VR)
+		if (const auto* mods = dh->GetLoadedMods()) {
+			for (std::uint32_t i = 0; i < dh->GetLoadedModCount(); ++i) {
+				if (const auto* f = mods[i]) {
+					o.L(std::format("  {:02X}     {}", f->GetCompileIndex(), f->GetFilename()));
+				}
 			}
 		}
-		for (auto f : dh->compiledFileCollection.smallFiles) {
-			if (f) {
-				o.L(std::format("  FE {:03X} {}", f->GetSmallFileCompileIndex(), f->GetFilename()));
+		if (const auto* small = dh->GetLoadedLightMods()) {
+			for (std::uint32_t i = 0; i < dh->GetLoadedLightModCount(); ++i) {
+				if (const auto* f = small[i]) {
+					o.L(std::format("  FE {:03X} {}", f->GetSmallFileCompileIndex(), f->GetFilename()));
+				}
 			}
 		}
 		o.H("SKSE PLUGINS (Data\\SKSE\\Plugins\\*.dll)");
