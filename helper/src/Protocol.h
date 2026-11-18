@@ -22,6 +22,8 @@
 //   SETOPTION <name> <value>              -> OK                                 (saved to ReSaverHelper.ini)
 //   NOTIFY <notify> <message>             -> OK
 //   SNAPSHOT                              -> OK  <file written>  <records>      (version 5: see Transplant.h)
+//   REPORT                                -> OK  <file written>  <lines>        (version 19: the Snapshot mod's game-state
+//                                         troubleshooting report, see Report.h; for Collect all logs)
 //   APPLY <record fields...>              -> OK  1 | OK 0 <why not> | OK ?     (one snapshot record, applied to the loaded game)
 //   RESOLVE <plugin> <local id hex>       -> OK  <runtime form id hex>
 //   FOLLOWERS                             -> OK  <count>  <one field per follower: runtime id*Plugin.esp:localid*name*why*where*skip 0|1>
@@ -52,7 +54,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 18;
+	inline constexpr int            kHelperVersion = 19;
 
 	inline std::string Escape(const std::string& a_in)
 	{

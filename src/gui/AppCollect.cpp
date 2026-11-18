@@ -9,6 +9,10 @@
 //   - Mod Organizer: its own logs and the profile's mod list, plugins and load order
 //   - ReSaver Plus's own logs (not resaverpp.ini: it holds the AI key)
 //   - system-info.txt: computer, Windows / Wine, processor, memory, video cards, screen, game version
+//   - the last 3 saves with their co-saves (.skse / .f4se)
+//   - Skyrim SE / AE / VR with ReSaverHelper 19+ and a save loaded: "Game state report.txt", the Snapshot mod's report
+//     (REPORT, helper Report.cpp): the player, followers, nearby NPCs with their AI packages, running quests, every NPC's
+//     factions, load order and SKSE plugins, read from the running game
 // A file over 200 MB is left out (and listed as left out); the zip is written by a background thread.
 #include "App.h"
 
@@ -20,12 +24,20 @@
 #include "imgui.h"
 
 #include <atomic>
+#include <cstdio>
 #include <cctype>
 #include <ctime>
 #include <thread>
 
 namespace
 {
+	std::string Fmt(const char* f, auto... args)
+	{
+		char buf[1024];
+		std::snprintf(buf, sizeof(buf), f, args...);
+		return buf;
+	}
+
 	std::string LowerC(std::string s)
 	{
 		for (auto& c : s) {
@@ -63,10 +75,43 @@ struct App::CollectJob
 void App::startCollectLogs()
 {
 	_showCollect = true;
-	if (_collectJob && !_collectJob->finished) {
+	if (_collectAsking || (_collectJob && !_collectJob->finished)) {
 		return;
 	}
+	// the game-state report, from the running game (Skyrim SE / AE / VR helper 19+, a save loaded)
+	const auto info = _live.info();
+	std::string why;
+	if (!info.connected) {
+		why = tr("Game state report: not included (the game was not running with ReSaverHelper and \"Connect to the running game\" on).");
+	} else if (info.runtime == "LE" || info.runtime == "SF" || info.runtime.rfind("F4", 0) == 0) {
+		why = tr("Game state report: not included (only the Skyrim SE / AE / VR helper writes it).");
+	} else if (!helperAtLeast(19)) {
+		why = Fmt(tr("Game state report: not included (it needs ReSaverHelper 19 or later; the game has version %s)."), info.helperVersion.c_str());
+	} else if (!info.inGame) {
+		why = tr("Game state report: not included (no save was loaded in the game).");
+	}
+	if (!why.empty()) {
+		collectZip({}, why);
+		return;
+	}
+	_collectAsking = true;
+	_collectAskStart = ImGui::GetTime();
+	_live.request({ "REPORT" }, [this](const LiveLink::Reply& r) {
+		_collectAsking = false;
+		if (!LiveLink::Ok(r)) {
+			collectZip({}, tr("Game state report: the game could not write it: ") + LiveLink::Error(r));
+			return;
+		}
+		collectZip(platform::FromUtf8(LiveLink::Field(r, 0)), {});
+	});
+}
+
+void App::collectZip(const std::filesystem::path& a_report, const std::string& a_reportNote)
+{
 	auto job = std::make_shared<CollectJob>();
+	if (!a_reportNote.empty()) {
+		job->notes.push_back(a_reportNote);
+	}
 	std::error_code ec;
 	auto            add = [&](const std::filesystem::path& a_file, const std::string& a_name) {
         const auto size = std::filesystem::file_size(a_file, ec);
@@ -140,6 +185,37 @@ void App::startCollectLogs()
 			for (const char* f : { "modlist.txt", "plugins.txt", "loadorder.txt", "settings.ini" }) {
 				if (std::filesystem::is_regular_file(prof / f, ec)) {
 					add(prof / f, "Mod Organizer/profile " + _profile + "/" + f);
+				}
+			}
+		}
+	}
+	// the game-state report first, at the top of the zip
+	if (!a_report.empty() && std::filesystem::is_regular_file(a_report, ec)) {
+		std::erase_if(job->items, [&](const CollectJob::Item& it) { return it.file == a_report; });  // (also in the SKSE folder)
+		job->items.insert(job->items.begin(), { a_report, "Game state report.txt" });
+	}
+	// the last 3 saves, each with its co-save
+	{
+		std::vector<std::pair<std::filesystem::file_time_type, std::filesystem::path>> saves;
+		std::set<std::filesystem::path>                                               seen;
+		for (const auto& dir : watchFolders()) {
+			for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+				const auto ext = LowerC(platform::ToUtf8(it->path().extension()));
+				if (it->is_regular_file(ec) && (ext == ".ess" || ext == ".fos") && seen.insert(it->path()).second) {
+					saves.emplace_back(it->last_write_time(ec), it->path());
+				}
+			}
+			ec.clear();
+		}
+		std::sort(saves.begin(), saves.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+		for (std::size_t i = 0; i < saves.size() && i < 3; ++i) {
+			const auto& s = saves[i].second;
+			add(s, "Saves/" + platform::ToUtf8(s.filename()));
+			for (const char* co : { ".skse", ".f4se" }) {
+				auto c = s;
+				c.replace_extension(co);
+				if (std::filesystem::is_regular_file(c, ec)) {
+					add(c, "Saves/" + platform::ToUtf8(c.filename()));
 				}
 			}
 		}
@@ -232,6 +308,19 @@ void App::appendCollectJob(std::vector<JobRow>& a_jobs)
 
 void App::drawCollectLogs()
 {
+	if (_collectAsking) {
+		ImGui::SetNextWindowSize(ImVec2(620, 0), ImGuiCond_Appearing);
+		if (ImGui::Begin(trId("Collect all logs"), &_showCollect, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize)) {
+			ImGui::PushTextWrapPos(580);
+			ImGui::TextUnformatted(Fmt(tr("Asking the game for its game state report (%.0f s): switch to Skyrim for a moment (it pauses when it is not "
+										  "the active window), then come back."),
+				ImGui::GetTime() - _collectAskStart)
+									   .c_str());
+			ImGui::PopTextWrapPos();
+		}
+		ImGui::End();
+		return;
+	}
 	if (!_collectJob) {
 		_showCollect = false;
 		return;
@@ -263,9 +352,10 @@ void App::drawCollectLogs()
 		std::snprintf(b, sizeof(b), tr("%zu files, %.1f MB"), j.files, j.bytes / 1048576.0);
 		ImGui::TextDisabled("%s", b);
 		ImGui::PushTextWrapPos(580);
-		ImGui::TextDisabled("%s", tr("Inside: the SKSE / F4SE folder with all its logs and crash logs, the Papyrus logs, your INI files and load order, "
-		                    "Mod Organizer's logs and profile lists, ReSaver Plus's logs, and system-info.txt (Windows, memory, "
-		                    "processor, video card). No saves, and not your AI key."));
+		ImGui::TextDisabled("%s", tr("Inside: the game state report (when the game was running with the helper: player, followers, nearby NPCs "
+		                    "and their AI packages, running quests, every NPC's factions), the last 3 saves, the SKSE / F4SE folder with all "
+		                    "its logs and crash logs, the Papyrus logs, your INI files and load order, Mod Organizer's logs and profile lists, "
+		                    "ReSaver Plus's logs, and system-info.txt (Windows, memory, processor, video card). Not your AI key."));
 		ImGui::PopTextWrapPos();
 		if (!j.notes.empty()) {
 			for (const auto& n : j.notes) {

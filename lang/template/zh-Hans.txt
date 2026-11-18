@@ -15551,3 +15551,31 @@ tr ""
 # AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
 en "%s was not found in Data\\SFSE\\Plugins or your mods"
 tr ""
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (the game was not running with ReSaverHelper and \"Connect to the running game\" on)."
+tr ""
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (only the Skyrim SE / AE / VR helper writes it)."
+tr ""
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (it needs ReSaverHelper 19 or later; the game has version %s)."
+tr ""
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (no save was loaded in the game)."
+tr ""
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: the game could not write it: "
+tr ""
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Asking the game for its game state report (%.0f s): switch to Skyrim for a moment (it pauses when it is not the active window), then come back."
+tr ""
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Inside: the game state report (when the game was running with the helper: player, followers, nearby NPCs and their AI packages, running quests, every NPC's factions), the last 3 saves, the SKSE / F4SE folder with all its logs and crash logs, the Papyrus logs, your INI files and load order, Mod Organizer's logs and profile lists, ReSaver Plus's logs, and system-info.txt (Windows, memory, processor, video card). Not your AI key."
+tr ""

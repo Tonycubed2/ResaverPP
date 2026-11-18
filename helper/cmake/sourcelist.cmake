@@ -12,4 +12,5 @@ set(sources ${sources}
     src/MenuGuard.cpp
     src/SaveDialog.cpp
     src/ProtonDrive.cpp
+    src/Report.cpp
 )

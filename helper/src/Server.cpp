@@ -3,6 +3,7 @@
 #include "Game.h"
 #include "GhostRemove.h"
 #include "Protocol.h"
+#include "Report.h"
 #include "Rescue.h"
 #include "Settings.h"
 #include "SkyFix.h"
@@ -326,6 +327,22 @@ namespace Server
 				};
 				auto st = std::make_shared<State>();
 				if (!Game::RunOnMain([st] { st->path = Transplant::Snapshot(st->error, st->lines); }, 60s)) {
+					return err("the game is busy (it did not answer within 60 seconds)");
+				}
+				if (st->path.empty()) {
+					return err(st->error);
+				}
+				return { "OK", st->path.string(), std::to_string(st->lines) };
+			}
+			if (cmd == "REPORT") {
+				struct State
+				{
+					std::filesystem::path path;
+					std::string           error;
+					std::size_t           lines = 0;
+				};
+				auto st = std::make_shared<State>();
+				if (!Game::RunOnMain([st] { st->path = Report::Write(st->error, st->lines); }, 60s)) {
 					return err("the game is busy (it did not answer within 60 seconds)");
 				}
 				if (st->path.empty()) {

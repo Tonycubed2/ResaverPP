@@ -1042,6 +1042,11 @@ private:
 	std::shared_ptr<CollectJob> _collectJob;
 	bool                        _showCollect = false;
 	void                        startCollectLogs();
+	// Collect all logs, step 1 (Skyrim SE / AE / VR with ReSaverHelper 19+ and a save loaded): the helper's REPORT, the Snapshot
+	// mod's game-state report; then collectZip() with it (or with why there is none)
+	bool                        _collectAsking = false;
+	double                      _collectAskStart = 0;
+	void                        collectZip(const std::filesystem::path& a_report, const std::string& a_reportNote);
 	void                        drawCollectLogs();
 
 	// ---- Work on the running game, no save needed (AppLiveGame.cpp) ------------------------------

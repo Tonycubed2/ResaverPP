@@ -15551,3 +15551,31 @@ tr "未更改"
 # AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
 en "%s was not found in Data\\SFSE\\Plugins or your mods"
 tr "在 Data\\SFSE\\Plugins 或你的模组中未找到 %s"
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (the game was not running with ReSaverHelper and \"Connect to the running game\" on)."
+tr "游戏状态报告：未包含（游戏未在开启“连接到运行中的游戏”的情况下与 ReSaverHelper 一起运行）。"
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (only the Skyrim SE / AE / VR helper writes it)."
+tr "游戏状态报告：未包含（只有 Skyrim SE / AE / VR 的助手会写入它）。"
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (it needs ReSaverHelper 19 or later; the game has version %s)."
+tr "游戏状态报告：未包含（需要 ReSaverHelper 19 或更高版本；游戏中为 %s 版本）。"
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (no save was loaded in the game)."
+tr "游戏状态报告：未包含（游戏中未加载存档）。"
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: the game could not write it: "
+tr "游戏状态报告：游戏无法写入它："
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Asking the game for its game state report (%.0f s): switch to Skyrim for a moment (it pauses when it is not the active window), then come back."
+tr "正在向游戏请求其状态报告（%.0f 秒）：请切换到 Skyrim 片刻（它不是活动窗口时会暂停），然后再回来。"
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Inside: the game state report (when the game was running with the helper: player, followers, nearby NPCs and their AI packages, running quests, every NPC's factions), the last 3 saves, the SKSE / F4SE folder with all its logs and crash logs, the Papyrus logs, your INI files and load order, Mod Organizer's logs and profile lists, ReSaver Plus's logs, and system-info.txt (Windows, memory, processor, video card). Not your AI key."
+tr "包含：游戏状态报告（当游戏与助手一起运行时：玩家、随从、附近的 NPC 及其 AI 包、正在进行的任务、每个 NPC 的派系）、最近 3 个存档、包含所有日志和崩溃日志的 SKSE / F4SE 文件夹、Papyrus 日志、你的 INI 文件和加载顺序、Mod Organizer 的日志和配置文件列表、ReSaver Plus 的日志，以及 system-info.txt（Windows、内存、处理器、显卡）。不包含你的 AI 密钥。"

@@ -15609,3 +15609,31 @@ tr "sin cambios"
 # AppExtras.cpp  Starfield crash log: Engine Fixes logs, .pdb names
 en "%s was not found in Data\\SFSE\\Plugins or your mods"
 tr "%s no se encontró en Data\\SFSE\\Plugins ni en tus mods"
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (the game was not running with ReSaverHelper and \"Connect to the running game\" on)."
+tr "Informe del estado del juego: no incluido (el juego no estaba abierto con ReSaverHelper y \"Conectar al juego abierto\" encendido)."
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (only the Skyrim SE / AE / VR helper writes it)."
+tr "Informe del estado del juego: no incluido (solo lo escribe el helper de Skyrim SE / AE / VR)."
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (it needs ReSaverHelper 19 or later; the game has version %s)."
+tr "Informe del estado del juego: no incluido (necesita ReSaverHelper 19 o más nuevo; el juego tiene la versión %s)."
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: not included (no save was loaded in the game)."
+tr "Informe del estado del juego: no incluido (no había ninguna partida cargada en el juego)."
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Game state report: the game could not write it: "
+tr "Informe del estado del juego: el juego no lo pudo escribir: "
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Asking the game for its game state report (%.0f s): switch to Skyrim for a moment (it pauses when it is not the active window), then come back."
+tr "Pidiéndole al juego su informe de estado (%.0f s): cambia a Skyrim por un momento (se pausa cuando no es la ventana activa) y luego regresa."
+
+# AppCollect.cpp  Collect all logs: game state report, saves
+en "Inside: the game state report (when the game was running with the helper: player, followers, nearby NPCs and their AI packages, running quests, every NPC's factions), the last 3 saves, the SKSE / F4SE folder with all its logs and crash logs, the Papyrus logs, your INI files and load order, Mod Organizer's logs and profile lists, ReSaver Plus's logs, and system-info.txt (Windows, memory, processor, video card). Not your AI key."
+tr "Adentro: el informe del estado del juego (cuando el juego estaba abierto con el helper: jugador, seguidores, NPCs cercanos y sus paquetes de IA, misiones corriendo, las facciones de cada NPC), las últimas 3 partidas, la carpeta SKSE / F4SE con todos sus logs y logs de crash, los logs de Papyrus, tus archivos INI y orden de carga, los logs y listas del perfil de Mod Organizer, los logs de ReSaver Plus, y system-info.txt (Windows, memoria, procesador, tarjeta de video). Sin tu clave de IA."
