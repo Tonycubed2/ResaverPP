@@ -25,6 +25,10 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   character's teammate flag, and turn you back from werewolf / Vampire Lord form with the transformation script's own ShiftBack
   (its "already busy" guards are reset first, so a revert that stopped half way runs to the end). Version 13 also sets
   PlayerFollowerCount (0BCC98) when Transplant brings a vanilla follower back; 10-12 looked up 0BCCAE, a perk, so the count stayed 0.
+- Game state report (version 19): `REPORT` writes the Snapshot mod's troubleshooting report from the running game (the
+  player, every follower, NPCs near you with their current AI package, packages, factions and stats, every running quest
+  with its stage, objectives and filled aliases, every NPC's place and factions, the load order and the SKSE plugins) to
+  `SKSE\ReSaverHelper\report_<date>.txt`. ReSaver Plus's "Collect all logs" asks for it and puts it at the top of the zip.
 - Ghost actors (version 15, SE/AE): `GHOSTREMOVE` disables and marks for delete the spawned characters ReSaver Plus's
   Save check found with a base the save does not contain, the same as the console's `prid <id>`, `disable`,
   `markfordelete` (run through the game's console route, see `src/GhostRemove.h`), and reports each one: done, not
