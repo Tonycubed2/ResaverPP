@@ -393,9 +393,9 @@ namespace Report
 				}
 			}
 		}
-		if (const auto* small = dh->GetLoadedLightMods()) {
+		if (const auto* light = dh->GetLoadedLightMods()) {
 			for (std::uint32_t i = 0; i < dh->GetLoadedLightModCount(); ++i) {
-				if (const auto* f = small[i]) {
+				if (const auto* f = light[i]) {
 					o.L(std::format("  FE {:03X} {}", f->GetSmallFileCompileIndex(), f->GetFilename()));
 				}
 			}
