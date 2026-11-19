@@ -9,7 +9,10 @@
 //   - Mod Organizer: its own logs and the profile's mod list, plugins and load order
 //   - ReSaver Plus's own logs (not resaverpp.ini: it holds the AI key)
 //   - system-info.txt: computer, Windows / Wine, processor, memory, video cards, screen, game version
-//   - the last 3 saves with their co-saves (.skse / .f4se)
+//   - the last 3 saves with their co-saves (.skse / .f4se / .sfse; Starfield .sfs too)
+//   - "Report of the save open (...).txt": Tools > Write report for the save open in ReSaver Plus (mods, scripts, what the
+//     save check found), for every game and with the game closed
+//   - the script extender plugin DLLs in the game's Data folder
 //   - Skyrim SE / AE / VR with ReSaverHelper 19+ and a save loaded: "Game state report.txt", the Snapshot mod's report
 //     (REPORT, helper Report.cpp): the player, followers, nearby NPCs with their AI packages, running quests, every NPC's
 //     factions, load order and SKSE plugins, read from the running game
@@ -19,6 +22,7 @@
 #include "Platform.h"
 #include "Theme.h"
 #include "Tips.h"
+#include "core/Report.h"
 #include "core/Zip.h"
 
 #include "imgui.h"
@@ -27,6 +31,7 @@
 #include <cstdio>
 #include <cctype>
 #include <ctime>
+#include <fstream>
 #include <thread>
 
 namespace
@@ -201,7 +206,7 @@ void App::collectZip(const std::filesystem::path& a_report, const std::string& a
 		for (const auto& dir : watchFolders()) {
 			for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
 				const auto ext = LowerC(platform::ToUtf8(it->path().extension()));
-				if (it->is_regular_file(ec) && (ext == ".ess" || ext == ".fos") && seen.insert(it->path()).second) {
+				if (it->is_regular_file(ec) && (ext == ".ess" || ext == ".fos" || ext == ".sfs") && seen.insert(it->path()).second) {
 					saves.emplace_back(it->last_write_time(ec), it->path());
 				}
 			}
@@ -211,13 +216,57 @@ void App::collectZip(const std::filesystem::path& a_report, const std::string& a
 		for (std::size_t i = 0; i < saves.size() && i < 3; ++i) {
 			const auto& s = saves[i].second;
 			add(s, "Saves/" + platform::ToUtf8(s.filename()));
-			for (const char* co : { ".skse", ".f4se" }) {
+			for (const char* co : { ".skse", ".f4se", ".sfse" }) {
 				auto c = s;
 				c.replace_extension(co);
 				if (std::filesystem::is_regular_file(c, ec)) {
 					add(c, "Saves/" + platform::ToUtf8(c.filename()));
 				}
 			}
+		}
+	}
+	// the report of the save open in ReSaver Plus (every game, also with the game closed): its mods with their scripts,
+	// and everything the save check found (the same as Tools > Write report)
+	const auto tmp = std::filesystem::temp_directory_path(ec) / "ReSaverPP collect";
+	std::filesystem::create_directories(tmp, ec);
+	if (_save) {
+		try {
+			ensureMods();
+			ess::report::Options opt;
+			opt.mods = opt.anomalies = true;
+			const auto saveName = platform::ToUtf8(_path.filename());
+			const auto lines = ess::report::Build(*_save, *_mods, _db.get(), opt, saveName);
+			const auto file = tmp / "Save report.txt";
+			ess::report::WriteText(file, lines);
+			add(file, "Report of the save open (" + saveName + ").txt");
+		} catch (const std::exception& e) {
+			job->notes.push_back(std::string("Report of the save open: could not be written: ") + e.what());
+		}
+	} else {
+		job->notes.push_back("Report of the save: not included (no save was open in ReSaver Plus).");
+	}
+	// the script extender plugins installed in the game's Data folder (Mod Organizer's are in its mod list)
+	if (const auto gf = gameFolder(); !gf.empty()) {
+		const char*                se = _game == 3 ? "SFSE" : _game == 2 ? "F4SE" : "SKSE";
+		const auto                 dir = gf / "Data" / se / "Plugins";
+		std::vector<std::string>   dlls;
+		for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+			if (it->is_regular_file(ec) && LowerC(platform::ToUtf8(it->path().extension())) == ".dll") {
+				dlls.push_back(Fmt("%-56s %12llu bytes", platform::ToUtf8(it->path().filename()).c_str(),
+					static_cast<unsigned long long>(it->file_size(ec))));
+			}
+		}
+		ec.clear();
+		if (!dlls.empty()) {
+			std::sort(dlls.begin(), dlls.end());
+			const auto file = tmp / "Script extender plugins.txt";
+			if (std::ofstream f(file, std::ios::trunc); f) {
+				f << se << " plugins in " << platform::ToUtf8(dir) << " (" << dlls.size() << "):\n";
+				for (const auto& d : dlls) {
+					f << "  " << d << "\n";
+				}
+			}
+			add(file, std::string(se) + " plugins (game Data folder).txt");
 		}
 	}
 	// ReSaver Plus's own logs (not resaverpp.ini: it holds the AI key)
