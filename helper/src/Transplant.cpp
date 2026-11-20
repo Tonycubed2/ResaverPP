@@ -403,7 +403,7 @@ namespace Transplant
 						continue;
 					}
 					auto* actor = form->As<RE::Actor>();
-					if (!actor || actor->IsDead()) {
+					if (!actor || !actor->GetActorBase() || actor->IsDead()) {  // no NPC record behind it: faction checks crash
 						continue;
 					}
 					const int rank = followerFaction ? actor->GetFactionRank(followerFaction, false) : -1;
@@ -712,6 +712,9 @@ namespace Transplant
 			auto* actor = form ? form->As<RE::Actor>() : nullptr;
 			if (!actor) {
 				return "not a character in this game";
+			}
+			if (!actor->GetActorBase()) {
+				return "this character has no NPC record in the loaded mods";
 			}
 			auto*       vm = VM::GetSingleton();
 			auto*       policy = vm ? vm->GetObjectHandlePolicy() : nullptr;

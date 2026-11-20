@@ -127,7 +127,7 @@ namespace Report
 			if (map) {
 				for (auto& [id, form] : *map) {
 					if (form && form->Is(RE::FormType::ActorCharacter) && !form->IsDeleted()) {
-						if (const auto a = form->As<RE::Actor>()) {
+						if (const auto a = form->As<RE::Actor>(); a && a->GetActorBase()) {  // no NPC record behind it: skipped
 							out.push_back(a);
 						}
 					}

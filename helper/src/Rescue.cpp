@@ -113,7 +113,16 @@ namespace Rescue
 		// why a_actor is a follower, or "" when it is not one
 		std::string FollowerReason(RE::Actor* a, RE::TESFaction* a_faction)
 		{
-			if (!a || a == RE::PlayerCharacter::GetSingleton() || a->IsDeleted() || a->IsDisabled() || a->IsDead() || a->IsCommandedActor()) {
+			if (!a || a == RE::PlayerCharacter::GetSingleton() || a->IsDeleted() || a->IsDisabled()) {
+				return {};
+			}
+			// a character with no NPC record behind it (its base form is gone, e.g. from a removed or changed mod): the
+			// game's faction and state checks read that record, and crashed on it (GetFactionRank, 1.7.104: reading
+			// null + 0x30, the NPC's actor data). Not a follower anyway.
+			if (!a->GetActorBase()) {
+				return {};
+			}
+			if (a->IsDead() || a->IsCommandedActor()) {
 				return {};
 			}
 			// held by the vanilla follower quest (DialogueFollower)
