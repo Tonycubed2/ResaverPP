@@ -6,6 +6,7 @@
 #ifdef _WIN32
 #	include <windows.h>
 #	include <dxgi.h>
+#	include <shellapi.h>  // ShowInFolder's ShellExecuteW; shlobj.h no longer pulls it in (MSVC 14.51 / current SDK)
 #	include <shlobj.h>
 #endif
 
