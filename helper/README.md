@@ -29,6 +29,8 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   player, every follower, NPCs near you with their current AI package, packages, factions and stats, every running quest
   with its stage, objectives and filled aliases, every NPC's place and factions, the load order and the SKSE plugins) to
   `SKSE\ReSaverHelper\report_<date>.txt`. ReSaver Plus's "Collect all logs" asks for it and puts it at the top of the zip.
+- Version 20: characters with no NPC record behind them (left by a removed or changed mod) are skipped by the followers
+  tab, the report and Transplant. The followers tab crashed the game on them (GetFactionRank on the missing record).
 - Ghost actors (version 15, SE/AE): `GHOSTREMOVE` disables and marks for delete the spawned characters ReSaver Plus's
   Save check found with a base the save does not contain, the same as the console's `prid <id>`, `disable`,
   `markfordelete` (run through the game's console route, see `src/GhostRemove.h`), and reports each one: done, not
