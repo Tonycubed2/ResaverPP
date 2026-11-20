@@ -29,6 +29,10 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   player, every follower, NPCs near you with their current AI package, packages, factions and stats, every running quest
   with its stage, objectives and filled aliases, every NPC's place and factions, the load order and the SKSE plugins) to
   `SKSE\ReSaverHelper\report_<date>.txt`. ReSaver Plus's "Collect all logs" asks for it and puts it at the top of the zip.
+- Save all game data (version 21): a page on the F1 menu (ReSaver Plus > Save all game data, also at the top of What to
+  send) with one button that puts everything needed for a bug report in one zip on the Desktop, SkyrimGameData_<date>_<time>.zip,
+  with no name to pick and no Save As window: the game state report, the helper report, the SKSE folder (logs and crash logs),
+  the Papyrus logs, the game INI files, the load order, Mod Organizer's mod list and logs, and the last 3 saves.
 - Version 20: characters with no NPC record behind them (left by a removed or changed mod) are skipped by the followers
   tab, the report and Transplant. The followers tab crashed the game on them (GetFactionRank on the missing record).
 - Ghost actors (version 15, SE/AE): `GHOSTREMOVE` disables and marks for delete the spawned characters ReSaver Plus's
