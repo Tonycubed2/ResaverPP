@@ -14,5 +14,7 @@ set(headers ${headers}
     src/SaveDialog.h
     src/ProtonDrive.h
     src/Report.h
+    src/Collect.h
+    src/Zip.h
     src/SKSEMenuFramework.h
 )

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 # DLL name: ReSaverHelper.dll - the live-game companion of ReSaver++ (ReSaver Plus)
-project(ReSaverHelper VERSION 20.0.0 LANGUAGES CXX)
+project(ReSaverHelper VERSION 21.0.0 LANGUAGES C CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
@@ -52,3 +52,15 @@ target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF 
 # loads and works the same without it.
 # the menu load guard's process state (GetProcessMemoryInfo): psapi
 target_link_libraries(${PROJECT_NAME} PRIVATE advapi32 shell32 ole32 uuid psapi)
+
+# miniz (deflate) for the F1 page's "Save all game data" zip (Collect.cpp, Zip.cpp): a small C library of its own, so the
+# plugin's C++ settings and precompiled header do not touch it
+add_library(helper_miniz STATIC third_party/miniz/miniz.c third_party/miniz/miniz_tdef.c third_party/miniz/miniz_tinfl.c)
+target_include_directories(helper_miniz PUBLIC third_party/miniz)
+target_compile_definitions(helper_miniz PUBLIC MINIZ_NO_ARCHIVE_APIS MINIZ_NO_STDIO MINIZ_NO_TIME)
+target_link_libraries(${PROJECT_NAME} PRIVATE helper_miniz)
+# the same C runtime as the plugin (CommonLibSSE-NG may pick the static one)
+get_target_property(_helper_rt ${PROJECT_NAME} MSVC_RUNTIME_LIBRARY)
+if(_helper_rt)
+	set_target_properties(helper_miniz PROPERTIES MSVC_RUNTIME_LIBRARY "${_helper_rt}")
+endif()

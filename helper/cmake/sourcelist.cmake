@@ -13,4 +13,6 @@ set(sources ${sources}
     src/SaveDialog.cpp
     src/ProtonDrive.cpp
     src/Report.cpp
+    src/Collect.cpp
+    src/Zip.cpp
 )

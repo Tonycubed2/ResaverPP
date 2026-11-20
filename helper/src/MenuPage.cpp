@@ -1,11 +1,13 @@
 #include "PCH.h"
 #include "MenuPage.h"
 
+#include "Collect.h"
 #include "Game.h"
 #include "GhostRemove.h"
 #include "LiveInfo.h"
 #include "MenuGuard.h"
 #include "Protocol.h"
+#include "Report.h"
 #include "Rescue.h"
 #include "Server.h"
 #include "SaveDialog.h"
@@ -1748,9 +1750,84 @@ namespace MenuPage
 			return t;
 		}
 
+		// "Save all game data" (Collect.h): the reports are written on the main thread (an SKSE task: they read live game
+		// data), then the zip is made on its own thread, straight to the Desktop with no dialog
+		void SaveAllGameData()
+		{
+			if (Collect::Busy()) {
+				return;
+			}
+			LiveInfo::VMSample last;
+			{
+				std::scoped_lock l(g.lock);
+				if (!g.samples.empty()) {
+					last = g.samples.back();
+				}
+			}
+			const auto extra = ExtraReportLines();
+			SetStatus("Saving all game data: writing the reports...");
+			Queue([last, extra] {
+				std::string error;
+				std::size_t lines = 0;
+				const auto  report = Report::Write(error, lines);
+				auto        helper = SendText(true) + "\n==================== the report ====================\n\n" + LiveInfo::ReportText(last, extra);
+				if (Collect::Start(report, report.empty() ? "Game state report: not included (" + error + ")" : std::string(), std::move(helper))) {
+					SetStatus("Saving all game data: making the zip on your Desktop...");
+				}
+			});
+		}
+
+		void SaveAllBlock(bool a_listBelow)
+		{
+			const auto p = Collect::Get();
+			im::PushStyleColor(im::ImGuiCol_Button, im::ImVec4{ 0.15f, 0.45f, 0.20f, 1.0f });
+			im::PushStyleColor(im::ImGuiCol_ButtonHovered, im::ImVec4{ 0.20f, 0.60f, 0.27f, 1.0f });
+			im::PushStyleColor(im::ImGuiCol_ButtonActive, im::ImVec4{ 0.25f, 0.70f, 0.32f, 1.0f });
+			im::BeginDisabled(p.busy);
+			const bool click = im::Button(p.busy ? "Saving all game data...##saveall" : "Save all game data to the Desktop##saveall",
+				im::ImVec2{ im::GetContentRegionAvail().x, im::GetFontSize() * 2.6f });
+			im::EndDisabled();
+			im::PopStyleColor(3);
+			if (click) {
+				SaveAllGameData();
+			}
+			Tip("One click, no questions: puts everything we need to help you in one zip on your Desktop, named SkyrimGameData_<date>_<time>.zip: "
+				"the game state report, the helper report, the SKSE logs and crash logs, the Papyrus logs, your game INI files, the load "
+				"order, Mod Organizer's mod list and logs, and your last 3 saves. Attach that zip to your message.");
+			if (p.busy) {
+				Colored(kYellow, p.total ? std::format("Collecting: {} of {} files...", p.done, p.total) : std::string("Collecting the files..."));
+			} else if (!p.message.empty()) {
+				Colored(p.zip.empty() ? kRed : kGreen, p.message);
+				if (!p.zip.empty()) {
+					if (im::SmallButton("Show it in its folder")) {
+						Collect::ShowInFolder(p.zip);
+					}
+					Tip("Opens Windows Explorer with the zip selected (the game may lose focus).");
+				}
+			} else {
+				Dim("Attach the zip to your message (Nexus comment, Discord, e-mail). No name to pick and no Save As window: it goes straight to your Desktop.");
+			}
+			if (a_listBelow) {
+				im::Separator();
+				im::Spacing();
+				Dim("Or attach the files one by one:");
+			}
+		}
+
+		void __stdcall RenderSaveAll()
+		{
+			StatusLine();
+			Wrapped("Asking for help with a problem in your game? Click the button: everything needed to look into it goes in one zip "
+					"on your Desktop. Then attach that zip to your message.");
+			im::Spacing();
+			SaveAllBlock(false);
+			DrawAsk();
+		}
+
 		void __stdcall RenderSend()
 		{
 			StatusLine();
+			SaveAllBlock(true);
 			const auto t = SendText(false);
 			Wrapped(t);
 			if (im::Button("Copy")) {
@@ -1806,6 +1883,7 @@ namespace MenuPage
 		}
 		SKSEMenuFramework::SetSection("ReSaver Plus");
 		SKSEMenuFramework::AddSectionItem("Rescue", RenderRescue);
+		SKSEMenuFramework::AddSectionItem("Save all game data", RenderSaveAll);
 		SKSEMenuFramework::AddSectionItem("My character", RenderEffects);
 		SKSEMenuFramework::AddSectionItem("Followers", RenderFollowers);
 		SKSEMenuFramework::AddSectionItem("Quests", RenderQuests);
