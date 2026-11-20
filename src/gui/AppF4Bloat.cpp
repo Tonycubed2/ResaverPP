@@ -765,7 +765,9 @@ void App::drawLoadOrderCheck()
 		const auto gf = gameFolder();
 		locheck::Options o;
 		o.game = game;
-		const int  g = _game == 2 ? 2 : -1;
+		// Pass Skyrim VR (1) through: ReadLoadOrder needs it to add SkyrimVR.esm, which the game always loads and no
+		// mod manager lists in plugins.txt. locheck::Game has no VR of its own because VR's limits match SE's.
+		const int  g = _game == 2 ? 2 : _game == 1 ? 1 : -1;
 		const bool isSf = game == locheck::Game::kStarfield;
 		const auto sfDirs = isSf ? sfDataDirs() : std::vector<std::filesystem::path>{};  // (with the Mod Organizer profile's mods)
 		std::thread([job, src, gf, o, pluginsTxt, g, isSf, sfDirs]() mutable {
@@ -1175,7 +1177,8 @@ void App::bloatCheckItems(std::vector<CheckItem>& a_items)
 			const auto gf = gameFolder();
 			locheck::Options o;
 			o.game = GameOf(_game, le);
-			const int  game = _game == 2 ? 2 : -1;
+			// Skyrim VR (1) has to reach ReadLoadOrder so it adds SkyrimVR.esm; see the note at the other call site.
+			const int  game = _game == 2 ? 2 : _game == 1 ? 1 : -1;
 			std::thread([job, src, gf, o, pluginsTxt, game]() mutable {
 				o.loadOrder = merge::ReadLoadOrder(pluginsTxt, gf, game);  // (reads the file and the plugins' headers: not on the window's thread)
 				job->plugins = o.loadOrder.size();
