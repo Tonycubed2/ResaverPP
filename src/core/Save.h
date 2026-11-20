@@ -427,6 +427,10 @@ namespace ess
 		std::string               gameVersion;  // Fallout 4: the game version the save was made with ("1.5.157.0")
 		bool                      isLE() const { return header.isLE(); }
 		bool                      isFO4() const { return header.isFO4(); }
+		// Skyrim VR: the save lists SkyrimVR.esm, which only the VR game loads. There is no flag in the header for it -
+		// a VR save is an ordinary SE save otherwise. Callers need it because SkyrimVR.esm is an always-loaded master
+		// that no mod manager writes to plugins.txt, so the load order has to be told about it.
+		bool                      isVR() const;
 		// Papyrus string indices are 16-bit: Skyrim LE, and Fallout 4 saves of form version 61 and older
 		bool                      str16() const { return isLE() || (isFO4() && formVersion <= 61); }
 		bool                      isSF() const { return header.isSF(); }

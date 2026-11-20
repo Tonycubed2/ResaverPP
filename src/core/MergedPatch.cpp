@@ -509,6 +509,12 @@ namespace ess::merge
 		std::error_code fec;
 		const bool      fo4 = a_game == 2 || (a_game < 0 && ((!a_gameFolder.empty() && std::filesystem::exists(a_gameFolder / "Fallout4.exe", fec)) ||
 																Lower(a_pluginsTxt.parent_path().filename().string()) == "fallout4"));
+		// Skyrim VR loads SkyrimVR.esm as a sixth master and no mod manager writes it to plugins.txt, so it has to be
+		// added here like the other always-loaded masters below. Found the same way the Legendary Edition check below
+		// works, from the game folder and the plugins.txt folder, because most callers pass -1 or 0 rather than 1.
+		const bool vr = !fo4 && (a_game == 1 ||
+									(!a_gameFolder.empty() && std::filesystem::exists(a_gameFolder / "SkyrimVR.exe", fec)) ||
+									Lower(a_pluginsTxt.parent_path().filename().string()) == "skyrim vr");
 		auto trim = [](std::string s) {
 			while (!s.empty() && (s.back() == '\r' || s.back() == ' ' || s.back() == '\t')) {
 				s.pop_back();
@@ -569,6 +575,12 @@ namespace ess::merge
 		} else {
 			for (const char* p : { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" }) {
 				add(p);
+			}
+			// Skyrim VR: after Dragonborn.esm, which is where the game loads it (index 05). Without this every plugin
+			// that has SkyrimVR.esm as a master - ArrowPullMod.esp and other VR-only mods - is reported as needing a
+			// master that is not in the load order, as an error saying the game cannot load it.
+			if (vr) {
+				add("SkyrimVR.esm");
 			}
 		}
 		// the game loads the Creation Club files listed in Skyrim.ccc (and _ResourcePack.esl) by itself: Mod

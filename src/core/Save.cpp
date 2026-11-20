@@ -730,6 +730,21 @@ namespace ess
 		return nullptr;
 	}
 
+	bool SaveFile::isVR() const
+	{
+		if (isFO4() || isSF()) {
+			return false;
+		}
+		for (const auto& p : plugins.full) {
+			if (p.size() == 12 && std::equal(p.begin(), p.end(), "skyrimvr.esm", [](char a, char b) {
+					return std::tolower(static_cast<unsigned char>(a)) == b;
+				})) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	std::uint32_t SaveFile::formIDOf(const RefID& a_id) const
 	{
 		switch (a_id.type()) {
