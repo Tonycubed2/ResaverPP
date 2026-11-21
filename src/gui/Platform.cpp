@@ -4,6 +4,7 @@
 
 #ifdef _WIN32
 #	include <windows.h>
+#	include <shellapi.h>
 #	include <shlobj.h>
 #	include <shellapi.h>
 #	include <commdlg.h>
