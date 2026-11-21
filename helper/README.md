@@ -29,6 +29,10 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   player, every follower, NPCs near you with their current AI package, packages, factions and stats, every running quest
   with its stage, objectives and filled aliases, every NPC's place and factions, the load order and the SKSE plugins) to
   `SKSE\ReSaverHelper\report_<date>.txt`. ReSaver Plus's "Collect all logs" asks for it and puts it at the top of the zip.
+- Followers' bodies (version 22): the F1 Followers page shows whether the game can draw each follower (Body: shown, or in red
+  NO BODY / hidden / faded out / switched off), with "Rebuild body" to get an invisible follower back. ReSaverHelper.log
+  names what took a follower's or a dead body's 3D away (a mod's DLL, or the game or a Papyrus script). "Bring" now places
+  followers in front of you.
 - Save all game data (version 21): a page on the F1 menu (ReSaver Plus > Save all game data, also at the top of What to
   send) with one button that puts everything needed for a bug report in one zip on the Desktop, SkyrimGameData_<date>_<time>.zip,
   with no name to pick and no Save As window: the game state report, the helper report, the SKSE folder (logs and crash logs),
