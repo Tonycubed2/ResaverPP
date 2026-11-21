@@ -6,6 +6,7 @@
 #include "MenuPage.h"
 #include "ProtonDrive.h"
 #include "Protocol.h"
+#include "BodyWatch.h"
 #include "Rescue.h"
 #include "Server.h"
 #include "Settings.h"
@@ -83,6 +84,7 @@ namespace
 			}
 			if (!Diag(5)) {
 				Rescue::StartHotkey();
+				BodyWatch::Install();  // version 22
 				MenuGuard::WrapCreators("after the game data loaded");
 			}
 			break;

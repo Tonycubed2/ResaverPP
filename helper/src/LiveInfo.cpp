@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "LiveInfo.h"
+#include "BodyWatch.h"
 #include "Game.h"
 #include "Protocol.h"
 #include "Rescue.h"
@@ -455,6 +456,7 @@ namespace LiveInfo
 			fl.vanilla = fl.why == "vanilla follower quest";
 			if (auto* a = RE::TESForm::LookupByID<RE::Actor>(fl.id)) {
 				fl.teammate = a->IsPlayerTeammate();
+				fl.body = BodyWatch::Describe(a, &fl.bodyProblem);
 			}
 			f.list.push_back(std::move(fl));
 		}

@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Rescue.h"
+#include "BodyWatch.h"
 #include "Game.h"
 #include "Settings.h"
 
@@ -255,9 +256,10 @@ namespace Rescue
 				spdlog::info("rescue: {:08X} ({}) is a follower ({})", f.actor->GetFormID(), NameOf(f.actor), f.why);
 			}
 		}
-		// Papyrus MoveTo (as the console's moveto), each one at its own spot in a half circle behind the player:
-		// never on top of the player or of each other (several characters dropped on the player's own spot push
-		// the player out of the world).
+		// Papyrus MoveTo (as the console's moveto), each one at its own spot in a half circle in front of the player,
+		// where the player sees them arrive (behind the camera they looked like nothing happened; version 22): never on
+		// top of the player or of each other (several characters dropped on the player's own spot push the player out
+		// of the world).
 		RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> none;
 		const float heading = player->GetAngleZ();
 		const float n = static_cast<float>(found.size());
@@ -272,8 +274,8 @@ namespace Rescue
 				vm->DispatchMethodCall(h, "ObjectReference", "Enable", RE::MakeFunctionArguments(false), none);
 			}
 			const float spread = n > 1 ? (static_cast<float>(i) - (n - 1) / 2.0f) * (2.4f / std::max(n - 1.0f, 1.0f)) : 0.0f;  // up to +-69 degrees
-			const float ang = heading + 3.14159265f + spread;
-			const float dist = 160.0f + 20.0f * static_cast<float>(i % 2);
+			const float ang = heading + spread;
+			const float dist = 200.0f + 30.0f * static_cast<float>(i % 2);
 			float       x = std::sin(ang) * dist, y = std::cos(ang) * dist;
 			const auto  from = a->GetParentCell();
 			const auto  pos = a->GetPosition();
@@ -281,8 +283,9 @@ namespace Rescue
 				RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(player), std::move(x), std::move(y), 0.0f, false), none);
 			vm->DispatchMethodCall(h, "Actor", "EvaluatePackage", RE::MakeFunctionArguments(), none);
 			names.push_back(NameOf(a));
-			spdlog::info("rescue: follower {:08X} ({}) moved to the player (was in {} {:08X} at {:.0f}, {:.0f}, {:.0f})", a->GetFormID(), names.back(),
-				from && from->GetFormEditorID() ? from->GetFormEditorID() : "", from ? from->GetFormID() : 0, pos.x, pos.y, pos.z);
+			spdlog::info("rescue: follower {:08X} ({}) moved to the player (was in {} {:08X} at {:.0f}, {:.0f}, {:.0f}; body: {})", a->GetFormID(),
+				names.back(), from && from->GetFormEditorID() ? from->GetFormEditorID() : "", from ? from->GetFormID() : 0, pos.x, pos.y, pos.z,
+				BodyWatch::Describe(a));
 		}
 		spdlog::info("rescue: {} follower(s) gathered", names.size());
 		return names;

@@ -76,6 +76,8 @@ namespace LiveInfo
 		bool        skip = false;           // in sGatherSkip
 		bool        teammate = false;
 		bool        vanilla = false;  // held by the vanilla follower quest (DialogueFollower): can be dismissed with its stage 400
+		std::string body;              // BodyWatch::Describe: "shown", "NO BODY (3D not loaded)", ... (version 22)
+		bool        bodyProblem = false;
 	};
 	struct Followers
 	{

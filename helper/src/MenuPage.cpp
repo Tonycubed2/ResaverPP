@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "MenuPage.h"
 
+#include "BodyWatch.h"
 #include "Collect.h"
 #include "Game.h"
 #include "GhostRemove.h"
@@ -737,11 +738,12 @@ namespace MenuPage
 			}
 			if (f.list.empty()) {
 				Line("Nobody is following you right now.");
-			} else if (im::BeginTable("followers", 4, kListTable)) {
-				im::TableSetupColumn("Name", kNameColumn, 1.4f);
-				im::TableSetupColumn("Where", kTextColumn, 1.6f);
-				im::TableSetupColumn("Why", kTextColumn, 1.0f);
-				im::TableSetupColumn("", kButtonColumn, 2.6f);
+			} else if (im::BeginTable("followers", 5, kListTable)) {
+				im::TableSetupColumn("Name", kNameColumn, 1.3f);
+				im::TableSetupColumn("Where", kTextColumn, 1.4f);
+				im::TableSetupColumn("Why", kTextColumn, 0.9f);
+				im::TableSetupColumn("Body", kTextColumn, 1.1f);
+				im::TableSetupColumn("", kButtonColumn, 3.2f);
 				const auto sort = ReadSort();
 				im::TableHeadersRow();
 				std::vector<std::size_t> rows(f.list.size());
@@ -768,6 +770,25 @@ namespace MenuPage
 					Tip("vanilla follower quest: the game's own follower (DialogueFollower). follower faction: a follower mod or DLC "
 						"follower (CurrentFollowerFaction). teammate: set as your teammate (Actor.SetPlayerTeammate).");
 					im::TableNextColumn();
+					if (fl.bodyProblem) {
+						Colored(kRed, fl.body);
+					} else {
+						Line(fl.body);
+					}
+					Tip("Can the game draw them? shown: yes. NO BODY: the character is there but its 3D (the body the game draws) was "
+						"taken away, so you cannot see them even next to you. hidden / see-through / faded out / switched off: other "
+						"ways a character is not drawn. \"Rebuild body\" fixes it; ReSaverHelper.log names what took the body away.");
+					im::TableNextColumn();
+					if (fl.bodyProblem) {
+						if (im::SmallButton("Rebuild body")) {
+							Queue([id = fl.id, name = fl.name] {
+								SetStatus(BodyWatch::Rebuild(id) ? name + ": switched off and on again; the game loads the body again." : name + " could not be found.");
+								g_followersAt = {};
+							});
+						}
+						Tip("Switches them off and on again (as the console's disable / enable): the game loads their body (3D) again.");
+						im::SameLine();
+					}
 					if (im::SmallButton("Bring")) {
 						Queue([id = fl.id] {
 							const std::vector<RE::FormID> one{ id };
