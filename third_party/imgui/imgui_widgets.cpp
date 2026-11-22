@@ -157,6 +157,10 @@ static ImVec2   InputTextCalcTextSize(ImGuiContext* ctx, const char* text_begin,
 // - BulletTextV()
 //-------------------------------------------------------------------------
 
+// ReSaver++: every line of text drawn (TextEx, Selectable labels) is offered to this hook, so the app can copy the
+// text under the mouse (gui/TextCopy.cpp). Null: nothing happens.
+void (*GImGuiTextHook)(const char* text_begin, const char* text_end, const ImVec2& min, const ImVec2& max) = NULL;
+
 void ImGui::TextEx(const char* text, const char* text_end, ImGuiTextFlags flags)
 {
     ImGuiWindow* window = GetCurrentWindow();
@@ -186,6 +190,8 @@ void ImGui::TextEx(const char* text, const char* text_end, ImGuiTextFlags flags)
         ItemSize(text_size, 0.0f);
         if (!ItemAdd(bb, 0))
             return;
+        if (GImGuiTextHook)
+            GImGuiTextHook(text_begin, text_end, bb.Min, bb.Max);
 
         // Render (we don't hide text after ## in this end-user function)
         RenderTextWrapped(bb.Min, text_begin, text_end, wrap_width);
@@ -7035,6 +7041,8 @@ bool ImGui::Selectable(const char* label, bool selected, ImGuiSelectableFlags fl
     if (!is_visible)
         if (!is_multi_select || !g.BoxSelectState.UnclipMode || !g.BoxSelectState.UnclipRect.Overlaps(bb)) // Extra layer of "no logic clip" for box-select support (would be more overhead to add to ItemAdd)
             return false;
+    if (GImGuiTextHook && is_visible)
+        GImGuiTextHook(label, FindRenderedTextEnd(label), bb.Min, bb.Max);
 
     const bool disabled_global = (g.CurrentItemFlags & ImGuiItemFlags_Disabled) != 0;
     if (disabled_item && !disabled_global) // Only testing this as an optimization

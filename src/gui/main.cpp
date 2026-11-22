@@ -6,6 +6,7 @@
 #	include <timeapi.h>
 #endif
 
+#include "TextCopy.h"
 #include "App.h"
 #include "Fonts.h"
 #include "Watchdog.h"
@@ -424,6 +425,7 @@ int RunApp(int argc, char** argv)
 	Step("loading fonts and drawing set-up");
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
+	textcopy::Install();  // right-click or Ctrl+C copies the text under the mouse
 	ImGui::GetIO().IniFilename = nullptr;
 	Style();
 	ImGui::GetStyle().ScaleAllSizes(xs);
@@ -656,6 +658,7 @@ int RunApp(int argc, char** argv)
 				ImGui::End();
 			}
 		}
+		textcopy::EndFrame();
 		watchdog::Section("drawing the frame (ImGui / OpenGL)");
 		ImGui::Render();
 
