@@ -157,9 +157,11 @@ static ImVec2   InputTextCalcTextSize(ImGuiContext* ctx, const char* text_begin,
 // - BulletTextV()
 //-------------------------------------------------------------------------
 
-// ReSaver++: every line of text drawn (TextEx, Selectable labels) is offered to this hook, so the app can copy the
-// text under the mouse (gui/TextCopy.cpp). Null: nothing happens.
-void (*GImGuiTextHook)(const char* text_begin, const char* text_end, const ImVec2& min, const ImVec2& max) = NULL;
+// ReSaver++: every text drawn (TextEx, Selectable labels) is offered to this hook before it is rendered, so the app can
+// copy the text under the mouse and drag-select text (gui/TextCopy.cpp). wrap_width: TextEx's (0: no wrapping);
+// selectable: a Selectable's label (clicking it is the row's own action); visible: false for text scrolled out of view
+// (still offered, so a selection or a whole-window copy includes it). Null: nothing happens.
+void (*GImGuiTextHook)(const char* text_begin, const char* text_end, const ImVec2& min, const ImVec2& max, float wrap_width, bool selectable, bool visible) = NULL;
 
 void ImGui::TextEx(const char* text, const char* text_end, ImGuiTextFlags flags)
 {
@@ -188,10 +190,11 @@ void ImGui::TextEx(const char* text, const char* text_end, ImGuiTextFlags flags)
 
         ImRect bb(text_pos, text_pos + text_size);
         ItemSize(text_size, 0.0f);
-        if (!ItemAdd(bb, 0))
-            return;
+        const bool visible = ItemAdd(bb, 0);
         if (GImGuiTextHook)
-            GImGuiTextHook(text_begin, text_end, bb.Min, bb.Max);
+            GImGuiTextHook(text_begin, text_end, bb.Min, bb.Max, wrap_width, false, visible);
+        if (!visible)
+            return;
 
         // Render (we don't hide text after ## in this end-user function)
         RenderTextWrapped(bb.Min, text_begin, text_end, wrap_width);
@@ -7042,7 +7045,7 @@ bool ImGui::Selectable(const char* label, bool selected, ImGuiSelectableFlags fl
         if (!is_multi_select || !g.BoxSelectState.UnclipMode || !g.BoxSelectState.UnclipRect.Overlaps(bb)) // Extra layer of "no logic clip" for box-select support (would be more overhead to add to ItemAdd)
             return false;
     if (GImGuiTextHook && is_visible)
-        GImGuiTextHook(label, FindRenderedTextEnd(label), bb.Min, bb.Max);
+        GImGuiTextHook(label, FindRenderedTextEnd(label), bb.Min, bb.Max, 0.0f, true, true);
 
     const bool disabled_global = (g.CurrentItemFlags & ImGuiItemFlags_Disabled) != 0;
     if (disabled_item && !disabled_global) // Only testing this as an optimization
