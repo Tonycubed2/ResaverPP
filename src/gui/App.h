@@ -2,6 +2,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include "core/Lang.h"
 #include "core/CharEffects.h"
 #include "core/Transplant.h"
@@ -1098,6 +1099,7 @@ private:
 	void openSkyrimLogs();
 	void startLogAnalysis();
 	void pollAi();
+	void shareAiSettings();   // v87: hands the AI settings to ReSaverHelper 23+ for its F1 page "Ask the AI"
 	void loadAiSetting(const std::string& a_line);
 	void saveAiSettings(std::ostream& a_out);
 	void aiSetup();
@@ -1107,6 +1109,9 @@ private:
 	std::vector<std::filesystem::path> myGamesFolders() const;
 	std::vector<ess::logs::LogFile>    findSkyrimLogs() const;
 	ai::Chat                           _ai;
+	std::string                        _aiSharedSig;  // what was last handed to the helper (cleared on disconnect)
+	std::string                        _aiSeenSig;
+	std::chrono::steady_clock::time_point _aiSeenAt{};
 	bool                               _aiReady = false, _showAi = false, _aiShowSettings = false, _aiFocusInput = false;
 	char                               _aiInput[16384] = "";
 	std::size_t                        _aiSeenRevision = 0;

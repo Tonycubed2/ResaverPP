@@ -14,6 +14,8 @@ set(sources ${sources}
     src/ProtonDrive.cpp
     src/Report.cpp
     src/BodyWatch.cpp
+    src/OutfitWatch.cpp
+    src/AiPage.cpp
     src/Collect.cpp
     src/Zip.cpp
 )

@@ -37,6 +37,9 @@
 //   GHOSTREMOVE <refid hex>[,<refid hex>...] [<notify>]
 //                                         -> OK  <count>  <one field per id: refid*result>   (helper 15; result: done, not found,
 //                                         not a created actor, not marked: the console's disable + markfordelete on each)
+//   AICONFIG <preset> <anthropic|openai> <url> <key, DPAPI-protected> <model> <ask 0|1> <max tokens> <timeout s>
+//                                         -> OK   (helper 23: the AI settings, for "Ask the AI" on the helper's F1 page;
+//                                         sent by App::shareAiSettings whenever connected and the settings changed)
 // <notify>: hud (top-left notification), box (message box), none, or ini (the helper's own setting).
 #include <string>
 #include <vector>

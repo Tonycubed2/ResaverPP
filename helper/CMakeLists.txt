@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 # DLL name: ReSaverHelper.dll - the live-game companion of ReSaver++ (ReSaver Plus)
-project(ReSaverHelper VERSION 22.0.0 LANGUAGES C CXX)
+project(ReSaverHelper VERSION 23.0.0 LANGUAGES C CXX)
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 	message(FATAL_ERROR "in-source builds are not allowed")
@@ -52,6 +52,28 @@ target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF 
 # loads and works the same without it.
 # the menu load guard's process state (GetProcessMemoryInfo): psapi
 target_link_libraries(${PROJECT_NAME} PRIVATE advapi32 shell32 ole32 uuid psapi)
+
+# version 23: "Ask the AI" on the F1 page (AiPage.cpp) builds ReSaver Plus's own AI chat from the main source tree
+# (../src: gui/Ai.cpp, gui/Net.cpp, core/Json.cpp, core/Text.cpp, core/AiGame.cpp). They do not use CommonLib, so they skip
+# the plugin's precompiled header; src/aishim stands in for ReSaver Plus's translations (core/Lang.h). HTTPS: winhttp;
+# the API key kept with DPAPI: crypt32.
+# in the ReSaverPP repository: the main tree next to helper/; a helper folder on its own (C:\dllmaker\ReSaverHelper): a copy of
+# just these files in rspp-src/ (gui/Ai.*, gui/Net.*, core/Json.*, core/Text.*, core/AiGame.*)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../src/gui/Ai.cpp")
+	set(RESAVERPP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../src")
+else()
+	set(RESAVERPP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/rspp-src")
+endif()
+set(HELPER_AI_SOURCES
+	"${RESAVERPP_SRC}/gui/Ai.cpp"
+	"${RESAVERPP_SRC}/gui/Net.cpp"
+	"${RESAVERPP_SRC}/core/Json.cpp"
+	"${RESAVERPP_SRC}/core/Text.cpp"
+	"${RESAVERPP_SRC}/core/AiGame.cpp")
+target_sources(${PROJECT_NAME} PRIVATE ${HELPER_AI_SOURCES})
+set_source_files_properties(${HELPER_AI_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_DEFINITIONS "RESAVERPP_VERSION=\"helper\"")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/aishim" "${RESAVERPP_SRC}")
+target_link_libraries(${PROJECT_NAME} PRIVATE winhttp crypt32)
 
 # miniz (deflate) for the F1 page's "Save all game data" zip (Collect.cpp, Zip.cpp): a small C library of its own, so the
 # plugin's C++ settings and precompiled header do not touch it

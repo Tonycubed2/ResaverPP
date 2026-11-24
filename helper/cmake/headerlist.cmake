@@ -15,6 +15,8 @@ set(headers ${headers}
     src/ProtonDrive.h
     src/Report.h
     src/BodyWatch.h
+    src/OutfitWatch.h
+    src/AiPage.h
     src/Collect.h
     src/Zip.h
     src/SKSEMenuFramework.h

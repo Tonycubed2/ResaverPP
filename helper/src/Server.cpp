@@ -1,5 +1,7 @@
 #include "PCH.h"
 #include "Server.h"
+
+#include "AiPage.h"
 #include "Game.h"
 #include "GhostRemove.h"
 #include "Protocol.h"
@@ -58,6 +60,11 @@ namespace Server
 				}
 				spdlog::info("Option {} set to {} by ReSaver++", arg(0), arg(1));
 				return { "OK" };
+			}
+			if (cmd == "AICONFIG") {  // version 23: ReSaver Plus hands its AI settings over for the F1 page's "Ask the AI"
+				std::vector<std::string> a(f.begin() + 2, f.end());
+				const auto               why = AiPage::Configure(a);
+				return why.empty() ? std::vector<std::string>{ "OK" } : err(why);
 			}
 			if (cmd == "NOTIFY") {
 				Game::Notify(arg(0), arg(1));
@@ -503,4 +510,6 @@ namespace Server
 	}
 
 	bool Connected() { return g_connected.load(); }
+
+	std::vector<std::string> Run(const std::vector<std::string>& a_fields) { return Handle(a_fields); }
 }

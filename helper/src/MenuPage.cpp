@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "MenuPage.h"
 
+#include "AiPage.h"
 #include "BodyWatch.h"
 #include "Collect.h"
 #include "Game.h"
@@ -1903,6 +1904,7 @@ namespace MenuPage
 			return;
 		}
 		SKSEMenuFramework::SetSection("ReSaver Plus");
+		SKSEMenuFramework::AddSectionItem("Ask the AI", AiPage::Render);  // version 23
 		SKSEMenuFramework::AddSectionItem("Rescue", RenderRescue);
 		SKSEMenuFramework::AddSectionItem("Save all game data", RenderSaveAll);
 		SKSEMenuFramework::AddSectionItem("My character", RenderEffects);

@@ -45,6 +45,9 @@
 //                                         not a created actor, not marked. Ghost actors (GhostRemove.h): for each created (FF)
 //                                         actor, the console's "disable" then "markfordelete" on it, on the main thread, one id
 //                                         at a time, each step logged first)
+//   AICONFIG <preset> <anthropic|openai> <url> <key, DPAPI-protected> <model> <ask 0|1> <max tokens> <timeout s>
+//                                         -> OK   (version 23: ReSaver Plus hands its AI settings over for the F1 page's
+//                                         "Ask the AI"; kept in ReSaverHelper_AI.ini, see AiPage.h)
 // <notify>: hud (top-left notification), box (message box), none, or ini (the helper's own setting).
 #include <algorithm>
 #include <cstdint>
@@ -54,7 +57,7 @@
 namespace proto
 {
 	inline constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\ReSaverHelper";
-	inline constexpr int            kHelperVersion = 22;
+	inline constexpr int            kHelperVersion = 23;
 
 	inline std::string Escape(const std::string& a_in)
 	{

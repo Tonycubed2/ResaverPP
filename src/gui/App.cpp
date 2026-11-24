@@ -805,6 +805,7 @@ void App::draw()
 	_live.poll();
 	watchdog::Section("pollAi");
 	pollAi();
+	shareAiSettings();
 	watchdog::Section("pollPathIdles");
 	pollPathIdles();
 	watchdog::g_scanDone = scanning() && _scanProgress ? _scanProgress->done.load() : 0;

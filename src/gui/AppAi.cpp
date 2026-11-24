@@ -576,6 +576,50 @@ void App::aiSetup()
 	_ai.setExecutor([this](const ai::ToolCall& c, std::string& shown, bool& err) { return aiTool(c, shown, err); });
 }
 
+// v87: ReSaverHelper 23 has "Ask the AI" on its F1 page. Whenever ReSaver Plus is connected to the Skyrim SE/AE helper, it hands
+// its AI settings over (AICONFIG): provider, address, model and the API key, the key encrypted for this Windows user (DPAPI, as
+// resaverpp.ini keeps it). The helper keeps them, so the in-game chat works with ReSaver Plus closed. Sent again after a reconnect
+// or when the settings change.
+void App::shareAiSettings()
+{
+	const auto li = _live.info();
+	if (!li.connected) {
+		_aiSharedSig.clear();
+		return;
+	}
+	if (li.runtime == "LE" || ess::aigame::HelperIsFo4(li.runtime) || ess::aigame::HelperIsSf(li.runtime) ||
+		std::atoi(li.helperVersion.c_str()) < 23) {
+		return;
+	}
+	const auto& s = _ai.settings();
+	if (!s.configured()) {
+		return;
+	}
+	const std::string api = s.api == ai::Api::kAnthropic ? "anthropic" : "openai";
+	const std::string sig = std::to_string(s.preset) + '\x1f' + api + '\x1f' + s.baseUrl + '\x1f' + s.apiKey + '\x1f' + s.model + '\x1f' +
+	                        (s.askBeforeChanges ? "1" : "0") + '\x1f' + std::to_string(s.maxTokens) + '\x1f' + std::to_string(s.timeoutSeconds);
+	if (sig == _aiSharedSig) {
+		return;
+	}
+	// wait until the settings stay the same for 2 seconds (not a request per key typed)
+	const auto now = std::chrono::steady_clock::now();
+	if (sig != _aiSeenSig) {
+		_aiSeenSig = sig;
+		_aiSeenAt = now;
+		return;
+	}
+	if (now - _aiSeenAt < std::chrono::seconds(2)) {
+		return;
+	}
+	_aiSharedSig = sig;  // once per change; a refusal is logged, not retried every frame
+	_live.request({ "AICONFIG", std::to_string(s.preset), api, s.baseUrl, net::ProtectSecret(s.apiKey), s.model, s.askBeforeChanges ? "1" : "0",
+					  std::to_string(s.maxTokens), std::to_string(s.timeoutSeconds) },
+		[](const LiveLink::Reply& r) {
+			ai::Log(LiveLink::Ok(r) ? std::string("AI settings handed to ReSaverHelper (F1 > Ask the AI)")
+			                        : "ReSaverHelper did not take the AI settings: " + LiveLink::Error(r));
+		});
+}
+
 void App::pollAi()
 {
 	if (!_aiReady) {
@@ -1841,7 +1885,9 @@ void App::drawAiSettings()
 	changed |= ImGui::IsItemDeactivatedAfterEdit();
 	ImGui::SameLine();
 	ImGui::Checkbox(tr("Show"), &showKey);
-	tips::Tip(tr("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."));
+	tips::Tip(tr("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back). When ReSaver "
+	             "Plus is connected to Skyrim (ReSaverHelper 23 or newer), these settings are handed to the helper too, for \"Ask the AI\" "
+	             "on its F1 page in the game; it keeps them the same way, so that chat works with ReSaver Plus closed."));
 	if (!preset.needsKey && s.apiKey.empty()) {
 		ImGui::SameLine();
 		ImGui::TextDisabled("%s", tr("(not needed for an engine on this PC)"));
