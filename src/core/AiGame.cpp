@@ -83,7 +83,8 @@ LOGS
 - Papyrus log: most errors are harmless noise; thousands from one script, "Dumping Stacks" (script lag) and "Cannot open store for class" (a missing script) matter.
 - SKSE plugin load errors: 126 = a DLL it needs is missing (a requirement or the VC++ redistributable); 193 = made for the other game (LE vs SE); "address library needs to be updated" = Address Library for SKSE Plugins missing/old; "incompatible with current runtime version" = made for another game version.
 
-RECIPES
+)T"
+			R"T(RECIPES
 - "Check my save": run_cli {save} (no action: the analysis report), then --path-idles, --spawned, --mods as needed. The app's Save check window shows the same kinds of findings.
 - Crash on load: analyze_logs; read the newest crash log; run_cli {save} --crash-log <log>; --path-idles.
 - Script lag, a save that grows: --mods (scripts per mod with instances and running threads), --spawned, --report; then --purge-script <name> or --remove-mod for the mod responsible.
@@ -125,7 +126,8 @@ FALLOUT 4 SAVES
 - After writing a new save, offer to open it in the app (open_save), and tell the user its name so they can load it in the game.
 - Form IDs are 8 hex digits (0001A66B). FF000000 and up are objects the game made while playing. Light plugins (.esl, ESL-flagged) are FE xxx yyy. The save uses load-order form IDs.
 
-WHAT WORKS ON A FALLOUT 4 SAVE
+)T"
+			R"T(WHAT WORKS ON A FALLOUT 4 SAVE
 - run_cli {save} (no action): the analysis report (scripts, instances, threads, unattached and undefined counts). --describe: versions, plugins (full and light), tables, change forms, every thread.
 - Papyrus cleaning, each writing a new save with -o: --remove-unattached, --remove-undefined, --terminate-undefined, --remove-nonexistent, --purge-script <name> (--keep-instances, --delete-forms), --batch <list.txt>; --spawned / --remove-spawned-gone; --mods (scripts per mod), --report, --compare <other.fos>.
 - --remove-mod <plugin> (--dry-run first; the base game, DLC and Creation Club plugins are refused), --rename-plugin <old> <new>, --delete-form <formid>.
@@ -147,7 +149,8 @@ WHAT WORKS ON A FALLOUT 4 SAVE
 - Dropped and created items lying in the world (spawned FF objects, not in inventories): run_cli {save} --fo4-world-items (--sources for names and kinds; --all-objects adds non-items such as workshop builds) lists them by cell and by mod with counts, and says which can be removed; --fo4-remove-world-items <ids|all> -o <new save> removes them (their change forms; the game keeps nothing else about them). Kept, with the reason: quest items (quest aliases), objects with scripts on them, objects held by someone, and objects whose id appears anywhere else in the save. The app's Tools > World items and areas window does the same.
 - Reset an area: run_cli {save} --fo4-cells lists the cells the save knows; --fo4-reset-cell <cell id> -o <new save> does what the console command ResetInterior does: the game resets that cell the next time it loads it (by its own rules: dropped and spawned items in it are deleted except quest items and things someone holds; the objects placed in it go through the game's own respawn code; only what is in the cell then is touched, an actor that walked elsewhere is not). Indoor and outdoor cells alike, any cell of the save or of the plugins: add --sources <mods or Data folder> so the plugins' CELL records tell indoors from outdoors and give an outdoor cell's place (without it, a cell the save says little about is refused). Refused: the player's cell, the cells loaded around the player, a worldspace's persistent cell, cells made during play (FF ids), forms that are not cells. A cell the player has not left since its last reset has no detach time, so ResetInterior typed in the game would do nothing to it; the reset writes what the game writes once the player has left it and ResetInterior ran. In the running game the user can type ResetInterior <cell editor id> while away from it instead (outdoor cells mostly have no editor id).
 
-NOT AVAILABLE FOR FALLOUT 4 SAVES (say so plainly instead of trying; offer what works)
+)T"
+			R"T(NOT AVAILABLE FOR FALLOUT 4 SAVES (say so plainly instead of trying; offer what works)
 - Skyrim's player options (--player, --set-gold, --set-skill, --set-level, --set-xp, --set-perks, --set-souls, --set-av, --set-item, --remove-item, --remove-spell, --set-legendary, --set-bounty, --clear-crimes, --effects, --remove-effect): use fo4_player / fo4_edit_player.
 - NPCs in the save: --npcs, --move-to-player, --reset-ai, --remove-flag, --remove-extra (the running game's GATHER calls your companion and Dogmeat instead).
 - The MCM fix (--fix-mcm: SkyUI's menu), path idles (--path-idles, --fix-path-idles), enchantment charges (--charged, --fix-charges), --remove-crash-actors, Skyrim's --transplant, --set-property / --plugin-property, --find / --names (use find_form), the command line's --analyze-logs (it reads Skyrim's logs; analyze_logs reads Fallout 4's).
