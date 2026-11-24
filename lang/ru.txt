@@ -2907,8 +2907,8 @@ en "Show"
 tr "Показать"
 
 # AppAi.cpp:1844  tips::Tip(tr("Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."));
-en "Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back)."
-tr "Хранится в resaverpp.ini, зашифрованным для вашей учётной записи Windows (прочитать его можете только вы на этом ПК)."
+en "Kept in resaverpp.ini, encrypted for your Windows user account (only you on this PC can read it back). When ReSaver Plus is connected to Skyrim (ReSaverHelper 23 or newer), these settings are handed to the helper too, for \"Ask the AI\" on its F1 page in the game; it keeps them the same way, so that chat works with ReSaver Plus closed."
+tr "Хранится в resaverpp.ini, зашифрованным для вашей учётной записи Windows (прочитать его можете только вы на этом ПК). Когда ReSaver Plus подключён к Skyrim (ReSaverHelper 23 или новее), эти настройки передаются и помощнику — для «Спросить ИИ» на его странице F1 в игре; он хранит их так же, поэтому этот чат работает и при закрытом ReSaver Plus."
 
 # AppAi.cpp:1847  ImGui::TextDisabled("%s", tr("(not needed for an engine on this PC)"));
 en "(not needed for an engine on this PC)"
