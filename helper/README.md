@@ -33,6 +33,15 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   NO BODY / hidden / faded out / switched off), with "Rebuild body" to get an invisible follower back. ReSaverHelper.log
   names what took a follower's or a dead body's 3D away (a mod's DLL, or the game or a Papyrus script). "Bring" now places
   followers in front of you.
+- Ask the AI (version 23): an "Ask the AI" page on the F1 menu, ReSaver Plus's own AI chat inside the game. ReSaver Plus
+  (v87 and newer) hands its AI settings over whenever it is connected to the game (provider, address, model and the API key,
+  encrypted for your Windows user with DPAPI, kept in `SKSE\Plugins\ReSaverHelper_AI.ini`), so afterwards the chat works with
+  ReSaver Plus closed. The AI uses the helper's own commands (quests, followers, rescue) and reads the game's logs; changes
+  wait for your OK unless you switch that off. It cannot open or edit save files: for that it points you to ReSaver Plus.
+  The chat is written to `SKSE\ReSaverHelper AI.log` (the key never is).
+- Followers' outfits (version 23): ReSaverHelper.log names what put a piece of a follower's sleep outfit or own outfit on or
+  off (the game or a mod's DLL), with their AI package and whether they were in bed - for followers who end up in their
+  nightclothes in the daytime.
 - Save all game data (version 21): a page on the F1 menu (ReSaver Plus > Save all game data, also at the top of What to
   send) with one button that puts everything needed for a bug report in one zip on the Desktop, SkyrimGameData_<date>_<time>.zip,
   with no name to pick and no Save As window: the game state report, the helper report, the SKSE folder (logs and crash logs),
@@ -60,7 +69,9 @@ refresh the quest journal (brings back quests and objectives the journal stopped
   calls inside it, and the menu creators wrapped; version 17: two slots of the game's background movie load task,
   Scaleform's log and file opener, and, only after a failed load, the "show" message of that menu's class;
   `bMenuLoadGuard=0` leaves all of that out), it patches no game
-  code, listens to no game events (no death, combat, hit or animation event sinks) and touches no
+  code (version 22 adds one hook on Character::Set3D for the followers' body log, which only logs and passes the call on),
+  listens to one game event (version 23: equip events, only to log followers' outfit pieces; no death, combat, hit or
+  animation event sinks) and touches no
   physics, ragdoll, Havok or animation graph. On its own it only waits on the pipe and, from version 12, checks
   every 0.1 s whether Ctrl is held (the rescue hotkey). Everything else happens only when you ask in ReSaver Plus,
   on the in-game page, when Ctrl is held for 8 seconds, or after a load with `bRefreshJournalOnLoad=1`, and is
@@ -180,6 +191,11 @@ Every list on the page is a table sorted A to Z by name when it opens. Click a c
 column, click it again to reverse the order; the page remembers the choice. The long lists (effects, quests, scripts)
 have a search box above them: only the rows containing that text are shown.
 
+- **Ask the AI** (version 23): type a question, Send; the AI looks things up in the game and answers. Changes it wants to
+  make show "The AI wants to..." with Allow / Don't allow / Allow all changes in this chat ("Ask me before every change"
+  switches the question off). Stop ends its turn; New chat starts over. Needs the settings from ReSaver Plus once (start
+  ReSaver Plus v87+ while the game runs). The game is paused while the menu is open, so fixes that run game scripts
+  finish when you close it.
 - **Rescue**
   - Save now: saves as a new save, ReSaverPP_Rescue_<date>_<time>.
   - Get my controls back: EnablePlayerControls. (Skyrim has nothing to give back afterwards: "Give the controls back
