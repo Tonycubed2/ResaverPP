@@ -85,7 +85,9 @@ int CharEffectsMain(int argc, char** argv)
 		}
 		loadorder::Active lo;
 		if (!pluginsTxt.empty()) {
-			lo = loadorder::Read(pluginsTxt, game, save->isFO4() ? 2 : 0);
+			// Skyrim VR (1) matters here: loadorder::Read only adds SkyrimVR.esm to the always-loaded masters when it
+			// is told the game is VR, and no mod manager lists that master in plugins.txt.
+			lo = loadorder::Read(pluginsTxt, game, save->isFO4() ? 2 : save->isVR() ? 1 : 0);
 			if (!lo.known) {
 				std::fprintf(stderr, "could not read %s\n", pluginsTxt.c_str());
 				return 1;

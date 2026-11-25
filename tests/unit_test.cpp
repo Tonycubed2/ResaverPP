@@ -1076,6 +1076,25 @@ namespace
 		o.loadOrder = merge::ReadLoadOrder(dir / "plugins.txt", dir / "game");
 		Check(o.loadOrder.size() == 7 && o.loadOrder[5] == "ModA.esp" && o.loadOrder[6] == "ModB.esp",
 			"merge LE: plugins.txt without '*' marks reads every listed plugin as enabled");
+		// Skyrim VR loads SkyrimVR.esm as a sixth master and no mod manager writes it to plugins.txt, so the load
+		// order has to add it or every VR-only plugin looks like it needs a master that is not there.
+		{
+			const auto vrDir = dir / "vr";
+			fs::create_directories(vrDir / "game");
+			std::ofstream(vrDir / "game" / "SkyrimVR.exe") << "x";
+			std::ofstream(vrDir / "plugins.txt") << "*ModA.esp\r\n";
+			const auto vrOrder = merge::ReadLoadOrder(vrDir / "plugins.txt", vrDir / "game");
+			Check(vrOrder.size() == 7 && vrOrder[5] == "SkyrimVR.esm" && vrOrder[6] == "ModA.esp",
+				"merge VR: SkyrimVR.esm is added after Dragonborn.esm, where the game loads it");
+			// and when only the number says VR, with no game folder to look at
+			const auto vrByNumber = merge::ReadLoadOrder(vrDir / "plugins.txt", {}, 1);
+			Check(std::find(vrByNumber.begin(), vrByNumber.end(), "SkyrimVR.esm") != vrByNumber.end(),
+				"merge VR: game 1 adds SkyrimVR.esm without a game folder");
+			// not for plain Skyrim
+			const auto seOrder = merge::ReadLoadOrder(vrDir / "plugins.txt", {}, 0);
+			Check(std::find(seOrder.begin(), seOrder.end(), "SkyrimVR.esm") == seOrder.end(),
+				"merge SE: SkyrimVR.esm is not added for Skyrim SE");
+		}
 		o.loadOrder = { "Skyrim.esm", "ModA.esp", "ModB.esp" };
 		o.findPlugin = [&](const std::string& n) -> std::optional<fs::path> { return dir / n; };
 		const auto r = merge::Build(o);
