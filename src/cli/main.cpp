@@ -591,8 +591,18 @@ int main(int argc, char** argv)
 	if (std::string(argv[1]) == "--analyze-logs") {
 		return AnalyzeLogsMain(argc, argv);
 	}
-	if (std::string(argv[1]) == "--cosave") {
-		return CosaveMain(argc, argv);
+	// v89: "--cosave" is a mode of its own, but "<save> --cosave ..." works as well (the AI writes it that way)
+	for (int i = 1; i < argc; ++i) {
+		if (std::string(argv[i]) == "--cosave") {
+			std::vector<char*> a{ argv[0], argv[i] };
+			for (int k = 1; k < argc; ++k) {
+				if (k != i) {
+					a.push_back(argv[k]);
+				}
+			}
+			a.push_back(nullptr);
+			return CosaveMain(argc, a.data());
+		}
 	}
 	if (std::string(argv[1]) == "--stage-check") {
 		return StageCheckMain(argc, argv);
@@ -1889,9 +1899,12 @@ int main(int argc, char** argv)
 			std::fputs(ops::FormatReport(ops::Analyze(*save), top).c_str(), stdout);
 			return 0;
 		}
-		if (out.empty()) {
-			std::fputs("an output file (-o) is required when editing\n", stderr);
+		if (out.empty() && !dryRun) {
+			std::fputs("an output file (-o) is required when editing (or --dry-run to only see what would change)\n", stderr);
 			return 1;
+		}
+		if (dryRun) {
+			std::fputs("DRY RUN: the changes below are made in memory only; nothing is written.\n", stdout);
 		}
 		if (!p) {
 			std::fputs("save has no Papyrus section\n", stderr);
@@ -2387,6 +2400,10 @@ int main(int argc, char** argv)
 				}
 			}
 			std::printf("removed instances on missing spawned objects of mods no longer installed: %zu\n", orphans::Remove(*save, ids));
+		}
+		if (dryRun) {
+			std::fputs("\nDRY RUN: nothing was written. Run the same command with -o <new save> instead of --dry-run to apply it.\n", stdout);
+			return 0;
 		}
 		{
 			std::error_code ec;
