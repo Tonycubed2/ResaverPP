@@ -325,6 +325,36 @@ namespace ess::psc
 			return s.substr(a, s.find_last_not_of(" \t\r") - a + 1);
 		}
 
+		// "Struct Name" / "Group Name [Flags]" / "EndStruct" / "EndGroup" alone on its line (FO4): the keyword is the first word,
+		// every word is on this line, and only spaces lie between the words and after the last one (up to a comment)
+		bool DeclarationLine(const std::string& a_line, const std::vector<Word>& ws, std::size_t a_kw, const std::string& a_word)
+		{
+			if (a_kw != 0) {
+				return false;
+			}
+			const bool end = a_word == "endstruct" || a_word == "endgroup";
+			if (end ? ws.size() != 1 : ws.size() < 2) {
+				return false;
+			}
+			for (std::size_t k = 0; k < ws.size(); ++k) {
+				if (ws[k].line != ws[0].line) {
+					return false;
+				}
+				const std::size_t from = static_cast<std::size_t>(ws[k].end);
+				const std::size_t to = k + 1 < ws.size() ? static_cast<std::size_t>(ws[k + 1].begin) : a_line.size();
+				for (std::size_t i = from; i < to && i < a_line.size(); ++i) {
+					const char c = a_line[i];
+					if (c == ';' && k + 1 == ws.size()) {
+						break;  // a comment after the last word
+					}
+					if (c != ' ' && c != '\t' && c != '\r') {
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+
 		bool Has(const std::vector<Word>& ws, const char* w)
 		{
 			for (const auto& x : ws) {
@@ -398,6 +428,12 @@ namespace ess::psc
 				static const std::unordered_set<std::string> blockWords{ "if", "elseif", "else", "endif", "while", "endwhile", "function", "endfunction",
 					"event", "endevent", "state", "endstate", "property", "endproperty", "struct", "endstruct", "group", "endgroup" };
 				if (blockWords.contains(l)) {
+					// Struct / Group (and their End words) are Fallout 4's; in a Skyrim script "struct" and "group" are
+					// ordinary names ("Int group = 1"). They open or close a block only as a declaration line of their own:
+					// first on the line, followed by nothing but names and spaces (v88; tyg3rtyg3r's script)
+					if ((l == "struct" || l == "group" || l == "endstruct" || l == "endgroup") && !DeclarationLine(lines[li], ws, k, l)) {
+						break;
+					}
 					kw = k;
 					break;
 				}

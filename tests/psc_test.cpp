@@ -13,6 +13,18 @@ using namespace ess;
 
 int main(int argc, char** argv)
 {
+	// v88: "group" / "struct" are names in a Skyrim script, and Fallout 4's Group / Struct blocks still count
+	{
+		const std::vector<std::string> sky{ "Scriptname T extends Quest", "Function F()", "  If a", "    Int group = 1", "  ElseIf b",
+			"    group = 2", "  Else", "    Int struct = 3", "  EndIf", "EndFunction" };
+		const std::vector<std::string> fo4{ "Scriptname T extends Quest", "Group Settings ; c", "  Int Property A Auto", "EndGroup",
+			"Struct Pt", "  Int x", "EndStruct" };
+		const auto a = psc::Analyze(sky), b = psc::Analyze(fo4);
+		if (!a.problems.empty() || !b.problems.empty() || b.blocks.size() != 2) {
+			std::printf("block check failed: %s\n", !a.problems.empty() ? a.problems.front().c_str() : !b.problems.empty() ? b.problems.front().c_str() : "FO4 blocks");
+			return 1;
+		}
+	}
 	if (argc >= 2 && std::string(argv[1]) == "compile" && argc >= 6) {
 		// compile <compiler> <file.psc> <outdir> <import;import...>
 		papc::Request r;
